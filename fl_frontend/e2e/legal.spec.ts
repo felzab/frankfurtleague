@@ -1,7 +1,6 @@
 /**
- * E2E · the two legal pages, under each project: the Impressum and the privacy notice reached from the classic
- * footer's „Rechtliches“ group, each under its own heading, the notice down to its retention table and its last
- * line, the day its words took effect.
+ * E2E · the legal pages, under each project, where no lower tier sees the Impressum or the privacy notice unreachable
+ * from the classic footer.
  */
 import { expect } from "@playwright/test";
 

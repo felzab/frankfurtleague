@@ -1,12 +1,13 @@
 /**
- * E2E · asking for a sign-in code, under each project, which sets the browser no cookie for a member or a stranger. The
- * code sign-in itself is walked by every journey that signs in, and the passkey ceremonies are in
- * `desktop/passkey.spec.ts`, for the reason `fl_frontend/playwright.config.ts` gives at its projects.
+ * E2E · asking for a sign-in code sets the browser no cookie, for a member or a stranger, so no cookie tells the two
+ * apart. Desktop alone: which cookies the server sets is no engine's, and every phone journey that signs in asks for a
+ * code too. The code sign-in itself is walked by every journey that signs in, and the passkey ceremonies are in
+ * `passkey.spec.ts`.
  */
 import { expect } from "@playwright/test";
 
-import { test } from "./support/journey";
-import { askForCode } from "./support/signIn";
+import { test } from "../support/journey";
+import { askForCode } from "../support/signIn";
 
 /** A grant no journey signs in with: asking for its code disturbs no other journey. */
 const MEMBER = "admin.nachfolge@example.com";

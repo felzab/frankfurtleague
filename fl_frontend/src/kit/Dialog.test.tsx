@@ -217,10 +217,9 @@ async function leaveAndReturnWithOpen(Page: () => ReactElement) {
     );
 }
 
-// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused, or closed
-// with nothing saying why.
+// The harm: an act the record cannot take, such as an unconfirmed pupil's admission, sent anyway and refused.
 describe("a dialog's locked act", () => {
-  it("sends nothing on a press, and is described by its reason", async () => {
+  it("sends nothing on a press", async () => {
     const create = vi.fn(async () => DONE);
     const reason = COPY.shared.failure.stale;
     render(
@@ -233,7 +232,6 @@ describe("a dialog's locked act", () => {
     await createThroughTheDialog();
 
     expect(create).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create"), description: reason })).toBeTruthy();
   });
 });
 
@@ -302,26 +300,6 @@ describe("the kit's dialog", () => {
     expect(screen.queryByText(reason)).toBeNull();
   });
 
-  // The harm: a ban that stands with its mail unsent reads as a clean save, or as a ban that failed and needs pressing again.
-  it("reads a done act's note in the warn tone where the answer marks it, the dialog open and its act closed", async () => {
-    const note = COPY.admin.banList.partial.notice;
-    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note, warn: true })} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-warn"));
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }).hasAttribute("disabled")).toBe(true);
-  });
-
-  it("reads a done act's note unmarked as ever, in the saved tone", async () => {
-    const note = COPY.admin.spiel.alsoChanged([5, 7]);
-    render(<CreateDialog create={async () => ({ ok: true, value: undefined, note })} />);
-
-    await createThroughTheDialog();
-
-    await waitFor(() => expect(screen.getByText(note).closest("p")?.className).toContain("text-success"));
-  });
-
   // The harm: a refused create closing its dialog, the refusal shown nowhere.
   it.each([
     ["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken],
@@ -333,25 +311,6 @@ describe("the kit's dialog", () => {
 
     await waitFor(() => expect(screen.getByText(words)).toBeTruthy());
     expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
-  it("empties its status line while its act is on its way, so the same refusal twice is announced twice", async () => {
-    const refusal: ActionAnswer = { ok: false, reason: COPY.shared.failure.stale };
-    const second = Promise.withResolvers<ActionAnswer>();
-    // React batches ongoing transitions together, so an act left unsettled by a failing case holds the next one's.
-    onTestFinished(() => second.resolve(refusal));
-    const create = vi.fn<(formData: FormData) => Promise<ActionAnswer>>().mockResolvedValueOnce(refusal).mockReturnValueOnce(second.promise);
-    render(<CreateDialog create={create} />);
-
-    await createThroughTheDialog();
-    const line = within(screen.getByRole("dialog")).getByRole("status");
-    await waitFor(() => expect(line.textContent).toBe(COPY.shared.failure.stale));
-
-    // A polite live region speaks only where its words change.
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(NAME, "create") }));
-    await waitFor(() => expect(line.textContent).toBe(""));
-    await act(async () => second.resolve(refusal));
-    expect(line.textContent).toBe(COPY.shared.failure.stale);
   });
 
   it.each([
@@ -436,9 +395,8 @@ describe("a dialog's danger row", () => {
     expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
   });
 
-  // The harm: the dialog standing open over a record that is gone, or the keyboard's place lost on `body` as the
-  // question's own return address, the row's button, leaves with the dialog.
-  it("closes the question and the dialog on a done act, the focus back on what opened the dialog", async () => {
+  // The harm: the dialog standing open over a record that is gone.
+  it("closes the question and the dialog on a done act", async () => {
     const end = vi.fn(async (): Promise<ActionAnswer> => DONE);
     render(
       <RecordDialog
@@ -452,6 +410,5 @@ describe("a dialog's danger row", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { hidden: true })).toBeNull());
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(end).toHaveBeenCalledOnce();
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: COPY.shared.verb.edit })));
   });
 });

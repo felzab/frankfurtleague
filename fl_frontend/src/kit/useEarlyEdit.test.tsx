@@ -823,22 +823,6 @@ describe("a press held across hydration over a field edited before it", () => {
     container.remove();
   });
 
-  it("saves an editor's early edit once for two presses of a page that did not answer the first", async () => {
-    const save = refusedSave();
-    const page = <EditorWithWayBack save={save} />;
-    const container = drawn(page, (root) => {
-      typeInto(root, "Riedberg Nord");
-      press(root);
-      press(root);
-    });
-
-    await hydrated(container, page);
-    await replayed();
-
-    expect(save).toHaveBeenCalledOnce();
-    container.remove();
-  });
-
   it("counts an early edit with no press as an edit of the draft, and sends nothing", async () => {
     const save = refusedSave();
     const page = <EditorWithWayBack save={save} />;

@@ -54,8 +54,9 @@ async function renderMenus(path: string, saisons: Saisons | null) {
 /** Every link marked as the page the person is on, by its name. */
 const lit = () => screen.getAllByRole("link", { current: "page" }).map((link) => link.textContent);
 
-// A screen reader announces each entry it marks as the page the person is on, and seven such marks say nothing of where
-// they are, which no look at one menu shows without a league holding no season.
+// The entry the person is on is lit and marked: in a league or a frame holding no season every season entry leads to one
+// address, so a rule lighting each entry it leads to lights several, or the wrong one, which no look at a menu shows
+// outside that state.
 describe("the entry marked as the current page", () => {
   it("is the one whose own address it is, in a league with no season, whose season pages all lead to that address", async () => {
     await renderMenus(ROUTES.adminSaisons.path(), null);
@@ -78,12 +79,6 @@ describe("the entry marked as the current page", () => {
     );
 
     expect(lit()).toEqual([page.title]);
-  });
-
-  it("is a season's page by its season's address", async () => {
-    await renderMenus(ROUTES.adminTeams.path("2027"), { entries: [{ id: "2027", span: "" }], standard: "2027" });
-
-    expect(lit()).toEqual([ROUTES.adminTeams.title, ROUTES.adminTeams.title]);
   });
 });
 

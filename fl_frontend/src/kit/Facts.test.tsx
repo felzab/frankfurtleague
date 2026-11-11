@@ -7,8 +7,9 @@ import { COPY } from "@/core/copy";
 import { Facts } from "./Facts";
 
 // The harm: an address broken anywhere, „konrad.kuhn@examp / le.com“, which reads as two addresses or none. The layout
-// is the drive's to measure; this holds where a line may break, as a row's address name does (`Table.test.tsx`): the
-// address in its parts, each an element a line takes whole while it fits, after the „@“ and before a „.“.
+// is the drive's to measure; this holds where a line may break in every address `AddressWords` draws, a table row's
+// address name among them: the address in its parts, each an element a line takes whole while it fits, after the „@“
+// and before a „.“.
 describe("a fact holding an address", () => {
   it("breaks it after its „@“ first", () => {
     render(

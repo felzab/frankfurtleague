@@ -2,15 +2,13 @@
  * E2E · J7, the owner's way on Administratoren: a handover the seed left waiting is stopped, an administrator is added
  * and stopped, and the role is handed over, each act behind the owner's real touch, every wait's person told. The owner
  * holds one grant and one passkey, and a wait's end can only be seeded, so this is one journey: the promotion itself is
- * the scheduler's pass, which a journey cannot time. The handover it starts stays waiting: a visitor's `authapi` zone
- * (`nginx/shared/site.conf`) takes the sign-in's two landings, the enrolment's two requests and two for each touch, which
- * at a script's pace holds four touches and refuses a fifth. Desktop alone, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects.
+ * the scheduler's pass, which a journey cannot time. Desktop alone, for the reason `fl_frontend/playwright.config.ts`
+ * gives at its projects.
  */
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { choose, typeInto } from "../support/application";
+import { chip, choose, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
@@ -87,8 +85,7 @@ test("the owner stops what waits, adds an administrator and stops it, and hands 
   // Read back from the server: the role stayed, and every press above took its own touch.
   await page.reload();
   const ownerRow = page.getByRole("main").getByRole("row").filter({ hasText: OWNER });
-  // The chip is drawn after the name and in the „Stand“ column, and the list's width shows one.
-  await expect(ownerRow.getByText("Leitung", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(chip(ownerRow, "Leitung")).toBeVisible();
   expect(await assertionsSigned(context), "an act on Administratoren ran with no touch of its own").toBe(touches + 4);
 
   // The log names the owner by address, and the row by what it was about.
