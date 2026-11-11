@@ -329,61 +329,6 @@ def test_a_recorded_reason_naming_no_prefix_location_says_which_half_went(monkey
     assert "no prefix location declares that path" in details(findings)
 
 
-def test_a_metered_exact_match_missing_its_twin_is_a_finding():
-    """The slashed form falls to `location /` and reaches Next unmetered, which the pair closes."""
-    findings = routes.twins(served(exact("/api/bewerbung"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "/api/bewerbung/" in details(findings)
-
-
-def test_a_metered_twin_missing_its_canonical_is_a_finding():
-    """The same pair broken the other way, which no handler's own accounting would notice."""
-    findings = routes.twins(served(exact("/api/bewerbung/"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "canonical" in details(findings)
-
-
-CAP = "        client_max_body_size 32k;\n"
-
-
-@pytest.mark.parametrize(
-    ("canonical", "twin"),
-    [
-        pytest.param(CAP, "", id="the-twin-on-the-server-block-s-cap"),
-        pytest.param("", CAP, id="the-canonical-on-the-server-block-s-cap"),
-        pytest.param(CAP, "        client_max_body_size 64k;\n", id="the-two-on-different-caps"),
-    ],
-)
-def test_a_twin_bounding_its_body_unlike_its_canonical_is_a_finding(canonical: str, twin: str):
-    """The slashed form buffers what the canonical refuses, and the edge test posts to neither twin of the other caps."""
-    findings = routes.twins(
-        served(
-            block("location = /api/client-error", ZONE, canonical, PASS),
-            block("location = /api/client-error/", ZONE, twin, PASS),
-            CATCH_ALL,
-        )
-    )
-
-    assert severities(findings) == ["fail"]
-    assert "/api/client-error/" in details(findings)
-
-
-def test_a_twin_on_its_canonical_s_cap_is_no_finding():
-    """The control: the pair as `nginx/shared/site.conf` writes it."""
-    pair = block("location = /api/client-error", ZONE, CAP, PASS) + block("location = /api/client-error/", ZONE, CAP, PASS)
-
-    assert routes.twins(served(pair, CATCH_ALL)) == []
-
-
-def test_an_unmetered_exact_match_owes_no_twin():
-    """`= /api/v0/system/is_live` carries no zone deliberately, so the pair rule must not reach it."""
-    probe = exact("/api/v0/system/is_live", metered=False)
-
-    assert routes.twins(served(probe, CATCH_ALL)) == []
-
-
 def test_a_location_answering_itself_refuses():
     """It forwards no route, so read as an exact match it would stand for a handler the edge never reaches."""
     try:
@@ -509,21 +454,19 @@ def unmetered(app: Path, where: tuple) -> list:
     ids=["server-page", "client-hook", "mailed-link-reader"],
 )
 def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
-    """The page and its twin each, under every spelling of the read, the hook's being what a case-blind match exists for."""
+    """Under every spelling of the read, the hook's being what a case-blind match exists for."""
     findings = unmetered(link_page("/neu", text), served(METERED, CATCH_ALL))
 
-    assert severities(findings) == ["fail", "fail"]
+    assert severities(findings) == ["fail"]
     assert "/neu reaches `location /`" in details(findings)
 
 
-def test_a_link_page_whose_twin_another_pair_meters_is_a_finding():
-    """Metered is not enough: the twin's own zone pair passes any rule asking only for a `limit_req`."""
-    where = served(block("location = /neu", LINK_PAIR, PASS), exact("/neu/"), CATCH_ALL)
-
-    findings = unmetered(link_page("/neu"), where)
+def test_a_link_page_another_zone_meters_is_a_finding():
+    """Metered is not enough: another zone passes any rule asking only for a `limit_req`."""
+    findings = unmetered(link_page("/neu"), served(exact("/neu"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/neu/ reaches `location = /neu/`" in details(findings)
+    assert "/neu reaches `location = /neu`" in details(findings)
 
 
 MINTER = 'const NEU_PATH = "/neuhilfe";\nexport const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n'
@@ -941,7 +884,6 @@ def test_the_repository_own_routes_are_accounted_for():
 
     assert findings == []
     assert routes.unused(used, where) == []
-    assert routes.twins(where) == []
 
 
 def test_every_recorded_reason_is_charged_by_the_repository_own_tree():

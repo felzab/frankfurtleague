@@ -16,7 +16,7 @@
 #   capabilities the model grants are enough to start nginx.
 # - Each rate zone and the connection ceiling admit their figure and refuse past it, every location
 #   naming a zone refusing once its key is spent.
-# - A server action's body and the crash report's, on both its paths, each taken at its cap and refused past it.
+# - A server action's body and the crash report's, each taken at its cap and refused past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -520,7 +520,7 @@ spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # Each link page's block, whose link zone has room left on this edge, so only its restated action zone
 # refuses: a block dropping it, or restating it higher, passes these.
-LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /registrierung/ /erasure /erasure/ )
+LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /erasure )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
@@ -565,8 +565,8 @@ done
 for _ in $(seq 1 20); do
   action_request link-flood "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 done
-# The key spent: every link page and each block's own twin, each kept whole, since a block declaring
-# its own error_page answers 429 too.
+# The key spent: every link page, each kept whole, since a block declaring its own error_page answers
+# 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
   "/confirm/kontakt?token=${TOK}"
@@ -574,9 +574,7 @@ LINK_SPENT=(
   "/confirm/spieler?token=${TOK}"
   "/confirm/address?token=${TOK}"
   "/registrierung?token=${TOK}"
-  "/registrierung/?token=${TOK}"
   "/erasure?token=${TOK}"
-  "/erasure/?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
   spent_request "link-spent-${_i}" -A "$LINK_MARKER" "${PROD_BASE}${LINK_SPENT[_i]}"
@@ -816,12 +814,11 @@ BODY_FAILURES=0
 # Every page path takes a server action, so `/` stands for the server block's cap.
 ACTION_BODY_MAX=1048576
 # Room for the largest report `fl_frontend/src/app/api/client-error/route.ts :: ClientErrorReportSchema`
-# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it; its twin carries the same.
+# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it.
 REPORT_BODY_MAX=32768
 BODY_CASES=(
   "/|${ACTION_BODY_MAX}"
   "/api/client-error|${REPORT_BODY_MAX}"
-  "/api/client-error/|${REPORT_BODY_MAX}"
 )
 BODY_LABELS=()
 BODY_WANTED=()

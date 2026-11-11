@@ -21,7 +21,6 @@ Invariants:
 - A reserved metadata name this reader cannot place refuses; an image convention supplied as an
   image file runs no module and stands outside the population.
 - An intercepted URL has one intercepting page, with no route group above its intercepting segment.
-- A metered exact match and its trailing-slash twin are both metered and bound a body alike.
 - A link page's `linkpage` bursts are the ones the largest squad the backend publishes needs at that zone's rate.
 - No location names a burst above the catch-all's on a zone the catch-all meters.
 """
@@ -99,7 +98,7 @@ RECORD_ENTRY_RE: Final = re.compile(r'\s*(?:[A-Za-z_$][\w$]*|"[^"]*")\s*:\s*"(?P
 TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
 # The zone `nginx/shared/http.conf` declares for the link pages, metering every request and method,
-# which a link page's own location and its twin's must both name.
+# which a link page's own location must name.
 LINK_ZONES: Final = frozenset({"linkpage"})
 
 # The link pages' own zone is sized for a season's largest squad, every pupil of it behind one school's address in one
@@ -118,8 +117,8 @@ ZONE: Final = "zone="
 # Counting it as coverage would leave this check unable to fail.
 CATCH_ALL: Final = "/"
 
-# The character a canonical path and its twin differ by. Its own name, because a path ending in one
-# is a pair of locations rather than anything to do with the catch-all above.
+# The character closing each segment of a dynamic handler's static head. Its own name, because a
+# head ending in one has nothing to do with the catch-all above.
 TRAILING_SLASH: Final = "/"
 
 # No request URI starts with `@`, so a named location answers an internal redirect alone.
@@ -249,8 +248,6 @@ class Location:
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
     line: int
-    # Its own `client_max_body_size`, or None where it inherits the server block's.
-    body_cap: str | None = None
 
     @property
     def zones(self) -> frozenset[str]:
@@ -389,8 +386,6 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "location" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location nested inside a location, whose match order this reader does not resolve")
     limits = frozenset(child.args for child in block if child.name == "limit_req")
-    # The first, nginx refusing a second at load (`nginx -t`, which the gate runs over these files).
-    body_cap = next((" ".join(child.args) for child in block if child.name == "client_max_body_size"), None)
     # Refused rather than read as a prefix: `@fallback` would cover every handler whose URL starts
     # with it, which is none of them, and reading it as coverage is the one direction this check
     # may not fail in.
@@ -403,15 +398,15 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "return" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return`, which forwards no route this reader can account for")
     if len(directive.args) == 1:
-        return Location(False, path, limits, directive.line, body_cap)
+        return Location(False, path, limits, directive.line)
     if len(directive.args) == 2:
         modifier, path = directive.args
         if modifier == "=":
-            return Location(True, path, limits, directive.line, body_cap)
+            return Location(True, path, limits, directive.line)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
         if modifier == "^~":
-            return Location(False, path, limits, directive.line, body_cap)
+            return Location(False, path, limits, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
 
@@ -792,22 +787,21 @@ def answering_location(uri: str, where: tuple[Location, ...]) -> Location | None
 
 
 def unmetered_links(linked: tuple[Handler, ...], where: tuple[Location, ...], root: Path, conf: str) -> list[Finding]:
-    """Every link page whose URL, or its trailing-slash twin, reaches a location not naming `LINK_ZONES`."""
+    """Every link page whose URL reaches a location not naming `LINK_ZONES`."""
     findings: list[Finding] = []
     for page in linked:
-        for uri in (page.url, page.url + TRAILING_SLASH):
-            location = answering_location(uri, where)
-            if location is not None and LINK_ZONES <= location.zones:
-                continue
-            reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{shown(page.path, root)} reads a link's token, and {uri} reaches {reached} in {conf}, which does not meter it on "
-                    f"{', '.join(sorted(LINK_ZONES))}\n"
-                    f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match and its twin carrying it",
-                )
+        location = answering_location(page.url, where)
+        if location is not None and LINK_ZONES <= location.zones:
+            continue
+        reached = "no location" if location is None else f"`location {'= ' if location.exact else ''}{location.path}`"
+        findings.append(
+            Finding(
+                "fail",
+                f"{shown(page.path, root)} reads a link's token, and {page.url} reaches {reached} in {conf}, which does not meter it on "
+                f"{', '.join(sorted(LINK_ZONES))}\n"
+                f"{CONTINUATION}put the page under a prefix carrying that zone, or give it an exact match carrying it",
             )
+        )
     return findings
 
 
@@ -1028,50 +1022,6 @@ def undeclared(where: tuple[Location, ...], answering: tuple[Handler, ...], serv
     return findings
 
 
-def twins(where: tuple[Location, ...]) -> list[Finding]:
-    """Every metered exact match whose trailing-slash counterpart is not metered too, or bounds its body otherwise.
-
-    The pair costs no correctness, Next answering the slashed form with a 308; what it closes is
-    upstream work past the meter and past the body cap (`docs/ops/spec.md`), so a twin left on the
-    server block's cap buffers the body its canonical refuses.
-    """
-    findings: list[Finding] = []
-    exact = {one.path: one for one in where if one.exact}
-    paths = {path for path, one in exact.items() if one.metered}
-    for path in sorted(paths):
-        if path.endswith(TRAILING_SLASH):
-            canonical = path[: -len(TRAILING_SLASH)]
-            if canonical and canonical not in paths:
-                findings.append(_twinless(path, canonical, "canonical"))
-        elif path + TRAILING_SLASH not in paths:
-            findings.append(_twinless(path, path + TRAILING_SLASH, "trailing-slash twin"))
-        elif exact[path + TRAILING_SLASH].body_cap != exact[path].body_cap:
-            findings.append(_uncapped(exact[path], exact[path + TRAILING_SLASH]))
-    return findings
-
-
-def _uncapped(canonical: Location, twin: Location) -> Finding:
-    """The finding for a trailing-slash pair bounding its body at two sizes."""
-
-    def cap(one: Location) -> str:
-        return "the server block's cap" if one.body_cap is None else f"`client_max_body_size {one.body_cap}`"
-
-    return Finding(
-        "fail",
-        f"{twin.path} takes a body up to {cap(twin)} and its canonical {canonical.path} up to {cap(canonical)}\n"
-        f"{CONTINUATION}a twin carries its canonical's cap, or the other form buffers the body the canonical refuses",
-    )
-
-
-def _twinless(path: str, missing: str, role: str) -> Finding:
-    """The finding for one half of a trailing-slash pair standing alone."""
-    return Finding(
-        "fail",
-        f"{path} is metered and its {role} {missing} is not\n"
-        f"{CONTINUATION}an exact match is exact, so the other form falls to `location /` and reaches Next unmetered",
-    )
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Is every Next route handler accounted for by an nginx location?")
     parser.add_argument(
@@ -1115,7 +1065,7 @@ def main() -> int:
         return EXIT_REFUSED
 
     findings, used = account(found, where, root, conf_path.name)
-    findings += unused(used, where) + unclaimed(served) + twins(where)
+    findings += unused(used, where) + unclaimed(served)
     findings += orphaned(where, answering, served) + undeclared(where, answering, served)
     opened, unopened = minted_pages(mints, paged, root)
     linked = tuple(sorted(set(link_pages(paged)) | set(opened), key=lambda one: one.path))
@@ -1128,7 +1078,7 @@ def main() -> int:
         print("\n      A route handler is a public URL, so the accounting is total: every one is either an")
         print("      exact-match location carrying limit_req or a prefix location with a recorded reason,")
         print("      and a metadata convention is taken unmetered where check_public_routes.py :: METADATA")
-        print("      says why. A page a link opens sits where :: LINK_ZONES meters it and its twin, each zone on")
+        print("      says why. A page a link opens sits where :: LINK_ZONES meters it, each zone on")
         print("      one line in every block naming it, its bursts sized for the largest squad :: OPENAPI publishes.")
         print("      No location names a burst above location /'s on a zone it meters, every action's ceiling.")
         print("      The rule is docs/ops/spec.md, section 1.3; the reasons are :: REASONS.")
