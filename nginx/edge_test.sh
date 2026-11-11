@@ -581,7 +581,8 @@ for _ in $(seq 1 5); do
 done
 spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
 
-# The sign-in library's zone, on every method, and the landing and the readiness probe on the same key.
+# The sign-in library's zone, on every method, and the landing, the readiness probe and the code check,
+# asked with a GET the form zone's key leaves out, on the same key.
 burst_of AUTH_BURST "location /api/auth {" authapi
 for _ in $(seq 0 "$AUTH_BURST"); do
   action_request auth-allowance "${PROD_BASE}/api/auth/probe"
@@ -591,6 +592,7 @@ for _ in $(seq 1 10); do
 done
 spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
 spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
+spent_request auth-code "${PROD_BASE}/api/auth/sign-in/email-otp"
 
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
 # twenty past the burst for the refill the run takes.
@@ -795,6 +797,8 @@ expect_action auth-landing some:429
 grade_spent auth-landing page
 expect_action auth-ready some:429
 grade_spent auth-ready
+expect_action auth-code some:429
+grade_spent auth-code
 expect_action link-allowance 200
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
@@ -1156,7 +1160,8 @@ each handing its upstream the edge's own traceparent, an empty
 Next-Action handed to no one, each rate zone and the connection ceiling admitting their figure and
 refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
 plain text an action reads, every link page metered on every request, its load refused with the edge's
-own page and no token reaching the error log, the code check metered on the crash reports' zone, every
+own page and no token reaching the error log, the code check metered on the crash reports' zone and on
+every method on the sign-in library's, every
 body cap taking its figure and refusing a byte past it,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s,
 the frontend's redirect naming itself handed back as the visitor's origin, and a link page's failing
