@@ -242,7 +242,8 @@ describe("open work beside its record's seats", () => {
 
     expect(landedCards[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
 
-    const parts = (rows: Element[]) => rows.map((row) => row.childElementCount);
+    // A seat's row frames its words and, where it carries any, its acts.
+    const parts = (rows: Element[]) => rows.map((row) => row.firstElementChild?.childElementCount);
     expect(parts(seatsOf(waitingCards[2]))).toStrictEqual(parts(seatsOf(landedCards[2])));
     expect(seatsOf(landedCards[2])).toHaveLength(3);
   });
