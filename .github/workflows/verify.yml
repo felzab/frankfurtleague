@@ -131,18 +131,11 @@ jobs:
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
         with:
-          # The pnpm store's one writer, so a lockfile change uploads one store rather than one per job.
-          save-cache: true
-      # Next's CI cache (https://nextjs.org/docs/app/guides/ci-build-caching). The source trees are in
-      # the key, not the lockfile alone: actions/cache writes nothing on an exact hit.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: fl_frontend/.next/cache
-          key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
-          # A prefix restore is safe for both things the path holds: the Next cache is
-          # content-addressed, and tsc's build info re-checks a file whose text hash moved.
-          restore-keys: |
-            nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
+          # The pnpm store's one writer, and on a push to main alone: every install rewrites the patched
+          # dependency's record in the store, so pnpm/setup's check for an unchanged store never holds
+          # and every save is a new entry of about 225 MB. A pull request restores main's store, which
+          # GitHub lets it read, and fetches what its own lockfile adds on each of its runs.
+          save-cache: ${{ github.event_name == 'push' }}
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
@@ -308,6 +301,20 @@ jobs:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
     timeout-minutes: 19
+    # Two legs, each on a runner and a stack of its own, by Playwright project
+    # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
+    # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
+    # project across two databases. `fail-fast: false`, or a red leg cancels the other and its
+    # verdict is lost. `first-pass` depends on `administrator` alone, so it rides the desktop leg.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: desktop
+            projects: --project=desktop --project=first-pass
+          - leg: phone
+            projects: --project=phone
+    name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
@@ -322,10 +329,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Left running, so the pull of 26 to 41 s overlaps the install, the images and the stack's start
+      # rather than waiting alone; a step's background process lives until the job ends. Its output
+      # is dropped, since the step's own streams would otherwise stay open: where it failed, the
+      # journeys' `docker run` pulls the image itself and says why it cannot.
+      - name: Start pulling the image holding the browsers
+        run: docker pull "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1 &
       # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Pull the image holding the browsers
-        run: docker pull "$PLAYWRIGHT_IMAGE"
       - name: Generate the stack's throwaway keys
         # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
         # which the runner's user is not. Nothing is printed.
@@ -367,8 +378,11 @@ jobs:
           docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
           docker compose exec -T backend python -m app.readback
+      # The database and the backend stay as started above, the seed in them, and only the services not
+      # yet running are created: without `--force-recreate`, `up` recreates a container only for a
+      # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the stack
-        run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
+        run: docker compose up -d --no-build --wait --wait-timeout 240
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
       - name: Judge that no veth holds an IPv6 address
@@ -387,19 +401,24 @@ jobs:
       # reporter's annotations name files relative to it. The install's own launcher, because the
       # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
+        env:
+          PROJECTS: ${{ matrix.projects }}
         run: |
+          # The leg's flags, one word each.
+          read -r -a projects <<< "$PROJECTS"
           docker run --rm --init --ipc=host --network=host \
             --user "$(id -u):$(id -g)" \
             --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
             --env CI --env GITHUB_WORKSPACE \
             "$PLAYWRIGHT_IMAGE" \
-            node_modules/.bin/playwright test
+            node_modules/.bin/playwright test "${projects[@]}"
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: journeys-report
+          # One name per leg: upload-artifact refuses a second artifact under a name the run holds.
+          name: journeys-report-${{ matrix.leg }}
           path: .tmp-playwright/
           # A dot directory, which the action leaves out by default: without this a failed run
           # uploads nothing and says so in a warning alone.

@@ -47,12 +47,17 @@ const nextConfig: NextConfig = {
     // with record rows, about 400 requests a second (vercel/next.js#100055). Removed by the Next
     // upgrade that carries the fix, then measured again.
     optimisticRouting: false,
-    // Off, or an agent's `next build`, the gate's included, asks the registry for advisories, stops on
-    // any with instructions for that agent, and passes the same build retried. The gate's advisory
-    // check is `pnpm audit:prod`.
+    // Off, or every `next dev` and `next build` checks for advisories and reminds of an upgrade: in a
+    // terminal the command's output waits behind the reminder's prompt for up to ten seconds, and run
+    // by a coding agent, the gate's build included, the command stops with instructions for that
+    // agent and passes when retried. The gate's advisory check is `pnpm audit:prod`.
     agentUpgrade: false,
   },
   output: "standalone",
+  // No type check inside `next build`, the image's included: the frontend scope's "frontend · tsc"
+  // step (`scripts/gate/verify.sh :: scope_frontend`) is the type check, run on every CI event, and
+  // the publish job needs it green. Next skips its own check whole rather than hiding what it finds.
+  typescript: { ignoreBuildErrors: true },
   // TypeScript alone: Next's default also serves a `route.js` or a `page.jsx`, which tsc (`allowJs` off),
   // the lint globs and every sweep over handlers and pages never read.
   pageExtensions: ["tsx", "ts"],

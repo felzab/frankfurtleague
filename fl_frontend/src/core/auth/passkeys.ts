@@ -73,8 +73,8 @@ export async function removePasskey(holder: { readonly id: string; readonly isAd
       return outcome;
     });
   } catch (failed) {
-    // No conflict reaches here as one: the adapter retries a write conflict on a fresh snapshot, which
-    // answers the other change's result, until the client's `timeoutMS` turns it into a timeout.
+    // A conflict reaches here only once the driver's `withTransaction` has spent its 120 s retrying it,
+    // each run on a fresh snapshot that answers the other change's result.
     throw committing ? failed : new RolledBackError(failed);
   }
 

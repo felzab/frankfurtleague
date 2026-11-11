@@ -19,11 +19,11 @@ FAILURES=0
 note_fail() { fail "$*"; FAILURES=$(( FAILURES + 1 )); }
 
 # Asked of the tree rather than written down, so a script landing anywhere is checked. `--others`, so
-# a script is covered the moment it exists; `.claude/` aside, whose hooks are its own to check.
+# a script is covered the moment it exists.
 SHELL_FILES=()
 while IFS= read -r f; do
   # git lists what the index holds, which a deleted-but-unstaged path outlives.
-  [[ -f "$f" && "$f" != .claude/* ]] || continue
+  [[ -f "$f" ]] || continue
   case "${f##*/}" in
     *.sh) ;;
     # A hook carries no suffix, so an extensionless file is asked what runs it.

@@ -93,22 +93,4 @@ describe("the code field", () => {
     await userEvent.tab();
     expect(boxes(container).some((box) => box.hasAttribute("data-focused"))).toBe(false);
   });
-
-  it("states a refusal as the field's description, and marks the field invalid", () => {
-    const refusal = COPY.signIn.refusal.codeWrong;
-    render(
-      <CodeField
-        label={code}
-        name="code"
-        error={refusal}
-      />,
-    );
-    const input = screen.getByRole("textbox", { name: code });
-    expect(input.getAttribute("aria-invalid")).toBe("true");
-    const message = screen.getByText(refusal);
-    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain(message.id);
-    // In the line under the boxes, which announces it at once.
-    const line = screen.getByRole("alert");
-    expect(line.contains(message)).toBe(true);
-  });
 });

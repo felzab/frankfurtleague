@@ -5,7 +5,7 @@ import { MongoError, MongoServerError } from "mongodb";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { CreateIndexesOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
+import type { IndexOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -15,7 +15,7 @@ export const MONGO_DB_NAME = "auth";
 type AuthIndex = {
   readonly collection: "session" | "passkey" | "user" | "verification";
   readonly key: IndexSpecification;
-  readonly options: CreateIndexesOptions & { readonly name: string };
+  readonly options: IndexOptions & { readonly name: string };
 };
 
 /**
@@ -39,10 +39,6 @@ const AUTH_INDEXES: readonly AuthIndex[] = [
   // Never unique: each bound counts several rows under one identifier.
   { collection: "verification", key: { identifier: 1 }, options: { name: "verification_identifier_idx" } },
 ];
-
-// A build waits on no visitor, so the client's per-request `timeoutMS` never holds it: cut short, the
-// server abandons it unmade. Chosen, not measured, and bounded so an unanswered build lets its connection go.
-const INDEX_BUILD_TIMEOUT_MS = 60_000;
 
 /** The run in flight, which the next waits out, for the reason one collection's builds run in order. */
 let running: Promise<void> = Promise.resolve();
@@ -68,7 +64,9 @@ async function buildOnce(): Promise<void> {
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         try {
-          await database.collection(collection).createIndex(key, { ...options, timeoutMS: INDEX_BUILD_TIMEOUT_MS });
+          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt
+          // and still finishes, since the server keeps a build whose connection closed.
+          await database.collection(collection).createIndex(key, options, undefined);
         } catch (failed) {
           logUnbuilt(options.name, failed);
           // No server code is a store that did not answer, which a restart would only meet again.

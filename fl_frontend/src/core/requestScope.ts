@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import type { AuthFactor } from "./auth/sessionStamps";
 
-// Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
+// Under nginx's default `proxy_read_timeout` of 60 s by the proxy's session reads before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
 // times each gap between reads, not the response.
 export const REQUEST_DEADLINE_MS = 30000;
@@ -97,8 +97,9 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
     background: false,
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
-  // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its own
-  // `timeoutMS` and never by this scope, and a stopping server waits on this promise, not the work.
+  // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its
+  // client's per-stage bounds (`fl_frontend/src/core/db.ts`) and never by this scope, and a stopping
+  // server waits on this promise, not the work.
   const cut = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, AFTER_RESPONSE_DEADLINE_MS);
   });

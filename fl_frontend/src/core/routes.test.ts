@@ -52,7 +52,11 @@ const LEAGUE_WORDS: Readonly<Record<string, string>> = {
 /** Every word the glossary's core entities and attributes head an entry with. */
 function glossaryWords(): Set<string> {
   const text = readFileSync(GLOSSARY, "utf8");
-  const held = text.slice(text.indexOf("\n## Core entities"), text.indexOf("\n## Terms that are not domain vocabulary"));
+  const start = text.indexOf("\n## Core entities");
+  const end = text.indexOf("\n## The website's words");
+  // A missing heading answers -1, which `slice` reads as the end of the file and so widens the words held.
+  if (start < 0 || end < start) throw new Error("the glossary lacks its core section or its website section, or holds them out of order");
+  const held = text.slice(start, end);
   const headings = held.split("\n").filter((line) => line.startsWith("### "));
   // The entry's words stand before its gloss, the dash, so a word the gloss quotes is no entry's.
   const named = headings.map((heading) => heading.split(" — ", 1).join(""));

@@ -14,8 +14,9 @@
 # - Each security header is sent once, as written, on every location's response.
 # - Each upstream is named through a variable and found through Docker's DNS alone, and the
 #   capabilities the model grants are enough to start nginx.
-# - `docs/ops/spec.md` §1.3's server-action and link-page pairs, and the code check's.
-# - A server action's body and the crash report's, on both its paths, each taken at its cap and refused past it.
+# - Each rate zone and the connection ceiling admit their figure and refuse past it, every location
+#   naming a zone refusing once its key is spent.
+# - A server action's body and the crash report's, each taken at its cap and refused past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -48,15 +49,15 @@ PROD_CONTAINER="fl-edge-prod-$$"
 # A user-defined network, as both stacks' are: only one carries Docker's embedded DNS, which the edge
 # resolves its upstreams through, and no hosts-file entry reaches nginx's resolver.
 NETWORK="fl-edge-net-$$"
-# The stand-in answering as `backend`, so the name resolves on the test's network.
-BACKEND_GONE="fl-edge-backend-$$"
+# The stub's second copy, answering as `backend`.
+BACKEND_STUB="fl-edge-backend-$$"
 # Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
 # for this run because two runs sharing a path would delete each other's stub.
 SCRATCH_NAME=".tmp-edge-$$"
 SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
 
 cleanup() {
-  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_GONE" >/dev/null 2>&1 || true
+  docker rm -f "$CONTAINER" "$PROD_CONTAINER" "$BACKEND_STUB" >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
   rm -rf "$SCRATCH" || true
 }
@@ -76,15 +77,18 @@ while IFS= read -r written_line; do
 done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
 (( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
 
-# The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, so
-# each case is graded on a real 200 rather than a 502 that never reached a location.
+# The stub answers as `frontend`, the edge's own alias on the network, from inside the same nginx, and
+# as `backend` from a container of its own, so each case is graded on a real 200 rather than a 502
+# that never reached a location.
 
-# It answers with the two headers it was handed, so the header block below reads what reached Next,
-# and with its own copy of every security header, which the edge must not pass beside its own.
+# It answers with the headers it was handed, so the header block below reads what reached the
+# application, and with its own copy of every security header, which the edge must not pass beside its
+# own.
 {
   cat <<'STUB'
 server {
     listen 3000;
+    listen 8000;
     server_name _;
     # Off, so the stub's own lines stay out of the stream being asserted.
     access_log off;
@@ -100,6 +104,9 @@ STUB
   printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
   # A redirect naming the upstream itself, which the edge must hand the visitor as its own origin.
   printf '%s\n' '    location = /location-probe { return 302 http://frontend:3000/landed; }'
+  # An answer sent at a hundred bytes a second, three seconds whole, so the requests the connection
+  # ceiling's case sends are all in flight at once.
+  printf '    location = /held { limit_rate 100; return 200 "%s\\n"; }\n' "$(printf '%0299d' 0)"
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
 # The relay's listener answers only after recording the head's blank line: one answering first, as a
@@ -163,12 +170,11 @@ if verbose; then info "the model starts ${EDGE_IMAGE} with: ${EDGE_PRIVILEGES[*]
 quietly docker network create "$NETWORK" \
   || refuse "could not create the edge test's network ${NETWORK}. Docker's own reason is above."
 # Before either edge, as compose orders the pair before nginx: a configuration resolving its upstreams
-# at load still starts, and fails only the case aimed at it. Listening nowhere, it answers the header
-# pass's liveness probe with the edge's own 502 as soon as asked, where a name nothing holds leaves
-# that probe to the resolver.
-docker run -d --name "$BACKEND_GONE" --network "$NETWORK" --network-alias backend \
-  "$EDGE_IMAGE" sleep 3600 >/dev/null \
-  || refuse "could not start the stand-in answering as backend."
+# at load still starts, and fails only the case aimed at it.
+MSYS_NO_PATHCONV=1 docker run -d --name "$BACKEND_STUB" --network "$NETWORK" --network-alias backend \
+  -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
+  "$EDGE_IMAGE" >/dev/null \
+  || refuse "could not start the stub answering as backend."
 
 # The leading slash on each `-v` subject is `scripts/gate/verify.sh`'s nginx step's MSYS exclusion.
 MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
@@ -182,13 +188,17 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
 
-# The container's two streams as Docker holds them, read whole into the scratch directory: nginx's
-# access lines on stdout, its error lines on stderr.
+# Each edge's two streams as Docker holds them, read whole into the scratch directory: nginx's
+# access lines on stdout, its error lines on stderr. The production edge's once it is started.
 ACCESS_LOG="${SCRATCH}/stdout"
 ERROR_LOG="${SCRATCH}/stderr"
+PROD_ACCESS_LOG="${SCRATCH}/prod-stdout"
+PROD_ERROR_LOG="${SCRATCH}/prod-stderr"
 read_streams() {
   docker logs "$CONTAINER" > "$ACCESS_LOG" 2> "$ERROR_LOG" \
     || refuse "could not read the edge test's nginx streams back from Docker."
+  [[ -z "${PROD_BASE:-}" ]] || docker logs "$PROD_CONTAINER" > "$PROD_ACCESS_LOG" 2> "$PROD_ERROR_LOG" \
+    || refuse "could not read the nginx/prod/ edge's streams back from Docker."
 }
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
@@ -210,6 +220,29 @@ for _ in $(seq 1 50); do
   sleep 0.2
 done
 (( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
+
+# `nginx/prod/` mounted as production mounts it, on the plain port the connector dials, proxying to the
+# stub above. Every rate zone and the connection ceiling are driven here, on keys nothing else in this
+# run spends, so a zone's first answers are its whole allowance.
+MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
+  -p 127.0.0.1:0:80 \
+  --network "$NETWORK" \
+  "${EDGE_PRIVILEGES[@]}" \
+  -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
+  -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
+  "$EDGE_IMAGE" >/dev/null \
+  || refuse "could not start the pinned nginx over nginx/prod/."
+PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
+  || refuse "the nginx/prod/ edge published no port."
+PROD_ADDR="${PROD_ADDR%$'\r'}"
+[[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
+PROD_BASE="http://${PROD_ADDR}"
+_up=0
+for _ in $(seq 1 50); do
+  if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" 2>/dev/null; then _up=1; break; fi
+  sleep 0.2
+done
+(( _up )) || refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."
 
 # --- a mailed link's access line ------------------------------------------------------------------
 
@@ -289,14 +322,7 @@ grade_security_headers() { # $1 what the request was, the headers already read
 # One request into EVERY location `nginx/shared/site.conf` declares, the list read off that file so a
 # location added there is probed without this one learning it.
 HEADER_PATHS=()
-# Set for a location whose `proxy_pass` names the backend: nothing listens as `backend` until the
-# last case, so what it hands upstream is not read.
-declare -A TO_BACKEND=()
 while IFS= read -r location_line; do
-  if [[ "$location_line" =~ ^[[:space:]]*proxy_pass[[:space:]]+http://\$backend_upstream\; ]]; then
-    TO_BACKEND[$(( ${#HEADER_PATHS[@]} - 1 ))]=1
-    continue
-  fi
   [[ "$location_line" =~ ^[[:space:]]*location[[:space:]]+(.*)[[:space:]]*\{ ]] || continue
   location_args="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[![:space:]]}"}"
   case "$location_args" in
@@ -304,7 +330,7 @@ while IFS= read -r location_line; do
     /*/) HEADER_PATHS+=( "${location_args}probe" ) ;;
     /) HEADER_PATHS+=( "/" ) ;;
     /*) HEADER_PATHS+=( "${location_args}/probe" ) ;;
-    # Reached through `error_page` alone, never a path: the server-action pair below asks it with a
+    # Reached through `error_page` alone, never a path: the rate zones below ask it with a
     # request the edge refuses.
     @*) ;;
     # A regex location answers no path this can derive, and probing around it would call the file
@@ -318,7 +344,7 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # header no `proxy_set_header` names, so a location dropping the inherited set hands it to Next as
 # it arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
-# On a GET, which the action pair's key leaves out, and inside the burst of every zone keyed on a GET,
+# On a GET, which the action zone's key leaves out, and inside the burst of every zone keyed on a GET,
 # so every location answers.
 CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
@@ -332,28 +358,25 @@ for _i in "${!HEADER_PATHS[@]}"; do
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
-UPSTREAM_READ=0
 for _i in "${!HEADER_PATHS[@]}"; do
   read_headers "${SCRATCH}/headers-${_i}"
   grade_security_headers "${HEADER_PATHS[_i]}"
-  [[ -z "${TO_BACKEND[$_i]:-}" ]] || continue
-  UPSTREAM_READ=$(( UPSTREAM_READ + 1 ))
   seen_trace="${SENT_VALUE[x-seen-traceparent]:-}"
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
+    detail "expected the edge's own traceparent upstream, it received '${seen_trace}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # This hop's own scheme, never the `https` the request claimed: Next builds the request's URL from it.
   if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != http ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected X-Forwarded-Proto http at Next from the local edge, Next received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
+    detail "expected X-Forwarded-Proto http upstream from the local edge, it received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # That no location clears the id a server action is posted with; the empty one is the relay's below.
   if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
-    detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
+    detail "expected Next-Action ${CLIENT_ACTION} upstream, it received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
 done
@@ -405,12 +428,21 @@ if grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
 fi
 
-# --- the server-action pair -----------------------------------------------------------------------
+# --- the rate zones -------------------------------------------------------------------------------
 
-# One network's actions: saves at an administrator's pace pass, a flood past the burst is refused,
-# both form posts count as actions, and a request that is no action is never metered.
+# Each zone's burst off the block naming it, so a figure moved there is driven as written: one request
+# and the burst pass, nginx admitting a key's first and then as many as the burst holds whatever the
+# refill, and a flood past them is refused. A location naming a zone refuses once that key is spent.
+# The server-action zone on the local edge, the other three on production's, each on a key nothing
+# before it spent.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
+# What a refused request asks for decides its answer: Next 16.4.2's server-action client asks for this
+# alone (`next/dist/client/components/router-reducer/reducers/server-action-reducer.js`), and a
+# browser's page load names `text/html` first. Every other transfer asks with curl's own `*/*`, as an
+# in-page navigation's and a prefetch's fetch does, naming no type of its own.
+ACTION_ACCEPT="text/x-component"
+NAVIGATION_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 # Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
 # as arguments: a pass grows with the bursts it floods past, and Windows caps one command line at
 # 32,767 characters. Nothing rewrites a config line as MSYS rewrites an argument, so each file this
@@ -434,10 +466,12 @@ config_transfer() { # curl options naming one transfer, its one bare argument th
     esac
   done
 }
+# Each transfer's Host, the edge it is sent to setting it before it queues its own.
+LIMIT_HOST="localhost"
 action_request() { # $1 a label, the rest curl options naming one transfer
   local label="$1"; shift
   ACTION_LABELS+=( "$label" )
-  config_transfer -s -o "${SCRATCH_NAME}/unread.body" -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@"
+  config_transfer -s -o "${SCRATCH_NAME}/unread.body" -w '%{http_code}\n' --max-time 5 -H "Host: ${LIMIT_HOST}" "$@"
 }
 # A spent key still admits one request per refill interval, which a lone probe can land on. Sent
 # twice back to back, a pair never holds two admissions, while a key nothing spent answers 200 twice.
@@ -446,33 +480,34 @@ spent_request() { # $1 a label, the rest curl options naming one transfer; each 
   for half in a b; do
     ACTION_LABELS+=( "$label" )
     config_transfer -s -D "${SCRATCH_NAME}/${label}-${half}.headers" -o "${SCRATCH_NAME}/${label}-${half}.body" \
-      -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@"
+      -w '%{http_code}\n' --max-time 5 -H "Host: ${LIMIT_HOST}" "$@"
   done
+}
+# Into a variable rather than printed, so a refusal ends the run rather than a substitution's subshell.
+burst_of() { # $1 the variable to set, $2 the opening line of the block naming the zone, $3 the zone
+  local burst
+  burst="$(awk -v opening="$2" -v line="limit_req zone=$3 burst=" '
+    { sub(/\r$/, "") }
+    $0 == opening { inside = 1; next }
+    inside && $0 == "}" { exit }
+    inside && index($0, line) { sub(/.*burst=/, ""); sub(/ nodelay;$/, ""); print; exit }
+  ' "${REPO_ROOT}/nginx/shared/site.conf")"
+  [[ "$burst" =~ ^[0-9]+$ ]] || refuse "nginx/shared/site.conf's '$2' block declares no $3 burst this test can read."
+  printf -v "$1" '%s' "$burst"
 }
 ACTION_LABELS=()
 ACTION_CONFIG=()
-# Each burst off its own block, so a figure moved there is driven as written.
-ACTION_BURST="$(sed -n '/^location \/ {$/,/^}$/s/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
-[[ -n "$ACTION_BURST" ]] || refuse "nginx/shared/site.conf declares no action burst on location / this test can read."
-# Every block's action burst, none above location /'s: Next runs an action at whatever path it is posted to, so a
-# block raising it raises every action's ceiling, which the spent link pages below might still answer inside.
-mapfile -t ACTION_BURSTS < <(sed -n 's/^[[:space:]]*limit_req zone=action burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")
-(( ${#ACTION_BURSTS[@]} > 1 )) || refuse "nginx/shared/site.conf declares no action burst outside location / this test can read."
-for _burst in "${ACTION_BURSTS[@]}"; do
-  if (( _burst > ACTION_BURST )); then
-    fail "ACTION a raised burst"
-    detail "nginx/shared/site.conf declares limit_req zone=action burst=${_burst}, above location /'s ${ACTION_BURST}"
-    ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
-  fi
-done
-# Twenty saves at once, under the burst of thirty.
-for _ in $(seq 1 20); do
-  action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+
+# The server-action zone, on the local edge: saves at an administrator's pace pass, a flood past the
+# burst is refused, both form posts count as actions, and a request that is no action is never metered.
+burst_of ACTION_BURST "location / {" action
+for _ in $(seq 0 "$ACTION_BURST"); do
+  action_request action-allowance -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/admin/spielorte"
 done
 # Thirty more inside the same seconds: the burst and the second or two of refill are spent.
 for _ in $(seq 1 30); do
-  action_request flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+  action_request action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
     --data '[]' "${BASE}/"
 done
 # The key spent, so each of these is refused only if the map takes it for an action.
@@ -481,37 +516,56 @@ spent_request urlencoded -X POST --data "probe=1" "${BASE}/"
 spent_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 spent_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# Each link page's block restates the action pair at location /'s burst: with the key spent past it, a
-# flood landing on a link page is refused as one landing anywhere else is.
-LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /registrierung/ /erasure /erasure/ )
-for _ in $(seq 1 30); do
-  action_request link-action-flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
-    "${BASE}/confirm/kontakt"
-done
-# Each link page's block, whose link pair has room left here, so only its restated action pair refuses,
-# at location /'s burst: a block restating it higher may pass these.
+# Each link page's block, whose link zone has room left on this edge, so only its restated action zone
+# refuses: a block dropping it, or restating it higher, passes these.
+LINK_ACTION_PATHS=( /confirm/kontakt /registrierung /erasure )
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
-  spent_request "link-action-${_i}" -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
+  spent_request "link-action-${_i}" -X POST -H "Accept: ${ACTION_ACCEPT}" -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' \
     "${BASE}${LINK_ACTION_PATHS[_i]}"
 done
 # The refusal itself, kept whole: what Next's action client reads as the press's error.
-spent_request refusal -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+spent_request refusal -X POST -H "Accept: ${ACTION_ACCEPT}" -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 # And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
 
-# The link pages' pair, every request it meters a page render or the proxy's redirect into one. Its
-# burst read off the file, so a burst moved there is still flooded past, with twenty more for the
-# refill the run takes.
-LINK_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=linkpage burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$LINK_BURST" ]] || refuse "nginx/shared/site.conf declares no linkpage burst this test can read."
-for _ in $(seq 1 $(( LINK_BURST + 20 ))); do
-  action_request link-flood "${BASE}/confirm/kontakt?token=${TOK}"
+LIMIT_HOST="frankfurtleague.de"
+
+# The form zone, its two locations on one key: crash reports spend it, and the code check, metered on
+# it rather than on the library's prefix five times as loose, is refused once they have.
+burst_of FORM_BURST "location = /api/client-error {" form
+for _ in $(seq 0 "$FORM_BURST"); do
+  action_request form-allowance -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/client-error"
 done
-# The key spent: every link page and each block's own twin, each kept whole, since a block declaring
-# its own error_page answers 429 too.
+for _ in $(seq 1 5); do
+  action_request form-flood -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/client-error"
+done
+spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
+
+# The sign-in library's zone, on every method, and the landing and the readiness probe on the same key.
+burst_of AUTH_BURST "location /api/auth {" authapi
+for _ in $(seq 0 "$AUTH_BURST"); do
+  action_request auth-allowance "${PROD_BASE}/api/auth/probe"
+done
+for _ in $(seq 1 10); do
+  action_request auth-flood "${PROD_BASE}/api/auth/probe"
+done
+spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
+spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
+
+# The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
+# twenty past the burst for the refill the run takes.
+burst_of LINK_BURST "location /confirm/ {" linkpage
+for _ in $(seq 0 "$LINK_BURST"); do
+  action_request link-allowance "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+done
+for _ in $(seq 1 20); do
+  action_request link-flood "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+done
+# The key spent: every link page, each kept whole, since a block declaring its own error_page answers
+# 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
   "/confirm/kontakt?token=${TOK}"
@@ -519,25 +573,18 @@ LINK_SPENT=(
   "/confirm/spieler?token=${TOK}"
   "/confirm/address?token=${TOK}"
   "/registrierung?token=${TOK}"
-  "/registrierung/?token=${TOK}"
   "/erasure?token=${TOK}"
-  "/erasure/?token=${TOK}"
 )
 for _i in "${!LINK_SPENT[@]}"; do
-  spent_request "link-spent-${_i}" -A "$LINK_MARKER" "${BASE}${LINK_SPENT[_i]}"
+  spent_request "link-spent-${_i}" -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}${LINK_SPENT[_i]}"
 done
 # A key covering GETs alone lets both of these through, and one exempting HEAD, which a mail
 # gateway's link check may send, the second.
-spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/confirm/kontakt?token=${TOK}"
-spent_request link-head -A "$LINK_MARKER" --head "${BASE}/confirm/kontakt?token=${TOK}"
-
-# The code check's pair, read off its own block and flooded past with five more: the library's prefix
-# block meters the same path five times as loosely, so a check fallen back to it answers no 429 here.
-CODE_BURST="$(sed -n '/^location = \/api\/auth\/sign-in\/email-otp {$/,/^}$/s/^[[:space:]]*limit_req zone=confirmation burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
-[[ -n "$CODE_BURST" ]] || refuse "nginx/shared/site.conf declares no confirmation burst on the code check this test can read."
-for _ in $(seq 1 $(( CODE_BURST + 5 ))); do
-  action_request code-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/api/auth/sign-in/email-otp"
-done
+spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+spent_request link-head -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" --head "${PROD_BASE}/confirm/kontakt?token=${TOK}"
+# Next's prefetch of a link page, its two headers as the router sends them and no type asked for: the
+# sentence, which the router drops, rather than a page it would try to read as one.
+spent_request link-prefetch -H "RSC: 1" -H "Next-Router-Prefetch: 1" "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 
 # A transfer curl never answered reads as `none`.
 mapfile -t ACTION_STATUSES < <(printf '%s\n' "${ACTION_CONFIG[@]}" | curl -K - || true)
@@ -555,8 +602,8 @@ expect_action() { # $1 label, $2 the status every transfer of it must answer, or
   detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: ${answered}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 }
-expect_action rhythm 200
-expect_action flood some:429
+expect_action action-allowance 200
+expect_action action-flood some:429
 expect_action multipart some:429
 expect_action urlencoded some:429
 expect_action static-prefix some:429
@@ -600,7 +647,7 @@ import re
 import sys
 
 page = open(sys.argv[1], "rb").read().decode("utf-8")
-SITE_TOKENS = ("--bg", "--bg-card", "--fg-muted", "--fg", "--border", "--brand")
+SITE_TOKENS = ("--bg", "--bg-card", "--fg", "--border", "--warn", "--brand-solid", "--on-brand")
 
 
 def body_after(text, opener):
@@ -623,14 +670,18 @@ for theme, site_opener, page_opener in (
     ("dark", r"\[data-theme=\"dark\"\]\s*\{", r"prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{"),
 ):
     tokens = dict(re.findall(r"(--[a-z0-9-]+)\s*:\s*(\S+?)\s*;", body_after(site, site_opener)))
+    # Exactly the names the block of the site for this theme declares, each at its value: a name the
+    # site declares once for both themes is declared once on the page too.
+    wanted = {name: tokens[name].lower().removeprefix(chr(35)) for name in SITE_TOKENS if name in tokens}
     shown = {
         name: "".join(format(int(channel), "02x") for channel in channels)
-        for name, *channels in re.findall(r"(--[a-z-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
+        for name, *channels in re.findall(r"(--[a-z0-9-]+):\s*rgb\((\d+) (\d+) (\d+)\);", body_after(page, page_opener))
     }
-    for name in SITE_TOKENS:
-        wanted = tokens.get(name, "").lower().removeprefix(chr(35))
-        if not wanted or shown.get(name) != wanted:
-            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted or None}")
+    for name in sorted(wanted.keys() | shown.keys()):
+        if shown.get(name) != wanted.get(name):
+            problems.append(f"{theme} {name} reads {shown.get(name)}, tokens.css {wanted.get(name)}")
+    if theme == "light":
+        problems += [f"tokens.css declares no {name}" for name in SITE_TOKENS if name not in tokens]
 # Where the two grounds stand: the body is the ground of the page and the box a card on it, as on every rebuilt
 # page, so a right value painted on the wrong element is a page in another look.
 for element, wanted in (("body", "var(--bg)"), ("main", "var(--bg-card)")):
@@ -685,14 +736,25 @@ expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200
-expect_action link-action-flood some:429
-# A link page's action still reads the sentence: the page is its load's alone.
+# A link page's action still reads the sentence: the page is a page load's alone.
 for _i in "${!LINK_ACTION_PATHS[@]}"; do
   _before=$ACTION_FAILURES
   expect_action "link-action-${_i}" some:429
   grade_spent "link-action-${_i}"
   (( ACTION_FAILURES == _before )) || detail "link-action-${_i} posted to ${LINK_ACTION_PATHS[_i]}"
 done
+expect_action form-allowance 200
+expect_action form-flood some:429
+expect_action form-code some:429
+grade_spent form-code
+expect_action auth-allowance 200
+expect_action auth-flood some:429
+expect_action auth-landing some:429
+# A page load refused anywhere meets the page, a link page's or not.
+grade_spent auth-landing page
+expect_action auth-ready some:429
+grade_spent auth-ready
+expect_action link-allowance 200
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
   _before=$ACTION_FAILURES
@@ -704,7 +766,32 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
-expect_action code-flood some:429
+expect_action link-prefetch some:429
+grade_spent link-prefetch
+
+# The connection ceiling, on production's catch-all: as many requests as it holds, all in flight at
+# once to an answer the stub sends slowly, pass, and one more beside them is refused.
+CONN_CEILING="$(awk '{ sub(/\r$/, "") } $0 == "location / {" { inside = 1; next } inside && $0 == "}" { exit }
+  inside && /^[[:space:]]*limit_conn conn [0-9]+;$/ { sub(/.*conn /, ""); sub(/;$/, ""); print; exit }' "${REPO_ROOT}/nginx/shared/site.conf")"
+[[ "$CONN_CEILING" =~ ^[0-9]+$ ]] || refuse "nginx/shared/site.conf's 'location / {' block declares no connection ceiling this test can read."
+CONN_REQUESTS=( --parallel --parallel-immediate --parallel-max $(( CONN_CEILING + 1 )) )
+for _ in $(seq 0 "$CONN_CEILING"); do
+  CONN_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 15 -H "Host: frankfurtleague.de" "${PROD_BASE}/held" )
+done
+mapfile -t CONN_STATUSES < <(curl "${CONN_REQUESTS[@]}" || true)
+CONN_PASSED=0
+CONN_REFUSED=0
+for _status in "${CONN_STATUSES[@]}"; do
+  case "${_status%$'\r'}" in
+    200) CONN_PASSED=$(( CONN_PASSED + 1 )) ;;
+    429) CONN_REFUSED=$(( CONN_REFUSED + 1 )) ;;
+  esac
+done
+if (( CONN_PASSED != CONN_CEILING || CONN_REFUSED != 1 )); then
+  fail "ACTION the connection ceiling"
+  detail "expected ${CONN_CEILING} of $(( CONN_CEILING + 1 )) requests in flight at once to pass and one to be refused, nginx answered: $(printf '%s ' "${CONN_STATUSES[@]//$'\r'/}")"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+fi
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes
@@ -714,13 +801,13 @@ LINK_LOGGED=0
 LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
 for _ in $(seq 1 50); do
   read_streams
-  LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
+  LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$PROD_ACCESS_LOG" 2>/dev/null || true; })"
   if (( ${LINK_LOGGED:-0} >= LINK_KEPT )); then break; fi
   sleep 0.2
 done
 (( ${LINK_LOGGED:-0} >= LINK_KEPT )) \
   || refuse "the edge logged ${LINK_LOGGED:-0} of the ${LINK_KEPT} link-page requests kept whole, so whether a refusal reached the error log was not judged."
-LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" 2>/dev/null || true; })"
+LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" "$PROD_ERROR_LOG" 2>/dev/null || true; })"
 if [[ -n "$LINK_ERRORS" ]]; then
   fail "ACTION link-log"
   detail "an error line on stderr holds a live token: ${LINK_ERRORS}"
@@ -739,12 +826,11 @@ BODY_FAILURES=0
 # Every page path takes a server action, so `/` stands for the server block's cap.
 ACTION_BODY_MAX=1048576
 # Room for the largest report `fl_frontend/src/app/api/client-error/route.ts :: ClientErrorReportSchema`
-# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it; its twin carries the same.
+# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it.
 REPORT_BODY_MAX=32768
 BODY_CASES=(
   "/|${ACTION_BODY_MAX}"
   "/api/client-error|${REPORT_BODY_MAX}"
-  "/api/client-error/|${REPORT_BODY_MAX}"
 )
 BODY_LABELS=()
 BODY_WANTED=()
@@ -757,8 +843,9 @@ for case_line in "${BODY_CASES[@]}"; do
     BODY_LABELS+=( "${body_size} bytes to ${body_path}" )
     if (( body_size > body_max )); then BODY_WANTED+=( 413 ); else BODY_WANTED+=( 200 ); fi
     if (( ${#BODY_REQUESTS[@]} > 0 )); then BODY_REQUESTS+=( --next ); fi
-    # A type the action pair's key leaves out, so no zone refuses first; no `Expect`, so each answer is
-    # the body's verdict. The relative path, for the MSYS reason at the streams' 413 above.
+    # A type the action zone's key leaves out, and inside the form zone's burst on this edge, so no zone
+    # refuses first; no `Expect`, so each answer is the body's verdict. The relative path, for the MSYS
+    # reason at the streams' 413 above.
     BODY_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 10 -H "Host: localhost" -H "Expect:"
       -H "Content-Type: application/octet-stream" --data-binary "@${SCRATCH_NAME}/body-${body_size}" "${BASE}${body_path}" )
   done
@@ -775,28 +862,8 @@ done
 
 # --- the block production alone serves -----------------------------------------------------------
 
-# `nginx/prod/` mounted as production mounts it, on the plain port the connector dials: the www
-# redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and the
-# catch-all the one that answers a name nobody configured.
-MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
-  -p 127.0.0.1:0:80 \
-  --network "$NETWORK" \
-  "${EDGE_PRIVILEGES[@]}" \
-  -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
-  -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-  "$EDGE_IMAGE" >/dev/null \
-  || refuse "could not start the pinned nginx over nginx/prod/."
-PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
-  || refuse "the nginx/prod/ edge published no port."
-PROD_ADDR="${PROD_ADDR%$'\r'}"
-[[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
-PROD_BASE="http://${PROD_ADDR}"
-_up=0
-for _ in $(seq 1 50); do
-  if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" 2>/dev/null; then _up=1; break; fi
-  sleep 0.2
-done
-(( _up )) || refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."
+# The www redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and
+# the catch-all the one that answers a name nobody configured.
 WWW_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" || true)"
 read_headers "${SCRATCH}/headers-www"
 if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtleague.de/probe" ]]; then
@@ -958,8 +1025,8 @@ fi
 # join it on and a path with no query; and the token on no line of stdout at all, which also catches
 # a log beside ours writing the request line whole.
 read_streams
-mapfile -t LOGGED_LINES < <({ grep '^{' "$ACCESS_LOG" || true; })
-(( ${#LOGGED_LINES[@]} > 0 )) || refuse "the edge's stdout holds no access line, so no line was judged."
+mapfile -t LOGGED_LINES < <({ grep -h '^{' "$ACCESS_LOG" "$PROD_ACCESS_LOG" || true; })
+(( ${#LOGGED_LINES[@]} > 0 )) || refuse "the edges' stdout holds no access line, so no line was judged."
 for logged_line in "${LOGGED_LINES[@]}"; do
   if [[ ! "$logged_line" =~ \"trace_id\":\"[0-9a-f]{32}\", ]]; then
     fail "LINE trace id"
@@ -973,7 +1040,7 @@ for logged_line in "${LOGGED_LINES[@]}"; do
     LINE_FAILURES=$(( LINE_FAILURES + 1 ))
   fi
 done
-TOKEN_LINES="$({ grep -F "$TOK" "$ACCESS_LOG" || true; })"
+TOKEN_LINES="$({ grep -F "$TOK" "$ACCESS_LOG" "$PROD_ACCESS_LOG" || true; })"
 if [[ -n "$TOKEN_LINES" ]]; then
   fail "LINE a live token"
   detail "the edge's stdout holds the token: ${TOKEN_LINES}"
@@ -981,16 +1048,17 @@ if [[ -n "$TOKEN_LINES" ]]; then
 fi
 
 if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap and ${RESOLVE_FAILURES} upstream cases failed.
+  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the mailed link's token on none,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
-Next-Action handed to no one, server
-actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
-metered on every request, its load refused with the edge's own page and no token reaching the error log,
-the code check metered on its own pair, every body cap taking its figure and refusing a byte past it,
+each handing its upstream the edge's own traceparent, an empty
+Next-Action handed to no one, each rate zone and the connection ceiling admitting their figure and
+refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
+plain text an action reads, every link page metered on every request, its load refused with the edge's
+own page and no token reaching the error log, the code check metered on the crash reports' zone, every
+body cap taking its figure and refusing a byte past it,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s,
 and the frontend's redirect naming itself handed back as the visitor's origin"

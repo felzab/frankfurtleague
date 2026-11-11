@@ -1,20 +1,16 @@
 /**
- * E2E · the pupil's path, under each project: their team's registration link, the form, the confirmation from the
- * mailed link, the team's admission on its Registrierungen page, and the pupil's first sign-in onto their own season.
- *
- * The pupil is new to the league, so the journey makes them, as an applicant's journey makes its school: one of the
- * project's own, registering through the project's `registering` club, whose confirmed contact seat admits them on a
- * second device. Nothing is seeded for the pupil, so no other journey reads them.
+ * E2E · a pupil's path, under each project, where no lower tier sees the team's link, the form, the mailed confirmation,
+ * the team's admission or the first sign-in break at a join between them. The journey makes its pupil, whom no other
+ * journey reads.
  */
 import { expect } from "@playwright/test";
 
-import { choose, typeInto } from "./support/application";
-import { test as journey } from "./support/journey";
+import { box, chip, choose, typeInto } from "./support/controls";
+import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
-import { standInForTurnstile } from "./support/turnstileStandIn";
 
-import type { Locator, Page } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
 /** The running season of the made-up seed, which the club's link registers for. */
 const SAISON = "2027";
@@ -53,19 +49,10 @@ function valueOf(scope: Locator, term: string): Locator {
     .locator("xpath=following-sibling::dd[1]");
 }
 
-/** The team contact's device beside the pupil's, as `accountActs.spec.ts` builds its second device. */
-const test = journey.extend<{ team: Page }>({
-  team: async ({ browser }, provide) => {
-    const device = await browser.newContext();
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
-  },
-});
-
 test("a pupil registers through their team's link, confirms, is admitted, and finds their season", async ({
   page,
-  team,
+  // The team contact's device beside the pupil's.
+  secondDevice: team,
   registering: { club, token, admitter },
 }) => {
   const pupil = pupilOf(club);
@@ -76,13 +63,13 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await page.goto(`/registrierung?token=${token}`);
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Registrierung", exact: true })).toBeVisible();
-  const box = main.locator("section", { has: page.getByRole("heading", { name: "Deine Angaben", exact: true }) });
-  await typeInto(box.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
-  await typeInto(box.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
-  await typeInto(box.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
-  await typeInto(box.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
-  await choose(page, box, /Position/, pupil.position);
-  await choose(page, box, /Stufe/, pupil.stufe);
+  const details = box(page, "Deine Angaben");
+  await typeInto(details.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
+  await typeInto(details.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
+  await typeInto(details.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
+  await typeInto(details.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
+  await choose(page, details, /Position/, pupil.position);
+  await choose(page, details, /Stufe/, pupil.stufe);
   await main.getByRole("button", { name: "Registrierung abschicken" }).click();
   // The outcome in the form's place says what the pupil does next.
   await expect(main.getByRole("heading", { name: "Bestätige deine Registrierung per E-Mail" })).toBeVisible();
@@ -106,8 +93,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await team.getByRole("main").getByRole("link", { name, exact: true }).click();
   await expect(team).toHaveURL((url) => url.pathname.endsWith("/registrierungen"));
   const row = team.getByRole("main").getByRole("row").filter({ hasText: name });
-  // The chip is drawn after the name and in the „Stand“ column, and the list's width shows one.
-  await expect(row.getByText("Bestätigt", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(chip(row, "Bestätigt")).toBeVisible();
   // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“ (D747).
   await row.getByRole("button", { name, exact: true }).click();
   await team.getByRole("dialog", { name }).getByRole("button", { name: "Aufnehmen", exact: true }).click();

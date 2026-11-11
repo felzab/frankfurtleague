@@ -6,6 +6,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedLink } from "../support/mailSink";
 import { assertionsSigned, declinePasskeyOffer, PERSON_LANDING, signInWithCode } from "../support/signIn";
@@ -53,10 +54,7 @@ test("a passkey holder's address change and deletion each run behind the touch",
 
   // The change's start asks the touch before it posts, and stands as the pending change its box then shows.
   await page.goto("/account/signin");
-  // Tapped first, as a person reaches the field and `e2e/support/signIn.ts :: sendFromHere` taps its own.
-  const field = page.getByLabel("Neue E-Mail-Adresse");
-  await field.click();
-  await field.fill(HOLDER.replace("@", ".neu@"));
+  await typeInto(page.getByLabel("Neue E-Mail-Adresse"), HOLDER.replace("@", ".neu@"));
   const beforeTheStart = await assertionsSigned(context);
   await page.getByRole("button", { name: "Link senden" }).click();
   const withdraw = page.getByRole("main").getByRole("button", { name: "Änderung zurückziehen" });
