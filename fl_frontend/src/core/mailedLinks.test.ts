@@ -80,7 +80,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
   bewerbung_received: {
     kind: "bewerbung_received",
     deadline: "2026-10-17",
-    pending: [{ first_name: "Pia", rollen: ["stellvertretung"] }],
+    pending: ["stellvertretung"],
     rollen: ["trainer"],
     saison_id: "2627",
   },
@@ -107,7 +107,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
   bewerbung_objection: {
     kind: "bewerbung_objection",
     deadline: "2026-10-17",
-    declined: { first_name: "Pia", rollen: ["stellvertretung"] },
+    declined: ["stellvertretung"],
     rollen: ["trainer"],
     saison_id: "2627",
   },

@@ -519,8 +519,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                     "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
-                    # Off the read before the decline: nothing left in the record names whose entry was refused.
-                    "declined": {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
+                    "declined": ["stellvertretung"],
                     "deadline": "2026-04-03",
                 },
             }

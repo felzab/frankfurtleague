@@ -278,20 +278,14 @@ class FLBewerbungLinkData(BaseModel):
     deadline: CustomDateString
 
 
-class FLBewerbungPerson(BaseModel):
-    """Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats."""
-
-    first_name: str | None
-    rollen: list[FLKontaktRolle] = Field(min_length=1)
-
-
 class FLBewerbungReceivedData(BaseModel):
-    """The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer."""
+    """The Ansprechperson's receipt, which carries their own link: their seats and every other seat still to answer."""
 
     kind: Literal["bewerbung_received"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    pending: list[FLBewerbungPerson]
+    # By role alone: the reader seated these people, and a mistyped address hands a stranger nobody's name.
+    pending: list[FLKontaktRolle]
     deadline: CustomDateString
 
 
@@ -324,12 +318,12 @@ class FLBewerbungAbsageData(BaseModel):
 
 
 class FLBewerbungObjectionData(BaseModel):
-    """A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too."""
+    """A contact's Widerspruch, to the Ansprechperson, naming the seats it emptied: it stands as the deletion notice too."""
 
     kind: Literal["bewerbung_objection"]
     saison_id: str
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    declined: FLBewerbungPerson
+    declined: list[FLKontaktRolle] = Field(min_length=1)
     deadline: CustomDateString
 
 

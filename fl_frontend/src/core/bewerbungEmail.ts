@@ -2,7 +2,7 @@ import "server-only";
 
 import { COPY, rollenText } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf, formatDateLong, formatList } from "./format";
+import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
@@ -13,7 +13,6 @@ import type {
   FLBewerbungAbsageData,
   FLBewerbungLinkData,
   FLBewerbungObjectionData,
-  FLBewerbungPerson,
   FLBewerbungReceivedData,
   FLBewerbungZusageData,
   FLDeletionNoticeData,
@@ -37,11 +36,6 @@ const deadlineSentence = (deadline: string): Sentence => [
   { strong: formatDateLong(dayOf(deadline)) },
   WORDS.deadline.after,
 ];
-
-/** „{first_name} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
-function personName({ first_name: firstName, rollen }: FLBewerbungPerson): string {
-  return `${firstName ?? WORDS.unnamed} (${rollenText(rollen)})`;
-}
 
 /** A fill named by its hex, in this shape alone: no supplier could match any other. */
 const FARBE_HEX = /^#[0-9a-f]{6}$/i;
@@ -153,8 +147,8 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
 
 /**
  * The Ansprechperson's link mail, a first contact as every seat's is: the address was typed into a form, and nothing
- * says its reader typed it. `pending` names who else is to answer and the mail names no school, so a mistyped address
- * hands a stranger names with nothing to attach them to.
+ * says its reader typed it. `pending` names the other seats by role alone and the mail names no school, so a mistyped
+ * address hands a stranger nobody.
  */
 export function buildBewerbungReceivedEmail(
   { saison_id, rollen, pending, deadline }: FLBewerbungReceivedData,
@@ -175,7 +169,7 @@ export function buildBewerbungReceivedEmail(
       title: WORDS.status,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.received.pending, value: formatList(pending.map(personName)) },
+        { label: WORDS.received.pending, value: rollenText(pending) },
       ],
     },
     button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
@@ -205,21 +199,21 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
 }
 
 /**
- * What the Ansprechperson is told when a person refuses their entry; `declined` was read before the decline emptied it.
+ * What the Ansprechperson is told when a person refuses their entry, by the seats it emptied.
  * No button: the next step is „Sitz bearbeiten“, the league's, and a reply reaches its mailbox.
  */
 export function buildBewerbungObjectionEmail(
   { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
   { origin }: MailOrigin,
 ): Mail {
-  const person = personName(declined);
+  const seats = rollenText(declined);
 
   return {
     kind: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
     origin: mailOrigin(origin),
     paragraphs: [
-      [[{ strong: person }, WORDS.objection.lead.after], WORDS.objection.removed],
+      [[WORDS.objection.lead.before, { strong: seats }, WORDS.objection.lead.after], WORDS.objection.removed],
       [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],
     ],
     block: {
@@ -227,7 +221,7 @@ export function buildBewerbungObjectionEmail(
       facts: [
         { label: COPY.shared.saison, value: saison_id },
         { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: WORDS.objection.from, value: person },
+        { label: WORDS.objection.from, value: seats },
       ],
     },
   };

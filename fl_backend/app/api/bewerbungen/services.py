@@ -14,7 +14,6 @@ from app.api.bewerbungen.schemas import (
 from app.api.kontakte.services import rows_seating
 from app.api.outbox.schemas import (
     FLBewerbungLinkData,
-    FLBewerbungPerson,
     FLBewerbungReceivedData,
     FLDeletionNoticeData,
     FLOutboxLink,
@@ -1452,12 +1451,6 @@ def schule_name(*, bewerbung_raw: Mapping[str, Any], club_names: Mapping[Any, st
     return club_names.get(bewerbung_raw.get("team_id"), "")
 
 
-def first_name_of(*, kontakte: Any, seat: str) -> str | None:
-    slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-
-    return str(slot.get("first_name") or "") or None if isinstance(slot, Mapping) else None
-
-
 # --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
 
 
@@ -1486,24 +1479,6 @@ def state_undeliverable(state: FLOutboxStatus | None) -> bool:
     """`app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed one seat, `False` where none was owed."""
 
     return state is not None and state.undeliverable
-
-
-def pending_people(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPerson]:
-    """These seats as the people holding them, the Trainer folded into the seat it mirrors: a mail names one person once.
-
-    An emptied seat counts, its first name `None`: the application cannot complete without it.
-    """
-
-    also = kontakte.get("trainer_is_also") if isinstance(kontakte, Mapping) else None
-    people: list[FLBewerbungPerson] = []
-
-    for seat in KONTAKT_ROLLEN:
-        if seat not in seats or (seat == "trainer" and also in seats):
-            continue
-        rollen: list[FLKontaktRolle] = [seat, "trainer"] if seat == also and "trainer" in seats else [seat]
-        people.append(FLBewerbungPerson(first_name=first_name_of(kontakte=kontakte, seat=seat), rollen=rollen))
-
-    return people
 
 
 def people_with_address(*, kontakte: Any, seats: Sequence[FLKontaktRolle] = KONTAKT_ROLLEN) -> list[tuple[str, list[FLKontaktRolle]]]:
@@ -1565,7 +1540,7 @@ def owed_at_submission(
                 )
             )
             continue
-        others = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
+        others: list[FLKontaktRolle] = [seat for seat in KONTAKT_ROLLEN if seat not in seats]
         mails.append(
             OwedMail(
                 key=f"{stem}/received",
@@ -1574,7 +1549,7 @@ def owed_at_submission(
                     kind="bewerbung_received",
                     saison_id=saison_id,
                     rollen=seats,
-                    pending=pending_people(kontakte=kontakte, seats=others),
+                    pending=others,
                     deadline=deadline,
                 ),
                 reference=bewerbung_reference(bewerbung_id, seats),

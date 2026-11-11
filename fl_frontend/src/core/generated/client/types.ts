@@ -1866,21 +1866,13 @@ export interface FLBewerbungListRow {
 }
 
 /**
- * Another person's seats, as a mail names them to the Ansprechperson: a first name where one stands, and the seats.
- */
-export interface FLBewerbungPerson {
-  first_name: string | null;
-  /** @minItems 1 */
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * A contact's Widerspruch, to the Ansprechperson, naming the person who refused: it stands as the deletion notice too.
+ * A contact's Widerspruch, to the Ansprechperson, naming the seats it emptied: it stands as the deletion notice too.
  */
 export interface FLBewerbungObjectionData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
-  declined: FLBewerbungPerson;
+  /** @minItems 1 */
+  declined: FLKontaktRolle[];
   kind: "bewerbung_objection";
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -1888,13 +1880,13 @@ export interface FLBewerbungObjectionData {
 }
 
 /**
- * The Ansprechperson's receipt, which carries their own link: their seats and every other person still to answer.
+ * The Ansprechperson's receipt, which carries their own link: their seats and every other seat still to answer.
  */
 export interface FLBewerbungReceivedData {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
   kind: "bewerbung_received";
-  pending: FLBewerbungPerson[];
+  pending: FLKontaktRolle[];
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
   saison_id: string;

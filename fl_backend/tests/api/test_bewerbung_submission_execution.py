@@ -324,10 +324,7 @@ class TestWhatTheCreateOwes:
                     "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
-                    "pending": [
-                        {"first_name": "Wraxlington", "rollen": ["trainer"]},
-                        {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
-                    ],
+                    "pending": ["trainer", "stellvertretung"],
                     "deadline": deadline,
                 },
             },

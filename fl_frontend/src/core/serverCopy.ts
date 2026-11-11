@@ -404,12 +404,10 @@ export const SERVER_COPY = catalogue({
       status: "Stand der Bewerbung",
       /** The title of a seat's own facts. */
       entry: "Dein Eintrag",
-      /** A seat a Widerspruch or an erasure emptied, where a mail lists a person by first name and seats. */
-      unnamed: "Ohne Namen",
 
       /**
        * The Ansprechperson's link mail. It says an application came in, never that the reader sent it, and names no
-       * school: behind a mistyped address a stranger gets nothing to attach the names to.
+       * school and no person: behind a mistyped address a stranger learns nobody's name.
        */
       received: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
@@ -458,8 +456,8 @@ export const SERVER_COPY = catalogue({
       },
       objection: {
         subject: (saison: string) => `Widerspruch zum Eintrag: ${COPY.shared.saisonName(saison)}`,
-        lead: { after: " hat dem Eintrag als Kontaktperson widersprochen." },
-        // No pronoun: „Diese Angaben“ reads correctly for every name.
+        lead: { before: "Die Kontaktperson als\u00A0", after: " hat dem Eintrag widersprochen." },
+        // No pronoun: „Diese Angaben“ reads correctly for every seat.
         removed: "Diese Angaben haben wir aus der Bewerbung entfernt.",
         replace: "Soll eine andere Person übernehmen, antworte auf diese E-Mail.",
         /** Around the last day it stands, the deletion coming once that day has passed. */
