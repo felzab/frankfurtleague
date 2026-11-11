@@ -47,7 +47,6 @@ function SpielortEditor({
             <TextField
               label={NAME}
               name="name"
-              width="W3"
               kind="text"
               isRequired
               value={editor.draft.name}
@@ -119,15 +118,11 @@ function ActingEditor({ act }: { act: () => Promise<ActionAnswer> }) {
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
               />
-              <SectionAct
-                label={COPY.shared.withObject(COPY.page.spielplan, "create")}
-                run={act}
-              />
+              <SectionAct acts={[{ label: COPY.shared.withObject(COPY.page.spielplan, "create"), run: act }]} />
             </>
           ),
         },
@@ -170,6 +165,14 @@ describe("an editor's own acts", () => {
       expect(act).not.toHaveBeenCalled();
     },
   );
+
+  // The harm: a danger row's button says its verb alone, „Stilllegen“, and a screen reader on it hears nothing of what
+  // it retires, which no eye sees.
+  it("describe a danger row's button by the row's name", () => {
+    render(<ActingEditor act={vi.fn()} />);
+    const name = COPY.shared.withObject(COPY.admin.spielort.object, "retire");
+    expect(screen.getByRole("button", { name: COPY.shared.verb.retire, description: name })).toBeTruthy();
+  });
 });
 
 /** An editor of one bare block, closed for `reason`, as a finished season's line-up opens. */

@@ -43,12 +43,7 @@ function Listing({ leaves, addresses = ["pia@example.org"] }: { leaves: "row" | 
                 consequence={COPY.page.teams}
                 tone="danger"
                 onConfirm={() => setRows(rows.filter((other) => other !== address))}
-                trigger={
-                  <Button
-                    variant="secondary"
-                    label={VERB}
-                  />
-                }
+                trigger={{ label: VERB }}
               />
             ),
           }))}

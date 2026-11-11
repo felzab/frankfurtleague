@@ -37,16 +37,10 @@ function CreateDialog({ create, locked }: { create: (formData: FormData) => Prom
       act={{ verb: "create", object: NAME }}
       action={create}
       locked={locked}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.create}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.create }}>
       <TextField
         label={INPUT}
         name="created"
-        width="W3"
         kind="text"
       />
     </Dialog>
@@ -74,7 +68,6 @@ function EditorHoldingDialog({
               <TextField
                 label={NAME}
                 name="name"
-                width="W3"
                 kind="text"
                 value={editor.draft.name}
                 onChange={(name) => editor.set("name", name)}
@@ -105,12 +98,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => ({ ok: false, reason })}
       />,
     );
@@ -132,12 +120,7 @@ describe("the kit's confirmation", () => {
         subject={NAME}
         consequence={COPY.admin.spielort.retireConsequence}
         tone="danger"
-        trigger={
-          <Button
-            variant="danger"
-            label={COPY.shared.verb.retire}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.retire }}
         onConfirm={async () => answer}
       />,
     );
@@ -175,12 +158,7 @@ function RetireQuestion({ onConfirm }: { onConfirm: () => Promise<ActionAnswer> 
       subject={NAME}
       consequence={COPY.admin.spielort.retireConsequence}
       tone="danger"
-      trigger={
-        <Button
-          variant="danger"
-          label={COPY.shared.verb.retire}
-        />
-      }
+      trigger={{ label: COPY.shared.verb.retire }}
       onConfirm={onConfirm}
     />
   );
@@ -210,7 +188,6 @@ function HeldDialog() {
         <TextField
           label={INPUT}
           name="created"
-          width="W3"
           kind="text"
         />
       </Dialog>
@@ -402,16 +379,10 @@ function RecordDialog({ save, end }: { save: (formData: FormData) => Promise<Act
         consequence: COPY.admin.spielort.retireConsequence,
         confirm: { verb: "deregister", subject: NAME, consequence: COPY.admin.spielort.retireConsequence, tone: "danger", onConfirm: end },
       }}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.edit}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.edit }}>
       <TextField
         label={INPUT}
         name="created"
-        width="W3"
         kind="text"
       />
     </Dialog>

@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
+import { ConsentLine, ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle } from "@/kit/MailedPage";
 import { SectionPlaceholder } from "@/kit/Section";
@@ -26,7 +26,7 @@ import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
 import { submitRegistrierung } from "./submitRegistrierung";
 
-import type { ConsentLine } from "@/core/consentWordings";
+import type { ConsentLine as Line } from "@/core/consentWordings";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { RegistrierungRules } from "./RegistrierungFields";
@@ -44,6 +44,9 @@ const SUBMIT = COPY.shared.withObject(COPY.page.registrierung, "submit");
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
+/** The notice's id, which describes the send: the page holds one form. */
+const NOTICE_ID = "registrierung-notice";
+
 const { shape } = RegistrierungenPostRegistrierungBody;
 
 /**
@@ -59,8 +62,8 @@ const RULES: RegistrierungRules = {
   },
 };
 
-/** The two lines around the box: the Art. 21 objection around the league's address, and the sentence above the send. */
-const LINES: { objection: ConsentLine; notice: ConsentLine } = {
+/** The two lines of the form: the Art. 21 objection around the league's address, and the sentence beside the send. */
+const LINES: { objection: Line; notice: Line } = {
   objection: [WORDS.objection.before, { href: KONTAKT_MAILTO, label: KONTAKT_EMAIL }, WORDS.objection.after],
   notice: [
     COPY.registrierung.notice.before,
@@ -97,21 +100,15 @@ export default function RegistrierungPage() {
               "field",
               <FieldPlaceholder
                 key="nummer"
-                width="C2"
+                holds={2}
               />,
-              <FieldPlaceholder
-                key="position"
-                width="fit"
-              />,
-              <FieldPlaceholder
-                key="stufe"
-                width="fit"
-              />,
+              <FieldPlaceholder key="position" />,
+              <FieldPlaceholder key="stufe" />,
             ]}
           />
-          <ConsentLinePlaceholder line={LINES.notice} />
         </>
       }
+      note={<ConsentLinePlaceholder line={LINES.notice} />}
     />
   );
 }
@@ -144,11 +141,19 @@ const readState = cache(async (): Promise<MailedState> => {
     // Off the request's settings, past the read above: a prerendered shell would carry the build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },
     boxes: true,
+    // The sentence the send rests on, beside it in the footer, and read with the send's name.
+    note: (
+      <ConsentLine
+        id={NOTICE_ID}
+        line={LINES.notice}
+      />
+    ),
+    describedBy: NOTICE_ID,
     children: (
       <RegistrierungFields
         rules={RULES}
         stufen={orderStufen(view.allowed_stufen)}
-        lines={LINES}
+        objection={LINES.objection}
       />
     ),
   };

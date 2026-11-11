@@ -35,7 +35,6 @@ export default function ErasuresPage() {
         {
           label: COPY.signIn.address,
           name: "email",
-          width: "column",
           kind: "email",
           autofill: "off",
           isRequired: requires(email, ""),
@@ -44,7 +43,6 @@ export default function ErasuresPage() {
         {
           label: COPY.admin.erasure.reference,
           name: "reason",
-          width: "column",
           kind: "text",
           description: COPY.admin.noNames,
           isRequired: requires(reason, ""),

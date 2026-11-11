@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Button } from "@/kit/Button";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { EmptyState } from "@/kit/EmptyState";
 import { StatusCard } from "@/kit/StatusPage";
@@ -207,12 +206,7 @@ export function BulkAccept({
             facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
             tone="primary"
             onConfirm={confirm}
-            trigger={
-              <Button
-                variant="primary"
-                label={COPY.shared.withObject(WORDS.count(count), "accept")}
-              />
-            }
+            trigger={{ label: COPY.shared.withObject(WORDS.count(count), "accept"), variant: "primary" }}
           />
         )
       }

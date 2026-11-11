@@ -1,4 +1,3 @@
-import { Button } from "@/kit/Button";
 import { Dialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { TextField } from "@/kit/TextField";
@@ -25,12 +24,7 @@ export function AcceptDialog({ id, version, children }: Decided & { children: Re
       act={{ verb: "accept" }}
       action={acceptBewerbung}
       carry={{ id, version: String(version) }}
-      trigger={
-        <Button
-          variant="primary"
-          label={COPY.shared.verb.accept}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.accept, variant: "primary" }}>
       {children}
       <Facts facts={[{ label: COPY.admin.facts.mailTo, value: COPY.admin.bewerbung.allSeats }]} />
     </Dialog>
@@ -43,19 +37,15 @@ export function DeclineDialog({ id, version, required, max }: Decided & { requir
     <Dialog
       title={COPY.shared.withObject(OBJECT, "decline")}
       act={{ verb: "decline" }}
+      // A refusal is the dialog's destroying act: the red fill every destroying press takes.
+      tone="danger"
       action={declineBewerbung}
       carry={{ id, version: String(version) }}
-      trigger={
-        <Button
-          variant="secondary"
-          label={COPY.shared.verb.decline}
-        />
-      }>
+      trigger={{ label: COPY.shared.verb.decline }}>
       <TextField
         label={COPY.admin.spiel.reason}
         name="reason"
-        width="W4"
-        kind="text"
+        kind="paragraph"
         isRequired={required}
         maxLength={max}
         description={COPY.admin.noNames}

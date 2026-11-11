@@ -94,7 +94,7 @@ export function FieldLabel({ label, isRequired }: { label: Words; isRequired: bo
 export function StatusLine({ status, placement }: { status: FormStatus; placement: "row" | "column" }) {
   const tone = status?.tone ?? "none";
   return (
-    <p className={statusLine({ placement, tone })}>
+    <p className={statusLine({ placement, tone, quiet: status === null })}>
       <span role="status">{tone === "changes" ? null : status?.text}</span>
       {tone === "changes" && status?.text}
     </p>
@@ -102,9 +102,10 @@ export function StatusLine({ status, placement }: { status: FormStatus; placemen
 }
 
 /**
- * The line under a field, always there: the error once the value is committed or the form submitted,
- * else a change's consequence, else the description, else empty. `data-kit-message` names it to a `FieldPair`,
- * which lets a short field's line run on past the field into the room beside it.
+ * The line under a field: the error once the value is committed or the form submitted, else a change's consequence,
+ * else the description, else nothing seen, so a field with nothing to say ends at its frame. `data-kit-message`
+ * names it to the layouts that place a field's line apart from its frame, each ending it under its field and letting it
+ * run on past a short field's edge: a label-left row's (`FieldRows`) and the score's (`ScoreRows`).
  */
 export function MessageLine({
   description,
@@ -126,31 +127,17 @@ export function MessageLine({
       </FieldError>
     );
   }
-  if (consequence !== undefined) {
-    return (
-      <Text
-        slot="description"
-        data-kit-message
-        className={messageLine({ tone: "consequence" })}>
-        {consequence}
-      </Text>
-    );
-  }
-  if (description !== undefined) {
-    return (
-      <Text
-        slot="description"
-        data-kit-message
-        className={messageLine({ tone: "description" })}>
-        {description}
-      </Text>
-    );
-  }
-  // An empty line holds the place, describing nothing.
+  const words = consequence ?? description;
   return (
-    <div
-      data-kit-message
-      className={messageLine({ tone: "description" })}
-    />
+    // Mounted with the field, hidden while it has nothing to say: React Aria ties the field's description to its slot only
+    // where the slot stands as the field mounts or turns valid or invalid (`useField`'s `useSlotId`), so a consequence
+    // appearing on an edit in a slot mounted then would stand unread by the field it is about.
+    <Text
+      slot="description"
+      hidden={words === undefined}
+      data-kit-message={words === undefined ? undefined : true}
+      className={messageLine({ tone: consequence === undefined ? "description" : "consequence" })}>
+      {words}
+    </Text>
   );
 }

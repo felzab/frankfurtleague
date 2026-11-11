@@ -78,7 +78,6 @@ describe("a form anybody may send", () => {
         <TextField
           label={COPY.shared.firstName}
           name="first_name"
-          width="W3"
           kind="text"
         />,
       ),

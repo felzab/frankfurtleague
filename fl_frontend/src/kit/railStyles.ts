@@ -20,13 +20,16 @@ export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-col
 
 /**
  * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
- * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line. Its
+ * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line; a foot
+ * whose account address wraps onto a second line (`FrameNav.tsx :: AccountRow`) stands taller, its hairline above. Its
  * hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
  * the column's left edge and the save at its right, the content's and the bar's paddings alike centring the column.
+ * The row ends at its right as `FormFooter`'s does, since a status line with nothing to say leaves the row's flow
+ * (`statusLine`'s `quiet`) and the save must not move when it starts or stops speaking.
  */
 export const editorBarLook = tv({
   slots: {
     bar: "sticky bottom-0 z-10 flex h-14 items-center border-t border-border bg-bg px-4 [view-transition-name:bar] lg:h-(--rail-foot) lg:px-8",
-    row: "mx-auto flex w-full max-w-form items-center gap-4",
+    row: "mx-auto flex w-full max-w-form items-center justify-end gap-4",
   },
 });

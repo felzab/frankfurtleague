@@ -12,6 +12,7 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
+import { AddressWords, addressWords } from "./AddressWords";
 import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { entryMark } from "./fieldStyles";
@@ -542,14 +543,22 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
       trigger={
         <AriaButton
           data-kit-focus="ring"
-          className={`flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 text-start text-sm ${hoverLook({ host: "aria" })}`}>
+          className={`flex min-h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2 py-1 text-start text-sm ${hoverLook({ host: "aria" })}`}>
           <span
             aria-hidden
             className={avatar({ size: "rail" })}>
             {initials(name)}
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
-            <span className="truncate font-semibold text-fg">{name}</span>
+            {/* An address standing as the name wraps rather than being cut, as a list's row's does (`AddressWords`);
+                in the collapsed rail it keeps one line, clipped as every faded word is, rather than a line a part. */}
+            {account.name === undefined ? (
+              <span className={addressWords({ class: "font-semibold text-fg group-data-collapsed:whitespace-nowrap" })}>
+                <AddressWords address={name} />
+              </span>
+            ) : (
+              <span className="truncate font-semibold text-fg">{name}</span>
+            )}
             {role !== undefined && <span className="truncate text-xs text-fg-muted">{role}</span>}
           </span>
         </AriaButton>
@@ -649,7 +658,9 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
             glyph={entry.icon}
             size={18}
           />
-          <span className="max-w-full truncate px-1">{entry.label}</span>
+          {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
+              the words stand centred, so the room their columns leave them parts two labels. */}
+          <span className="max-w-full truncate">{entry.label}</span>
         </NextLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
@@ -845,7 +856,7 @@ export function BackControl({ href }: { href: Route }) {
         guard.discard();
         router.push(href);
       }}
-      trigger={
+      control={
         <AriaButton
           data-kit-focus="ring"
           className={back({ host: "aria" })}>

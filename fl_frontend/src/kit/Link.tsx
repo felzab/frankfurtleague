@@ -34,6 +34,11 @@ const link = tv({
       // Drawn by `buttonLook` in the look the link names.
       button: "",
     },
+    // A card standing as a row of a list's columns (`SpielList`): a grid of those columns rather than a block.
+    subgrid: {
+      true: "col-span-full grid grid-cols-subgrid",
+      false: "",
+    },
   },
 });
 
@@ -114,6 +119,8 @@ type Card = {
    */
   children: ReactNode;
   label?: never;
+  /** A row of a list whose columns run through it, as `SpielList`'s do: the card takes the list's columns. */
+  subgrid?: true;
 };
 
 /**
@@ -163,7 +170,10 @@ export function Link<T extends string>(
   const anchor = {
     href,
     "data-kit-focus": FOCUS[props.placement],
-    className: button === undefined ? link({ placement: props.placement }) : buttonLook({ look: button.look, host: "link" }),
+    className:
+      button === undefined
+        ? link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true })
+        : buttonLook({ look: button.look, host: "link" }),
     ...tab,
   };
   const words = (
