@@ -13,18 +13,31 @@ from bson import ObjectId
 from pydantic import ValidationError
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload
-from app.api.aufstellungen.services import find_nominee_refusal, find_not_in_kader_refusal, judge_the_names, newly_named
+from app.api.aufstellungen.services import find_not_in_kader_refusal, judge_the_names, newly_named
 from app.core.codes import Code
 from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 
-REGULAR = [ObjectId() for _ in range(11)]
+# One past a side, so a line-up can name more regular players than start.
+REGULAR = [ObjectId() for _ in range(12)]
 NOMINEES = [ObjectId() for _ in range(2)]
 KADER = [
     *({"spieler_id": pupil, "is_nachnominiert": False} for pupil in REGULAR),
     *({"spieler_id": pupil, "is_nachnominiert": True} for pupil in NOMINEES),
 ]
+LIVE_KADER = [{**row, "inactive_since": None} for row in KADER]
+
+
+def judged(entries: list[FLAufstellungEntry], *, kept: list[FLAufstellungEntry] | None = None) -> APIError | None:
+    """The refusal a save naming `entries` meets, none of them newly named, or None: judged as the save judges, every rule in its order."""
+
+    try:
+        judge_the_names(entries=entries, kept=kept or [], new=set(), kader=LIVE_KADER)
+    except APIError as refusal:
+        return refusal
+
+    return None
 
 
 @pytest.mark.parametrize(
@@ -35,13 +48,16 @@ KADER = [
         pytest.param(10, 2, True, id="two nominees into a gap of one"),
         pytest.param(11, 1, True, id="a nominee beside eleven regular players"),
         pytest.param(11, 0, False, id="eleven regular players and no nominee"),
+        pytest.param(12, 0, False, id="twelve regular players and no nominee"),
     ],
 )
 def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: int, refused: bool):
-    """Off by one here and a club fields a nominee a regular player's place was owed to, or is refused one it was owed."""
+    """Off by one here and a club fields a nominee a regular player's place was owed to, or is refused one it was owed.
 
-    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in [*REGULAR[:regular], *NOMINEES[:nominees]]]
-    refusal = find_nominee_refusal(entries=entries, kader=KADER)
+    A club naming more regular players than a side, its bench among them, names no nominee and is refused nothing.
+    """
+
+    refusal = judged([FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in [*REGULAR[:regular], *NOMINEES[:nominees]]])
 
     assert (refusal is not None and refusal.error_code == Code.AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE) is refused
     # The bound the screen words the eleven from: dropped, its line would fall to the unexpected one.
@@ -117,10 +133,9 @@ def test_a_save_naming_the_placeholder_is_refused_on_that_entry():
 
     saved = {"spieler": [{"spieler_id": REGULAR[0], "starts": True}, {"spieler_id": GHOST_SPIELER_ID, "starts": True}]}
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=True) for pupil in (REGULAR[0], GHOST_SPIELER_ID)]
-    kader = [{**row, "inactive_since": None} for row in KADER]
 
     with pytest.raises(APIError) as raised:
-        judge_the_names(entries=entries, kept=[], new=newly_named(entries, saved), kader=kader)
+        judge_the_names(entries=entries, kept=[], new=newly_named(entries, saved), kader=LIVE_KADER)
     assert (raised.value.error_code, raised.value.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"),))
 
 
@@ -129,12 +144,9 @@ def test_an_erased_pupils_kept_start_counts_toward_eleven(kept: int, refused: bo
     """The payload's own rule sees ten starters either way: a twelfth stored start would go unnoticed on the public page."""
 
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=True) for pupil in REGULAR[:10]]
-    erased = [FLAufstellungEntry(spieler_id=GHOST_SPIELER_ID, starts=True)] * kept
-    kader = [{**row, "inactive_since": None} for row in KADER]
+    refusal = judged(entries, kept=[FLAufstellungEntry(spieler_id=GHOST_SPIELER_ID, starts=True)] * kept)
 
-    if not refused:
-        judge_the_names(entries=entries, kept=erased, new=set(), kader=kader)
-        return
-    with pytest.raises(APIError) as raised:
-        judge_the_names(entries=entries, kept=erased, new=set(), kader=kader)
-    assert raised.value.error_code == Code.AUFSTELLUNG_STARTERS_EXCEED_ELEVEN
+    # On the list and with its bound, as the nominee's refusal: the screen words the eleven from the server's figure.
+    assert (None if refusal is None else (refusal.error_code, refusal.fields, refusal.bounds)) == (
+        (Code.AUFSTELLUNG_STARTERS_EXCEED_ELEVEN, (("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX}) if refused else None
+    )
