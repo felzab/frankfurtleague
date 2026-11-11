@@ -140,7 +140,7 @@ async def pull_admin_rows(
 # --- A REFEREE'S OWN ROWS.
 
 # What a referee's answer and their own list read of a row (`app/api/schiedsrichter/services.py ::
-# build_self_spiele_pipeline`): no deadline, a referee answering signed in until the fixture's day.
+# build_self_spiele_pipeline`): no deadline, a referee answering signed in until the fixture's kick-off.
 OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,

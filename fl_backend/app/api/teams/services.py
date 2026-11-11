@@ -1,6 +1,7 @@
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+from datetime import datetime
 from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
@@ -36,6 +37,7 @@ from app.api.teams.schemas import (
     FLTeamStatistikScope,
     normalise_phone,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
@@ -1600,6 +1602,18 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
 
     # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
+
+
+def is_played(*, date: str | None, time: str | None, now: datetime) -> bool:
+    """Whether the fixture has been played at `now`: from its kick-off, or from its day where it holds no time."""
+
+    if date is None:
+        return False
+
+    if time is None:
+        return date <= clock.german_day(now)
+
+    return clock.german_instant(date, time) <= now
 
 
 def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:

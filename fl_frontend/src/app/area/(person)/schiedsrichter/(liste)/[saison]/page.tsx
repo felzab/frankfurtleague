@@ -52,7 +52,7 @@ type Standing = { chip?: ChipProps; adds?: Words; open?: true };
 
 /**
  * The row's standing, the first that holds: a game called off and the referee's own decline end the booking; a
- * booking still to answer before its day carries the two answers; then the report, stored or owed once the game
+ * booking still to answer before its kick-off carries the two answers; then the report, stored or owed once the game
  * takes one; then an agreement, the league's marked as entered for them; then a booking that lapsed unanswered. A
  * booking the league is to ask again, or never asked, carries no chip.
  */
