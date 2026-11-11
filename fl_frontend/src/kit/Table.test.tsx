@@ -129,13 +129,19 @@ describe("a row's name cell", () => {
 
   // The harm: two rows told apart by their addresses alone read alike once both are cut, and a touch reaches no tooltip.
   // The layout is the phone journey's (`e2e/phone/access.spec.ts`); this holds what the wrap rests on.
-  it("wraps an address rather than cutting it, after its „@“ and before each „.“, its chip beside its first line", () => {
+  it("wraps an address rather than cutting it, after its „@“ first, its chip beside its first line", () => {
     const address = "gesperrte.person@example.com";
     render(actRow(address, false, true));
-    const words = screen.getByText(address);
+    // The address stands in parts, each a block of its own: the element holding it whole.
+    const words = screen.getByText(
+      (_, node) => node?.textContent === address && ![...node.children].some((part) => part.textContent === address),
+    );
     const nameLine = words.parentElement;
     expect(words.className.split(" ")).not.toContain("truncate");
-    expect(words.innerHTML).toBe("gesperrte<wbr>.person@<wbr>example<wbr>.com");
+    // Each part a block a line takes whole while it fits, so „.com“ never stands alone under „example“.
+    expect(words.innerHTML).toBe(
+      '<span class="inline-block">gesperrte<wbr>.person@</span><wbr><span class="inline-block">example<wbr>.com</span>',
+    );
     expect(nameLine?.className.split(" ")).toContain("items-start");
     expect(nameLine?.textContent).toBe(`${address}${COPY.admin.expired}`);
   });

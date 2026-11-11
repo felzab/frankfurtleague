@@ -130,6 +130,11 @@ describe("the rail's account row", () => {
 
     await renderFrame(Promise.resolve({ ...ACCOUNT, roles }));
 
-    expect(screen.getByText(ACCOUNT.address.record).nextElementSibling?.textContent).toBe(line);
+    // The address stands in parts, each a block of its own (`AddressWords`): the element holding it whole.
+    const named = screen.getByText(
+      (_, node) =>
+        node?.textContent === ACCOUNT.address.record && ![...node.children].some((part) => part.textContent === ACCOUNT.address.record),
+    );
+    expect(named.nextElementSibling?.textContent).toBe(line);
   });
 });
