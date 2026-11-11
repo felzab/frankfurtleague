@@ -101,9 +101,11 @@ jobs:
   # both toolchains.
   db:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
-    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix. Until
-    # then this job restores none of the backend job's uv cache, whose key carries the runner's OS
-    # release, and installs from the registry on every run.
+    # SERVER-131779, a kernel exemption for Ubuntu, lists 8.3.16, 9.0.4 and 8.0.37 as its fix
+    # versions, and Docker Hub publishes no mongo:8.3.16, so 8.3.17 is the first 8.3 image to carry it.
+    # Back to ubuntu-latest once the image pins move there and a run shows mongod starting. Until then
+    # this job restores none of the backend job's uv cache, whose key carries the runner's OS release,
+    # and installs from the registry on every run.
     runs-on: ubuntu-22.04
     timeout-minutes: 21
     steps:
@@ -203,7 +205,7 @@ jobs:
       # by hand.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+          driver-opts: image=moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
       # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
       # stamps into each image.
       - id: meta-frontend
