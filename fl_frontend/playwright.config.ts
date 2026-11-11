@@ -113,11 +113,10 @@ export default defineConfig<JourneyOptions>({
         booked: { address: "tobias.thiel@example.com", played: "Ulme vs. Ahorn", coming: "Ulme vs. Kastanie" },
       },
     },
-    // Behind both projects above, which outlast the minute from the frontend's boot to the scheduler's first pass: only
-    // a whole run orders a journey behind that timer without raising a test's time budget.
+    // Its cases wait for the scheduler's first pass themselves, so CI's desktop leg runs it beside `desktop`.
     {
       name: "first-pass",
-      dependencies: ["desktop", "phone"],
+      dependencies: ["administrator"],
       testMatch: "firstPass.spec.ts",
       use: devices["Desktop Chrome"],
     },

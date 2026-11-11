@@ -39,7 +39,7 @@ export async function mailedCode(address: string, before: ReadonlySet<string>): 
         code = await codeAmong(address, before);
         return code;
       },
-      { message: `a sign-in code mailed to ${address} in ${MAIL_SINK}`, timeout: 20_000 },
+      { message: `a sign-in code mailed to ${address} in ${MAIL_SINK}`, timeout: MAIL_WAIT_MS },
     )
     .not.toBeNull();
 
@@ -60,11 +60,20 @@ export async function mailedLink(address: string, subject: string, before: Reado
   return `${url.pathname}${url.search}`;
 }
 
+/** How long a mail is waited for after the press that sends it. */
+export const MAIL_WAIT_MS = 20_000;
+
 /**
- * The envelope and plain-text lines of a message filed after `before` to `address`, waited for as the send is. `subject`
- * is the subject's start, as far as a journey can spell it: a day it cannot know ends some.
+ * The envelope and plain-text lines of a message filed after `before` to `address`, waited for as the send is, or for
+ * `timeout` where no press sends it. `subject` is the subject's start, as far as a journey can spell it: a day it cannot
+ * know ends some.
  */
-export async function mailedMessage(address: string, subject: string, before: ReadonlySet<string>): Promise<readonly string[]> {
+export async function mailedMessage(
+  address: string,
+  subject: string,
+  before: ReadonlySet<string>,
+  { timeout = MAIL_WAIT_MS }: { timeout?: number } = {},
+): Promise<readonly string[]> {
   let message: string[] | null = null;
 
   await expect
@@ -73,7 +82,7 @@ export async function mailedMessage(address: string, subject: string, before: Re
         message = await messageAmong(address, subject, before);
         return message;
       },
-      { message: `a mail „${subject}“ to ${address} in ${MAIL_SINK}`, timeout: 20_000 },
+      { message: `a mail „${subject}“ to ${address} in ${MAIL_SINK}`, timeout },
     )
     .not.toBeNull();
 
