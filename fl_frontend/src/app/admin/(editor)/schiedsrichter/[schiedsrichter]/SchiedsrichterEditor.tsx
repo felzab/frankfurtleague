@@ -182,8 +182,8 @@ export function SchiedsrichterEditor({
           ? []
           : [
               {
-                id: "bestaetigung",
-                title: WORDS.bestaetigung,
+                id: "confirmation",
+                title: WORDS.confirmation,
                 fields: (
                   <>
                     {confirmation.length > 0 && <Facts facts={confirmation} />}

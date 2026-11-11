@@ -1042,7 +1042,7 @@ export const COPY = catalogue({
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktData: "Kontaktdaten",
-      bestaetigung: "Bestätigung",
+      confirmation: "Bestätigung",
       /** The fact saying where the referee's confirmation stands, one of the four lines below. */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
