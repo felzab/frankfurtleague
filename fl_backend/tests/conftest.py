@@ -5,8 +5,7 @@ import re
 import sys
 import time
 from collections.abc import Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import AbstractContextManager, ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -294,7 +293,7 @@ def saison() -> PayloadFactory:
     )
 
 
-# Both containers' image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
+# The container's image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
 # its full version, which `scripts/tests/test_image_pins.py` holds to that form.
 MONGO_IMAGE = "mongo:8.3.13@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff"
 
@@ -310,15 +309,14 @@ TMPFS_DATA_OPTIONS = "size=1g"
 # is ENOSPC, then `WT_PANIC`, then a dead container.
 REPLICA_SET_OPLOG_MB = 128
 
-# In the urls `_standalone_mongod` and `_elected` build: a streaming monitor's close leaves no
+# In the url `_elected` builds: a streaming monitor's close leaves no
 # TIME_WAIT on Windows, so its port is reused at once, and under load WSL's mirrored loopback
 # relay stalls a connect on it past the request deadline.
 POLLING_MONITORS = "serverMonitoringMode=poll"
 
-# What `pytest_configure_node` hands each worker, so one pair of containers serves the whole run.
-STANDALONE_KEY = "fl_standalone_mongodb_url"
+# What `pytest_configure_node` hands each worker, so one container serves the whole run.
 REPLICA_SET_KEY = "fl_replica_set_mongodb_url"
-# Handed to the workers in the pair's place, so a test asking for a server fails naming the cause.
+# Handed to the workers in the url's place, so a test asking for a server fails naming the cause.
 UNSTARTED_KEY = "fl_mongodb_unstarted"
 
 REPLICA_SET_ELECTION_TIMEOUT_S = 60
@@ -327,7 +325,7 @@ REPLICA_SET_ELECTION_TIMEOUT_S = 60
 # every case the failed start errors.
 FAILED_START_LOG_LINES = 10
 
-# The controller's alone; empty on a serial run, where the fixtures below start their own.
+# The controller's alone; empty on a serial run, where the fixture below starts its own.
 _SHARED_SERVERS: dict[str, str] = {}
 _UNSTARTED: dict[str, str] = {}
 _SHARED_STACK = ExitStack()
@@ -337,7 +335,7 @@ _NO_SERVER = (
     " A test wanting one carries `@pytest.mark.db`, and this one does not: without it, it runs in the default tier too, which has no server."
 )
 
-_UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
+_UNSTARTABLE = "the xdist controller could not start the db tier's server, so no test needing one can run in this worker -- {reason}"
 
 
 def _log_tail(container: DockerContainer) -> str | None:
@@ -384,19 +382,6 @@ def _started(container: DockerContainer, ready: Callable[[], str]) -> Iterator[s
         container.stop()
 
 
-@contextmanager
-def _standalone_mongod() -> Iterator[str]:
-    """Imported inside the function, so the default tier never pays for `testcontainers`."""
-
-    # The `community` path is the current one; the bare `testcontainers.mongodb` still resolves, on
-    # a DeprecationWarning.
-    from testcontainers.community.mongodb import MongoDbContainer
-
-    container = MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
-    with _started(container, lambda: f"{container.get_connection_url()}/?{POLLING_MONITORS}") as url:
-        yield url
-
-
 def _elected(container: DockerContainer) -> str:
     # `directConnection=true`: the set advertises its container-internal address, which topology discovery would follow and find nothing.
     url = f"mongodb://{container.get_container_host_ip()}:{container.get_exposed_port(27017)}/?directConnection=true&{POLLING_MONITORS}"
@@ -421,7 +406,7 @@ def _elected(container: DockerContainer) -> str:
 
 @contextmanager
 def _replica_set_mongod() -> Iterator[str]:
-    """`_standalone_mongod`'s server refuses a transaction and a snapshot read alike, so every endpoint taking either needs this second one."""
+    """A single-node replica set: a standalone server refuses a transaction and a snapshot read, and no environment the app runs on is one."""
 
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
@@ -432,7 +417,7 @@ def _replica_set_mongod() -> Iterator[str]:
     container = (
         DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
-        # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
+        # fragile on a Windows host.
         .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB} --setParameter enableTestCommands=1")
         .with_exposed_ports(27017)
         .with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS)
@@ -443,57 +428,10 @@ def _replica_set_mongod() -> Iterator[str]:
         yield url
 
 
-def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[AbstractContextManager[str], str]:
-    """One server started, handed back unregistered: the stack it belongs on is the calling thread's to touch."""
+def _start_shared_server() -> None:
+    """Entered on the shared stack, which `pytest_unconfigure` closes; a start that raises stops its own container."""
 
-    server = factory()
-
-    return server, server.__enter__()
-
-
-def _warm_the_reaper() -> None:
-    """`Reaper.get_instance` tests and assigns unlocked, so two starts at once make two reapers.
-
-    `ryuk_disabled` -- and `ryuk_docker_socket` and `ryuk_privileged` inside -- memoise the same way,
-    so this is live with ryuk off.
-    """
-
-    from testcontainers.core.config import testcontainers_config
-    from testcontainers.core.container import Reaper
-
-    if not testcontainers_config.ryuk_disabled:
-        Reaper.get_instance()
-
-
-def _start_shared_servers() -> None:
-    """Both servers at once, so the pair costs the longer start rather than the sum.
-
-    They share no handle a thread could tear: a client is built per instance.
-    """
-
-    _warm_the_reaper()
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = {
-            STANDALONE_KEY: pool.submit(_entered, _standalone_mongod),
-            REPLICA_SET_KEY: pool.submit(_entered, _replica_set_mongod),
-        }
-
-    failure: BaseException | None = None
-    for key, future in futures.items():
-        # `exception()`, not `try`/`result()`: every server that started must reach the stack before
-        # the raise, or the caller's `close()` cannot reclaim it.
-        error = future.exception()
-        if error is not None:
-            failure = failure or error
-            continue
-
-        server, url = future.result()
-        _SHARED_STACK.push(server)
-        _SHARED_SERVERS[key] = url
-
-    if failure is not None:
-        raise failure
+    _SHARED_SERVERS[REPLICA_SET_KEY] = _SHARED_STACK.enter_context(_replica_set_mongod())
 
 
 def _default_tier_markexpr(config: pytest.Config) -> str | None:
@@ -535,8 +473,8 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 def pytest_configure_node(node: Any) -> None:
     """xdist's controller hook, unreached without `-n`.
 
-    A worker is a session of its own and would start both servers. The controller also KEEPS them:
-    a server stops with its starter's teardown, and the reaper reclaims only after a kill.
+    A worker is a session of its own and would start a server of its own. The controller also KEEPS
+    it: a server stops with its starter's teardown, and the reaper reclaims only after a kill.
     """
 
     # A cost heuristic, never a decision: the default tier's own `-m` is the one run known to want
@@ -546,7 +484,7 @@ def pytest_configure_node(node: Any) -> None:
 
     if not _SHARED_SERVERS and not _UNSTARTED:
         try:
-            _start_shared_servers()
+            _start_shared_server()
         except Exception as error:
             # Carried to the fixtures rather than raised: raising in this hook is an INTERNALERROR
             # with no test summary, on a run the heuristic above only guessed selects a db test.
@@ -566,18 +504,18 @@ def pytest_unconfigure(config: pytest.Config) -> None:
         _SHARED_STACK.close()
 
 
-def _shared(request: pytest.FixtureRequest, key: str) -> str | None:
+def _shared(request: pytest.FixtureRequest) -> str | None:
     """The controller's url, or `None` on a serial run, where this process starts its own.
 
     A worker starts none: reaching this without one means a server the controller was never told
-    about, and a pair per worker is the arithmetic the shared pair avoids.
+    about, and a server per worker is the arithmetic the shared one avoids.
     """
 
     workerinput: dict[str, Any] | None = getattr(request.config, "workerinput", None)
     if workerinput is None:
         return None
 
-    url = workerinput.get(key)
+    url = workerinput.get(REPLICA_SET_KEY)
     if url is None:
         pytest.fail(_UNSTARTABLE.format(reason=workerinput[UNSTARTED_KEY]) if UNSTARTED_KEY in workerinput else _NO_SERVER)
 
@@ -585,23 +523,10 @@ def _shared(request: pytest.FixtureRequest, key: str) -> str | None:
 
 
 @pytest.fixture(scope="session")
-def mongo_url(request: pytest.FixtureRequest) -> Iterator[str]:
+def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
     """A url rather than a container: a connection string is all the suites take, and under `-n` the process holding it runs no test."""
 
-    shared = _shared(request, STANDALONE_KEY)
-    if shared is not None:
-        yield shared
-        return
-
-    with _standalone_mongod() as url:
-        yield url
-
-
-@pytest.fixture(scope="session")
-def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
-    """The transactional server; see `_replica_set_mongod` for why it is a second one."""
-
-    shared = _shared(request, REPLICA_SET_KEY)
+    shared = _shared(request)
     if shared is not None:
         yield shared
         return
@@ -611,13 +536,20 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
 
 @pytest.fixture(scope="session")
-def mongo_database(mongo_url: str) -> Iterator[Database]:
+def mongo_url(mongo_replica_set_url: str) -> str:
+    """The replica set's url, under a second name."""
+
+    return mongo_replica_set_url
+
+
+@pytest.fixture(scope="session")
+def mongo_database(mongo_replica_set_url: str) -> Iterator[Database]:
     """UNCONSTRAINED, unlike `tests/database.py :: a_clean_database`, and its consumer is why.
 
     `tests/api/conftest.py :: league` drops its collections, taking any validator with them.
     """
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
         yield client[worker_database("fl_test")]
     finally:

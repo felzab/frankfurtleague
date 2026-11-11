@@ -9,7 +9,7 @@ them.
 | Read                                                                     | For                                                                                                                       |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | [`../../docs/backend/overview.md`](../../docs/backend/overview.md#tests) | The two tiers and the `db` marker                                                                                         |
-| `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url                                      |
+| `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` replica set, yielded as a url                                       |
 | `config.py`                                                              | The settings an application under test is built with                                                                      |
 | `app_client.py`                                                          | The application under test, served in process to an HTTP client of the test's own                                         |
 | `session_headers.py`                                                     | The actor's session headers as the frontend's server sends them (`fl_backend/tests/session_headers.py :: StampedHeaders`) |

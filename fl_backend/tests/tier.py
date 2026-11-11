@@ -2,9 +2,10 @@ from collections.abc import Iterable
 
 import pytest
 
-# The fixtures that start or hand out a server. Refused at setup, before the container starts, so a
-# machine with no Docker daemon reads the missing marker rather than the daemon's own error.
-SERVER_FIXTURES = frozenset({"mongo_url", "mongo_replica_set_url"})
+# The fixture that starts or hands out the server, in the closure of every fixture asking for it.
+# Refused at setup, before the container starts, so a machine with no Docker daemon reads the missing
+# marker rather than the daemon's own error.
+SERVER_FIXTURES = frozenset({"mongo_replica_set_url"})
 
 _UNMARKED_FIXTURE = "{test} asks for {fixtures} and carries no `@pytest.mark.db`. The default tier starts no server, so mark it."
 

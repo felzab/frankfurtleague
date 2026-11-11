@@ -438,7 +438,9 @@ assert DUPLICATE_PAIRS.keys() == {index.name for index in UNIQUE_INDEXES}
     ("collection", "first", "second"),
     [pytest.param(index.collection, *DUPLICATE_PAIRS[index.name], id=index.name) for index in UNIQUE_INDEXES],
 )
-def test_each_unique_index_refuses_the_second_document(mongo_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]):
+def test_each_unique_index_refuses_the_second_document(
+    mongo_replica_set_url: str, collection: str, first: dict[str, Any], second: dict[str, Any]
+):
     async def body(database: AsyncDatabase) -> str:
         await database[collection].insert_one(first)
         try:
@@ -448,10 +450,10 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
         return "accepted"
 
     # 11000 is DuplicateKey: the index is what refuses the write.
-    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == "rejected:11000"
 
 
-def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
+def test_two_ended_changes_of_one_address_are_both_kept(mongo_replica_set_url: str):
     """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
     # A century ahead of the real clock: the TTL monitor deletes a tombstone whose retention has passed, under the count.
@@ -464,10 +466,10 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
         )
         return await database.address_changes.count_documents({})
 
-    assert on_the_shipped_schema(mongo_url, body) == 2
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == 2
 
 
-def test_a_second_nameless_referee_is_refused(mongo_url: str):
+def test_a_second_nameless_referee_is_refused(mongo_replica_set_url: str):
     """The rule reaches every row, so the one nameless row it can ever meet is the ghost.
 
     A second would split the fixtures of everybody erased across two sentinels nobody can tell apart
@@ -483,10 +485,10 @@ def test_a_second_nameless_referee_is_refused(mongo_url: str):
             return f"rejected:{failure.code}"
         return "accepted"
 
-    assert on_the_shipped_schema(mongo_url, body) == "rejected:11000"
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == "rejected:11000"
 
 
-def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
+def test_only_an_open_confirmation_meets_the_rule(mongo_replica_set_url: str):
     """An answered row, a closed one and the other club's open one stand beside a party's open row on one stand.
 
     A dropped filter or a lost team key refuses one, and with it a reinstated fixture's fresh request.
@@ -505,7 +507,7 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
         )
         return await database.spielbestaetigungen.count_documents({})
 
-    assert on_the_shipped_schema(mongo_url, body) == 4
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == 4
 
 
 def _raised(failure: RuntimeError, named: str) -> str:
@@ -516,7 +518,7 @@ def _raised(failure: RuntimeError, named: str) -> str:
     return "raised" if isinstance(failure.__cause__, OperationFailure) else f"raised without its cause: {failure}"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_replica_set_url: str):
     """The tempting fix — catch it, log it, carry on — leaves a database that looks constrained and is not."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -527,10 +529,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_url: 
             return _raised(failure, "uniq_shorthand")
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mongo_replica_set_url: str):
     """A support index costs speed rather than correctness, which is exactly why a boot might be tempted to shrug one off."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -543,10 +545,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
             return _raised(failure, CONFLICTING_SUPPORT_INDEX)
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_url: str):
+def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_replica_set_url: str):
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
@@ -557,10 +559,10 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
             return _raised(failure, CONFLICTING_TTL_INDEX)
         return "carried on"
 
-    assert on_a_database(mongo_url, body) == "raised"
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
 
 
-def test_every_declared_support_index_is_built(mongo_url: str):
+def test_every_declared_support_index_is_built(mongo_replica_set_url: str):
     """`apply_constraints` creates each one, under the collation it is declared with."""
 
     async def body(database: AsyncDatabase) -> None:
@@ -571,10 +573,10 @@ def test_every_declared_support_index_is_built(mongo_url: str):
             locale = (built[index.name].get("collation") or {}).get("locale")
             assert locale == (index.collation or {}).get("locale"), f"{index.name} is built under {locale}, declared {index.collation}"
 
-    on_the_shipped_schema(mongo_url, body)
+    on_the_shipped_schema(mongo_replica_set_url, body)
 
 
-def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url: str):
+def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_replica_set_url: str):
     """`expireAfterSeconds` is what makes it a TTL index at all, and one built without it serves reads and expires nothing."""
 
     async def body(database: AsyncDatabase) -> list[tuple[str, Any, Any]]:
@@ -588,7 +590,7 @@ def test_every_declared_ttl_index_is_built_over_its_key_with_its_bound(mongo_url
     # Read back rather than assumed: an index is only ever ADDED
     # (`app/core/constraints.py :: apply_constraints`), so a changed bound reaches the declaration
     # and never a database that already holds the name.
-    assert on_the_shipped_schema(mongo_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
+    assert on_the_shipped_schema(mongo_replica_set_url, body) == [(ttl.name, ttl.seconds, {ttl.key: 1}) for ttl in TTL_INDEXES]
 
 
 CONFIRMED_QUEUE_INDEX = "registrierungen_saison_id_team_id_confirmed_queue"
@@ -625,7 +627,7 @@ def index_names(node: Any) -> list[str]:
     return []
 
 
-def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_url: str):
+def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_it(mongo_replica_set_url: str):
     """The confirmed read as `pull_open_registrierungen` sends it, explained with its run: it fetches the confirmed rows alone.
 
     Anybody holding the team's link writes an unconfirmed row with every press. On the queue index the read would fetch every
@@ -671,7 +673,7 @@ def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_
 
         return index_names(planner["winningPlan"]), stats["totalDocsExamined"], served
 
-    indexes, examined, served = on_the_shipped_schema(mongo_url, body)
+    indexes, examined, served = on_the_shipped_schema(mongo_replica_set_url, body)
 
     assert served == CONFIRMED_BENEATH_A_FLOOD
     assert indexes == [CONFIRMED_QUEUE_INDEX]
@@ -682,7 +684,7 @@ OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
 
 
 class TestTwoRefereesOpenRowsOnOneStand:
-    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_url: str):
+    def test_each_referee_holds_an_open_row_of_their_own(self, mongo_replica_set_url: str):
         """The mint inserts a new referee's row while the close's share still leaves the old one's open.
 
         Without the referee key that insert collides, passing the fixture over every pass until the close shuts the old row.
@@ -699,4 +701,4 @@ class TestTwoRefereesOpenRowsOnOneStand:
                 )
             return await database.spielbestaetigungen.count_documents({"answer": None, "closed": None})
 
-        assert on_the_shipped_schema(mongo_url, body) == 2
+        assert on_the_shipped_schema(mongo_replica_set_url, body) == 2

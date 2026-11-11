@@ -82,12 +82,12 @@ def test_only_an_adopted_report_publishes_its_scorers_and_cards(adoption: dict[s
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     spiel = adopted_match()
     internal = {**documents.EINWILLIGUNG, "scope": "internal"}
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON, "active"))
             await database[Collection.SPIELTAGE].insert_one(
                 {
@@ -134,8 +134,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 def the_page(url: str, *, now: datetime = PLAYED) -> Any:

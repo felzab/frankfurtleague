@@ -126,14 +126,14 @@ def spiel_documents() -> list[dict[str, Any]]:
 
 
 @pytest.fixture(scope="module")
-def seeded(mongo_url: str) -> Iterator[Database]:
+def seeded(mongo_replica_set_url: str) -> Iterator[Database]:
     """A database of this module's own: the session-scoped `league` owns the collections of `fl_test`.
 
     Built once for the module and dropped on the way out: `tests/database.py` amortises a per-test
     build, and its registry would outlive the database.
     """
 
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_replica_set_url)
     try:
         client.drop_database(DATABASE_NAME)
         database = client[DATABASE_NAME]
