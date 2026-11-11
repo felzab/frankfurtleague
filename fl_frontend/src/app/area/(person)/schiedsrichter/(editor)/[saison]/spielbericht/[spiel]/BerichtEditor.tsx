@@ -287,6 +287,8 @@ export function BerichtEditor({
                     lead: sideCell,
                     figure: minuteCell,
                     main: playerCell(required.cardPlayer),
+                    // The goals' „Eigentor“ room, so a card's player field ends where a goal's does.
+                    room: eigentor,
                     below: {
                       field: "colour",
                       label: cardNoun,

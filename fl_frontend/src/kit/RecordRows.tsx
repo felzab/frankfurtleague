@@ -7,6 +7,7 @@ import { FocusScope, useFocusManager } from "react-aria/FocusScope";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { smallCaps, stacked } from "./cardStyles";
+import { CheckboxPlaceholder } from "./Checkbox";
 import { messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
@@ -49,7 +50,16 @@ type RowCell<Row extends EditorRow> = {
  * own under them.
  */
 export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowCell<Row>; main: RowCell<Row> } & (
-  { beside?: RowCell<Row>; below?: never } | { below: RowCell<Row>; beside?: never }
+  | { beside?: RowCell<Row>; below?: never; room?: never }
+  | {
+      below: RowCell<Row>;
+      beside?: never;
+      /**
+       * The words of the box another list of the page holds beside its main field, as the goals' „Eigentor“ stands
+       * beside their player: each row keeps that box's room empty, so the main fields of both lists end at one x.
+       */
+      room?: string;
+    }
 );
 
 /*
@@ -173,6 +183,15 @@ function RecordRow<Row extends EditorRow>({
         <div className={slots.second()}>
           <div className={slots.main()}>{control(cells.main)}</div>
           {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
+          {cells.room !== undefined && (
+            // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
+            <div
+              aria-hidden
+              inert
+              className={slots.beside({ class: "invisible" })}>
+              <CheckboxPlaceholder label={cells.room} />
+            </div>
+          )}
         </div>
         {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
         {removal !== undefined && (
@@ -244,7 +263,7 @@ export function RecordRows<Row extends EditorRow>({
   /** The editor's served refusals by box (`./useEditor.ts`'s `fieldErrors`). */
   errors?: Readonly<Record<string, Copy>>;
 }) {
-  const slots = recordRows({ beside: cells.beside !== undefined });
+  const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });
   const isClosed = useDisabled(false);
   const lineId = useId();
   const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length, added: null }));
