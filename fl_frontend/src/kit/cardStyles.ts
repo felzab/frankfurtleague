@@ -97,13 +97,19 @@ export const actRow = tv({
       true: { frame: "grid-cols-[minmax(0,1fr)_auto] @lg:grid-cols-[minmax(0,1fr)_auto_auto]" },
       false: { frame: "grid-cols-[minmax(0,1fr)] @lg:grid-cols-[minmax(0,1fr)_auto]" },
     },
+    // The row's acts are side acts, which fold into one „⋯“ in a narrow box (`actsFold`): they stand at the row's end
+    // at every width, where a narrow box draws the „⋯“ and a wide one the acts themselves.
+    folds: {
+      true: { frame: "grid-cols-[minmax(0,1fr)_auto]", acts: "col-start-2 row-start-1 ms-3 mt-0" },
+    },
   },
 });
 
 /**
- * A list row's side acts by its list's width (`SideActs`): their labelled buttons where the list is a table, and one
- * „⋯“ holding them where its rows are stacked. Both are drawn and one is shown, at the list's own stacking width
- * (`Table.tsx :: table`'s `stacks`), `list` or `crowded`; the table's wait draws its bars from the same.
+ * A row's side acts by its box's width (`SideActs`): their buttons where the box is wide, and one „⋯“ holding them
+ * where its rows are stacked. Both are drawn and one is shown, at the box's own stacking width: a list's, `list` or
+ * `crowded` (`Table.tsx :: table`'s `stacks`), or a card's rows' (`nameWithChips`). The table's wait draws its bars
+ * from the same.
  */
 export const actsFold = tv({
   slots: {
@@ -114,6 +120,7 @@ export const actsFold = tv({
     at: {
       list: { buttons: "@max-2xl:hidden", menu: "@2xl:hidden" },
       crowded: { buttons: "@max-5xl:hidden", menu: "@5xl:hidden" },
+      card: { buttons: "@max-lg:hidden", menu: "@lg:hidden" },
     },
   },
 });
