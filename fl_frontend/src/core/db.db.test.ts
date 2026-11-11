@@ -221,9 +221,9 @@ const LATENESS_MS = 2000;
 const CHILD_LOAD_MS = 10_000;
 const CHILD_SETTLED = "settled";
 
-// The bound `fl_frontend/src/core/db.ts` gives every stage alike, read off the socket's: each case holds its
-// stages to it rather than to their own options, which removed read as the driver's 30 s or as none.
-const STAGE_BOUND = client.options.socketTimeoutMS;
+// The most a visitor waits on one stage, which `fl_frontend/src/core/db.ts` gives every stage alike. Never
+// read off the client: a removed option reads as the driver's 30 s or as none, and so would the bound.
+const STAGE_BOUND = 3000;
 
 /**
  * The case fails at its bound rather than waiting on: an operation whose bound is gone never ends on
