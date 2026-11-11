@@ -131,8 +131,11 @@ jobs:
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
         with:
-          # The pnpm store's one writer, so a lockfile change uploads one store rather than one per job.
-          save-cache: true
+          # The pnpm store's one writer, and on a push to main alone: every install rewrites the patched
+          # dependency's record in the store, so pnpm/setup's check for an unchanged store never holds
+          # and every save is a new entry of about 225 MB. A pull request restores main's store, which
+          # GitHub lets it read, and fetches what its own lockfile adds on each of its runs.
+          save-cache: ${{ github.event_name == 'push' }}
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
