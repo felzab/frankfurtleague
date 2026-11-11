@@ -3,9 +3,8 @@ import { spielbestaetigungenGetSweepSaisons, spielbestaetigungenSweepSpielbestae
 import type { FLSpielbestaetigungSweepResponse, FLSweepSaisonsResponse } from "@/core/generated/client/types";
 
 /**
- * The seasons the confirmation pass visits. Here rather than in a `queries.ts` because every read there is
- * cached for a render, and this one answers a timer. The system tier, not admin: the timer holds no session, and an
- * invented actor for a machine is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
+ * Here rather than in a `queries.ts` because every read there is cached for a render, and this one answers a timer.
+ * The system tier, not admin: the timer holds no session, and the league invents no actor for a machine.
  */
 export async function getSpielbestaetigungSweepSaisons(): Promise<FLSweepSaisonsResponse> {
   return spielbestaetigungenGetSweepSaisons();
