@@ -17,6 +17,7 @@ from app.api.spielberichte.services import (
     judge_bericht,
     kader_is_open,
     newly_named,
+    takes_a_bericht,
 )
 from app.core import clock
 from app.core.codes import Code
@@ -176,6 +177,20 @@ class TestAReportFollowsTheKickOff:
     )
     def test_a_spiel_played_is_taken(self, date: str, time: str | None, now: datetime):
         assert find_not_played_refusal(date=date, time=time, now=now) is None
+
+    def test_each_caller_hands_the_rule_the_fixtures_kick_off(self):
+        """The write's judgement and the reads' flag alike: given the day alone, either would take a report all morning."""
+
+        report = FLSpielberichtBerichtPayload.model_validate(payload([]))
+        none_new: dict[FLSpielSide, set[ObjectId]] = {"team1": set(), "team2": set()}
+        early = KICK_OFF - timedelta(minutes=1)
+
+        with pytest.raises(APIError) as refused:
+            judge_bericht(context=context(), payload=report, new=none_new, now=early)
+        judge_bericht(context=context(), payload=report, new=none_new, now=KICK_OFF)
+
+        assert refused.value.error_code == Code.BERICHT_NOT_PLAYED
+        assert (takes_a_bericht(spiel(), now=early), takes_a_bericht(spiel(), now=KICK_OFF)) == (False, True)
 
 
 class TestACalledOffSpielTakesNoReport:

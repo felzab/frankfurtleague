@@ -19,8 +19,10 @@ from app.api.bewerbungen.services import (
     find_repeated_contact_refusal,
     mailbox_anchor_ids,
     open_links_on,
+    owed_at_submission,
     seats_past_the_bound,
 )
+from app.api.outbox.schemas import FLBewerbungReceivedData
 from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
@@ -257,6 +259,22 @@ class TestWhatTheServerComposes:
         assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_is_also"}
         assert composed["trainer_is_also"] == "ansprechperson"
         assert composed["stellvertretung"]["first_name"] == "Stellan"
+
+    def test_the_receipt_names_a_trainer_holding_a_second_seat_once_under_both(self):
+        """The Ansprechperson is told who is still to answer: one person, not their two seats as two people."""
+
+        block = kontakte(trainer_is_also="stellvertretung", stellvertretung=person())
+        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY)
+
+        [receipt] = [
+            mail.data
+            for mail in owed_at_submission(
+                bewerbung_id=PICKED_OID, kontakte=composed, saison_id="2026", schule="Zorbanax", deadline="2026-04-15", unmailed=()
+            )
+            if isinstance(mail.data, FLBewerbungReceivedData)
+        ]
+
+        assert [person.model_dump() for person in receipt.pending] == [{"first_name": "Quillhilde", "rollen": ["stellvertretung", "trainer"]}]
 
     def test_a_client_may_not_name_a_consent(self):
         """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""

@@ -19,6 +19,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -41,6 +42,9 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 TEAM = ObjectId("6890a1b2c3d4e5f607990001")
 OTHER = ObjectId("6890a1b2c3d4e5f607990002")
+# Two clubs out of this season from a day before their fixture with the team, one fielded at home and one away.
+LEFT_HOME_CLUB = ObjectId("6890a1b2c3d4e5f607990003")
+LEFT_AWAY_CLUB = ObjectId("6890a1b2c3d4e5f607990004")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6079900a1")
 SPIELORT = ObjectId("6890a1b2c3d4e5f6079900b1")
 
@@ -57,8 +61,10 @@ OTHERS_REASON = "Unsere Halle ist belegt"
 OWN_REASON = "Wir sind auf Klassenfahrt"
 
 
-def spiel(number: int, date: str | None, time: str | None = "18:00:00", *, home: ObjectId = TEAM, **fields: Any) -> dict[str, Any]:
-    away = OTHER if home == TEAM else TEAM
+def spiel(
+    number: int, date: str | None, time: str | None = "18:00:00", *, home: ObjectId = TEAM, away: ObjectId | None = None, **fields: Any
+) -> dict[str, Any]:
+    away = away or (OTHER if home == TEAM else TEAM)
 
     return documents.spiel_document(
         spiel_id=ObjectId(f"6890a1b2c3d4e5f6079900{number:02d}"),
@@ -77,7 +83,9 @@ def spiel(number: int, date: str | None, time: str | None = "18:00:00", *, home:
 # Each the case its name gives, ordered by their day: a team row past its deadline unanswered; open while the other
 # club's decline proposes another date; declined by the team; agreed, its line-up stored; a decline the league
 # discarded, kicking off tomorrow at noon, so its line-up is overdue; its kick-off within the hour, so its line-up is
-# locked; undated; and a row about the slot a move left.
+# locked; undated; and a row about the slot a move left. Then, each holding a stored line-up so it asks for none: a row
+# nobody answered yet; two whose opponent has left the season by their day, whose exit the row's state is judged by; and
+# a fixture called off, whose row the hourly pass has not closed yet and which asks nothing.
 EXPIRED = spiel(5, TODAY, "13:00:00")
 VORSCHLAG = spiel(1, "2026-04-15")
 DECLINED = spiel(2, "2026-04-22", home=OTHER)
@@ -85,7 +93,12 @@ AGREED = spiel(3, "2026-04-29")
 OVERDUE = spiel(4, "2026-04-02", "12:00:00")
 UNDATED = spiel(6, None, None)
 MOVED = spiel(7, "2026-05-06")
-SPIELE = [VORSCHLAG, DECLINED, AGREED, OVERDUE, EXPIRED, UNDATED, MOVED]
+VALID = spiel(8, "2026-05-13")
+LEFT_HOME = spiel(9, "2026-05-20", home=LEFT_HOME_CLUB)
+LEFT_AWAY = spiel(10, "2026-05-24", away=LEFT_AWAY_CLUB)
+CALLED_OFF = spiel(11, "2026-05-27", sonderereignis="ausgefallen")
+SPIELE = [VORSCHLAG, DECLINED, AGREED, OVERDUE, EXPIRED, UNDATED, MOVED, VALID, LEFT_HOME, LEFT_AWAY, CALLED_OFF]
+EXIT = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": "2026-05-01"}
 
 
 def row(spiel_raw: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
@@ -106,6 +119,10 @@ ROWS = [
     row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}),
     row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"at": TODAY, "reason": "discarded"}),
     {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00", "digest": "a-slot-left"}},
+    row(VALID, TEAM),
+    row(LEFT_HOME, TEAM),
+    row(LEFT_AWAY, TEAM),
+    row(CALLED_OFF, TEAM),
 ]
 
 
@@ -126,7 +143,12 @@ async def seed(database: AsyncDatabase) -> None:
         ]
     )
     await database[Collection.TEAMS].insert_many(
-        [documents.team_document(TEAM, "Zorbanax", "ZOX"), documents.team_document(OTHER, "Quillhilde", "QUX")]
+        [
+            documents.team_document(TEAM, "Zorbanax", "ZOX"),
+            documents.team_document(OTHER, "Quillhilde", "QUX"),
+            documents.team_document(LEFT_HOME_CLUB, "Brackenmoor", "BRX"),
+            documents.team_document(LEFT_AWAY_CLUB, "Wraxlington", "WRX"),
+        ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -136,6 +158,10 @@ async def seed(database: AsyncDatabase) -> None:
             documents.saison_team_document(PAST_SAISON_ID, TEAM, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson=seat("Paula"))),
             documents.saison_team_document(NEXT_SAISON_ID, TEAM, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson=seat("Nora"))),
             documents.saison_team_document(SAISON_ID, OTHER, "Quillhilde", "QUX", kontakte=kontakte(trainer=seat("Otto"))),
+            # The other club's exit from another season, which judges none of this season's rows.
+            documents.saison_team_document(PAST_SAISON_ID, OTHER, "Quillhilde", "QUX", austritt={**EXIT, "date": "2025-06-01"}),
+            documents.saison_team_document(SAISON_ID, LEFT_HOME_CLUB, "Brackenmoor", "BRX", austritt=dict(EXIT)),
+            documents.saison_team_document(SAISON_ID, LEFT_AWAY_CLUB, "Wraxlington", "WRX", austritt=dict(EXIT)),
         ]
     )
     await database[Collection.SPIELTAGE].insert_one(
@@ -152,7 +178,13 @@ async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
     await database[Collection.SPIELE].insert_many([dict(spiel_raw) for spiel_raw in SPIELE])
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
-    await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(AGREED, TEAM, starters=[ObjectId()]))
+    await database[Collection.AUFSTELLUNGEN].insert_many(
+        [
+            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY)),
+            # Past its lock, naming only a pupil erased since: the club's final record, which still stands as a line-up.
+            documents.aufstellung_document(EXPIRED, TEAM, starters=[GHOST_SPIELER_ID]),
+        ]
+    )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
             documents.registrierung_document(
@@ -246,7 +278,8 @@ class TestTheUebersicht:
 
         assert status == 200
         assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
-        # The date agreed, the discarded decline and the row about a slot left ask nothing; the others by their day.
+        # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
+        # their day.
         assert [
             (termin["spiel_id"], termin["state"], termin["side"], termin["vorschlag"], termin["reason"]) for termin in served["termine"]
         ] == [
@@ -254,6 +287,10 @@ class TestTheUebersicht:
             # The other club's proposed date and hour alone, never its reason.
             (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}, None),
             (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}, OWN_REASON),
+            (str(VALID["_id"]), "valid", "team1", None, None),
+            # Inside their deadline: the opponent's exit by the fixture's day is what ends each.
+            (str(LEFT_HOME["_id"]), "expired", "team2", None, None),
+            (str(LEFT_AWAY["_id"]), "expired", "team1", None, None),
         ]
         # Stored, locked within the hour, or undated, a fixture asks for no line-up; the overdue one comes first.
         assert [(entry["spiel_id"], entry["marks"]["phase"]) for entry in served["aufstellungen"]] == [
@@ -288,9 +325,15 @@ class TestTheTeamsSpiele:
             5: "expired",
             6: None,
             7: None,
+            8: "valid",
+            9: "expired",
+            10: "expired",
+            11: None,
         }
         marks = {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["aufstellung"] for spiel_raw in SPIELE}
         assert marks[6] is None
         assert (marks[3]["stored"], marks[3]["phase"]) == (True, "open")
         assert (marks[4]["phase"], marks[5]["phase"]) == ("overdue", "locked")
+        # Locked, so the entries of the pupil erased since keep it standing.
+        assert marks[5]["stored"] is True
         assert {entry["spieltag_position"] for entry in served["spiele"]} == {1}
