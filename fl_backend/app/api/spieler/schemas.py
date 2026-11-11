@@ -106,8 +106,9 @@ class FLSpielerRecord(_SpielerPerson, Anchored):
     einwilligung: FLEinwilligung
     # Stored as `app/shared/folding.py :: sign_in_identifier` folds it and never as it was typed: the
     # seam joining a signed-in person to this row is an equality on the stored value, so a raw write
-    # breaks it, which the read-back names.
-    email: CustomStoredAddress | None = None
+    # breaks it, which the read-back names. Required: every erasure finds a person by address, so a
+    # person holding none would be out of every erasure's reach.
+    email: CustomStoredAddress
     version: int = 0
 
     @model_validator(mode="after")

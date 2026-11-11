@@ -30,9 +30,12 @@ class TestSpieler:
 
         assert row.stufe == "E2"
 
-    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung"])
+    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung", "email"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
-        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
+        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
+
+        Without an address the person is out of every erasure's reach, each finding a person by address.
+        """
 
         with pytest.raises(ValidationError):
             FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
