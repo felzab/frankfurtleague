@@ -126,6 +126,33 @@ show_failure() {
 # `--remove-orphans`, so a service deleted from the compose file leaves no container running.
 up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orphans; }
 
+# `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
+# keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
+# `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
+# output, says which: `start worker processes` at notice, the image's nginx.conf level, or the reason.
+# Matched as an error-log line from its start, which no request can write.
+reload_nginx() {
+  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said refused i
+  quietly docker compose exec -T nginx nginx -s reload || return 1
+  failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
+  for (( i = 0; i < 15; i++ )); do
+    sleep 1
+    said="$(docker compose logs --no-log-prefix --since "$since" nginx 2>&1)" \
+      || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
+    refused="$(grep -E '^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ' <<<"$said" || true)"
+    if [[ -n "$refused" ]]; then
+      failure="$refusal"
+      info "nginx's running master refused the configuration nginx -t passed, which a restart of nginx, a
+reboot included, loads afresh:"
+      detail <<<"$refused"
+      return 1
+    fi
+    if grep -Eq '^[0-9/]+ [0-9:]+ \[notice\] [0-9]+#[0-9]+: start worker processes$' <<<"$said"; then return 0; fi
+  done
+  info "nginx logged neither new workers nor a refusal within 15 seconds of the reload."
+  return 1
+}
+
 # Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
 # the last build that came up. --no-rollback's build retires the one before as it starts.
 if (( ! ROLLBACK )); then
@@ -135,16 +162,15 @@ step "Starting ${tag}"
 failure="${tag} did not come up"
 if up; then
   ok "every service is running and healthy"
-  # A mounted configuration loads only on a reload, and `nginx -s reload` answers 0 once the signal is
-  # sent, so the configuration is tested first: nginx keeps its old one when a reload fails.
+  # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
   step "nginx's configuration"
   failure="nginx did not take this checkout's configuration and still runs the one it had"
   if ! quietly docker compose exec -T nginx nginx -t; then
     # Going back moves the images alone, and nginx reads the checkout's files at any restart.
     warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
 reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
-  elif quietly docker compose exec -T nginx nginx -s reload; then
-    ok "tested and reloaded"
+  elif reload_nginx; then
+    ok "tested, and its new workers started"
     pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
     ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
