@@ -321,19 +321,18 @@ function EmptyBox({ empty }: { empty: EmptyStateProps }) {
   );
 }
 
-/**
- * A club's matches one under another at every width, each in its own box under its matchday's head: the box its own
- * container, so its row takes the one line where the content is wide enough and the card a phone shows below it.
- */
-/** A group's own box, handing the list's columns on to its match. */
-const SPIEL_CARD_CLASSES = cardSurface({ class: `@container overflow-hidden ${spielSubgrid()}` });
+/** A group's own box, handing the list's columns on to its match; a container would stop them (`SpielCards`). */
+const SPIEL_CARD_CLASSES = cardSurface({ class: `overflow-hidden ${spielSubgrid()}` });
 
 /**
- * The boxes of a list of groups of matches, one under another, holding the matches' columns (`spielColumns`), so every
- * group's score and sides stand at one x down the list, as a table's rows do.
+ * A club's matches one under another at every width, each in its own box under its matchday's head. The list holds the
+ * matches' columns (`spielColumns`), so every group's score and sides stand at one x down the list, as a table's rows do,
+ * and it is the container whose width picks the rows' form: the one line where the content is wide enough, the card a
+ * phone shows below it. The boxes cannot be the containers: a container establishes an independent formatting context,
+ * and a grid that does is no subgrid, so the box would drop the columns it hands on.
  */
 function SpielCards({ children }: { children: ReactNode }) {
-  return <div className={spielColumns({ class: "gap-y-3" })}>{children}</div>;
+  return <div className={spielColumns({ class: "@container gap-y-3" })}>{children}</div>;
 }
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */

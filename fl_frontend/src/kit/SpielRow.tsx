@@ -355,11 +355,13 @@ function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; lin
 
 /**
  * The box of a list's rows: the card's surface, or none where it stands `bare` inside a card's body; the holder of the
- * rows' columns, or, `outer`, a part handing on the columns of the list of groups it stands in (`SpielGroup`).
+ * rows' columns and the container whose width picks their form, or, `outer`, a part handing on the columns of the list
+ * of groups it stands in (`SpielGroup`), which is the container instead. A part handing columns on is never a container:
+ * a container establishes an independent formatting context, and a grid that does is no subgrid and drops the columns.
  */
 function rowsBox(bare: boolean, columns: "own" | "outer") {
-  const grid = columns === "own" ? spielColumns() : spielSubgrid();
-  return bare ? `@container ${grid}` : cardSurface({ class: `@container overflow-hidden ${grid}` });
+  const grid = columns === "own" ? `@container ${spielColumns()}` : spielSubgrid();
+  return bare ? grid : cardSurface({ class: `overflow-hidden ${grid}` });
 }
 
 /**
@@ -413,8 +415,8 @@ export function SpielListPlaceholder({
 /**
  * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
  * a matchday's matches, the matches a read page lists, or the landing's last and next in its season card.
- * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, Tailwind's
- * `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
+ * The box's own width picks the rows' form, not the screen's: from 42 rem (`@container` on the box, or on the list of
+ * groups holding its columns, Tailwind's `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
  * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
  *
  * `cards` sets each match in a box of its own instead, one under another on a phone and two a row from `lg`, as
