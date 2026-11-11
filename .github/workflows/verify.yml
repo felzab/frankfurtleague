@@ -312,6 +312,9 @@ jobs:
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+      # The tag docker-compose.yml's two images read, which Compose demands before it merges the files
+      # that replace both with this stack's own; no image here is pulled by it.
+      TAG: e2e
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
       # no other release finds (`scripts/tests/test_image_pins.py`), and no Dependabot ecosystem reads

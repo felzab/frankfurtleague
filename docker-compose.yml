@@ -26,14 +26,20 @@ x-logging: &default-logging
 
 services:
   frontend:
-    # The package's file alone, the one the deploy's readers judge as the container is handed it
-    # (`scripts/checks/check_compose_model.py :: env_files`).
+    # The package's file alone (`scripts/checks/check_compose_model.py :: env_files`).
     env_file: ./fl_frontend/.env
-    # A moving tag, on each package's image below: `deploy.sh` with no argument means the newest
-    # published image. A rollback pins the immutable `:sha-<commit>` instead. Both packages are
-    # public, so neither pull needs credentials.
-    image: ghcr.io/felzab/frankfurtleague-frontend:latest
+    # One tag for both packages' images, the immutable `sha-<commit>` the publish job pushes: the two
+    # images of one commit run together or not at all. Compose refuses to parse this file without it,
+    # so no command reaches a stack of some other build. Both packages are public, so neither pull
+    # needs credentials.
+    image: ghcr.io/felzab/frankfurtleague-frontend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
+    # Above the package's file, which Compose ranks below `environment`
+    # (https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/): with
+    # another name there, the server would boot as a stack that mails no one and demands none of
+    # production's files. The local stack's override names its own.
+    environment:
+      APP_ENV: production
     # Past a request's bound and the 30-second work behind its answer, both of which Next's server waits
     # out on a stop: killed sooner, a write or a mail already sent answers as a dropped connection. The
     # Postausgang's drain behind an answer has no such bound: a stop cuts it here, and the rows it held go
@@ -93,7 +99,7 @@ services:
   backend:
     # The frontend's reason.
     env_file: ./fl_backend/.env
-    image: ghcr.io/felzab/frankfurtleague-backend:latest
+    image: ghcr.io/felzab/frankfurtleague-backend:${TAG:?deploy through scripts/ops/deploy.sh, which sets TAG}
     restart: unless-stopped
     # Past uvicorn's own graceful wait (`fl_backend/Dockerfile :: CMD`), which the engine's 10 s
     # default falls short of: killed sooner, a request still inside its bound sends no abort.

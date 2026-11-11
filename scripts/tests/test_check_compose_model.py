@@ -276,7 +276,7 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, **joined(EDGE, APP)}
-    frontend = env_file("fl_frontend/.env") | joined(APP)
+    frontend = {"environment": env_file("fl_frontend/.env")["environment"] | {"APP_ENV": stack_name}} | joined(APP)
     backend = env_file("fl_backend/.env") | joined(APP)
     # The local stack's database, which its logins name.
     database = {"mongo": joined(APP)} if stack_name == "local" else {}
@@ -346,6 +346,19 @@ def test_main_judges_the_environment_files_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: backend reads the environment files" in said, said
+
+
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_a_frontend_under_another_deployment_name_or_none_fails(stack: str):
+    """Compose ranks `environment` above the package's file, so the name the compose file writes is the one that boots."""
+    project = new_root("fl-compose-deployment-")
+    rendered = rendered_stack(project, "nginx/local" if stack == "local" else "nginx/prod")
+
+    assert checker.deployment_name(rendered, "s", stack) == []
+    for said in ("local" if stack == "production" else "production", None):
+        environment = rendered["services"]["frontend"]["environment"] | {"APP_ENV": said}
+        changed = model(**rendered["services"] | {"frontend": {"environment": {k: v for k, v in environment.items() if v is not None}}})
+        assert len(checker.deployment_name(changed, "s", stack)) == 1, said
 
 
 # --- the environment files each application service reads ---------------------------------------------

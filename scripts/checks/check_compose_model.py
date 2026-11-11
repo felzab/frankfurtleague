@@ -829,6 +829,28 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     return findings
 
 
+# The frontend's deployment name on each stack, which decides whether it mails anyone and which files
+# its boot demands (`fl_frontend/src/core/config.ts`): booted under another, it refuses nothing.
+DEPLOYMENT_NAMES: Final = {"production": "production", "local": "local"}
+
+
+def deployment_name(model: dict[str, Any], name: str, stack: str) -> list[Finding]:
+    """The frontend's `APP_ENV` is the stack's own, written in the compose file above the package's environment file."""
+    environment = (services(model, name).get("frontend") or {}).get("environment") or {}
+    if not isinstance(environment, dict):
+        raise ValueError(f"{name}: frontend has an environment Compose did not render as a mapping, so this is not its rendered model")
+    expected = DEPLOYMENT_NAMES[stack]
+    if environment.get("APP_ENV") == expected:
+        return []
+    return [
+        Finding(
+            "fail",
+            f"{name}: the frontend runs as APP_ENV {environment.get('APP_ENV')!r}, not {expected!r}\n"
+            f"{CONTINUATION}its boot then demands another stack's files and mails as that stack does",
+        )
+    ]
+
+
 # Each application service's environment file, relative to the checkout.
 ENV_FILES: Final = {"frontend": "fl_frontend/.env", "backend": "fl_backend/.env"}
 # The prefix of the name each of the gate's stand-in environment files carries, a name of its own
@@ -876,6 +898,7 @@ def main() -> int:
         local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
+        findings += deployment_name(prod_model, "production", "production") + deployment_name(local_model, "local", "local")
         findings += networks(prod_model, "production") + networks(local_model, "local")
         findings += privileges(prod_model, "production") + privileges(local_model, "local")
         findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
@@ -903,6 +926,7 @@ def main() -> int:
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone")
         print("      each application service reads its package's environment file alone")
+        print("      each stack's frontend runs under that stack's own deployment name")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's three")
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
