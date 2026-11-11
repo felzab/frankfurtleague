@@ -3460,13 +3460,13 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  *
  * The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
  * to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
- * those, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A
- * club's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass
- * that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
- * counting it as that club's agreement.
+ * those, a row whose fixture has kicked off, or reached its day where it holds no time, closes `spiel_past`, so
+ * nobody answers about a match already started. A club's decline closed `discarded` is closed again for each of
+ * those but a move and a referee change, in the pass that closes an agreement beside it, and once the slot it was
+ * about has kicked off: the public fixture then stops counting it as that club's agreement.
  *
  * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
- * about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
+ * about a slot not yet kicked off: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
  * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
  * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
  * as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
@@ -3562,15 +3562,15 @@ export const getSpielbestaetigungenPostSchiedsrichterAnswerUrl = (spielbestaetig
  * The first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee
  * null and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so
  * booking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at
- * the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
- * carries.
+ * the season's end. Answering is open until the fixture's kick-off, or its day where it holds no time, whatever
+ * deadline a club's row of the same fixture carries.
  *
  * Refuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no
  * row of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row
  * already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
  * (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
  * time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
- * fixture whose day has gone by (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
+ * fixture whose kick-off has come (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
  * before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
  *
  * **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
@@ -3664,7 +3664,7 @@ export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetig
  * IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
  * answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
  * counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
- * agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
+ * agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
  * address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
  * declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
  * while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of

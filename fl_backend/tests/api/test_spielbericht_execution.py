@@ -780,7 +780,7 @@ class TestTheOverviewFindsEveryReportAwaitingTheAdministrator:
                     teams_collection=database[Collection.TEAMS],
                     spielorte_collection=database[Collection.SPIELORTE],
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    today=TODAY,
+                    now=NOW,
                 )
                 reports = [row for card in overview.cards for row in card.rows if isinstance(row, FLOverviewSpielberichtRow)]
                 return {row.spiel.id for row in reports}, [(row.spiel.id, row.state) for row in reports]

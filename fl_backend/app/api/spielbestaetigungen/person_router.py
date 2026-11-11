@@ -1,4 +1,5 @@
 from collections.abc import Iterable, Mapping
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -38,6 +39,7 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spiele.crud import pull_booked_slots, pull_saison_membership, pull_spieltag_span
 from app.api.spiele.schemas import FLSpiel
 from app.api.spiele.services import find_claims_made, find_clash_refusal, find_eligibility_refusal, find_spiel_date_refusal
+from app.core import clock
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, refuse
 from app.core.dependencies import (
@@ -48,7 +50,7 @@ from app.core.dependencies import (
     SpieleCollection,
     SpieleReadCollection,
     SpieltageReadCollection,
-    get_german_date_str,
+    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
@@ -96,7 +98,7 @@ async def post_schiedsrichter_answer(
     saisons_collection: SaisonsCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
     """
     Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
@@ -104,20 +106,22 @@ async def post_schiedsrichter_answer(
     The first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee
     null and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so
     booking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at
-    the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
-    carries.
+    the season's end. Answering is open until the fixture's kick-off, or its day where it holds no time, whatever
+    deadline a club's row of the same fixture carries.
 
     Refuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no
     row of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row
     already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
     (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
     time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
-    fixture whose day has gone by (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
+    fixture whose kick-off has come (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
     before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
     on the public fixture, and a decline takes it off.
     """
+
+    today = clock.german_day(now)
 
     async def answer(session: AsyncClientSession) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -152,7 +156,7 @@ async def post_schiedsrichter_answer(
         )
         # One snapshot with the row, and the fixture is removed with its rows in one transaction.
         assert ansetzung_state is not None
-        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, today=today))
+        refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now))
 
         try:
             await patch_one_in_db(
@@ -204,7 +208,7 @@ async def post_schiedsrichter_answer(
             )
             # An undraw removing the fixture deletes this row in its transaction, a write conflict while this one holds it.
             assert current is not None
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
 
         return FLSpielbestaetigungSchiedsrichterAnswerResponse(spielbestaetigung_id=spielbestaetigung_id, state=answer_data.answer)
 
@@ -227,7 +231,7 @@ async def post_team_answer(
     spieltage_collection: SpieltageReadCollection,
     records: SubjectLookup,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpielbestaetigungAnswerResponse:
     """
     Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
@@ -249,6 +253,7 @@ async def post_team_answer(
     than letting it stand.
     """
 
+    today = clock.german_day(now)
     vorschlag = (
         None
         if answer_data.vorschlag is None
@@ -279,7 +284,7 @@ async def post_team_answer(
         async def judge(current: AnsetzungState, reads: AsyncClientSession | None) -> None:
             """Every refusal after the seat's, over this Ansetzung and reads under `reads`: asked in the transaction, then again outside it."""
 
-            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, today=today))
+            refuse(find_unanswerable_refusal(spielbestaetigung_raw=row, ansetzung_state=current, now=now))
 
             if vorschlag is not None:
                 refuse(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today))

@@ -291,13 +291,13 @@ async def sweep_spielbestaetigungen(
 
     The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
     to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
-    those, a row whose fixture's day is before today closes `spiel_past`, so nobody is asked about a past date. A
-    club's decline closed `discarded` is closed again for each of those but a move and a referee change, in the pass
-    that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
-    counting it as that club's agreement.
+    those, a row whose fixture has kicked off, or reached its day where it holds no time, closes `spiel_past`, so
+    nobody answers about a match already started. A club's decline closed `discarded` is closed again for each of
+    those but a move and a referee change, in the pass that closes an agreement beside it, and once the slot it was
+    about has kicked off: the public fixture then stops counting it as that club's agreement.
 
     A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
-    about a day today or later: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
+    about a slot not yet kicked off: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
     where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
     referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
     as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
@@ -378,19 +378,19 @@ async def sweep_spielbestaetigungen(
             return spiele[row["spiel_id"]]
 
         def reason_of(row: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
-            return reason_to_end(row=row, spiel=spiel_of(row), austritte=austritte, today=today)
+            return reason_to_end(row=row, spiel=spiel_of(row), austritte=austritte, now=now)
 
         reasons: dict[Any, FLSpielbestaetigungClosedReason] = {
             row["_id"]: reason
             for row, reason in batch.judged(rows, reason_of)
             # A move whose new slot the mint asks today is the mint's to close, its request the one mail telling of it.
             if reason is not None
-            and not (reason == "ansetzung_changed" and asked_with_its_move(row=row, spiel=spiel_of(row), austritte=austritte, today=today))
+            and not (reason == "ansetzung_changed" and asked_with_its_move(row=row, spiel=spiel_of(row), austritte=austritte, now=now))
         }
         taken = batch.took([row for row in rows if row["_id"] in reasons][: batch.share])
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="close", saison_id=saison_id)
 
-        owing = [row for row in taken if notice_owed(row=row, reason=reasons[row["_id"]], spiel=spiele[row["spiel_id"]], today=today)]
+        owing = [row for row in taken if notice_owed(row=row, reason=reasons[row["_id"]], spiel=spiele[row["spiel_id"]], now=now)]
         addresses = await _referee_addresses(
             schiedsrichter_collection=schiedsrichter_collection,
             ids=[row["party"]["schiedsrichter_id"] for row in owing if row["party"]["kind"] == "schiedsrichter"],
@@ -517,7 +517,7 @@ async def sweep_spielbestaetigungen(
             spiel = by_id[row["spiel_id"]]
             if row.get("closed") is not None or row["ansetzung"]["digest"] == digests[spiel["_id"]]:
                 continue
-            if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, today=today):
+            if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
                 moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
             else:
                 waiting.add(spiel["_id"])
@@ -530,7 +530,7 @@ async def sweep_spielbestaetigungen(
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
-            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, today=today):
+            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=now):
                 return plan
 
             digest = digests[spiel["_id"]]
@@ -543,7 +543,7 @@ async def sweep_spielbestaetigungen(
                         ({"_id": row["_id"], **build_closable_filter()}, compose_closing_update(reason="ansetzung_changed", today=today))
                     )
                 # The slot the move left, where the party was asked about it and either day is still to come.
-                told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, today=today) else None
+                told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, now=now) else None
                 moved_from = (
                     None
                     if told is None
@@ -707,7 +707,7 @@ async def sweep_spielbestaetigungen(
         def reminder_of(row: Mapping[str, Any]) -> list[OwedMail]:
             spiel = spiele[row["spiel_id"]]
             # A row the close would shut answers no press, so a reminder of it would ask for nothing.
-            if reason_to_close(row=row, spiel=spiel, austritte=austritte, today=today) is not None:
+            if reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now) is not None:
                 return []
 
             return _request(row=row, spiel=spiel, kontakte=junctions[row["party"]["team_id"]].get("kontakte"), kind="spiel_reminder")

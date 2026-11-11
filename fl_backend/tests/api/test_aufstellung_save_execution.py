@@ -486,7 +486,6 @@ class TestAnErasedPupilsEntry:
                 spiele_collection=database[Collection.SPIELE],
                 records=record_collections(database),
                 db=client,
-                today="2026-11-14",
                 now=PLAYED,
             )
 
