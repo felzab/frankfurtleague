@@ -873,7 +873,7 @@ const DESIGN_BANS = [
     { allow: ["src/kit/EditorPage.tsx"] },
   ),
   // A field on a native control loses what a person did before hydration unless its root holds `useEarlyEdit`, so the
-  // file of a new one joins this list having done that (`.claude/rules/frontend.md`), and its field joins the hook's test.
+  // file of a new one joins this list having done that (`src/kit/useEarlyEdit.ts`), and its field joins the hook's test.
   importBan(
     {
       // The package's root is in the list too, since it exports every one of them.
