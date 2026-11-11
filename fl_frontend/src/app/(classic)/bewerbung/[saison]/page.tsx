@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
+import { ConsentLine } from "@/kit/ConsentLine";
 import { MailedPage } from "@/kit/MailedPage";
 
 import { frontend_config } from "@/core/config";
@@ -27,6 +28,9 @@ import type { Metadata, ResolvingMetadata } from "next";
 type Props = PageProps<"/bewerbung/[saison]">;
 
 const SUBMIT = COPY.shared.withObject(COPY.bewerbung.object, "submit");
+
+/** The notice's id, which describes the send: the page holds one form. */
+const NOTICE_ID = "bewerbung-notice";
 
 /**
  * The form's read, `null` for an address naming no season. `cache`, never `"use cache"`: the metadata and the body read
@@ -62,6 +66,18 @@ async function readState(params: Props["params"]): Promise<MailedState> {
     // Off the request's settings, past the read above: a prerendered shell would carry the build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },
     boxes: true,
+    // The sentence the send rests on, beside it in the footer, and read with the send's name.
+    note: (
+      <ConsentLine
+        id={NOTICE_ID}
+        line={[
+          COPY.bewerbung.notice.before,
+          { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice },
+          COPY.bewerbung.notice.after,
+        ]}
+      />
+    ),
+    describedBy: NOTICE_ID,
     children: (
       <BewerbungFields
         schulen={form.schulen}

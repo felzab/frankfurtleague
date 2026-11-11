@@ -13,7 +13,6 @@ import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
 import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 
@@ -118,8 +117,7 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
 }
 
 /**
- * The application's five boxes and the sentence above the send: the school, one per seat with the Trainer first, the
- * team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
+ * The application's five boxes: the school, one per seat with the Trainer first, the team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
  * the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
  * Trainer's box says once the second seat is chosen.
  */
@@ -137,7 +135,6 @@ export function BewerbungFields({
   const [trainerAlso, setTrainerAlso] = useState<string>(NO_SECOND_SEAT);
   // Written as it is typed and read when a box comes back, so no render follows a keystroke.
   const [typed] = useState(() => new Map<string, string>());
-  const noticeLine = useId();
   const coveredLine = useId();
 
   // A long form, entered once, by somebody who has it saved nowhere else. The answer replaces this form, ending the warning.
@@ -269,11 +266,6 @@ export function BewerbungFields({
           free={{ arrow: bewerbung.suggestions, maxLength: maxLength.wunschgegner }}
         />
       </Section>
-
-      <ConsentLine
-        id={noticeLine}
-        line={[bewerbung.notice.before, { href: ROUTES.privacyNotice.path(), label: COPY.page.privacyNotice }, bewerbung.notice.after]}
-      />
     </>
   );
 }
