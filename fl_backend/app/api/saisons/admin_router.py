@@ -54,7 +54,6 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSaisonsAdminListResponse,
     FLSaisonsAdminRefusals,
-    FLSaisonsFilterParams,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
@@ -96,7 +95,6 @@ from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
     anchor_in_db,
-    build_query,
     build_sort,
     delete_many_from_db,
     patch_many_in_db,
@@ -190,7 +188,6 @@ async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    filters: FLSaisonsFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
     """
@@ -205,15 +202,8 @@ async def get_saisons_admin(
     now, by its own judgement, or null.
     """
 
-    db_filter = build_query(filters, terms={"status"})
-    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
-
-    saisons_raw = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
-    )
+    # Oldest first: a season's id is its starting year.
+    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(

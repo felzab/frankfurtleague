@@ -256,20 +256,6 @@ class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
     reportable: bool
 
 
-class FLSpielberichtStateEntry(BaseModel):
-    """One fixture's report as the triage reads it: its state and what it proposes."""
-
-    spiel_id: CustomObjectId
-    state: FLSpielberichtState
-    ergebnis_vorschlag: FLSpielberichtVorschlag
-
-
-class FLSpielberichteSaisonResponse(BaseAPIResponse):
-    """Every report of one season that holds a block, each with its state."""
-
-    spielberichte: list[FLSpielberichtStateEntry]
-
-
 # --- The PUBLIC read: what the match page shows of a report, every pupil through the base tier's mask.
 
 # Which of three things an entry names: a pupil whose consent publishes their name; one whose name is withheld or

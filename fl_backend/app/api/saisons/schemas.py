@@ -26,12 +26,10 @@ from app.core.codes import Code, Rule
 # `teams/services.py` does, and no model there.
 from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
-from app.shared.schemas.bounds import KADER_SIZE_MAX, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
+from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-
-type FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -275,15 +273,6 @@ class FLSaisonAdminListed(FLSaisonAdmin):
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdminListed])
-
-
-class FLSaisonsFilterParams(BaseModel):
-    # No `saison_id`: this narrows a list, where `GET /saisons/{saison_id}` names one.
-    status: FLSaisonStatus | None = None
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: FLSaisonsSortOptions = Field(default="_id")
-    order: FLSortOrder = Field(default="asc")
 
 
 # The league's FIRST season, the id a create mints where no season is stored. A LITERAL because it is a fact about

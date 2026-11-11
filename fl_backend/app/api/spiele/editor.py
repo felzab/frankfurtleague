@@ -22,8 +22,8 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.admin_router import get_spielbestaetigungen
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungenFilterParams
+from app.api.spielbestaetigungen.crud import pull_admin_rows
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -38,7 +38,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -166,7 +166,7 @@ async def _teams_of(
         pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
-            limit=LIST_LIMIT_MAX,
+            limit=LIST_LIMIT_DEFAULT,
             sort_by=[("name", 1)],
             projection=["team_id", "shorthand"],
             collation=GERMAN_COLLATION,
@@ -283,7 +283,7 @@ async def read_spiel_editor(
             pull_many_from_db(
                 collection=spielorte_collection,
                 db_filter=_offered(booked_spielort),
-                limit=LIST_LIMIT_MAX,
+                limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_mietpreis", "inactive_since"],
                 collation=GERMAN_COLLATION,
@@ -292,7 +292,7 @@ async def read_spiel_editor(
                 collection=schiedsrichter_collection,
                 # Never the ghost, whom no fixture is booked onto anew and who has no name to offer.
                 db_filter={**_offered(gebuchter_schiedsrichter), "_id": {"$ne": GHOST_SCHIEDSRICHTER_ID}},
-                limit=LIST_LIMIT_MAX,
+                limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
                 collation=GERMAN_COLLATION,
@@ -308,10 +308,11 @@ async def read_spiel_editor(
                 spieler_collection=spieler_collection,
                 spielberichte_collection=spielberichte_collection,
             ),
-            # The confirmations' own reader, so a row reaches the editor as their list serves it.
-            get_spielbestaetigungen(
+            # The administrator's read of confirmation rows, so no seat's address reaches the editor.
+            pull_admin_rows(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
-                filters=FLSpielbestaetigungenFilterParams(saison_id=spiel.saison_id, spiel_id=spiel_id, limit=LIST_LIMIT_MAX),
+                db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
+                limit=LIST_LIMIT_DEFAULT,
             ),
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection),
@@ -329,6 +330,6 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=confirmations.spielbestaetigungen,
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations[0]],
         aufstellungen=aufstellungen,
     )

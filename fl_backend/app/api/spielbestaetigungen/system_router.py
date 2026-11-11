@@ -87,7 +87,7 @@ from app.core.dependencies import (
 )
 from app.core.security import verify_access_system
 from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
@@ -125,7 +125,7 @@ async def _spiele(
             spiele_collection=spiele_collection,
             db_filter={"saison_id": saison_id, "_id": {"$in": wanted}},
             projection=JUDGED_SPIEL_FIELDS,
-            limit=LIST_LIMIT_MAX,
+            limit=LIST_LIMIT_DEFAULT,
             session=session,
         ),
         "_id",
@@ -146,7 +146,7 @@ async def _junctions(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": wanted}},
             projection=["team_id", "name", "kontakte", "austritt"],
-            limit=LIST_LIMIT_MAX,
+            limit=LIST_LIMIT_DEFAULT,
             session=session,
         ),
         "team_id",
@@ -172,7 +172,7 @@ async def _referee_addresses(
         collection=schiedsrichter_collection,
         db_filter={"_id": {"$in": wanted}},
         projection=["kontakt.email"],
-        limit=LIST_LIMIT_MAX,
+        limit=LIST_LIMIT_DEFAULT,
         session=session,
     )
 
@@ -260,7 +260,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
         db_filter={"status": "active"},
         projection=["_id"],
         sort_by=[("_id", ASCENDING)],
-        limit=LIST_LIMIT_MAX,
+        limit=LIST_LIMIT_DEFAULT,
     )
 
     return FLSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
@@ -764,7 +764,7 @@ async def sweep_spielbestaetigungen(
                 collection=aufstellungen_collection,
                 db_filter={"spiel_id": {"$in": list(by_id)}},
                 projection=["spiel_id", "team_id", "spieler"],
-                limit=LIST_LIMIT_MAX,
+                limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
             if aufstellung_stands(row, date=by_id[row["spiel_id"]]["date"], time=by_id[row["spiel_id"]]["time"], now=now)

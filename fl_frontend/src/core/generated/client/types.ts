@@ -5092,23 +5092,6 @@ export interface FLSpielberichtSchiedsrichterResponse {
 }
 
 /**
- * One fixture's report as the triage reads it: its state and what it proposes.
- */
-export interface FLSpielberichtStateEntry {
-  ergebnis_vorschlag: FLSpielberichtVorschlag;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  state: FLSpielberichtState;
-}
-
-/**
- * Every report of one season that holds a block, each with its state.
- */
-export interface FLSpielberichteSaisonResponse {
-  spielberichte: FLSpielberichtStateEntry[];
-}
-
-/**
  * The Ansetzung a row answers about: every input of `digest`, stored beside it.
  *
  * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
@@ -5300,14 +5283,6 @@ export interface FLSpielbestaetigungViewAnsetzung {
   team2_name: string;
   /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
   time: string;
-}
-
-/**
- * The rows newest first, closed ones included.
- */
-export interface FLSpielbestaetigungenListResponse {
-  complete: boolean;
-  spielbestaetigungen: FLSpielbestaetigung[];
 }
 
 /**
@@ -5609,10 +5584,6 @@ export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   version: number;
-}
-
-export interface FLSpieltageListResponse {
-  spieltage: FLSpieltag[];
 }
 
 export interface FLSpieltageSingleResponse {
@@ -6262,79 +6233,10 @@ export type IdentitySweepErasureParams = {
 
 export type RegistrierungenGetRegistrierungenAdminParams = {
   saison_id: string;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
-
-export type SaisonsGetSaisonsAdminParams = {
-  status?: FLSaisonStatus | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SaisonsGetSaisonsAdminSortBy;
-  order?: SaisonsGetSaisonsAdminOrder;
-};
-
-export type SaisonsGetSaisonsAdminSortBy = (typeof SaisonsGetSaisonsAdminSortBy)[keyof typeof SaisonsGetSaisonsAdminSortBy];
-
-export const SaisonsGetSaisonsAdminSortBy = {
-  _id: "_id",
-  start_date: "start_date",
-  end_date: "end_date",
-} as const;
-
-export type SaisonsGetSaisonsAdminOrder = (typeof SaisonsGetSaisonsAdminOrder)[keyof typeof SaisonsGetSaisonsAdminOrder];
-
-export const SaisonsGetSaisonsAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type SchiedsrichterGetSchiedsrichterParams = {
-  default_payment?: number | null;
   include_inactive?: boolean;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SchiedsrichterGetSchiedsrichterSortBy;
-  order?: SchiedsrichterGetSchiedsrichterOrder;
-};
-
-export type SchiedsrichterGetSchiedsrichterSortBy =
-  (typeof SchiedsrichterGetSchiedsrichterSortBy)[keyof typeof SchiedsrichterGetSchiedsrichterSortBy];
-
-export const SchiedsrichterGetSchiedsrichterSortBy = {
-  name: "name",
-  default_payment: "default_payment",
-} as const;
-
-export type SchiedsrichterGetSchiedsrichterOrder =
-  (typeof SchiedsrichterGetSchiedsrichterOrder)[keyof typeof SchiedsrichterGetSchiedsrichterOrder];
-
-export const SchiedsrichterGetSchiedsrichterOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
-export type SpielberichteGetSpielberichteParams = {
-  saison_id?: string | null;
-};
-
-export type SpielbestaetigungenGetSpielbestaetigungenParams = {
-  saison_id: string;
-  spiel_id?: string | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
 };
 
 export type SpieleGetSpieleSpielplanParams = {
@@ -6361,48 +6263,7 @@ export type SpielerGetSpielerAdminParams = {
 
 export type SpielorteGetSpielorteParams = {
   include_inactive?: boolean;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: "name";
-  order?: SpielorteGetSpielorteOrder;
 };
-
-export type SpielorteGetSpielorteOrder = (typeof SpielorteGetSpielorteOrder)[keyof typeof SpielorteGetSpielorteOrder];
-
-export const SpielorteGetSpielorteOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
-
-export type SpieltageGetSpieltageAdminParams = {
-  saison_id?: string | null;
-  saison_phase?: "playoffs" | FLSaisonPhase | null;
-  /**
-   * @minimum 1
-   * @maximum 1024
-   */
-  limit?: number;
-  sort_by?: SpieltageGetSpieltageAdminSortBy;
-  order?: SpieltageGetSpieltageAdminOrder;
-};
-
-export type SpieltageGetSpieltageAdminSortBy = (typeof SpieltageGetSpieltageAdminSortBy)[keyof typeof SpieltageGetSpieltageAdminSortBy];
-
-export const SpieltageGetSpieltageAdminSortBy = {
-  natural: "natural",
-  start: "start",
-  end: "end",
-} as const;
-
-export type SpieltageGetSpieltageAdminOrder = (typeof SpieltageGetSpieltageAdminOrder)[keyof typeof SpieltageGetSpieltageAdminOrder];
-
-export const SpieltageGetSpieltageAdminOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type TeamsGetTeamsAdminParams = {
   saison_id: string;

@@ -144,9 +144,6 @@ ADMIN_READS = [
     ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
     ("/api/v0/bewerbungen/list/admin", "get"),
     ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
-    # Every confirmation row of a season, each reason a club typed or an administrator recorded among them: free text
-    # that may name anyone, which no base-tier read serves.
-    ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
     ("/api/v0/identity/erasure/view", "post"),
@@ -172,8 +169,6 @@ ADMIN_READS = [
     # A report's remarks and card reasons, which only the booked referee reads; the squads beside them carry every
     # surname whole.
     ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
-    # Every report's proposed result, which the public result never serves.
-    ("/api/v0/spielberichte", "get"),
     # A line-up's read serves the squad to pick from with every surname whole, to the club's seats and to an
     # administrator: past the initial `READ-PUPIL-001` keeps for a visitor.
     ("/api/v0/aufstellungen/{spiel_id}/{team_id}", "get"),

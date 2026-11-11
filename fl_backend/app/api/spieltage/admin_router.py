@@ -7,31 +7,24 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLSpieltagAdmin,
     FLSpieltagAdminResponse,
-    FLSpieltageFilterParams,
-    FLSpieltageListResponse,
-    FLSpieltagListAdapter,
     FLSpieltagRecord,
     FLSpieltagWriteResponse,
 )
 from app.api.spieltage.services import (
-    build_spieltage_filter,
-    build_spieltage_sort,
     dated_neighbour,
     dated_start,
     find_spieltag_order_refusal,
     find_spieltag_span_refusal,
-    order_spieltage,
     with_expected_matches,
 )
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -50,46 +43,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieltage",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
-# whose only separation from this path is the `objectid` convertor.
-@router.get(
-    "/list/admin",
-    response_model=FLSpieltageListResponse,
-    summary="Spieltage for the admin surfaces",
-)
-async def get_spieltage_admin(
-    spieltage_collection: SpieltageReadCollection,
-    saisons_collection: SaisonsReadCollection,
-    filters: FLSpieltageFilterParams = Depends(),
-) -> FLSpieltageListResponse:
-    """
-    List a season's matchdays for the admin surfaces, a `future` season's included.
-
-    No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
-    list is for.
-    """
-
-    # Resolved without the public gate: refusing the planned season is the one thing this must not do.
-    filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    spieltage_raw = await pull_many_from_db(
-        collection=spieltage_collection,
-        db_filter=build_spieltage_filter(filters=filters),
-        limit=filters.limit,
-        sort_by=build_spieltage_sort(sort_by=filters.sort_by, order=filters.order),
-    )
-    spieltage = FLSpieltagListAdapter.validate_python([with_expected_matches(raw, rules) for raw in spieltage_raw])
-
-    # After the read: the phase's RANK is on no document, so no Mongo sort can put the phases in the
-    # order they are played.
-    if filters.sort_by == "natural":
-        spieltage = order_spieltage(spieltage)
-        if filters.order == "desc":
-            spieltage.reverse()
-
-    return FLSpieltageListResponse(spieltage=spieltage)
 
 
 # A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the

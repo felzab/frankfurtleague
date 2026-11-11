@@ -146,11 +146,9 @@ import type {
   FLSchiedsrichterSweepResponse,
   FLSeatEinwilligungPayload,
   FLSignInResponse,
-  FLSpielberichteSaisonResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
   FLSpielbestaetigungAnswerResponse,
-  FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungEnterPayload,
   FLSpielbestaetigungSchiedsrichterAnswerPayload,
   FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -168,7 +166,6 @@ import type {
   FLSpielPageResponse,
   FLSpielplanResponse,
   FLSpieltagAdminResponse,
-  FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
   FLSubjectPayload,
@@ -187,15 +184,11 @@ import type {
   FLUndrawSpielplanResponse,
   IdentitySweepErasureParams,
   RegistrierungenGetRegistrierungenAdminParams,
-  SaisonsGetSaisonsAdminParams,
   SchiedsrichterGetSchiedsrichterParams,
-  SpielberichteGetSpielberichteParams,
-  SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleSpielplanParams,
   SpielePatchSpielParams,
   SpielerGetSpielerAdminParams,
   SpielorteGetSpielorteParams,
-  SpieltageGetSpieltageAdminParams,
   TeamsGetTeamParams,
   TeamsGetTeamsAdminParams,
 } from "./types.ts";
@@ -2400,10 +2393,8 @@ export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTrans
   });
 };
 
-export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`;
+export const getSaisonsGetSaisonsAdminUrl = () => {
+  return `/api/v0/saisons/list/admin`;
 };
 
 /**
@@ -2418,11 +2409,8 @@ export const getSaisonsGetSaisonsAdminUrl = (params?: SaisonsGetSaisonsAdminPara
  * now, by its own judgement, or null.
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsAdmin = async (
-  params?: SaisonsGetSaisonsAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonsAdminListResponse> => {
-  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(params), {
+export const saisonsGetSaisonsAdmin = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonsAdminListResponse> => {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsAdminUrl(), {
     ...options,
     method: "GET",
   });
@@ -3277,30 +3265,6 @@ export const schiedsrichterReactivateSchiedsrichter = async (
   });
 };
 
-export const getSpielberichteGetSpielberichteUrl = (params?: SpielberichteGetSpielberichteParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spielberichte?${stringifiedParams}` : `/api/v0/spielberichte`;
-};
-
-/**
- * Every report of one season holding a block, each with its state against its fixture and what it proposes.
- *
- * What the season editor counts before an undraw or a replace, which a submitted report refuses
- * (`spielplan_berichte_submitted`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
- * season is active.
- * @summary Every report of a season and the state it reads in
- */
-export const spielberichteGetSpielberichte = async (
-  params?: SpielberichteGetSpielberichteParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichteSaisonResponse> => {
-  return adminKeyTransport<FLSpielberichteSaisonResponse>(getSpielberichteGetSpielberichteUrl(params), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
   return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
 };
@@ -3384,30 +3348,6 @@ export const spielberichtePutSpielberichtBericht = async (
     method: "PUT",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSpielberichtPayload),
-  });
-};
-
-export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: SpielbestaetigungenGetSpielbestaetigungenParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spielbestaetigungen?${stringifiedParams}` : `/api/v0/spielbestaetigungen`;
-};
-
-/**
- * Every confirmation row of the season, or of its one fixture.
- *
- * Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
- * served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
- * document has answers no rows rather than 404.
- * @summary A season's fixture confirmations, or one fixture's
- */
-export const spielbestaetigungenGetSpielbestaetigungen = async (
-  params: SpielbestaetigungenGetSpielbestaetigungenParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungenListResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungenListResponse>(getSpielbestaetigungenGetSpielbestaetigungenUrl(params), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -4287,29 +4227,6 @@ export const spielorteReactivateSpielort = async (spielortId: string, options?: 
   return adminKeyTransport<void>(getSpielorteReactivateSpielortUrl(spielortId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSpieltageGetSpieltageAdminUrl = (params?: SpieltageGetSpieltageAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/admin?${stringifiedParams}` : `/api/v0/spieltage/list/admin`;
-};
-
-/**
- * List a season's matchdays for the admin surfaces, a `future` season's included.
- *
- * No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
- * list is for.
- * @summary Spieltage for the admin surfaces
- */
-export const spieltageGetSpieltageAdmin = async (
-  params?: SpieltageGetSpieltageAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpieltageListResponse> => {
-  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageAdminUrl(params), {
-    ...options,
-    method: "GET",
   });
 };
 

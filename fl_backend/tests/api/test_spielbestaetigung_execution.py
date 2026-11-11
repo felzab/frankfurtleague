@@ -22,13 +22,11 @@ from app.api.spielbestaetigungen.admin_router import (
     adopt_spielbestaetigung,
     discard_spielbestaetigung,
     enter_spielbestaetigung,
-    get_spielbestaetigungen,
 )
+from app.api.spielbestaetigungen.crud import pull_admin_rows
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
-    FLSpielbestaetigungenFilterParams,
-    FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungEnterPayload,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -544,12 +542,11 @@ async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id:
     )
 
 
-async def read_admin_rows(
-    database: AsyncDatabase, *, spiel_id: ObjectId | None = None, spielbestaetigungen: Any = None, limit: int = LIST_LIMIT_DEFAULT
-) -> FLSpielbestaetigungenListResponse:
-    return await get_spielbestaetigungen(
-        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
+async def read_admin_rows(database: AsyncDatabase, *, limit: int = LIST_LIMIT_DEFAULT) -> tuple[list[Mapping[str, Any]], bool]:
+    """The season's rows as the administrator's read takes them, newest first, and whether the cut left none out."""
+
+    return await pull_admin_rows(
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN], db_filter={"saison_id": SAISON_ID}, limit=limit
     )
 
 
@@ -803,12 +800,12 @@ class TestWhatTheAdministratorsReadServes:
         overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2126-04-30"}
         rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
 
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], bool]:
             return await read_admin_rows(database, limit=2)
 
-        served = on_a_spiel(mongo_replica_set_url, body, rows=rows)
+        served, complete = on_a_spiel(mongo_replica_set_url, body, rows=rows)
 
-        assert ([row.id for row in served.spielbestaetigungen], served.complete) == (
+        assert ([row["_id"] for row in served], complete) == (
             [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
             False,
         )

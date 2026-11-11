@@ -29,14 +29,11 @@ import type {
 } from "@/core/generated/client/types";
 
 /**
- * Every season, the planned ones every base-tier read withholds included, oldest first by id, the order named rather
- * than read off the list's default. A club is entered into a season only while it is still planned, so an admin
- * surface that cannot see one cannot run the league.
+ * Every season, the planned ones every base-tier read withholds included, oldest first by id. A club is entered into a
+ * season only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
-export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> =>
-  runAdminRead(() => saisonsGetSaisonsAdmin({ sort_by: "_id", order: "asc" })),
-);
+export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsAdmin()));
 
 /**
  * What the season editor shows, in its one read: the season, its clubs graded as its swap and replacement judge them,

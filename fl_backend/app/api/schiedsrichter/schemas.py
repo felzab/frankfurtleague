@@ -8,7 +8,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungSchiedsrichte
 from app.api.spiele.schemas import FLSpielortFieldPublic
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
+from app.shared.schemas.bounds import SCHIEDSRICHTER_SCHULE_MAX_LENGTH
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -22,7 +22,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLEinwilligungScope, FLSortOrder
+from app.shared.schemas.literals import FLEinwilligungScope
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
@@ -133,12 +133,7 @@ FLSchiedsrichterListAdapter = TypeAdapter(list[FLSchiedsrichter])
 
 
 class FLSchiedsrichterFilterParams(BaseModel):
-    default_payment: int | None = None
     include_inactive: bool = False
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["name", "default_payment"] = Field(default="name")
-    order: FLSortOrder = Field(default="asc")
 
 
 class FLSchiedsrichterListResponse(BaseAPIResponse):

@@ -1445,16 +1445,8 @@ export const RegistrierungenGetOpenRegistrierungenParams = zod.object({
  * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
  * @summary One Saison's pending Registrierungen for its list
  */
-export const registrierungenGetRegistrierungenAdminQueryLimitDefault = 1024;
-export const registrierungenGetRegistrierungenAdminQueryLimitMax = 1024;
-
 export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
   saison_id: zod.string(),
-  limit: zod
-    .int()
-    .min(1)
-    .max(registrierungenGetRegistrierungenAdminQueryLimitMax)
-    .default(registrierungenGetRegistrierungenAdminQueryLimitDefault),
 });
 
 /**
@@ -1559,31 +1551,6 @@ export const saisonsPostSaisonBodyStartDateRegExp = new RegExp("^[0-9]{4}-(0[1-9
 export const SaisonsPostSaisonBody = zod.object({
   end_date: zod.string().regex(saisonsPostSaisonBodyEndDateRegExp),
   start_date: zod.string().regex(saisonsPostSaisonBodyStartDateRegExp),
-});
-
-/**
- * List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.
- *
- * The admin surfaces read here because a season is created `future` and clubs are entered while it
- * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
- * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
- * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
- * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
- * now, by its own judgement, or null.
- * @summary Every Saison for the admin surfaces
- */
-export const saisonsGetSaisonsAdminQueryLimitDefault = 1024;
-export const saisonsGetSaisonsAdminQueryLimitMax = 1024;
-
-export const saisonsGetSaisonsAdminQuerySortByDefault = `_id`;
-export const saisonsGetSaisonsAdminQueryOrderDefault = `asc`;
-
-export const SaisonsGetSaisonsAdminQueryParams = zod.object({
-  status: zod.union([zod.enum(["past", "active", "future"]), zod.null()]).optional(),
-  limit: zod.int().min(1).max(saisonsGetSaisonsAdminQueryLimitMax).default(saisonsGetSaisonsAdminQueryLimitDefault),
-  sort_by: zod.enum(["_id", "start_date", "end_date"]).default(saisonsGetSaisonsAdminQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(saisonsGetSaisonsAdminQueryOrderDefault),
 });
 
 /**
@@ -1930,18 +1897,9 @@ export const SaisonsGetTeamParams = zod.object({
  * @summary List Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterQueryIncludeInactiveDefault = false;
-export const schiedsrichterGetSchiedsrichterQueryLimitDefault = 1024;
-export const schiedsrichterGetSchiedsrichterQueryLimitMax = 1024;
-
-export const schiedsrichterGetSchiedsrichterQuerySortByDefault = `name`;
-export const schiedsrichterGetSchiedsrichterQueryOrderDefault = `asc`;
 
 export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
-  default_payment: zod.union([zod.int(), zod.null()]).optional(),
   include_inactive: zod.boolean().default(schiedsrichterGetSchiedsrichterQueryIncludeInactiveDefault),
-  limit: zod.int().min(1).max(schiedsrichterGetSchiedsrichterQueryLimitMax).default(schiedsrichterGetSchiedsrichterQueryLimitDefault),
-  sort_by: zod.enum(["name", "default_payment"]).default(schiedsrichterGetSchiedsrichterQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(schiedsrichterGetSchiedsrichterQueryOrderDefault),
 });
 
 /**
@@ -2247,18 +2205,6 @@ export const SchiedsrichterReactivateSchiedsrichterParams = zod.object({
 });
 
 /**
- * Every report of one season holding a block, each with its state against its fixture and what it proposes.
- *
- * What the season editor counts before an undraw or a replace, which a submitted report refuses
- * (`spielplan_berichte_submitted`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
- * season is active.
- * @summary Every report of a season and the state it reads in
- */
-export const SpielberichteGetSpielberichteQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-});
-
-/**
  * What the booked referee's report form reads.
  *
  * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
@@ -2383,28 +2329,6 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
     version: zod.union([zod.int().min(spielberichtePutSpielberichtBerichtBodyVersionOneMin), zod.null()]),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT.");
-
-/**
- * Every confirmation row of the season, or of its one fixture.
- *
- * Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
- * served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
- * document has answers no rows rather than 404.
- * @summary A season's fixture confirmations, or one fixture's
- */
-export const spielbestaetigungenGetSpielbestaetigungenQuerySpielIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielbestaetigungenGetSpielbestaetigungenQueryLimitDefault = 1024;
-export const spielbestaetigungenGetSpielbestaetigungenQueryLimitMax = 1024;
-
-export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
-  saison_id: zod.string(),
-  spiel_id: zod.union([zod.string().regex(spielbestaetigungenGetSpielbestaetigungenQuerySpielIdOneRegExp), zod.null()]).optional(),
-  limit: zod
-    .int()
-    .min(1)
-    .max(spielbestaetigungenGetSpielbestaetigungenQueryLimitMax)
-    .default(spielbestaetigungenGetSpielbestaetigungenQueryLimitDefault),
-});
 
 /**
  * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.
@@ -3108,17 +3032,9 @@ export const SpielerReactivateSaisonSpielerParams = zod.object({
  * @summary List Spielorte
  */
 export const spielorteGetSpielorteQueryIncludeInactiveDefault = false;
-export const spielorteGetSpielorteQueryLimitDefault = 1024;
-export const spielorteGetSpielorteQueryLimitMax = 1024;
-
-export const spielorteGetSpielorteQuerySortByDefault = `name`;
-export const spielorteGetSpielorteQueryOrderDefault = `asc`;
 
 export const SpielorteGetSpielorteQueryParams = zod.object({
   include_inactive: zod.boolean().default(spielorteGetSpielorteQueryIncludeInactiveDefault),
-  limit: zod.int().min(1).max(spielorteGetSpielorteQueryLimitMax).default(spielorteGetSpielorteQueryLimitDefault),
-  sort_by: zod.literal("name").default(spielorteGetSpielorteQuerySortByDefault).meta({ title: "Sort By" }),
-  order: zod.enum(["asc", "desc"]).default(spielorteGetSpielorteQueryOrderDefault),
 });
 
 /**
@@ -3244,29 +3160,6 @@ export const spielorteReactivateSpielortPathSpielortIdRegExp = new RegExp("^[0-9
 
 export const SpielorteReactivateSpielortParams = zod.object({
   spielort_id: zod.string().regex(spielorteReactivateSpielortPathSpielortIdRegExp),
-});
-
-/**
- * List a season's matchdays for the admin surfaces, a `future` season's included.
- *
- * No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
- * list is for.
- * @summary Spieltage for the admin surfaces
- */
-export const spieltageGetSpieltageAdminQueryLimitDefault = 1024;
-export const spieltageGetSpieltageAdminQueryLimitMax = 1024;
-
-export const spieltageGetSpieltageAdminQuerySortByDefault = `natural`;
-export const spieltageGetSpieltageAdminQueryOrderDefault = `asc`;
-
-export const SpieltageGetSpieltageAdminQueryParams = zod.object({
-  saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saison_phase: zod
-    .union([zod.literal("playoffs"), zod.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]), zod.null()])
-    .optional(),
-  limit: zod.int().min(1).max(spieltageGetSpieltageAdminQueryLimitMax).default(spieltageGetSpieltageAdminQueryLimitDefault),
-  sort_by: zod.enum(["natural", "start", "end"]).default(spieltageGetSpieltageAdminQuerySortByDefault),
-  order: zod.enum(["asc", "desc"]).default(spieltageGetSpieltageAdminQueryOrderDefault),
 });
 
 /**

@@ -36,7 +36,7 @@ from app.core.crud import (
     refuse,
 )
 from app.core.readonly import ReadCollection
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLTrikotFarbe
 
@@ -315,7 +315,7 @@ async def _pull_team_fields(
         return []
 
     return await pull_many_from_db(
-        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=fields, limit=LIST_LIMIT_MAX, session=session
+        collection=teams_collection, db_filter={"_id": {"$in": wanted}}, projection=fields, limit=LIST_LIMIT_DEFAULT, session=session
     )
 
 

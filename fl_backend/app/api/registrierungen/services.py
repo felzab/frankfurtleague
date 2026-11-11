@@ -24,7 +24,7 @@ from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     DECLINED_RETENTION_DAYS,
-    LIST_LIMIT_MAX,
+    LIST_LIMIT_DEFAULT,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.literals import FLConfirmationState
@@ -454,7 +454,7 @@ def compose_confirmation_update(
 DECLINED: Final = "declined"
 
 # One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do.
-SWEEP_PAGE: Final = LIST_LIMIT_MAX
+SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
 
 # The consent stamp, at the path a null `einwilligung` and a null stamp both answer: null matches a
 # missing path too, so one term covers both stored shapes.

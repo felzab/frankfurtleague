@@ -38,7 +38,6 @@ from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_r
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
 from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
 from app.api.schiedsrichter.system_router import router as schiedsrichter_system_router
-from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
@@ -97,7 +96,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "saisons": (saisons_public_router, saisons_admin_router, saisons_overview_router),
     "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router, schiedsrichter_system_router),
     "ban_list": (ban_list_admin_router,),
-    "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
+    "spielberichte": (spielberichte_person_router,),
     "spielbestaetigungen": (spielbestaetigungen_admin_router, spielbestaetigungen_person_router, spielbestaetigungen_system_router),
     "spiele": (spiele_public_router, spiele_admin_router),
     "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),

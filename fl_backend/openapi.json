@@ -13895,29 +13895,6 @@
         ],
         "type": "string"
       },
-      "FLSpielberichtStateEntry": {
-        "description": "One fixture's report as the triage reads it: its state and what it proposes.",
-        "properties": {
-          "ergebnis_vorschlag": {
-            "$ref": "#/components/schemas/FLSpielberichtVorschlag"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "state": {
-            "$ref": "#/components/schemas/FLSpielberichtState"
-          }
-        },
-        "required": [
-          "spiel_id",
-          "state",
-          "ergebnis_vorschlag"
-        ],
-        "title": "FLSpielberichtStateEntry",
-        "type": "object"
-      },
       "FLSpielberichtTeam": {
         "properties": {
           "name": {
@@ -14041,23 +14018,6 @@
           "sonderereignis"
         ],
         "title": "FLSpielberichtVorschlagPayload",
-        "type": "object"
-      },
-      "FLSpielberichteSaisonResponse": {
-        "description": "Every report of one season that holds a block, each with its state.",
-        "properties": {
-          "spielberichte": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielberichtStateEntry"
-            },
-            "title": "Spielberichte",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielberichte"
-        ],
-        "title": "FLSpielberichteSaisonResponse",
         "type": "object"
       },
       "FLSpielbestaetigung": {
@@ -14655,28 +14615,6 @@
           "time"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungenListResponse": {
-        "description": "The rows newest first, closed ones included.",
-        "properties": {
-          "complete": {
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "spielbestaetigungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigung"
-            },
-            "title": "Spielbestaetigungen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielbestaetigungen",
-          "complete"
-        ],
-        "title": "FLSpielbestaetigungenListResponse",
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
@@ -16132,22 +16070,6 @@
           "version"
         ],
         "title": "FLSpieltagWriteResponse",
-        "type": "object"
-      },
-      "FLSpieltageListResponse": {
-        "properties": {
-          "spieltage": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpieltag"
-            },
-            "title": "Spieltage",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spieltage"
-        ],
-        "title": "FLSpieltageListResponse",
         "type": "object"
       },
       "FLSpieltageSingleResponse": {
@@ -22914,18 +22836,6 @@
               "title": "Saison Id",
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
           }
         ],
         "responses": {
@@ -23462,65 +23372,6 @@
       "get": {
         "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, by its own judgement, or null.",
         "operationId": "saisons_get_saisons_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/FLSaisonStatus"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "_id",
-              "enum": [
-                "_id",
-                "start_date",
-                "end_date"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -24804,68 +24655,12 @@
         "parameters": [
           {
             "in": "query",
-            "name": "default_payment",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Default Payment"
-            }
-          },
-          {
-            "in": "query",
             "name": "include_inactive",
             "required": false,
             "schema": {
               "default": false,
               "title": "Include Inactive",
               "type": "boolean"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "name",
-              "enum": [
-                "name",
-                "default_payment"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
             }
           }
         ],
@@ -25920,91 +25715,6 @@
         ]
       }
     },
-    "/api/v0/spielberichte": {
-      "get": {
-        "description": "Every report of one season holding a block, each with its state against its fixture and what it proposes.\n\nWhat the season editor counts before an undraw or a replace, which a submitted report refuses\n(`spielplan_berichte_submitted`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no\nseason is active.",
-        "operationId": "spielberichte_get_spielberichte",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielberichteSaisonResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Every report of a season and the state it reads in",
-        "tags": [
-          "spielberichte"
-        ]
-      }
-    },
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
         "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks included, or null.\n\n`reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it\nholds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose\npage says why it takes no report, with both squads empty: the pupils the stored report names are then all in\n`named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads\nempty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee\nrecord, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a\nfixture that does not exist.",
@@ -26178,113 +25888,6 @@
         "summary": "Write one fixture's report as its referee",
         "tags": [
           "spielberichte"
-        ]
-      }
-    },
-    "/api/v0/spielbestaetigungen": {
-      "get": {
-        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's address is served. Every row still holding its party's question is\nserved; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no\ndocument has answers no rows rather than 404.",
-        "operationId": "spielbestaetigungen_get_spielbestaetigungen",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "spiel_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "pattern": "^[0-9a-fA-F]{24}$",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Spiel Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungenListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "A season's fixture confirmations, or one fixture's",
-        "tags": [
-          "spielbestaetigungen"
         ]
       }
     },
@@ -28218,43 +27821,6 @@
               "title": "Include Inactive",
               "type": "boolean"
             }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "const": "name",
-              "default": "name",
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -28700,152 +28266,6 @@
         "summary": "Bring a deactivated Spielort back",
         "tags": [
           "spielorte"
-        ]
-      }
-    },
-    "/api/v0/spieltage/list/admin": {
-      "get": {
-        "description": "List a season's matchdays for the admin surfaces, a `future` season's included.\n\nNo season gate: a season's matchdays are drawn while it is planned, and dating them is what this\nlist is for.",
-        "operationId": "spieltage_get_spieltage_admin",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "saison_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Id"
-            }
-          },
-          {
-            "in": "query",
-            "name": "saison_phase",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "const": "playoffs",
-                  "type": "string"
-                },
-                {
-                  "$ref": "#/components/schemas/FLSaisonPhase"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Saison Phase"
-            }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 1024,
-              "maximum": 1024,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort_by",
-            "required": false,
-            "schema": {
-              "default": "natural",
-              "enum": [
-                "natural",
-                "start",
-                "end"
-              ],
-              "title": "Sort By",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "order",
-            "required": false,
-            "schema": {
-              "default": "asc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpieltageListResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "AdminKey": []
-          }
-        ],
-        "summary": "Spieltage for the admin surfaces",
-        "tags": [
-          "spieltage"
         ]
       }
     },

@@ -4,7 +4,7 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_admin, post_saison
-from app.api.saisons.schemas import FIRST_SAISON_RULES, FIRST_SAISON_YEAR, FLPostSaisonPayload, FLSaisonsFilterParams
+from app.api.saisons.schemas import FIRST_SAISON_RULES, FIRST_SAISON_YEAR, FLPostSaisonPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -34,7 +34,6 @@ async def _listed(database: AsyncDatabase) -> Any:
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        filters=FLSaisonsFilterParams(),
         today=TODAY,
     )
 

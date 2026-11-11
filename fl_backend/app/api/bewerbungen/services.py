@@ -35,7 +35,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     DECLINED_RETENTION_DAYS,
-    LIST_LIMIT_MAX,
+    LIST_LIMIT_DEFAULT,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
@@ -1310,7 +1310,7 @@ def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
 
 # One read's ceiling, and one past it tells a full page from a truncated one
 # (which the registration sweep keeps the same way).
-SWEEP_PAGE: Final = LIST_LIMIT_MAX
+SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
 
 
 # The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat or a closed chase leaves the read.

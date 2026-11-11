@@ -3,7 +3,6 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.api.spieler.schemas import SQUAD_NUMMER_PATTERN, FLEinwilligung
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.confirmation import CustomToken, FLConfirmation
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -153,8 +152,6 @@ class FLRegistrierungenAdminFilterParams(BaseModel):
     """Which season's pending registrations the list reads, whole up to the cap: its page narrows them."""
 
     saison_id: str
-    # Bounded on both sides for `FLBewerbungenAdminFilterParams.limit`'s reason: a link reaches anybody it is passed to.
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
 
 
 class FLRegistrierungenAdminListResponse(BaseAPIResponse):

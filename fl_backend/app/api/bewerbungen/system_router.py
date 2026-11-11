@@ -65,7 +65,7 @@ from app.core.dependencies import (
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
@@ -126,7 +126,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSwee
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
     seasons = await pull_many_from_db(
-        collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_MAX
+        collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_DEFAULT
     )
 
     return FLSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])

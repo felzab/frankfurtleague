@@ -57,7 +57,7 @@ from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
@@ -131,7 +131,7 @@ async def post_schiedsrichter_answer(
 
         # The active seasons alone: a row of a season ended since is no booking left to answer, its slot the archive's.
         saisons = await pull_many_from_db(
-            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
+            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_DEFAULT, session=session
         )
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one(
