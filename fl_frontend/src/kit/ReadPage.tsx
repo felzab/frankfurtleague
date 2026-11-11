@@ -106,7 +106,7 @@ const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" })
 
 /**
  * The box the page's blocks stand in one under another: the editor's column, or the content's whole width, where a
- * page such as a person's own Übersicht sets its tiles four in a row from `lg` and its matches two in a row.
+ * page such as a person's own Übersicht sets its tiles four in a row and its matches two in a row, each from 42 rem.
  */
 const column = tv({
   variants: { width: { form: formColumn(), content: "grid w-full gap-6" } },
