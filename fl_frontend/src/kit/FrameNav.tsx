@@ -658,7 +658,9 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
             glyph={entry.icon}
             size={18}
           />
-          <span className="max-w-full truncate px-1">{entry.label}</span>
+          {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
+              the words stand centred, so the room their columns leave them parts two labels. */}
+          <span className="max-w-full truncate">{entry.label}</span>
         </NextLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
