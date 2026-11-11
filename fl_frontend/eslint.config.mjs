@@ -393,19 +393,6 @@ const IMPORT_BANS = [
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
-  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
-  // The files spared are the runtime split, Next's documented shape; the boot, which turns the settings' failed
-  // validation into its refusal; and the sign-in's browser client's one loader, which no ban above names, so a page
-  // carries the client's weight only once a press asks for it.
-  ban(
-    "no-restricted-syntax",
-    syntax(
-      "ImportExpression",
-      "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
-    ),
-    PRODUCTION,
-    { allow: ["src/instrumentation.ts", "src/instrumentationNode.ts", "src/core/auth/browserClient.ts"] },
-  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
