@@ -134,17 +134,18 @@ export const RowName = createContext<string | undefined>(undefined);
 
 /**
  * What a server component draws that can leave with the focus on it: a row's acts, or a lone act that goes, as a dialog's
- * trigger giving way to its locked button does. `contents` where the span is to lay nothing out. `describedBy` is the
- * id of the row's name, which each of its buttons is described by (`RowName`).
+ * trigger giving way to its locked button does. `contents` where the wrapper is to lay nothing out. A `div`, since what
+ * it holds may be flow content, a one-shot form's whole footer, and every caller stands it in a flow container.
+ * `describedBy` is the id of the row's name, which each of its buttons is described by (`RowName`).
  */
 export function RowActs({ className, describedBy, children }: { className: string; describedBy?: string; children: ReactNode }) {
-  const acts = useRef<HTMLSpanElement>(null);
+  const acts = useRef<HTMLDivElement>(null);
   useFocusHome(acts);
   return (
-    <span
+    <div
       ref={acts}
       className={className}>
       <RowName value={describedBy}>{children}</RowName>
-    </span>
+    </div>
   );
 }
