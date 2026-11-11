@@ -200,6 +200,13 @@ export const waitWords = (wait: Wait) =>
     ? { span: `${formatNumber(wait.hours)} Stunden`, after: `nach ${formatNumber(wait.hours)} Stunden` }
     : { span: `${formatNumber(wait.days)} Tage`, after: `nach ${formatNumber(wait.days)} Tagen` };
 
+/**
+ * „bis 12.11.2026, 17:54“, „Erst ab 16 Jahren“: words ending on „bis“ or „ab“ and the value it bounds, joined by a
+ * no-break space, so a line never ends on the preposition apart from its value. Every „bis“ and „ab“ before a value in
+ * the catalogue and in `serverCopy.ts` is joined here; one before words, „bis zum Ende“, breaks as any word does.
+ */
+export const boundBy = (lead: string, value: string) => `${lead}\u00A0${value}`;
+
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
@@ -722,11 +729,11 @@ export const COPY = catalogue({
         previous: (until: string | null) =>
           until === null
             ? "wartet auf die Bestätigung deiner bisherigen Adresse."
-            : `wartet bis ${formatInstant(until)} auf die Bestätigung deiner bisherigen Adresse.`,
+            : `wartet ${boundBy("bis", formatInstant(until))} auf die Bestätigung deiner bisherigen Adresse.`,
         new: (until: string | null) =>
-          until === null ? "wartet auf ihre Bestätigung." : `wartet bis ${formatInstant(until)} auf ihre Bestätigung.`,
+          until === null ? "wartet auf ihre Bestätigung." : `wartet ${boundBy("bis", formatInstant(until))} auf ihre Bestätigung.`,
         /** Both addresses have confirmed and the wait runs. */
-        waiting: (moment: string) => `gilt ab ${formatInstant(moment)}.`,
+        waiting: (moment: string) => `gilt ${boundBy("ab", formatInstant(moment))}.`,
       },
       /** The step the change waits on lapsed; the hourly pass ends it. */
       lapsed: "Die Änderung ist abgelaufen.",
@@ -798,7 +805,7 @@ export const COPY = catalogue({
         seat: (rollen: readonly FLKontaktRolle[]) => `Dein Eintrag als ${rollenText(rollen)} und wie wir dich erreichen.`,
       },
       /** Under the media box of a person short of its floor, and a seat's field description on the form, by the seat's floor. */
-      mediaFrom: (age: number) => `Erst ab ${formatNumber(age)} Jahren`,
+      mediaFrom: (age: number) => `Erst ${boundBy("ab", formatNumber(age))} Jahren`,
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
       /**
@@ -866,7 +873,7 @@ export const COPY = catalogue({
         nomineeLocked: (max: number) => `Nur, wenn weniger als ${formatNumber(max)} aufgestellt sind`,
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
-        dueBy: (day: CalendarDay) => `Aufstellung bis ${formatDate(day)}`,
+        dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
         overdueSince: (day: CalendarDay) => `Aufstellung seit ${formatDate(day)} überfällig`,
         /**
          * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
@@ -1050,7 +1057,7 @@ export const COPY = catalogue({
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `An ${address} gesendet`,
       confirmedOn: (day: CalendarDay) => `Bestätigt am ${formatDate(day)}`,
-      openUntil: (day: CalendarDay) => `Offen bis ${formatDate(day)}`,
+      openUntil: (day: CalendarDay) => `Offen ${boundBy("bis", formatDate(day))}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen am ${formatDate(day)}`,
       objectedOn: (day: CalendarDay) => `Widersprochen am ${formatDate(day)}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
@@ -1256,7 +1263,7 @@ export const COPY = catalogue({
       cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
       reason: "Grund",
-      answerBy: (day: CalendarDay) => `Antwort bis ${formatDate(day)}`,
+      answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
       enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",
       /** A save voiding later matches' results, which it asks before. */
@@ -1413,7 +1420,7 @@ export const COPY = catalogue({
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
       /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
       pendingLine: (kind: Copy, address: string | null, moment: string) =>
-        [kind, address, `${EFFECTIVE_FROM} ${formatInstantShort(moment)}`].filter((part) => part !== null).join(" · "),
+        [kind, address, boundBy(EFFECTIVE_FROM, formatInstantShort(moment))].filter((part) => part !== null).join(" · "),
       additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
       removeConsequence: "Der Zugang endet sofort.",
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
@@ -1476,8 +1483,8 @@ export const COPY = catalogue({
         string
       >,
       /** A row's muted line, the moment its step ends: while a link is open, and in the wait. */
-      until: (moment: string) => `bis ${formatInstantShort(moment)}`,
-      from: (moment: string) => `ab ${formatInstantShort(moment)}`,
+      until: (moment: string) => boundBy("bis", formatInstantShort(moment)),
+      from: (moment: string) => boundBy("ab", formatInstantShort(moment)),
       /**
        * A stacked row's muted line, standing for the „Neu“ column a phone leaves out: „Neu: <address> · bis 12.11.,
        * 15:12“, the new address between the two parts, the moment after it where the step has one (`until`, `from`).

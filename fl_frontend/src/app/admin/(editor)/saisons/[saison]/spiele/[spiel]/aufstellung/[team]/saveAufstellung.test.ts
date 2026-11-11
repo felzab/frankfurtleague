@@ -125,7 +125,7 @@ describe("the league's save of a line-up", () => {
     expect(answer).toStrictEqual({
       ok: false,
       errorCode: "aufstellung_nominee_without_shortage",
-      reason: "Nachnominierte füllen nur die Lücke bis 9.",
+      reason: "Nachnominierte füllen nur die Lücke bis\u00A09.",
     });
   });
 

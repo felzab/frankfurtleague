@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
-import { catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
+import { boundBy, catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
 import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Wait, Words } from "./copy";
@@ -184,7 +184,7 @@ export const SERVER_COPY = catalogue({
     /** A line-up's save by a seat once the lock has passed, one naming more nominees than the eleven lack, and one for a fixture holding no day or hour. */
     aufstellung_locked: "Die Aufstellung ist gesperrt.",
     aufstellung_nominee_without_shortage: ({ max }: FLRefusedField["ctx"]) =>
-      typeof max === "number" ? `Nachnominierte füllen nur die Lücke bis ${formatNumber(max)}.` : undefined,
+      typeof max === "number" ? `Nachnominierte füllen nur die Lücke ${boundBy("bis", formatNumber(max))}.` : undefined,
     aufstellung_spiel_undated: "Das Spiel hat noch keinen Termin.",
     // A season's rules and its activation, each a fact the person reads off the season editor itself.
     rules_bracket_impossible: COPY.admin.saison.bracketImpossible,
@@ -559,7 +559,7 @@ export const SERVER_COPY = catalogue({
         },
       },
       /** On what waits. */
-      effectiveFrom: (moment: string) => `Die Änderung gilt ab ${formatInstant(moment)}.`,
+      effectiveFrom: (moment: string) => `Die Änderung gilt ${boundBy("ab", formatInstant(moment))}.`,
       warn: `Stimmt das nicht, melde dich sofort bei der ${ownerTier}.`,
       button: "Zur Verwaltung",
       /** An erased person's address, in the subject's place. */
@@ -639,7 +639,7 @@ export const SERVER_COPY = catalogue({
       waits: (wait: Wait) => `Sie gilt ${waitWords(wait).span} nach deiner Bestätigung.`,
       confirmed: ADDRESS_CONFIRMED,
       /** The done page's title on a change that waits. */
-      confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ab ${formatDateLong(day)}`,
+      confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ${boundBy("ab", formatDateLong(day))}`,
     },
     declined: "Änderung abgelehnt",
   },
@@ -770,7 +770,7 @@ export const SERVER_COPY = catalogue({
       /** The opening match's matchday, before its two plaques. */
       spieltag: COPY.shared.spieltag,
       /** An open window's deadline, on the season card and the steps' band alike. */
-      windowUntil: (until: CalendarDay) => `Bewerbungen bis ${formatDate(until)}`,
+      windowUntil: (until: CalendarDay) => `Bewerbungen ${boundBy("bis", formatDate(until))}`,
       last: "Zuletzt",
       next: "Als Nächstes",
       place: placeName,
@@ -811,7 +811,7 @@ export const SERVER_COPY = catalogue({
     /** The match report's status cards, each a title. */
     schiedsrichter: {
       /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
-      spielberichtFrom: (when: Copy) => `Spielbericht ab ${when}`,
+      spielberichtFrom: (when: Copy) => `Spielbericht ${boundBy("ab", when)}`,
       /** A fixture another referee is booked onto. */
       unbooked: "Nicht mehr eingeteilt",
     },
@@ -969,7 +969,7 @@ export const SERVER_COPY = catalogue({
         names:
           "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         consented: (mediaAge: number) =>
-          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ab ${formatNumber(mediaAge)} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
+          `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ${boundBy("ab", formatNumber(mediaAge))} Jahren, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         never:
           "Nie veröffentlichen wir Kontaktdaten, Geburtsdaten, Registrierungen, Kontaktpersonen, Antworten zu Einwilligungen, die Stufe, Schule und Honorar einer Schiedsrichterin oder eines Schiedsrichters und die Bemerkungen eines Spielberichts.",
       },
