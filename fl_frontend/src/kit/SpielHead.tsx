@@ -234,10 +234,7 @@ function PopupPlaceholder() {
           <span className={buttonPlaceholder("w-full")} />
         </Placeholder>
       }>
-      {/* The dialog's name says the wait, so its status would say it twice. */}
-      <Waiting
-        layoutClass="grid gap-6"
-        status={false}>
+      <Waiting layoutClass="grid gap-6">
         <SpielHeadPlaceholder placement="dialog" />
         <FactsPlaceholder
           look="free"

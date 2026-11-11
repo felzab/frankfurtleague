@@ -50,7 +50,7 @@ describe("a form's footer", () => {
     standAt("phone");
     const { container } = render(footer);
     expect(keyOrder(container)).toStrictEqual([SAVE, BACK]);
-    const line = screen.getByRole("status");
+    const line = screen.getByText(REFUSAL);
     expect(line.textContent).toBe(REFUSAL);
     expect(line.compareDocumentPosition(screen.getByRole("button", { name: SAVE })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

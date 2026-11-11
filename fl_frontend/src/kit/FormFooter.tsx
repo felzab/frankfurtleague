@@ -12,7 +12,7 @@ import type { FormStatus } from "./useFormAction";
 
 /*
  * The footer of what a form sends, in the kit's one shape, as the editor's bar holds its save: the acts at the right
- * end, the main act last, and at the left the status line, which speaks only once there is an outcome, under a note
+ * end, the main act last, and at the left the status line, which stands only once there is an outcome, under a note
  * where the form carries one. On a phone everything stands one under another, the note and the line first, then the
  * acts filling the row with the main act on top, where a stack's reader starts. No act stands centred or at the left.
  *
