@@ -1054,6 +1054,13 @@ const DESIGN_BANS = [
     "Motion is the kit's, from the token pair under reduced motion: render the kit's block that moves, or add the motion to the kit.",
     OUTSIDE_KIT,
   ),
+  // A fill of a control's own under the pointer or a press, a group's or a peer's included, stands apart from every
+  // other control and vanishes on a ground of its colour, a card's head among them; only an eye sees it.
+  classBan(
+    CLASS(String.raw`(?:[^:]*:)*[^:]*(?:hover|pressed|active)[^:]*:bg-(?!layer!?$).+`),
+    "A control under the pointer or pressed lays the one hover layer, `bg-layer`: take it from `hoverLook` in src/kit/hoverStyles.ts.",
+    KIT,
+  ),
 
   // The required mark is a glyph, not a word.
   ban("react/jsx-no-literals", { noStrings: true, ignoreProps: true, allowedStrings: ["*"] }, RENDERED),
