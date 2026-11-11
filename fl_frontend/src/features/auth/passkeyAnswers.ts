@@ -4,7 +4,7 @@ import { SIGN_IN_REFUSED, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusa
 import type { Copy } from "@/core/copy";
 
 /**
- * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
+ * The one refusal a reader can act on: the assertion asks for verification rather than demanding
  * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
  */
 const WITHOUT_CONFIRMATION = COPY.signIn.refusal.unverified;
@@ -42,8 +42,8 @@ export const SESSION_NOT_FRESH = "SESSION_NOT_FRESH";
 
 /**
  * The browser's refusal to set up a passkey on an authenticator already holding one of the person's, which the
- * plugin's client answers by this code (`@better-auth/passkey/client :: registerPasskey`): the options name the
- * person's passkeys as `excludeCredentials`.
+ * plugin client's `registerPasskey` answers by this code: the options name the person's passkeys as
+ * `excludeCredentials`.
  */
 const PREVIOUSLY_REGISTERED = "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED";
 
@@ -53,7 +53,6 @@ const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
   [PREVIOUSLY_REGISTERED, COPY.account.passkeys.alreadyOnDevice],
 ]);
 
-/** Why Sicherheit's set-up did not happen: the refusals above by their code, and any other as the shared failure line. */
 export function describeSetUpRefusal(error: unknown): Copy {
   return SET_UP_WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.failure.unexpected;
 }

@@ -14,7 +14,7 @@ import { describeCeremonyRefusal, refusalCode, refusalStatus, SESSION_NOT_FRESH 
 
 import type { Copy } from "@/core/copy";
 
-/** Named off `fl_frontend/src/core/auth/landing.ts :: PasskeyStep`, whose verdict the page hands over. */
+/** The landing's `PasskeyStep` verdict, which the page hands over. */
 type Step = "enrol" | "assert" | "offer";
 
 /** One set of words per step, so a heading and its control cannot drift apart. */
@@ -23,7 +23,6 @@ const WORDS = { enrol: COPY.signIn.passkey.setUp, assert: COPY.signIn.passkey.si
 /** What the reader is told, and whether the step this view was handed may have moved on. */
 type Held = { readonly sentence: Copy; readonly stale: boolean };
 
-/** Why the ceremony did not complete, as far as a reader can act on it. */
 async function ceremonyHeld(step: Step): Promise<Held | null> {
   const enrolling = step !== "assert";
 
@@ -52,15 +51,13 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 // No control here lists or removes a passkey: this page is reached by the mailed code alone, and a
 // session that could remove one would let a stolen mailbox swap the administrator's own out.
 
-// Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused at
-// `fl_frontend/src/core/auth/library.ts :: BROWSER_PATHS`.
+// Removal lives behind a fresh sign-in, and the plugin's own three management paths stay refused to the browser.
 
 /** Where „Später“ goes, which only the offer carries: the requirement and the assertion have no way past them. */
 type Props = { readonly address: string; readonly next: string } & (
   { readonly step: "enrol" | "assert" } | { readonly step: "offer"; readonly later: string }
 );
 
-/** `/signin/passkey`: the passkey the code's sign-in leads to, set up or asserted, or offered with a way past. */
 export function PasskeyStep(props: Props) {
   const { step, address, next } = props;
   const router = useRouter();
