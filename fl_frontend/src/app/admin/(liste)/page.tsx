@@ -38,7 +38,6 @@ async function readSaison(): Promise<StatusCardProps> {
 export default function AdminPage() {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={{ route: "admin" }}
       card={readSaison()}

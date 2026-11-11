@@ -39,7 +39,6 @@ async function readSaison(page: Saisonless["page"]): Promise<StatusCardProps> {
 export function SaisonlessPage({ route, page }: Saisonless) {
   return (
     <StatusPage
-      frame="rail"
       scope="saison"
       title={{ route }}
       card={readSaison(page)}

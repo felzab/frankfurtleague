@@ -32,7 +32,6 @@ export default function TeamNotFound() {
           missing={<AreaNotFound />}
           refused={
             <StatusPage
-              frame="rail"
               scope="area"
               title={SERVER_COPY.area.forbidden}
               card={{ tone: "warn", next: AREA_HOME }}

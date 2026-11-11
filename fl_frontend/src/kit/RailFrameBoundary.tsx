@@ -34,7 +34,6 @@ function RailError({ error, next, scope }: { error: unknown; next: StatusCardPro
   useReportClientCrash(error);
   return (
     <StatusPage
-      frame="rail"
       scope={scope}
       title={COPY.shared.failure.unexpected}
       card={{ tone: "danger", next }}
