@@ -6,7 +6,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "../support/application";
+import { typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, declinePasskeyOffer, enrolPasskey, failureLine, PERSON_LANDING, signInWithCode } from "../support/signIn";

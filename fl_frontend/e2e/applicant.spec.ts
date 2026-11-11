@@ -6,19 +6,8 @@
  */
 import { expect } from "@playwright/test";
 
-import {
-  apply,
-  choose,
-  confirmSeat,
-  fillSeat,
-  openApplication,
-  personOf,
-  pressRowAct,
-  SAISON,
-  SEATS,
-  SUBJECT,
-  typeInto,
-} from "./support/application";
+import { apply, confirmSeat, fillSeat, openApplication, personOf, SAISON, SEATS, SUBJECT } from "./support/application";
+import { choose, pressRowAct, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink, mailedMessage } from "./support/mailSink";
 

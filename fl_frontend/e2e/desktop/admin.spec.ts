@@ -6,6 +6,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { save, saveBar, typeInto } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 import type { Page } from "@playwright/test";
@@ -71,11 +72,11 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   // By the label's start: a required field's label ends in its asterisk.
-  await dialog.getByRole("textbox", { name: /^Name/ }).fill(NEW_VENUE);
-  await dialog.getByRole("textbox", { name: /^Straße/ }).fill("Ulmenring");
-  await dialog.getByRole("textbox", { name: /^Nr\./ }).fill("3");
-  await dialog.getByRole("textbox", { name: /^PLZ/ }).fill("60431");
-  await dialog.getByRole("textbox", { name: /^Mietpreis/ }).fill("35");
+  await typeInto(dialog.getByRole("textbox", { name: /^Name/ }), NEW_VENUE);
+  await typeInto(dialog.getByRole("textbox", { name: /^Straße/ }), "Ulmenring");
+  await typeInto(dialog.getByRole("textbox", { name: /^Nr\./ }), "3");
+  await typeInto(dialog.getByRole("textbox", { name: /^PLZ/ }), "60431");
+  await typeInto(dialog.getByRole("textbox", { name: /^Mietpreis/ }), "35");
   await dialog.getByRole("button", { name: "Spielort anlegen" }).click();
 
   // The dialog closes once the venue is created, and the list behind it reads it at once.
@@ -92,12 +93,8 @@ test("an administrator creates a venue over the Spielorte list, moves a match's 
   const time = page.getByRole("group", { name: /^Uhrzeit/ });
   await time.getByRole("spinbutton").first().click();
   await page.keyboard.type("1830");
-  // The editor's save bar is a landmark of its own, named by its act, so its line is read inside it.
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await expect(bar.getByText("1 Änderung", { exact: true })).toBeVisible();
-
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(saveBar(page).getByText("1 Änderung", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server: the match now kicks off at 18:30.
   await page.reload();

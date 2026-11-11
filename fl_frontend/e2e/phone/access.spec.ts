@@ -6,6 +6,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
+import { chip } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
@@ -16,8 +17,7 @@ test("Administratoren reads who holds access and what waits, and offers an admin
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Administratoren" })).toBeVisible();
 
   const owner = main.getByRole("row").filter({ hasText: "inhaber@example.com" });
-  // A list with a „Stand“ column draws a row's chip after its name and in the column, and its width shows one.
-  await expect(owner.getByText("Leitung", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(chip(owner, "Leitung")).toBeVisible();
 
   await main.getByRole("button", { name: /^Angekündigt/ }).click();
   await expect(main.getByRole("row").filter({ hasText: "admin.wartet@example.com" }).filter({ hasText: "Neuer Administrator" })).toBeVisible();
@@ -45,9 +45,7 @@ test("Adressänderungen reads a person's running change, and a holder's for the 
   await page.goto("/admin/address-changes");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Adressänderungen" })).toBeVisible();
   const rows = page.getByRole("main").getByRole("row");
-  await expect(
-    rows.filter({ hasText: "nina.noll@example.com" }).getByText("Neue offen", { exact: true }).filter({ visible: true }),
-  ).toBeVisible();
+  await expect(chip(rows.filter({ hasText: "nina.noll@example.com" }), "Neue offen")).toBeVisible();
   await expect(rows.filter({ hasText: "admin.umzug@example.com" })).toHaveCount(0);
 });
 

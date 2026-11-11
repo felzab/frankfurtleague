@@ -7,7 +7,8 @@
  */
 import { expect } from "@playwright/test";
 
-import { choose, SAISON as PLANNED, typeInto } from "./support/application";
+import { SAISON as PLANNED } from "./support/application";
+import { choose, save, saveBar, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
@@ -35,10 +36,8 @@ test("a known club enters the planned season, and its editor's one save reaches 
   const main = page.getByRole("main");
   await typeInto(main.getByRole("textbox", { name: /^Website/ }), website);
   await choose(page, main, /Trikotfarbe/, colour);
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await expect(bar.getByText("2 Änderungen", { exact: true })).toBeVisible();
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(saveBar(page).getByText("2 Änderungen", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server: both halves stand.
   await page.reload();
@@ -53,9 +52,7 @@ test("a pupil's squad row saves from its editor, and the season's Registrierunge
 
   const number = page.getByRole("main").getByRole("textbox", { name: /^Nummer/ });
   await typeInto(number, "23");
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server.
   await page.reload();

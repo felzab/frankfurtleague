@@ -8,7 +8,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { choose, typeInto } from "./support/application";
+import { box, chip, choose, typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
@@ -66,13 +66,13 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await page.goto(`/registrierung?token=${token}`);
   const main = page.getByRole("main");
   await expect(main.getByRole("heading", { name: "Registrierung", exact: true })).toBeVisible();
-  const box = main.locator("section", { has: page.getByRole("heading", { name: "Deine Angaben", exact: true }) });
-  await typeInto(box.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
-  await typeInto(box.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
-  await typeInto(box.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
-  await typeInto(box.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
-  await choose(page, box, /Position/, pupil.position);
-  await choose(page, box, /Stufe/, pupil.stufe);
+  const details = box(page, "Deine Angaben");
+  await typeInto(details.getByRole("textbox", { name: /^Vorname/ }), pupil.firstName);
+  await typeInto(details.getByRole("textbox", { name: /^Nachname/ }), pupil.lastName);
+  await typeInto(details.getByRole("textbox", { name: /^E-Mail-Adresse/ }), pupil.address);
+  await typeInto(details.getByRole("textbox", { name: /^Trikotnummer/ }), pupil.nummer);
+  await choose(page, details, /Position/, pupil.position);
+  await choose(page, details, /Stufe/, pupil.stufe);
   await main.getByRole("button", { name: "Registrierung abschicken" }).click();
   // The outcome in the form's place says what the pupil does next.
   await expect(main.getByRole("heading", { name: "Bestätige deine Registrierung per E-Mail" })).toBeVisible();
@@ -96,8 +96,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await team.getByRole("main").getByRole("link", { name, exact: true }).click();
   await expect(team).toHaveURL((url) => url.pathname.endsWith("/registrierungen"));
   const row = team.getByRole("main").getByRole("row").filter({ hasText: name });
-  // The chip is drawn after the name and in the „Stand“ column, and the list's width shows one.
-  await expect(row.getByText("Bestätigt", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(chip(row, "Bestätigt")).toBeVisible();
   // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“ (D747).
   await row.getByRole("button", { name, exact: true }).click();
   await team.getByRole("dialog", { name }).getByRole("button", { name: "Aufnehmen", exact: true }).click();

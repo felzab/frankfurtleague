@@ -6,7 +6,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { typeInto } from "./support/application";
+import { typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 import { filedMessages, mailedMessage } from "./support/mailSink";
 

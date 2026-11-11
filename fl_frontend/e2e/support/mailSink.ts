@@ -16,7 +16,7 @@ import { E2E_DIR } from "./journey";
 const MAIL_SINK = path.join(E2E_DIR, "mail");
 
 /** `fl_frontend/src/core/authEmail.ts :: buildCodeEmail`'s subject, up to the brand. */
-const CODE_SUBJECT = "Subject: Dein Anmeldecode";
+const CODE_SUBJECT = "Dein Anmeldecode";
 
 /** The messages filed so far, taken before a send so the code read after it is that send's. */
 export async function filedMessages(): Promise<ReadonlySet<string>> {
@@ -31,19 +31,9 @@ export async function filedMessages(): Promise<ReadonlySet<string>> {
 
 /** The code a message filed after `before` carries to `address`, waited for as the send is. */
 export async function mailedCode(address: string, before: ReadonlySet<string>): Promise<string> {
-  let code: string | null = null;
-
-  await expect
-    .poll(
-      async () => {
-        code = await codeAmong(address, before);
-        return code;
-      },
-      { message: `a sign-in code mailed to ${address} in ${MAIL_SINK}`, timeout: MAIL_WAIT_MS },
-    )
-    .not.toBeNull();
-
-  if (code === null) throw new Error(`no sign-in code reached ${address}`);
+  // The code stands on a line of its own in the plain-text part.
+  const code = (await mailedMessage(address, CODE_SUBJECT, before)).find((line) => /^\d{6}$/.test(line));
+  if (code === undefined) throw new Error(`the sign-in mail to ${address} carries no code`);
   return code;
 }
 
@@ -110,16 +100,4 @@ async function headersAmong(before: ReadonlySet<string>): Promise<string[][]> {
     headers.push(document.slice(document.indexOf("<!--") + "<!--".length, document.indexOf("-->")).split("\n"));
   }
   return headers;
-}
-
-async function codeAmong(address: string, before: ReadonlySet<string>): Promise<string | null> {
-  for (const lines of await headersAmong(before)) {
-    if (!lines.includes(`To: ${address}`) || !lines.some((line) => line.startsWith(CODE_SUBJECT))) continue;
-
-    // The code stands on a line of its own in the plain-text part.
-    const code = lines.find((line) => /^\d{6}$/.test(line));
-    if (code !== undefined) return code;
-  }
-
-  return null;
 }

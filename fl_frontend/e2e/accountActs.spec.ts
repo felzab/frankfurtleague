@@ -10,6 +10,7 @@
  */
 import { expect } from "@playwright/test";
 
+import { typeInto } from "./support/controls";
 import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
@@ -52,10 +53,7 @@ test("a person changes their address: the address on file confirms first, then t
   // Konto's address box: the new address, and the link it sends.
   await page.goto("/account/signin");
   const before = await filedMessages();
-  const field = page.getByLabel("Neue E-Mail-Adresse");
-  // Tapped first, as a person reaches the field and `e2e/support/signIn.ts :: sendFromHere` taps its own.
-  await field.click();
-  await field.fill(newAddress);
+  await typeInto(page.getByLabel("Neue E-Mail-Adresse"), newAddress);
   // The start's own end, before any mail is waited for: the box stands as the pending change, which a refusal never
   // shows.
   await page.getByRole("button", { name: "Link senden" }).click();
