@@ -617,6 +617,9 @@ stage_compose_models() {
 # `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
 # the override being no stack alone. `--output` keeps a text-mode stream off the model.
 render_compose_model() {
+  # The base file names both images by the tag a deploy pins and refuses to parse without one, and a
+  # rendered model runs no image, so any word stands in.
+  local -x TAG=gate
   local -a files=(-f "$1/docker-compose.yml")
   if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
   # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
