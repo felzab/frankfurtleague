@@ -25,8 +25,6 @@ from app.api.address_change.system_router import (
     post_address_change_moves_done,
     sweep_address_change,
 )
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.logging import JSONFormatter
@@ -133,8 +131,8 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document("2026", "active"))
-            await database[Collection.SCHIEDSRICHTER].insert_one(build_ghost_schiedsrichter())
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            await database[Collection.SCHIEDSRICHTER].insert_one(documents.ghost_schiedsrichter_document())
+            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
 
             return await body(database, client)
 

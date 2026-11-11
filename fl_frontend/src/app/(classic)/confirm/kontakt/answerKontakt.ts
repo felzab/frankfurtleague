@@ -49,7 +49,7 @@ async function ended(answer: Parameters<typeof bewerbungenPostEinwilligung>[0], 
 
 /**
  * A contact person's answer through their link: the main act confirms the seat with the birthdate and the two consents,
- * under the wordings the page showed; the quieter one objects, emptying the seat.
+ * under the wordings the page showed; the refusal objects, emptying the seat.
  */
 export const answerKontakt = action({
   lane: "public",

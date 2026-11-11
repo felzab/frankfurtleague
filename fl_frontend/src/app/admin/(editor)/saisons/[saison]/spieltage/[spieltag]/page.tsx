@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 export default function SpieltagEditorPage({ params }: Props) {
   return (
     <EditorShell
-      wait={{ sections: [[{ rows: 2, width: "C10" }]] }}
+      wait={{ sections: [[{ rows: 2, holds: "day" }]] }}
       editor={readEditor(params)}
     />
   );

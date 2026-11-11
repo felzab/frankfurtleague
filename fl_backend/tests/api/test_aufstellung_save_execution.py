@@ -82,14 +82,7 @@ def on_a_season(url: str, body: Body) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SPIELTAGE].insert_many(
                 [
-                    {
-                        "_id": spieltag_id,
-                        "start": None,
-                        "end": None,
-                        "position": position,
-                        "saison_phase": "gruppenphase",
-                        "saison_id": SAISON_ID,
-                    }
+                    documents.spieltag_document(spieltag_id, SAISON_ID, position)
                     for spieltag_id, position in ((FIRST_SPIELTAG, 1), (SPIELTAG, 2))
                 ]
             )

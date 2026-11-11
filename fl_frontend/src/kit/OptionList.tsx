@@ -28,16 +28,15 @@ export type ActEntry = { label: Copy; typed: string; onAction: () => void };
 
 /**
  * The menu of choices under a select or a combo box, the chosen one marked as every list marks it: as wide as its
- * field, or as its longest entry under a field sized to its choices. A combo box filters the options as it is
- * typed into; an act entry stands last, under the hairline a menu draws between its groups, which is not
- * drawn over the entry standing alone.
+ * field. A combo box filters the options as it is typed into; an act entry stands last, under the hairline a menu
+ * draws between its groups, which is not drawn over the entry standing alone.
  */
-export function OptionList({ options, fit = "field", act }: { options: readonly Option[]; fit?: "field" | "content"; act?: ActEntry }) {
+export function OptionList({ options, act }: { options: readonly Option[]; act?: ActEntry }) {
   return (
     <Popover
       data-kit-focus
       offset={4}
-      className={menuPopover({ fit })}>
+      className={menuPopover({ fit: "field" })}>
       <ListBox data-kit-focus>
         <Collection items={options}>
           {(option) => (

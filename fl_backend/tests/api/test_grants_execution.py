@@ -38,7 +38,7 @@ from tests.app_client import app_client
 from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document
+from tests.documents import address_change_document, ban_document, rules_document, saison_document
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.session_headers import StampedHeaders, session_headers
 from tests.worker import worker_database
@@ -348,7 +348,7 @@ class TestAnAddition:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             change = await database[Collection.ADDRESS_CHANGES].insert_one(
-                {"address": NEU, "email": "woanders@beispielschule.de", "ended": None}
+                address_change_document(address=NEU, email="woanders@beispielschule.de", token_hash=None, day=TODAY)
             )
             await add(database, client)
 
@@ -517,7 +517,7 @@ class TestAHandover:
 
     def test_the_owners_own_row_and_a_banned_address_are_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            await database[Collection.BAN_LIST].insert_one({"address": BERND})
+            await database[Collection.BAN_LIST].insert_one(ban_document(BERND, until="2999"))
 
             return [await refusal_of(hand_over(database, client, OWNER_ID)), await refusal_of(hand_over(database, client, BERND_ID))]
 

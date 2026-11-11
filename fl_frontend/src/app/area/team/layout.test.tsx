@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { underNext } from "@/test-support/nextContexts";
 import { person, seat, SEAT } from "@/test-support/subjectFixtures";
+import { wholeText } from "@/test-support/wholeText";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,7 +73,7 @@ describe("a team's frame for a person holding two teams", () => {
     expect(hrefsOf(ROUTES.teamRegistrierungen.title)).toEqual(new Set([ROUTES.teamRegistrierungen.path(AHORN, "2026")]));
 
     // Under the person's address: the Kürzel of the address's team and the seat held in the address's season.
-    expect(screen.getByText(SUBJECT.email).nextElementSibling?.textContent).toBe(
+    expect(screen.getByText(wholeText(SUBJECT.email)).nextElementSibling?.textContent).toBe(
       COPY.area.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
     );
 

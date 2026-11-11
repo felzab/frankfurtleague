@@ -1,6 +1,7 @@
-from typing import get_args
+from typing import Any, get_args
 
 import pytest
+from bson import ObjectId
 from pydantic import ValidationError
 
 from app.api.spiele.schemas import (
@@ -14,11 +15,14 @@ from app.api.spiele.schemas import (
 )
 from app.core.collections import Collection
 from app.shared.schemas.literals import FLSonderereignis
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
 UNPLAYED_DATABASE_NAME = worker_database("fl_spiele_unplayed_test")
+SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f607e70001")
+HOME, AWAY = ObjectId("6890a1b2c3d4e5f607e70011"), ObjectId("6890a1b2c3d4e5f607e70012")
 
 
 @pytest.mark.parametrize("ergebnis", ["3", "", ":", "3:", ":1", "1:2:3", "abc", "x:y", "3-1", " 3:1", "-1:2"])
@@ -30,19 +34,32 @@ def test_rejects_a_malformed_result(spiel, ergebnis):
 
 @pytest.mark.db
 def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_url: str):
-    """Every event, with a result and without: the retirements select with the filter, and the booking rule weighs with the predicate.
-
-    Unconstrained, because only the two fields the partition reads are stored.
-    """
+    """Every event, with a result and without: the retirements select with the filter, and the booking rule weighs with the predicate."""
 
     cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis.__value__))]
+    ids = [ObjectId() for _ in cases]
+
+    def stored(nr: int, ergebnis: str | None, sonderereignis: str | None) -> dict[str, Any]:
+        """One fixture as a save leaves it, its two clubs' goals the result's."""
+
+        tore = (None, None) if ergebnis is None else (1, 0)
+        return documents.spiel_document(
+            spiel_id=ids[nr],
+            saison_id="2026",
+            spiel_nr=nr + 1,
+            spieltag_id=SPIELTAG_ID,
+            team1={"team_id": HOME, "tore": tore[0]},
+            team2={"team_id": AWAY, "tore": tore[1]},
+            ergebnis=ergebnis,
+            sonderereignis=sonderereignis,
+        )
 
     async def selected() -> set[int]:
-        async with a_clean_database(mongo_url, UNPLAYED_DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_url, UNPLAYED_DATABASE_NAME) as (_, database):
             spiele = database[Collection.SPIELE]
-            await spiele.insert_many([{"_id": nr, "ergebnis": ergebnis, "sonderereignis": event} for nr, (ergebnis, event) in enumerate(cases)])
+            await spiele.insert_many([stored(nr, ergebnis, event) for nr, (ergebnis, event) in enumerate(cases)])
 
-            return {row["_id"] for row in await spiele.find(unplayed_filter(), {"_id": 1}).to_list(length=None)}
+            return {ids.index(row["_id"]) for row in await spiele.find(unplayed_filter(), {"_id": 1}).to_list(length=None)}
 
     answered = {nr for nr, (ergebnis, event) in enumerate(cases) if is_unplayed(ergebnis=ergebnis, sonderereignis=event)}
 

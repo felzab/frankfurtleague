@@ -42,16 +42,29 @@ export type SpielRowProps = {
 };
 
 /**
- * The one-line row's grid and the card's lines. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
- * 16:00 [Antwort fehlt]“, as the owner ruled for every list's match row on a wide screen: at least a date's width, and as
- * wide as a date and its chip where the row holds one, the sides taking what is left. A card's date line is a chip's
- * height, chip or none, so every card stands as tall as every other and as its wait, which cannot know whether a list
- * holds a chip.
+ * The one-line row's columns, held by the box of a list's rows, or by the list of boxes a page's groups of matches stand
+ * in, and taken by every row as a subgrid, as a table's rows take its columns: so the score and the sides stand at one x
+ * down the whole list. The when column holds the date with the chip beside it, „Sa., 21.11.2026 · 16:00 [Antwort fehlt]“,
+ * as the owner ruled for every list's match row on a wide screen: at least a date's width, and as wide as the widest
+ * date and chip of the list, the sides taking what is left. The score's 6 rem is its column's most, which a wide box
+ * always leaves it, so a narrow box, whose rows stand as cards across the columns, holds the date's least width alone.
+ */
+export const spielColumns = tv({
+  base: "grid grid-cols-[minmax(min(9.5rem,100%),max-content)_minmax(0,1fr)_minmax(0,6rem)_minmax(0,1fr)_auto] gap-x-3",
+});
+
+/** A part standing between the box holding the columns and a row, which hands the columns on to the row. */
+export const spielSubgrid = tv({ base: "col-span-full grid grid-cols-subgrid" });
+
+/**
+ * The one-line row and the card's lines. A card's date line is a chip's height, chip or none, so every card stands as
+ * tall as every other and as its wait, which cannot know whether a list holds a chip; it spans the columns, which it
+ * does not use.
  */
 const forms = tv({
   slots: {
-    line: "grid min-h-14 grid-cols-[minmax(9.5rem,max-content)_minmax(0,1fr)_6rem_minmax(0,1fr)_auto] grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden",
-    card: "grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
+    line: `${spielSubgrid()} min-h-14 grid-rows-[1.5rem_1rem] content-center items-center gap-x-3 px-4 text-sm @max-2xl:hidden`,
+    card: "col-span-full grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[1.25rem_1.5rem_1.5rem] items-center gap-x-3 gap-y-1 px-4 py-3 text-base @2xl:hidden",
   },
 });
 
@@ -268,14 +281,15 @@ function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefe
   );
 
   return (
-    <div className={stacked()}>
+    <div className={spielSubgrid({ class: stacked() })}>
       {href === undefined ? (
         // The same row in a box that leads nowhere: no hover, no focus, no chevron.
-        <div className="text-fg">{body}</div>
+        <div className={spielSubgrid({ class: "text-fg" })}>{body}</div>
       ) : (
         <Link
           href={href}
           placement="card"
+          subgrid
           prefetch={prefetch}>
           {body}
         </Link>
@@ -307,7 +321,7 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
 function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; linked: boolean }) {
   const form = forms();
   return (
-    <div className={layout === "rows" ? stacked() : ""}>
+    <div className={spielSubgrid({ class: layout === "rows" ? stacked() : "" })}>
       <span className={form.line()}>
         <span className="col-start-1 row-span-2 row-start-1">
           <span className={placeholderBar("h-3 w-24")} />
@@ -340,19 +354,30 @@ function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; lin
 }
 
 /**
+ * The box of a list's rows: the card's surface, or none where it stands `bare` inside a card's body; the holder of the
+ * rows' columns, or, `outer`, a part handing on the columns of the list of groups it stands in (`SpielGroup`).
+ */
+function rowsBox(bare: boolean, columns: "own" | "outer") {
+  const grid = columns === "own" ? spielColumns() : spielSubgrid();
+  return bare ? `@container ${grid}` : cardSurface({ class: `@container overflow-hidden ${grid}` });
+}
+
+/**
  * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
- * cards two a row from `lg` where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body.
- * `linked` is `false` for rows that will open nothing, which end in no chevron.
+ * cards two a row from `lg` where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body,
+ * `columns` as the list's. `linked` is `false` for rows that will open nothing, which end in no chevron.
  */
 export function SpielListPlaceholder({
   count,
   layout = "rows",
   bare = false,
+  columns = "own",
   linked = true,
 }: {
   count: number;
   layout?: "rows" | "cards";
   bare?: boolean;
+  columns?: "own" | "outer";
   linked?: boolean;
 }) {
   const rows = Array.from({ length: count }, (_, index) => index);
@@ -362,7 +387,7 @@ export function SpielListPlaceholder({
         {rows.map((index) => (
           <div
             key={index}
-            className={cardSurface({ class: "@container overflow-hidden" })}>
+            className={rowsBox(false, "own")}>
             <SpielRowPlaceholder
               layout="cards"
               linked={linked}
@@ -373,7 +398,7 @@ export function SpielListPlaceholder({
     );
   }
   return (
-    <div className={bare ? "@container" : cardSurface({ class: "@container overflow-hidden" })}>
+    <div className={rowsBox(bare, columns)}>
       {rows.map((index) => (
         <SpielRowPlaceholder
           key={index}
@@ -397,20 +422,25 @@ export function SpielListPlaceholder({
  * the two-line card, and only a lone box wider than 42 rem below `lg`, a tablet's, the one-line row.
  *
  * `bare` sets the rows without the box's own surface, inside a card's body, whose box already holds them, as a
- * table's `bare` does: the season card's matches.
+ * table's `bare` does: the season card's matches. The box holds the rows' columns (`spielColumns`), so every row of
+ * the list stands its score and sides at one x; `columns: "outer"` takes them from the list of groups the box stands
+ * in instead, so the rows of every group line up (`SpielGroup`).
  */
 export function SpielList({
   matches,
   layout = "rows",
   bare = false,
-}: { matches: ReadonlyArray<SpielRowProps & { id: string }> } & ({ layout?: "rows"; bare?: boolean } | { layout: "cards"; bare?: never })) {
+  columns = "own",
+}: { matches: ReadonlyArray<SpielRowProps & { id: string }> } & (
+  { layout?: "rows"; bare?: boolean; columns?: "own" | "outer" } | { layout: "cards"; bare?: never; columns?: never }
+)) {
   if (layout === "cards") {
     return (
       <div className="grid gap-3 lg:grid-cols-2">
         {matches.map(({ id, ...spiel }) => (
           <div
             key={id}
-            className={cardSurface({ class: "@container overflow-hidden" })}>
+            className={rowsBox(false, "own")}>
             <SpielRow {...spiel} />
           </div>
         ))}
@@ -418,7 +448,7 @@ export function SpielList({
     );
   }
   return (
-    <div className={bare ? "@container" : cardSurface({ class: "@container overflow-hidden" })}>
+    <div className={rowsBox(bare, columns)}>
       {matches.map(({ id, ...spiel }) => (
         <SpielRow
           key={id}

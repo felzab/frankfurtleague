@@ -1,7 +1,6 @@
 "use client";
 
 import { saveSpiel } from "@/app/admin/(editor)/saisons/[saison]/spiele/[spiel]/saveSpiel";
-import { Button } from "@/kit/Button";
 import { DateField } from "@/kit/DateField";
 import { Dialog } from "@/kit/Dialog";
 import { FieldPair } from "@/kit/FieldPair";
@@ -60,15 +59,8 @@ export function AppointmentDialog({
       title={TITLE}
       act={ACT}
       action={save}
-      trigger={
-        <Button
-          variant="secondary"
-          label={TITLE}
-        />
-      }>
-      <FieldPair
-        short="both"
-        phone="pair">
+      trigger={{ label: TITLE }}>
+      <FieldPair>
         <DateField
           label={COPY.admin.spiel.date}
           name={DATE}

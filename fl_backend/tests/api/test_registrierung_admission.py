@@ -27,7 +27,6 @@ from app.api.registrierungen.services import (
     compose_confirmation_update,
     confirmation_mail,
 )
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -828,7 +827,7 @@ class TestTheSentinelIsNobodyToAdmit:
 
     def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
             registrierung_id = await seed(database, registrierung_document(**self.WHITESPACE))
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))

@@ -43,18 +43,14 @@ const PATTERNED = {
   bewerbung_window_ends_before_start: notBeforeStart,
   spieltag_ends_before_start: notBeforeStart,
   good_spieler_exceed_kader: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
-  starters_exceed_eleven: ({ max }: Context) => (typeof max === "number" ? field.max(max) : undefined),
   // The confirmation pages' birthdate, refused for an age outside the range the write names.
   confirmation_age: ageRange,
   // A box left empty that the rule requires once another box is set.
-  decline_without_proposal: () => field.required,
   decline_without_reason: () => field.required,
   email_not_accepted: () => field.format(field.exampleAddress),
-  date_not_in_calendar: () => field.format(field.exampleDate),
   url_not_accepted: () => field.format(field.exampleUrl),
   address_in_free_text: () => field.without(COPY.signIn.address),
   // A no-show's report carries no play: the league composes its goals, and nobody scored them.
-  nichtantreten_with_elfmeterschiessen: () => field.without(COPY.admin.spiel.elfmeterschiessen),
   nichtantreten_with_scorers: () => field.without(COPY.admin.spiel.scorers),
   // The registration closes before the season starts; `latest` is the day before its start.
   registrierung_window_reaches_saison_start: ({ latest }: Context) => (typeof latest === "string" ? field.latest(dayOf(latest)) : undefined),

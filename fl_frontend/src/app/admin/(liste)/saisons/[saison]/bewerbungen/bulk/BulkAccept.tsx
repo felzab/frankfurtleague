@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Button } from "@/kit/Button";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { EmptyState } from "@/kit/EmptyState";
 import { StatusCard } from "@/kit/StatusPage";
@@ -37,7 +36,7 @@ const factsOf = (row: FLBewerbungListRow): readonly Fact[] => [
   { label: WORDS.received, value: { record: formatDate(dayOf(row.submitted_at)) } },
   figure(COPY.team.stufengroesse, row.stufengroesse),
   figure(COPY.team.expectedKader, row.expected_kader),
-  { label: COPY.team.wunschfarbe, value: { record: trikotFarbeLabel(row.wunschfarbe) } },
+  { label: COPY.team.wunschfarbe, value: trikotFarbeLabel(row.wunschfarbe) },
   { label: COPY.team.wunschgegner, value: row.wunschgegner === null ? COPY.shared.noValue : { record: row.wunschgegner } },
 ];
 
@@ -57,10 +56,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
   const draft = run.drafts[row.id];
   const cells = {
     gruppe: draft === undefined ? COPY.shared.noValue : COPY.shared.season.gruppe(draft.gruppe),
-    farbe:
-      draft === undefined || draft.trikot_farbe === ""
-        ? COPY.shared.notProvided
-        : { record: trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe) },
+    farbe: draft === undefined || draft.trikot_farbe === "" ? COPY.shared.notProvided : trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe),
     shorthand: { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" },
   };
   const base = { id: row.id, name: { record: row.name }, cells };
@@ -207,12 +203,7 @@ export function BulkAccept({
             facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.kontaktCount(open.reduce((sum, row) => sum + row.people, 0)) }]}
             tone="primary"
             onConfirm={confirm}
-            trigger={
-              <Button
-                variant="primary"
-                label={COPY.shared.withObject(WORDS.count(count), "accept")}
-              />
-            }
+            trigger={{ label: COPY.shared.withObject(WORDS.count(count), "accept"), variant: "primary" }}
           />
         )
       }

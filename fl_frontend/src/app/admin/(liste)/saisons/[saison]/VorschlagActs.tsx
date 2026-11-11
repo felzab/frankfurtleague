@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/kit/Button";
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 
 import { COPY } from "@/core/copy";
@@ -38,12 +37,7 @@ export function VorschlagActs({
         facts={adopt.facts}
         tone="primary"
         onConfirm={() => adoptVorschlag({ id })}
-        trigger={
-          <Button
-            variant="primary"
-            label={COPY.shared.verb.adopt}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.adopt, variant: "primary" }}
       />
       <ConfirmDialog
         verb="discard"
@@ -53,12 +47,7 @@ export function VorschlagActs({
         // Keeping the stored date destroys nothing, so its question asks in the neutral primary, as „Übernehmen“'s does.
         tone="primary"
         onConfirm={() => discardVorschlag({ id })}
-        trigger={
-          <Button
-            variant="secondary"
-            label={COPY.shared.verb.discard}
-          />
-        }
+        trigger={{ label: COPY.shared.verb.discard }}
       />
     </>
   );

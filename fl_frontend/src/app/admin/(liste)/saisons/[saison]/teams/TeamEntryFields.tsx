@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { AddressFields } from "@/kit/AddressFields";
 import { FieldGroup } from "@/kit/FieldGroup";
-import { FieldPair } from "@/kit/FieldPair";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
 
@@ -56,32 +55,26 @@ export function TeamEntryFields({
       />
       {club === NEW_CLUB && (
         <FieldGroup name={COPY.admin.bewerbung.newSchool}>
-          <FieldPair
-            short="second"
-            phone="pair">
-            <TextField
-              label={COPY.shared.name}
-              name="name"
-              width="W3"
-              kind="text"
-              isRequired={required.name}
-              maxLength={max.name}
-            />
-            <TextField
-              label={COPY.team.shorthand}
-              name="shorthand"
-              width="C5"
-              kind="text"
-              isRequired={required.shorthand}
-              maxLength={SHORTHAND_LENGTH}
-              minLength={SHORTHAND_LENGTH}
-              description={COPY.team.shorthandDescription}
-            />
-          </FieldPair>
+          <TextField
+            label={COPY.shared.name}
+            name="name"
+            kind="text"
+            isRequired={required.name}
+            maxLength={max.name}
+          />
+          <TextField
+            label={COPY.team.shorthand}
+            name="shorthand"
+            holds={5}
+            kind="text"
+            isRequired={required.shorthand}
+            maxLength={SHORTHAND_LENGTH}
+            minLength={SHORTHAND_LENGTH}
+            description={COPY.team.shorthandDescription}
+          />
           <TextField
             label={COPY.team.fullName}
             name="full_name"
-            width="W3L"
             kind="text"
             isRequired={required.full_name}
             maxLength={max.full_name}
@@ -89,7 +82,6 @@ export function TeamEntryFields({
           <Select
             label={COPY.team.schulform}
             name="schulform"
-            width="fit"
             options={schulformOptions()}
             defaultValue=""
           />
@@ -99,7 +91,6 @@ export function TeamEntryFields({
           <TextField
             label={COPY.team.website}
             name="website_url"
-            width="W3"
             kind="url"
             example={COPY.shared.field.exampleUrl}
             maxLength={max.website_url}
@@ -110,14 +101,12 @@ export function TeamEntryFields({
         <Select
           label={COPY.team.gruppe}
           name="gruppe"
-          width="fit"
           isRequired={rules.gruppeRequired}
           options={gruppen}
         />
         <Select
           label={COPY.team.trikotFarbe}
           name="trikot_farbe"
-          width="fit"
           options={colours}
           defaultValue=""
         />

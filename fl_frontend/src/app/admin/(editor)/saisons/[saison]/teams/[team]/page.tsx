@@ -34,12 +34,7 @@ const WORDS = COPY.admin.team;
 const LINK_WORDS = COPY.admin.saison;
 
 /** One of the editor's selects of a few short choices while it is read. */
-const SELECT = (
-  <FieldPlaceholder
-    key="select"
-    width="fit"
-  />
-);
+const SELECT = <FieldPlaceholder key="select" />;
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
@@ -60,13 +55,17 @@ export default function TeamEditorPage({ params }: Props) {
       wait={{
         sections: [
           [
-            "pair",
+            "field",
+            <FieldPlaceholder
+              key="shorthand"
+              holds={5}
+            />,
             "field",
             SELECT,
             "field",
             <FieldPlaceholder
               key="description"
-              width="W4"
+              kind="paragraph"
             />,
           ],
           ["pair", "pair", "field"],
@@ -83,15 +82,19 @@ export default function TeamEditorPage({ params }: Props) {
             ],
           },
           [<SeatRowsPlaceholder key="seats" />],
-          // A live link's three acts.
+          // A live link's three acts, in the box's one footer.
           [
             <FactsPlaceholder
               key="link"
               pairs={2}
             />,
-            { act: COPY.shared.withObject(COPY.account.address.link, "send") },
-            { act: COPY.shared.withObject(COPY.account.address.link, "replace") },
-            { act: COPY.shared.withObject(COPY.account.address.link, "withdraw") },
+            {
+              acts: [
+                COPY.shared.withObject(COPY.account.address.link, "send"),
+                COPY.shared.withObject(COPY.account.address.link, "replace"),
+                COPY.shared.withObject(COPY.account.address.link, "withdraw"),
+              ],
+            },
           ],
         ],
         danger: [

@@ -30,7 +30,8 @@ import type { RoleMarkProps } from "./RoleMark";
 const lineup = tv({
   slots: {
     card: card().root(),
-    band: card().head(),
+    // A block among an editor's boxes, so its head stands in the 16 px every box of the editor pads its head with.
+    band: card().head({ class: "py-4" }),
     title: card().title(),
     count: card().count(),
     // `w-full`: the name's column takes the room the others leave; `overflow-x-auto` as every kit table's box.

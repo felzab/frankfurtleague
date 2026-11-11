@@ -338,18 +338,20 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-        database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY)))
+        with a_clean_database_sync(client, url, database_name) as database:
+            database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
+            database[Collection.REGISTRIERUNGEN].insert_one(
+                registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY))
+            )
 
-        async def _called() -> int:
-            async with app_client(url, app=_served(), now=NOW) as http:
-                response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
-                return response.status_code
+            async def _called() -> int:
+                async with app_client(url, app=_served(), now=NOW) as http:
+                    response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+                    return response.status_code
 
-        status = asyncio.run(_called())
+            status = asyncio.run(_called())
 
-        return status, list(database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}))
+            return status, list(database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}))
     finally:
         client.close()
 

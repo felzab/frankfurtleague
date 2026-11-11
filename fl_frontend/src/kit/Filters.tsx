@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { FieldStack } from "./FieldStack";
 import { SectionTitle } from "./Section";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
@@ -87,7 +88,9 @@ export function Filters({ filters }: { filters: ReadonlyArray<Filter> }) {
                 slot="close"
               />
             </div>
-            <FilterSelects filters={filters} />
+            <FieldStack>
+              <FilterSelects filters={filters} />
+            </FieldStack>
           </div>
         </Sheet>
       </div>

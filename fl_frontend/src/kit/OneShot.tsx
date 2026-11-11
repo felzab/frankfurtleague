@@ -6,7 +6,9 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
 import { ClassicPage } from "./ClassicPage";
-import { StatusLine } from "./FieldParts";
+import { FieldStack } from "./FieldStack";
+import { boxStack } from "./fieldStyles";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { RowActs } from "./RowActs";
 import { StatusPage } from "./StatusPage";
@@ -23,7 +25,7 @@ import type { FormStatus } from "./useFormAction";
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
 export type EndState = StatusCardProps;
 
-/** Which of the form's acts was pressed: the main one, or the quieter one beneath it. */
+/** Which of the form's acts was pressed: the main one, or the refusal before it. */
 export type Act = "primary" | "secondary";
 
 /** The field the pressed act posts under, beside the form's own, which the page's action reads by this name. */
@@ -62,11 +64,14 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
 /**
  * The one-shot submit: a page in the classic frame's form column whose form is sent once and whose outcome
  * replaces it. Done, the server's end state takes the page's place as the status template; refused, the
- * form stays with its input, each field's message under its field and the reason in the line under the
- * acts. The main act stands full width; a second, quieter act beneath it sends without asking the fields,
- * as an objection needs none of them. The end stands in `OneShotEnd`, which the form stands inside, and outlives
- * a visit elsewhere and the page's own re-render: what was done stays done. A form anybody may send carries the bot
- * check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the column.
+ * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
+ * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
+ * offers, an objection or a decline, which sends without asking the fields, needing none of them, and in the outlined
+ * danger look of every destroying act's button. It asks no question first: the page is itself the question the person
+ * opened the link to answer. The end stands in `OneShotEnd`, which the form
+ * stands inside, and outlives a visit elsewhere and the page's own re-render: what was done stays done. A form anybody
+ * may send carries the bot check above its acts, Cloudflare's widget showing only when Cloudflare asks, as wide as the
+ * column.
  */
 export function OneShotForm({
   head,
@@ -77,11 +82,14 @@ export function OneShotForm({
   botCheck,
   replayField,
   boxes = false,
+  note,
+  describedBy,
   children,
 }: {
   /** What stands above the form: the page's title and what the person answers. */
   head: ReactElement;
   action: OneShotAction;
+  /** The main act's words and, where the link's offer can be refused, the refusal's. */
   acts: { primary: Copy; secondary?: Copy };
   /** What the form posts beside its fields, unseen: the token the page's link carries. */
   carry?: Readonly<Record<string, string>>;
@@ -100,6 +108,10 @@ export function OneShotForm({
   replayField?: string;
   /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do. */
   boxes?: boolean;
+  /** A sentence the press rests on, at the footer's start beside the acts, such as where a confirmation goes. */
+  note?: ReactNode;
+  /** The id of the words that describe the acts to a screen reader, such as `note`'s own, read with each act's name. */
+  describedBy?: string;
   /** The form's fields, the kit's, each with its `name`. */
   children?: ReactNode;
 }) {
@@ -107,7 +119,7 @@ export function OneShotForm({
   const touched = usePasskeyTouch(touch, carry.holder);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
     async (formData: FormData) => {
-      // The quieter act posts without the touch: an objection hands nothing over.
+      // The refusal posts without the touch: an objection hands nothing over.
       const reached = await (formData.get(ACT_FIELD) === "primary" ? touched(action) : action)(formData);
       // Handed up before the answer settles here: the same response may already have replaced this form.
       if (reached.ok) answered?.(reached.value);
@@ -175,25 +187,22 @@ export function OneShotForm({
           if (!isBusy) send(formData, "primary");
         }}
         className="grid gap-6">
-        {children !== undefined && <div className={boxes ? "grid gap-6" : "grid justify-items-start gap-4"}>{children}</div>}
+        {children !== undefined && (boxes ? <div className={boxStack()}>{children}</div> : <FieldStack>{children}</FieldStack>)}
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}
-          {/* Full width on a phone; from `lg` each act as wide as its label, centred in the column, as a status card
-              sets its way on, with the status line centred under them. */}
-          <div className="grid gap-3 lg:justify-items-center lg:text-center">
+          <FormFooter
+            status={status}
+            note={note}>
             {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
                 so a screen reader hears what the press did. */}
-            <RowActs className="contents">
-              <Button
-                variant="primary"
-                type="submit"
-                label={acts.primary}
-                isBusy={isBusy && pressed === "primary"}
-              />
+            <RowActs
+              className="contents"
+              describedBy={describedBy}>
               {acts.secondary !== undefined && (
                 <Button
-                  variant="quiet"
+                  // The refusal destroys what the link offered, so it takes the one look of every destroying act's button.
+                  variant="dangerOutline"
                   label={acts.secondary}
                   isBusy={isBusy && pressed === "secondary"}
                   onPress={() => {
@@ -201,12 +210,14 @@ export function OneShotForm({
                   }}
                 />
               )}
+              <Button
+                variant="primary"
+                type="submit"
+                label={acts.primary}
+                isBusy={isBusy && pressed === "primary"}
+              />
             </RowActs>
-            <StatusLine
-              status={status}
-              placement="column"
-            />
-          </div>
+          </FormFooter>
         </div>
       </HeldForm>
     </ClassicPage>

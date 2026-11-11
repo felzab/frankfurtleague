@@ -15,8 +15,7 @@ import type { Fact } from "@/kit/Facts";
  * What a running change's row does, each act behind the passkey touch, the last step of its press: „Link senden“ where
  * the change waits on the new mailbox, the one step a fresh link serves, its answer a toast, the row holding no status
  * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
- * says of the same record, and „Verwerfen“ before it. It stands quiet beside the re-send and secondary alone, as a lone
- * removal does on every list.
+ * says of the same record, and „Verwerfen“ before it, in the outlined danger look of every destroying act's button.
  */
 export function ChangeActs({
   id,
@@ -53,7 +52,6 @@ export function ChangeActs({
         act={discardChange}
         id={id}
         holder={holder}
-        quiet={resends}
       />
     </>
   );

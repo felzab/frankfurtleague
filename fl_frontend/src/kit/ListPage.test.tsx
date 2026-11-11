@@ -402,8 +402,9 @@ describe("a table a client page draws", () => {
   );
 
   // The harm: a page whose rows open its dialog draws its table itself, and a table standing outside the template's
-  // wait or its search scope lands without a placeholder or ignores what is typed into the toolbar's field.
-  it("waits in the template's placeholder and is searched by the toolbar's field", async () => {
+  // wait or its body lands without a placeholder or outside the toolbar's search scope. The page is drawn as the server
+  // draws it, its list body being a server component; what the toolbar's field narrows is `ListTable.test.tsx`'s.
+  it("waits in the template's placeholder and lands in the template's body, under the toolbar's field", async () => {
     const waiting = document.createElement("div");
     waiting.innerHTML = renderToString(page(new Promise(() => undefined)));
     expect(waiting.querySelectorAll("[aria-busy] tbody tr")).toHaveLength(3);
@@ -418,12 +419,16 @@ describe("a table a client page draws", () => {
         }}
       />
     );
-    render(page(Promise.resolve({ drawn })));
-    expect(await screen.findByText("Finn Claus")).toBeTruthy();
-    await userEvent.type(screen.getByRole("searchbox"), "lea");
+    const landed = document.createElement("div");
+    const { prelude } = await prerender(page(Promise.resolve({ drawn })), { progressiveChunkSize: Number.MAX_SAFE_INTEGER });
+    landed.innerHTML = await new Response(prelude).text();
 
-    expect(screen.queryByText("Finn Claus")).toBe(null);
-    expect(screen.getByText("Lea Bauer")).toBeTruthy();
+    const field = landed.querySelector('input[type="search"]');
+    const rows = [...landed.querySelectorAll("tbody tr")].map((row) => row.textContent);
+    expect(rows).toStrictEqual(["Lea Bauer", "Finn Claus"]);
+    expect(landed.querySelector("[aria-busy]")).toBe(null);
+    // The table stands after the field in the one scope the template holds both in.
+    expect(field?.compareDocumentPosition(landed.querySelector("table") as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });
 
@@ -464,10 +469,31 @@ describe("one club's matches under their matchdays", () => {
   it("sets each match in its own box under its matchday's head, and waits in as many boxes", async () => {
     const { waiting, landed } = await drawn(2, { groups: [group(0), group(1)], empty: EMPTY });
 
-    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-3")?.children ?? [])];
+    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-y-3")?.children ?? [])];
     expect(boxes(landed).map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
     expect(boxes(landed).map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
     expect(boxes(waiting.querySelector("[aria-busy]") ?? waiting)).toHaveLength(2);
+  });
+
+  // The harm: one box's chip widening its when column, so its score and sides stand apart from every other box's down
+  // the list, which jsdom lays out nowhere to see. What the alignment rests on: one element holds the columns, and every
+  // part from it to each match's one-line row hands them on as a subgrid.
+  it("lines every box's match up on the one set of columns the list holds", async () => {
+    const chipped = { ...group(1), spiel: { ...group(1).spiel, chip: { tone: "warn" as const, label: COPY.shared.saved } } };
+    const { landed } = await drawn(2, { groups: [group(0), chipped], empty: EMPTY });
+
+    const lines = [...landed.querySelectorAll("main *")].filter((part) => part.classList.contains("@max-2xl:hidden"));
+    expect(lines).toHaveLength(2);
+    const holders = lines.map((line) => {
+      let part: Element | null = line;
+      while (part !== null && ![...part.classList].some((name) => name.startsWith("grid-cols-[minmax("))) {
+        expect([...part.classList]).toEqual(expect.arrayContaining(["col-span-full", "grid", "grid-cols-subgrid"]));
+        part = part.parentElement;
+      }
+      return part;
+    });
+    expect(holders[0]).not.toBeNull();
+    expect(holders[1]).toBe(holders[0]);
   });
 
   // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.

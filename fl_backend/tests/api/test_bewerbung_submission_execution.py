@@ -574,26 +574,26 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
 
     client = MongoClient(url)
     try:
-        database = a_clean_database_sync(client, url, database_name)
-        database[Collection.SAISONS].insert_one(
-            saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
-        )
-        database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
+        with a_clean_database_sync(client, url, database_name) as database:
+            database[Collection.SAISONS].insert_one(
+                saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
+            )
+            database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
-        async def _submitted() -> Response:
-            async with app_client(url, app=_served(), now=NOW) as http:
-                sent = dict(BASE_AUTH if headers is None else headers)
-                sent["Idempotency-Key"] = key or str(uuid4())
-                return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
+            async def _submitted() -> Response:
+                async with app_client(url, app=_served(), now=NOW) as http:
+                    sent = dict(BASE_AUTH if headers is None else headers)
+                    sent["Idempotency-Key"] = key or str(uuid4())
+                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
-        response = asyncio.run(_submitted())
+            response = asyncio.run(_submitted())
 
-        # Read HERE: the client below is closed on the way out, and a handle returned through it
-        # would be dead by the time a case touched it.
-        return Submitted(
-            response=response,
-            stored=database[Collection.BEWERBUNGEN].count_documents({}),
-        )
+            # Read HERE: the client below is closed on the way out, and a handle returned through it
+            # would be dead by the time a case touched it.
+            return Submitted(
+                response=response,
+                stored=database[Collection.BEWERBUNGEN].count_documents({}),
+            )
     finally:
         client.close()
 
@@ -674,6 +674,7 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),
+        "version": 0,
         **fields,
     }
 

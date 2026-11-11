@@ -237,11 +237,12 @@ def on_a_seeded_season(
     saison_status: str = "active",
     start_date: str = FIRST_GROUP_SPIEL_DAY,
     junctions: Sequence[dict[str, Any]] | None = None,
+    stores_a_refused_shape: str | None = None,
 ) -> Any:
     """`active` by default: a mid-season withdrawal is what this endpoint is for."""
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, stores_a_refused_shape=stores_a_refused_shape) as (client, database):
             # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
                 [saison_document(SAISON_ID, saison_status, start_date=start_date), saison_document(PRIOR_SAISON_ID, "past")]
@@ -493,7 +494,12 @@ class TestTheOutgoingClubsSquadIsRetired:
 
         # `Z` is no group the model admits: the defence under test is the endpoint's own guard against a stored one.
         unreadable = {**junction(WITHDRAWN, "A", dict(EXIT)), "gruppe": "Z"}
-        squad = on_a_seeded_season(mongo_replica_set_url, body, junctions=[unreadable, junction(RIVAL, "A")])
+        squad = on_a_seeded_season(
+            mongo_replica_set_url,
+            body,
+            junctions=[unreadable, junction(RIVAL, "A")],
+            stores_a_refused_shape="a season row in a group the model admits none of, which the endpoint guards against",
+        )
 
         assert [squad[index]["inactive_since"] for index in (1, 2)] == [None, None]
 

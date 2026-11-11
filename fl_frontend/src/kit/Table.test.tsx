@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { wholeText } from "@/test-support/wholeText";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -88,31 +89,35 @@ describe("a row's name cell", () => {
   // every other list cuts the name with „…“ and keeps the chip beside it. jsdom lays nothing out, so each case holds what
   // the cut rests on: one line holding the name and then its chips in tracks of their own size, the name's track
   // shrinking to nothing, and the name cut at every width.
+  const actRow = (name: string, delivered: boolean, address = false) => (
+    <Table
+      {...props([
+        {
+          id: "1",
+          name: address ? { record: name, address: true as const } : { record: name },
+          chip: { tone: "warn", label: COPY.admin.expired },
+          ...(delivered ? { delivery: { tone: "danger" as const, label: COPY.admin.delivery.undeliverable } } : {}),
+          line: { record: "Neuer Administrator" },
+          cells: {},
+          acts: (
+            <Button
+              variant="secondary"
+              label={COPY.shared.verb.remove}
+            />
+          ),
+        },
+      ])}
+    />
+  );
+
   it.each([
-    ["a short name and its chip", "anna@example.org", false],
-    ["a long name and its chip", "gesperrte.person.mit.langer.adresse@example.com", false],
-    ["a name and two chips", "anna@example.org", true],
+    ["a short name and its chip", "Anna Berg", false],
+    ["a long name and its chip", "Annemarie Konstanze Berg-Wolkenstein von Hohenlimburg", false],
+    ["a name and two chips", "Anna Berg", true],
+    // A club's name may hold an „@“ and a „.“, and is cut as every name is: only a row its list marks is an address.
+    ["a club's name holding an „@“", "Team @ Goethe.Schule", false],
   ])("sets %s on one line of a row with acts, the name first and cut on a phone too", (_case, name, delivered) => {
-    render(
-      <Table
-        {...props([
-          {
-            id: "1",
-            name: { record: name },
-            chip: { tone: "warn", label: COPY.admin.expired },
-            ...(delivered ? { delivery: { tone: "danger" as const, label: COPY.admin.delivery.undeliverable } } : {}),
-            line: { record: "Neuer Administrator" },
-            cells: {},
-            acts: (
-              <Button
-                variant="secondary"
-                label={COPY.shared.verb.remove}
-              />
-            ),
-          },
-        ])}
-      />,
-    );
+    render(actRow(name, delivered));
     const words = screen.getByText(name);
     const nameLine = words.parentElement;
     expect(nameLine?.textContent).toBe(`${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`);
@@ -121,6 +126,22 @@ describe("a row's name cell", () => {
     expect(words.className.split(" ")).toContain("truncate");
     expect(words.className.split(" ")).not.toContain("max-lg:whitespace-normal");
     expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
+  });
+
+  // The harm: two rows told apart by their addresses alone read alike once both are cut, and a touch reaches no tooltip.
+  // The layout is the phone journey's (`e2e/phone/access.spec.ts`); this holds what the wrap rests on.
+  it("wraps an address rather than cutting it, after its „@“ first, its chip beside its first line", () => {
+    const address = "gesperrte.person@example.com";
+    render(actRow(address, false, true));
+    const words = screen.getByText(wholeText(address));
+    const nameLine = words.parentElement;
+    expect(words.className.split(" ")).not.toContain("truncate");
+    // Each part a block a line takes whole while it fits, so „.com“ never stands alone under „example“.
+    expect(words.innerHTML).toBe(
+      '<span class="inline-block">gesperrte<wbr>.person@</span><wbr><span class="inline-block">example<wbr>.com</span>',
+    );
+    expect(nameLine?.className.split(" ")).toContain("items-start");
+    expect(nameLine?.textContent).toBe(`${address}${COPY.admin.expired}`);
   });
 
   // The harm: a phone row loses a player's position and Stufe, which only its desktop columns hold, or a desktop row

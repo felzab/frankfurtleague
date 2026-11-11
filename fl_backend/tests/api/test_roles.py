@@ -13,7 +13,16 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import EINWILLIGUNG, kontaktperson_document, rules_document, saison_document, saison_team_document, spieler_document
+from tests.documents import (
+    EINWILLIGUNG,
+    SCHIEDSRICHTER_TEXT_VERSIONS,
+    kontaktperson_document,
+    own_einwilligung_document,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    spieler_document,
+)
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -131,11 +140,13 @@ def _schiedsrichter(schiedsrichter_id: ObjectId, email: str, name: str | None, *
         "default_payment": 20,
         "kontakt": {"phone": "+49 69 5550202", "email": email},
         "inactive_since": None,
+        "version": 0,
         **fields,
     }
 
 
-CONFIRMED: dict[str, Any] = {**EINWILLIGUNG, "confirmed_at": STAMP}
+# A referee's record as their own confirmation leaves it.
+CONFIRMED: dict[str, Any] = own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP)
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -227,7 +238,11 @@ async def _seed(database: AsyncDatabase) -> None:
 @pytest.fixture(scope="module")
 def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
     async def _run() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(
+            mongo_replica_set_url,
+            DATABASE_NAME,
+            stores_a_refused_shape="an unconfirmed pupil and a ghost holding an address and a stamp, which every read answers as nobody",
+        ) as (_, database):
             await _seed(database)
 
     on_the_seed_loop(_run())

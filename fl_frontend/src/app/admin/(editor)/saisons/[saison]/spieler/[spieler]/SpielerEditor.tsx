@@ -116,7 +116,6 @@ export function SpielerEditor({
               <TextField
                 label={COPY.shared.firstName}
                 name="first_name"
-                width="W3"
                 kind="text"
                 isRequired={required.first_name}
                 maxLength={max.first_name}
@@ -126,7 +125,6 @@ export function SpielerEditor({
               <TextField
                 label={COPY.shared.lastName}
                 name="last_name"
-                width="W3"
                 kind="text"
                 isRequired={required.last_name}
                 maxLength={max.last_name}
@@ -153,7 +151,7 @@ export function SpielerEditor({
               <TextField
                 label={WORDS.nummer}
                 name="nummer"
-                width="C2"
+                holds={2}
                 kind="digits"
                 value={draft.nummer}
                 onChange={(nummer) => set("nummer", nummer)}
@@ -161,7 +159,6 @@ export function SpielerEditor({
               <Select
                 label={WORDS.position}
                 name="position"
-                width="fit"
                 options={positions}
                 value={draft.position}
                 onChange={(position) => set("position", position ?? "")}
@@ -169,7 +166,6 @@ export function SpielerEditor({
               <Select
                 label={WORDS.stufe}
                 name="stufe"
-                width="fit"
                 options={stufen}
                 value={draft.stufe}
                 onChange={(stufe) => set("stufe", stufe ?? "")}
@@ -177,7 +173,6 @@ export function SpielerEditor({
               <Select
                 label={WORDS.rolle}
                 name="rolle"
-                width="fit"
                 options={rolleOptions(takenRollen)}
                 value={draft.rolle}
                 onChange={(rolle) => set("rolle", rolle ?? "")}

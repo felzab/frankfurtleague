@@ -31,7 +31,6 @@ from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_decline_update
 from app.api.spieler.crud import erase_person_in_session
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -780,7 +779,7 @@ class TestTheSentinelIsNobodyToErase:
         """Catches the step keying its removals on the bare id: the sentinel would go, and every reference repointed at it dangle."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(build_ghost_spieler())
+            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
 
             async def erase(session: Any) -> Any:
                 return await erase_person_in_session(
@@ -1027,6 +1026,53 @@ class TestTheScope:
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (0, 0, IDENTIFIER, 1, True, 1, True)
+
+
+# A second referee record at their address, booked on a fixture of its own: the address may hold several.
+SECOND_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607b00023")
+SECOND_REFEREE_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00063")
+
+
+class TestTheCounts:
+    """What an erasure answers and records of the act: each arm's count, summed over every record the address holds.
+
+    `test_identity_erasure_on_request.py` holds the counts of an address holding one record per arm.
+    """
+
+    def test_a_person_holding_records_in_every_arm_is_answered_each_arms_count(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
+            await database[Collection.SCHIEDSRICHTER].insert_one(
+                referee(SECOND_REFEREE_OID, email=IDENTIFIER, name="Zorbanax Quillfeather II", kontakt={"phone": PHONE, "email": IDENTIFIER})
+            )
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=SECOND_REFEREE_SPIEL_OID,
+                    saison_id=SAISON_ID,
+                    spiel_nr=3,
+                    spieltag_id=SPIELTAG_OID,
+                    date="2126-03-22",
+                    time="14:00:00",
+                    schiedsrichter={"schiedsrichter_id": SECOND_REFEREE_OID, "payment": PAYMENT},
+                )
+            )
+            response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
+            return response.status_code, response.json()
+
+        status, answer = on_a_league(mongo_replica_set_url, body)
+
+        assert status == 200
+        # Two referee records, each booked once: their fixtures counted over both.
+        assert answer == {
+            "spieler": 1,
+            "saison_spieler": 1,
+            "schiedsrichter": 2,
+            "spiele": 2,
+            "kontakt_seats": 3,
+            "registrierungen": 2,
+            "address_change": 2,
+            "grants": 1,
+        }
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
