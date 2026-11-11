@@ -324,7 +324,7 @@ jobs:
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
       # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
-      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
