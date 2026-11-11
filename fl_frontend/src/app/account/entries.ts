@@ -2,7 +2,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import type { AccountEntry } from "@/kit/AccountPage";
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 
 /** Konto's four pages, the rail's entries and the phone's list alike, each by its rail glyph. */
 export const ACCOUNT_ENTRIES: readonly AccountEntry[] = [

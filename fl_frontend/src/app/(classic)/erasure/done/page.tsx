@@ -1,5 +1,5 @@
 import { MAILED_PAGE_METADATA } from "@/kit/MailedPage";
-import { StatusPage } from "@/kit/StatusPage";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -20,8 +20,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 export default function AccountErasedPage() {
   return (
-    <StatusPage
-      frame="classic"
+    <ClassicStatusPage
       tone="success"
       title={SERVER_COPY.accountErasure.done}
       next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}

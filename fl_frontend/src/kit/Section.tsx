@@ -41,12 +41,6 @@ export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2
 export const dangerEdge = tv({ base: "border-danger" });
 
 /**
- * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
- * groups and the phone sheet's. Each place adds its own spacing.
- */
-export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
-
-/**
  * The head of a box of a form, an editor's section and a Konto box alike: its title and the line under it on the box's
  * own fill, then, `ruled` where content follows, a hairline touching both of the box's edges, as GitHub Primer's
  * Subhead heads a settings section. The content stands under the rule in the box's padding.

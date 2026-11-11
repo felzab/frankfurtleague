@@ -2,7 +2,8 @@
 // own catalogue, which neither instrumentation bundle is to carry.
 import { now } from "./clock";
 import { COPY } from "./copy";
-import { bornBy, dayIn, dayOf } from "./format";
+import { bornBy } from "./dayArithmetic";
+import { dayIn, dayOf } from "./format";
 import { saisonsPatchSaisonBodyRulesDrawPointsMin, saisonsPatchSaisonBodyRulesLossPointsMin } from "./generated/zod/inputs";
 import { SERVER_COPY } from "./serverCopy";
 

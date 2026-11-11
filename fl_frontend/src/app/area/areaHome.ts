@@ -1,7 +1,7 @@
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 
 /**
  * Where every status card of a team's and a person's frame leads on: the person's own Übersicht, which lists each of

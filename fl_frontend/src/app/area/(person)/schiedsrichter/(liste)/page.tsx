@@ -15,7 +15,6 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 export default function SchiedsrichterPage() {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={{ route: "areaSchiedsrichter" }}
       card={standardSaisonCard("schiedsrichter")}

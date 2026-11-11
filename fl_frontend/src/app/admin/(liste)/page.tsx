@@ -9,7 +9,7 @@ import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -38,7 +38,6 @@ async function readSaison(): Promise<StatusCardProps> {
 export default function AdminPage() {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={{ route: "admin" }}
       card={readSaison()}
