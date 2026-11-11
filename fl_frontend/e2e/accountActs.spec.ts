@@ -10,10 +10,9 @@
  */
 import { expect } from "@playwright/test";
 
-import { test as journey } from "./support/journey";
+import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
-import { standInForTurnstile } from "./support/turnstileStandIn";
 
 import type { Page } from "@playwright/test";
 
@@ -22,21 +21,6 @@ async function signIn(page: Page, address: string): Promise<void> {
   await signInWithCode(page, address);
   await declinePasskeyOffer(page, PERSON_LANDING);
 }
-
-/**
- * A second device, a browser context beside the test's own, built and closed in a fixture as Playwright's guide builds
- * one for a second role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that
- * fails closes it too. The project's `use` options reach it as they reach every context the test's browser makes
- * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance).
- */
-const test = journey.extend<{ secondDevice: Page }>({
-  secondDevice: async ({ browser }, provide) => {
-    const device = await browser.newContext();
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
-  },
-});
 
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
   // A second device, signed in first.

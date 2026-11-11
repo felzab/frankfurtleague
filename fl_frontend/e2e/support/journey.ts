@@ -12,7 +12,7 @@ import { test as base } from "@playwright/test";
 
 import { standInForTurnstile } from "./turnstileStandIn";
 
-import type { Page, Request } from "@playwright/test";
+import type { Browser, BrowserContextOptions, Page, Request } from "@playwright/test";
 
 export type JourneyOptions = {
   /** An administrator's grant. */
@@ -49,6 +49,8 @@ export type JourneyOptions = {
 type JourneyFixtures = {
   /** The administrator's device, beside the one the journey's own person holds, already signed in. */
   administration: Page;
+  /** A device beside the test's own, signed in as nobody: a second device of the journey's person, or another's. */
+  secondDevice: Page;
 };
 
 /**
@@ -79,6 +81,19 @@ export function hydrated(page: Page): Promise<Request> {
   });
 }
 
+/**
+ * A browser context beside the test's own, built and closed in a fixture as Playwright's guide builds one for a second
+ * role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that fails closes it
+ * too. The project's `use` options reach it as they reach every context the test's browser makes
+ * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance).
+ */
+async function provideDevice(browser: Browser, options: BrowserContextOptions, provide: (page: Page) => Promise<void>): Promise<void> {
+  const device = await browser.newContext(options);
+  await standInForTurnstile(device);
+  await provide(await device.newPage());
+  await device.close();
+}
+
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
   // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
   administrator: ["", { option: true }],
@@ -93,19 +108,18 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   registering: [{ club: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
-  // The test's own context; a context a journey builds beside it takes the stand-in itself. `provide` is the
-  // fixture's `use`, named apart from React's hook, which a lint rule reads it as.
+  // The test's own context. `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it
+  // as.
   context: async ({ context }, provide) => {
     await standInForTurnstile(context);
     await provide(context);
   },
 
-  // A second context as a fixture, as Playwright's guide builds one for a second role
-  // (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures).
   administration: async ({ browser }, provide) => {
-    const device = await browser.newContext({ storageState: ADMINISTRATOR_STATE });
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
+    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, provide);
+  },
+
+  secondDevice: async ({ browser }, provide) => {
+    await provideDevice(browser, {}, provide);
   },
 });

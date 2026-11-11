@@ -9,12 +9,11 @@
 import { expect } from "@playwright/test";
 
 import { choose, typeInto } from "./support/application";
-import { test as journey } from "./support/journey";
+import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
-import { standInForTurnstile } from "./support/turnstileStandIn";
 
-import type { Locator, Page } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
 /** The running season of the made-up seed, which the club's link registers for. */
 const SAISON = "2027";
@@ -53,19 +52,10 @@ function valueOf(scope: Locator, term: string): Locator {
     .locator("xpath=following-sibling::dd[1]");
 }
 
-/** The team contact's device beside the pupil's, as `accountActs.spec.ts` builds its second device. */
-const test = journey.extend<{ team: Page }>({
-  team: async ({ browser }, provide) => {
-    const device = await browser.newContext();
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
-  },
-});
-
 test("a pupil registers through their team's link, confirms, is admitted, and finds their season", async ({
   page,
-  team,
+  // The team contact's device beside the pupil's.
+  secondDevice: team,
   registering: { club, token, admitter },
 }) => {
   const pupil = pupilOf(club);
