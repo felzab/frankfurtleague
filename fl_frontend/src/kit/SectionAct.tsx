@@ -117,7 +117,7 @@ export function SectionAct({
 }: {
   /** The acts' inputs: the kit's fields, each holding its own value for `run` to read. */
   children?: ReactNode;
-  /** The section's acts, the main one last. */
+  /** The section's acts, equal, none the main one: in the order they are read, which they keep at every width (`FormFooter`). */
   acts: readonly [...SectionActItem[], SectionActItem];
   /** The values the acts' `run` reads; none for acts taking no input. */
   inputs?: ReadonlyArray<unknown>;

@@ -40,9 +40,15 @@ type Layout = "phone" | "desktop";
 
 /**
  * A container's footer as the container draws it, and the names of its acts: the main act's, and those of the acts
- * before it. A container whose type admits one act alone names none before it.
+ * before it, which a container whose type admits one act alone has none of; or a section's equal acts, in the order
+ * they are read.
  */
-type Footer = { draw: () => ReactElement; main: Copy; before: ReadonlyArray<Copy> };
+type Footer = { draw: () => ReactElement } & ({ main: Copy; before: ReadonlyArray<Copy> } | { reading: ReadonlyArray<Copy> });
+
+/** The registration link's acts, a section's equal acts. */
+const SEND_LINK = COPY.shared.withObject(COPY.account.address.link, "send");
+const REPLACE_LINK = COPY.shared.withObject(COPY.account.address.link, "replace");
+const WITHDRAW_LINK = COPY.shared.withObject(COPY.account.address.link, "withdraw");
 
 /** Every container of a footer, under the kit module drawing it. */
 const FOOTERS: Readonly<Record<string, ReadonlyArray<readonly [string, Footer]>>> = {
@@ -137,18 +143,18 @@ const FOOTERS: Readonly<Record<string, ReadonlyArray<readonly [string, Footer]>>
   ],
   "SectionAct.tsx": [
     [
-      "a section's two acts",
+      "a section's equal acts",
       {
         draw: () => (
           <SectionAct
             acts={[
-              { label: COPY.shared.help, run: noAnswer },
-              { label: COPY.shared.verb.save, variant: "primary", run: noAnswer },
+              { label: SEND_LINK, run: noAnswer },
+              { label: REPLACE_LINK, run: noAnswer },
+              { label: WITHDRAW_LINK, run: noAnswer },
             ]}
           />
         ),
-        main: COPY.shared.verb.save,
-        before: [COPY.shared.help],
+        reading: [SEND_LINK, REPLACE_LINK, WITHDRAW_LINK],
       },
     ],
   ],
@@ -212,11 +218,21 @@ describe("every container of a form's footer", () => {
     .flat()
     .flatMap(([name, footer]) => (["phone", "desktop"] as const).map((layout) => [name, layout, footer] as const));
 
-  it.each(cases)("holds the main act first on a phone and last at the rail's width: %s, %s", (_, layout, { draw, main, before }) => {
+  // The main act first on a phone and last at the rail's width; a section's equal acts, which have no main one, in the
+  // order they are read at every width.
+  it.each(cases)("holds its acts in the order the screen shows them: %s, %s", (_, layout, footer) => {
     standAt(layout);
-    render(draw());
-    const mainAct = act(main);
-    for (const name of before) {
+    render(footer.draw());
+    if ("reading" in footer) {
+      const named = new Set<string>(footer.reading);
+      const keyOrder = screen
+        .getAllByRole("button")
+        .flatMap(({ textContent }) => (textContent !== null && named.has(textContent) ? [textContent] : []));
+      expect(keyOrder).toStrictEqual(footer.reading);
+      return;
+    }
+    const mainAct = act(footer.main);
+    for (const name of footer.before) {
       const follows = mainAct.compareDocumentPosition(act(name)) & Node.DOCUMENT_POSITION_FOLLOWING;
       expect(follows !== 0, `${name} after the main act`).toBe(layout === "phone");
     }
