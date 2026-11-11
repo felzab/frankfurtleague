@@ -4250,12 +4250,10 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Move a matchday's span, answering the matchday's `version` after the save.
+ * Move a matchday's span, answering its `version` after the save.
  *
- * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
- * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
- * closed.
+ * The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
+ * dated in.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltag = async (
@@ -4288,12 +4286,10 @@ export const getSpieltageGetSpieltagAdminUrl = (spieltagId: string) => {
 };
 
 /**
- * Return one matchday by its id for the admin editor, a `future` season's included.
+ * One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
- * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
- * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
- * exactly the season the write refuses (`saison_past`).
+ * Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+ * final.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagAdmin = async (

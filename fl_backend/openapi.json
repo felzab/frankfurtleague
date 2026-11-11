@@ -16046,7 +16046,7 @@
         "type": "object"
       },
       "FLSpieltagAdminResponse": {
-        "description": "One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.\n\nOn the response rather than on the matchday, as the match editor's read serves it: a matchday carries no\nseason-scoped state.",
+        "description": "One matchday and its season's `status`, which says whether the matchday can still be re-dated.",
         "properties": {
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
@@ -28357,7 +28357,7 @@
         ]
       },
       "patch": {
-        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A\n`past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is\nclosed.",
+        "description": "Move a matchday's span, answering its `version` after the save.\n\nThe span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is\ndated in.",
         "operationId": "spieltage_patch_spieltag",
         "parameters": [
           {
@@ -28446,7 +28446,7 @@
     },
     "/api/v0/spieltage/{spieltag_id}/admin": {
       "get": {
-        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nThe shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many\nmatchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever\nactivated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on\nexactly the season the write refuses (`saison_past`).",
+        "description": "One matchday by its id, a `future` season's included, with how many matchdays its phase holds.\n\nBeside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as\nfinal.",
         "operationId": "spieltage_get_spieltag_admin",
         "parameters": [
           {

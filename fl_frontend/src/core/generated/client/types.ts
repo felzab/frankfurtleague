@@ -5573,10 +5573,7 @@ export interface FLSpieltagAdmin {
 }
 
 /**
- * One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
- *
- * On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
- * season-scoped state.
+ * One matchday and its season's `status`, which says whether the matchday can still be re-dated.
  */
 export interface FLSpieltagAdminResponse {
   saison_status: FLSaisonStatus;
