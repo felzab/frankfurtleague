@@ -26,7 +26,20 @@ const SENT: FLTeamLinkState = {
 describe("the link box's Nachnominierung day", () => {
   it("is the day after the window's end, which still takes an ordinary entry", () => {
     // A month's last day, so the day after is the next month's first.
-    const [, nominee] = linkFactsOf(SENT, { registrierung_end: "2026-09-30" });
+    const [, nominee] = linkFactsOf(SENT, { registrierung_end: "2026-09-30", status: "active" });
     expect(nominee).toStrictEqual({ label: COPY.admin.team.nomineeFrom, value: { record: "01.10.2026" }, figures: true });
+  });
+});
+
+/* A running season storing no window keeps every link shut, and a box reading „Gesendet am …“ there sends the
+   administrator after a club whose pupils can do nothing; a planned season's link is shut by design until its activation. */
+describe("the link box's state where the season takes no registration", () => {
+  it("says a running season stores no window, and leaves a planned one's mail standing", () => {
+    const shut = { ...SENT, running: false };
+    const [running] = linkFactsOf(shut, { registrierung_end: null, status: "active" });
+    const [planned] = linkFactsOf(shut, { registrierung_end: null, status: "future" });
+
+    expect(running?.value).toBe(COPY.admin.saison.noRegistrierungWindow);
+    expect(planned?.value).toStrictEqual(COPY.admin.saison.linkSentOn("2026-09-02"));
   });
 });

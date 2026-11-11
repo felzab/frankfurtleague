@@ -1122,6 +1122,8 @@ export const COPY = catalogue({
       lockedByDraw: "Gesperrt, solange ein Spielplan steht",
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
+      /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */
+      noRegistrierungWindow: "Kein Registrierungsfenster",
       /** The application form paused: the window stands, and the form reads closed until the box is cleared. */
       bewerbungPaused: "Bewerbung pausiert",
 
