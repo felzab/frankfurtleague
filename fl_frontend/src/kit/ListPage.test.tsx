@@ -469,10 +469,31 @@ describe("one club's matches under their matchdays", () => {
   it("sets each match in its own box under its matchday's head, and waits in as many boxes", async () => {
     const { waiting, landed } = await drawn(2, { groups: [group(0), group(1)], empty: EMPTY });
 
-    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-3")?.children ?? [])];
+    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-y-3")?.children ?? [])];
     expect(boxes(landed).map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
     expect(boxes(landed).map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
     expect(boxes(waiting.querySelector("[aria-busy]") ?? waiting)).toHaveLength(2);
+  });
+
+  // The harm: one box's chip widening its when column, so its score and sides stand apart from every other box's down
+  // the list, which jsdom lays out nowhere to see. What the alignment rests on: one element holds the columns, and every
+  // part from it to each match's one-line row hands them on as a subgrid.
+  it("lines every box's match up on the one set of columns the list holds", async () => {
+    const chipped = { ...group(1), spiel: { ...group(1).spiel, chip: { tone: "warn" as const, label: COPY.shared.saved } } };
+    const { landed } = await drawn(2, { groups: [group(0), chipped], empty: EMPTY });
+
+    const lines = [...landed.querySelectorAll("main *")].filter((part) => part.classList.contains("@max-2xl:hidden"));
+    expect(lines).toHaveLength(2);
+    const holders = lines.map((line) => {
+      let part: Element | null = line;
+      while (part !== null && ![...part.classList].some((name) => name.startsWith("grid-cols-[minmax("))) {
+        expect([...part.classList]).toEqual(expect.arrayContaining(["col-span-full", "grid", "grid-cols-subgrid"]));
+        part = part.parentElement;
+      }
+      return part;
+    });
+    expect(holders[0]).not.toBeNull();
+    expect(holders[1]).toBe(holders[0]);
   });
 
   // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.

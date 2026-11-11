@@ -23,7 +23,7 @@ import { RowActs } from "./RowActs";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
-import { SpielListPlaceholder } from "./SpielRow";
+import { spielColumns, SpielListPlaceholder, spielSubgrid } from "./SpielRow";
 import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
 import { Tabs, TabsPlaceholder } from "./Tabs";
@@ -289,7 +289,7 @@ function ListPlaceholder({ list }: { list: ListContent }) {
             <div
               key={index}
               className={SPIEL_CARD_CLASSES}>
-              <SpielGroupPlaceholder />
+              <SpielGroupPlaceholder columns="outer" />
             </div>
           ))}
         </SpielCards>
@@ -325,10 +325,15 @@ function EmptyBox({ empty }: { empty: EmptyStateProps }) {
  * A club's matches one under another at every width, each in its own box under its matchday's head: the box its own
  * container, so its row takes the one line where the content is wide enough and the card a phone shows below it.
  */
-const SPIEL_CARD_CLASSES = cardSurface({ class: "@container overflow-hidden" });
+/** A group's own box, handing the list's columns on to its match. */
+const SPIEL_CARD_CLASSES = cardSurface({ class: `@container overflow-hidden ${spielSubgrid()}` });
 
+/**
+ * The boxes of a list of groups of matches, one under another, holding the matches' columns (`spielColumns`), so every
+ * group's score and sides stand at one x down the list, as a table's rows do.
+ */
 function SpielCards({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3">{children}</div>;
+  return <div className={spielColumns({ class: "gap-y-3" })}>{children}</div>;
 }
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
@@ -615,7 +620,10 @@ async function ListBody({ list }: { list: ListContent }) {
             <div
               key={group.spiel.id}
               className={SPIEL_CARD_CLASSES}>
-              <SpielGroup {...group} />
+              <SpielGroup
+                {...group}
+                columns="outer"
+              />
             </div>
           ))}
         </SpielCards>
