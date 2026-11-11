@@ -43,3 +43,16 @@ describe("the link box's state where the season takes no registration", () => {
     expect(planned?.value).toStrictEqual(COPY.admin.saison.linkSentOn("2026-09-02"));
   });
 });
+
+/* A finished season shuts every link, and the press's own state left over from it, „Keine bestätigte Adresse“ for a
+   club whose seats the season no longer holds, sends the administrator after a club whose link can open nothing. */
+describe("the link box's state in a finished season", () => {
+  it("says the season is closed, whatever the press left", () => {
+    const [state] = linkFactsOf(
+      { ...SENT, running: false, skipped: "no_confirmed_kontaktperson" },
+      { registrierung_end: null, status: "past" },
+    );
+
+    expect(state?.value).toBe(COPY.template.closed);
+  });
+});

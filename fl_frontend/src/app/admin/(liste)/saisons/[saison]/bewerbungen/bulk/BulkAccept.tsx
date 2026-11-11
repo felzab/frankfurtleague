@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
-import { EmptyState } from "@/kit/EmptyState";
+import { EmptyBox } from "@/kit/EmptyState";
 import { StatusCard } from "@/kit/StatusPage";
 import { CheckStep, StepCard } from "@/kit/StepCard";
 import { answering } from "@/kit/useFormAction";
@@ -108,7 +108,7 @@ export function BulkAccept({
 
   if (rows.length === 0)
     return (
-      <EmptyState
+      <EmptyBox
         kind="none"
         plural={COPY.page.adminBewerbungen}
         glyph="bewerbungen"

@@ -83,7 +83,7 @@ describe("a game's answers", () => {
   });
 });
 
-/* A row's words decide what the list's search keeps (`kit/ListTable.tsx :: ListCardRows`): words missing a club, the
+/* A row's words decide what the list's search keeps (`kit/ListTable.tsx :: ListCard`): words missing a club, the
    ground or the date hide the game from the referee typing it, and the list only says it holds no such game. */
 describe("the list's search", () => {
   it.each([

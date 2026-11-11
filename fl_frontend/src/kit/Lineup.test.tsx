@@ -30,8 +30,8 @@ const WORDS: LineupWords = {
   starts: COPY.shared.startelf,
   pick: COPY.shared.verb.create,
   remove: COPY.shared.verb.remove,
-  none: COPY.shared.empty.nothingOpen,
-  noSquad: COPY.shared.empty.noneOne(COPY.shared.kader),
+  none: { kind: "none", plural: COPY.shared.spieler },
+  noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
   anonymous: COPY.shared.noValue,
@@ -118,7 +118,7 @@ describe("a line-up", () => {
         seen={seen}
       />,
     );
-    expect(screen.getByText(WORDS.none)).toBeTruthy();
+    expect(screen.getByText(COPY.shared.empty.none(COPY.shared.spieler))).toBeTruthy();
 
     // Named from the highest number down, twelve of the thirteen.
     for (let nummer = 12; nummer >= 1; nummer -= 1) await pick(nummer);
