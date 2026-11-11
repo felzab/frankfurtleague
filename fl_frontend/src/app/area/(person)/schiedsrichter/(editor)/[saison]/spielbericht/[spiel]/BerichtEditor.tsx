@@ -183,7 +183,7 @@ export function BerichtEditor({
       lead={lead}
       editor={editor}
       closed={closed}
-      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.end.toSpiel } })}
+      {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
       sections={[
         {
           id: "ergebnis",

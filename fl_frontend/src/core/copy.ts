@@ -295,8 +295,6 @@ export const COPY = catalogue({
       doneOn: (done: Copy, day: CalendarDay) => `${done} am ${formatDateLong(day)}`,
       /** An area with no season yet, where a page shows a season's work. */
       noSaison: "Noch keine Saison",
-      /** An editor's way to its match's public page, in the strip beside the title, once the match has one. */
-      toSpiel: "Zur Spielseite",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       /** A signed-in frame's way home, its role's Übersicht. */
@@ -305,7 +303,7 @@ export const COPY = catalogue({
       toTeams: "Zu den Teams",
     },
 
-    /** The match pop-up's way to the match's own page. */
+    /** A way to the match's own page: the match pop-up's, and an editor's in the strip beside its title once the match has one. */
     toSpiel: "Zum Spiel",
     /** An accepted application's way to its team's page. */
     toTeam: "Zum Team",
