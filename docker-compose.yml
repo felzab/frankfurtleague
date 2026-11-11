@@ -201,10 +201,10 @@ services:
     # silently.
     image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
     restart: unless-stopped
-    # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
-    # own binary is the unpinned tag again, arrived at from inside the container.
+    # The pin above is the version policy, and the image turns cloudflared's autoupdate off itself, so
+    # the connector never replaces its own binary. A bump reads the release's Dockerfile for it again.
     # `--metrics` on loopback and one port: the check below asks it, and nothing on the network can.
-    command: tunnel --no-autoupdate --metrics 127.0.0.1:20241 run --token-file /run/secrets/tunnel_token
+    command: tunnel --metrics 127.0.0.1:20241 run --token-file /run/secrets/tunnel_token
     # `--token-file` rather than `--token` or `TUNNEL_TOKEN`: an argument sits in every process
     # listing and an environment in `docker inspect`, and a mounted file sits in neither.
     secrets:
