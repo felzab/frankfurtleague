@@ -6,6 +6,7 @@ import { FieldPlaceholder } from "@/kit/FieldPair";
 import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { requires } from "@/core/action";
+import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SEAT_WORDINGS } from "@/core/consentWordings";
 import { COPY, rollenText } from "@/core/copy";
@@ -178,7 +179,7 @@ function question(view: FLBewerbungEinwilligungViewResponse, token: string, unti
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
-        mediaLatestBirth={bornBy(today, view.media_minimum_age)}
+        mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
         isBirthDateRequired={BIRTH_DATE_REQUIRED}
       />
     ),

@@ -586,8 +586,6 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     deadline: CustomOptionalDateString
     # The day the person answered, which a reopened link says; null while they have not.
     answered_at: CustomOptionalDateString
-    # The age from which the page offers the media switch, `media_age`'s floor.
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLBewerbungEinwilligungGiven(BaseModel):

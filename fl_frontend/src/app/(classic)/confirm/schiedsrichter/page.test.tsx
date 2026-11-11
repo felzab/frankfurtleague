@@ -23,7 +23,7 @@ const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
 async function stateFor(view: Partial<FLSchiedsrichterConfirmationViewResponse>): Promise<MailedState> {
-  read.view = { answered_at: null, deadline: "2026-11-18", maximum_age: 99, minimum_age: 16, media_minimum_age: 18, state: "valid", ...view };
+  read.view = { answered_at: null, deadline: "2026-11-18", maximum_age: 99, minimum_age: 16, state: "valid", ...view };
   const page = SchiedsrichterConfirmationPage({
     params: Promise.resolve({}),
     searchParams: Promise.resolve({ token: "tok" }),

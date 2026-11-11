@@ -987,11 +987,6 @@
           "kontakt": {
             "$ref": "#/components/schemas/FLKontakt"
           },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
-          },
           "media_offered": {
             "title": "Media Offered",
             "type": "boolean"
@@ -1028,8 +1023,7 @@
           "einwilligung",
           "evidence_state",
           "givable",
-          "media_offered",
-          "media_minimum_age"
+          "media_offered"
         ],
         "title": "FLAccountSchiedsrichterEinwilligung",
         "type": "object"
@@ -1047,11 +1041,6 @@
           "media": {
             "title": "Media",
             "type": "boolean"
-          },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
           },
           "media_offered": {
             "title": "Media Offered",
@@ -1091,8 +1080,7 @@
           "media",
           "evidence_state",
           "media_offered",
-          "givable",
-          "media_minimum_age"
+          "givable"
         ],
         "title": "FLAccountSeatEinwilligung",
         "type": "object"
@@ -1127,11 +1115,6 @@
             ],
             "title": "Last Name"
           },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
-          },
           "media_offered": {
             "title": "Media Offered",
             "type": "boolean"
@@ -1149,8 +1132,7 @@
           "birth_date",
           "einwilligung",
           "evidence_state",
-          "media_offered",
-          "media_minimum_age"
+          "media_offered"
         ],
         "title": "FLAccountSpielerEinwilligung",
         "type": "object"
@@ -3546,11 +3528,6 @@
             "title": "Maximum Age",
             "type": "integer"
           },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
-          },
           "minimum_age": {
             "title": "Minimum Age",
             "type": "integer"
@@ -3607,8 +3584,7 @@
           "minimum_age",
           "maximum_age",
           "deadline",
-          "answered_at",
-          "media_minimum_age"
+          "answered_at"
         ],
         "title": "FLBewerbungEinwilligungViewResponse",
         "type": "object"
@@ -9639,11 +9615,6 @@
             "title": "Maximum Age",
             "type": "integer"
           },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
-          },
           "minimum_age": {
             "title": "Minimum Age",
             "type": "integer"
@@ -9673,7 +9644,6 @@
           "saison_id",
           "minimum_age",
           "maximum_age",
-          "media_minimum_age",
           "deadline",
           "answered_at"
         ],
@@ -11295,11 +11265,6 @@
             "title": "Maximum Age",
             "type": "integer"
           },
-          "media_minimum_age": {
-            "exclusiveMinimum": 0.0,
-            "title": "Media Minimum Age",
-            "type": "integer"
-          },
           "minimum_age": {
             "title": "Minimum Age",
             "type": "integer"
@@ -11312,7 +11277,6 @@
           "state",
           "minimum_age",
           "maximum_age",
-          "media_minimum_age",
           "deadline",
           "answered_at"
         ],
@@ -25223,7 +25187,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to\n`maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below\n`media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to\n`maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below\n`MEDIA_MIN_AGE_YEARS` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {

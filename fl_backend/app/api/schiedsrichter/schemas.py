@@ -190,9 +190,6 @@ class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
     minimum_age: int
     # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
-    # Served for `minimum_age`'s reason: the page offers the media switch only from this age, and a
-    # copy of its own would offer it where the write refuses.
-    media_minimum_age: int = Field(gt=0)
     deadline: CustomDateString
     # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
     # no answer. A leaked token learns from it nothing past the state it already shows: the person's own day, never who

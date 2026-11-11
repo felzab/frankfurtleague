@@ -23,7 +23,6 @@ from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -220,7 +219,6 @@ def compose_spieler_account(row: Mapping[str, Any], *, today: str) -> dict[str, 
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
-        "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
 
@@ -263,7 +261,6 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "givable": givable,
         "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
-        "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
 
@@ -349,7 +346,6 @@ def compose_seats_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_seat_choices_held(held),
-                "media_minimum_age": MEDIA_MIN_AGE_YEARS,
                 "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
             }

@@ -5,6 +5,7 @@ import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FactsPlaceholder } from "@/kit/Facts";
 import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
+import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatEuro } from "@/core/format";
@@ -38,7 +39,7 @@ const fact = (label: Copy, value: string | null): Fact => ({
 const birthday = (date: string | null): Fact => fact(COPY.shared.facts.birthday, date === null ? null : formatDate(dayOf(date)));
 
 /** Why the media choice may not be given, where the record is short of its floor and the choice is not held. */
-const mediaFrom = (offered: boolean, floor: number): Copy | null => (offered ? null : WORDS.mediaFrom(floor));
+const mediaFrom = (offered: boolean): Copy | null => (offered ? null : WORDS.mediaFrom(MEDIA_MIN_AGE));
 
 /** Every record the person holds, one box each, in the order a person reads their own: themselves, then their seats. */
 function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbungen }: FLAccountEinwilligungenResponse): Entry[] {
@@ -56,7 +57,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
             media: spieler.einwilligung.media,
             evidence: spieler.evidence_state,
             givable: true,
-            mediaFrom: mediaFrom(spieler.media_offered, spieler.media_minimum_age),
+            mediaFrom: mediaFrom(spieler.media_offered),
           },
         ];
   const referee = schiedsrichter.map((row): Entry => ({
@@ -76,7 +77,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     media: row.einwilligung.media,
     evidence: row.evidence_state,
     givable: row.givable,
-    mediaFrom: mediaFrom(row.media_offered, row.media_minimum_age),
+    mediaFrom: mediaFrom(row.media_offered),
   }));
   const registered = registrierungen.map((row): Entry => ({
     id: `registrierung-${row.registrierung_id}`,
@@ -111,7 +112,7 @@ function entriesOf({ spieler, schiedsrichter, registrierungen, seats, bewerbunge
     media: seat.media,
     evidence: seat.evidence_state,
     givable: seat.givable,
-    mediaFrom: mediaFrom(seat.media_offered, seat.media_minimum_age),
+    mediaFrom: mediaFrom(seat.media_offered),
   }));
   const applied = bewerbungen.map((bewerbung): Entry => ({
     id: `bewerbung-${bewerbung.bewerbung_id}`,
@@ -171,7 +172,7 @@ export default function AccountEntriesPage() {
           {/* The floor is the record's; any two figures stand as wide. */}
           <CheckboxPlaceholder
             label={SPIELER_WORDINGS.media.label}
-            description={WORDS.mediaFrom(18)}
+            description={WORDS.mediaFrom(MEDIA_MIN_AGE)}
           />
           <ConsentLinePlaceholder line={SPIELER_WORDINGS.media.line} />
         </AccountBoxPlaceholder>

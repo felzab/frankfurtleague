@@ -27,7 +27,6 @@ async function stateFor(view: Partial<FLRegistrierungConfirmationViewResponse>):
     answered_at: null,
     deadline: "2026-11-18",
     maximum_age: 99,
-    media_minimum_age: 18,
     minimum_age: 16,
     saison_id: "2027",
     schule: "Kastanie-Gymnasium",

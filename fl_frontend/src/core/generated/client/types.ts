@@ -425,8 +425,6 @@ export interface FLAccountSchiedsrichterEinwilligung {
   evidence_state: FLEinwilligungState;
   givable: boolean;
   kontakt: FLKontakt;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @minLength 1 */
   name: string;
@@ -444,8 +442,6 @@ export interface FLAccountSeatEinwilligung {
   evidence_state: FLEinwilligungState;
   givable: boolean;
   media: boolean;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @minItems 1 */
   rollen: FLKontaktRolle[];
@@ -467,8 +463,6 @@ export interface FLAccountSpielerEinwilligung {
   /** @minLength 1 */
   first_name: string;
   last_name: string | null;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   media_offered: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -1688,8 +1682,6 @@ export interface FLBewerbungEinwilligungViewResponse {
   answered_at: string | null;
   deadline: string | null;
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   quelle: FLBewerbungEinwilligungViewResponseQuelle;
   rolle: FLKontaktRolle;
@@ -4277,8 +4269,6 @@ export interface FLRegistrierungConfirmationViewResponse {
   deadline: string;
   /** @exclusiveMinimum 0 */
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   saison_id: string;
   /** @minLength 1 */
@@ -4687,8 +4677,6 @@ export interface FLSchiedsrichterConfirmationViewResponse {
   deadline: string;
   /** @exclusiveMinimum 0 */
   maximum_age: number;
-  /** @exclusiveMinimum 0 */
-  media_minimum_age: number;
   minimum_age: number;
   state: FLSchiedsrichterConfirmationState;
 }

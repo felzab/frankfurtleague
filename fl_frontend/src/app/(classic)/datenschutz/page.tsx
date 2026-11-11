@@ -3,6 +3,7 @@ import { Prose } from "@/kit/Prose";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
+import { DECLINED_RETENTION_DAYS, MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -12,23 +13,15 @@ import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signIn
 import { DAY_MS } from "@/core/timeUnits";
 import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
-import { MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
+import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
-import type { FLDeclinedRetentionDays } from "@/core/generated/client/types";
 import type { ProseBlock, ProseText } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
-
-/**
- * The days a declined application or registration stands before its sweep deletes it, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS`: the backend moving it fails the type check here.
- * The notice's own copy, no slice holding the bound both kinds share.
- */
-const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 /** The league's address as a link inside a sentence. */
 const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };

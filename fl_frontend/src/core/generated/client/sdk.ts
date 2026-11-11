@@ -2942,7 +2942,7 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
  * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
  * `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
- * `media_minimum_age` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
+ * `MEDIA_MIN_AGE_YEARS` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.

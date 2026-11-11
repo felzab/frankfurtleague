@@ -1,31 +1,14 @@
 import "server-only";
 
+import { DECLINED_RETENTION_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
-import type {
-  FLDeclinedRetentionDays,
-  FLRegistrierungAbsageData,
-  FLRegistrierungConfirmationDeadlineDays,
-  FLRegistrierungLinkData,
-} from "./generated/client/types";
+import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
-
-/**
- * The window the mail states, checked against `fl_backend/app/shared/schemas/bounds.py ::
- * REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`: the backend moving it fails the type check here. Its own copy beside the
- * slice's, since `core` may not import a feature.
- */
-const DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
-
-/**
- * The days a declined registration stands before the sweep deletes it, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS` as `DEADLINE_DAYS` is.
- */
-const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 const WORDS = SERVER_COPY.mail.registrierung;
 
@@ -62,7 +45,7 @@ export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId 
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
       [WORDS.confirmation.confirm, WORDS.confirmation.admission],
-      [WORDS.confirmation.deadlineIn(DEADLINE_DAYS)],
+      [WORDS.confirmation.deadlineIn(REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };

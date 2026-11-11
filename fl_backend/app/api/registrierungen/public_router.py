@@ -71,7 +71,6 @@ from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    MEDIA_MIN_AGE_YEARS,
     REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
@@ -377,7 +376,6 @@ async def get_confirmation_view(
         saison_id=str(raw["saison_id"]),
         minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-        media_minimum_age=MEDIA_MIN_AGE_YEARS,
         # The token filter matched inside the block, so it stands, and its record model requires the day.
         deadline=str(raw["confirmation"]["deadline"]),
         answered_at=(raw.get("einwilligung") or {}).get("confirmed_at"),

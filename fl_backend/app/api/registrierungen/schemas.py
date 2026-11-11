@@ -183,9 +183,6 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     minimum_age: int
     # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
-    # The age the media answer is judged by, served for `minimum_age`'s reason: the page offers the
-    # switch only from it, and a copy of its own would offer it where the write refuses.
-    media_minimum_age: int = Field(gt=0)
     # The link's last day, stored at the mint: the page states it as the mail did.
     deadline: CustomDateString
     # The day of the pupil's own answer, so a reopened link says what they did and when; null on every state showing
