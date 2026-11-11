@@ -857,24 +857,8 @@ def statements(conf: str) -> list[tuple[str, list[str]]]:
     return found
 
 
-def geo_arms(parsed: list[tuple[str, list[str]]], variable: str) -> tuple[int, list[tuple[str, ...]]]:
-    """How many `geo` blocks set `variable`, and every arm they hold."""
-    blocks = 0
-    arms: list[tuple[str, ...]] = []
-    depth = 0
-    for kind, words in parsed:
-        if depth:
-            depth += {"open": 1, "close": -1}.get(kind, 0)
-            if depth == 1 and kind == "statement" and words:
-                arms.append(tuple(words))
-        elif kind == "open" and words == ["geo", variable]:
-            blocks += 1
-            depth = 1
-    return blocks, arms
-
-
 def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
-    """`set_real_ip_from` and the geo arm marking the fallback each name the connector's address, and nothing else.
+    """`set_real_ip_from` names the connector's address and nothing else, and the realip settings are declared once.
 
     Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
     """
@@ -884,10 +868,6 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
         if kind == "statement" and len(words) >= 2:
             declared.setdefault(words[0], []).append(" ".join(words[1:]))
     trusted = declared.get("set_real_ip_from", [])
-    blocks, marked = geo_arms(parsed, "$realip_fallback")
-    if not blocks:
-        raise ValueError(f"{name} declares no `geo $realip_fallback` block, so the fallback's marker was not compared")
-    arms = [arm for arm in marked if arm[0] != "default"]
     findings: list[Finding] = []
     if trusted != [address]:
         findings.append(
@@ -895,14 +875,6 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
                 "fail",
                 f"{name} trusts {trusted or 'nothing'} with set_real_ip_from, and the connector is {address}\n"
                 f"{CONTINUATION}the edge takes a visitor's address from the connector alone",
-            )
-        )
-    if arms != [(f"{address}/32", "1")]:
-        findings.append(
-            Finding(
-                "fail",
-                f"{name} marks {arms or 'nothing'} as the realip fallback, and the connector is {address}/32\n"
-                f"{CONTINUATION}the marker and set_real_ip_from name one address",
             )
         )
     for directive, expected in REALIP_SETTINGS.items():
@@ -993,7 +965,7 @@ def main() -> int:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally every port binds loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
-        print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
+        print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone")
         print("      each application service reads its package's environment file alone")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's three")

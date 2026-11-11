@@ -198,14 +198,9 @@ def test_the_deploy_compares_exactly_the_pairs_production_mounts():
 CONNECTOR = "172.30.0.250"
 
 
-def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};", arm: str = f"{CONNECTOR}/32  1;") -> str:
+def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};") -> str:
     """An edge's trust, as `nginx/shared/http.conf` spells it."""
-    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n\n{marker(arm)}"
-
-
-def marker(arm: str = f"{CONNECTOR}/32  1;") -> str:
-    """The fallback's geo block alone."""
-    return f"geo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
+    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n"
 
 
 @pytest.mark.parametrize(
@@ -237,16 +232,12 @@ def test_a_realip_directive_commented_out_or_quoted_is_no_statement():
     assert checker.trusted_connector(conf() + inert, CONNECTOR, "c") == []
 
 
-def test_a_one_line_geo_block_marking_another_address_fails():
-    assert len(checker.trusted_connector(conf() + "geo $realip_fallback { default 0; 10.0.0.1/32 1; }\n", CONNECTOR, "c")) == 1
-
-
 def test_a_realip_header_declared_nowhere_fails():
     """nginx's default is X-Real-IP, which the connector never sends, so every visitor would read as the connector."""
     assert len(checker.trusted_connector(conf().replace("real_ip_header CF-Connecting-IP;\n", ""), CONNECTOR, "c")) == 1
 
 
-def test_a_connector_trusted_and_marked_at_its_rendered_address_is_clean():
+def test_a_connector_trusted_at_its_rendered_address_is_clean():
     rendered = model(cloudflared={"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}})
 
     assert checker.trusted_connector(conf(), checker.connector_address(rendered, "p"), "c") == []
@@ -262,24 +253,6 @@ def test_trust_widened_beside_the_connector_fails():
     widened = conf(real_ip=f"set_real_ip_from {CONNECTOR};\nset_real_ip_from 173.245.48.0/20;")
 
     assert len(checker.trusted_connector(widened, CONNECTOR, "c")) == 1
-
-
-def test_a_fallback_marker_at_another_address_fails():
-    """A marker nothing matches leaves the access line silent about the fallback it exists to show."""
-    assert len(checker.trusted_connector(conf(arm="172.30.0.2/32  1;"), CONNECTOR, "c")) == 1
-
-
-def test_a_conf_without_the_fallback_marker_refuses():
-    try:
-        checker.trusted_connector(f"set_real_ip_from {CONNECTOR};\n", CONNECTOR, "c")
-    except ValueError:
-        return
-    raise AssertionError("a configuration with no geo block was judged")
-
-
-def test_a_second_fallback_marker_fails():
-    """Each file an edge mounts is read, so a block an entry file repeats is a second marker, not a hidden one."""
-    assert len(checker.trusted_connector(conf() + marker(), CONNECTOR, "c")) == 1
 
 
 def mounted(prod: str, shared: str) -> Path:

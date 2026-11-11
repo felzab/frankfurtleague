@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # OPS · the running edge: what its logs CONTAIN, which headers it sends, and which it hands upstream.
 #
-# `nginx -t` parses, seeing no log line and no response, so a redaction failing open and a location
-# dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
+# `nginx -t` parses, seeing no log line and no response, so a query written to the access line and a
+# location dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
 # the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
 # the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
 # `nginx/prod/` for the blocks production alone serves. It answers nothing about which locations the
 # edge makes reachable.
 #
 # Invariants:
-# - A credential a URL carries never reaches an access line, and every line holds the edge's own span.
+# - A mailed link's query never reaches an access line, and every line holds the request's trace id.
 # - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
 #   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
 # - Each security header is sent once, as written, on every location's response.
@@ -46,7 +46,6 @@ Only curl has --path-as-is, which every alternate spelling in this table needs."
 
 # Distinctive enough that a substring test over the whole access line is the assertion.
 TOK="Rk9VUlRJTUVTQlJPS0VO"
-EM="admin.probe@frankfurtleague.de"
 
 CONTAINER="fl-edge-$$"
 PROD_CONTAINER="fl-edge-prod-$$"
@@ -250,209 +249,33 @@ for _ in $(seq 1 50); do
 done
 (( _up )) || refuse "the edge test's nginx never answered on ${BASE}."
 
-# --- the table ---------------------------------------------------------------------------------
+# --- a mailed link's access line ------------------------------------------------------------------
 
-#   LEAK|<url>         neither sentinel may appear on the access line
-#   LEAK-REF|<referer> as LEAK, with the URL on a Referer header
-#   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
-#   KEEP-REF|<referer>|<text> as KEEP, with the URL on a Referer header
-
-CASES=(
-  # The pages a mailed link lands on: pins against narrowing the map, which matches the parameter
-  # wherever it sits, to a path list.
-  "LEAK|${BASE}/confirm/schiedsrichter?token=${TOK}"
-  "LEAK|${BASE}/confirm/spieler?token=${TOK}"
-  "LEAK|${BASE}/confirm/address?token=${TOK}"
-  "LEAK|${BASE}/confirm/kontakt?token=${TOK}"
-  "LEAK|${BASE}/registrierung?token=${TOK}"
-  "LEAK|${BASE}/erasure?token=${TOK}"
-  "LEAK|${BASE}/signin?token=${TOK}"
-  "LEAK|${BASE}/signin?foo=1&token=${TOK}"
-  "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
-
-  # A parameter reached past a SECOND literal `?`, which a callbackURL carrying its own query puts
-  # there. A separator class of `&` alone walks past it.
-  "LEAK|${BASE}/signin?callbackURL=/x?token=${TOK}"
-  "LEAK|${BASE}/teams?a=1&callbackURL=/x?email=${EM}"
-
-  # A raw URI with no literal `?` anywhere. $request_uri is never decoded, so the arm that keeps the
-  # path has nothing to anchor on and only the backstop reaches these.
-  "LEAK|${BASE}/signin%3Ftoken=${TOK}"
-  "LEAK|${BASE}/teams%3Femail=${EM}"
-  "LEAK|${BASE}/teams%3Ftoken%3D${TOK}"
-
-  # A token inside another parameter's value, its `=` encoded, a spelling no page writes but a visitor
-  # can. The URI holds a literal `?`, but no `token=` follows it, so only the backstop reaches this one
-  # either. Each of the sign-in's three addresses taking a `return`: the sign-in, the passkey offer
-  # and the landing, the last two on blocks of their own (`nginx/shared/site.conf`).
-  "LEAK|${BASE}/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
-  "LEAK|${BASE}/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
-  "LEAK|${BASE}/signin/continue?return=%2Ferasure%3Ftoken%3D${TOK}"
-
-  # The token VALUE holding each delimiter a class-bounded expression fails open on. Nothing here
-  # inspects the value; these exist so that stays true on purpose rather than by luck.
-  "LEAK|${BASE}/signin?token=a/b${TOK}"
-  "LEAK|${BASE}/signin?token=a%3Fb${TOK}"
-  "LEAK|${BASE}/signin?token=a%20b${TOK}"
-  "LEAK|${BASE}/signin?token=a%09b${TOK}"
-  "LEAK|${BASE}/signin?token=a%22b${TOK}"
-  "LEAK|${BASE}/signin?token=a,b${TOK}"
-
-  # The referer, which Referrer-Policy: strict-origin-when-cross-origin fills with the whole URL on
-  # a same-origin navigation. It needs no misspelling at all to carry a credential.
-  "LEAK-REF|http://localhost/x%3Ftoken%3D${TOK}"
-  "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
-  "LEAK-REF|http://localhost/x/token=${TOK}"
-  "LEAK-REF|http://localhost/signin?token=a%20b${TOK}"
-  # The page after the sign-in's code step names the sign-in, here with a link a visitor put in its `return`.
-  "LEAK-REF|http://localhost/signin?return=%2Ferasure%3Ftoken%3D${TOK}"
-  "LEAK-REF|http://localhost/signin/passkey?return=%2Ferasure%3Ftoken%3D${TOK}"
-
-  # A typed search query, which no page writes: an address in the first parameter, a name past
-  # another on the Spielsuche's own address, and the page a visitor came from, plain and encoded.
-  "LEAK|${BASE}/admin/ban-list?q=${EM}"
-  "LEAK|${BASE}/saisons/2026/search?a=1&q=${TOK}"
-  "LEAK-REF|http://localhost/saisons/2026/search?q=${TOK}"
-  "LEAK-REF|http://localhost/x%3Fq%3D${TOK}"
-
-  # Controls. Each is a query an operator reads off this line, and a redaction wide enough to eat
-  # them is a different defect rather than a fix.
-  "KEEP|${BASE}/signin?error=Verification|error=Verification"
-  # A parameter whose name merely ends in `q`, which the one-letter arm must not reach.
-  "KEEP|${BASE}/teams?saison_id=abc&seq=2|seq=2"
-  "KEEP-REF|http://localhost/teams?saison_id=abc&seq=2|seq=2"
-  "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/admin/spielorte?saison_id=abc|saison_id=abc"
-
-  # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
-  # spelling above is then graded on a path nginx never received.
-  "KEEP|${BASE}/teams/./x?saison_id=abc|/teams/./x"
-)
-
-# `user_agent`: the one field `nginx/shared/http.conf :: log_format fl_json` carries unredacted and no
-# map reads, so no case is graded on a neighbour's line.
-MARKER="fl-redaction"
-
-# One curl, one `docker logs`: on Windows a spawn costs ~0.1s and a `docker logs` ~0.3s
-# (2026-09-02). `--next` gives each transfer its own options, so --path-as-is and a Referer bind
-# per request.
-REQUESTS=()
-_n=0
-for case_line in "${CASES[@]}"; do
-  # Split on a bar, never whitespace: `_lib.sh` sets IFS to newline and tab, and several subjects
-  # carry a comma or a space. Expansion, not a helper: an MSYS fork costs more than the request.
-  verb="${case_line%%|*}"
-  rest="${case_line#*|}"
-  subject="${rest%%|*}"
-
-  _n=$(( _n + 1 ))
-  if (( _n > 1 )); then REQUESTS+=( --next ); fi
-  REQUESTS+=( -s -o /dev/null --path-as-is --max-time 5 -H "Host: localhost" -A "${MARKER}/${_n}" )
-  case "$verb" in
-    LEAK|KEEP)  REQUESTS+=( "$subject" ) ;;
-    LEAK-REF|KEEP-REF)  REQUESTS+=( -H "Referer: ${subject}" "${BASE}/teams" ) ;;
-    *)          die "nginx/edge_test.sh: unknown verb '${verb}' in its own table." ;;
-  esac
-done
-
+# A mailed link's request, its token in the query as every link this site mints carries it, marked by
+# its user agent so its line is found among the rest. Whatever the edge writes of its query, the
+# token reaches the stream with it.
+MARKER="fl-mailed-link"
+LINE_FAILURES=0
 CURL_RC=0
-curl "${REQUESTS[@]}" || CURL_RC=$?
-
-# Docker carries a line to its log after curl already has the response, so one read races the last
-# case. Re-reading costs nothing once the stream is complete.
-
-# Marked lines only: the warm-up loop's own requests are logged here too, and the image's entrypoint
-# writes its own lines, none of them JSON.
-LOGGED_LINES=()
-declare -A LINE_OF=()
-MARKED=0
+curl -s -o /dev/null --max-time 5 -H "Host: localhost" -A "$MARKER" "${BASE}/confirm/kontakt?token=${TOK}" || CURL_RC=$?
+# Docker carries a line to its log after curl already has the response, so one read races it.
+MAILED_LINE=""
 for _ in $(seq 1 50); do
-  LINE_OF=()
-  MARKED=0
   read_streams
-  # `|| true` on the grep alone: an empty stream is a finding below rather than an error here.
-  mapfile -t LOGGED_LINES < <({ grep '^{' "$ACCESS_LOG" 2>/dev/null || true; })
-  for logged_line in "${LOGGED_LINES[@]}"; do
-    _ua="${logged_line##*\"user_agent\":\"}"
-    _ua="${_ua%%\"*}"
-    case "$_ua" in "${MARKER}/"*) ;; *) continue ;; esac
-    LINE_OF["$_ua"]="$logged_line"
-    MARKED=$(( MARKED + 1 ))
-  done
-  if (( MARKED >= ${#CASES[@]} )); then break; fi
+  MAILED_LINE="$({ grep -F "\"user_agent\":\"${MARKER}\"" "$ACCESS_LOG" || true; })"
+  [[ -z "$MAILED_LINE" ]] || break
   sleep 0.2
 done
-
 # `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
-if (( MARKED != ${#CASES[@]} )); then
-  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases on its stdout,
-curl having exited ${CURL_RC}, so the stream this grades on is not the table. No case above was
-judged."
-fi
-
-FAILURES=0
-_n=0
-
-for case_line in "${CASES[@]}"; do
-  _n=$(( _n + 1 ))
-  verb="${case_line%%|*}"
-  rest="${case_line#*|}"
-  subject="${rest%%|*}"
-  expected="${rest#*|}"
-  logged="${LINE_OF["${MARKER}/${_n}"]:-}"
-  _before=$FAILURES
-
-  if [[ -z "$logged" ]]; then
-    fail "${verb} ${subject}"
-    detail "nginx wrote no access line for this case"
-    FAILURES=$(( FAILURES + 1 ))
-    continue
-  fi
-
-  case "$verb" in
-    LEAK|LEAK-REF)
-      if [[ "$logged" == *"$TOK"* || "$logged" == *"$EM"* ]]; then
-        fail "${verb} ${subject}"
-        detail "$logged"
-        FAILURES=$(( FAILURES + 1 ))
-      fi
-      ;;
-    KEEP|KEEP-REF)
-      if [[ "$logged" != *"$expected"* ]]; then
-        fail "${verb} ${subject}"
-        detail "expected ${expected} on the access line, nginx wrote: ${logged}"
-        FAILURES=$(( FAILURES + 1 ))
-      fi
-      ;;
-  esac
-
-  # Every line carries the edge's two ids in the envelope's shape, the span the trace's first
-  # sixteen hex: a `map` capture that failed would leave `span_id`
-  # empty and pass every LEAK case above.
-  if [[ ! "$logged" =~ \"trace_id\":\"([0-9a-f]{32})\",\"span_id\":\"([0-9a-f]{16})\", ]]; then
-    fail "IDS ${subject}"
-    detail "expected trace_id (32 hex) and span_id (16 hex) on the access line, nginx wrote: ${logged}"
-    FAILURES=$(( FAILURES + 1 ))
-  elif [[ "${BASH_REMATCH[1]:0:16}" != "${BASH_REMATCH[2]}" ]]; then
-    fail "IDS ${subject}"
-    detail "expected span_id to be trace_id's first sixteen hex, nginx wrote: ${logged}"
-    FAILURES=$(( FAILURES + 1 ))
-  fi
-
-  # A passing case only: a failing one already carries its line under its own verdict, and the
-  # evidence behind a pass is what the captured run cannot give back afterwards.
-
-  # Prefixed, or the verb naming the case class reads as the verdict: `LEAK <url>` beside an access
-  # line is the shape somebody scanning this output for a leak stops at.
-  if verbose && (( FAILURES == _before )); then
-    info "passed: ${verb} ${subject}"
-    detail "$logged"
-  fi
-done
-
-if (( FAILURES > 0 )); then
-  die "${FAILURES} finding(s) over ${#CASES[@]} redaction cases.
-Each line above is what nginx WROTE."
+[[ -n "$MAILED_LINE" ]] || refuse "the edge logged no line for the mailed link's request on its stdout, curl having exited ${CURL_RC}.
+No access line was judged."
+if [[ "$MAILED_LINE" != *'"path":"/confirm/kontakt",'* ]]; then
+  fail "LINE the mailed link's path"
+  detail "expected path /confirm/kontakt alone, nginx wrote: ${MAILED_LINE}"
+  LINE_FAILURES=$(( LINE_FAILURES + 1 ))
+elif verbose; then
+  info "the mailed link's line"
+  detail "$MAILED_LINE"
 fi
 
 # --- the security headers, as served -----------------------------------------------------------
@@ -1354,12 +1177,40 @@ for edge in local prod; do
   if verbose; then info "the ${edge} edge answered from the moved backend only after ${MOVED_AFTER[$edge]}s"; fi
 done
 
-if (( HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
+# --- every access line ------------------------------------------------------------------------------
+
+# Every line the run wrote, the floods' included, each holding the trace id the application's lines
+# join it on and a path with no query; and the token on no line of stdout at all, which also catches
+# a log beside ours writing the request line whole.
+read_streams
+mapfile -t LOGGED_LINES < <({ grep '^{' "$ACCESS_LOG" || true; })
+(( ${#LOGGED_LINES[@]} > 0 )) || refuse "the edge's stdout holds no access line, so no line was judged."
+for logged_line in "${LOGGED_LINES[@]}"; do
+  if [[ ! "$logged_line" =~ \"trace_id\":\"[0-9a-f]{32}\", ]]; then
+    fail "LINE trace id"
+    detail "expected a 32-hex trace_id, nginx wrote: ${logged_line}"
+    LINE_FAILURES=$(( LINE_FAILURES + 1 ))
+  fi
+  logged_path="${logged_line#*\"path\":\"}"
+  if [[ "$logged_path" == "$logged_line" || "${logged_path%%\"*}" == *'?'* ]]; then
+    fail "LINE path"
+    detail "expected a path with no query, nginx wrote: ${logged_line}"
+    LINE_FAILURES=$(( LINE_FAILURES + 1 ))
+  fi
+done
+TOKEN_LINES="$({ grep -F "$TOK" "$ACCESS_LOG" || true; })"
+if [[ -n "$TOKEN_LINES" ]]; then
+  fail "LINE a live token"
+  detail "the edge's stdout holds the token: ${TOKEN_LINES}"
+  LINE_FAILURES=$(( LINE_FAILURES + 1 ))
+fi
+
+if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + CONTROL_FAILURES + RESOLVE_FAILURES > 0 )); then
+  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action, ${BODY_FAILURES} body-cap, ${CONTROL_FAILURES} Control API and ${RESOLVE_FAILURES} upstream cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
-ok "${#CASES[@]} redaction cases clean,
+ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the mailed link's token on none,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
 Next-Action handed to no one, server
