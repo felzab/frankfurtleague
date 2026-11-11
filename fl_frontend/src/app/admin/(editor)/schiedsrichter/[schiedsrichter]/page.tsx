@@ -9,6 +9,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
@@ -109,6 +110,18 @@ function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
 }
 
 /**
+ * The chips after the name, as a seat's row sets them: the state's, then what the last confirmation mail met where it
+ * met trouble (`deliveryChip`). A confirmed entry carries no state chip, so its mail's trouble, a complaint after the
+ * delivery, stands first.
+ */
+function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip?: ChipProps; flag?: ChipProps } {
+  const state = chipOf(referee);
+  const mail = deliveryChip(delivery) ?? undefined;
+  if (state === undefined) return mail === undefined ? {} : { chip: mail };
+  return { chip: state, ...(mail === undefined ? {} : { flag: mail }) };
+}
+
+/**
  * Where the confirmation stands, by the day that says it: confirmed on, objected on, or the link's deadline, ahead or
  * passed, the backend judging which by the rule its press refuses on. A retired entry no link has gone to yet says
  * nothing, its return asking the person.
@@ -158,7 +171,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <SchiedsrichterEditor
       title={nameOf(referee)}
-      chip={chipOf(referee)}
+      {...chipsOf(found)}
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}
       rules={SAVE_RULES}
