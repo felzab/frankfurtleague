@@ -45,11 +45,9 @@ jobs:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-      # The application too: the deploy's preflight snippets run for real in
-      # `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: true
+          application: false
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
