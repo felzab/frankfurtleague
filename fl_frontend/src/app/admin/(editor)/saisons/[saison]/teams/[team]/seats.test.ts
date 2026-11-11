@@ -18,7 +18,6 @@ const person = (first_name: string, confirmed_at: string | null = null): FLKonta
     date: "2026-10-01",
     confirmed_at,
     media: false,
-    entered_by: "liga",
     evidence: { scope: null, media: null },
   },
 });

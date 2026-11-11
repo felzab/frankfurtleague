@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -13,7 +13,6 @@ class FLInvitation(BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
-    created_at: CustomDateString
     # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
@@ -46,7 +45,6 @@ class FLInvitationMintResponse(BaseAPIResponse):
     team_id: CustomObjectId
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
-    created_at: CustomDateString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):

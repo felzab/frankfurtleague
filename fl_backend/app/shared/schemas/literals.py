@@ -85,10 +85,6 @@ type FLKontaktRow = Literal["open", "saison_past", "exited"]
 # would transcribe one.
 type FLKontaktKenntnisnahmeScope = Literal["kontakt_data", "kontakt_data_whatsapp"]
 
-# Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
-# the contacts editor). Not `admin_tier`, the access tier's word (`docs/glossary.md :: admin_tier`).
-type FLKontaktEnteredBy = Literal["bewerbung", "liga"]
-
 # --- The pupils
 
 # In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad list is

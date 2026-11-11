@@ -77,7 +77,7 @@ def person(first_name: str, *, email: str | None = None) -> dict[str, Any]:
         "last_name": "Musterfrau",
         "email": email or f"{first_name.lower()}@example.com",
         "phone": PHONE[first_name],
-        "einwilligung": compose_einwilligung(today=TODAY, entered_by="liga"),
+        "einwilligung": compose_einwilligung(today=TODAY),
     }
 
 
@@ -90,7 +90,6 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
         first_name,
         confirmed_at=confirmed_at,
         einwilligung={"date": "2026-03-01"},
-        entered_by="liga",
         last_name=sent["last_name"],
         email=sent["email"],
         phone=sent["phone"],
@@ -99,12 +98,12 @@ def stored_person(first_name: str, *, email: str | None = None, confirmed_at: st
 
 
 def born(sent: dict[str, Any]) -> dict[str, Any]:
-    """The record a person newly seated holds: theirs alone, naming the league as who seated them.
+    """The record a person newly seated holds: theirs alone.
 
     Spelled out here rather than composed by the helper, so a composer drifting from it fails.
     """
 
-    return {"scope": "kontakt_data", "date": TODAY, "confirmed_at": None, "media": False, "entered_by": "liga"}
+    return {"scope": "kontakt_data", "date": TODAY, "confirmed_at": None, "media": False}
 
 
 def as_stored(kontakte: dict[str, Any]) -> dict[str, Any]:
@@ -566,7 +565,6 @@ class TestAKeptRecordKeepsItsEvidence:
             "date": "2026-03-01",
             "confirmed_at": CONFIRMED_ON,
             "media": True,
-            "entered_by": "bewerbung",
             "evidence": {
                 "scope": {"at": "2026-03-15T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["scope"]},
                 "media": {"at": "2026-03-20T09:00:00+00:00", "text_version": SEAT_TEXT_VERSIONS["media"]},
@@ -585,21 +583,6 @@ class TestAKeptRecordKeepsItsEvidence:
 
         assert stored["kontakte"]["trainer"]["phone"] == OTHER_PHONE, "the edit itself did not land, so this case proves nothing"
         assert bson.encode(stored["kontakte"]["trainer"]["einwilligung"]) == bson.encode(confirmed)
-
-    def test_an_unconfirmed_seat_saved_unchanged_keeps_who_seated_its_person(self, mongo_replica_set_url: str):
-        """The commoner seat: who seated its person, the applicant or the league, is the seating's and no save's."""
-
-        held = PARTLY_CONFIRMED["ansprechperson"]
-        seeded = {**PARTLY_CONFIRMED, "ansprechperson": {**held, "einwilligung": {**held["einwilligung"], "entered_by": "bewerbung"}}}
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, RESAVED_AS_RENDERED)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body, seeded=seeded)
-
-        assert stored["kontakte"]["ansprechperson"]["einwilligung"]["entered_by"] == "bewerbung"
 
     def test_a_seat_handed_to_another_person_is_born_afresh_by_the_league(self, mongo_replica_set_url: str):
         """Nothing of the person who left travels: their evidence, scope and media answer go with their data."""

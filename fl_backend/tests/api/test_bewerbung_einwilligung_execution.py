@@ -286,8 +286,6 @@ class TestWhatAConfirmationWrites:
             "date": "2026-03-20",
             "confirmed_at": TODAY,
             "media": False,
-            # The seating's, which the answer leaves standing.
-            "entered_by": "bewerbung",
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
             "evidence": {

@@ -5928,11 +5928,6 @@
       "FLInvitationMintResponse": {
         "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash.",
         "properties": {
-          "created_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Created At",
-            "type": "string"
-          },
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Invitation Id",
@@ -5958,8 +5953,7 @@
           "saison_id",
           "team_id",
           "invitation_id",
-          "token",
-          "created_at"
+          "token"
         ],
         "title": "FLInvitationMintResponse",
         "type": "object"
@@ -5967,11 +5961,6 @@
       "FLInvitationRow": {
         "description": "One live link as the team's read serves it.",
         "properties": {
-          "created_at": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Created At",
-            "type": "string"
-          },
           "delivery": {
             "anyOf": [
               {
@@ -6026,7 +6015,6 @@
           "id",
           "saison_id",
           "team_id",
-          "created_at",
           "revoked_at",
           "sent_at",
           "delivery"
@@ -6321,13 +6309,6 @@
         "title": "FLKontakt",
         "type": "object"
       },
-      "FLKontaktEnteredBy": {
-        "enum": [
-          "bewerbung",
-          "liga"
-        ],
-        "type": "string"
-      },
       "FLKontaktInviteResponse": {
         "description": "A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on.",
         "properties": {
@@ -6372,9 +6353,6 @@
             "title": "Date",
             "type": "string"
           },
-          "entered_by": {
-            "$ref": "#/components/schemas/FLKontaktEnteredBy"
-          },
           "evidence": {
             "$ref": "#/components/schemas/FLEinwilligungEvidenceSet"
           },
@@ -6391,7 +6369,6 @@
           "date",
           "confirmed_at",
           "media",
-          "entered_by",
           "evidence"
         ],
         "title": "FLKontaktKenntnisnahme",

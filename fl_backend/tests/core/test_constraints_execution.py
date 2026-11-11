@@ -252,7 +252,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
-            "created_at": "2026-03-15",
             "revoked_at": None,
             "sent_at": None,
         },

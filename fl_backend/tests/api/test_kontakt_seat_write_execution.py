@@ -38,7 +38,6 @@ def stored_person(first_name: str, *, confirmed_at: str | None = None) -> dict[s
     return kontaktperson_document(
         first_name,
         confirmed_at=confirmed_at,
-        entered_by="liga",
         last_name="Musterfrau",
         email=f"{first_name.lower()}@example.com",
         phone=PHONE[first_name],
@@ -148,11 +147,7 @@ class TestTheSeatsStateDecidesTheWrite:
         seat = row["kontakte"]["trainer"]
         assert (seat["first_name"], seat["birth_date"]) == ("Lea", None)
         assert (seat["einwilligung"]["scope"], seat["einwilligung"]["date"]) == ("kontakt_data", TODAY)
-        assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["entered_by"], seat["einwilligung"]["media"]) == (
-            None,
-            "liga",
-            False,
-        )
+        assert (seat["einwilligung"]["confirmed_at"], seat["einwilligung"]["media"]) == (None, False)
         assert [(mail.to, mail.data.rollen) for mail in mails] == [("lea@example.com", ["trainer"])]
         # The seat beside it keeps its person, and with them the link they already hold.
         assert row["confirmations"]["ansprechperson"] == link_entry()

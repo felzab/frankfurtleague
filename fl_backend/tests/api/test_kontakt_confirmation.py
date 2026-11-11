@@ -96,7 +96,6 @@ def stored(first_name: str, *, confirmed_at: str | None = None) -> dict[str, Any
         first_name,
         confirmed_at=confirmed_at,
         einwilligung={"date": "2026-03-01"},
-        entered_by="liga",
         last_name=sent["last_name"],
         email=sent["email"],
         phone=sent["phone"],
@@ -1016,11 +1015,9 @@ ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607a50041")
 
 
 def carried(first_name: str) -> dict[str, Any]:
-    """A seat its own person confirmed on the application, carried onto the row with who seated them."""
+    """A seat its own person confirmed on the application, carried onto the row."""
 
-    seat = stored(first_name, confirmed_at="2026-03-20")
-
-    return {**seat, "einwilligung": {**seat["einwilligung"], "entered_by": "bewerbung"}}
+    return stored(first_name, confirmed_at="2026-03-20")
 
 
 def accepted(kontakte: Mapping[str, Any]) -> dict[str, Any]:

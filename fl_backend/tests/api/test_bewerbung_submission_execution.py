@@ -232,14 +232,13 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
-            # Born with the applicant's acknowledgement, naming the application as who seated the
-            # person, and no evidence: no person has set a choice yet.
+            # Born with the applicant's acknowledgement and no evidence: no person has set a choice
+            # yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "scope": "kontakt_data",
                 "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
-                "entered_by": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "birth_date" in stored["kontakte"][seat] and stored["kontakte"][seat]["birth_date"] is None

@@ -39,7 +39,7 @@ from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay
 from app.shared.tokens import hash_token
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -355,7 +355,7 @@ def ghost_schiedsrichter_document() -> dict[str, Any]:
 
 
 def invitation_document(
-    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, created_at: str, sent_at: str | None = None, **fields: Any
+    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, sent_at: str | None = None, **fields: Any
 ) -> dict[str, Any]:
     """One registration link as its mint stores it, live and minted for copying unless `sent_at` says it was mailed."""
 
@@ -363,7 +363,7 @@ def invitation_document(
         Collection.INVITATIONS,
         {
             "_id": invitation_id,
-            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], today=created_at, sent_at=sent_at),
+            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], sent_at=sent_at),
             **fields,
         },
     )
@@ -556,7 +556,6 @@ def kontaktperson_document(
     confirmed_at: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
     at: str | None = None,
-    entered_by: FLKontaktEnteredBy = "bewerbung",
     **fields: Any,
 ) -> dict[str, Any]:
     """One contact seat as its seating stores it, or, given `confirmed_at`, as its own person's confirmation left it.
@@ -564,7 +563,7 @@ def kontaktperson_document(
     `einwilligung` holds the record's keys a case sets itself, its choices among them, laid over the seat's own.
     """
 
-    seated = compose_einwilligung(today="2026-03-20", entered_by=entered_by)
+    seated = compose_einwilligung(today="2026-03-20")
     if confirmed_at is None:
         block = {**seated, **(einwilligung or {})}
     elif not confirmed_at:

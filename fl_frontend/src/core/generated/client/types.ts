@@ -1375,13 +1375,6 @@ export interface FLBewerbungKader {
   good_spieler: number;
 }
 
-export type FLKontaktEnteredBy = (typeof FLKontaktEnteredBy)[keyof typeof FLKontaktEnteredBy];
-
-export const FLKontaktEnteredBy = {
-  bewerbung: "bewerbung",
-  liga: "liga",
-} as const;
-
 export type FLSeatScopeTextVersion = "2026-11-whatsapp-1";
 
 export type FLSchiedsrichterScopeTextVersion = "2026-11-name-spielplan-1";
@@ -1425,7 +1418,6 @@ export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
-  entered_by: FLKontaktEnteredBy;
   evidence: FLEinwilligungEvidenceSet;
   media: boolean;
   scope: FLKontaktKenntnisnahmeScope;
@@ -2663,8 +2655,6 @@ export interface FLInvitationMailResponse {
  * Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
  */
 export interface FLInvitationMintResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   invitation_id: string;
   /** @minLength 1 */
@@ -2679,8 +2669,6 @@ export interface FLInvitationMintResponse {
  * One live link as the team's read serves it.
  */
 export interface FLInvitationRow {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  created_at: string;
   delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;

@@ -40,7 +40,7 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEnteredBy, FLKontaktRolle, FLTrikotFarbe
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLTrikotFarbe
 
 
 def find_triage_refusal(*, status: str) -> WriteRefusal | None:
@@ -262,8 +262,8 @@ def build_key_filter(*, key: str) -> Mapping[str, Any]:
     return {"idempotency_key": {"$eq": key, "$type": "string"}}
 
 
-def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[str, Any]:
-    """The contact seat's record as the server writes it: who seated the person, and nothing they answered.
+def compose_einwilligung(*, today: str) -> dict[str, Any]:
+    """The contact seat's record as the server writes it at the seating: nothing its person answered.
 
     Named by no client, who could otherwise dress a transcription as a signature.
     """
@@ -275,7 +275,6 @@ def compose_einwilligung(*, today: str, entered_by: FLKontaktEnteredBy) -> dict[
         "date": today,
         "confirmed_at": None,
         "media": False,
-        "entered_by": entered_by,
     }
 
 
@@ -309,7 +308,7 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
             # Written null rather than left off, as `wunschgegner` is: the key marks a date not yet
             # entered, and the confirmation fills it.
             "birth_date": None,
-            "einwilligung": compose_einwilligung(today=today, entered_by="bewerbung"),
+            "einwilligung": compose_einwilligung(today=today),
         }
         for seat in KONTAKT_ROLLEN
     }
@@ -809,8 +808,8 @@ def compose_confirmation_update(
     for seat in seats:
         path = f"kontakte.{seat}.einwilligung"
         written[f"kontakte.{seat}.birth_date"] = birth_date
-        # Field by field, never the block whole: `entered_by` and `date` are the seating's, and
-        # what it tells stands after the answer.
+        # Field by field, never the block whole: `date` is the seating's, and what it tells stands
+        # after the answer.
         written[f"{path}.confirmed_at"] = today
         written.update(
             compose_choices(
@@ -1120,7 +1119,7 @@ def compose_kontakt_seat_update(
     told = "ansprechperson" not in seats
     announced = {} if stands and not moved and told else {"erasure_announced_at": None}
     # Born afresh: nothing of the seat's last holder, a confirmed one's answer included, travels to the one seated.
-    einwilligung = compose_einwilligung(today=today, entered_by="liga")
+    einwilligung = compose_einwilligung(today=today)
     # Null rather than left off, as the submission writes it: the key marks a date not yet entered,
     # and the confirmation fills it.
     slot = {**person, "birth_date": None, "einwilligung": einwilligung}

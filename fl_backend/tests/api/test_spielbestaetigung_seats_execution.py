@@ -56,7 +56,6 @@ def stored(first_name: str) -> dict[str, Any]:
     return documents.kontaktperson_document(
         first_name,
         einwilligung={"date": "2026-03-01"},
-        entered_by="liga",
         last_name="Musterfrau",
         email=f"{first_name.lower()}@example.com",
         phone=PHONE[first_name],

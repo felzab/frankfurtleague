@@ -11,7 +11,6 @@ const SENT: FLTeamLinkState = {
     id: "6890a1b2c3d4e5f607260011",
     saison_id: "2026",
     team_id: "6890a1b2c3d4e5f607260001",
-    created_at: "2026-09-01",
     revoked_at: null,
     sent_at: "2026-09-02",
     delivery: null,

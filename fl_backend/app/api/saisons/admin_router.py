@@ -1368,7 +1368,7 @@ async def _mail_one_team(
         post_operation = await post_one_to_db(
             collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
-            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], today=today, sent_at=today),
+            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], sent_at=today),
             session=session,
         )
         await enqueue_mails(
