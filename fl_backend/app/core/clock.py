@@ -26,9 +26,13 @@ def german_day(instant: datetime) -> str:
 
 
 def german_instant(day: str, wall_time: str) -> datetime:
-    """The instant a German day and clock time name, as a fixture stores its kick-off in `date` and `time`."""
+    """The instant a German day and clock time name, as a fixture stores its kick-off in `date` and `time`.
 
-    return datetime.fromisoformat(f"{day}T{wall_time}").replace(tzinfo=GERMANY)
+    Converted to UTC: two values in one zone compare by their clock readings and ignore the offset, so a Berlin-zoned
+    kick-off against a Berlin-zoned `now` misorders the hour a clock change repeats or skips.
+    """
+
+    return datetime.fromisoformat(f"{day}T{wall_time}").replace(tzinfo=GERMANY).astimezone(UTC)
 
 
 def utc_stamp(moment: datetime) -> str:

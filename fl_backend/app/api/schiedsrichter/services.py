@@ -23,7 +23,6 @@ from app.shared.einwilligung_evidence import TextVersions, compose_initial
 from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
-    MEDIA_MIN_AGE_YEARS,
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
@@ -346,23 +345,6 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("birth_date",),),
         bounds={"min": SCHIEDSRICHTER_MIN_AGE_YEARS, "max": BEWERBUNG_KONTAKT_MAX_AGE_YEARS},
-    )
-
-
-def find_media_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
-    """Why this referee's media consent is refused, or `None`.
-
-    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
-    page sends every referee below the floor.
-    """
-
-    if not media or whole_years_between(born=birth_date, today=today) >= MEDIA_MIN_AGE_YEARS:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.MEDIA_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("media",),),
     )
 
 

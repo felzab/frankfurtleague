@@ -6,7 +6,7 @@ the team's reads and the reminder's window all ask here, so no two of them can d
 """
 
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -36,7 +36,7 @@ def _at_kickoff_time(date: str, time: str, *, days_back: int) -> datetime:
 
     wall_day = (datetime.fromisoformat(date) - timedelta(days=days_back)).date().isoformat()
 
-    return clock.german_instant(wall_day, time).astimezone(UTC)
+    return clock.german_instant(wall_day, time)
 
 
 def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: datetime) -> FLAufstellungMarks | None:

@@ -35,16 +35,6 @@ rendered page is built from. A module some `src/core/` module imports belongs in
 importing anything from `src/shared/` cannot sit there. Exports are named and no folder has a barrel
 file.
 
-**Every lint rule holds new code from the start.** The old modules' existing violations are counted per
-file and rule in `fl_frontend/eslint-suppressions.json`, which ESLint's
-[bulk suppressions](https://eslint.org/docs/latest/use/suppressions) write and read. A file breaking
-a rule more often than its count fails the lint, and so does a count larger than what the file still
-breaks; the gate also fails a count kept for a file that no longer exists. A session rebuilding a
-file removes that file's entries by running `pnpm exec eslint --prune-suppressions <its files>` in
-`fl_frontend`, and commits the rewritten list with the rebuild. The editor's ESLint extension reads
-the list only through ESLint's `applySuppressions` option, which ESLint 9 lacks, so on the installed
-ESLint 9 it underlines an old module's counted violations as errors that `pnpm run lint` passes.
-
 ## Data flow
 
 **Reads are cached with `"use cache"`, and a write is a server action.** Every server action is built

@@ -85,9 +85,7 @@ one stand in [section 11](#11-open-and-owed-a-decision). Other files cite sectio
   [a runbook step](ops/runbooks.md#11-a-contact-seats-birthdate-that-no-confirmation-stamped).
 - **A media consent is taken only from 18** (`fl_backend/app/shared/schemas/bounds.py :: MEDIA_MIN_AGE_YEARS`): the switch shows only from
   that age, and each confirmation refuses a `true` from anyone younger
-  (`fl_backend/app/api/registrierungen/services.py :: find_media_refusal`,
-  `fl_backend/app/api/schiedsrichter/services.py :: find_media_refusal`,
-  `fl_backend/app/api/einwilligung/services.py :: find_self_media_refusal`).
+  (`fl_backend/app/api/einwilligung/services.py :: find_self_media_refusal`).
 - **Each consent choice keeps its own evidence**: when its person last set it, under which wording's
   label, and on a withdrawal the grant it ended (`fl_backend/app/shared/einwilligung_evidence.py`).
   The labels are `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`' keys, each frozen

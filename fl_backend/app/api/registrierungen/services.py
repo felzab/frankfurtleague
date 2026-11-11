@@ -25,7 +25,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     DECLINED_RETENTION_DAYS,
     LIST_LIMIT_MAX,
-    MEDIA_MIN_AGE_YEARS,
     REGISTRIERUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.literals import FLConfirmationState
@@ -420,23 +419,6 @@ def person_name(raw: Mapping[str, Any]) -> tuple[str, ...] | None:
     name = tuple(person_name_key(raw.get(field)) for field in PERSON_IDENTITY_FIELDS)
 
     return name if all(name) else None
-
-
-def find_media_refusal(*, birth_date: str, media: bool, today: str) -> WriteRefusal | None:
-    """Why this pupil's media consent is refused, or `None`.
-
-    Only a `True` is judged: a `False` publishes nothing, and refusing it would refuse the answer the
-    page sends every pupil below the floor.
-    """
-
-    if not media or whole_years_between(born=birth_date, today=today) >= MEDIA_MIN_AGE_YEARS:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.MEDIA_AGE,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("media",),),
-    )
 
 
 def compose_confirmation_update(

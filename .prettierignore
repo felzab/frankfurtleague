@@ -23,7 +23,6 @@ next-env.d.ts
 # buries the change its diff carries. Orval formats its own output as it writes it
 # (`fl_frontend/orval.config.ts`).
 fl_backend/openapi.json
-fl_frontend/eslint-suppressions.json
 fl_frontend/src/core/generated/
 pnpm-lock.yaml
 
