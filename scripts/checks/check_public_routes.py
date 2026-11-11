@@ -24,7 +24,7 @@ Invariants:
 - A link page's `linkpage` burst is the one the largest squad the backend publishes needs at that zone's rate.
 - A link page's location sends every error line it writes to `/dev/null`.
 - A link page's responses withhold the referrer, the map withholding it only as a link page's location matches.
-- No location names a burst above the catch-all's on a zone the catch-all meters.
+- A location serving pages writes every meter line of the location it is carved out of, a route handler's own aside.
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ PLAIN_PATH_RE: Final = re.compile(r"^[A-Za-z0-9/_-]+$")
 # break, passing within `SIZING_MINUTES` at the zone's own rate (`nginx/shared/site.conf :: location /confirm/`): per
 # pupil, the requests every link page's block meters on `linkpage`. The squad is the largest `max_kader_size` the
 # backend publishes, read where it publishes it. The squad's sends ride the action zone at the catch-all's burst, which
-# `raised_bursts` holds every block to.
+# `loosened` holds every page's block to.
 OPENAPI: Final = "fl_backend/openapi.json"
 SIZED_PER_PUPIL: Final = {"linkpage": 10}
 SIZING_MINUTES: Final = 2
@@ -175,6 +175,24 @@ UNMETERED: Final[tuple[Unmetered, ...]] = (
         "/api/mail/delivery",
         "the mail provider's webhook: a refusal starts its retry schedule and, sustained, disables the endpoint, and its "
         "signature check is the gate",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class Unceilinged:
+    """One location serving pages that the connection ceiling deliberately leaves unbounded, and why."""
+
+    path: str
+    why: str
+
+
+# By path, as the edge names it.
+UNCEILINGED: Final[tuple[Unceilinged, ...]] = (
+    Unceilinged(
+        "/_next/static/",
+        "the files every page load fans out to, several at once from each browser, which a ceiling counted in page loads "
+        "would refuse before the pages themselves",
     ),
 )
 
@@ -249,6 +267,10 @@ class Location:
     # The arguments of each `limit_req` line, whose zones a link page is judged by and every other
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
+    # The arguments of each `limit_conn` line.
+    conns: frozenset[tuple[str, ...]]
+    # What `proxy_pass` names, none where the block names no `proxy_pass`.
+    upstream: str | None
     # The arguments of each `error_log` line, which replace the inherited log for this block alone.
     error_logs: frozenset[tuple[str, ...]]
     line: int
@@ -390,6 +412,8 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "location" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location nested inside a location, whose match order this reader does not resolve")
     limits = frozenset(child.args for child in block if child.name == "limit_req")
+    conns = frozenset(child.args for child in block if child.name == "limit_conn")
+    upstream = next((child.args[0] for child in block if child.name == "proxy_pass" and child.args), None)
     error_logs = frozenset(child.args for child in block if child.name == "error_log")
     # Refused rather than read as a prefix: `@fallback` would cover every handler whose URL starts
     # with it, which is none of them, and reading it as coverage is the one direction this check
@@ -403,15 +427,15 @@ def read_location(directive: Directive, source: str, redirected: frozenset[str] 
     if any(child.name == "return" for child in block):
         raise NginxSyntax(f"{source}:{directive.line}: a location answering with `return`, which forwards no route this reader can account for")
     if len(directive.args) == 1:
-        return Location(False, path, limits, error_logs, directive.line)
+        return Location(False, path, limits, conns, upstream, error_logs, directive.line)
     if len(directive.args) == 2:
         modifier, path = directive.args
         if modifier == "=":
-            return Location(True, path, limits, error_logs, directive.line)
+            return Location(True, path, limits, conns, upstream, error_logs, directive.line)
         # `^~` still matches a prefix; a regex matches on something this reader cannot compare a
         # directory tree against, so it refuses rather than calling the handler uncovered.
         if modifier == "^~":
-            return Location(False, path, limits, error_logs, directive.line)
+            return Location(False, path, limits, conns, upstream, error_logs, directive.line)
         raise NginxSyntax(f"{source}:{directive.line}: the location modifier {modifier!r}, which selects by something other than a path prefix")
     raise NginxSyntax(f"{source}:{directive.line}: a location taking {len(directive.args)} argument(s)")
 
@@ -740,31 +764,66 @@ def zone_rates(http_path: Path) -> dict[str, int]:
     return rates
 
 
-def raised_bursts(judged: Accounting) -> list[Finding]:
-    """Every block naming a zone the catch-all meters on a burst above the catch-all's.
+def handler_locations(judged: Accounting) -> frozenset[Location]:
+    """The locations `account` charges a route handler to: its exact match, else the prefix covering it."""
+    exact = {one.path: one for one in judged.where if one.exact}
+    found: set[Location] = set()
+    for handler in judged.found:
+        match = None if handler.dynamic else exact.get(handler.url)
+        charged = match or covering_prefix(handler.head, judged.where)
+        if charged is not None:
+            found.add(charged)
+    return frozenset(found)
 
-    The catch-all's zone meters server actions alone, and Next runs an action by its `Next-Action` header at whatever
-    path it is posted to, so a block raising that burst raises every action's ceiling for a network. A burst nginx
-    cannot read refuses the configuration at load, so it is judged nowhere here.
+
+def carved_from(one: Location, where: tuple[Location, ...]) -> Location | None:
+    """The prefix location that would answer `one`'s path were `one` not declared."""
+    wider = [other for other in where if not other.exact and other is not one and one.path.startswith(other.path)]
+    return max(wider, key=lambda other: len(other.path)) if wider else None
+
+
+def meter_lines(one: Location) -> frozenset[str]:
+    """Each `limit_req` and `limit_conn` line of a location, as the configuration writes it."""
+    return frozenset(f"limit_req {' '.join(args)}" for args in one.limits) | frozenset(f"limit_conn {' '.join(args)}" for args in one.conns)
+
+
+def loosened(judged: Accounting) -> list[Finding]:
+    """Every location serving pages that lacks a meter line of the location it is carved out of.
+
+    Next runs a server action at any page's path, so a page's location without the catch-all's action zone or ceiling is
+    where a script posts every action past them, and an exact match under a recorded prefix without that prefix's zone
+    is the prefix's handler unmetered. Each line is owed as the wider location writes it: nginx refuses a second line
+    naming one zone in a block, so no raised burst stands beside it. A route handler's own location runs no action and
+    is `account`'s, and one proxying elsewhere than the catch-all serves no page.
     """
     catch_all = next((one for one in judged.where if not one.exact and one.path == CATCH_ALL), None)
-    ceilings = {} if catch_all is None else {zone: burst for zone, burst in map(zone_and_burst, catch_all.limits) if zone is not None}
-    if not ceilings:
-        raise NothingJudged(f"{judged.conf}: `location /` meters no zone, so no block's burst has a ceiling to be judged against")
+    if catch_all is None or not meter_lines(catch_all):
+        raise NothingJudged(f"{judged.conf}: `location /` meters nothing, so no location serving pages has a meter to be held to")
+    handled = handler_locations(judged)
+    unceilinged = {one.path for one in UNCEILINGED}
+    serving = [one for one in judged.where if one is not catch_all and one.upstream == catch_all.upstream and one not in handled]
+    if not serving:
+        raise NothingJudged(f"{judged.conf}: no location but the catch-all serves pages, so none was held to a wider meter")
     findings: list[Finding] = []
-    for one in judged.where:
-        for args in sorted(one.limits):
-            zone, burst = zone_and_burst(args)
-            if zone not in ceilings or burst <= ceilings[zone]:
-                continue
-            findings.append(
-                Finding(
-                    "fail",
-                    f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` meters {zone} with "
-                    f"`limit_req {' '.join(args)}`, above `location /`'s burst={ceilings[zone]}\n"
-                    f"{CONTINUATION}a server action runs at any path, so this raises every action's ceiling: declare `location /`'s burst",
-                )
+    for one in serving:
+        wider = carved_from(one, judged.where)
+        if wider is None:
+            continue
+        owed = meter_lines(wider) - meter_lines(one)
+        if one.path in unceilinged:
+            owed = frozenset(line for line in owed if not line.startswith("limit_conn "))
+        if not owed:
+            continue
+        ceiling = any(line.startswith("limit_conn ") for line in owed)
+        findings.append(
+            Finding(
+                "fail",
+                f"{judged.conf}:{one.line}: `location {'= ' if one.exact else ''}{one.path}` is carved out of `location "
+                f"{wider.path}` and lacks its {', '.join(f'`{line}`' for line in sorted(owed))}\n"
+                f"{CONTINUATION}a request here would otherwise meet that meter: write each line as `location {wider.path}` "
+                f"writes it{', or record why the ceiling does not bound this one at :: UNCEILINGED' if ceiling else ''}",
             )
+        )
     return findings
 
 
@@ -1002,7 +1061,7 @@ def _unreached(handler: Handler, name: str, conf: str) -> Finding:
 
 # Every rule `main` runs, each over the whole accounting: a rule written and left out of this table is
 # one nothing runs, which the table makes a reader's to see rather than a sequence of calls to miss.
-RULES: Final = (account, unmetered_links, unlogged_links, referring_links, unsized_links, raised_bursts, interceptions)
+RULES: Final = (account, loosened, unmetered_links, unlogged_links, referring_links, unsized_links, interceptions)
 
 
 def main() -> int:
@@ -1064,9 +1123,10 @@ def main() -> int:
         print("      unmetered where :: METADATA says why. A page a link opens sits where :: LINK_ZONES meters")
         print("      it, its burst sized for the largest squad :: OPENAPI publishes, every error line of its")
         print("      location goes to :: DISCARDED_LOG, and :: REFERRER_MAP gives it :: LINK_REFERRER_POLICY,")
-        print("      spelled as its location matches. No location names a burst above location /'s on a")
-        print("      zone it meters, every action's ceiling. The rule is docs/ops/spec.md, section 1.3. An")
-        print("      intercepted URL has one intercepting page, under no route group: :: interceptions says why.")
+        print("      spelled as its location matches. A location serving pages writes every meter line of")
+        print("      the location it is carved out of, or :: UNCEILINGED says why the ceiling does not bound it.")
+        print("      The rule is docs/ops/spec.md, section 1.3. An intercepted URL has one intercepting page,")
+        print("      under no route group: :: interceptions says why.")
         return code
 
     metered = sum(1 for one in where if one.exact and one.metered)

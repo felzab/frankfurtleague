@@ -577,25 +577,84 @@ def test_a_referrer_map_entry_this_reader_cannot_resolve_refuses():
         routes.map_entries(root / "http.conf", "$referrer_policy")
 
 
+CEILING = "        limit_conn conn 50;\n"
 ACTION_ZONE = "        limit_req zone=action burst=30 nodelay;\n"
-ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_ZONE, PASS)
+ACTION_CATCH_ALL = block("location /", CEILING, ACTION_ZONE, PASS)
 RAISED_ZONE = ACTION_ZONE.replace("burst=30 ", "burst=31 ")
+AUTH_ZONE = "        limit_req zone=authapi burst=10 nodelay;\n"
 
 
-def test_a_block_raising_the_catch_all_s_burst_is_a_finding():
-    """One above `/`'s, which a script posting any action at that path spends; at `/`'s, none."""
-    assert routes.raised_bursts(accounting(where=served(block("location = /neu", LINK_ZONE, ACTION_ZONE, PASS), ACTION_CATCH_ALL))) == []
+def loosened(*blocks: str, app: Path | None = None) -> list:
+    """What the carved-out meter rule says about the blocks given beside the catch-all metering actions."""
+    return routes.loosened(accounting(app, served(*blocks, ACTION_CATCH_ALL)))
 
-    findings = routes.raised_bursts(accounting(where=served(block("location = /neu", LINK_ZONE, RAISED_ZONE, PASS), ACTION_CATCH_ALL)))
+
+def test_a_page_s_location_written_with_the_catch_all_s_meter_is_no_finding():
+    """The control: a further zone of its own beside both lines is no looser."""
+    assert loosened(block("location = /neu", CEILING, LINK_ZONE, ACTION_ZONE, PASS)) == []
+
+
+@pytest.mark.parametrize(
+    ("lines", "lacking"),
+    [
+        ((CEILING,), "`limit_req zone=action burst=30 nodelay`"),
+        ((ACTION_ZONE,), "`limit_conn conn 50`"),
+        ((), "`limit_conn conn 50`, `limit_req zone=action burst=30 nodelay`"),
+        ((CEILING, RAISED_ZONE), "`limit_req zone=action burst=30 nodelay`"),
+    ],
+    ids=["no-action-zone", "no-ceiling", "bare", "a-raised-burst"],
+)
+def test_a_page_s_location_lacking_a_line_of_the_catch_all_s_meter_is_a_finding(lines, lacking):
+    """Next runs a server action at any page's path, so a block lacking either line is where a script posts past it."""
+    findings = loosened(block("location /neu/", *lines, PASS))
 
     assert severities(findings) == ["fail"]
-    assert "meters action with `limit_req zone=action burst=31 nodelay`, above `location /`'s burst=30" in details(findings)
+    assert f"`location /neu/` is carved out of `location /` and lacks its {lacking}" in details(findings)
 
 
-def test_a_catch_all_metering_no_zone_refuses():
-    """No ceiling to judge a burst against, which would otherwise read as no burst raised."""
-    with pytest.raises(routes.NothingJudged, match="meters no zone"):
-        routes.raised_bursts(accounting(where=served(block("location = /neu", RAISED_ZONE, PASS), CATCH_ALL)))
+def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone():
+    """The prefix's handler answers the path, so the exact match meters it as the prefix does, a zone of its own beside."""
+    app = tree("/api/auth/[...all]")
+    prefix_block = block("location /api/auth", AUTH_ZONE, PASS)
+
+    assert loosened(prefix_block, block("location = /api/auth/code", AUTH_ZONE, ZONE, PASS), app=app) == []
+
+    findings = loosened(prefix_block, block("location = /api/auth/code", ZONE, PASS), app=app)
+
+    assert severities(findings) == ["fail"]
+    assert "carved out of `location /api/auth` and lacks its `limit_req zone=authapi burst=10 nodelay`" in details(findings)
+
+
+def test_a_route_handler_s_own_location_and_one_proxying_elsewhere_owe_no_page_meter():
+    """A handler runs no server action, and a backend location serves no page."""
+    backend = block("location = /probe", "        proxy_pass http://backend:8000;\n")
+    page = block("location = /neu", CEILING, ACTION_ZONE, PASS)
+
+    assert loosened(METERED, backend, page, app=tree("/api/bewerbung")) == []
+
+
+def test_a_location_the_ceiling_is_recorded_not_to_bound_still_owes_the_action_zone():
+    """The record lifts the ceiling alone."""
+    assert loosened(block("location /_next/static/", ACTION_ZONE, PASS)) == []
+
+    findings = loosened(block("location /_next/static/", PASS))
+
+    assert severities(findings) == ["fail"]
+    assert "lacks its `limit_req zone=action burst=30 nodelay`\n" in details(findings)
+
+
+@pytest.mark.parametrize(
+    ("blocks", "said"),
+    [
+        ((block("location = /neu", RAISED_ZONE, PASS), CATCH_ALL.replace(CEILING, "")), "meters nothing"),
+        ((ACTION_CATCH_ALL,), "no location but"),
+    ],
+    ids=["a-catch-all-metering-nothing", "no-page-s-location-beside-it"],
+)
+def test_the_carved_out_meter_rule_judging_nothing_refuses(blocks, said):
+    """No meter to hold a page's location to, or no page's location to hold, would otherwise read as none loosened."""
+    with pytest.raises(routes.NothingJudged, match=said):
+        routes.loosened(accounting(where=served(*blocks)))
 
 
 def test_a_route_group_leaves_the_url():
@@ -763,7 +822,7 @@ LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 *
 CLEAN = (
     "server {\n"
     + METERED
-    + block("location = /neu", f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
+    + block("location = /neu", CEILING, f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
     + ACTION_CATCH_ALL
     + "}\n"
 )
