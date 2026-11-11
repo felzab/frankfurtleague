@@ -91,8 +91,7 @@ type AuthDoubles = {
 
 /**
  * Doubles, through `vi.doMock`, the config, the store client and the mailer `fl_frontend/src/core/auth/library.ts`
- * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
- * `fl_frontend/eslint.config.mjs` holds it to.
+ * builds on, and the lookup its grant is read over.
  */
 export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather

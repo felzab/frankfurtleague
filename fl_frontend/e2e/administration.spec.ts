@@ -1,13 +1,11 @@
 /**
- * E2E · J6's part in the area, under each project: an administrator enters a known club into the planned season and
- * saves its editor's one save across the club and its season row, then edits a pupil's squad row, each read back from
- * the server, and finds the season's Registrierungen. The applications' half is `applicant.spec.ts`'s and the Austritt
- * `austritt.spec.ts`'s. Each project writes a club and a pupil of its own (`entered`, `squadded`), on the session
- * `support/administrator.setup.ts` saved.
+ * E2E · J6's editors in the area, under each project, where no lower tier sees a club editor's one save reach only one
+ * of its two records, a squad row's save get lost, or the season's Registrierungen fail on the seed's real rows.
  */
 import { expect } from "@playwright/test";
 
-import { choose, SAISON as PLANNED, typeInto } from "./support/application";
+import { SAISON as PLANNED } from "./support/application";
+import { choose, save, saveBar, typeInto } from "./support/controls";
 import { ADMINISTRATOR_STATE, test } from "./support/journey";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
@@ -35,10 +33,8 @@ test("a known club enters the planned season, and its editor's one save reaches 
   const main = page.getByRole("main");
   await typeInto(main.getByRole("textbox", { name: /^Website/ }), website);
   await choose(page, main, /Trikotfarbe/, colour);
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await expect(bar.getByText("2 Änderungen", { exact: true })).toBeVisible();
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(saveBar(page).getByText("2 Änderungen", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server: both halves stand.
   await page.reload();
@@ -53,9 +49,7 @@ test("a pupil's squad row saves from its editor, and the season's Registrierunge
 
   const number = page.getByRole("main").getByRole("textbox", { name: /^Nummer/ });
   await typeInto(number, "23");
-  const bar = page.getByRole("region", { name: "Speichern" });
-  await bar.getByRole("button", { name: "Speichern" }).click();
-  await expect(bar.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await save(page);
 
   // Read back from the server.
   await page.reload();
