@@ -5,12 +5,13 @@
 # dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
 # the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
 # the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
-# `nginx/prod/` behind a throwaway certificate for the block production alone serves. It answers
-# nothing about which locations the edge makes reachable.
+# `nginx/prod/` for the blocks production alone serves. It answers nothing about which locations the
+# edge makes reachable.
 #
 # Invariants:
 # - A credential a URL carries never reaches an access line, and every line holds the edge's own span.
-# - A visitor's `traceparent` is replaced on every location proxying to the frontend.
+# - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
+#   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
 # - Each security header is sent once, as written, on every location's response.
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
@@ -43,8 +44,6 @@ require_docker
 command -v curl >/dev/null 2>&1 \
   || refuse "curl is not on PATH, so the edge's redaction was not driven.
 Only curl has --path-as-is, which every alternate spelling in this table needs."
-command -v openssl >/dev/null 2>&1 \
-  || refuse "openssl is not on PATH, so there is no certificate for nginx/prod/ to serve behind."
 
 # Distinctive enough that a substring test over the whole access line is the assertion.
 TOK="Rk9VUlRJTUVTQlJPS0VO"
@@ -101,6 +100,7 @@ server {
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
     add_header X-Seen-Next-Action $http_next_action always;
+    add_header X-Seen-Forwarded-Proto $http_x_forwarded_proto always;
     # Any body, so a 413 the body caps' cases read is the edge's and never the stub's own 1m default.
     client_max_body_size 0;
 STUB
@@ -611,6 +611,7 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
   HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
     -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01"
+    -H "X-Forwarded-Proto: https"
     -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
@@ -624,6 +625,12 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if [[ ! "$seen_trace" =~ ^00-[0-9a-f]{32}-[0-9a-f]{16}-01$ || "$seen_trace" == *"$CLIENT_TRACE"* ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected the edge's own traceparent at Next, Next received '${seen_trace}'"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
+  # This hop's own scheme, never the `https` the request claimed: Next builds the request's URL from it.
+  if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != http ]]; then
+    fail "UPSTREAM ${HEADER_PATHS[_i]}"
+    detail "expected X-Forwarded-Proto http at Next from the local edge, Next received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
   # That no location clears the id a server action is posted with; the empty one is the relay's below.
@@ -1150,39 +1157,31 @@ if verbose; then detail "as nginx: ${CONTROL_WORKER//$'\r'/}"; fi
 
 # --- the block production alone serves -----------------------------------------------------------
 
-# `nginx/prod/` mounted as production mounts it, behind a certificate made for this run: the www
+# `nginx/prod/` mounted as production mounts it, on the plain port the connector dials: the www
 # redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and the
-# HTTPS block wraps that file in the stapling it alone declares.
-mkdir -p "${SCRATCH}/certs" "${SCRATCH}/log-prod"
-# Relative output paths, for `scripts/gate/verify.sh`'s nginx step's reason: a Windows openssl
-# cannot open an MSYS-style absolute path.
-MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
-  -keyout "${SCRATCH_NAME}/certs/key.pem" -out "${SCRATCH_NAME}/certs/cert.pem" \
-  || refuse "could not generate a throwaway certificate for nginx/prod/."
+# catch-all the one that answers a name nobody configured.
+mkdir -p "${SCRATCH}/log-prod"
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
-  -p 127.0.0.1:0:443 \
+  -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-  -v "/${SCRATCH}/certs:/etc/nginx/certs:ro" \
   -v "/${SCRATCH}/log-prod:/var/log/frankfurtleague/nginx" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx over nginx/prod/."
-PROD_ADDR="$(docker port "$PROD_CONTAINER" 443/tcp | head -n 1)" \
+PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
   || refuse "the nginx/prod/ edge published no port."
 PROD_ADDR="${PROD_ADDR%$'\r'}"
 [[ -n "$PROD_ADDR" ]] || refuse "the nginx/prod/ edge published no port."
-# The name resolved to the published port, so the handshake's SNI and the Host header are the
-# redirect's own, as a visitor's are.
-WWW=( --resolve "www.frankfurtleague.de:${PROD_ADDR##*:}:127.0.0.1" "https://www.frankfurtleague.de:${PROD_ADDR##*:}/probe" )
+PROD_BASE="http://${PROD_ADDR}"
 _up=0
 for _ in $(seq 1 50); do
-  if curl -sk -o /dev/null --max-time 2 "${WWW[@]}" 2>/dev/null; then _up=1; break; fi
+  if curl -s -o /dev/null --max-time 2 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" 2>/dev/null; then _up=1; break; fi
   sleep 0.2
 done
 (( _up )) || refuse "the nginx/prod/ edge never answered on ${PROD_ADDR}."
-WWW_STATUS="$(curl -sk -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 "${WWW[@]}" || true)"
+WWW_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-www" -w '%{http_code}' --max-time 5 -H "Host: www.frankfurtleague.de" "${PROD_BASE}/probe" || true)"
 read_headers "${SCRATCH}/headers-www"
 if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtleague.de/probe" ]]; then
   fail "REDIRECT www.frankfurtleague.de"
@@ -1190,6 +1189,13 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
   HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
 fi
 grade_security_headers "www.frankfurtleague.de"
+# A Host no block names, which must reach neither the frontend nor a redirect.
+UNKNOWN_STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: unrecognised.invalid" "${PROD_BASE}/" || true)"
+if [[ "$UNKNOWN_STATUS" != 421 ]]; then
+  fail "CATCH-ALL nginx/prod/"
+  detail "expected 421 for a Host no block names, nginx answered ${UNKNOWN_STATUS}"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
 
 # --- the upstreams, found by name while both edges serve --------------------------------------------
 
@@ -1307,30 +1313,34 @@ done <<< "$CONF_DIRECTIVES"
 rm -f "${SCRATCH}/headers-location"
 curl -s -o /dev/null -D "${SCRATCH}/headers-location" --max-time 5 -H "Host: localhost" "${BASE}/location-probe" || true
 read_headers "${SCRATCH}/headers-location"
-if [[ "${SENT_VALUE[location]:-}" != "http://localhost/landed" ]]; then
+if [[ "${SENT_VALUE[location]:-}" != "/landed" ]]; then
   fail "REDIRECT the frontend's own name"
-  detail "expected Location: http://localhost/landed, nginx sent '${SENT_VALUE[location]:-}'"
+  detail "expected Location: /landed, nginx sent '${SENT_VALUE[location]:-}'"
   RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
 fi
 
 # The production block reaching the frontend: a `resolver` of its own there replaces the shared one
 # for every location it wraps, and a public one finds no `frontend`.
-PROD_SITE="https://frankfurtleague.de:${PROD_ADDR##*:}"
-PROD_RESOLVE=( --resolve "frankfurtleague.de:${PROD_ADDR##*:}:127.0.0.1" )
-PROD_STATUS="$(curl -sk -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
-  "${PROD_RESOLVE[@]}" "${PROD_SITE}/" || true)"
+PROD_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
+  -H "Host: frankfurtleague.de" "${PROD_BASE}/" || true)"
 read_headers "${SCRATCH}/headers-prod-site"
 if [[ "$PROD_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
   fail "UPSTREAM frankfurtleague.de/"
   detail "expected the frontend stub's 200 through nginx/prod/, nginx answered '${PROD_STATUS}'"
   RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
 fi
+# Every visitor reached Cloudflare over https, which this plain hop's own scheme does not say.
+if [[ "${SENT_VALUE[x-seen-forwarded-proto]:-}" != https ]]; then
+  fail "UPSTREAM frankfurtleague.de/"
+  detail "expected X-Forwarded-Proto https at Next from nginx/prod/, Next received '${SENT_VALUE[x-seen-forwarded-proto]:-}'"
+  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
+fi
 
 # The backend recreated as compose recreates it, under its name at another address, and neither edge
 # reloaded. The old container goes once the new one holds its address, so the two never share one.
 
-declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_SITE}/api/v0/system/is_live" )
-declare -A MOVED_LOCATION=( [local]="http://localhost/landed" [prod]="https://frankfurtleague.de/landed" )
+declare -A MOVED_PROBE=( [local]="${BASE}/api/v0/system/is_live" [prod]="${PROD_BASE}/api/v0/system/is_live" )
+declare -A MOVED_LOCATION=( [local]="/landed" [prod]="/landed" )
 # One line per answer: its mark and its Location. A connection each, HTTP/1.1 since HTTP/2 shares
 # one, so answers spread over the workers' caches; MOVE_WAIT seconds each, a connect to a vacated
 # address waiting rather than refusing.
@@ -1338,9 +1348,9 @@ MOVE_WAIT=1
 moved_answers() { # $1 the edge, $2 how many
   local edge="$1" _k
   local -a ask=( -H "Host: localhost" )
-  [[ "$edge" == local ]] || ask=( "${PROD_RESOLVE[@]}" )
+  [[ "$edge" == local ]] || ask=( -H "Host: frankfurtleague.de" )
   for (( _k = 0; _k < $2; _k++ )); do ask+=( -o /dev/null "${MOVED_PROBE[$edge]}" ); done
-  curl -sk --http1.1 --max-time "$MOVE_WAIT" -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
+  curl -s --http1.1 --max-time "$MOVE_WAIT" -H "Connection: close" -w '%header{x-moved-backend} %header{location}\n' \
     "${ask[@]}" 2>/dev/null || true
 }
 # Asked first and often, so every worker holds the old address as it moves, as a serving edge's do.

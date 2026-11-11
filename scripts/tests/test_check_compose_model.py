@@ -47,7 +47,7 @@ def test_a_database_joining_production_fails():
 
 def test_any_production_port_fails_the_edge_included():
     """Production's nginx publishes nothing either; the connector reaches it over the network."""
-    found = checker.production(model(frontend={}, backend={}, nginx={"ports": [port("443", 443)]}, cloudflared={}), "p")
+    found = checker.production(model(frontend={}, backend={}, nginx={"ports": [port("80", 80)]}, cloudflared={}), "p")
     assert len(found) == 1
 
 
@@ -120,7 +120,7 @@ def test_directory_mounts_are_clean_and_read_as_pairs():
     """The log mount's source sits outside the project and a tmpfs is no bind, so neither is a pair."""
     rendered = edge(
         *DIRECTORIES,
-        bind("certs", "/etc/nginx/certs"),
+        bind(".tmp-mail", "/app/.tmp-mail"),
         {"type": "bind", "source": "/var/log/x", "target": "/var/log/x"},
         {"type": "tmpfs", "target": "/run/x"},
     )
@@ -140,7 +140,7 @@ def test_a_single_file_mount_fails_whichever_syntax_wrote_it():
 
 
 def test_an_edge_mounting_nothing_from_the_checkout_fails():
-    _, findings = checker.edge_mounts(edge(bind("certs", "/etc/nginx/certs")), "p", PROJECT, checkout())
+    _, findings = checker.edge_mounts(edge(bind(".tmp-mail", "/app/.tmp-mail")), "p", PROJECT, checkout())
 
     assert len(findings) == 1
 

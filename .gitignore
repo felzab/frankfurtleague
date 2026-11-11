@@ -1,9 +1,3 @@
-
-# nginx mounts ./certs read-only on the server (docker-compose.yml); a development checkout has
-# no such directory. The rule is here for whoever creates one locally -- a private key must never
-# be committable from this repository.
-certs/
-
 # The checkout's share of the deny list in .claude/settings.json, because those tools are not the
 # only route into a commit -- a shell command, an installer or an external editor is git's problem
 # alone. Unanchored: a private key is one wherever it lands.

@@ -160,7 +160,6 @@ services:
       - ./nginx/prod:/etc/nginx/conf.d:ro
       # What both edges share, which prod.conf includes by this container path.
       - ./nginx/shared:/etc/nginx/shared:ro
-      - ./certs:/etc/nginx/certs:ro
       - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     # The one service on both: it takes the connector's requests on the first and proxies them on
     # the second.

@@ -133,7 +133,7 @@ services:
     ports:
       - "127.0.0.1:3000:80"
     # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the
-    # base file's reason, and no ./certs.
+    # base file's reason.
     volumes: !override
       - ./nginx/local:/etc/nginx/conf.d:ro
       - ./nginx/shared:/etc/nginx/shared:ro
