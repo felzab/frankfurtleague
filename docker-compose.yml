@@ -16,12 +16,13 @@
 # See:
 # - docs/ops/spec.md -- the service table and invariants
 
-# Capped so a chatty container cannot fill the server's disk: 30 MB per service, worst case.
+# The host's journal, which bounds every line's age (`docs/ops/runbooks.md`), each line tagged with its
+# container's name, so `journalctl CONTAINER_NAME=<name>` finds a service across recreates and
+# `docker compose logs` reads it still (https://docs.docker.com/engine/logging/drivers/journald/).
 x-logging: &default-logging
-  driver: "json-file"
+  driver: journald
   options:
-    max-size: "10m"
-    max-file: "3"
+    tag: "{{.Name}}"
 
 services:
   frontend:
@@ -149,10 +150,6 @@ services:
       - /run/nginx-control:mode=700
     # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
     # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
-
-    # The access and error logs are host-side so they outlive this container and `logrotate` can
-    # bound their age (`docs/ops/runbooks.md` §7). Host and container paths are spelled alike, so
-    # the stanza and `nginx/prod/prod.conf` name one string.
     volumes:
       # Directories, never a file: a file mount holds the inode it was created with, and a pull
       # replaces a changed file with a new one, so the reload `deploy.sh` sends would re-read the
@@ -160,7 +157,6 @@ services:
       - ./nginx/prod:/etc/nginx/conf.d:ro
       # What both edges share, which prod.conf includes by this container path.
       - ./nginx/shared:/etc/nginx/shared:ro
-      - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     # The one service on both: it takes the connector's requests on the first and proxies them on
     # the second.
     networks:
@@ -179,8 +175,6 @@ services:
       # Becoming the workers' user.
       - SETUID
       - SETGID
-      # Opening its logs: the deploying user owns their directory, and root is no owner there.
-      - DAC_OVERRIDE
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
     # traffic before both upstreams answer. A deploy does not pass through here, recreating the
     # application pair alone, so this governs a cold start.

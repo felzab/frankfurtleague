@@ -117,7 +117,7 @@ DIRECTORIES = (bind("nginx/prod", "/etc/nginx/conf.d"), bind("nginx/shared", "/e
 
 
 def test_directory_mounts_are_clean_and_read_as_pairs():
-    """The log mount's source sits outside the project and a tmpfs is no bind, so neither is a pair."""
+    """A source outside the project and a tmpfs, which is no bind, are neither of them a pair."""
     rendered = edge(
         *DIRECTORIES,
         bind(".tmp-mail", "/app/.tmp-mail"),
@@ -539,13 +539,11 @@ def test_main_judges_the_networks_of_both_models():
 PRIVILEGED: Final = model(**{service: hardened(service) for service in (*checker.PRODUCTION_SERVICES, "mongo")})
 
 
-def test_every_service_dropping_all_and_the_edge_adding_its_four_is_clean():
+def test_every_service_dropping_all_and_the_edge_adding_its_three_is_clean():
     assert checker.privileges(PRIVILEGED, "p") == []
 
 
-@pytest.mark.parametrize(
-    "spelled", [["cap_chown", "Cap_SetUid", "SETGID", "dac_override"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"]]
-)
+@pytest.mark.parametrize("spelled", [["cap_chown", "Cap_SetUid", "SETGID"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID"]])
 def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(spelled: list[str]):
     """Docker takes a name in any case and with or without `CAP_`, so a spelling alone is no finding."""
     rendered = model(**PRIVILEGED["services"] | {"nginx": hardened("nginx") | {"cap_add": spelled}})
@@ -556,9 +554,7 @@ def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(s
 @pytest.mark.parametrize(
     ("service", "changed", "said"),
     [
-        pytest.param(
-            "nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"
-        ),
+        pytest.param("nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"),
         pytest.param("nginx", {"cap_drop": []}, "nginx drops nothing", id="edge-drops-nothing"),
         pytest.param("frontend", {"cap_add": ["NET_BIND_SERVICE"]}, "frontend adds back", id="frontend-adds-one"),
         pytest.param("backend", {"cap_drop": ["NET_RAW"]}, "backend drops ['NET_RAW'], not ALL", id="backend-drops-one"),

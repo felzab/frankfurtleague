@@ -13,6 +13,16 @@
 # - Never renamed to docker-compose.override.yml or compose.override.yaml: compose merges a file of
 #   either name unasked, and the server's checkout holds this file.
 
+# Docker's own json-file driver for every service this stack starts, capped at 30 MB a service: Docker
+# Desktop refuses the journald driver production's file names ("journald is not enabled on this
+# host"). A `logging` naming another driver replaces the base's whole, journald's `tag` with it
+# (compose-go's `override/merge.go :: mergeLogging`).
+x-logging: &local-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
     # Builds rather than pulls. `!reset` rather than leaving the tag: a build carrying production's
@@ -54,6 +64,7 @@ services:
       # rather than copying it out. Without it the sink has nowhere to write: `/app` is root-owned
       # and the container runs as `nextjs`.
       - ./.tmp-mail:/app/.tmp-mail
+    logging: *local-logging
     depends_on:
       mongo:
         condition: service_healthy
@@ -71,6 +82,7 @@ services:
     configs:
       - source: local_mongodb_uri
         target: /run/secrets/backend_mongodb_uri
+    logging: *local-logging
     depends_on:
       # Healthy, not started: the lifespan builds every index before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
@@ -105,12 +117,7 @@ services:
     # The application pair's network, which nginx shares and nothing reaching the edge does.
     networks:
       - frankfurtleague-app
-    # docker-compose.yml's `x-logging`, spelled out: a YAML anchor does not reach across files.
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *local-logging
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -137,9 +144,7 @@ services:
     volumes: !override
       - ./nginx/local:/etc/nginx/conf.d:ro
       - ./nginx/shared:/etc/nginx/shared:ro
-      # In the checkout, this stack's Windows hosts having no `/var/log`. `.tmp-*/` is ignored, and
-      # `local.sh --fresh` removes it with the database copy: both are records of real people.
-      - ./.tmp-nginx-log:/var/log/frankfurtleague/nginx
+    logging: *local-logging
 
   # The tunnel is production's only route in; this stack is reached on this host. A profile nothing
   # here activates keeps compose from starting it, where the merge rules offer no way to delete a

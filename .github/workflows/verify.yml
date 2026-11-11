@@ -329,8 +329,8 @@ jobs:
         # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
         # which the runner's user is not. Nothing is printed.
         run: |
-          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
-          chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
+          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail
+          chmod 777 .tmp-e2e/mail
           for name in auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done

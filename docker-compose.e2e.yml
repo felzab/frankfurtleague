@@ -56,7 +56,6 @@ services:
       - ./nginx/e2e:/etc/nginx/conf.d:ro
       - ./nginx/local:/etc/nginx/local:ro
       - ./nginx/shared:/etc/nginx/shared:ro
-      - ./.tmp-e2e/nginx-log:/var/log/frankfurtleague/nginx
 
 # The local stack's four files, each one this stack's start generated.
 secrets: !override

@@ -190,8 +190,8 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 # What each service adds back after dropping every capability: nginx's master fails to start without
-# each of its four (`docker-compose.yml :: nginx`), and every other service runs as its own user.
-CAPABILITIES_ADDED: Final = {EDGE_SERVICE: frozenset({"CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"})}
+# each of its three (`docker-compose.yml :: nginx`), and every other service runs as its own user.
+CAPABILITIES_ADDED: Final = {EDGE_SERVICE: frozenset({"CHOWN", "SETUID", "SETGID"})}
 # The spellings Compose documents for the option, a boolean one taking either separator or none.
 NO_NEW_PRIVILEGES: Final = frozenset({"no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"})
 
@@ -996,7 +996,7 @@ def main() -> int:
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
         print("      each application service reads its package's environment file alone")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
-        print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's four")
+        print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's three")
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
         print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")

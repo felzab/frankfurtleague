@@ -13,7 +13,6 @@
 # - A visitor's `traceparent` is replaced on every location proxying to the frontend, and the protocol
 #   Next is handed is the edge's own word: `https` from production's blocks, `http` from the local ones.
 # - Each security header is sent once, as written, on every location's response.
-# - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
 # - `docs/ops/spec.md` §1.3's server-action and link-page pairs, and the code check's.
@@ -71,9 +70,7 @@ cleanup() {
 trap cleanup EXIT
 
 rm -rf "$SCRATCH"
-# `log/` is what the edge's access_log path resolves to once mounted below, and it must exist
-# before the run: Docker would otherwise create it root-owned, which the cleanup cannot remove.
-mkdir -p "${SCRATCH}/log"
+mkdir -p "$SCRATCH"
 
 # Each header's name and value off the file the set is written in, so a location restating the set
 # with a different value fails as surely as one dropping it.
@@ -221,9 +218,17 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
   -v "/${SCRATCH}/relay-record.sh:/relay-record.sh:ro" \
-  -v "/${SCRATCH}/log:/var/log/frankfurtleague/nginx" \
   "$EDGE_IMAGE" "${EDGE_COMMAND[@]}" >/dev/null \
   || refuse "could not start the pinned nginx for the edge test."
+
+# The container's two streams as Docker holds them, read whole into the scratch directory: nginx's
+# access lines on stdout, its error lines on stderr.
+ACCESS_LOG="${SCRATCH}/stdout"
+ERROR_LOG="${SCRATCH}/stderr"
+read_streams() {
+  docker logs "$CONTAINER" > "$ACCESS_LOG" 2> "$ERROR_LOG" \
+    || refuse "could not read the edge test's nginx streams back from Docker."
+}
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
@@ -353,19 +358,19 @@ done
 CURL_RC=0
 curl "${REQUESTS[@]}" || CURL_RC=$?
 
-ACCESS_LOG="${SCRATCH}/log/access.log"
+# Docker carries a line to its log after curl already has the response, so one read races the last
+# case. Re-reading costs nothing once the stream is complete.
 
-# The bind mount carries a line to this host after curl already has the response, so one read races
-# the last case. Re-reading costs nothing once the file is complete.
-
-# Marked lines only: the warm-up loop's own requests are logged here too.
+# Marked lines only: the warm-up loop's own requests are logged here too, and the image's entrypoint
+# writes its own lines, none of them JSON.
 LOGGED_LINES=()
 declare -A LINE_OF=()
 MARKED=0
 for _ in $(seq 1 50); do
   LINE_OF=()
   MARKED=0
-  # `|| true` on the grep alone: an empty file is a finding below rather than an error here.
+  read_streams
+  # `|| true` on the grep alone: an empty stream is a finding below rather than an error here.
   mapfile -t LOGGED_LINES < <({ grep '^{' "$ACCESS_LOG" 2>/dev/null || true; })
   for logged_line in "${LOGGED_LINES[@]}"; do
     _ua="${logged_line##*\"user_agent\":\"}"
@@ -380,7 +385,7 @@ done
 
 # `refuse`, not `die`: nothing was judged, and a 1 here would read as a leak nobody observed.
 if (( MARKED != ${#CASES[@]} )); then
-  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases into ${ACCESS_LOG},
+  refuse "the edge logged ${MARKED} marked access lines for ${#CASES[@]} cases on its stdout,
 curl having exited ${CURL_RC}, so the stream this grades on is not the table. No case above was
 judged."
 fi
@@ -445,74 +450,8 @@ for case_line in "${CASES[@]}"; do
   fi
 done
 
-# --- the container's own streams ---------------------------------------------------------------
-
-# No line in the container's own streams may name a visitor. nginx writes error lines for the requests it refuses or
-# fails itself, and the table above sends none.
-STREAM_MARKER="fl-stream"
-STREAM=( -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/413"
-  -X POST --data-binary @- "${BASE}/api/client-error" )
-STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/502"
-  "${BASE}/api/v0/system/is_live" )
-# The catch-all's 421: a block with no access_log of its own would fall back to the image's stdout.
-STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: unrecognised.invalid"
-  -A "${STREAM_MARKER}/421" "${BASE}/" )
-STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/400"
-  -H "X-Oversized: $(printf '%020000d' 0)" "${BASE}/" )
-STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/asset"
-  "${BASE}/_next/static/chunk.js" )
-# Past `signin`'s burst, so the zone refuses with 429.
-for _ in 1 2 3 4 5 6; do
-  STREAM+=( --next -s -o /dev/null --max-time 5 -H "Host: localhost" -A "${STREAM_MARKER}/429"
-    -X POST "${BASE}/signin" )
-done
-# The 413's body on stdin: a file path handed to this curl would meet the MSYS rewriting above.
-STREAM_RC=0
-head -c 100000 /dev/zero | tr '\0' a | curl "${STREAM[@]}" || STREAM_RC=$?
-
-# The address nginx recorded for this client, which every line below is searched for.
-CLIENT_ADDR="${LINE_OF["${MARKER}/1"]#*\"client\":\"}"
-CLIENT_ADDR="${CLIENT_ADDR%%\"*}"
-[[ -n "$CLIENT_ADDR" ]] || refuse "the first case's access line carries no client address, so the
-container's streams have nothing to be searched for."
-
-ERROR_LOG="${SCRATCH}/log/error.log"
-# The error line nginx writes for the 413 and for the 502 above, in that order.
-EXPECTED_ERRORS=(
-  "client intended to send too large body"
-  "while connecting to upstream"
-)
-# The same race as the access log's above: the line reaches this host after the response.
-for _ in $(seq 1 50); do
-  _found=0
-  for expected in "${EXPECTED_ERRORS[@]}"; do
-    if grep -qF "$expected" "$ERROR_LOG" 2>/dev/null; then _found=$(( _found + 1 )); fi
-  done
-  if (( _found == ${#EXPECTED_ERRORS[@]} )); then break; fi
-  sleep 0.2
-done
-
-for expected in "${EXPECTED_ERRORS[@]}"; do
-  _lines="$(grep -F "$expected" "$ERROR_LOG" 2>/dev/null || true)"
-  if [[ "$_lines" != *"client: ${CLIENT_ADDR}"* ]]; then
-    fail "ERROR-FILE ${expected}"
-    detail "no line naming client ${CLIENT_ADDR} in ${ERROR_LOG}, curl having exited ${STREAM_RC}"
-    FAILURES=$(( FAILURES + 1 ))
-  fi
-done
-
-docker logs "$CONTAINER" > "${SCRATCH}/stdout" 2> "${SCRATCH}/stderr" \
-  || refuse "could not read the edge test's nginx streams back from Docker."
-for stream in stdout stderr; do
-  while IFS= read -r logged_line; do
-    fail "STREAM ${stream}"
-    detail "$logged_line"
-    FAILURES=$(( FAILURES + 1 ))
-  done < <({ grep -F -e "client: " -e "$CLIENT_ADDR" "${SCRATCH}/${stream}" || true; })
-done
-
 if (( FAILURES > 0 )); then
-  die "${FAILURES} finding(s) over ${#CASES[@]} redaction cases and the container's own streams.
+  die "${FAILURES} finding(s) over ${#CASES[@]} redaction cases.
 Each line above is what nginx WROTE."
 fi
 
@@ -1006,6 +945,7 @@ LINK_LOGGED=0
 # Every spent link pair is marked, each sending two.
 LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
 for _ in $(seq 1 50); do
+  read_streams
   LINK_LOGGED="$({ grep -c "\"user_agent\":\"${LINK_MARKER}\"" "$ACCESS_LOG" 2>/dev/null || true; })"
   if (( ${LINK_LOGGED:-0} >= LINK_KEPT )); then break; fi
   sleep 0.2
@@ -1015,7 +955,7 @@ done
 LINK_ERRORS="$({ grep -F "$TOK" "$ERROR_LOG" 2>/dev/null || true; })"
 if [[ -n "$LINK_ERRORS" ]]; then
   fail "ACTION link-log"
-  detail "the error log holds a live token: ${LINK_ERRORS}"
+  detail "an error line on stderr holds a live token: ${LINK_ERRORS}"
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 fi
 
@@ -1160,14 +1100,12 @@ if verbose; then detail "as nginx: ${CONTROL_WORKER//$'\r'/}"; fi
 # `nginx/prod/` mounted as production mounts it, on the plain port the connector dials: the www
 # redirect is the one block outside `nginx/shared/site.conf` that includes the header set, and the
 # catch-all the one that answers a name nobody configured.
-mkdir -p "${SCRATCH}/log-prod"
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:80 \
   --network "$NETWORK" \
   "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-  -v "/${SCRATCH}/log-prod:/var/log/frankfurtleague/nginx" \
   "$EDGE_IMAGE" >/dev/null \
   || refuse "could not start the pinned nginx over nginx/prod/."
 PROD_ADDR="$(docker port "$PROD_CONTAINER" 80/tcp | head -n 1)" \
@@ -1421,7 +1359,7 @@ if (( HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + CONTROL_FAILURES + RES
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
-ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
+ok "${#CASES[@]} redaction cases clean,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent, an empty
 Next-Action handed to no one, server
