@@ -65,6 +65,19 @@ export function chip(row: Locator, words: string): Locator {
   return row.getByText(words, { exact: true }).filter({ visible: true });
 }
 
+/**
+ * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's `Table` stands
+ * in a box of its own that scrolls sideways (`fl_frontend/src/kit/Table.tsx`), so a name that stops wrapping widens that
+ * box's content and never the document's.
+ */
+export function scrollsSideways(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    [document.documentElement, ...Array.from(document.querySelectorAll("table"), (table) => table.parentElement)].some(
+      (box) => box !== null && box.scrollWidth > box.clientWidth,
+    ),
+  );
+}
+
 /** An editor's save bar, a landmark of its own named by its act, so its lines are read inside it. */
 export function saveBar(page: Page): Locator {
   return page.getByRole("region", { name: "Speichern" });

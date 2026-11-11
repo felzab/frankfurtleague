@@ -5,7 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { save, saveBar, typeInto } from "../support/controls";
+import { save, saveBar, scrollsSideways, typeInto } from "../support/controls";
 import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 import type { Page } from "@playwright/test";
@@ -28,18 +28,6 @@ const SAISON = "2027";
 const MATCHDAY = "gruppenphase-2";
 // The match card's link is named by all its words, the date and the plaques among them, as the Spielplan's is.
 const PAIRING = /Kastanie.*Eiche/;
-
-/**
- * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's
- * `Table` stands in a box of its own that scrolls sideways (`fl_frontend/src/kit/Table.tsx`), so a name
- * that stops wrapping widens that box's content and never the document's.
- */
-const scrollsSideways = (page: Page) =>
-  page.evaluate(() =>
-    [document.documentElement, ...Array.from(document.querySelectorAll("table"), (table) => table.parentElement)].some(
-      (box) => box !== null && box.scrollWidth > box.clientWidth,
-    ),
-  );
 
 /** The match's id, read off its card on its matchday's tab of the season's Spiele list, whose link opens its editor. */
 async function spielId(page: Page): Promise<string> {
