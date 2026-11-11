@@ -140,7 +140,7 @@ async def anchor_the_pupils_named(*, spieler_collection: AsyncCollection, spiele
 
 
 async def anchor_the_season_reported_in(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> None:
-    """The season a report's first write and a draw's removal both write, so the two conflict."""
+    """The season every report write, a draw's removal and the activation ending the season all write, so they conflict."""
 
     await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 

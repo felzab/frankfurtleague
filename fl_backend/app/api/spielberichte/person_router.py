@@ -220,8 +220,9 @@ async def put_spielbericht_bericht(
                 label=spiel_label(context.spiel["saison_id"], context.spiel["spiel_nr"]),
                 session=session,
             )
-        if saved is None:
-            # After the insert, so a rival first write meets it there rather than blocking on the season.
+            # On every write, after the report's own, so a rival first write meets it there rather than on the season. The
+            # judgement of the season's status, asked again outside the transaction, leaves a gap before the commit that
+            # the activation ending the season, which writes its row, then meets here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=context.spiel["saison_id"], session=session)
         named = await pull_named(
             spieler_collection=spieler_collection, context=context, kader_open=True, bericht=document["bericht"], session=session

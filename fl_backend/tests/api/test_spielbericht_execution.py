@@ -439,27 +439,31 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
         # Once: none of these conflicts, so a retry would mean the rival was caught some other way.
         assert passes == 1
 
-    def test_a_correction_is_refused_on_the_season_ending_under_it(self, mongo_replica_set_url: str):
-        """A correction, since a first write anchors the season and so conflicts with its end."""
+    def test_a_correction_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
+        """A correction anchors the season as a first write does, so a retry refuses it in its transaction.
+
+        Unanchored, it meets the end only in its judgement outside the transaction, which leaves a gap before the commit.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht())
             berichte = BerichteRunningARivalBeforeTheirCorrection(database[Collection.SPIELBERICHTE], lambda: end_the_season(database))
+            saisons = SaisonsCountingTheAttempts(database[Collection.SAISONS])
             korrektur = bericht([tor("team1", LINA, "24")], version=0)
-            outcome = await outcome_of(put(database, client, korrektur, spielberichte_collection=berichte))
+            outcome = await outcome_of(put(database, client, korrektur, spielberichte_collection=berichte, saisons_collection=saisons))
             berichte.assert_landed_inside(serially=0)
 
-            return outcome, [document["version"] for document in await stored(database)], berichte.passes
+            return outcome, [document["version"] for document in await stored(database)], saisons.attempts
 
-        outcome, versions, passes = on_the_league(mongo_replica_set_url, body)
+        outcome, versions, attempts = on_the_league(mongo_replica_set_url, body)
 
         assert (outcome, versions) == (Code.SAISON_PAST, [0])
-        assert passes == 1
+        assert attempts == 2, "the season's end conflicted with nothing the correction wrote"
 
     def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
         """The season's anchor conflicts with the end, so a retry refuses the write in its transaction.
 
-        Unanchored, the write meets the end only in its judgement outside the transaction, as a correction does above.
+        Unanchored, the write meets the end only in its judgement outside the transaction.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
