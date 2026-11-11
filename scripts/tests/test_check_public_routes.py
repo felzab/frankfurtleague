@@ -2,16 +2,16 @@
 
 `check_public_routes.py` is the only thing comparing the App Router tree to the edge's locations, so
 a defect in it is silent by construction: the gate stays green and the handler ships unmetered. Every
-case below plants the shape it reports rather than reading the repository's own, and the two that do
-read the repository are what tie the mechanism to the tree it guards.
+case below plants the shape it reports; the gate's own run of the checker is what reads the
+repository's tree.
 
-The refusals are driven for the same reason: a construct the reader cannot place has to end the run
-at `EXIT_REFUSED`, and one it quietly skips reads as coverage.
+The refusals are driven for the same reason: a construct the reader cannot place, or a rule that
+finds nothing to judge, has to end the run at `EXIT_REFUSED`, and one quietly skipped reads as
+coverage.
 """
 
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 
@@ -36,12 +36,12 @@ def exact(path: str, *, metered: bool = True) -> str:
     return block("location = " + path, ZONE if metered else "", PASS)
 
 
-def prefix(path: str, *, metered: bool = False) -> str:
-    """One prefix location, which meters nothing unless a case says otherwise."""
-    return block("location " + path, ZONE if metered else "", PASS)
+def prefix(path: str) -> str:
+    """One prefix location, which meters nothing."""
+    return block("location " + path, PASS)
 
 
-METERED = exact("/api/bewerbung") + exact("/api/bewerbung/")
+METERED = exact("/api/bewerbung")
 CATCH_ALL = block("location /", "        limit_conn conn 50;\n", PASS)
 
 
@@ -60,20 +60,31 @@ def tree(*urls: str, file: str = "route.ts") -> Path:
     return app
 
 
-def judged(app: Path, where: tuple) -> tuple[list, set]:
-    """One accounting run over a planted tree and a planted set of locations."""
-    return routes.account(routes.handlers(app), where, app.parent, SOURCE)
+def accounting(app: Path | None = None, where: tuple = (), *, rates: dict | None = None, squad: int = 10):
+    """What every rule reads, over a planted tree and a planted set of locations."""
+    app = tree() if app is None else app
+    paged = routes.pages(app)
+    return routes.Accounting(
+        found=routes.handlers(app),
+        paged=paged,
+        linked=routes.link_pages(paged),
+        where=where,
+        rates={"linkpage": 30} if rates is None else rates,
+        squad=squad,
+        app_dir=app,
+        root=app.parent,
+        conf=SOURCE,
+    )
+
+
+def accounted(app: Path, where: tuple) -> list:
+    """What the handler accounting says about a planted tree and a planted set of locations."""
+    return routes.account(accounting(app, where))
 
 
 def test_a_metered_exact_match_covers_its_handler():
     """The resting state every red case below is measured against."""
-    findings, used = judged(tree("/api/bewerbung"), served(METERED, CATCH_ALL))
-
-    assert findings == []
-    assert used == set()
-
-
-UNMETERED_TWIN = routes.Reason("/api/bewerbung", "a prefix reason spelled at an exact match's own path")
+    assert accounted(tree("/api/bewerbung"), served(METERED, CATCH_ALL)) == []
 
 
 def test_a_recorded_reason_at_an_exact_match_path_does_not_excuse_its_missing_meter(monkeypatch):
@@ -81,25 +92,25 @@ def test_a_recorded_reason_at_an_exact_match_path_does_not_excuse_its_missing_me
 
     `REASONS` accounts for what a PREFIX covers, so nothing there may answer for an exact match.
     """
-    monkeypatch.setattr(routes, "REASONS", (UNMETERED_TWIN,))
-    findings, used = judged(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/bewerbung", "a prefix reason spelled at an exact match's own path"),))
+    findings = accounted(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "carries no limit_req" in details(findings)
-    assert used == set()
 
 
-def test_a_recorded_reason_at_an_exact_match_path_declares_no_prefix_location(monkeypatch):
-    """An exact match is no prefix location, so a reason spelling its path declares nothing."""
-    monkeypatch.setattr(routes, "REASONS", (UNMETERED_TWIN,))
-    where = served(exact("/api/bewerbung", metered=False), CATCH_ALL)
+def test_a_handler_recorded_unmetered_is_no_finding_and_its_neighbour_still_is(monkeypatch):
+    """The record names one URL: a handler beside it, unmetered the same way, is reported."""
+    monkeypatch.setattr(routes, "UNMETERED", (routes.Unmetered("/api/hook", "a machine's webhook"),))
+    findings = accounted(tree("/api/hook", "/api/hook2"), served(exact("/api/hook", metered=False), CATCH_ALL))
 
-    assert "no prefix location declares that path" in details(routes.unused(set(), where))
+    assert severities(findings) == ["fail"]
+    assert "/api/hook2" in details(findings)
 
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves all four extensions, so a walk seeing one of them accounts for part of the tree."""
-    findings, _ = judged(tree("/api/beispiel", file="route.tsx"), served(METERED, CATCH_ALL))
+    findings = accounted(tree("/api/beispiel", file="route.tsx"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "/api/beispiel" in details(findings)
@@ -154,6 +165,19 @@ def test_a_reserved_name_inside_a_private_folder_is_no_claim_on_the_population()
     assert routes.metadata(with_files("_components/icon.tsx", "_lib/sitemap.ts")) == ()
 
 
+@pytest.mark.parametrize("name", ["twitter-image.tsx", "opengraph-image.tsx", "saisons/opengraph-image.tsx"])
+def test_a_reserved_metadata_name_the_map_does_not_carry_refuses(name: str):
+    """The gap this population closes is the NEXT metadata file, which silence would let through."""
+    with pytest.raises(routes.RouteShape, match=Path(name).stem):
+        routes.metadata(with_files(name))
+
+
+def test_a_metadata_convention_below_the_tree_root_refuses():
+    """A nested sitemap's URL is decided by what the file exports, which this reader does not read."""
+    with pytest.raises(routes.RouteShape, match="outside the App Router root"):
+        routes.metadata(with_files("dashboard/sitemap.ts"))
+
+
 def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url():
     """A slot is no segment of the URL, and `(.)spiele` names `spiele` on its own level: the pop-up answers the match page's URL."""
     [page] = routes.pages(tree("/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx"))
@@ -164,12 +188,8 @@ def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url()
 @pytest.mark.parametrize("marker", ["(..)", "(...)", "(..)(..)"])
 def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
     """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
-    try:
+    with pytest.raises(routes.RouteShape, match="cannot derive"):
         routes.pages(tree(f"/saisons/[saison]/@modal/{marker}spiele/[spiel]", file="page.tsx"))
-    except routes.RouteShape as refusal:
-        assert re.search("cannot derive", str(refusal)), refusal
-    else:
-        raise AssertionError("an intercepting route reaching above its level was given a URL")
 
 
 ROOT_INTERCEPTOR = "/@modal/(.)saisons/[saison]/spiele/[spiel]"
@@ -177,8 +197,7 @@ ROOT_INTERCEPTOR = "/@modal/(.)saisons/[saison]/spiele/[spiel]"
 
 def intercepting(*urls: str) -> list:
     """What the interception rule says about a tree holding a page at each of `urls`."""
-    app = tree(*urls, file="page.tsx")
-    return routes.interceptions(routes.pages(app), app, app.parent)
+    return routes.interceptions(accounting(tree(*urls, file="page.tsx")))
 
 
 def test_one_interceptor_in_the_slot_every_page_shares_is_no_finding():
@@ -207,47 +226,9 @@ def test_two_interceptors_for_one_address_are_a_finding():
     assert "all intercept /saisons/[]/spiele/[]" in details(findings)
 
 
-def test_the_repository_own_interceptors_are_one_per_address_under_no_group():
-    """The real tree, so a second slot or a slot moved into a group fails here and not only in the journeys."""
-    app = routes.REPO_ROOT / routes.APP_ROUTER
-
-    assert routes.interceptions(routes.pages(app), app, routes.REPO_ROOT) == []
-
-
-@pytest.mark.parametrize("name", ["twitter-image.tsx", "opengraph-image.tsx", "saisons/opengraph-image.tsx"])
-def test_a_reserved_metadata_name_the_map_does_not_carry_refuses(name: str):
-    """The gap this population closes is the NEXT metadata file, which silence would let through."""
-    try:
-        routes.metadata(with_files(name))
-    except routes.RouteShape as refusal:
-        assert re.search(Path(name).stem, str(refusal)), refusal
-    else:
-        raise AssertionError("a generated metadata image was given a URL")
-
-
-def test_a_metadata_convention_below_the_tree_root_refuses():
-    """A nested sitemap's URL is decided by what the file exports, which this reader does not read."""
-    try:
-        routes.metadata(with_files("dashboard/sitemap.ts"))
-    except routes.RouteShape as refusal:
-        assert re.search("outside the App Router root", str(refusal)), refusal
-    else:
-        raise AssertionError("a nested metadata convention was placed at the root's URL")
-
-
-def test_a_declared_convention_no_file_serves_is_a_finding(monkeypatch):
-    """The rot `unused` reports for a prefix location's reason, over the metadata declaration."""
-    monkeypatch.setattr(routes, "METADATA", (routes.Metadata("sitemap", "/sitemap.xml", "a pinned list"),))
-
-    findings = routes.unclaimed(())
-
-    assert severities(findings) == ["fail"]
-    assert "/sitemap.xml" in details(findings)
-
-
 def test_an_exact_match_carrying_no_limit_req_is_a_finding():
     """The gap the check exists for: a location naming the handler and metering nothing."""
-    findings, _ = judged(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
+    findings = accounted(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "carries no limit_req" in details(findings)
@@ -255,7 +236,7 @@ def test_an_exact_match_carrying_no_limit_req_is_a_finding():
 
 def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
-    findings, _ = judged(tree("/api/beispiel"), served(METERED, CATCH_ALL))
+    findings = accounted(tree("/api/beispiel"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "/api/beispiel" in details(findings)
@@ -269,7 +250,7 @@ def test_the_catch_all_is_never_coverage():
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
     """A prefix names where a path goes and meters nothing, so the reason is the whole accounting."""
     monkeypatch.setattr(routes, "REASONS", ())
-    findings, _ = judged(tree("/api/beispiel/eins"), served(prefix("/api/beispiel/"), CATCH_ALL))
+    findings = accounted(tree("/api/beispiel/eins"), served(prefix("/api/beispiel/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no recorded reason" in details(findings)
@@ -277,17 +258,14 @@ def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
 
 def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypatch):
     """The other half of the same rule: a handler under a recorded prefix is accounted for by its reason."""
-    reason = routes.Reason("/api/beispiel/", "each behind a guard of its own")
-    monkeypatch.setattr(routes, "REASONS", (reason,))
-    findings, used = judged(tree("/api/beispiel/eins", "/api/beispiel/zwei"), served(prefix("/api/beispiel/"), CATCH_ALL))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
 
-    assert findings == []
-    assert used == {reason}
+    assert accounted(tree("/api/beispiel/eins", "/api/beispiel/zwei"), served(prefix("/api/beispiel/"), CATCH_ALL)) == []
 
 
 def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
     """An exact match cannot name a catch-all's URLs, so only a prefix reaches the subtree at all."""
-    findings, _ = judged(tree("/api/auth/[...all]"), served(METERED, CATCH_ALL))
+    findings = accounted(tree("/api/auth/[...all]"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "unmeterable" in details(findings)
@@ -295,12 +273,9 @@ def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
 
 def test_a_prefix_above_a_dynamic_segment_covers_it(monkeypatch):
     """The catch-all's own case: the prefix has to sit above the segment, not inside it."""
-    reason = routes.Reason("/api/auth", "the sign-in library's catch-all")
-    monkeypatch.setattr(routes, "REASONS", (reason,))
-    findings, used = judged(tree("/api/auth/[...all]"), served(prefix("/api/auth"), CATCH_ALL))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/auth", "the sign-in library's catch-all"),))
 
-    assert findings == []
-    assert used == {reason}
+    assert accounted(tree("/api/auth/[...all]"), served(prefix("/api/auth"), CATCH_ALL)) == []
 
 
 def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
@@ -310,125 +285,14 @@ def test_a_prefix_inside_the_dynamic_segment_does_not_cover_it():
     assert routes.covering_prefix("/api/auth/", served(inner, CATCH_ALL)) is None
 
 
-def test_a_recorded_reason_charging_no_handler_is_a_finding(monkeypatch):
-    """Accounting rot the other way: the handlers moved and the claim stayed."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
-
-    findings = routes.unused(set(), served(prefix("/api/beispiel/"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "no handler is charged to that location" in details(findings)
-
-
-def test_a_recorded_reason_naming_no_prefix_location_says_which_half_went(monkeypatch):
-    """The two causes send a reader to different files, so the finding tells them apart."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
-
-    findings = routes.unused(set(), served(CATCH_ALL))
-
-    assert "no prefix location declares that path" in details(findings)
-
-
 def test_a_location_answering_itself_refuses():
     """It forwards no route, so read as an exact match it would stand for a handler the edge never reaches."""
-    try:
+    with pytest.raises(routes.NginxSyntax, match="return"):
         served(block("location = /api/intern", "        return 404;\n"), CATCH_ALL)
-    except routes.NginxSyntax as refusal:
-        assert re.search("return", str(refusal)), refusal
-    else:
-        raise AssertionError("a location answering with `return` was read")
-
-
-GONE = exact("/api/gone") + exact("/api/gone/")
-
-
-def orphans(app: Path, where: tuple) -> list:
-    """What the orphan rule says about a planted tree and a planted set of locations."""
-    return routes.orphaned(where, routes.handlers(app) + routes.pages(app), routes.metadata(app))
-
-
-def test_an_exact_match_naming_no_file_in_the_tree_is_a_finding(monkeypatch):
-    """The block a moved handler leaves behind: the URL is gone and the pair still meters it.
-
-    The answered pair beside it is the non-vacuity arm: a rule reporting every exact match alike
-    fails here.
-    """
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
-    findings = orphans(tree("/api/bewerbung"), served(METERED, GONE, CATCH_ALL))
-
-    assert severities(findings) == ["fail", "fail"]
-    assert "/api/gone" in details(findings)
-    assert "/api/bewerbung" not in details(findings)
-
-
-def test_an_exact_match_naming_a_page_is_no_orphan(monkeypatch):
-    """`= /signin` meters a page's server action, and no route handler answers that URL at all."""
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
-
-    assert orphans(tree("/signin", file="page.tsx"), served(exact("/signin"), CATCH_ALL)) == []
-
-
-def test_an_exact_match_under_a_dynamic_segment_is_no_orphan(monkeypatch):
-    """A catch-all answers URLs no directory spells, so one of them is unnameable rather than absent."""
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
-    app = tree("/bewerbung/[saison_id]", file="page.tsx")
-
-    assert orphans(app, served(exact("/bewerbung/2026"), CATCH_ALL)) == []
-
-
-def test_a_sibling_of_a_dynamic_head_is_no_excused_orphan(monkeypatch):
-    """`url_of` gives a dynamic head its own trailing slash; without it every location merely sharing that prefix goes unreported."""
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
-    app = tree("/bewerbung/[saison_id]", file="page.tsx")
-
-    findings = orphans(app, served(exact("/bewerbungen-alt"), CATCH_ALL))
-
-    assert severities(findings) == ["fail"]
-    assert "/bewerbungen-alt" in details(findings)
-
-
-def test_a_recorded_answer_covers_an_exact_match_the_tree_cannot(monkeypatch):
-    """The liveness probe's case: the edge answers it from the backend, and no walk of this tree sees it."""
-    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/gone", "answered elsewhere"),))
-
-    assert orphans(tree("/api/bewerbung"), served(METERED, exact("/api/gone"), CATCH_ALL)) == []
-
-
-def test_a_top_level_dynamic_route_excuses_no_exact_match(monkeypatch):
-    """Its static head is the root, and taking that as coverage leaves this rule unable to fail.
-
-    `location /` is refused one level up for the same reason, reached from the configuration instead
-    of from the tree.
-    """
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
-    findings = orphans(tree("/[slug]"), served(GONE, CATCH_ALL))
-
-    assert severities(findings) == ["fail", "fail"]
-    assert "/api/gone" in details(findings)
-
-
-def test_a_recorded_answer_the_tree_itself_serves_is_a_finding(monkeypatch):
-    """A row outlives its reason the moment a file answers that URL, and the location then reads as recorded rather than accounted."""
-    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/bewerbung", "answered elsewhere"),))
-    app = tree("/api/bewerbung")
-    findings = routes.undeclared(served(METERED, CATCH_ALL), routes.handlers(app) + routes.pages(app), routes.metadata(app))
-
-    assert severities(findings) == ["fail"]
-    assert "answers for itself" in details(findings)
-
-
-def test_a_recorded_answer_no_location_names_is_a_finding(monkeypatch):
-    """The rot `unused` reports for a prefix location's reason, over the off-tree table."""
-    monkeypatch.setattr(routes, "ELSEWHERE", (routes.Elsewhere("/api/gone", "answered elsewhere"),))
-
-    findings = routes.undeclared(served(METERED, CATCH_ALL), (), ())
-
-    assert severities(findings) == ["fail"]
-    assert "named by no exact-match location" in details(findings)
 
 
 SERVER_READ = "export default async function Page(props) {\n  const { token } = await props.searchParams;\n}\n"
-LINK_PAIR = "        limit_req zone=linkpage burst=60 nodelay;\n"
+LINK_ZONE = "        limit_req zone=linkpage burst=60 nodelay;\n"
 
 
 def link_page(url: str, text: str = SERVER_READ) -> Path:
@@ -441,7 +305,7 @@ def link_page(url: str, text: str = SERVER_READ) -> Path:
 
 def unmetered(app: Path, where: tuple) -> list:
     """What the link-page rule says about a planted tree and a planted set of locations."""
-    return routes.unmetered_links(routes.link_pages(routes.pages(app)), where, app.parent, SOURCE)
+    return routes.unmetered_links(accounting(app, where))
 
 
 @pytest.mark.parametrize(
@@ -469,36 +333,32 @@ def test_a_link_page_another_zone_meters_is_a_finding():
     assert "/neu reaches `location = /neu`" in details(findings)
 
 
+def test_a_link_page_on_the_link_zone_is_no_finding():
+    """The control for the two above."""
+    assert unmetered(link_page("/neu"), served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL)) == []
+
+
+def test_no_link_page_at_all_refuses():
+    """The rule judged nothing, which would otherwise read as every link page metered."""
+    with pytest.raises(routes.NothingJudged, match="no page"):
+        unmetered(tree("/api/bewerbung"), served(METERED, CATCH_ALL))
+
+
 MINTER = 'const NEU_PATH = "/neuhilfe";\nexport const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n'
 
 
-def helper_read_page() -> Path:
-    """A tree whose page at `/neuhilfe` reads its token through a sibling module, and a module minting its link."""
+def test_a_link_page_reading_its_token_through_another_module_is_found_by_its_minter():
+    """The page's own module names neither word the reader matches, so the minter is what finds it."""
     app = link_page(
         "/neuhilfe",
         'import { linkSchluessel } from "./linkLesen";\nexport default async function Page(props) {\n  return linkSchluessel(props);\n}\n',
     )
     write(app, "neuhilfe/linkLesen.ts", "export const linkSchluessel = async (props) => (await props.searchParams).token;\n")
     write(app.parent, "core/neuLink.ts", MINTER)
-    return app
+    paged = routes.pages(app)
+    assert routes.link_pages(paged) == (), "the page names its token itself, so this case tests the reader instead"
 
-
-def test_a_link_page_reading_its_token_through_another_module_is_found_by_its_minter(monkeypatch, capsys):
-    """Through `main`, where the two listings are joined: the page's own module names neither word the reader matches."""
-    app = helper_read_page()
-    assert routes.link_pages(routes.pages(app)) == (), "the page names its token itself, so this case tests the reader instead"
-
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
-    assert "/neuhilfe reaches `location /`" in capsys.readouterr().out
-
-
-def test_a_link_minted_to_a_path_no_page_answers_is_a_finding(monkeypatch, capsys):
-    """Otherwise a minter pointing past its page drops out of the listing, and the page with it."""
-    app = link_page("/neuhilfe-alt", "export default function Page() {}\n")
-    write(app.parent, "core/neuLink.ts", MINTER)
-
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
-    assert "core/neuLink.ts mints a link to /neuhilfe, which no page" in capsys.readouterr().out
+    assert [page.url for page in routes.linked_pages(paged, routes.minted(app.parent))] == ["/neuhilfe"]
 
 
 RECORD_LINK = "export const neuLink = (origin: string, art: Art, token: string) => `${origin}${NEU_PFAD[art]}?token=${token}`;\n"
@@ -545,14 +405,15 @@ def test_a_link_through_a_routes_row_mints_one_to_that_row_s_path():
     ["neuDrei", "neuSaison"],
     ids=["a-row-the-table-does-not-hold", "a-row-taking-segments"],
 )
-def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(monkeypatch, key):
+def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(key):
     """A row it skipped would drop its page from the listing; a row taking segments names no one page."""
-    app = link_page("/neuhilfe")
-    write(app.parent, "core/routes.ts", ROUTES_TABLE)
+    root = new_root("check-public-routes-")
+    write(root, "core/routes.ts", ROUTES_TABLE)
     minter = "export const neuLink = (origin: string, token: string) => `${origin}${ROUTES." + key + ".path()}?token=${token}`;\n"
-    write(app.parent, "core/neuLink.ts", minter)
+    write(root, "core/neuLink.ts", minter)
 
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
+    with pytest.raises(routes.RouteShape, match=f"ROUTES.{key}"):
+        routes.minted(root)
 
 
 @pytest.mark.parametrize(
@@ -565,15 +426,16 @@ def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(monkeypatc
     ],
     ids=["no-origin-in-the-template", "a-path-constant-of-another-module", "a-record-value-no-literal-spells", "a-record-of-another-module"],
 )
-def test_a_minted_link_this_reader_cannot_place_refuses(monkeypatch, text):
+def test_a_minted_link_this_reader_cannot_place_refuses(text):
     """A minter it skipped would drop its page from the listing, which reads as a tree with one link page fewer.
 
     A record is placed whole or not at all: dropping the value it cannot read drops that value's page.
     """
-    app = link_page("/neuhilfe")
-    write(app.parent, "core/neuLink.ts", text)
+    root = new_root("check-public-routes-")
+    write(root, "core/neuLink.ts", text)
 
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
+    with pytest.raises(routes.RouteShape, match="neuLink"):
+        routes.minted(root)
 
 
 @pytest.mark.parametrize("suffix", [".ts", ".tsx", ".js", ".jsx"])
@@ -585,83 +447,44 @@ def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
     assert routes.minted(root) == ()
 
 
-def test_a_link_block_metering_the_link_zone_on_another_burst_is_a_finding():
-    """One above the shared burst, which a paired probe at the edge reads the same as a refill."""
-    uneven = LINK_PAIR.replace("burst=60 ", "burst=61 ")
-    where = served(block("location = /neu", LINK_PAIR, PASS), block("location = /neu/", uneven, PASS), CATCH_ALL)
-
-    findings = routes.uneven_links(where, SOURCE)
-
-    assert severities(findings) == ["fail"]
-    assert "`location = /neu/` meters linkpage with `limit_req zone=linkpage burst=61 nodelay`" in details(findings)
-
-
 def test_a_link_burst_sized_for_another_squad_is_a_finding():
     """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40."""
-    rates = {"linkpage": 30}
     sized = "        limit_req zone=linkpage burst=40 nodelay;\n"
-    where = served(block("location = /neu", sized, PASS), block("location = /neu/", sized, PASS), CATCH_ALL)
+    where = served(block("location = /neu", sized, PASS), block("location /neu/", sized, PASS), CATCH_ALL)
 
-    assert routes.unsized_links(where, SOURCE, 10, rates) == []
+    assert routes.unsized_links(accounting(where=where, squad=10)) == []
 
-    findings = routes.unsized_links(where, SOURCE, 11, rates)
+    findings = routes.unsized_links(accounting(where=where, squad=11))
 
     assert severities(findings) == ["fail"] * 2
     assert "where a squad of 11 needs burst=50" in details(findings)
 
 
-ACTION_PAIR = "        limit_req zone=action burst=30 nodelay;\n"
-ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_PAIR, PASS)
-RAISED_PAIR = ACTION_PAIR.replace("burst=30 ", "burst=31 ")
+def test_a_link_zone_the_http_level_does_not_declare_refuses():
+    """Its rate is the sizing's other half, so no burst was judged."""
+    with pytest.raises(routes.NothingJudged, match="linkpage"):
+        routes.unsized_links(accounting(where=served(CATCH_ALL), rates={}))
+
+
+ACTION_ZONE = "        limit_req zone=action burst=30 nodelay;\n"
+ACTION_CATCH_ALL = block("location /", "        limit_conn conn 50;\n", ACTION_ZONE, PASS)
+RAISED_ZONE = ACTION_ZONE.replace("burst=30 ", "burst=31 ")
 
 
 def test_a_block_raising_the_catch_all_s_burst_is_a_finding():
     """One above `/`'s, which a script posting any action at that path spends; at `/`'s, none."""
-    assert routes.raised_bursts(served(block("location = /neu", LINK_PAIR, ACTION_PAIR, PASS), ACTION_CATCH_ALL), SOURCE) == []
+    assert routes.raised_bursts(accounting(where=served(block("location = /neu", LINK_ZONE, ACTION_ZONE, PASS), ACTION_CATCH_ALL))) == []
 
-    findings = routes.raised_bursts(served(block("location = /neu", LINK_PAIR, RAISED_PAIR, PASS), ACTION_CATCH_ALL), SOURCE)
+    findings = routes.raised_bursts(accounting(where=served(block("location = /neu", LINK_ZONE, RAISED_ZONE, PASS), ACTION_CATCH_ALL)))
 
     assert severities(findings) == ["fail"]
     assert "meters action with `limit_req zone=action burst=31 nodelay`, above `location /`'s burst=30" in details(findings)
 
 
-def test_the_repository_own_link_pages_are_on_the_link_pair():
-    """The resting state the red cases are measured against, its count pinned.
-
-    Each listing finds the six alone, so a page refactored to read its token elsewhere stays found by its minter.
-    """
-    _, where, name = repository_own()
-    app = routes.REPO_ROOT / routes.APP_ROUTER
-    paged = routes.pages(app)
-    opened, unopened = routes.minted_pages(routes.minted(app.parent), paged, routes.REPO_ROOT)
-    reading = routes.link_pages(paged)
-
-    assert unopened == []
-    assert len(opened) == 6
-    assert set(opened) == set(reading)
-    assert routes.unmetered_links(opened, where, routes.REPO_ROOT, name) == []
-    assert routes.uneven_links(where, name) == []
-    squad = routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI)
-    rates = routes.zone_rates((routes.REPO_ROOT / routes.NGINX_CONF).parent / routes.NGINX_HTTP_CONF)
-    # Every sized zone declared, so the rule judges the real bursts rather than skipping them.
-    assert {*routes.SIZED_PER_PUPIL} <= rates.keys()
-    assert routes.unsized_links(where, name, squad, rates) == []
-    # The catch-all metering the action pair, so the rule judges the real bursts rather than finding no ceiling.
-    [catch_all] = [one for one in where if not one.exact and one.path == routes.CATCH_ALL]
-    assert "action" in catch_all.zones
-    assert routes.raised_bursts(where, name) == []
-
-
-def test_the_repository_own_exact_matches_all_name_something():
-    """The real pair, where the page locations and the recorded probe are what a handler walk misses."""
-    found, where, _ = repository_own()
-    app = routes.REPO_ROOT / routes.APP_ROUTER
-
-    answering = found + routes.pages(app)
-    served_here = routes.metadata(app)
-
-    assert routes.orphaned(where, answering, served_here) == []
-    assert routes.undeclared(where, answering, served_here) == []
+def test_a_catch_all_metering_no_zone_refuses():
+    """No ceiling to judge a burst against, which would otherwise read as no burst raised."""
+    with pytest.raises(routes.NothingJudged, match="meters no zone"):
+        routes.raised_bursts(accounting(where=served(block("location = /neu", RAISED_ZONE, PASS), CATCH_ALL)))
 
 
 def test_a_route_group_leaves_the_url():
@@ -684,39 +507,27 @@ def test_a_handler_under_a_top_level_dynamic_segment_heads_at_the_root():
     assert routes.url_of(("[slug]",), Path("route.ts")) == ("/[slug]", "/", True)
 
 
-# `re.search` because the patterns below are the refusal's own wording, not the whole of it.
+# `match` because the patterns below are the refusal's own wording, not the whole of it.
 def test_a_segment_this_reader_cannot_place_refuses():
     """A private folder serves no URL at all, and guessing which is what a refusal exists to stop."""
-    try:
+    with pytest.raises(routes.RouteShape, match="_internal"):
         routes.url_of(("api", "_internal", "sweep"), Path("route.ts"))
-    except routes.RouteShape as refusal:
-        assert re.search("_internal", str(refusal)), refusal
-    else:
-        raise AssertionError("a private folder was given a URL")
 
 
 def test_a_regex_location_refuses_rather_than_answering():
     """It selects by something no directory tree compares against, so no verdict is available."""
-    try:
+    with pytest.raises(routes.NginxSyntax, match="modifier"):
         served(block("location ~* ^/api/.*", PASS))
-    except routes.NginxSyntax as refusal:
-        assert re.search("modifier", str(refusal)), refusal
-    else:
-        raise AssertionError("a regex location was read as a prefix")
 
 
 def test_a_named_location_refuses_rather_than_reading_as_a_prefix():
     """No request URI starts with `@`, so reading `@fallback` as a prefix is coverage of nothing."""
-    try:
+    with pytest.raises(routes.NginxSyntax, match="named location"):
         served(block("location @fallback", PASS))
-    except routes.NginxSyntax as refusal:
-        assert re.search("named location", str(refusal)), refusal
-    else:
-        raise AssertionError("a named location was read as a prefix")
 
 
 def test_a_named_location_an_error_page_sends_to_is_read_as_no_route():
-    """Reached by the redirect alone, it covers no handler and names none, so it is neither coverage nor an orphan."""
+    """Reached by the redirect alone, it answers no request URI and so covers no handler."""
     found = served("    error_page 429 = @refusal;\n", block("location @refusal", PASS), CATCH_ALL)
 
     assert [location.path for location in found] == ["/"]
@@ -724,18 +535,14 @@ def test_a_named_location_an_error_page_sends_to_is_read_as_no_route():
 
 def test_an_error_page_sending_to_no_named_location_refuses():
     """nginx refuses the redirect at its first use, and this reader would otherwise read the file as whole."""
-    try:
+    with pytest.raises(routes.NginxSyntax, match="@refusal"):
         served("    error_page 429 = @refusal;\n", CATCH_ALL)
-    except routes.NginxSyntax as refusal:
-        assert re.search("@refusal", str(refusal)), refusal
-    else:
-        raise AssertionError("an error_page naming no location was read as whole")
 
 
 def test_a_variable_error_page_reaches_every_location_its_map_names():
     """Read through the http level's map, so neither the page nor the sentence reads as unreached."""
     text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + block("location @satz", PASS) + CATCH_ALL + "}\n"
-    maps = routes.map_values(routes.parse("map $request_method $ziel {\n    GET @seite;\n    default @satz;\n}\n", SOURCE))
+    maps = routes.map_values(routes.parse('map $http_accept $ziel {\n    "~*text/html" @seite;\n    default @satz;\n}\n', SOURCE))
 
     found = routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
 
@@ -750,24 +557,16 @@ def test_a_variable_error_page_reaches_every_location_its_map_names():
 def test_a_variable_error_page_this_reader_cannot_resolve_refuses(maps, named):
     """Unresolved, every named location it reaches would read as dead; resolved to nothing, as reached."""
     text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + CATCH_ALL + "}\n"
-    try:
+    with pytest.raises(routes.NginxSyntax, match=named):
         routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
-    except routes.NginxSyntax as refusal:
-        assert re.search(named, str(refusal)), refusal
-    else:
-        raise AssertionError("a variable error_page was read as whole")
 
 
 def test_a_location_inside_a_location_refuses():
     """Which of the two answers a request is match order this reader does not resolve."""
     nested = block("location /api/", "        location = /api/x { proxy_pass http://frontend:3000; }\n")
 
-    try:
+    with pytest.raises(routes.NginxSyntax, match="nested inside a location"):
         served(nested)
-    except routes.NginxSyntax as refusal:
-        assert re.search("nested inside a location", str(refusal)), refusal
-    else:
-        raise AssertionError("a nested location was placed")
 
 
 def test_a_path_two_exact_matches_declare_refuses():
@@ -775,12 +574,8 @@ def test_a_path_two_exact_matches_declare_refuses():
 
     The unmetered block first, which is the order that reports the handler behind it metered.
     """
-    try:
+    with pytest.raises(routes.NginxSyntax, match=r"fixture\.conf:8: .* is declared again, first at fixture\.conf:4"):
         served(exact("/api/bewerbung", metered=False) + exact("/api/bewerbung"), CATCH_ALL)
-    except routes.NginxSyntax as refusal:
-        assert re.search(r"fixture\.conf:8: .* is declared again, first at fixture\.conf:4", str(refusal)), refusal
-    else:
-        raise AssertionError("one path declared by two exact matches was read")
 
 
 def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():
@@ -798,60 +593,36 @@ def test_a_server_body_file_is_read_at_its_top_level():
 
 def test_locations_at_the_top_and_inside_a_server_refuse():
     text = prefix("/api/") + "server {\n" + CATCH_ALL + "}\n"
-    try:
+    with pytest.raises(routes.NginxSyntax, match="both at the top and inside a server block"):
         routes.locations(routes.parse(text, SOURCE), SOURCE)
-    except routes.NginxSyntax as refusal:
-        assert re.search("both at the top and inside a server block", str(refusal)), refusal
-    else:
-        raise AssertionError("locations at two levels were read")
 
 
 def test_two_server_blocks_declaring_locations_refuse():
     """A location in the www redirect would read as coverage, and nothing says which serves what."""
     text = "server {\n" + CATCH_ALL + "}\nserver {\n" + prefix("/api/") + "}\n"
 
-    try:
+    with pytest.raises(routes.NginxSyntax, match="server blocks declare a location"):
         routes.locations(routes.parse(text, SOURCE), SOURCE)
-    except routes.NginxSyntax as refusal:
-        assert re.search("server blocks declare a location", str(refusal)), refusal
-    else:
-        raise AssertionError("two location-declaring server blocks were read")
 
 
 def test_a_block_that_never_closes_refuses():
     """A truncated file would otherwise read as a configuration declaring fewer locations."""
-    truncated = "server {\n    location / { proxy_pass http://frontend:3000;\n"
-
-    try:
-        routes.parse(truncated, SOURCE)
-    except routes.NginxSyntax as refusal:
-        assert re.search("never closes", str(refusal)), refusal
-    else:
-        raise AssertionError("a truncated file parsed")
+    with pytest.raises(routes.NginxSyntax, match="never closes"):
+        routes.parse("server {\n    location / { proxy_pass http://frontend:3000;\n", SOURCE)
 
 
 def test_a_directive_with_no_semicolon_refuses():
     """The line after it would be swallowed into its arguments, which loses a whole directive."""
-    unterminated = "server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n"
-
-    try:
-        routes.parse(unterminated, SOURCE)
-    except routes.NginxSyntax as refusal:
-        assert re.search("semicolon", str(refusal)), refusal
-    else:
-        raise AssertionError("an unterminated directive parsed")
+    with pytest.raises(routes.NginxSyntax, match="semicolon"):
+        routes.parse("server {\n    location / {\n        proxy_pass http://frontend:3000\n    }\n}\n", SOURCE)
 
 
 def test_a_refusal_below_a_string_spanning_lines_names_the_line_it_stands_on():
     """The counter travels with the scan, or every refusal under a wrapped value reports one too low."""
     text = 'server {\n    add_header X "one\ntwo";\n\n    location ~ ^/api/ {\n' + PASS + "    }\n}\n"
 
-    try:
+    with pytest.raises(routes.NginxSyntax, match=r"fixture\.conf:5:"):
         routes.locations(routes.parse(text, SOURCE), SOURCE)
-    except routes.NginxSyntax as refusal:
-        assert re.search(r"fixture\.conf:5:", str(refusal)), refusal
-    else:
-        raise AssertionError("a regex location under a wrapped value was read as a prefix")
 
 
 def test_a_quoted_string_spanning_lines_is_one_word():
@@ -870,37 +641,18 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
     assert len(tree_of[0].block) == 2
 
 
-def repository_own() -> tuple:
-    """The real App Router tree and the real edge configuration, read as the gate reads them."""
-    conf = routes.REPO_ROOT / routes.NGINX_CONF
-    return routes.handlers(routes.REPO_ROOT / routes.APP_ROUTER), routes.edge_locations(conf), conf.name
-
-
-def test_the_repository_own_routes_are_accounted_for():
-    """The real pair, so a plant in either fails here and not only at the gate."""
-    found, where, name = repository_own()
-
-    findings, used = routes.account(found, where, routes.REPO_ROOT, name)
-
-    assert findings == []
-    assert routes.unused(used, where) == []
-
-
-def test_every_recorded_reason_is_charged_by_the_repository_own_tree():
-    """A reason nothing uses is the claim outliving its handlers, which only the real tree shows."""
-    found, where, name = repository_own()
-
-    _, used = routes.account(found, where, routes.REPO_ROOT, name)
-
-    assert used == set(routes.REASONS)
-
-
-def test_the_repository_own_metadata_conventions_are_accounted_for():
-    """The three real files, so a convention filed or dropped here fails before the gate reports it."""
-    served = routes.metadata(routes.REPO_ROOT / routes.APP_ROUTER)
-
-    assert set(served) == set(routes.METADATA)
-    assert routes.unclaimed(served) == []
+# The http level and the link block a clean run needs, every rule having something to judge: the
+# link zone declared at 30 a minute, a link page's block sized for the squad the backend publishes,
+# and the catch-all metering server actions.
+HTTP_CONF = "limit_req_zone $client_net zone=linkpage:10m rate=30r/m;\n"
+LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 * 30
+CLEAN = (
+    "server {\n"
+    + METERED
+    + block("location = /neu", f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, PASS)
+    + ACTION_CATCH_ALL
+    + "}\n"
+)
 
 
 def run_main(app: Path, text: str, monkeypatch) -> int:
@@ -911,100 +663,64 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
     """
     monkeypatch.setattr(routes, "REASONS", ())
     monkeypatch.setattr(routes, "METADATA", ())
-    monkeypatch.setattr(routes, "ELSEWHERE", ())
+    monkeypatch.setattr(routes, "UNMETERED", ())
     conf = app.parent / SOURCE
     conf.write_bytes(text.encode("utf-8"))
-    # The http level beside it, holding no map: no planted case sends an error_page through one.
-    (app.parent / routes.NGINX_HTTP_CONF).write_bytes(b"")
+    (app.parent / routes.NGINX_HTTP_CONF).write_bytes(HTTP_CONF.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
     return routes.main()
 
 
+def clean_tree() -> Path:
+    """A route handler and a link page, each with the location `CLEAN` gives it."""
+    app = link_page("/neu")
+    write(app, "api/bewerbung/route.ts", HANDLER)
+    return app
+
+
 def test_a_clean_pair_exits_zero(monkeypatch):
     """The contract's passing arm, and what the gate's docs section reads as a green step."""
-    app = tree("/api/bewerbung")
-
-    assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 0
+    assert run_main(clean_tree(), CLEAN, monkeypatch) == 0
 
 
-def test_an_orphan_pair_reaches_the_exit_contract(monkeypatch):
-    """The rule reaches a reader through `main` alone, and a run that never calls it exits zero."""
-    app = tree("/api/bewerbung")
+def test_a_rule_in_the_table_that_fails_fails_the_run(monkeypatch):
+    """`main` runs `RULES` whole, so this one case holds the wiring every rule reaches a reader through."""
+    monkeypatch.setattr(routes, "RULES", (*routes.RULES, lambda judged: [routes.Finding("fail", "planted")]))
 
-    assert run_main(app, "server {\n" + METERED + GONE + CATCH_ALL + "}\n", monkeypatch) == 1
-
-
-def test_a_pair_a_page_answers_reaches_the_exit_contract_too(monkeypatch):
-    """The other half of that wiring: the page walk decides this run, and without it the pair is an orphan."""
-    app = tree("/signin", file="page.tsx")
-
-    assert run_main(app, "server {\n" + exact("/signin") + exact("/signin/") + CATCH_ALL + "}\n", monkeypatch) == 0
+    assert run_main(clean_tree(), CLEAN, monkeypatch) == 1
 
 
-def test_two_interceptors_for_one_address_reach_the_exit_contract(monkeypatch):
-    """The interception rule reaches a reader through `main` alone, and a run that never calls it exits zero."""
-    app = tree(ROOT_INTERCEPTOR, "/saisons/[saison]/@modal/(.)spiele/[spiel]", file="page.tsx")
+def test_a_rule_that_judged_nothing_exits_two(monkeypatch):
+    """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair."""
 
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
+    def judged_nothing(judged):
+        raise routes.NothingJudged("planted")
 
+    monkeypatch.setattr(routes, "RULES", (*routes.RULES, judged_nothing))
 
-def test_an_unmetered_link_page_reaches_the_exit_contract(monkeypatch):
-    """The link-page rule reaches a reader through `main` alone, and a run that never calls it exits zero.
-
-    The catch-all alone, since an exact match the planted tree does not answer is a finding of its own.
-    """
-    app = link_page("/neu")
-
-    assert run_main(app, "server {\n" + CATCH_ALL + "}\n", monkeypatch) == 1
-
-
-def test_an_uneven_link_burst_reaches_the_exit_contract(monkeypatch):
-    """The burst rule reaches a reader through `main` alone; every other rule passes this pair."""
-    app = link_page("/neu")
-    uneven = LINK_PAIR.replace("burst=60 ", "burst=61 ")
-    text = "server {\n" + block("location = /neu", LINK_PAIR, PASS) + block("location = /neu/", uneven, PASS) + CATCH_ALL + "}\n"
-
-    assert run_main(app, text, monkeypatch) == 1
-    assert run_main(app, text.replace("burst=61 ", "burst=60 "), monkeypatch) == 0
-
-
-def test_a_raised_action_burst_reaches_the_exit_contract(monkeypatch):
-    """The raised-burst rule reaches a reader through `main` alone; every other rule passes this pair."""
-    app = link_page("/neu")
-    links = block("location = /neu", LINK_PAIR, RAISED_PAIR, PASS) + block("location = /neu/", LINK_PAIR, RAISED_PAIR, PASS)
-    raised = "server {\n" + links + ACTION_CATCH_ALL + "}\n"
-
-    assert run_main(app, raised, monkeypatch) == 1
-    assert run_main(app, raised.replace(RAISED_PAIR, ACTION_PAIR), monkeypatch) == 0
-
-
-def test_a_finding_exits_one(monkeypatch):
-    """Held over `scripts/checks/check_public_routes.py :: main`, for `scripts/lib/checker_kernel.py :: EXIT_FINDINGS`'s reason."""
-    app = tree("/api/beispiel")
-
-    assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == 1
+    assert run_main(clean_tree(), CLEAN, monkeypatch) == routes.EXIT_REFUSED
 
 
 def test_a_construct_it_cannot_parse_exits_two(monkeypatch):
     """A refusal collapsed into a failure sends a reader to repair the routes rather than the reader."""
-    app = tree("/api/bewerbung")
     text = "server {\n" + block("location ~ ^/api/", PASS) + "}\n"
 
-    assert run_main(app, text, monkeypatch) == routes.EXIT_REFUSED
+    assert run_main(clean_tree(), text, monkeypatch) == routes.EXIT_REFUSED
 
 
 def test_a_metadata_file_this_reader_cannot_place_exits_two(monkeypatch):
     """The gap the population closes, at the exit contract: the next metadata route ends the run."""
-    app = with_files("api/bewerbung/route.ts", "twitter-image.tsx")
+    app = clean_tree()
+    write(app, "twitter-image.tsx", GENERATED)
 
-    assert run_main(app, "server {\n" + METERED + CATCH_ALL + "}\n", monkeypatch) == routes.EXIT_REFUSED
+    assert run_main(app, CLEAN, monkeypatch) == routes.EXIT_REFUSED
 
 
 def test_a_missing_route_tree_exits_two(monkeypatch):
     """Input the checker cannot read is a refusal, never a tree it may call accounted for."""
-    app = tree("/api/bewerbung")
+    app = clean_tree()
     conf = app.parent / SOURCE
-    conf.write_bytes(("server {\n" + METERED + CATCH_ALL + "}\n").encode("utf-8"))
+    conf.write_bytes(CLEAN.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app.parent / "gone"), str(conf)])
 
     assert routes.main() == routes.EXIT_REFUSED
@@ -1012,9 +728,9 @@ def test_a_missing_route_tree_exits_two(monkeypatch):
 
 def test_a_configuration_that_is_not_utf_8_exits_two(monkeypatch):
     """A byte no decoder places is input this check cannot judge, and a traceback is not a verdict."""
-    app = tree("/api/bewerbung")
+    app = clean_tree()
     conf = app.parent / SOURCE
-    conf.write_bytes(b"server {\n    # \xff\n" + (METERED + CATCH_ALL).encode("utf-8") + b"}\n")
+    conf.write_bytes(b"# \xff\n" + CLEAN.encode("utf-8"))
     monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
 
     assert routes.main() == routes.EXIT_REFUSED
