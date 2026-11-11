@@ -5,7 +5,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { choose } from "./application";
+import { choose } from "./controls";
 
 import type { Locator, Page } from "@playwright/test";
 

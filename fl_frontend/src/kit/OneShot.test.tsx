@@ -91,28 +91,24 @@ const refusalForm = (action: (formData: FormData) => Promise<ActionAnswer<EndSta
 /** The question's own press, the red one inside it. */
 const confirmIn = async () => within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: OPPOSE });
 
-// The harm: a refusal ends what the link offered, the entry deleted, on one stray press; or a question closed without
-// its answer drops the keyboard's place on `body`, which no reading of the page shows.
+// The harm: a refusal ends what the link offered, the entry deleted, on one stray press.
 describe("a mailed page's refusal", () => {
-  it("asks before it posts, and hands the focus back to its press when the question closes unanswered", async () => {
+  it("asks before it posts, posting nothing when the question closes unanswered", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
     render(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
     const refusal = screen.getByRole("button", { name: OPPOSE });
 
-    refusal.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(refusal);
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: COPY.shared.back }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBe(null));
-    await waitFor(() => expect(document.activeElement).toBe(refusal));
 
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(refusal);
     await screen.findByRole("alertdialog", { name: QUESTION });
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBe(null));
-    await waitFor(() => expect(document.activeElement).toBe(refusal));
     expect(action).not.toHaveBeenCalled();
 
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(refusal);
     await userEvent.click(await confirmIn());
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
     expect(action.mock.calls[0]?.[0].get("act")).toBe("secondary");

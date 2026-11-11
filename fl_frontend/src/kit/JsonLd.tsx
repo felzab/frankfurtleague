@@ -22,9 +22,9 @@ const ORGANIZATION = {
 };
 
 /**
- * The block as React's `<script>` with a string child, which React's server renderer writes with every `<script`
- * and `</script` in it escaped, so no value can end the block early. React's documentation does not promise that
- * escaping, so `JsonLd.test.tsx` holds it; Next's guide escapes through `dangerouslySetInnerHTML` instead, which
+ * The block as React's `<script>` with a string child. Every value in it is a constant of `@/core/brand` or the
+ * catalogue, so none can end the block early; a value read from a record would need the block escaped, which React's
+ * documentation does not promise for a script's text. Next's guide escapes through `dangerouslySetInnerHTML`, which
  * `react/no-danger` keeps out of the tree. A data block, which no browser runs.
  */
 export function OrganizationJsonLd() {

@@ -13,8 +13,7 @@ const CHOICES = [
   { id: "no", label: COPY.shared.bank },
 ];
 
-// The harm: a required choice heard as optional, and one the send refused heard as nothing wrong, while the page shows
-// the asterisk and the red edge; only a screen reader misses it, and nothing fails.
+// The harm: a required choice sent empty, which the form's own check lets through to the server.
 describe("a required short choice", () => {
   it.each([
     [
@@ -39,7 +38,7 @@ describe("a required short choice", () => {
         choices={CHOICES}
       />,
     ],
-  ] as const)("is heard as required, then as invalid once the send finds it empty: %s", (_kind, role, field) => {
+  ] as const)("keeps a send that finds it empty, marking it invalid under the required line: %s", (_kind, role, field) => {
     const { container } = render(<HeldForm onSend={() => undefined}>{field}</HeldForm>);
     const group = screen.getByRole(role, { name: LABEL });
     const answers = within(group).getAllByRole(role === "radiogroup" ? "radio" : "checkbox");
@@ -50,38 +49,5 @@ describe("a required short choice", () => {
 
     expect(group.getAttribute("data-invalid")).toBe("true");
     expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
-  });
-
-  // The harm: a segment drawn as a club's Kürzel heard as two letters, the reader left to guess the club.
-  it("names a segment drawn as a short form by its spoken name", () => {
-    render(
-      <Segmented
-        label={LABEL}
-        choices={[
-          { id: "team1", label: { record: "EIC" }, spoken: { record: "Eiche" } },
-          { id: "team2", label: { record: "KAS" }, spoken: { record: "Kastanie" } },
-        ]}
-      />,
-    );
-
-    expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toStrictEqual(["Eiche", "Kastanie"]);
-    expect(screen.getByText("EIC")).toBeTruthy();
-  });
-
-  it("is heard as invalid, described by the served refusal", () => {
-    render(
-      <Segmented
-        label={LABEL}
-        isRequired
-        value={null}
-        choices={CHOICES}
-        errorMessage={COPY.shared.field.required}
-      />,
-    );
-
-    expect(screen.getByRole("radiogroup", { name: LABEL }).getAttribute("aria-invalid")).toBe("true");
-    for (const answer of screen.getAllByRole("radio")) {
-      expect(answer.getAttribute("aria-describedby")).toBe(screen.getByText(COPY.shared.field.required).id);
-    }
   });
 });

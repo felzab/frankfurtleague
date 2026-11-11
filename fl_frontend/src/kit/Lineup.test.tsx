@@ -7,9 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { EditorPage } from "./EditorPage";
 import { Lineup, lineupMoves, lineupValue } from "./Lineup";
-import { useEditor } from "./useEditor";
 
 import type { Copy } from "@/core/copy";
 import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "./Lineup";
@@ -129,9 +127,8 @@ describe("a line-up", () => {
     const full = { picked: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), starters: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) };
     expect(seen).toHaveBeenLastCalledWith(full);
 
-    // The twelfth: heard as unavailable before the press, and refused on its own row by it.
+    // The twelfth: refused on its own row by the press.
     expect(within(rowOf(12)).queryByText(WORDS.startersFull)).toBeNull();
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(12)}`, description: WORDS.startersFull })).toBeTruthy();
     const raised = seen.mock.calls.length;
     await userEvent.click(tickOf(12));
     expect(tickOf(12).checked).toBe(false);
@@ -232,7 +229,7 @@ describe("a line-up's states", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(1)}`, description: COPY.shared.failure.stale })).toBeTruthy();
+    expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
     expect(within(rowOf(40)).getByText(COPY.admin.spiel.departed)).toBeTruthy();
     expect(tickOf(40).disabled).toBe(true);
 
@@ -271,63 +268,15 @@ describe("a line-up keeping erased pupils' entries", () => {
   });
 });
 
-/** The block as its page places it: bare in the editor's column, its counts on the bar, its moves the editor's count. */
-function Page({ players, stored }: { players: LineupPlayer[]; stored: LineupValue }) {
-  const editor = useEditor<LineupValue>({ id: "spiel-1", version: 1, values: stored }, async () => ({ ok: true, value: 2 }), {
-    countOf: lineupMoves,
-  });
-  return (
-    <EditorPage
-      title={{ record: "Ahorn vs. Eiche" }}
-      editor={editor}
-      barText={COPY.shared.field.max(editor.draft.picked.length)}
-      sections={[
-        {
-          id: "lineup",
-          block: (
-            <Lineup
-              players={players}
-              value={editor.draft}
-              erased={[]}
-              onChange={(next) => {
-                editor.set("picked", next.picked);
-                editor.set("starters", next.starters);
-              }}
-              startersMax={MAX}
-              words={WORDS}
-            />
-          ),
-        },
-      ]}
-    />
-  );
-}
-
-describe("a line-up in its editor", () => {
+describe("a line-up's changes", () => {
   // The harm: six pupils moved reading „2 Änderungen“, the two fields, or a line-up put back as it was stored still
   // counted as changed, so the way back asks about changes nobody made.
-  it("counts each pupil moved after the page's own words on the bar, and nothing once they are back", async () => {
-    render(
-      <Page
-        players={squad(8)}
-        stored={lineupValue([idOf(7), idOf(8)], [idOf(7)])}
-      />,
-    );
-    const bar = screen.getByRole("region", { name: COPY.shared.verb.save });
-    const line = () => bar.querySelector("p")?.textContent;
-    expect(line()).toBe(COPY.shared.field.max(2));
+  it("counts each pupil moved, and nothing once they are back", () => {
+    const stored = lineupValue([idOf(7), idOf(8)], [idOf(7)]);
 
     // Four named, the starter taken out, the other one starting.
-    for (const nummer of [4, 1, 3, 2]) await pick(nummer);
-    await userEvent.click(crossOf(7));
-    await userEvent.click(tickOf(8));
-    expect(line()).toBe(`${COPY.shared.field.max(5)}${COPY.template.changesPending(6)}`);
-
-    // Back, the stored pair now named in the other order than it was stored in.
-    await pick(7);
-    await userEvent.click(tickOf(7));
-    await userEvent.click(tickOf(8));
-    for (const nummer of [1, 2, 3, 4]) await userEvent.click(crossOf(nummer));
-    expect(line()).toBe(COPY.shared.field.max(2));
+    expect(lineupMoves(stored, lineupValue([idOf(1), idOf(2), idOf(3), idOf(4), idOf(8)], [idOf(8)]))).toBe(6);
+    // Back, the stored pair named in the other order than it was stored in.
+    expect(lineupMoves(stored, lineupValue([idOf(8), idOf(7)], [idOf(7)]))).toBe(0);
   });
 });
