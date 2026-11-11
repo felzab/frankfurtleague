@@ -315,10 +315,15 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
     }
 
 
-def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellungenPublic:
-    """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where its club stored none."""
+def compose_public_aufstellungen(spiel_raw: Mapping[str, Any], *, now: datetime) -> FLAufstellungenPublic:
+    """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where its club stored none.
+
+    An erased pupil's entries only where the line-up keeps them (`keeps_erased`), as its screen shows them: a fixture
+    re-dated ahead of its lock still stores them until its club's next save, which drops them.
+    """
 
     by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
+    kept = keeps_erased(date=spiel_raw.get("date"), time=spiel_raw.get("time"), now=now)
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
         row = by_club.get(team_id_of(spiel_raw, side))
@@ -344,6 +349,6 @@ def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellunge
                 "starts": stored["starts"],
             }
 
-        return {"spieler": [entry(stored) for stored in row["spieler"]]}
+        return {"spieler": [entry(stored) for stored in row["spieler"] if kept or not is_erased(stored)]}
 
     return FLAufstellungenPublic.model_validate({side: side_of(side) for side in SIDES})

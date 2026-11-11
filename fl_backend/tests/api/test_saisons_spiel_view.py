@@ -1,5 +1,6 @@
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -25,6 +26,9 @@ EARLIER, SAISON, LATER = "2025", "2026", "2027"
 # database holds them, by club, rather than picked by the club on each side, lands on the wrong side.
 HOME, AWAY, REPLACED = ObjectId("6890a1b2c3d4e5f607430002"), ObjectId("6890a1b2c3d4e5f607430001"), ObjectId("6890a1b2c3d4e5f607430000")
 NAMED, INTERNAL = ObjectId("6890a1b2c3d4e5f607430011"), ObjectId("6890a1b2c3d4e5f607430012")
+# The match kicked off on Saturday 9 May 2026 at 16:00 in Berlin, 14:00 UTC; its line-ups locked an hour before.
+PLAYED = datetime(2026, 5, 9, 16, tzinfo=UTC)
+AHEAD_OF_THE_LOCK = datetime(2026, 5, 2, 12, tzinfo=UTC)
 
 
 def adopted_match() -> dict[str, Any]:
@@ -38,6 +42,8 @@ def adopted_match() -> dict[str, Any]:
         team1={"team_id": HOME, "tore": 2},
         team2={"team_id": AWAY, "tore": 0},
         ergebnis="2:0",
+        date="2026-05-09",
+        time="16:00:00",
     )
 
 
@@ -125,7 +131,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
         yield mongo_url
 
 
-def the_page(url: str) -> Any:
+def the_page(url: str, *, now: datetime = PLAYED) -> Any:
     async def body() -> Any:
         database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
         return await get_spiel(
@@ -135,6 +141,7 @@ def the_page(url: str) -> Any:
             spiele_collection=database[Collection.SPIELE],
             teams_collection=database[Collection.TEAMS],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
+            now=now,
         )
 
     return on_the_seed_loop(body())
@@ -172,3 +179,16 @@ def test_each_side_serves_the_line_up_of_its_club_through_the_mask(seeded_url: s
 
     assert served(aufstellungen.team1) == [("named", "Maxim", "M.", "7", "kapitaen", True)]
     assert served(aufstellungen.team2) == [("anonymous", None, None, None, None, True), ("anonymous", None, None, "4", None, False)]
+
+
+@pytest.mark.db
+def test_an_erased_pupils_entry_is_served_only_where_the_line_up_keeps_it(seeded_url: str):
+    """A match re-dated ahead of its lock is picked anew, as its screen shows it: the page serves no place nobody fills.
+
+    The stored entry stands until the club's next save, so the read judges the lock itself.
+    """
+
+    team2 = the_page(seeded_url, now=AHEAD_OF_THE_LOCK).aufstellungen.team2
+
+    assert team2 is not None
+    assert [(entry.type, entry.nummer, entry.starts) for entry in team2.spieler] == [("anonymous", "4", False)]
