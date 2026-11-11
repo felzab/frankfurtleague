@@ -7,11 +7,15 @@ import type { RecordText, Words } from "@/core/copy";
 /**
  * An address standing as a record's name, wrapping rather than being cut: an address is what tells two rows apart, and
  * a touch reaches no tooltip a cut one keeps. A line breaks after the „@“, and before a „.“ only where a part is wider
- * than its line alone (`AddressWords`), the places a printed address breaks. Every other name is cut with „…“
- * on its one line; a row's name part draws this in its place where it knows its name for an address. The rail's
- * account row is the one place an address is cut too, so the rail's foot keeps the editor bar's height beside it.
+ * than its line alone (`AddressWords`), the places a printed address breaks; a part with no „.“ that is still wider
+ * than its line breaks inside itself, where the line ends. `anywhere`, not `break-word`: each part is an inline block,
+ * which `break-word` holds at its longest part, so that part would widen the box or run over what stands beside it,
+ * where the breaks `anywhere` allows count towards the block's least width and let it narrow to its line (CSS Text 3,
+ * 5.5). Every other name is cut with „…“ on its one line; a row's name part draws this in its place where it knows its
+ * name for an address. The rail's account row is the one place an address is cut too, so the rail's foot keeps the
+ * editor bar's height beside it.
  */
-export const addressWords = tv({ base: "min-w-0 wrap-break-word" });
+export const addressWords = tv({ base: "min-w-0 wrap-anywhere" });
 
 /**
  * A record's name that is an address, which the list naming its rows by their addresses marks as one. Marked rather

@@ -606,10 +606,7 @@ function NameCell({
             className={nameWords({
               cut: prose || address ? "never" : "always",
               lonePlaque,
-              // The name's track counts nothing towards the line's least width, so a part of an address wider than the
-              // track breaks where it must rather than running under the chip after it: `anywhere` lets each part's
-              // inline block narrow to the track, where `break-word` holds it at its longest part (CSS Text 3, 5.5).
-              class: address ? addressWords({ class: `${s.whole()} wrap-anywhere` }) : s.whole(),
+              class: address ? addressWords({ class: s.whole() }) : s.whole(),
             })}>
             {row.href === undefined ? (
               opens
