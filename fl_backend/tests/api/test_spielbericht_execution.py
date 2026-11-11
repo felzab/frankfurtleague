@@ -54,6 +54,8 @@ VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607e50012")
 CALLED_OFF = ObjectId("6890a1b2c3d4e5f607e50014")
 NO_SHOW = ObjectId("6890a1b2c3d4e5f607e50015")
 SHOOT_OUT = ObjectId("6890a1b2c3d4e5f607e50016")
+# A club a correction fields in the away slot after the report.
+REFIELDED = ObjectId("6890a1b2c3d4e5f607e50003")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f607e50021")
 SPIELORT = ObjectId("6890a1b2c3d4e5f607e50031")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f607e50041")
@@ -550,6 +552,26 @@ class TestTheReads:
         # Live squads alone, each pupil with the number a picker shows.
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
         assert [spieler.spieler_id for spieler in form.kader.team2] == [MIA]
+
+    def test_the_form_reads_the_spiel_as_it_stands_and_marks_the_side_whose_club_moved(self, mongo_replica_set_url: str):
+        """Abandoned since the report, its away side re-fielded: the form's lead and its marks read the fixture as stored now.
+
+        Corrected once, so the version the next save is judged on is the stored one and no create's 0.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            await put(database, client, bericht([tor("team1", None)], version=0))
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, REFIELDED, "Dachs", "DAX"))
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"team2": side(REFIELDED), "sonderereignis": "abgebrochen"}})
+            return await form_read(database, client)
+
+        form = on_the_league(mongo_replica_set_url, body)
+
+        assert (form.spiel.date, form.spiel.time, form.spiel.sonderereignis) == (DATE, "18:00:00", "abgebrochen")
+        assert form.spiel.team2 is not None and (form.spiel.team2.team_id, form.spiel.team2.name) == (REFIELDED, "Dachs")
+        assert form.sides_changed == ["team2"]
+        assert form.version == 1
 
     def test_a_spiel_taking_no_report_serves_no_squad(self, mongo_replica_set_url: str):
         """Only the pupils the stored report names, by name: the squads are served for picking, and nothing is picked here.
