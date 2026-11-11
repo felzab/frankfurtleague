@@ -30,7 +30,6 @@ function whoOf({ by, team }: FLActionLogEntry): Words {
   return team === null ? WORDS.actor.contactNoTeam : WORDS.actor.contact({ record: team });
 }
 
-/** One recorded act: what, about what, who and when. */
 export function rowOf(entry: FLActionLogEntry): TableRow {
   const word = WORDS.action[entry.action];
   const about = aboutOf(entry);
