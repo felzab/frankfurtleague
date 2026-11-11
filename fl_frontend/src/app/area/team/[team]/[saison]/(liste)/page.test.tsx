@@ -9,7 +9,13 @@ import { COPY } from "@/core/copy";
 import { agreeTermin, declineTermin } from "./answerTermin";
 import TeamOverviewPage from "./page";
 
-import type { FLTeamOverviewResponse, FLTeamPanelRegistrierung, FLTeamPanelTermin } from "@/core/generated/client/types";
+import type {
+  FLAufstellungPhase,
+  FLTeamOverviewResponse,
+  FLTeamPanelAufstellung,
+  FLTeamPanelRegistrierung,
+  FLTeamPanelTermin,
+} from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ReactElement } from "react";
 
@@ -56,7 +62,7 @@ const registrierung = (overrides: Partial<FLTeamPanelRegistrierung>): FLTeamPane
 /** One card's rows, as the page hands them to its template off a read holding `held` and nothing else open. */
 async function rowsOf(
   card: string,
-  held: Partial<Pick<FLTeamOverviewResponse, "termine" | "registrierungen">>,
+  held: Partial<Pick<FLTeamOverviewResponse, "termine" | "aufstellungen" | "registrierungen">>,
 ): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
   state.read = {
     team_id: "6af32ed4205642a3fd5ee7e1",
@@ -132,6 +138,24 @@ describe("a date the team cannot answer", () => {
     const rows = await termine(termin({ state: "expired" }), termin({ state: "declined" }), termin({ state: "agreed" }));
 
     expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
+  });
+});
+
+// A row past its due mark that says so only in its muted line reads as one still in time, beside an overdue date's chip.
+describe("a line-up's row", () => {
+  it("carries „Überfällig“ from its due mark, as an overdue date does, and „Gesperrt“ from the lock", async () => {
+    const aufstellung = (phase: FLAufstellungPhase): FLTeamPanelAufstellung => ({
+      spiel_id: "0000000000000000000000a1",
+      ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
+      side: "team1",
+      marks: { due_at: "2026-11-13T15:00:00Z", locks_at: "2026-11-14T14:00:00Z", phase, stored: false },
+    });
+    const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
+    const [overdueDate] = await termine(termin({ state: "expired" }));
+
+    const overdue = { tone: "danger", label: COPY.area.team.aufstellung.overdue };
+    expect(overdueDate?.chip).toStrictEqual(overdue);
+    expect(rows.map(({ chip }) => chip)).toStrictEqual([undefined, overdue, { tone: "neutral", label: COPY.area.team.aufstellung.locked }]);
   });
 });
 
