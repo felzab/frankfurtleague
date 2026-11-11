@@ -161,7 +161,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
           title: headedMatchOf(spiel).head,
           spiel: headedMatchOf(spiel).spiel,
         })),
-        empty: { kind: "none", plural: COPY.page.spiele },
+        empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },
       {
         kind: "folds",
@@ -184,7 +184,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                       ...personOf(spieler),
                       cells: cellsOf(spieler),
                     })),
-                    empty: { kind: "none", plural: COPY.page.teamKader, one: true },
+                    empty: { kind: "none", plural: COPY.page.teamKader, one: true, glyph: "teams" },
                   },
                 ],
               },

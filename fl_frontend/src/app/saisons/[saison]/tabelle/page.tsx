@@ -107,9 +107,9 @@ async function readGroups(params: Props["params"]) {
       table: {
         label: SERVER_COPY.season.gruppe(gruppe),
         rows: rows.map((row) => rowOf(saison, row, tabelle.qualifiers_per_gruppe, rows)),
-        empty: { kind: "none", plural: COPY.page.tabelle },
+        empty: { kind: "none", plural: COPY.page.tabelle, glyph: "tabelle" },
       } satisfies TableBody,
     })),
-    empty: { kind: "none", plural: COPY.page.tabelle } as const,
+    empty: { kind: "none", plural: COPY.page.tabelle, glyph: "tabelle" } as const,
   };
 }

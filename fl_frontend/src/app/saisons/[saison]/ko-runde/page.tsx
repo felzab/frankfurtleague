@@ -36,5 +36,5 @@ export default function KoRundePage({ params }: Props) {
 async function readTree(params: Props["params"]) {
   const read = await getKoRunde(await resolvePublicSaisonParam(params));
   if (read === null) notFound();
-  return { tree: treeOf(read.spieltage), empty: { kind: "none" as const, plural: COPY.shared.kORunde } };
+  return { tree: treeOf(read.spieltage), empty: { kind: "none" as const, plural: COPY.shared.kORunde, glyph: "kORunde" as const } };
 }
