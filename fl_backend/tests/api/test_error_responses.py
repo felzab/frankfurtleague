@@ -156,16 +156,14 @@ class TestTheRefusedFieldsReachTheCaller:
 
 QUERY_ID = "6890a1b2c3d4e5f607182930"
 
-# Each malformed a different way: `ObjectId` tests length before it decodes hex, so the third is refused on its characters.
-MALFORMED_QUERY_IDS = ["not-an-id", QUERY_ID[:-1], "z" * 24, f"{QUERY_ID}0"]
-
 
 class TestAMalformedQueryIdIsARefusedPayload:
     """A query validates, so a malformed id is a 422, never the 404 a path's would be (`tests/api/test_malformed_ids.py`)."""
 
-    @pytest.mark.parametrize("team_id", MALFORMED_QUERY_IDS)
-    def test_a_malformed_query_id_is_a_422(self, team_id: str):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": team_id})
+    def test_a_malformed_query_id_is_a_422(self):
+        """One id shows the answer; which ids are malformed is bson's to decide."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": QUERY_ID[:-1]})
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 

@@ -166,7 +166,6 @@ function squadsOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSid
 function card(title: PageTitle, tone: "info" | "warn" | "danger", said: Copy, saison: string) {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={title}
       card={{ tone, title: said, next: { label: COPY.shared.end.toOverview, href: ROUTES.schiedsrichterOverview.path(saison) } }}

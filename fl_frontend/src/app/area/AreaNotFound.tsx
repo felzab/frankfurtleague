@@ -8,7 +8,6 @@ import { AREA_HOME } from "./areaHome";
 export function AreaNotFound() {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={SERVER_COPY.notFound}
       card={{ tone: "info", next: AREA_HOME }}

@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import details, import_scripts, new_root, severities, write
+from conftest import import_scripts, new_root
 
 [routes] = import_scripts("check_public_routes")
 
@@ -24,6 +24,24 @@ SOURCE = "fixture.conf"
 HANDLER = "export const POST = () => new Response();\n"
 ZONE = "        limit_req zone=bewerbung burst=2 nodelay;\n"
 PASS = "        proxy_pass http://frontend:3000;\n"
+
+
+def write(root: Path, rel: str, text: str) -> None:
+    """One corpus file under a fixture repository, its parents made as needed."""
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Bytes, so Windows writes no carriage return.
+    path.write_bytes(text.encode("utf-8"))
+
+
+def details(findings: list) -> str:
+    """Every finding's text as one string, for a case asserting on what a run reported."""
+    return "\n".join(finding.detail for finding in findings)
+
+
+def severities(findings: list) -> list:
+    """The severities a run reported, so a case pins how many findings it caused as well as which."""
+    return [finding.severity for finding in findings]
 
 
 def block(header: str, *lines: str) -> str:

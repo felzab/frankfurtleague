@@ -241,7 +241,7 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         raise SystemExit(BOOT_REFUSED) from None
 
     # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
-    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the probe.
+    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the two probes.
     app = TracedApp(lifespan=lifespan, openapi_url=None)
     app.state.config = config
 

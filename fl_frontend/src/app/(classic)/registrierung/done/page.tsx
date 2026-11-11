@@ -1,5 +1,5 @@
 import { MAILED_PAGE_METADATA } from "@/kit/MailedPage";
-import { StatusPage } from "@/kit/StatusPage";
+import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -22,8 +22,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 export default function RegistrierungDonePage() {
   return (
-    <StatusPage
-      frame="classic"
+    <ClassicStatusPage
       tone="info"
       title={SERVER_COPY.registrierung.end.submitted}
       next={TO_HOME}

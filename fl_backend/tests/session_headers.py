@@ -48,12 +48,6 @@ def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, facto
     return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
 
 
-def fresh_admin_actor() -> SessionActor:
-    """What a handler called without a request is handed, stamped at each call: the windows are judged at the clock."""
-
-    return verified_actor("admin@example.com")
-
-
 class StampedHeaders(Mapping[str, str]):
     """`base` beside the session headers, stamped when they are read.
 

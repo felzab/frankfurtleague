@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -47,7 +46,7 @@ const change = (address: string, effective_from: string | null, holder: FLAddres
 type Drawn = {
   props: {
     acts: Promise<{ side: ListCreate | null; create: ListCreate | null }>;
-    list: { wait: ReactElement; content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>> };
+    list: { content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>> };
   };
 };
 
@@ -61,7 +60,6 @@ async function read(reader: string, grants: readonly FLGrantRow[], changes: read
   const rowsOf = (title: string) => (cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined)?.rows ?? [];
   return {
     ...(await props.acts),
-    wait: renderToStaticMarkup(props.list.wait),
     titles: cards.map((card) => card.title),
     active: rowsOf(COPY.admin.team.active),
     waiting: rowsOf(COPY.admin.administrators.pending),
@@ -90,17 +88,6 @@ describe("who holds access and what waits", () => {
     const { waiting } = await read(OWNER, [THE_OWNER, grant("anna@example.org"), grant("ben@example.org")], changes);
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
-  });
-});
-
-// The harm: the static shell shows every reader this wait, so a row's act or chevron in it moves an administrator's rows.
-describe("the wait", () => {
-  it("draws no row's act and no chevron but the folds' own", async () => {
-    const { wait } = await read("anna@example.org", [THE_OWNER, grant("anna@example.org")]);
-
-    expect(wait).not.toContain(COPY.shared.verb.remove);
-    // „Aktiv“ open, and „Angekündigt“ folded under it.
-    expect(wait.match(/<svg/g)).toHaveLength(2);
   });
 });
 

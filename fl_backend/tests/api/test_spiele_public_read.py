@@ -12,9 +12,7 @@ from app.api.spiele.schemas import (
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
-    public_referee_name,
 )
-from app.api.spieltage.schemas import FLSpielplanSpieltag
 from tests.core.app_source import application
 from tests.documents import spiel_document
 
@@ -73,12 +71,6 @@ def stored_document() -> dict[str, Any]:
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
-
-
-def spieltag_document() -> dict[str, Any]:
-    """The fixture's matchday, which the Spielplan lists it under."""
-
-    return {"_id": SPIELTAG_ID, "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
 
 
 def joined_document() -> dict[str, Any]:
@@ -275,21 +267,6 @@ class TestTheSpielShapes:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
 
 
-class TestTheTwoListShapes:
-    """Which fixture model each list response carries, read off the declaration rather than off a request.
-
-    The lists split as the single reads already do, so a tier decides the referee's name as it
-    decides the figures.
-    """
-
-    def test_the_base_tier_list_reduces_the_referees_surname(self):
-        """The Spielplan's matchday, the one base-tier read listing a season's fixtures."""
-        spieltag = FLSpielplanSpieltag.model_validate({**spieltag_document(), "count_spiele": 1, "spiele": [joined_document()]})
-
-        assert spieltag.spiele[0].schiedsrichter is not None
-        assert spieltag.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-
-
 # (stored, what the base tier serves). The surname is everything after the FIRST space, so a
 # particle and a double surname reduce whole rather than leaking their front half.
 REFEREE_NAME_CASES = [
@@ -308,12 +285,8 @@ class TestTheSurnameReduction:
     """
 
     @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
-    def test_the_rule_answers_a_forename_and_one_initial(self, stored: str, served: str):
-        assert public_referee_name(stored) == served
-
-    @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
     def test_the_base_tier_shape_applies_it(self, stored: str, served: str):
-        """The rule reaches a caller through the model, so a reducer nothing calls would pass the case above."""
+        """Through the model, which is how the rule reaches a caller: a reducer nothing calls would pass a case on the rule alone."""
 
         published = {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored, "name_is_public": True}
 

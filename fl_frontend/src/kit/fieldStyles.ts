@@ -288,14 +288,15 @@ export const toggleBox = tv({
 export const toggleLine = tv({ base: "col-start-2 grid empty:hidden" });
 
 /**
- * A radio group's answers: one under another, or, where each answer is described, side by side as cards,
- * one equal column per answer on desktop so the row is always full.
+ * A radio group's answers, one under another at every width: plain answers, or, where each answer is described,
+ * cards. Answers stand side by side only where there are two and both are short, and a card's title may carry a
+ * person's name; a dialog's box, at most 512 px, never reaches the 42 rem a row of cards would need.
  */
 export const radioList = tv({
   variants: {
     layout: {
       list: "flex flex-col gap-2",
-      cards: "grid gap-2 lg:auto-cols-fr lg:grid-flow-col",
+      cards: "grid gap-2",
     },
   },
 });

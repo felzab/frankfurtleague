@@ -12,14 +12,14 @@ import { FormFooterPlaceholder } from "./FormFooter";
 import { Link } from "./Link";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
-import { StatusPage, StatusPagePlaceholder } from "./StatusPage";
+import { ClassicStatusPage, StatusPagePlaceholder } from "./StatusCard";
 
 import type { Copy } from "@/core/copy";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import type { Fact } from "./Facts";
 import type { EndState, OneShotAction, OneShotActs } from "./OneShot";
-import type { StatusCardProps } from "./StatusPage";
+import type { StatusCardProps } from "./StatusCard";
 
 /**
  * A page a mail opens carries its link's token in its address, the first request of one in
@@ -111,16 +111,10 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
     case "invalid":
-      return (
-        <StatusPage
-          frame="classic"
-          {...linkInvalid(props.next)}
-        />
-      );
+      return <ClassicStatusPage {...linkInvalid(props.next)} />;
     case "alreadyDone":
       return (
-        <StatusPage
-          frame="classic"
+        <ClassicStatusPage
           tone={props.declined === true ? "danger" : "info"}
           title={props.title}
           next={props.next}
@@ -128,8 +122,7 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
       );
     case "end":
       return (
-        <StatusPage
-          frame="classic"
+        <ClassicStatusPage
           tone={props.tone}
           title={props.title}
           next={props.next}

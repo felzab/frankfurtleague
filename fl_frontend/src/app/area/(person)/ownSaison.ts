@@ -8,7 +8,7 @@ import { readOwnSaisons } from "@/features/roles/queries";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 
 import type { PersonKind } from "@/features/roles/queries";
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 
 /** Each person place's two rows: its address without a season, and a season's Übersicht. */
 const PLACE = {

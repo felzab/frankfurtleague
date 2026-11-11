@@ -36,7 +36,6 @@ SPIELTAG_ID = "6890a1b2c3d4e5f607182932"
 SPIELORT_ID = "6890a1b2c3d4e5f607182933"
 SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607182934"
 SPIELER_ID = "6890a1b2c3d4e5f607182935"
-SAISON_SPIELER_ID = "6890a1b2c3d4e5f607182936"
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -183,93 +182,8 @@ def spiel(
 
 
 @pytest.fixture
-def spielort(address: PayloadFactory) -> PayloadFactory:
-    return _factory(
-        {
-            "_id": SPIELORT_ID,
-            "address": address(),
-            "name": "Sportplatz Ost",
-            "maps_link": "Sportplatz Ost, Frankfurt",
-            "default_mietpreis": 80,
-            "inactive_since": None,
-        }
-    )
-
-
-@pytest.fixture
-def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
-    return _factory(
-        {
-            "_id": SCHIEDSRICHTER_ID,
-            "name": "A. Referee",
-            "schule": None,
-            "default_payment": 20,
-            "kontakt": kontakt(),
-            "inactive_since": None,
-        }
-    )
-
-
-@pytest.fixture
 def einwilligung() -> PayloadFactory:
     return _factory(dict(EINWILLIGUNG))
-
-
-@pytest.fixture
-def saison_spieler() -> PayloadFactory:
-    """The junction row as STORED, which is also what every payload and echo of it is a subset of."""
-
-    return _factory(
-        {
-            "_id": SAISON_SPIELER_ID,
-            "spieler_id": SPIELER_ID,
-            "saison_id": "2026",
-            "team_id": TEAM_ID,
-            "is_nachnominiert": False,
-            "rolle": None,
-            "stufe": "Q2",
-            "position": "Angriff",
-            "nummer": "10",
-            "inactive_since": None,
-        }
-    )
-
-
-@pytest.fixture
-def spieler() -> PayloadFactory:
-    return _factory(
-        {
-            "_id": SPIELER_ID,
-            "first_name": "Max",
-            "last_name": "Mustermann",
-            "stufe": "Q2",
-            "nummer": "10",
-            # `Angriff`, not `Sturm`: the enum closed on this spelling.
-            "position": "Angriff",
-            "is_nachnominiert": False,
-            "rolle": None,
-            "team_id": TEAM_ID,
-            "inactive_since": None,
-            "birth_date": "2009-05-04",
-            "einwilligung": dict(EINWILLIGUNG),
-        }
-    )
-
-
-@pytest.fixture
-def spieltag() -> PayloadFactory:
-    return _factory(
-        {
-            "_id": SPIELTAG_ID,
-            # No `name`: a matchday's label is composed by the reader, from `position` and the phase.
-            "start": "2026-03-15",
-            "end": "2026-03-15",
-            "count_spiele": 4,
-            "position": 1,
-            "saison_phase": "gruppenphase",
-            "saison_id": "2026",
-        }
-    )
 
 
 @pytest.fixture

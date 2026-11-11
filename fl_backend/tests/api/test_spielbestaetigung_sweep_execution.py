@@ -733,7 +733,7 @@ def answered(answer: Literal["agreed", "declined"]) -> dict[str, Any]:
 async def discard(database: AsyncDatabase, team_id: ObjectId) -> None:
     """The discard's write as it closes the declining club's own row, its decline standing."""
 
-    declined = {"$set": {**answered("declined")["$set"], **compose_closing_update(reason="discarded", today=TODAY)["$set"]}}
+    declined = {"$set": {**answered("declined")["$set"], **compose_closing_update(reason="discarded")["$set"]}}
     await database[Collection.SPIELBESTAETIGUNGEN].update_one({"party.team_id": team_id}, declined)
 
 
@@ -1174,7 +1174,7 @@ class TestARowClosesOnceItsDayHasPassed:
 
         assert on_the_day.closed == 0
         assert after.closed == 3
-        assert [(row["closed"]["at"], row["closed"]["reason"]) for row in stored] == [(day_after, "spiel_past")] * 3
+        assert [row["closed"] for row in stored] == [{"reason": "spiel_past"}] * 3
         assert row_of(stored, team_id=ALPHA)["answer"] == answered["answer"]
         # A day gone by is no new Ansetzung: nobody is told it moved, nor asked again.
         assert (after.new_ansetzungen, after.schiedsrichter_new_ansetzungen, after.anfragen, after.einteilungen) == ([], [], [], [])
@@ -1689,7 +1689,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
 
         second, (old,) = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        assert old["closed"] == {"at": after_the_day, "reason": "schiedsrichter_switched"}
+        assert old["closed"] == {"reason": "schiedsrichter_switched"}
         assert second.schiedsrichter_switched == []
 
     def test_their_own_decline_tells_them_nothing(self, mongo_replica_set_url: str):

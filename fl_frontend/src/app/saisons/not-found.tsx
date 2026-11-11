@@ -8,7 +8,6 @@ import { SERVER_COPY } from "@/core/serverCopy";
 export default function SaisonsNotFound() {
   return (
     <StatusPage
-      frame="rail"
       scope="saison"
       title={SERVER_COPY.notFound}
       card={{ tone: "info", next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() } }}

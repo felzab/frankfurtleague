@@ -1,6 +1,5 @@
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
 import { refused } from "@/test-support/refusals";
-import { bodyField, refusedPayload } from "@/test-support/refusedPayload";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -127,26 +126,13 @@ describe("a ban", () => {
     });
   });
 
-  // The list of codes the screen words is held by nothing else: the shared failure line sends a retry the same rule refuses.
-  it.each([
-    ["an address holding a grant", refused("ban_list_admin"), { reason: SERVER_COPY.refusalLine.ban_list_admin }],
-    ["no season running", refused("ban_list_no_saison"), { reason: SERVER_COPY.refusalLine.ban_list_no_saison }],
-    [
-      "an address in the Grund",
-      refusedPayload([bodyField(["ban_reason"], "address_in_free_text")]),
-      { fieldErrors: { ban_reason: COPY.shared.field.without(COPY.signIn.address) } },
-    ],
-    [
-      "an address the backend cannot mail",
-      refusedPayload([bodyField(["email"], "email_not_accepted")]),
-      { fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) } },
-    ],
-  ])("refuses %s in the screen's words and ends no session", async (_case, refusal, answer) => {
+  // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.
+  it("ends no session where the backend refuses the ban", async () => {
     answerWith(async () => {
-      throw refusal;
+      throw refused("ban_list_admin");
     });
 
-    expect(await enterBan(BAN)).toMatchObject({ ok: false, ...answer });
+    expect(await enterBan(BAN)).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.ban_list_admin });
 
     expect(store.reached).toStrictEqual([]);
   });

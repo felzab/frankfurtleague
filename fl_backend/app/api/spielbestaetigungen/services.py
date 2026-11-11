@@ -598,7 +598,7 @@ def compose_schiedsrichter_answer_update(*, answer: FLSpielbestaetigungAnswerKin
         "answer": {"kind": answer, "at": today, "by": {"kind": "schiedsrichter"}, "vorschlag": None, "reason": reason}
     }
     if answer == "declined":
-        set_fields.update(compose_closing_update(reason=REASON_OWN_DECLINE, today=today)["$set"])
+        set_fields.update(compose_closing_update(reason=REASON_OWN_DECLINE)["$set"])
 
     return {"$set": set_fields}
 
@@ -868,8 +868,8 @@ def compose_asked_update(*, today: str) -> dict[str, Any]:
     return {"$set": {"asked_at": today}}
 
 
-def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, today: str) -> dict[str, Any]:
-    return {"$set": {"closed": {"at": today, "reason": reason}}}
+def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason) -> dict[str, Any]:
+    return {"$set": {"closed": {"reason": reason}}}
 
 
 # --- The NOTICES a closing owes, owed through the Postausgang in the closing's own transaction.

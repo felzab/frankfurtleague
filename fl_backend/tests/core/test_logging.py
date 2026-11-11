@@ -23,6 +23,9 @@ WELL_FORMED = f"00-{TRACE}-{PARENT}-01"
 # One table both formatters run, `fl_frontend/src/core/logging.test.ts` holding the other half.
 LOG_ADDRESSES: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "log_addresses.json").read_bytes().decode("utf-8"))
 
+# One table both trace readers refuse, `fl_frontend/src/core/trace.test.ts` holding the other half.
+TRACEPARENTS: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "traceparents.json").read_bytes().decode("utf-8"))
+
 
 def a_failure_record(message: str, *, failure: str = "refused anna.beispiel@example.org", **fields: object) -> logging.LogRecord:
     try:
@@ -64,32 +67,9 @@ class TestResolveTraceId:
     def test_a_well_formed_traceparent_yields_its_trace_id(self, flags):
         assert resolve_trace_id(f"00-{TRACE}-{PARENT}-{flags}") == TRACE
 
-    @pytest.mark.parametrize(
-        "hostile",
-        [
-            None,
-            "",
-            "PROBE-AAA",
-            "c0ffee00" * 4,  # a bare 32-hex id is not a traceparent
-            WELL_FORMED.upper(),
-            f"01-{TRACE}-{PARENT}-01",  # a version this validator does not read
-            f"00-{'0' * 32}-{PARENT}-01",  # all-zero trace id
-            f"00-{TRACE}-{'0' * 16}-01",  # all-zero parent id
-            f"00-{TRACE[:31]}-{PARENT}-01",
-            f"00-{TRACE}-{PARENT[:15]}-01",
-            f"00-{TRACE}-{PARENT}-1",
-            f"00-{TRACE}-{PARENT}",  # no flags segment
-            f"00-{TRACE}-{PARENT}-01-extra",
-            f"00-{'x' * 65}-{PARENT}-01",
-            f" 00-{TRACE}-{PARENT}-01",
-            f"00-{TRACE}-{PARENT}-01\n",
-            f"00-{TRACE}-{PARENT}-01\ndef",
-            f'00-{TRACE}-{PARENT}-01","injected":"line',  # log-injection attempt
-            "abc\ndef",
-        ],
-    )
+    @pytest.mark.parametrize("hostile", [None, *(row["header"] for row in TRACEPARENTS)])
     def test_mints_instead_of_honouring_anything_malformed(self, hostile):
-        """Mirrored entry for entry by `fl_frontend/src/core/trace.test.ts`: a hop admitting what the other refuses admits injected text."""
+        """One table both hops read, so a row either hop admits fails that hop's own suite."""
         resolved = resolve_trace_id(hostile)
 
         # Nothing the header carried, an all-zero id included: a fresh mint shares no 32 characters with it.

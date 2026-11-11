@@ -1842,7 +1842,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         party={"kind": "team", "team_id": team_id},
         asked_at=f"{saison_id}-04-01",
         answer=documents.kontakt_answer_document("trainer", reason="Wir sind auf Klassenfahrt"),
-        closed={"at": f"{saison_id}-04-19", "reason": "spiel_past"},
+        closed={"reason": "spiel_past"},
     )
 
 

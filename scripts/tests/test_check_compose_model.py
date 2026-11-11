@@ -264,7 +264,7 @@ def env_file(*paths: str) -> dict[str, Any]:
 
 
 def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
-    """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` of this checkout.
+    """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` there.
 
     `nginx/local` is the local stack's edge, and the stack's secrets follow from it.
     """
@@ -304,8 +304,9 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
     return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
-def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
-    """`main` over two rendered models: its exit code and what it printed."""
+def run_main(production: dict[str, Any], local: dict[str, Any], project: Path, monkeypatch) -> tuple[int, str]:
+    """`main` over two rendered models beside `project`, the checkout their edges mount: its exit code and what it printed."""
+    monkeypatch.setattr(checker, "REPO_ROOT", project)
     for name, rendered in (("production.json", production), ("local.json", local)):
         (project / name).write_bytes(json.dumps(rendered).encode())
     out = io.StringIO()
@@ -319,31 +320,43 @@ def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -
     return code, out.getvalue()
 
 
-def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
-    """The nginx files as they stand, through `main`: a trust either edge's own directory adds fails this."""
+def clean_pair(project: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Both stacks as every rule wants them, their edges mounting a checkout at `project` whose shared file trusts the connector alone."""
+    for directory, text in (("nginx/prod", ""), ("nginx/local", ""), ("nginx/shared", conf())):
+        (project / directory).mkdir(parents=True, exist_ok=True)
+        (project / directory / "edge.conf").write_bytes(text.encode())
+    return rendered_stack(project, "nginx/prod", cloudflared=CONNECTED), rendered_stack(project, "nginx/local")
+
+
+@pytest.mark.parametrize("failing", ["production", "local"])
+def test_a_rule_in_the_table_that_fails_fails_the_run(failing: str, monkeypatch):
+    """`main` runs `RULES` whole over both stacks, so this one case holds the wiring every rule reaches a reader through."""
     project = new_root("fl-compose-main-")
-
-    production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-    local = rendered_stack(project, "nginx/local")
-
-    code, said = run_main(production, local, project)
-
+    production, local = clean_pair(project)
+    code, said = run_main(production, local, project, monkeypatch)
     assert code == 0, said
 
+    def planted(stack):
+        return [checker.Finding("fail", f"{stack.name}: planted")] if stack.name == failing else []
 
-def test_main_judges_the_environment_files_of_both_models():
-    """The rule's own cases drive it directly; a service reading a second file, in either model, fails the run."""
-    project = new_root("fl-compose-main-env-")
+    monkeypatch.setattr(checker, "RULES", (*checker.RULES, planted))
+    code, said = run_main(production, local, project, monkeypatch)
 
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env", ".env") | joined(APP)
+    assert code == 1 and f"{failing}: planted" in said, said
 
-        code, said = run_main(production, local, project)
 
-        assert code == 1, said
-        assert f"{broken}: backend reads the environment files" in said, said
+def test_a_rule_that_refuses_a_model_exits_two(monkeypatch):
+    """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair."""
+    project = new_root("fl-compose-main-")
+    production, local = clean_pair(project)
+
+    def refuses(stack):
+        raise ValueError(f"{stack.name}: planted")
+
+    monkeypatch.setattr(checker, "RULES", (*checker.RULES, refuses))
+    code, said = run_main(production, local, project, monkeypatch)
+
+    assert code == checker.EXIT_REFUSED and "planted" in said, said
 
 
 @pytest.mark.parametrize("stack", ["production", "local"])
@@ -464,20 +477,6 @@ def test_networks_that_are_no_mapping_refuse():
         checker.networks(model(frontend={"networks": [APP]}), "p")
 
 
-def test_main_judges_the_networks_of_both_models():
-    """A frontend joining the edge network, in either model, fails the run."""
-    project = new_root("fl-compose-main-networks-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["frontend"] |= joined(EDGE, APP)
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: frontend joins" in said, said
-
-
 # --- what each service may do as root -------------------------------------------------------------------
 
 PRIVILEGED: Final = model(**{service: hardened(service) for service in (*checker.PRODUCTION_SERVICES, "mongo")})
@@ -513,19 +512,6 @@ def test_a_capability_or_a_privilege_left_in_place_fails(service: str, changed: 
     found = checker.privileges(rendered, "p")
 
     assert [f"p: {said}" in finding.detail for finding in found] == [True], found
-
-
-def test_main_judges_the_privileges_of_both_models():
-    project = new_root("fl-compose-main-privileges-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["nginx"]["cap_add"] = ["ALL"]
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: nginx adds back ['ALL']" in said, said
 
 
 # --- which service holds which secret ---------------------------------------------------------------
@@ -712,23 +698,6 @@ def test_a_config_mounted_outside_the_secrets_path_is_no_login():
     assert checker.config_holders(rendered, "p", "production") == []
 
 
-def test_main_judges_the_config_holders_of_both_models():
-    project = new_root("fl-compose-main-config-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["nginx"] |= configured("local", "backend")
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        expected = {
-            "production": "production: nginx mounts the config local_mongodb_uri at /run/secrets/backend_mongodb_uri, a file",
-            "local": "local: ['backend', 'nginx'] reads a config as backend_mongodb_uri",
-        }[broken]
-        assert expected in said, said
-
-
 def test_a_secret_the_table_lists_left_undeclared_fails():
     rendered = stack_of("production")
     del rendered["secrets"]["resend_webhook_secret"]
@@ -748,19 +717,6 @@ def test_the_key_file_under_a_second_secret_name_fails():
     assert [finding.detail.split("\n")[0] for finding in found] == ["p: the secret copy is declared and SECRET_HOLDERS lists no such secret"]
 
 
-def test_main_judges_the_secret_holders_of_both_models():
-    project = new_root("fl-compose-main-key-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"]["secrets"].append({"source": KEY})
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: ['backend', 'frontend'] holds {KEY}" in said, said
-
-
 # --- the names the secret files replace ----------------------------------------------------------------
 
 
@@ -776,19 +732,6 @@ def test_a_moved_name_in_an_environment_fails_in_any_case(variable: str):
     found = checker.moved_names(model(backend={"environment": {variable: "x"}}), "p")
 
     assert len(found) == 1 and f"p: backend is handed {variable}" in found[0].detail, found
-
-
-def test_main_judges_the_moved_names_of_both_models():
-    project = new_root("fl-compose-main-moved-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["frontend"]["environment"]["MONGODB_URI"] = "x"
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: frontend is handed MONGODB_URI" in said, said
 
 
 def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
@@ -829,19 +772,6 @@ def test_a_config_read_from_the_secrets_directory_fails():
     configs = {"configs": {"leak": {"file": str(RENDER / "secrets" / KEY)}}}
 
     assert len(checker.secrets_directory(model() | configs, "p", RENDER)) == 1
-
-
-def test_main_judges_the_secrets_directory_of_both_models():
-    project = new_root("fl-compose-main-secrets-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] |= _bound(project / "secrets")
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: backend bind-mounts" in said, said
 
 
 # --- the models the gate and the edge test render --------------------------------------------------------
