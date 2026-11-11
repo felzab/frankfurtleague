@@ -157,7 +157,7 @@ export default function SchiedsrichterOverviewPage({ params }: Props) {
         search: { label: COPY.area.schiedsrichter.search },
         // A rail page's wait draws its taller state (`kit/Skeleton.tsx`): every row with its two acts' bars, which a
         // row without acts lands a line shorter than on a phone, collapsing unseen under `main`.
-        wait: { rows: 5, cards: [{ title: TITLE, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], chip: true, count: false }] },
+        wait: { rows: 5, cards: [{ title: TITLE, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], count: false }] },
         content: readSpiele(params),
       }}
     />

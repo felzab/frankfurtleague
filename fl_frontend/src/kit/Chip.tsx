@@ -23,9 +23,9 @@ const chip = tv({
 export type ChipProps = { tone: "success" | "info" | "warn" | "danger" | "neutral"; label: Copy; spoken?: Copy };
 
 /**
- * A status said in one word, which belongs to a name: set directly after it, in a list's status column, or on the
- * line under it where the row's box is narrow, as the block carrying the name decides for all its rows alike. A page
- * never places one: the blocks that carry a name render it from their `chip` prop.
+ * A status said in one word, which belongs to a name: set directly after it on its line, as every row holds it
+ * (`cardStyles.ts :: nameWithChips`), or in the status column of a list that is a table. A page never places one: the
+ * blocks that carry a name render it from their `chip` prop.
  */
 export function Chip({ tone, label, spoken }: ChipProps) {
   if (spoken === undefined) return <span className={chip({ tone })}>{label}</span>;

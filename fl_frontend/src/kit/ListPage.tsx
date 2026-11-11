@@ -159,14 +159,13 @@ type ListContent =
       /** The search field's name, where a card's list can reach about 20 rows, as a table's takes it. */
       search?: ListSearch;
       /**
-       * Each card while it waits, in their order, its title, the acts its rows carry and whether they carry a chip
-       * (`chip`), each of which a narrow card sets on a line of its own, and `count` as the card states it, and how many
-       * rows each draws; the seats' card's title, where the page shows the record's seats; and `team` where a team's
-       * head opens the page.
+       * Each card while it waits, in their order, its title, the acts its rows carry, which a narrow card sets on a line
+       * of their own, and `count` as the card states it, and how many rows each draws; the seats' card's title, where
+       * the page shows the record's seats; and `team` where a team's head opens the page.
        */
       wait: {
         rows: number;
-        cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; chip?: true; count?: false }>;
+        cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; count?: false }>;
         seats?: Copy;
         team?: true;
       };
@@ -242,14 +241,13 @@ function ListPlaceholder({ list }: { list: ListContent }) {
         <>
           {list.wait.team === true && <TeamHeadPlaceholder />}
           <Cards boxes={list.wait.cards.length + (list.wait.seats === undefined ? 0 : 1)}>
-            {list.wait.cards.map(({ title, acts, chip, count }) => (
+            {list.wait.cards.map(({ title, acts, count }) => (
               <CardPlaceholder
                 key={title}
                 title={title}
                 count={count !== false}>
                 <CardRowsPlaceholder
                   rows={list.wait.rows}
-                  chip={chip === true}
                   {...(acts === undefined ? {} : { acts })}
                 />
               </CardPlaceholder>

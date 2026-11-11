@@ -52,15 +52,13 @@ export async function typeInto(box: Locator, value: string): Promise<void> {
 
 /**
  * Presses a row's act by its name, as a person finds it: the row's own button where the row shows one, else the row's
- * „Mehr“ and then the menu's entry of that name. A row's side acts have these two homes because the row's box decides
- * its form, never the screen: its buttons where the list is wide, one „⋯“ holding them where its rows are stacked. So
- * the desktop project meets the menu too: its 1280 px leave Adressänderungen a box of 943, under the 64 rem from
- * which that list is a table. It fails where the row shows neither.
+ * „Mehr“ and then the menu's entry of that name. A row's acts have these two homes by their list, at every width: a
+ * decision and a list's one side act are buttons, and the side acts of a list whose rows carry two or more stand in
+ * each row's one „⋯“. It fails where the row shows neither.
  */
 export async function pressRowAct(row: Locator, name: string): Promise<void> {
   const button = row.getByRole("button", { name, exact: true });
   const more = row.getByRole("button", { name: "Mehr", exact: true });
-  // A role query passes over what is drawn and not shown, so of the two only the one the row shows answers.
   await expect(button.or(more)).toBeVisible();
   if (await button.isVisible()) {
     await button.click();

@@ -7,7 +7,7 @@ import { formatNumber } from "@/core/format";
 
 import { Button } from "./Button";
 import { buttonLook, buttonPlaceholder } from "./buttonStyles";
-import { card, columnHead, stacked } from "./cardStyles";
+import { card, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -43,23 +43,14 @@ const lineup = tv({
     headRow: columnHead().rule(),
     head: columnHead().text(),
     row: `relative h-14 ${stacked()} lg:h-13`,
-    // The name takes the room the facts leave and is cut with „…“ where it is longer. On a phone a name over its chip
-    // is 42 px, which 6 px of padding keep inside the row's 56, so a row with a chip stands as tall as one without.
+    // The name takes the room the facts leave and is cut with „…“ where it is longer. A phone's line holds a name's
+    // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
+    // keep inside the row's 56, so such a row stands as tall as one without a chip.
     name: "w-full px-3 py-2 @max-2xl:py-1.5",
-    // The name with its mark, then the chip, which the box's width places for every row alike: after the name on its
-    // line from 42 rem, and on the line under the name in a narrower box, where a phone's line holds a name's least
-    // width and „Nachnominiert“ only one over the other. What parts them there is the chip's own basis, the whole
-    // line, never what a row holds. The line's least width is the name's, 5 rem, so the facts beside it narrow the
-    // column to no less. No status column: a row's tick and act stand taller than its name's line, which a row of
-    // several lines cannot centre against them.
-    nameLine: "flex min-w-20 flex-wrap items-center gap-x-2 gap-y-0.5 @2xl:flex-nowrap",
-    // The name and its mark, which never part: the mark keeps its size after the name, which is cut before it. The name
-    // stands in a track that grows to its words and may shrink to nothing, so its words count nothing towards the
-    // column's least width, which the line's own sets, as `Table`'s name does (`Table.tsx :: nameHead`): a flex row
-    // would count a cut name's whole words, and a long name would push the table past its box.
-    nameHead: "grid max-w-full min-w-0 auto-cols-max grid-flow-col grid-cols-[minmax(0,max-content)] items-center gap-2",
-    nameWords: "min-w-0 truncate",
-    chips: "flex basis-full items-center gap-2 @2xl:shrink-0 @2xl:basis-auto",
+    // The name with its mark and the chip after it, as every row holds them (`cardStyles.ts :: nameWithChips`). The
+    // line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status column:
+    // a row's tick and act stand taller than its name's line, which a row of several lines cannot centre against them.
+    nameLine: "min-w-20",
     // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
     // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
     line: "block text-xs wrap-anywhere",
@@ -208,19 +199,20 @@ type RowLine = { tone: "danger" | "muted"; text: Copy };
 
 function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlayer; nameId: string; line?: RowLine | null; lineId?: string }) {
   const s = lineup({ tone: line?.tone });
+  const words = nameWithChips();
   return (
     <td className={s.name()}>
-      <span className={s.nameLine()}>
-        <span className={s.nameHead()}>
+      <span className={words.line({ class: s.nameLine() })}>
+        <span className={words.head()}>
           <CutText
             id={nameId}
             text={textOf(player.name)}
-            className={s.nameWords()}
+            className={words.name()}
           />
           {player.mark !== undefined && <RoleMark {...player.mark} />}
         </span>
         {player.chip !== undefined && (
-          <span className={s.chips()}>
+          <span className={words.chips()}>
             <Chip {...player.chip} />
           </span>
         )}
@@ -272,7 +264,7 @@ function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "po
  * A match's line-up as its club names it: everyone named in one list in shirt-number order, a tick alone in the
  * column headed by `words.starts` saying who starts and a cross taking the row out, over the squad's other pupils,
  * each row ending in the word that names its pupil. One row a pupil at every width, the name cut with „…“ and its chip
- * after it, or under it in a phone's box.
+ * after it, or under it where the line cannot hold both, as a phone's cannot.
  *
  * At most `startersMax` start. Once they do, the open ticks dim and stay pressable: a press changes nothing, and
  * `words.startersFull` stands on that row's own line, inside the row's height, until the next change, as a refused

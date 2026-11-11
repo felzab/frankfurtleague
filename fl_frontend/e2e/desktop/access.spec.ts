@@ -42,9 +42,10 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
   await expect(dialog).toBeHidden();
 
-  // The row waits on the new mailbox, which its link reached.
+  // The row waits on the new mailbox, which its link reached. Its chip is drawn after its name and in the „Stand“
+  // column, and the list's width shows one.
   const row = page.getByRole("main").getByRole("row").filter({ hasText: MOVER });
-  await expect(row.getByText("Neue offen", { exact: true })).toBeVisible();
+  await expect(row.getByText("Neue offen", { exact: true }).filter({ visible: true })).toBeVisible();
   await mailedMessage(newAddress, "Neue E-Mail-Adresse bestätigen", before);
 
   await pressRowAct(row, "Verwerfen");

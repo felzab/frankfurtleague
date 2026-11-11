@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 
 import type { TableProps } from "./Table";
@@ -43,9 +42,9 @@ describe("a table's rank column", () => {
 });
 
 describe("a list's status column", () => {
-  // The harm: a list that names its status column draws a row's chips nowhere, or leaves them in the name's cell, where
-  // the name is cut for them. Where the column stands on the screen is the drive's to measure: jsdom lays nothing out.
-  it("holds a row's chips in a cell of its own after the name's, the state's before the delivery's", () => {
+  // The harm: a list that names its status column draws a row's chips in one of their two places alone, so its table
+  // or its stacked rows show none. Which place shows at which width is the drive's to measure: jsdom lays nothing out.
+  it("holds a row's chips after its name and in a cell of its own after the name's, the state's before the delivery's", () => {
     render(
       <Table
         {...props([
@@ -68,37 +67,15 @@ describe("a list's status column", () => {
     ]);
     const cellsOf = (row: HTMLElement) => [...row.querySelectorAll('[role="cell"]')].map((cell) => cell.textContent);
     const [, held, bare] = screen.getAllByRole("row") as [HTMLElement, HTMLElement, HTMLElement];
-    expect(cellsOf(held)).toStrictEqual(["anna@example.org", `${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`, "Nordend"]);
+    const chips = `${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`;
+    expect(cellsOf(held)).toStrictEqual([`anna@example.org${chips}`, chips, "Nordend"]);
     // A row with no chip keeps the column's cell, empty, so every row's cells stand under the same heads.
     expect(cellsOf(bare)).toStrictEqual(["berta@example.org", "", "Westend"]);
   });
 });
 
-describe("a list that folds its rows' side acts", () => {
-  // The harm: the list keeps the „⋯“'s place at a stacked row's end and its rows' acts never hear of it, so their
-  // buttons stand in a place a button's width does not fit. Which of the two shows at which width is the drive's.
-  it("hands its rows' acts the fold, which draws the „⋯“ beside their buttons", () => {
-    const row = (folds: boolean) => (
-      <Table
-        {...props([
-          {
-            id: "1",
-            name: { record: "anna@example.org" },
-            cells: {},
-            acts: <SideActs acts={[{ label: COPY.shared.verb.discard, tone: "danger", onPress: () => undefined }]} />,
-          },
-        ])}
-        folds={folds}
-      />
-    );
-    const { unmount } = render(row(false));
-    expect(screen.queryByRole("button", { name: COPY.template.more })).toBeNull();
-    unmount();
-
-    render(row(true));
-    expect(screen.getAllByRole("button", { name: COPY.template.more })).toHaveLength(1);
-  });
-});
+/** The parts of the name cell holding `words`, in their order: the name's line, then each line under it. */
+const partsOf = (words: string) => [...(screen.getByText(words).closest('[role="cell"]')?.children ?? [])].map((part) => part.textContent);
 
 describe("a row's name cell", () => {
   it("sets the line under the name, and the delivery's chip after the state's", () => {
@@ -116,9 +93,10 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText(COPY.admin.expired).parentElement;
-    expect(nameLine?.textContent).toBe(`anna@example.org${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`);
-    expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
+    expect(partsOf(COPY.admin.expired)).toStrictEqual([
+      `anna@example.org${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`,
+      "Neuer Administrator",
+    ]);
   });
 
   // The harm: a captain's mark after the chip, read as part of the state, or drawn as a bare letter a screen reader
@@ -139,8 +117,7 @@ describe("a row's name cell", () => {
         ])}
       />,
     );
-    const nameLine = screen.getByText("Lea Bauer").parentElement?.parentElement;
-    expect(nameLine?.textContent).toBe(`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`);
+    expect(partsOf("Lea Bauer")).toStrictEqual([`Lea Bauer${COPY.shared.bank}${WORDS.rolleOption.kapitaen}${WORDS.nominee}`]);
   });
 
   // The harm: a row with acts sets its chips before the name, or loses the muted line under it. Where its parts stand on
@@ -174,9 +151,10 @@ describe("a row's name cell", () => {
     ["a club's name holding an „@“", "Team @ Goethe.Schule", false],
   ])("sets %s in a row with acts, the name first and the muted line under it", (_case, name, delivered) => {
     render(actRow(name, delivered));
-    const nameLine = screen.getByText(name).parentElement?.parentElement;
-    expect(nameLine?.textContent).toBe(`${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`);
-    expect(nameLine?.nextElementSibling?.textContent).toBe("Neuer Administrator");
+    expect(partsOf(name)).toStrictEqual([
+      `${name}${COPY.admin.expired}${delivered ? COPY.admin.delivery.undeliverable : ""}`,
+      "Neuer Administrator",
+    ]);
   });
 
   // The harm: two rows told apart by their addresses alone read alike once both are cut, and a touch reaches no tooltip.
@@ -187,7 +165,7 @@ describe("a row's name cell", () => {
     render(actRow(address, false, true));
     const words = screen.getByText(wholeText(address));
     expect(words.innerHTML.replaceAll(/ class="[^"]*"/gu, "")).toBe("<span>gesperrte<wbr>.person@</span><wbr><span>example<wbr>.com</span>");
-    expect(words.parentElement?.parentElement?.textContent).toBe(`${address}${COPY.admin.expired}`);
+    expect(words.closest('[role="cell"]')?.firstElementChild?.textContent).toBe(`${address}${COPY.admin.expired}`);
   });
 
   // The harm: on a row that opens a page, its name's link stretches over the whole row, so the pointer never reaches a
@@ -220,7 +198,6 @@ describe("a row's name cell", () => {
         columns={[{ key: "position", label: COPY.admin.spieler.position, hideOnPhone: true }]}
       />,
     );
-    const line = screen.getByText("Lea Bauer").parentElement?.parentElement?.nextElementSibling;
-    expect(line?.textContent).toBe("Abwehr · Q2");
+    expect(partsOf("Lea Bauer")).toStrictEqual(["Lea Bauer", "Abwehr · Q2"]);
   });
 });

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -101,10 +102,14 @@ describe("a Dublette on the page its decision is taken on", () => {
 describe("a seat the submission never mailed", () => {
   /* „Link senden“ is the one way to that person, and the application goes on its day without them. */
   it("can be sent its link from the row reading „Nicht gesendet“", async () => {
+    // A rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
+    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
     const row = (await seatRows()).find(({ id }) => id === "trainer");
     render(<>{row?.acts}</>);
 
     expect(row?.chips).toContainEqual({ tone: "warn", label: COPY.admin.saison.linkNotSent });
-    expect(screen.getByRole("button", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
+    // A seat's acts stand in its row's „⋯“.
+    await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
+    expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
   });
 });

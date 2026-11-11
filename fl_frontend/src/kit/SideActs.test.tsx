@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ActsFoldScope, SideActs } from "./SideActs";
+import { SideActs } from "./SideActs";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined }) }));
 
@@ -22,53 +22,37 @@ beforeEach(() => {
 });
 
 /** A row's two side acts as a running change's row holds them: the fresh link at once, and the ending behind its question. */
-function Acts({ send, folds }: { send: () => void; folds: boolean }) {
+function Acts({ send }: { send: () => void }) {
   const [isAsking, setAsking] = useState(false);
   return (
-    <ActsFoldScope at={folds ? "list" : null}>
-      <SideActs
-        acts={[
-          { label: SEND, onPress: send },
-          { label: DISCARD, tone: "danger", onPress: () => setAsking(true) },
-        ]}>
-        <ConfirmDialog
-          verb="discard"
-          subject={COPY.account.address.change}
-          consequence={COPY.admin.addressChange.previousStays}
-          tone="danger"
-          onConfirm={() => undefined}
-          open={{ isOpen: isAsking, onOpenChange: setAsking }}
-        />
-      </SideActs>
-    </ActsFoldScope>
+    <SideActs
+      acts={[
+        { label: SEND, onPress: send },
+        { label: DISCARD, tone: "danger", onPress: () => setAsking(true) },
+      ]}>
+      <ConfirmDialog
+        verb="discard"
+        subject={COPY.account.address.change}
+        consequence={COPY.admin.addressChange.previousStays}
+        tone="danger"
+        onConfirm={() => undefined}
+        open={{ isOpen: isAsking, onOpenChange: setAsking }}
+      />
+    </SideActs>
   );
 }
 
 describe("a row's side acts", () => {
-  // The harm: a list that folds nothing draws a „⋯“ beside its buttons, an act reachable twice in one row.
-  it("are their buttons alone in a list that folds none", () => {
-    render(
-      <Acts
-        send={() => undefined}
-        folds={false}
-      />,
-    );
-
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toStrictEqual([SEND, DISCARD]);
-  });
-
-  // The harm: the menu holds other acts than the row's buttons, or in another order, the destroying one first; or an
-  // entry's press runs no act. That the act starts inside the press, which a passkey touch needs, only a browser shows.
-  it("stand in the „⋯“ of a list that folds them, in the buttons' order, an entry's press running its act", async () => {
+  // The harm: the row shows an act beside its „⋯“, reachable twice; or the menu holds other acts than the row's, or in
+  // another order, the destroying one first; or an entry's press runs no act. That the act starts inside the press,
+  // which a passkey touch needs, only a browser shows.
+  it("stand in the row's one „⋯“ and nowhere else, in their order, an entry's press running its act", async () => {
     const send = vi.fn();
-    render(
-      <Acts
-        send={send}
-        folds
-      />,
-    );
+    render(<Acts send={send} />);
 
-    await userEvent.click(screen.getByRole("button", { name: MORE }));
+    const more = screen.getByRole("button", { name: MORE });
+    expect(screen.getAllByRole("button")).toStrictEqual([more]);
+    await userEvent.click(more);
     const entries = within(screen.getByRole("menu")).getAllByRole("menuitem");
     expect(entries.map((entry) => entry.textContent)).toStrictEqual([SEND, DISCARD]);
 
@@ -78,12 +62,7 @@ describe("a row's side acts", () => {
 
   // The harm: the question an entry opened closes and the keys stand nowhere, the entry that held them gone with its menu.
   it("hand the focus back to the „⋯“ once a question opened from it closes", async () => {
-    render(
-      <Acts
-        send={() => undefined}
-        folds
-      />,
-    );
+    render(<Acts send={() => undefined} />);
     const more = screen.getByRole("button", { name: MORE });
 
     await userEvent.click(more);
@@ -100,14 +79,12 @@ describe("a row's side acts", () => {
   it("keep a locked act's entry in the keys' reach, described by its reason, its press running nothing", async () => {
     const edit = vi.fn();
     render(
-      <ActsFoldScope at="card">
-        <SideActs
-          acts={[
-            { label: SEND, onPress: () => undefined },
-            { label: DISCARD, locked: COPY.shared.failure.stale, onPress: edit },
-          ]}
-        />
-      </ActsFoldScope>,
+      <SideActs
+        acts={[
+          { label: SEND, onPress: () => undefined },
+          { label: DISCARD, locked: COPY.shared.failure.stale, onPress: edit },
+        ]}
+      />,
     );
 
     screen.getByRole("button", { name: MORE }).focus();
