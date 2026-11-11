@@ -165,6 +165,14 @@ describe("an editor's own acts", () => {
       expect(act).not.toHaveBeenCalled();
     },
   );
+
+  // The harm: a danger row's button says its verb alone, „Stilllegen“, and a screen reader on it hears nothing of what
+  // it retires, which no eye sees.
+  it("describe a danger row's button by the row's name", () => {
+    render(<ActingEditor act={vi.fn()} />);
+    const name = COPY.shared.withObject(COPY.admin.spielort.object, "retire");
+    expect(screen.getByRole("button", { name: COPY.shared.verb.retire, description: name })).toBeTruthy();
+  });
 });
 
 /** An editor of one bare block, closed for `reason`, as a finished season's line-up opens. */
