@@ -279,12 +279,12 @@ const table = tv({
     end: "w-0 pe-3",
     // A prose or a stacked cell's column label on a phone, drawn for the eye alone: the read head names the column.
     label: "",
-    // Under the name line, cut as a name is, so a table's row keeps its height. Its words count nothing towards the
-    // column's least width (`contain-inline-size`), as the name's do not (`nameHead`): a sentence on one line would
-    // otherwise hold the name's column at its whole length.
-    refusal: "block truncate text-xs text-danger contain-inline-size",
+    // Why the row was turned away, set as the muted line is (`line`) in the danger colour: cut on one line in a table, so
+    // the row keeps its height, and wrapping on a stacked row, where a touch reaches no tooltip.
+    refusal: "grid grid-cols-[minmax(0,max-content)] text-xs text-danger",
     // The name's words, which a `stack` table's phone row wraps.
     whole: "",
+    // The muted line's words and a refusal's.
     lineWords: "truncate",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
     // least width, as the name's does (`nameHead`).
@@ -771,7 +771,14 @@ function NameCell({
           />
         </span>
       )}
-      {row.refusal !== undefined && <span className={s.refusal()}>{row.refusal}</span>}
+      {row.refusal !== undefined && (
+        <span className={s.refusal()}>
+          <CutText
+            text={row.refusal}
+            className={s.lineWords()}
+          />
+        </span>
+      )}
     </td>
   );
 }
