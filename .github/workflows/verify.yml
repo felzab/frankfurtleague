@@ -133,16 +133,6 @@ jobs:
         with:
           # The pnpm store's one writer, so a lockfile change uploads one store rather than one per job.
           save-cache: true
-      # Next's CI cache (https://nextjs.org/docs/app/guides/ci-build-caching). The source trees are in
-      # the key, not the lockfile alone: actions/cache writes nothing on an exact hit.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: fl_frontend/.next/cache
-          key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
-          # A prefix restore is safe for both things the path holds: the Next cache is
-          # content-addressed, and tsc's build info re-checks a file whose text hash moved.
-          restore-keys: |
-            nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
