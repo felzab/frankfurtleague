@@ -32,7 +32,7 @@ from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import address_change_document, spieler_document
+from tests.documents import address_change_document, spiel_document, spieler_document
 from tests.erasure import erasure_collections, what_the_erasure_took
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders
@@ -47,9 +47,11 @@ from .test_identity_erasure_execution import (
     LAST_NAME,
     NOW,
     OTHER_REFEREE_CHANGE_OID,
+    PAYMENT,
     PUPIL_OID,
     REFEREE_OID,
     SAISON_ID,
+    SPIELTAG_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -354,9 +356,18 @@ class TestTheCounts:
             await database[Collection.ADDRESS_CHANGES].insert_one(
                 address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
-            # Still to come: the seed's own was played, and keeps its booking naming nobody.
-            await database[Collection.SPIELE].update_one(
-                {"schiedsrichter.schiedsrichter_id": REFEREE_OID}, {"$set": {"date": "2126-04-15", "ergebnis": None}}
+            # One still to come beside the seed's own, which was played and keeps its booking naming nobody: a count of
+            # every booking would read two.
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=ObjectId(),
+                    saison_id=SAISON_ID,
+                    spiel_nr=5,
+                    spieltag_id=SPIELTAG_OID,
+                    date="2126-04-15",
+                    time="14:00:00",
+                    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": PAYMENT},
+                )
             )
             before = await everything_in(database)
             view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=OWNER)
@@ -370,7 +381,7 @@ class TestTheCounts:
 
         assert view.status_code == 200, counts
         assert (untouched, status) == (True, 204)
-        # The seed's one booked fixture is the one moved to come above, so every booking taken off is one the preview counts.
+        # The fixture still to come is the one booking taken off, and the one the preview counts.
         assert counts == taken
         # The premise: an address holding nothing would agree on zeros.
         assert all(counts.values())
