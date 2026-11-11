@@ -259,7 +259,6 @@ def build_aufstellung_kader_pipeline(*, saison_id: str, team_id: ObjectId) -> li
             "$project": {
                 "_id": 0,
                 "spieler_id": 1,
-                "team_id": 1,
                 "first_name": "$person.first_name",
                 "last_name": "$person.last_name",
                 "nummer": 1,

@@ -384,6 +384,9 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert [mint.rollen for mint in response.confirmations] == [["trainer", "stellvertretung"], ["ansprechperson"]]
         assert row["confirmations"]["trainer"] == row["confirmations"]["stellvertretung"]
         assert (view.rolle, view.also_rolle) == ("trainer", "stellvertretung")
+        # The floor of both seats, the Stellvertretung's being the higher: the page judges the birthdate by it.
+        assert SEAT_MIN_AGE_YEARS["stellvertretung"] > SEAT_MIN_AGE_YEARS["trainer"]
+        assert view.minimum_age == SEAT_MIN_AGE_YEARS["stellvertretung"]
 
     def test_re_saving_the_same_confirmed_person_mints_nothing_and_keeps_the_stamp(self, mongo_replica_set_url: str):
         confirmed = {**STORED_UNCONFIRMED, "trainer": stored("Ida", confirmed_at="2026-03-20")}

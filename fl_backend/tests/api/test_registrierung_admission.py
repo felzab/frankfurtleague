@@ -1137,6 +1137,22 @@ def keys_at_every_depth(value: Any) -> Iterator[str]:
             yield from keys_at_every_depth(inner)
 
 
+class TestThePendingReadServesTheShirtNumbers:
+    def test_each_row_carries_its_number_and_one_the_squad_wears_is_marked(self, mongo_replica_set_url: str):
+        """The team decides on the mark before it admits: a number left unread would serve none and mark no double."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed(database, registrierung_document())
+            # The one squad row of `on_a_league` wears „0“.
+            await seed(database, registrierung_document(email="doppelt@beispielschule.de", first_name="Doppelt", nummer="0"))
+
+            return (await read(database, client)).registrierungen
+
+        listed = on_a_league(mongo_replica_set_url, body, squad=1)
+
+        assert {row.first_name: (row.nummer, row.nummer_double) for row in listed} == {"Thessaly": ("17", False), "Doppelt": ("0", True)}
+
+
 class TestThePendingReadsCap:
     def test_a_flood_of_unconfirmed_rows_hides_no_confirmed_one(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
         """Anybody holding the link types an unconfirmed row per press, newer than every row a pupil confirmed before.
