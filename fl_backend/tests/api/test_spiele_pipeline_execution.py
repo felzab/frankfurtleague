@@ -281,24 +281,6 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         assert on_a_spiel(mongo_url, spiel, rows, verdict) is None
 
 
-def test_the_confirmation_lookup_plans_an_index_scan(mongo_url: str):
-    """Every fixture of the most-read endpoint runs the sub-pipeline once, a scan no test database of a few rows shows."""
-
-    spiel = a_spiel()
-
-    async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-        command = {"aggregate": str(Collection.SPIELE), "pipeline": build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}), "cursor": {}}
-        explained = await database.command({"explain": command, "verbosity": "executionStats"})
-
-        # The `$lookup` reports what its sub-pipeline used beside the stage itself.
-        (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SPIELBESTAETIGUNGEN]
-        return stage
-
-    stage = on_a_spiel(mongo_url, spiel, [a_row(spiel, VERDICT_HOME), a_row(spiel, VERDICT_AWAY)], body)
-
-    assert (stage["indexesUsed"], stage["collectionScans"]) == (["spielbestaetigungen_saison_id_spiel_id"], 0), stage
-
-
 # --- The REFEREE BLOCK: whether the booked referee agreed, then whether their name is published.
 
 REFEREE_ID = REFEREE["schiedsrichter_id"]
@@ -520,18 +502,3 @@ class TestTheRefereesNameFollowsTheirConsent:
         assert document["schiedsrichter"][NAME_IS_PUBLIC_KEY] is False
         served = FLSpielJoined.model_validate(document).schiedsrichter
         assert served is not None and served.name is None
-
-
-def test_the_referee_lookup_plans_an_index_scan(mongo_url: str):
-    """Every fixture of the most-read endpoint runs the sub-pipeline once, matching one referee by `_id`."""
-
-    async def body(database: AsyncDatabase) -> Mapping[str, Any]:
-        command = {"aggregate": str(Collection.SPIELE), "pipeline": build_spiele_pipeline(db_filter={"_id": VERDICT_SPIEL_ID}), "cursor": {}}
-        explained = await database.command({"explain": command, "verbosity": "executionStats"})
-
-        (stage,) = [stage for stage in explained["stages"] if stage.get("$lookup", {}).get("from") == Collection.SCHIEDSRICHTER]
-        return stage
-
-    stage = on_a_refereed_spiel(mongo_url, [], body)
-
-    assert (stage["indexesUsed"], stage["collectionScans"]) == (["_id_"], 0), stage

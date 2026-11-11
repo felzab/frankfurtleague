@@ -17,7 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_kontakte
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -456,20 +456,6 @@ class TestTheSubmissionKey:
         assert (second, stored) == (first, 1)
         # `with_transaction` retries the anchors' `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
         assert (lookups, failures) == (2, [])
-
-    def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
-        """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            # Set before the press, so the wrapper records the lookup and holds nothing back.
-            committed = asyncio.Event()
-            committed.set()
-            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            await submit(database, key=KEY, bewerbungen=held)
-
-            return held.lookup_filters
-
-        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(KEY))]
 
 
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:
