@@ -19,7 +19,7 @@ import type { MailLink, MailOrigin } from "./mailKinds";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
- * `token`, because `nginx/shared/http.conf :: $credential_free_uri` redacts that name alone.
+ * `token`, because the edge's `$credential_free_uri` redacts that name alone.
  */
 function addressChangeLink(origin: string, token: string): string {
   return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
@@ -30,7 +30,6 @@ const WORDS = SERVER_COPY.addressChange;
 /** Both mails of the person's own change state the link's lifetime, which the backend refuses past. */
 const LINK_VALID: Paragraph = [SERVER_COPY.mail.linkValidFor(ADDRESS_CHANGE_VALID_HOURS)];
 
-/** The lost-mailbox change's wait, which both its mails state. */
 const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
 
 /**
@@ -102,8 +101,8 @@ export function buildAddressChangeNoticeEmail({ way, holder }: FLAddressChangeNo
 }
 
 /**
- * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4,
- * read 2026-10-20: "clear instructions, including contact information") is the security kind's own last line.
+ * The completion notice: no control and no new address. The way to repudiate the change (NIST SP 800-63B-4:
+ * "clear instructions, including contact information") is the security kind's own last line.
  */
 export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEffectiveData, { origin }: MailOrigin): Mail {
   const { subject, lead } = SERVER_COPY.mail.addressChange.effective;

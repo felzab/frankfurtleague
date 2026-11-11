@@ -25,8 +25,8 @@ import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResul
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
 // Two senders: sign-in codes and security notices from one address, everything else from the
-// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
-// needs its own routing rule and its sender alignment at the provider.
+// other, the mail's kind choosing. Each address needs its own routing rule and its sender alignment at
+// the provider.
 const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
   signIn: "anmeldung@frankfurtleague.de",
   league: "liga@frankfurtleague.de",
@@ -40,9 +40,8 @@ function senderRow(sender: MailSender): string {
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
 const REPLY_TO = KONTAKT_EMAIL;
 
-// Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
-// backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
-// page of sends is counted from both (`fl_backend/app/api/outbox/services.py :: LEASE_DURATION`).
+// Bounds the whole call, as a backend call's bound does: a per-attempt budget would multiply by the
+// attempts below, and the backend's lease on a page of sends, its `LEASE_DURATION`, is counted from both.
 const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */
@@ -62,7 +61,6 @@ interface OutboundMail {
   subject: string;
   html: string;
   text: string;
-  /** Which of the two senders, read off the mail's kind by `fl_frontend/src/core/emailShell.ts :: renderMail`. */
   sender: MailSender;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
@@ -71,7 +69,7 @@ interface OutboundMail {
   tags: Record<string, string>;
   /**
    * Collapses a repeat of the same send inside the provider's 24-hour window, answering the original
-   * id rather than sending again. A key reused with a DIFFERENT body is refused rather than ignored.
+   * id rather than sending again. A key reused with a different body is refused rather than ignored.
    */
   idempotencyKey: string;
 }
@@ -83,7 +81,7 @@ interface OutboundMail {
 type MailAccepted = { id: string | null };
 
 /**
- * Raised where the deployment does not mail. Not a `MailSendError` and not in `errors.ts`: nothing
+ * Raised where the deployment does not mail. Not a `MailSendError` and not among the shared errors: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
 class MailHeldError extends Error {
@@ -95,8 +93,8 @@ class MailHeldError extends Error {
 }
 
 /**
- * Raised where the recipient is not one bare mailbox. Beside `MailHeldError` rather than in `errors.ts` for its
- * reason, and carrying no address for the same one.
+ * Raised where the recipient is not one bare mailbox. Beside `MailHeldError` rather than among the shared errors,
+ * since nothing here reached a provider either; it carries no address.
  */
 class MailRecipientError extends Error {
   constructor() {
@@ -263,7 +261,7 @@ async function drain(): Promise<void> {
     for (const mail of mails) {
       const report = { lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
-      // without one, as `fl_frontend/src/app/api/mail/delivery/route.ts` keeps a delivery event's.
+      // without one, as the delivery route keeps a delivery event's.
       const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, delivery_reason: null });
       for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }
@@ -276,8 +274,8 @@ async function drain(): Promise<void> {
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
 async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
-  // Opened here alone, sealed by `fl_frontend/src/core/auth/mails.ts :: oweSignInMail` under the same key, and held by this
-  // scope alone: never on a line, never in an error.
+  // Opened here alone, sealed under the same key where the mail was owed, and held by this scope alone: never on a
+  // line, never in an error.
   let secret: string | null = null;
   try {
     if (mail.secret !== null) secret = await symmetricDecrypt({ key: authSecret(), data: mail.secret });
@@ -329,8 +327,8 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
 
 /**
  * The one call against the mail provider, the drain's alone. **A refusal never carries the
- * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
- * takes the stable `name` field instead.
+ * provider's message**, which names the recipient -- `MailSendError` takes the stable `name` field
+ * instead.
  */
 async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
@@ -392,7 +390,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
         id = accepted && typeof accepted === "object" && "id" in accepted ? String(accepted.id) : null;
       } catch (error) {
         // A stalled body aborts here rather than inside `fetch`. An unreadable one still leaves a
-        // message that WENT: reporting the send as failed would take a decision back that stands.
+        // message that went: reporting the send as failed would take a decision back that stands.
         if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
       }
 
@@ -404,8 +402,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
       const refused: unknown = await res.json();
       providerErrorName = refused && typeof refused === "object" && "name" in refused ? String(refused.name) : undefined;
     } catch (error) {
-      // A stalled body aborts here rather than inside `fetch`, as it does in
-      // `fl_frontend/src/core/api.ts :: sendToBackend`. An unparseable one is left to the status alone.
+      // A stalled body aborts here rather than inside `fetch`. An unparseable one is left to the status alone.
       if (error instanceof Error && error.name === "TimeoutError") throw failNetwork(error);
     }
 

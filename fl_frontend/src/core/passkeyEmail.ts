@@ -25,11 +25,10 @@ const ADDED: PasskeyEvent = {
 const ERASED: PasskeyEvent = {
   subject: passkeyRemoved.subject,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
-  // leaves every other standing (`fl_frontend/src/core/auth/passkeys.ts :: removePasskey`).
+  // leaves every other standing.
   paragraph: (time) => [[passkeyRemoved.lead.before, { strong: time }, passkeyRemoved.lead.after], passkeyRemoved.devices],
 };
 
-/** What a builder is handed. */
 type Occasion = { instant: Date; origin: string };
 
 function build(event: PasskeyEvent, { instant, origin }: Occasion): Mail {

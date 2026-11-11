@@ -25,7 +25,6 @@ import type { MailOrigin } from "./mailKinds";
 const WORDS = SERVER_COPY.mail.spiel;
 const FACT = COPY.spielplan.fact;
 
-/** The referee's own panel, the address `fl_frontend/src/features/roles/utils.ts` opens their Funktion on. */
 const SCHIEDSRICHTER_PANEL_PATH = ROUTES.areaSchiedsrichter.path();
 
 /** The fixture by its two sides in the fixture's own order, as the schedule lists them. */

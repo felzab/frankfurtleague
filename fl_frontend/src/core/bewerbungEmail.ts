@@ -31,7 +31,7 @@ const toBewerbung = (origin: string, saisonId: string) => ({
   href: `${origin}${ROUTES.bewerbung.path(encodeURIComponent(saisonId))}`,
 });
 
-/** A seat's own last day set semibold, in the words of the page's `applicationDeadline`: each seat holds its own day. */
+/** A seat's own last day set semibold: each seat holds its own day. */
 const deadlineSentence = (deadline: string): Sentence => [
   WORDS.deadline.before,
   { strong: formatDateLong(dayOf(deadline)) },

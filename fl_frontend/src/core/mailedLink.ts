@@ -12,11 +12,10 @@ import type { NextRequest } from "next/server";
  * The pages a mailed link opens whose token must leave the address: one leads a signed-out visitor through the
  * sign-in, whose return address and Turnstile's script would both carry it, the other loads Turnstile itself. The
  * proxy swaps the token for a cookie on the first request, so no address such a page renders under holds it.
- * `fl_frontend/src/proxy.ts :: config` spells the same paths in its matcher, which takes literals alone.
+ * The proxy's `config` spells the same paths in its matcher, which takes literals alone.
  */
 export const MAILED_LINK_PAGES: readonly string[] = [ROUTES.accountErasure.path(), ROUTES.registrierung.path()];
 
-/** The parameter every mailed link carries its token under. */
 const TOKEN_PARAMETER = "token";
 
 /** One name for every page: each page's cookie is bound to that page's path, so no page reads another's token. */
@@ -24,7 +23,7 @@ const MAILED_LINK_COOKIE = "mailed_link";
 
 /**
  * Long enough for the sign-in a link may wait on; the mail's own link stays valid past it. The privacy notice
- * states the hour (`fl_frontend/src/core/serverCopy.ts`, `website.browser`).
+ * states the hour.
  */
 const MAILED_LINK_SECONDS = 60 * 60;
 
@@ -53,7 +52,7 @@ export function swapMailedLinkToken(req: NextRequest, page: string): NextRespons
     sameSite: "lax",
     path: page,
     maxAge: MAILED_LINK_SECONDS,
-    // As the library decides its own cookies' (`fl_frontend/src/core/auth/library.ts :: cookieNaming`).
+    // As the sign-in library decides its own cookies'.
     secure: new URL(frontend_config.AUTH_URL).protocol === "https:",
   });
   return answer;

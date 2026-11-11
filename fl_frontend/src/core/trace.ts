@@ -1,12 +1,10 @@
 export const TRACEPARENT_HEADER = "traceparent";
 
 // No proxied path reaches a backend write, so the actor is always the one the session set.
-// The edge blanks a visitor's header too (`nginx/shared/site.conf`),
-// which is depth rather than the guarantee.
+// The edge blanks a visitor's header too, which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 
-// The actor's session beside its address, which the backend's window checks read
-// (`fl_backend/app/core/security.py :: get_session_actor`).
+// The actor's session beside its address, which the backend's window checks read.
 export const AUTH_TIME_HEADER = "X-FL-Auth-Time";
 export const AUTH_FACTOR_HEADER = "X-FL-Auth-Factor";
 
