@@ -138,6 +138,20 @@ class TestANoticeIsAboutASlotStillToCome:
 
         assert owed == [True, False]
 
+    def test_a_closing_other_than_a_move_is_about_the_slot_its_row_asked(self):
+        """The fixture moved a week on and its referee taken off, both after the kick-off: the referee is told nothing.
+
+        Only a move's notice names the slot moved to. The referee change ranks ahead of the move, so its notice would be
+        about the slot gone by, and the referee was never asked about the new one.
+        """
+
+        asked = row(REFEREE, asked_at=TODAY)
+        moved_and_taken_off = spiel(schiedsrichter=None, date=days_after(day=spiel()["date"], days=7))
+
+        # The premise: the close shuts the row for the referee change, not the move.
+        assert reason_to_close(row=asked, spiel=moved_and_taken_off, austritte={}, now=KICK_OFF) == "schiedsrichter_switched"
+        assert notice_owed(row=asked, reason="schiedsrichter_switched", spiel=moved_and_taken_off, now=KICK_OFF) is False
+
     def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
         owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
 
