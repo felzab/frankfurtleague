@@ -1,10 +1,10 @@
 import { COPY, textOf } from "@/core/copy";
 
-import { answerRows, PartyHead } from "./AnswerRows";
+import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
 import { buttonLook } from "./buttonStyles";
-import { cardSurface, stacked } from "./cardStyles";
+import { actRow, cardSurface, stacked } from "./cardStyles";
 import { EMAIL_WORDS } from "./Facts";
-import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
+import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -25,14 +25,12 @@ export type SeatRow = {
   muted?: boolean;
 };
 
-// The acts under the words on a phone, at the row's end from `lg`, as a card's act row sets them. A seat opens no page of
-// its own, so no chevron ends it.
+// The list is the container its rows read, a card's act row in every part but the chevron: a seat opens no page of its
+// own (`cardStyles.ts :: actRow`).
 const seatRows = tv({
   slots: {
-    root: "w-full overflow-hidden text-sm",
-    row: `grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 lg:min-h-13 ${stacked()}`,
-    words: "grid min-w-0 gap-1",
-    acts: "col-start-1 row-start-2 flex items-center gap-2 lg:col-start-2 lg:row-start-1 lg:justify-self-end",
+    root: "@container w-full overflow-hidden text-sm",
+    row: stacked(),
   },
   variants: {
     bare: {
@@ -44,7 +42,8 @@ const seatRows = tv({
 
 /**
  * A record's three seats in one box: a row a seat, its name with its chips over one muted line, the words a party's in
- * `AnswerRows`, and its acts.
+ * `AnswerRows`, and its acts. The box's width picks the rows' form, as a card's: from 32 rem the chips after the name
+ * and the acts at the row's end, and in a narrower box the chips under the name and the acts under the words.
  */
 export function SeatRows({
   label,
@@ -57,24 +56,26 @@ export function SeatRows({
   bare?: boolean;
 }) {
   const s = seatRows({ bare });
-  const { line } = answerRows();
+  const row = actRow({ opens: false });
   return (
     <ul
       aria-label={label}
       className={s.root()}>
-      {rows.map((row) => (
+      {rows.map((seat) => (
         <li
-          key={row.id}
+          key={seat.id}
           className={s.row()}>
-          <span className={s.words()}>
-            <PartyHead
-              name={row.name}
-              chips={row.chips}
-              muted={row.muted === true}
-            />
-            <span className={line()}>{textOf(row.line)}</span>
+          <span className={row.frame()}>
+            <span className={row.words({ class: "gap-1" })}>
+              <PartyHead
+                name={seat.name}
+                chips={seat.chips}
+                muted={seat.muted === true}
+              />
+              <span className={row.line()}>{textOf(seat.line)}</span>
+            </span>
+            {seat.acts !== undefined && <span className={row.acts()}>{seat.acts}</span>}
           </span>
-          {row.acts !== undefined && <span className={s.acts()}>{row.acts}</span>}
         </li>
       ))}
     </ul>
@@ -82,38 +83,35 @@ export function SeatRows({
 }
 
 /**
- * The seats while they are read: three rows, each a name and a chip over the muted line, and the one act every seat has.
+ * The seats while they are read: three rows, each a name and a chip over the muted line, and the one act every seat has,
+ * drawn from the rows' recipe inside their container, so each stands as a seat's row will at the box's width.
  * The line's words are set unseen, an address wrapping in a phone's column as it will. `readOnly` is the seats of a page
  * that only shows them: its line names the seat alone and its row ends with its words, since an act's bar would stand
- * under them on a phone and the row would land a line shorter than it waited.
+ * under them in a narrow box and the row would land a line shorter than it waited.
  */
 export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?: boolean; readOnly?: boolean }) {
   const s = seatRows({ bare });
-  const words = answerRows();
+  const row = actRow({ opens: false });
   return (
     <div className={s.root()}>
       {[0, 1, 2].map((index) => (
         <div
           key={index}
           className={s.row()}>
-          <span className={s.words()}>
-            <span className={words.head()}>
-              <PlaceholderLine
-                textClass={words.name()}
-                widthClass="w-24"
+          <span className={row.frame()}>
+            <span className={row.words({ class: "gap-1" })}>
+              <PartyHeadPlaceholder />
+              <PlaceholderSentence
+                textClass={row.line()}
+                words={COPY.admin.seatLine(["trainer"], readOnly ? null : EMAIL_WORDS, null)}
               />
-              <span className={placeholderBar("h-5 w-16")} />
             </span>
-            <PlaceholderSentence
-              textClass={words.line()}
-              words={COPY.admin.seatLine(["trainer"], readOnly ? null : EMAIL_WORDS, null)}
-            />
+            {!readOnly && (
+              <span className={row.acts()}>
+                <span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />
+              </span>
+            )}
           </span>
-          {!readOnly && (
-            <span className={s.acts()}>
-              <span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />
-            </span>
-          )}
         </div>
       ))}
     </div>
