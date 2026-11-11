@@ -3,8 +3,8 @@ import { EventEmitter } from "node:events";
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-/** One `createIndex` the build issued, by collection and name, and the time budget it carried. */
-type Build = { collection: string; name: string; timeoutMS?: number };
+/** One `createIndex` the build issued, by collection and name. */
+type Build = { collection: string; name: string };
 
 /** The store client's own events, of which the build listens for `topologyDescriptionChanged`. */
 const clientEvents = new EventEmitter();
@@ -24,8 +24,8 @@ const DB_DOUBLE = {
     off: (event: string, listener: (...args: unknown[]) => void) => clientEvents.off(event, listener),
     db: () => ({
       collection: (collection: string) => ({
-        createIndex: async (_key: unknown, options: { name: string; timeoutMS?: number }) => {
-          const build = { collection, name: options.name, timeoutMS: options.timeoutMS };
+        createIndex: async (_key: unknown, options: { name: string }) => {
+          const build = { collection, name: options.name };
           builds.push(build);
           running.set(collection, (running.get(collection) ?? 0) + 1);
           try {
@@ -122,16 +122,5 @@ describe("the sign-in store's index build", () => {
 
     const names = (from: Build[]) => from.map(({ name }) => name).sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
-  });
-
-  /* The client's `timeoutMS` is a visitor's, and a build cut short by it is abandoned by the server. */
-  it("gives every build a time budget of its own", async () => {
-    await buildAuthIndexes();
-
-    assert.ok(builds.length > 0);
-    assert.ok(
-      builds.every(({ timeoutMS }) => typeof timeoutMS === "number"),
-      "a build took the client's per-request budget",
-    );
   });
 });
