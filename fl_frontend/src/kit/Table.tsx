@@ -4,8 +4,8 @@ import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { buttonPlaceholder } from "./buttonStyles";
-import { cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { actsFold, cardHover, cardSurface, columnHead, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
@@ -14,6 +14,7 @@ import { RoleMark } from "./RoleMark";
 import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
+import { ActsFoldScope } from "./SideActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
@@ -168,6 +169,12 @@ export type TableProps = {
    * beside the name.
    */
   crowded?: boolean;
+  /**
+   * The rows' acts are side acts, up to two a row, drawn by `SideActs`: where the rows are stacked, every row's fold
+   * into one „⋯“ at the row's end, in the chevron's place, rather than stand on a line under its words. A list whose
+   * rows carry one act at the most, or a decision, such as „Zusagen“ and „Ablehnen“, folds nothing.
+   */
+  folds?: boolean;
   columns: ReadonlyArray<TableColumn>;
   rows: ReadonlyArray<TableRow>;
   /** What stands in the rows' place when there are none. */
@@ -212,7 +219,7 @@ export type TableProps = {
  */
 export type TableHead = Pick<
   TableProps,
-  "nameLabel" | "rankLabel" | "state" | "crowded" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
+  "nameLabel" | "rankLabel" | "state" | "crowded" | "folds" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
 > & {
   /** The rows open nothing, so their wait ends in no chevron. */
   linked?: false;
@@ -418,9 +425,10 @@ const table = tv({
       state: {},
       end: {},
     },
-    // A list whose rows carry acts.
+    // A list whose rows carry acts: on a line under a stacked row's words, or folded into one „⋯“ at its end (`folds`).
     acts: {
-      true: {},
+      under: {},
+      folded: {},
     },
     linked: {
       true: { row: cardHover() },
@@ -454,8 +462,28 @@ const table = tv({
     { lone: "end", stacks: "list", class: { head: "@max-2xl:hidden" } },
     { lone: "end", stacks: "crowded", class: { head: "@max-5xl:hidden" } },
     // A stacked row with acts is padded as a card's act row.
-    { acts: true, stacks: "list", class: { row: "@max-2xl:py-3 lg:@max-2xl:py-3" } },
-    { acts: true, stacks: "crowded", class: { row: "@max-5xl:py-3 lg:@max-5xl:py-3" } },
+    { acts: "under", stacks: "list", class: { row: "@max-2xl:py-3 lg:@max-2xl:py-3" } },
+    { acts: "under", stacks: "crowded", class: { row: "@max-5xl:py-3 lg:@max-5xl:py-3" } },
+    // The „⋯“ stands in the row's last track, across its lines, as a chevron does. Its button is taller than a name's
+    // line, and a cell spanning the lines would share that height out over them and stand a lone name above the
+    // button's centre; so the cell's size counts nothing (`contain-size`), its width stated, and the button stands
+    // centred on the row's lines, inside the row's least height.
+    {
+      acts: "folded",
+      stacks: "list",
+      class: {
+        acts: "@max-2xl:-col-start-2 @max-2xl:row-span-5 @max-2xl:row-start-1 @max-2xl:flex @max-2xl:w-11 @max-2xl:items-center @max-2xl:px-0 @max-2xl:pe-3 @max-2xl:contain-size pointer-coarse:@max-2xl:w-13",
+        actsLine: "@max-2xl:pt-0",
+      },
+    },
+    {
+      acts: "folded",
+      stacks: "crowded",
+      class: {
+        acts: "@max-5xl:-col-start-2 @max-5xl:row-span-5 @max-5xl:row-start-1 @max-5xl:flex @max-5xl:w-11 @max-5xl:items-center @max-5xl:px-0 @max-5xl:pe-3 @max-5xl:contain-size pointer-coarse:@max-5xl:w-13",
+        actsLine: "@max-5xl:pt-0",
+      },
+    },
     // A prose or a stacked row on a phone stands its cells in one column and its chevron in a column of its own at its
     // end, spanning every cell's line so it is centred on the row's height (`Table`'s `phoneCells`).
     { prose: true, chevronOnPhone: true, class: { row: PHONE_END_ROW_CLASSES, end: PHONE_END_CLASSES } },
@@ -749,6 +777,7 @@ export function Table({
   rankLabel,
   state,
   crowded = false,
+  folds = false,
   columns,
   rows,
   empty,
@@ -764,7 +793,10 @@ export function Table({
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack, crowded });
-  const parts = table({ stacks });
+  // Where a stacked row's acts stand: a table whose rows never stack folds nothing.
+  const fold = folds && stacks !== "none" ? stacks : null;
+  const acts = !hasActs ? undefined : fold === null ? "under" : "folded";
+  const parts = table({ stacks, acts });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
@@ -862,7 +894,7 @@ export function Table({
                   id={row.anchor}
                   data-kit-row
                   role="row"
-                  className={table({ linked: leadsOn(row), muted: row.muted === true, acts: hasActs, ...phoneEnd }).row()}>
+                  className={table({ linked: leadsOn(row), muted: row.muted === true, acts, ...phoneEnd }).row()}>
                   <Stretched>
                     {rankLabel !== undefined && (
                       <td
@@ -940,7 +972,7 @@ export function Table({
                           <RowActs
                             className={parts.actsLine()}
                             describedBy={nameId}>
-                            {row.acts}
+                            <ActsFoldScope at={fold}>{row.acts}</ActsFoldScope>
                           </RowActs>
                         )}
                       </td>
@@ -954,6 +986,17 @@ export function Table({
       )}
     </div>
   );
+}
+
+/** A row's acts while the rows are read: a button's bar for each, by its label. */
+function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
+  return acts.map((act) => (
+    <span
+      key={act}
+      className={buttonPlaceholder()}>
+      {act}
+    </span>
+  ));
 }
 
 /**
@@ -983,6 +1026,7 @@ export function TablePlaceholder({
     rankLabel,
     state,
     crowded = false,
+    folds = false,
     columns,
     compact = false,
     chevronOnPhone = true,
@@ -993,7 +1037,9 @@ export function TablePlaceholder({
   const linked = head.linked !== false && acts === undefined;
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose: false, stack, crowded });
   const phoneEnd = { stack, stacks, chevronOnPhone: linked && chevronOnPhone };
-  const parts = table({ stacks });
+  const fold = folds && stacks !== "none" ? stacks : null;
+  const actsForm = acts === undefined ? undefined : fold === null ? "under" : "folded";
+  const parts = table({ stacks, acts: actsForm });
   return (
     <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
       <table
@@ -1024,7 +1070,7 @@ export function TablePlaceholder({
           {Array.from({ length: rows }, (_, index) => (
             <tr
               key={index}
-              className={table({ ...phoneEnd, acts: acts !== undefined }).row()}>
+              className={table({ ...phoneEnd, acts: actsForm }).row()}>
               {rankLabel !== undefined && (
                 <td className={table({ align: "centre", compact }).cell()}>
                   <span className={placeholderBar("mx-auto h-3 w-3")} />
@@ -1072,13 +1118,19 @@ export function TablePlaceholder({
               {acts !== undefined && (
                 <td className={parts.acts()}>
                   <span className={parts.actsLine()}>
-                    {acts.map((act) => (
-                      <span
-                        key={act}
-                        className={buttonPlaceholder()}>
-                        {act}
-                      </span>
-                    ))}
+                    {fold === null ? (
+                      <ActBars acts={acts} />
+                    ) : (
+                      // As `SideActs` draws them: the buttons' bars where the list is a table, the „⋯“'s where it is stacked.
+                      <>
+                        <span className={actsFold({ at: fold }).buttons()}>
+                          <ActBars acts={acts} />
+                        </span>
+                        <span className={actsFold({ at: fold }).menu()}>
+                          <span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />
+                        </span>
+                      </>
+                    )}
                   </span>
                 </td>
               )}

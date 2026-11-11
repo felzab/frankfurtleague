@@ -101,6 +101,24 @@ export const actRow = tv({
 });
 
 /**
+ * A list row's side acts by its list's width (`SideActs`): their labelled buttons where the list is a table, and one
+ * „⋯“ holding them where its rows are stacked. Both are drawn and one is shown, at the list's own stacking width
+ * (`Table.tsx :: table`'s `stacks`), `list` or `crowded`; the table's wait draws its bars from the same.
+ */
+export const actsFold = tv({
+  slots: {
+    buttons: "flex items-center gap-2",
+    menu: "flex",
+  },
+  variants: {
+    at: {
+      list: { buttons: "@max-2xl:hidden", menu: "@2xl:hidden" },
+      crowded: { buttons: "@max-5xl:hidden", menu: "@5xl:hidden" },
+    },
+  },
+});
+
+/**
  * A card's look, shared by the server-rendered `Card` and `CardLink` and the client `CardFold`, so a
  * ruling on the card's surface, its head's fill or a row's hover changes one recipe. Kept apart from the
  * client module, whose every export a Server Component would receive as a reference it cannot call.

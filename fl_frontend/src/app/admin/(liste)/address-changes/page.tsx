@@ -93,6 +93,7 @@ const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
   crowded: true,
+  folds: true,
   columns: [
     { key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: WORDS.until, width: "instant" },

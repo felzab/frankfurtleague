@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 
 import type { TableProps } from "./Table";
@@ -70,6 +71,32 @@ describe("a list's status column", () => {
     expect(cellsOf(held)).toStrictEqual(["anna@example.org", `${COPY.admin.expired}${COPY.admin.delivery.undeliverable}`, "Nordend"]);
     // A row with no chip keeps the column's cell, empty, so every row's cells stand under the same heads.
     expect(cellsOf(bare)).toStrictEqual(["berta@example.org", "", "Westend"]);
+  });
+});
+
+describe("a list that folds its rows' side acts", () => {
+  // The harm: the list keeps the „⋯“'s place at a stacked row's end and its rows' acts never hear of it, so their
+  // buttons stand in a place a button's width does not fit. Which of the two shows at which width is the drive's.
+  it("hands its rows' acts the fold, which draws the „⋯“ beside their buttons", () => {
+    const row = (folds: boolean) => (
+      <Table
+        {...props([
+          {
+            id: "1",
+            name: { record: "anna@example.org" },
+            cells: {},
+            acts: <SideActs acts={[{ label: COPY.shared.verb.discard, tone: "danger", onPress: () => undefined }]} />,
+          },
+        ])}
+        folds={folds}
+      />
+    );
+    const { unmount } = render(row(false));
+    expect(screen.queryByRole("button", { name: COPY.template.more })).toBeNull();
+    unmount();
+
+    render(row(true));
+    expect(screen.getAllByRole("button", { name: COPY.template.more })).toHaveLength(1);
   });
 });
 
