@@ -49,16 +49,16 @@ const ADDRESS_CONFIRMED = "Adresse bestätigt";
 // of an entry that goes alone, the objection Art. 21 (4) asks to be named explicitly, in the two parts around the
 // league's address, and the privacy notice's link, around its title.
 const ageCheck = (minAge: number) => `Mit deinem Geburtsdatum prüfen wir, ob du mindestens ${formatNumber(minAge)} Jahre alt bist.`;
-// In the two parts around its day, which a mail sets semibold between them.
-const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum", after: ", löschen wir deinen Eintrag." };
-const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before} ${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
+// In the two parts around its day, each holding its own space, which a mail sets semibold between them.
+const ENTRY_DEADLINE = { before: "Bestätigst du nicht bis zum ", after: ", löschen wir deinen Eintrag." };
+const entryDeadline = (until: CalendarDay) => `${ENTRY_DEADLINE.before}${formatDateLong(until)}${ENTRY_DEADLINE.after}`;
 // The same in an application, where any seat's lapse takes the whole application with it, so the deletion names no day:
 // another seat's earlier day can overtake the reader's own.
 const APPLICATION_DEADLINE = {
-  before: "Bestätige bis zum",
+  before: "Bestätige bis zum ",
   after: ". Bestätigt eine Kontaktperson nicht rechtzeitig, löschen wir die Bewerbung.",
 };
-const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before} ${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
+const applicationDeadline = (until: CalendarDay) => `${APPLICATION_DEADLINE.before}${formatDateLong(until)}${APPLICATION_DEADLINE.after}`;
 const OBJECTION_RIGHT = {
   before:
     "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ",
@@ -297,8 +297,8 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
      * address, which the shell sets as a link between them.
      */
-    // The confirmation pages' words, the shell setting the address between the parts without their spaces.
-    objection: { before: OBJECTION_RIGHT.before.trimEnd(), after: OBJECTION_RIGHT.after.trimStart() },
+    // The registration page's words, which the page sets around the address alike.
+    objection: OBJECTION_RIGHT,
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     notYou: {
       signIn: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
@@ -395,7 +395,7 @@ export const SERVER_COPY = catalogue({
      */
     bewerbung: {
       confirmOrOppose: "Bestätige deinen Eintrag oder widersprich ihm.",
-      /** In the two parts around its day, as `schiedsrichterConfirmation.deadline`: the builder sets the day semibold after a space. */
+      /** In the two parts around its day, as `schiedsrichterConfirmation.deadline`: the builder sets the day semibold between them. */
       deadline: APPLICATION_DEADLINE,
       registeredAs: "Eingetragen als",
       /** The title of the facts the Ansprechperson is told. */
@@ -473,17 +473,17 @@ export const SERVER_COPY = catalogue({
       lead: "Mit diesem Code meldest du dich an:",
       validity: (minutes: number) => `Er gilt ${formatNumber(minutes)} Minuten und nur einmal.`,
       /** The host the code is typed on, in the two parts around it, which the shell sets semibold between them. */
-      onlyHere: { before: "Gib ihn nur auf", after: "ein." },
+      onlyHere: { before: "Gib ihn nur auf ", after: " ein." },
     },
 
     /** A passkey set up or deleted, in the two parts around the moment, which the shell sets semibold between them. */
     passkeyAdded: {
       subject: "Passkey eingerichtet",
-      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey eingerichtet." },
+      lead: { before: "Am ", after: " wurde in deinem Konto ein Passkey eingerichtet." },
     },
     passkeyRemoved: {
       subject: "Passkey gelöscht",
-      lead: { before: "Am", after: "wurde in deinem Konto ein Passkey gelöscht." },
+      lead: { before: "Am ", after: " wurde in deinem Konto ein Passkey gelöscht." },
       devices: "Geräte, die damit angemeldet waren, sind abgemeldet.",
     },
 
@@ -502,7 +502,7 @@ export const SERVER_COPY = catalogue({
       /** The address on file's request opens on the page's question; the subject is the page's title. */
       previousEffect: "Sie gilt, sobald beide Adressen sie bestätigt haben.",
       /** To the replaced address, in the two parts around the moment, which the shell sets semibold between them. */
-      effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit", after: "gilt für dein Konto eine neue E-Mail-Adresse." } },
+      effective: { subject: "E-Mail-Adresse geändert", lead: { before: "Seit ", after: " gilt für dein Konto eine neue E-Mail-Adresse." } },
       /** To the new address, whose confirmed change did not take effect: never why, since its holder may be a stranger. */
       discarded: { subject: "E-Mail-Adresse nicht geändert", lead: "Für dein Konto gilt weiter die bisherige Adresse." },
       /** A change the administration started: the new address's link, then the notice to the address on file. */
@@ -1224,7 +1224,7 @@ export const SERVER_COPY = catalogue({
     deadline: ENTRY_DEADLINE,
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before} ${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before}${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
     /** What an objection does, the objection's question's sentence: the page's own clause, said of the objection alone. */
     objectionEffect: OBJECTION_DELETES_ENTRY,
   },

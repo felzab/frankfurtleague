@@ -112,7 +112,7 @@ export function buildAddressChangeEffectiveEmail({ instant }: FLAddressChangeEff
     subjectLine: subject,
     origin: mailOrigin(origin),
     // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
-    paragraphs: [[[`${lead.before} `, { strong: formatInstant(instant) }, ` ${lead.after}`]]],
+    paragraphs: [[[lead.before, { strong: formatInstant(instant) }, lead.after]]],
   };
 }
 

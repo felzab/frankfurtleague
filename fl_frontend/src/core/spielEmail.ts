@@ -35,7 +35,7 @@ const paarung = ({ team1, team2 }: Pick<FLSpielMailAppointment, "team1" | "team2
 const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndTime(dayOf(date), timeOf(time));
 
 /** A sentence whose moment stands semibold between its two parts. */
-const around = (before: string, value: string, after: string): Sentence => [before, { strong: value }, after];
+const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
 /**
  * A move's rows: the moment it left, and the one it moved to where it holds one. The block stands under the new
@@ -84,7 +84,7 @@ export function buildSpielRequestEmail(
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it.
-  const [subjectLine, lead]: readonly [string, Paragraph] =
+  const [subjectLine, lead]: readonly [Copy, Paragraph] =
     movedFrom !== null
       ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
       : kind === "spiel_reminder"
@@ -132,7 +132,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
 }
 
 /** A notice naming a fixture, the reader's next mail, if any, being the request or the Einteilung it states. */
-function noticeEmail(subjectLine: string, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
+function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
     kind: "notice",
     subjectLine,

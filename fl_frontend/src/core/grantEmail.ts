@@ -4,19 +4,20 @@ import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
+import type { Copy } from "./copy";
 import type { Mail, Paragraph } from "./emailShell";
 import type { FLGrantData } from "./generated/client/types";
 import type { MailOrigin } from "./mailKinds";
 
 const WORDS = SERVER_COPY.mail.grant;
 
-function subjectOf({ change, stage }: FLGrantData): string {
+function subjectOf({ change, stage }: FLGrantData): Copy {
   if (change === "revoked") return WORDS.subject.revoked;
 
   return stage === "started" ? WORDS.subject[change] : WORDS.subject[stage];
 }
 
-function leadOf({ change, stage, address, new_address }: FLGrantData): string {
+function leadOf({ change, stage, address, new_address }: FLGrantData): Copy {
   const named = address ?? WORDS.unnamedAddress;
   // The lead's object, after „an“: an erased address reads lower-case there.
   const object = address ?? WORDS.unnamedTarget;
