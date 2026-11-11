@@ -27,17 +27,13 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 
 ## Which of these reach real users
 
-`deploy.sh` does, and so does `./scripts/ops/local.sh --refresh-db`, which reads the
-production database to fill the local one — it copies out and never writes back. `--seed` reaches
-production only when there is no copy on disk yet.
-Everything else leaves production alone.
+`deploy.sh` does. Everything else leaves production alone.
 
-`--fresh` is still destructive locally: it removes the volumes, the copy under `.local-db`, the
-edge's access log under `.tmp-nginx-log` and the mail sink under `.tmp-mail` in
+`--fresh` is still destructive locally: it removes the volumes in
 `scripts/ops/local.sh :: section "preflight"`, ahead of `scripts/ops/local.sh :: section "build"`, so
 a build that fails afterwards leaves neither an image nor a database. Nothing brings a local-only
-fixture back — `--fresh` alone leaves the database empty, and `--seed` fills it from production,
-which never held one. Rebuilding the images from the current tree needs no flag: a bare
+fixture back — `--fresh` alone leaves the database empty, and `--seed-made-up` fills it with the
+made-up league, which never held one. Rebuilding the images from the current tree needs no flag: a bare
 `./scripts/ops/local.sh` builds unconditionally and keeps the volumes, and what proves the running
 images are that tree is a check against the built artefact rather than the teardown. Take `--fresh`
 when an empty database or a cleared Next cache is the point, and snapshot a local-only fixture first
