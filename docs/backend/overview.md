@@ -20,10 +20,14 @@ sessions, and why this service sets no cache headers of its own.
 | `openapi.json`     | The published contract, which `app/openapi_document.py` writes from the routes, committed                  |
 
 A slice carries only the files it needs. **A router declares one access tier, and its file is named
-for that tier**: `public_router.py` for the base key, the public reads and the anonymous link writes
-alike; `person_router.py` for a signed-in person's own records; `admin_router.py` for the
-administration; and `system_router.py` for the frontend process's own calls, such as a retention
-pass. Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
+for that tier**:
+
+- `public_router.py`: the base key, for the public reads and the anonymous link writes alike
+- `person_router.py`: a signed-in person's own records
+- `admin_router.py`: the administration
+- `system_router.py`: the frontend process's own calls, such as a retention pass
+
+Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
 own for a season's overview, and `system/router.py`, the unguarded liveness probe's (under
 Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
 (`spieler/person_router.py`). `app/main.py` mounts them all, each under its slice's tag, which with
