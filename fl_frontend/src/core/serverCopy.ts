@@ -83,6 +83,8 @@ type RetentionBounds = {
   code: { minutes: number; mailHours: 1; failureHours: number };
   /** The days a session's row stands past its last use, which the library's sliding expiry and the TTL index keep. */
   sessionDays: number;
+  /** How many seasons after its own a ban runs, the backend's `BAN_DURATION_SAISONS`. */
+  banSaisons: number;
 };
 
 /**
@@ -1045,7 +1047,7 @@ export const SERVER_COPY = catalogue({
           {
             name: "Gesperrte Adresse",
             content: "Adresse, Grund, Datum",
-            period: "bis zum Ende der 5.\u00A0Saison danach",
+            period: (bound: RetentionBounds) => `bis zum Ende der ${boundBy(formatOrdinal(bound.banSaisons), "Saison")} danach`,
           },
           {
             name: "Zugang zur Verwaltung",

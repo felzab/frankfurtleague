@@ -4,7 +4,7 @@ import { Table } from "@/kit/Table";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
-import { DECLINED_RETENTION_DAYS, MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
+import { BAN_DURATION_SAISONS, DECLINED_RETENTION_DAYS, MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -109,6 +109,7 @@ export default function PrivacyNoticePage() {
                       addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
                       code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
                       sessionDays: SESSION_EXPIRES_IN_DAYS,
+                      banSaisons: BAN_DURATION_SAISONS,
                     }),
             },
           }))}
