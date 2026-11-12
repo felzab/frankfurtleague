@@ -5794,7 +5794,7 @@ export interface FLTeamSeat {
  * An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
  * discards it.
  */
-export interface FLTeamPanelTermin {
+export interface FLTeamPanelSpielbestaetigung {
   ansetzung: FLSpielbestaetigungViewAnsetzung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
@@ -5826,9 +5826,9 @@ export interface FLTeamOverviewResponse {
   seats: FLTeamSeat[];
   /** @minLength 1 */
   shorthand: string;
+  spielbestaetigungen: FLTeamPanelSpielbestaetigung[];
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  termine: FLTeamPanelTermin[];
   trikot_farbe: FLTrikotFarbe | null;
 }
 
@@ -5930,6 +5930,7 @@ export interface FLTeamPanelSpiel {
   sonderereignis: FLSonderereignis | null;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  spielbestaetigung: FLSpielbestaetigungTeamState | null;
   spielort: FLSpielortFieldPublic | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
@@ -5939,7 +5940,6 @@ export interface FLTeamPanelSpiel {
   team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldJoined | null;
   team2_quelle: FLSpielQuelle | null;
-  termin: FLSpielbestaetigungTeamState | null;
   time: string | null;
 }
 

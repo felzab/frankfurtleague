@@ -277,7 +277,10 @@ class TestTheOverview:
         assert (served["name"], served["full_name"], served["rollen"]) == ("Zorbanax", "Zorbanax-Schule", ["trainer"])
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
-        assert [(termin["spiel_id"], termin["state"], termin["side"], termin["vorschlag"]) for termin in served["termine"]] == [
+        assert [
+            (spielbestaetigung["spiel_id"], spielbestaetigung["state"], spielbestaetigung["side"], spielbestaetigung["vorschlag"])
+            for spielbestaetigung in served["spielbestaetigungen"]
+        ] == [
             (str(EXPIRED["_id"]), "expired", "team1", None),
             # The other club's proposed date and hour.
             (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}),
@@ -312,7 +315,7 @@ class TestTheTeamsSpiele:
         assert status == 200
         by_spiel = {entry["id"]: entry for entry in served["spiele"]}
         assert [entry["spiel_nr"] for entry in served["spiele"]] == sorted(spiel_raw["spiel_nr"] for spiel_raw in SPIELE)
-        assert {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["termin"] for spiel_raw in SPIELE} == {
+        assert {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["spielbestaetigung"] for spiel_raw in SPIELE} == {
             1: "vorschlag",
             2: "declined",
             3: "agreed",

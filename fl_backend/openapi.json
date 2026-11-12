@@ -16706,17 +16706,17 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "spielbestaetigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLTeamPanelSpielbestaetigung"
+            },
+            "title": "Spielbestaetigungen",
+            "type": "array"
+          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
-          },
-          "termine": {
-            "items": {
-              "$ref": "#/components/schemas/FLTeamPanelTermin"
-            },
-            "title": "Termine",
-            "type": "array"
           },
           "trikot_farbe": {
             "anyOf": [
@@ -16737,7 +16737,7 @@
           "full_name",
           "trikot_farbe",
           "rollen",
-          "termine",
+          "spielbestaetigungen",
           "aufstellungen",
           "registrierungen",
           "registrierungen_complete",
@@ -17277,6 +17277,16 @@
             "title": "Spiel Nr",
             "type": "integer"
           },
+          "spielbestaetigung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungTeamState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spielort": {
             "anyOf": [
               {
@@ -17337,16 +17347,6 @@
               }
             ]
           },
-          "termin": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungTeamState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "time": {
             "anyOf": [
               {
@@ -17382,13 +17382,13 @@
           "for_third_place",
           "spieltag_position",
           "count_spieltage_in_phase",
-          "termin",
+          "spielbestaetigung",
           "aufstellung"
         ],
         "title": "FLTeamPanelSpiel",
         "type": "object"
       },
-      "FLTeamPanelTermin": {
+      "FLTeamPanelSpielbestaetigung": {
         "description": "One date the league asked the team to confirm, while it still holds work for the team or waits on the league.\n\nAn agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or\ndiscards it.",
         "properties": {
           "ansetzung": {
@@ -17435,7 +17435,7 @@
           "deadline",
           "vorschlag"
         ],
-        "title": "FLTeamPanelTermin",
+        "title": "FLTeamPanelSpielbestaetigung",
         "type": "object"
       },
       "FLTeamRecord": {
@@ -30064,7 +30064,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele": {
       "get": {
-        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where\nno row asks the team about the fixture as it stands.",
+        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where\nno row asks the team about the fixture as it stands.",
         "operationId": "teams_get_team_spiele",
         "parameters": [
           {

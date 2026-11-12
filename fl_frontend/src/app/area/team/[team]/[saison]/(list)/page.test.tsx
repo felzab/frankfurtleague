@@ -5,10 +5,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { agreeTermin, declineTermin } from "./answerTermin";
+import { agreeSpielbestaetigung, declineSpielbestaetigung } from "./answerSpielbestaetigung";
 import TeamOverviewPage from "./page";
 
-import type { FLAufstellungPhase, FLTeamOverviewResponse, FLTeamPanelAufstellung, FLTeamPanelTermin } from "@/core/generated/client/types";
+import type {
+  FLAufstellungPhase,
+  FLTeamOverviewResponse,
+  FLTeamPanelAufstellung,
+  FLTeamPanelSpielbestaetigung,
+} from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
 import type { ReactElement } from "react";
 
@@ -16,7 +21,7 @@ const state = vi.hoisted(() => ({ read: null as unknown }));
 
 const DONE = { ok: true, value: undefined } as const;
 
-vi.mock("./answerTermin", () => ({ agreeTermin: vi.fn(), declineTermin: vi.fn() }));
+vi.mock("./answerSpielbestaetigung", () => ({ agreeSpielbestaetigung: vi.fn(), declineSpielbestaetigung: vi.fn() }));
 vi.mock("@/features/teams/queries", () => ({ getTeamOverview: () => Promise.resolve(state.read) }));
 vi.mock("@/features/roles/resolvers", () => ({
   requireTeamSeats: () => Promise.resolve([{ team_id: "6af32ed4205642a3fd5ee7e1", saison_id: "2027" }]),
@@ -29,7 +34,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const termin = (overrides: Partial<FLTeamPanelTermin>): FLTeamPanelTermin => ({
+const spielbestaetigung = (overrides: Partial<FLTeamPanelSpielbestaetigung>): FLTeamPanelSpielbestaetigung => ({
   spielbestaetigung_id: "000000000000000000000001",
   spiel_id: "0000000000000000000000a1",
   ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
@@ -43,7 +48,7 @@ const termin = (overrides: Partial<FLTeamPanelTermin>): FLTeamPanelTermin => ({
 /** One card's rows, as the page hands them to its template off a read holding `held` and nothing else open. */
 async function rowsOf(
   card: string,
-  held: Partial<Pick<FLTeamOverviewResponse, "termine" | "aufstellungen" | "registrierungen">>,
+  held: Partial<Pick<FLTeamOverviewResponse, "spielbestaetigungen" | "aufstellungen" | "registrierungen">>,
 ): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
   state.read = {
     team_id: "6af32ed4205642a3fd5ee7e1",
@@ -53,7 +58,7 @@ async function rowsOf(
     full_name: "Ahorn-Gymnasium",
     trikot_farbe: null,
     rollen: ["ansprechperson"],
-    termine: [],
+    spielbestaetigungen: [],
     aufstellungen: [],
     registrierungen: [],
     registrierungen_complete: true,
@@ -70,31 +75,32 @@ async function rowsOf(
 }
 
 /** The Termine card's rows. */
-const termine = (...rows: readonly FLTeamPanelTermin[]) => rowsOf("termine", { termine: [...rows] });
+const spielbestaetigungen = (...rows: readonly FLTeamPanelSpielbestaetigung[]) =>
+  rowsOf("spielbestaetigungen", { spielbestaetigungen: [...rows] });
 
 // Every id on the page is a 24-digit hex string, the fixture's beside its confirmation row's: an answer posted with
 // the fixture's id, or with another row's, is refused or lands on another date, and no type tells them apart.
 describe("a date's answer", () => {
-  const first = termin({});
-  const second = termin({
+  const first = spielbestaetigung({});
+  const second = spielbestaetigung({
     spielbestaetigung_id: "000000000000000000000002",
     spiel_id: "0000000000000000000000a2",
     ansetzung: { date: "2026-11-21", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Linde" },
   });
 
   it("agrees to the row pressed, by its confirmation row", async () => {
-    vi.mocked(agreeTermin).mockResolvedValue(DONE);
-    const rows = await termine(first, second);
+    vi.mocked(agreeSpielbestaetigung).mockResolvedValue(DONE);
+    const rows = await spielbestaetigungen(first, second);
     render(rows[1]?.acts as ReactElement);
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.agree }));
 
-    expect(agreeTermin).toHaveBeenCalledExactlyOnceWith({ id: second.spielbestaetigung_id });
+    expect(agreeSpielbestaetigung).toHaveBeenCalledExactlyOnceWith({ id: second.spielbestaetigung_id });
   });
 
   it("declines the row pressed, by its confirmation row", async () => {
-    vi.mocked(declineTermin).mockResolvedValue(DONE);
-    const rows = await termine(first, second);
+    vi.mocked(declineSpielbestaetigung).mockResolvedValue(DONE);
+    const rows = await spielbestaetigungen(first, second);
     render(rows[1]?.acts as ReactElement);
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.decline }));
@@ -107,8 +113,8 @@ describe("a date's answer", () => {
     await userEvent.keyboard("1800");
     await userEvent.click(within(dialog).getByRole("button", { name: COPY.shared.verb.decline }));
 
-    await waitFor(() => expect(declineTermin).toHaveBeenCalledOnce());
-    const posted = vi.mocked(declineTermin).mock.calls[0]?.[0] as FormData;
+    await waitFor(() => expect(declineSpielbestaetigung).toHaveBeenCalledOnce());
+    const posted = vi.mocked(declineSpielbestaetigung).mock.calls[0]?.[0] as FormData;
     expect(posted.get("id")).toBe(second.spielbestaetigung_id);
   });
 });
@@ -116,7 +122,11 @@ describe("a date's answer", () => {
 // The backend refuses every answer to these, so a button on them would end on a refusal the person cannot repair.
 describe("a date the team cannot answer", () => {
   it("carries no act past its deadline, declined or agreed", async () => {
-    const rows = await termine(termin({ state: "expired" }), termin({ state: "declined" }), termin({ state: "agreed" }));
+    const rows = await spielbestaetigungen(
+      spielbestaetigung({ state: "expired" }),
+      spielbestaetigung({ state: "declined" }),
+      spielbestaetigung({ state: "agreed" }),
+    );
 
     expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
   });
@@ -132,7 +142,7 @@ describe("a line-up's row", () => {
       marks: { due_at: "2026-11-13T15:00:00Z", phase, stored: false },
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
-    const [overdueDate] = await termine(termin({ state: "expired" }));
+    const [overdueDate] = await spielbestaetigungen(spielbestaetigung({ state: "expired" }));
 
     const overdue = { tone: "danger", label: COPY.area.team.aufstellung.overdue };
     expect(overdueDate?.chip).toStrictEqual(overdue);
