@@ -206,8 +206,17 @@ fi
 # before this run.
 step "Going back to ${prev}"
 export TAG="$prev"
-if up && read_states; then
+back_rc=1
+if up; then
+  back_rc=0
+  read_states || back_rc=$?
+fi
+if (( back_rc == 0 )); then
   die "${failure}, so the stack went back to ${prev}, which is live."
 fi
 show_failure
+# `up` answered 0 and nothing read the services after it, so the build is neither live nor down.
+if (( back_rc == 2 )); then
+  die "${failure}, so the stack went back to ${prev}, but compose could not read each service's state after it. .env pins ${prev}."
+fi
 die "${failure}, and ${prev} did not come up either when the stack went back to it. .env pins ${prev}."

@@ -117,6 +117,7 @@ about and counts as no pin.
 | Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
+| Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                          |
 | Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
 | Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
 | Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |

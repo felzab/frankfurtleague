@@ -163,6 +163,18 @@ def test_a_rollback_whose_build_reads_unhealthy_is_never_called_live():
     assert "which is live" not in out + err
 
 
+def test_a_rollback_whose_read_compose_cannot_answer_says_only_that():
+    """The run knows the previous build's `up` answered 0 and nothing of its services, so it says neither live nor down."""
+    code, out, err, calls, pinned = deploy(new_up=1, unread={PREVIOUS: "ps-fails"})
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    said = last_line(err)
+    assert f"the stack went back to {PREVIOUS}, but compose could not read each service's state after it" in said, err
+    assert "did not come up either" not in said and "which is live" not in said, err
+
+
 def test_no_rollback_stops_on_a_service_the_last_read_names():
     code, out, err, calls, pinned = deploy("--no-rollback", new=containers(backend="running unhealthy"))
 
