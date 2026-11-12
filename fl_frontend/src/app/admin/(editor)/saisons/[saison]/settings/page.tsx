@@ -65,15 +65,15 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
     case null:
       return undefined;
     case "activate_target_undrawn":
-      return WORDS.noDraw;
+      return WORDS.noDrawLocked;
     case "activate_spieltage_undated":
-      return WORDS.undated;
+      return WORDS.undatedLocked;
     case "activate_saison_unfinished":
-      return WORDS.unfinished;
+      return WORDS.unfinishedLocked;
     case "spielplan_berichte_submitted":
       return WORDS.reportsHold;
     case "spielplan_gruppen_off_rules":
-      return WORDS.gruppenOffRules;
+      return WORDS.gruppenOffRulesLocked;
     // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
     case "spielplan_replace_outside_its_window":
     case "spielplan_undraw_outside_its_window":

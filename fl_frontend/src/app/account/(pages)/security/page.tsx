@@ -33,7 +33,7 @@ function setUpClosedOf(
 ): Copy | undefined {
   if (!held.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
   if (held.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
-  return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOld;
+  return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOldLocked;
 }
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
@@ -46,7 +46,7 @@ async function SecurityContent() {
       passkeys={held.rows}
       setUpClosed={setUpClosedOf(served, held)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.isAdmin && held.rows.length === 1 ? COPY.account.passkeys.lastKept : undefined}
+      lastKept={served.isAdmin && held.rows.length === 1 ? COPY.account.passkeys.lastKeptLocked : undefined}
       devices={COPY.account.devices.description(devices)}
       name={{ required: requires(PasskeyNameSchema, ""), max: PASSKEY_NAME_MAX }}
     />

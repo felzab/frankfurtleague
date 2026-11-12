@@ -49,6 +49,7 @@ from app.core.dependencies import (
     RegistrierungenReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
+    SnapshotSession,
     SpieleReadCollection,
     TeamsReadCollection,
     get_german_date_str,
@@ -306,7 +307,7 @@ async def get_team_overview(
     spiele_collection: SpieleReadCollection,
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamOverviewResponse:
     """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
@@ -316,33 +317,32 @@ async def get_team_overview(
 
     # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
     # it serves from straddling a commit.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
 
-        # The seat just judged lives on this row, read in the same snapshot, so it stands.
-        row = await saison_teams_collection.find_one(
-            {"saison_id": saison_id, "team_id": team_id},
-            [
-                "name",
-                "shorthand",
-                "trikot_farbe",
-                *(f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
-            ],
-            session=session,
-        )
-        club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-        assert row is not None and club is not None
-        spiele, vereine = await _pull_team_spiele(
-            spiele_collection=spiele_collection,
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_id=team_id,
-            session=session,
-        )
-        opened = await pull_open_registrierungen(
-            registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
-        )
+    # The seat just judged lives on this row, read in the same snapshot, so it stands.
+    row = await saison_teams_collection.find_one(
+        {"saison_id": saison_id, "team_id": team_id},
+        [
+            "name",
+            "shorthand",
+            "trikot_farbe",
+            *(f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
+        ],
+        session=session,
+    )
+    club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
+    assert row is not None and club is not None
+    spiele, vereine = await _pull_team_spiele(
+        spiele_collection=spiele_collection,
+        saison_teams_collection=saison_teams_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        session=session,
+    )
+    opened = await pull_open_registrierungen(
+        registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
+    )
 
     spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
@@ -425,7 +425,7 @@ async def get_team_spiele(
     saison_teams_collection: SaisonTeamsReadCollection,
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
@@ -436,16 +436,15 @@ async def get_team_spiele(
 
     # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
     # it serves from straddling a commit.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
-        spiele, vereine = await _pull_team_spiele(
-            spiele_collection=spiele_collection,
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_id=team_id,
-            session=session,
-        )
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
+    spiele, vereine = await _pull_team_spiele(
+        spiele_collection=spiele_collection,
+        saison_teams_collection=saison_teams_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        session=session,
+    )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
         spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)

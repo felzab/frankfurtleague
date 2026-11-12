@@ -6,7 +6,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.bewerbungen.services import season_has_ended
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
-    SWEEP_PAGE,
     build_decline_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
@@ -24,7 +23,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import verify_access_system
-from app.core.transactions import Batch, drain, refuse_a_stalled_page
+from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page
 
 # System tier, as the application sweep's own router is: this pass holds no session, so `bind_actor` would refuse it.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/registrierungen/sweep", dependencies=[Depends(verify_access_system)])

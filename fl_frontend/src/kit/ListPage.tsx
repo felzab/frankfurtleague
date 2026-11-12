@@ -203,7 +203,7 @@ type ListContent =
 
 /**
  * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
- * as many as the page states beside its list (`Skeleton.tsx` has the rule), since how many there are is what the read
+ * as many as the page states beside its list, since how many there are is what the read
  * tells.
  */
 function ListPlaceholder({ list }: { list: ListContent }) {
@@ -357,7 +357,7 @@ function FiltersPlaceholder({ count }: { count: number }) {
       </span>
       <span className="flex items-start gap-3 max-lg:hidden">
         {Array.from({ length: count }, (_, index) => (
-          // A filter's select at the least width its row gives it (`./Filters.tsx`).
+          // A filter's select at the least width its row gives it.
           <span
             key={index}
             className="w-40">
@@ -434,7 +434,6 @@ async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
 /** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
 const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
 
-/** The acts at the toolbar row's end. */
 function ToolbarActs({ children }: { children: ReactNode }) {
   return <div className="ms-auto flex flex-wrap items-center justify-end gap-3">{children}</div>;
 }

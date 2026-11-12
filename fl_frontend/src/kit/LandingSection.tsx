@@ -14,7 +14,6 @@ const section = tv({
   slots: {
     root: "kit-section-target grid min-w-0 gap-6",
     head: "grid max-w-measure justify-items-start gap-2",
-    // The eyebrow over a section's title, in the kit's small capitals.
     eyebrow: smallCaps(),
     title: "font-heading text-2xl tracking-display uppercase",
   },

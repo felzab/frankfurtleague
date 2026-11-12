@@ -20,7 +20,7 @@ const page = tv({
       form: { column: "max-w-form" },
       card: { column: "max-w-card justify-center" },
       signin: { column: "max-w-signin justify-center" },
-      // Board: the gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
+      // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
       landing: { column: "max-w-classic gap-12 lg:gap-16" },
     },
   },

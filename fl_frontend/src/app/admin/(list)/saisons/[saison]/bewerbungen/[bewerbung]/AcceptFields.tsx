@@ -57,7 +57,7 @@ export function AcceptFields({
       isDisabled={shorthand !== null}
       minLength={SHORTHAND_LENGTH}
       maxLength={SHORTHAND_LENGTH}
-      description={shorthand === null ? COPY.team.shorthandDescription : COPY.team.shorthandFixed}
+      description={shorthand === null ? COPY.team.shorthandDescription(SHORTHAND_LENGTH) : COPY.team.shorthandFixed}
       defaultValue={shorthand ?? picked?.shorthand ?? ""}
     />
   );

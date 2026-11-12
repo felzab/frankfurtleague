@@ -233,7 +233,7 @@ const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">)
 });
 
 /**
- * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
+ * The request a server action runs in, so a case calls the REAL action, its calls to the backend doubled
  * through `doubleApiAnswers`. Called before the action's `await import`.
  */
 export function doubleActionRequest({

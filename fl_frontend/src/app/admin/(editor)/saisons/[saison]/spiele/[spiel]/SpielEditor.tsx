@@ -59,7 +59,7 @@ const goals = (text: string) => (text === "" ? null : Number(text));
 
 /**
  * The match editor: a knockout match's two clubs; the Ansetzung's day, time, venue and price, referee and fee; the
- * result, entered by the switch the board drew, a side per row, a shoot-out's column appearing by itself on level
+ * result, entered by a switch, a side per row, a shoot-out's column appearing by itself on level
  * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
  * its own; the report's goals and every party's answer, read-only; and last a link to each side's line-up, which its
  * own page saves. Saved together from the editor's bar; a save that would delete a later match's result the server

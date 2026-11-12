@@ -94,7 +94,6 @@ const scoreRows = tv({
   },
 });
 
-/** Each outcome's hue. */
 const HUE = { win: "success", draw: "warn" } as const;
 
 const SIDES = [0, 1] as const;

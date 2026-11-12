@@ -477,7 +477,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
 
 class TestTheRefereesNameFollowsTheirConsent:
-    """`READ-REFEREE-004`: served, the name is reduced where the referee published it and null otherwise."""
+    """Served, the name is reduced where the referee published it and null otherwise."""
 
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_replica_set_url: str):
         spiel = a_refereed_spiel()

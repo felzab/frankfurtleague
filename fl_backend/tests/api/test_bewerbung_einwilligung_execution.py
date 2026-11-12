@@ -218,7 +218,7 @@ def leaf_paths(document: Any, prefix: str = "") -> set[str]:
 
 class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
-        """`READ-BEWERBUNG-002`: a school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
+        """A school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW["ansprechperson"]))
 

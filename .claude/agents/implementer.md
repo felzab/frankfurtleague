@@ -169,8 +169,7 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   your worktree's copy directly, never by triggering it. A `node_modules` or `.venv` linked in from
   another tree breaks the build and rewrites the other tree's install.
 - The machine is not per worktree. Never run `./scripts/ops/local.sh` in yours: ports 3000 and 27017
-  are fixed, and `--seed` would take a second copy of production data into your tree's `.local-db`.
-  The database tier starts its own containers for each run, so a failure you suspect a concurrent
+  are fixed, and one machine holds one stack. The database tier starts its own containers for each run, so a failure you suspect a concurrent
   run caused is reported as that, never retried in a loop.
 - A refused command is re-run changed only as the refusal's own text says; never with any other
   changed path, name or split. Report the refusal.

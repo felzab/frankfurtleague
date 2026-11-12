@@ -4,7 +4,7 @@ import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import ExitStack, contextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -265,7 +265,7 @@ def _log_tail(container: DockerContainer) -> str | None:
 
 
 @contextmanager
-def _started(container: DockerContainer, ready: Callable[[], str]) -> Iterator[str]:
+def _started(container: DockerContainer, ready: Callable[[], str]) -> Generator[str]:
     """`with container:`, but a start failing before `ready` returns carries the tail of the container's log.
 
     Neither phase's own error carries it, and stopping the container discards it. In the message,
@@ -318,7 +318,7 @@ def _elected(container: DockerContainer) -> str:
 
 
 @contextmanager
-def _replica_set_mongod() -> Iterator[str]:
+def _replica_set_mongod() -> Generator[str]:
     """A single-node replica set: a standalone server refuses a transaction and a snapshot read, and no environment the app runs on is one."""
 
     from testcontainers.core.container import DockerContainer

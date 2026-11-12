@@ -45,7 +45,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   // The row waits on the new mailbox, which its link reached.
   const row = page.getByRole("main").getByRole("row").filter({ hasText: MOVER });
   await expect(chip(row, "Neue offen")).toBeVisible();
-  await mailedMessage(newAddress, "Neue E-Mail-Adresse bestätigen", before);
+  await mailedMessage(newAddress, "E-Mail-Adresse bestätigen", before);
 
   await pressRowAct(row, "Verwerfen");
   const discard = page.getByRole("alertdialog");

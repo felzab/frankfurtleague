@@ -160,6 +160,13 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
     """GDPR Art. 17: a seat stored before today's rules may hold an address they refuse, and refusing it here leaves that person unerasable."""
 
     @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
-    @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
+    # One address the league's rule refuses and one the installed `EmailStr` does: the field runs neither.
+    @pytest.mark.parametrize(
+        "email",
+        [
+            pytest.param("jürgen@schule.de", id="an address the league's rule refuses"),
+            pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses"),
+        ],
+    )
     def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
         assert payload(email).email == email

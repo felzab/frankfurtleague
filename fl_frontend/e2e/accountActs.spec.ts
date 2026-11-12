@@ -2,7 +2,7 @@
  * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
- * second device, whose cookie no person would see still admitted. Konto's steps are named by the board's words, which
+ * second device, whose cookie no person would see still admitted. Konto's steps are named by the words
  * Konto's pages are built to. The passkeys are `desktop/accountPasskeys.spec.ts`'s.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
@@ -72,7 +72,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
-  const newLink = await mailedLink(newAddress, "Neue E-Mail-Adresse bestätigen", afterTheFirst);
+  const newLink = await mailedLink(newAddress, "E-Mail-Adresse bestätigen", afterTheFirst);
   await context.clearCookies();
   await page.goto(newLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();

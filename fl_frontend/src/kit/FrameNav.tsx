@@ -120,7 +120,6 @@ export function useHoldsSaison() {
   return useContext(SaisonContext) !== null;
 }
 
-/** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
 /** A season page's address in a season, the team the address names filled in where the page is a team's. */
@@ -397,7 +396,7 @@ const railHeading = groupHeading({
 });
 
 // Where a heading folds away, a hairline as wide as a glyph fades in, centred in the 16-px gap above its
-// group, so the collapsed rail still reads in groups, as the old rail and Linear's and Vercel's collapsed
+// group, so the collapsed rail still reads in groups, as Linear's and Vercel's collapsed
 // sidebars do; none above the first group, which nothing precedes.
 const railRule = tv({
   base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
@@ -549,7 +548,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             {/* One line, an address standing as the name too, cut with „…“ and whole on hover, so the foot stands as
-                tall as the editor's bar beside it (`railStyles.ts :: editorBarLook`); Konto shows the whole address. */}
+                tall as the editor's bar beside it (`editorBarLook`); Konto shows the whole address. */}
             <CutText
               text={name}
               className="truncate font-semibold text-fg"

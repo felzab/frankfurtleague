@@ -9,13 +9,13 @@ import type { StatusCardProps } from "./StatusCard";
 
 /*
  * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title, its
- * referrer, and the end a link no longer valid reaches. Apart from `MailedPage.tsx`, whose one-shot form brings the
+ * referrer, and the end a link no longer valid reaches. Apart from `MailedPage`, whose one-shot form brings the
  * client's stack to every route importing it.
  */
 
 /**
  * A page a mail opens carries its link's token in its address, the first request of one in
- * `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES` included: no outbound request may send that address on
+ * `MAILED_LINK_PAGES` included: no outbound request may send that address on
  * as its referrer. `mailedMetadata` spreads it into each such page's metadata.
  */
 const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;

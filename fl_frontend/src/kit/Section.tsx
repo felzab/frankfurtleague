@@ -36,7 +36,7 @@ export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2
 /**
  * The edge of a box holding acts that destroy or retire, an editor's danger box and Konto's deletion box: the danger
  * hue in place of the hairline, as GitHub's danger zone marks its box, its buttons outlined with words in the same hue
- * (`buttonStyles.ts :: askingLook`), the red fill kept for the question's press that destroys.
+ * (`askingLook`), the red fill kept for the question's press that destroys.
  */
 export const dangerEdge = tv({ base: "border-danger" });
 

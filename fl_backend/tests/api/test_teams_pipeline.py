@@ -11,6 +11,7 @@ from app.api.teams.services import (
     CANCELLED_AS_NAME,
     STATISTIK_AS_NAME,
     _counted_goals,
+    build_statistik_by_team,
     build_team_pipeline,
 )
 from app.shared.schemas.literals import FLSpielerStufe
@@ -134,6 +135,9 @@ def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team
     _, tore1, _, tore2 = counted
 
     assert (tore1, tore2) == (1, 1)
+    # A draw for each side, whoever won the kicks after it.
+    figures = build_statistik_by_team([level], STANDARD_RULES)
+    assert [(row.siege, row.unentschieden, row.niederlagen) for row in figures.values()] == [(0, 1, 0)] * 2
 
 
 # Annotated rather than inferred: a bare tuple of `str` would widen past `FLTeamStatistikScope`.

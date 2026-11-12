@@ -1,7 +1,6 @@
 export const TRACEPARENT_HEADER = "traceparent";
 
 // No proxied path reaches a backend write, so the actor is always the one the session set.
-// The edge blanks a visitor's header too, which is depth rather than the guarantee.
 export const ACTOR_HEADER = "X-FL-Actor";
 
 // The actor's session beside its address, which the backend's window checks read.

@@ -12,6 +12,7 @@
 | [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and the CI jobs that run them       |
 | [1.7 Script conventions](#17-script-conventions)              | What a path says, what every script shares, and what its exit code says |
 | [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it            |
+| [1.9 The monitors](#19-the-monitors)                          | What watches the site from outside, and whom it alerts                  |
 | [2. Invariants](#2-invariants)                                | The rules that must hold, and what holds each                           |
 | [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                           |
 | [4. Known-open](#4-known-open)                                | The accepted gaps                                                       |
@@ -70,6 +71,14 @@ or uv is refused by `scripts/tests/test_image_pins.py` until the pin moves on th
 uv that refusal is the only wait a new release meets**: `ghcr.io` publishes no date, so the
 ecosystem's cooldown holds nothing back.
 
+**A frontend dependency held narrower than a caret** (`fl_frontend/package.json`) is held so for a
+reason of its own:
+
+- `zod` takes patches alone (`~`): a minor can change which field a refusal names or which hosts a
+  pattern admits, which only the bounds cases see, so a minor moves as its own change;
+- `orval` is pinned exactly: a generator release can change the generated client, so a bump is its
+  own change, regenerated in the same pull request.
+
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever its own base is refreshed
 ([the Official Images FAQ](https://github.com/docker-library/faq/blob/ce1a70af72a522f8638d6bffd930ef3252de7837/README.md#why-does-my-security-scanner-show-that-an-image-has-cves),
@@ -108,7 +117,8 @@ Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sen
 a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included, and `next dev` arms nothing.
 **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the
-jobs may act on, as during a restore ([`runbooks.md`](runbooks.md) §13): read once at the boot,
+jobs may act on: after a migration until its read-back, and during a restore
+([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot,
 it arms no pass and makes a write's drain send nothing
 (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
 
@@ -197,6 +207,7 @@ prefix; order in the file decides nothing.
 | `/_next/static/`                    | `frontend` | `action`                                        | 1m       |
 | `/confirm/`                         | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
 | `= /registrierung` and `= /erasure` | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
+| `= /confirm`                        | `frontend` | `action` and the connection ceiling             | 1m       |
 | `/`                                 | `frontend` | `action` and the connection ceiling             | 1m       |
 
 **The four zones each price one kind of work, per visitor network** (`nginx/shared/http.conf`):
@@ -271,8 +282,13 @@ shell has asked for its assets.
 **The mail provider's webhook is metered by no zone**: its events land at once from a handful of the
 provider's addresses, and a refusal starts a retry schedule that, sustained, disables the endpoint.
 Its signature check is the gate (`scripts/checks/check_public_routes.py :: UNMETERED`). **The
-liveness probe carries no zone either**, which would throttle the uptime monitor before anything
-else; the readiness probe, a database round trip each, spends `authapi`.
+liveness probe carries no zone either**: a GET with no body that touches no database costs the
+backend nothing a zone protects. The readiness probe, a database round trip each, spends `authapi`,
+which a monitor asking no oftener than every two seconds never reaches.
+
+**`= /confirm` sends the link pages' prefix without its slash to Next**, which answers it as the
+address of no page. Without it, nginx answers the bare path with its own redirect to `/confirm/`,
+which Next redirects back.
 
 **Every route handler is accounted for against these locations, public or not**
 (`scripts/checks/check_public_routes.py`): an exact match metering it, a prefix recorded at
@@ -393,12 +409,12 @@ hijacking, and `form-action 'self'` blocks exfiltration through a form post.
 `scripts/README.md` lists the scripts; each script's own header carries its usage and prints it with
 `--help`.
 
-| Environment | What it is                                             | Database                                                                       | Entry point                                                                                             |
-| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` |
-| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                |
-| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                          |
-| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                               |
+| Environment | What it is                                             | Database                                                                       | Entry point                                                                                                   |
+| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run uvicorn app.asgi:app --reload` in `fl_backend/` |
+| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                      |
+| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                                |
+| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                                     |
 
 **local is the only place a packaging problem is visible before a deploy**: a missing standalone
 file, a failing startup gate, a header nginx does not set. dev exercises none of that machinery, and
@@ -475,7 +491,8 @@ digest, so deleting one corrupts the tag it belongs to.
 
 `./scripts/gate/verify.sh --help` lists the scopes and their flags; a bare run starts every scope
 side by side and replays each one's output in the order below. `--quick` runs the scripts, backend
-and frontend scopes alone, none of which needs Docker.
+and frontend scopes alone, which need Docker only where shellcheck or actionlint is not on PATH at
+its pinned release.
 
 | Scope              | Runs                                                                                                                                                                                                               | Needs                                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -614,6 +631,10 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `crashed`     | 3 or more | The script itself failed, so nothing past that line ran                                |
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
+**A `pnpm` script the manifest does not declare ends its step as a crash, never a finding**: pnpm
+answers it 1, as a tool finding something does, but no tool ran (`scripts/gate/verify.sh ::
+verdict`).
+
 The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
 one place. `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, 2 a refusal with
@@ -644,11 +665,10 @@ deliberately off.
   answers is inferred rather than read: Always Use HTTPS fits, and a redirect rule would answer the
   same. A browser ignores HSTS sent over plain HTTP, so this redirect is what moves a first visit
   typed as `http://` onto HTTPS.
-- **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
-  records name Cloudflare's routing servers, and each league address forwards to the personal
-  mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
-  notice at `/datenschutz` says exactly that, so a route aimed at a hosted mailbox changes that notice
-  in the same step.
+- **Cloudflare routes no mail.** The zone's MX records name Google Workspace, where the league's
+  mailbox receives every message to a league address. The published privacy notice at `/datenschutz`
+  names Google as that mailbox's processor, so a record moving the mail elsewhere changes that
+  notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling
   a training set is not.
@@ -657,6 +677,13 @@ deliberately off.
   (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
   `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike, so while the setting is
   off the block above enforces the opt-out and nothing declares it.
+- **No cache rule caches an HTML page or an RSC response.** A save clears Next's own cache through
+  its one tag, which reaches no copy held at the edge, so an edge copy would serve the page as it
+  was before the save until its own lifetime ran out (Next's installed guide,
+  `fl_frontend/node_modules/next/dist/docs/01-app/02-guides/cdn-caching.md`). The files under
+  `/_next/static/` need no rule: Next names each by its content and sends it
+  `public, max-age=31536000, immutable`. The check is the zone's list of cache rules, which holds
+  none matching a page's path.
 - **A Turnstile widget serves the bot check**, in Managed mode, on the hostname
   `frankfurtleague.de` alone, `www` redirecting before any form renders. Its site key is the
   server's `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the
@@ -666,6 +693,28 @@ deliberately off.
   dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
   signing key (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), so an endpoint aimed
   anywhere else has every event refused unverified.
+
+### 1.9 The monitors
+
+Every monitor is made in Better Stack's dashboard, which no file here can read, so this is what must
+be true there, a check the owner makes in its list of monitors:
+
+- **Four monitors watch production.**
+  - **The landing page**, `https://frankfurtleague.de/`, fails where the edge, the connector or the
+    frontend does. A page whose league read failed still answers 200, so it never sees a database
+    outage.
+  - **The liveness probe**, `GET https://frankfurtleague.de/api/v0/system/is_live`, fails where the
+    backend does. Every page answers 200 even then, its error page streaming after the headers. It
+    names the apex host and no trailing slash, which would redirect and read green, and asks with
+    `GET`, a `HEAD` being answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`).
+  - **The readiness probe**, `GET https://frankfurtleague.de/api/v0/system/is_ready`, answers 503
+    where the backend reaches no database. It asks no oftener than every two seconds, its location's
+    zone allowing no more (§1.3).
+  - **The heartbeat** fails where an hourly pass fails or none runs
+    ([`runbooks.md`](runbooks.md) §9).
+- **Every monitor alerts the owner's personal address, and nobody else.**
+- **No alert reads a log line**, and no hosted service receives one: the logs stay in the host's
+  journal ([`../logging/overview.md`](../logging/overview.md#where-the-logs-are-and-how-long-they-stay)).
 
 ## 2. Invariants
 
@@ -704,49 +753,87 @@ deliberately off.
 
 ## 3. Violation → remedy
 
-| Symptom                                                                                                                                                                            | Cause                                                                                                                                         | Remedy                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Invalid environment variables: <NAMES>` then no traffic                                                                                                                           | The startup gate                                                                                                                              | Fix those names in the package's `.env`, then recreate the service ([`runbooks.md`](runbooks.md) §16)                                                                                                                |
-| `Invalid secret files: <FILES>` then no traffic                                                                                                                                    | A secret file is missing, or holds a value the gate refuses                                                                                   | Write the file named; its value is never printed                                                                                                                                                                     |
-| `Unreadable secret files: <PATH> (<ERRNO>)` then no traffic                                                                                                                        | The service's user cannot read the file or `SECRETS_DIR`: `EACCES` its owner or mode, `EISDIR` a directory at its path, `ENOENT` no directory | Give it the user and mode §1.2 names, or write the file                                                                                                                                                              |
-| `docker compose` refuses: `deploy through scripts/ops/deploy.sh, which sets TAG`                                                                                                   | No `.env` pins a tag in this checkout, and the shell names none                                                                               | On the server, deploy; to reach a build by hand, prefix the command with `TAG=sha-…` ([`runbooks.md`](runbooks.md) §1)                                                                                               |
-| A deploy reports live but the site is unreachable                                                                                                                                  | nginx, or the connector in front of it                                                                                                        | `docker compose logs nginx`, then `docker compose logs cloudflared`                                                                                                                                                  |
-| No tunnel registers, or the connector restarts in a loop                                                                                                                           | The token file is missing, unreadable by uid 65532 or not this tunnel's                                                                       | `docker compose logs cloudflared`, then give the file the owner and mode §1.2 names                                                                                                                                  |
-| The tunnel is up and Cloudflare answers 502 or 1033                                                                                                                                | The dashboard routes a hostname to nothing, or to anything but `http://nginx:80` (§1.8)                                                       | `docker compose logs cloudflared` names the origin it dialled. The route is dashboard state, so nothing here can be edited to fix it                                                                                 |
-| An `up` fails: `Pool overlaps with other one on this address space`                                                                                                                | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed            | Find it with `docker network inspect`, then remove or re-subnet it; moving this stack's subnet moves the connector's address                                                                                         |
-| A deploy fails: nginx's running master refused the configuration `nginx -t` passed                                                                                                 | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | The run prints nginx's line. Restart nginx, `docker compose restart nginx`, which loads the checkout's files afresh                                                                                                  |
-| `failed to connect to the docker API at npipe:...`                                                                                                                                 | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                                                                                                                   |
-| The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied`                                                                           | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                                                                                                              |
-| `EBUSY`, or `.next` locked during a build                                                                                                                                          | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                                                                                                                      |
-| `./scripts/ops/local.sh` reports `mongo` unhealthy                                                                                                                                 | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                                                                                                                |
-| A db-tier run reports a wall of failures naming unique indexes                                                                                                                     | A second `pytest -m db` ran beside it on the same machine                                                                                     | Trust neither verdict, the green one included. Re-run with nothing else on the tier                                                                                                                                  |
-| Container unhealthy, health log empty, `FailingStreak: 0`                                                                                                                          | The app died before the first probe                                                                                                           | Read `docker compose logs <service>`; a malformed `.env` value is the usual cause                                                                                                                                    |
-| A directory appeared named `something;C`                                                                                                                                           | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                             | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                                                                          |
-| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                                                                                                                           | Windows only, when the output is piped or redirected                                                                                          | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                                                                   |
-| A response without the security headers                                                                                                                                            | A `location` block set a header and dropped the inherited set                                                                                 | Include `nginx/shared/security_headers.conf` in that block                                                                                                                                                           |
-| Backend healthcheck fails after an API version bump                                                                                                                                | The healthcheck spells the API version itself                                                                                                 | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s two probe locations with it (§4)                                                                                      |
-| The uptime monitor 404s while the backend container reports healthy                                                                                                                | The liveness location still spells the old version, so the probe matches `location /` and Next answers it                                     | Move the path in `nginx/shared/site.conf`'s probe locations, then re-point the monitor (§4)                                                                                                                          |
-| Uptime monitor shows green during a backend outage                                                                                                                                 | The error page streams after headers, so the edge status is 200                                                                               | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
-| Sign-in or a link page answers `429`                                                                                                                                               | Working as intended: one network spent its zone (§1.3)                                                                                        | Nothing. A retry once the zone refills passes, a link's token still in the address bar                                                                                                                               |
-| Reference data stale after a hand edit: the first visit a minute past an entry's fill still gets that entry, and one nobody visits expires after one hour (`cacheLife("minutes")`) | Working as intended: a change no save makes clears no cached entry                                                                            | Nothing: wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                                                                                                                    |
-| League table or fixtures stale after a season edit                                                                                                                                 | Same cause: a season decides the default season and the points                                                                                | Same remedy                                                                                                                                                                                                          |
+| Symptom                                                                                                  | Cause                                                                                                                                         | Remedy                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid environment variables: <NAMES>` then no traffic                                                 | The startup gate                                                                                                                              | Fix those names in the package's `.env`, then recreate the service ([`runbooks.md`](runbooks.md) §16)                           |
+| `Invalid secret files: <FILES>` then no traffic                                                          | A secret file is missing, or holds a value the gate refuses                                                                                   | Write the file named; its value is never printed                                                                                |
+| `Unreadable secret files: <PATH> (<ERRNO>)` then no traffic                                              | The service's user cannot read the file or `SECRETS_DIR`: `EACCES` its owner or mode, `EISDIR` a directory at its path, `ENOENT` no directory | Give it the user and mode §1.2 names, or write the file                                                                         |
+| `docker compose` refuses: `deploy through scripts/ops/deploy.sh, which sets TAG`                         | No `.env` pins a tag in this checkout, and the shell names none                                                                               | On the server, deploy; to reach a build by hand, prefix the command with `TAG=sha-…` ([`runbooks.md`](runbooks.md) §1)          |
+| A deploy reports live but the site is unreachable                                                        | nginx, or the connector in front of it                                                                                                        | `docker compose logs nginx`, then `docker compose logs cloudflared`                                                             |
+| No tunnel registers, or the connector restarts in a loop                                                 | The token file is missing, unreadable by uid 65532 or not this tunnel's                                                                       | `docker compose logs cloudflared`, then give the file the owner and mode §1.2 names                                             |
+| The tunnel is up and Cloudflare answers 502 or 1033                                                      | The dashboard routes a hostname to nothing, or to anything but `http://nginx:80` (§1.8)                                                       | Point both routes at `nginx:80` in the dashboard ([`runbooks.md`](runbooks.md) §1)                                              |
+| An `up` fails: `Pool overlaps with other one on this address space`                                      | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed            | Remove or re-subnet the other network, never this one                                                                           |
+| A deploy fails: nginx's running master refused the configuration `nginx -t` passed                       | A change nginx takes only at a start, such as a zone keyed anew under its old name                                                            | `docker compose restart nginx`                                                                                                  |
+| `failed to connect to the docker API at npipe:...`                                                       | Docker Desktop is not running                                                                                                                 | Start it and wait for it to settle                                                                                              |
+| The publish job in `.github/workflows/verify.yml` fails at the push with `denied` or `permission_denied` | The package does not grant this repository's workflows write access                                                                           | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job                         |
+| `EBUSY`, or `.next` locked during a build                                                                | A `pnpm dev` is still running, or the folder is open in an editor                                                                             | Stop the dev server                                                                                                             |
+| `./scripts/ops/local.sh` reports `mongo` unhealthy                                                       | The local database has not elected itself primary, so no transaction opens                                                                    | Read the lines the script prints under `mongo`'s step                                                                           |
+| A db-tier run reports a wall of failures naming unique indexes                                           | A second `pytest -m db` ran beside it on the same machine                                                                                     | Re-run with nothing else on the tier                                                                                            |
+| Container unhealthy, health log empty, `FailingStreak: 0`                                                | The app died before the first probe, usually on a malformed `.env` value                                                                      | `docker compose logs <service>`                                                                                                 |
+| A directory appeared named `something;C`                                                                 | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                             | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                     |
+| A response without the security headers                                                                  | A `location` block set a header and dropped the inherited set                                                                                 | Include `nginx/shared/security_headers.conf` in that block                                                                      |
+| Backend healthcheck fails after an API version bump                                                      | The healthcheck spells the API version itself                                                                                                 | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s two probe locations with it (§4) |
+| The uptime monitor 404s while the backend container reports healthy                                      | The liveness location still spells the old version, so the probe matches `location /` and Next answers it                                     | Move the path in `nginx/shared/site.conf`'s probe locations, then re-point the monitor (§4)                                     |
+| Uptime monitor shows green during a backend outage                                                       | The error page streams after headers, so the edge status is 200                                                                               | Monitor the liveness probe (§1.9)                                                                                               |
+| Sign-in or a link page answers `429`                                                                     | Working as intended: one network spent its zone (§1.3)                                                                                        | Nothing: a retry passes once the zone refills                                                                                   |
+| Reference data stale after a hand edit                                                                   | Working as intended: a change no save makes clears no cached entry                                                                            | Wait out the lifetime ([`runbooks.md`](runbooks.md) §20)                                                                        |
+| League table or fixtures stale after a season edit                                                       | Same cause: a season decides the default season and the points                                                                                | Same remedy                                                                                                                     |
+
+Why a remedy is what it is, where a phrase cannot say:
+
+- **The tunnel's routes are dashboard state.** `docker compose logs cloudflared` names the origin
+  the connector dialled, and nothing in this repository can change a route.
+- **The stack's own subnet stays**: nginx trusts the connector by its fixed address in it (§1.3).
+  `docker network inspect` finds the other network.
+- **A restart of nginx loads the checkout's files afresh**, where the run's reload left the running
+  master on its old configuration. The run prints nginx's line.
+- **A db-tier run beside another proves nothing either way**, the green one included.
+- **No other process may hold port 3000 while the local stack runs.**
+- **A refused request leaves a link's token in the address bar**, so the retry needs nothing typed
+  again.
+- **A cached entry outlives a hand edit**: the first visit a minute past its fill still gets it, and
+  one nobody visits expires after an hour (`cacheLife("minutes")`).
 
 ## 4. Known-open
 
-| Item                                                              | State                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The API version is spelled outside `API_VERSION`                  | Open: `fl_frontend/src/core/api.ts :: BASE_FETCH_PATH`, which the generated client's paths must start with, `docker-compose.yml`'s backend healthcheck, `nginx/shared/site.conf`'s two probe locations and `nginx/edge_test.sh`; §3 carries two symptoms |
-| A deploy's verdict reads no page                                  | Accepted: health is each container's healthcheck and nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1)                                                                                                        |
-| Going back moves the images alone                                 | Accepted: the compose file and `nginx/` stay as pulled, so the newer configuration fronts the older build                                                                                                                                                |
-| Registry tag pruning is manual                                    | Accepted: a botched delete destroys the builds a hand rollback pulls (§1.5)                                                                                                                                                                              |
-| Revoking admin access ends no session                             | Accepted: both processes read the grant on every request, so a revoked one admits nothing from the next and nothing restarts                                                                                                                             |
-| Nothing announces that a season rollover is due                   | Accepted: nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                                                                           |
-| Traffic between containers is plain HTTP                          | Accepted: the admin key and the actor headers cross `frankfurtleague-app` unencrypted, a bridge on one host no container can read, none holding `NET_RAW`                                                                                                |
-| The local database runs unauthenticated                           | Accepted: authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`)                                                        |
-| The linter behind §1.4's compensating control is past end of life | Open: `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                                                                          |
-| Cloudflare may rewrite the edge's own 429                         | Open: whether the tunnel passes the sentence, the page and their `Content-Type` unchanged shows only in production, on a refusal (§1.3)                                                                                                                  |
-| The edge's declared state is enforced by nothing here             | Accepted: §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                                                                                    |
-| The journal's age limit is enforced by nothing here               | Accepted: it is a host drop-in ([`runbooks.md`](runbooks.md) §7), which no deploy reads                                                                                                                                                                  |
-| CI's Python can be another patch release than the image's         | Accepted: uv takes every CI job's interpreter from the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it                                                                              |
-| A runtime's security release waits for Dependabot's schedule      | Accepted: Dependabot has no base-image security updates, so a Node or Python fix waits for the weekly run and cooldown, eight days at worst                                                                                                              |
-| An unread `*Schema` passes both knip runs                         | Open: the production run counts its inferred type's `typeof` as its module's use, and both runs ignore that type: reading alone finds it                                                                                                                 |
+Each gap is open, waiting on work, or accepted, with its reason.
+
+- **The API version is spelled outside `API_VERSION`.** Open. Four sites spell it again:
+  `fl_frontend/src/core/api.ts :: BASE_FETCH_PATH`, which the generated client's paths must start
+  with; `docker-compose.yml`'s backend healthcheck; `nginx/shared/site.conf`'s two probe locations;
+  and `nginx/edge_test.sh`. §3 carries two symptoms.
+- **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
+  nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
+- **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so
+  the newer configuration fronts the older build.
+- **Registry tag pruning is manual.** Accepted: a botched delete destroys the builds a hand rollback
+  pulls (§1.5).
+- **Revoking admin access ends no session.** Accepted: both processes read the grant on every
+  request, so a revoked one admits nothing from the next and nothing restarts.
+- **Nothing announces that a season rollover is due.** Accepted: nothing in the running application
+  watches the season clock. The trigger to revisit is a rollover actually missed, which serves last
+  season silently.
+- **Traffic between containers is plain HTTP.** Accepted: the admin key and the actor headers cross
+  `frankfurtleague-app` unencrypted, a bridge on one host no container can read, none holding
+  `NET_RAW`.
+- **The local database runs unauthenticated.** Accepted: authentication on `--replSet` wants a
+  keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it
+  (`fl_backend/tests/conftest.py :: _replica_set_mongod`).
+- **The linter behind §1.4's compensating control is past end of life.** Open:
+  `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's
+  `react/no-danger` control and `--frontend`'s lint step run on it.
+- **Cloudflare may rewrite the edge's own 429.** Open: whether the tunnel passes the sentence, the
+  page and their `Content-Type` unchanged shows only in production, on a refusal (§1.3).
+- **The dashboards' state is enforced by nothing here.** Accepted: §1.8 and §1.9 record what
+  Cloudflare's, the mail provider's and Better Stack's dashboards hold, and no gate check, deploy
+  step or test can read any of it.
+- **The journal's age limit is enforced by nothing here.** Accepted: it is a host drop-in
+  ([`runbooks.md`](runbooks.md) §7), which no deploy reads.
+- **CI's Python can be another patch release than the image's.** Accepted: uv takes every CI job's
+  interpreter from the series `fl_backend/.python-version` names, while the image holds the release
+  its tag names until Dependabot moves it.
+- **A runtime's security release waits for Dependabot's schedule.** Accepted: Dependabot has no
+  base-image security updates, so a Node or Python fix waits for the weekly run and cooldown, eight
+  days at worst.
+- **An unread `*Schema` passes both knip runs.** Open: the production run counts its inferred
+  type's `typeof` as its module's use, and both runs ignore that type, so reading alone finds it.

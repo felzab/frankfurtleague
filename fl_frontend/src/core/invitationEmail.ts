@@ -11,8 +11,8 @@ import type { MailLink } from "./mailKinds";
 const WORDS = SERVER_COPY.mail.invitation;
 
 /**
- * The one place a team's registration link is spelled. `token` is its parameter name because the edge's
- * `$credential_free_uri` matches that name; a second spelling reaches the access line and the referer unredacted.
+ * The one place a team's registration link is spelled. `token` is its parameter name because the proxy's matcher
+ * reads that name alone, swapping it for a cookie before the page renders.
  */
 export function invitationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierung.path()}?token=${encodeURIComponent(token)}`;

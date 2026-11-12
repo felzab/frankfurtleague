@@ -134,8 +134,8 @@ const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 const SPIEL_FACT = { date: "Datum", time: "Uhrzeit" } as const;
 // A match or a matchday not dated yet, as a match row and a matchday's line say it.
 const DATE_OPEN = "Termin offen";
-// The mark beside a score a shoot-out decided.
-const AFTER_ELFMETERSCHIESSEN = "n. E.";
+// The mark beside a score a shoot-out decided, its two parts joined by a no-break space so a narrow row never parts them.
+const AFTER_ELFMETERSCHIESSEN = "n.\u00A0E.";
 // A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list.
 const AGREED = "Zugesagt";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
@@ -162,6 +162,8 @@ const RETIREMENT = "Stilllegung";
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
+// A group matchday by its place, `shared`'s entry, which the application form's wished opponent names the first by.
+const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 // A line-up's starters of the most that may start, alone in the save bar and after the count of everyone it names.
@@ -280,7 +282,7 @@ export const COPY = catalogue({
       copied: "Kopiert",
       linkSent: "Link gesendet",
       /** Every other device's session ended, this one's kept. */
-      othersSignedOut: "Alle abgemeldet",
+      othersSignedOut: "Alle anderen abgemeldet",
       /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */
       agreed: AGREED,
       admitted: "Aufgenommen",
@@ -351,7 +353,7 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
-    spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
+    spieltag: spieltagName,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
@@ -476,10 +478,10 @@ export const COPY = catalogue({
     /** A covered seat's box, in place of its fields. */
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** Under the address: a promise the form makes, which the privacy record states. */
-    addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
+    addressPublic: "Steht nach der Zusage öffentlich auf der Teamseite",
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
-    wunschgegnerDescription: "Für den ersten Spieltag",
+    wunschgegnerDescription: `Für den ${spieltagName(1)}`,
     /** The name of the combo's arrow. */
     suggestions: "Vorschläge anzeigen",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
@@ -510,7 +512,8 @@ export const COPY = catalogue({
     seat: "Sitz",
     fullName: "Vollständiger Name",
     shorthand: "Kürzel",
-    shorthandDescription: "Drei Buchstaben",
+    /** By the length the backend fixes a club's code at. */
+    shorthandDescription: (length: number) => boundBy(formatNumber(length), "Buchstaben"),
     /** The closed box of a known club, whose code the acceptance does not set. */
     shorthandFixed: "Vergeben, als das Team angelegt wurde",
     /** Inside `shared.field.format`: no real club's code, so no reader takes it for one. */
@@ -564,7 +567,7 @@ export const COPY = catalogue({
     /** The select in the Trainer's box, whose two other entries are `seatName`'s. */
     trainerAlso: {
       label: "Übernimmt zugleich",
-      description: "Eine Person kann zwei Rollen haben.",
+      description: "Eine Person kann 2\u00A0Rollen haben.",
       none: "Keine weitere Rolle",
     },
   },
@@ -754,6 +757,8 @@ export const COPY = catalogue({
       // What outlives an erasure is the privacy notice's to list, never this sentence's.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
+      /** The deletion's tooltip for the owner, whose status line says `refusalLine.owner_erasure`. */
+      ownerLocked: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
     },
     passkeys: {
       title: "Passkeys",
@@ -772,9 +777,14 @@ export const COPY = catalogue({
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
       /** An administrator's last passkey, their only way into the administration. */
       lastKept: "Der letzte Passkey lässt sich nicht löschen.",
-      limit: (count: number) => `Mehr ${boundBy("als", formatNumber(count), "Passkeys")} sind nicht möglich.`,
+      /** The same, as the deletion's tooltip. */
+      lastKeptLocked: "Letzter Passkey bleibt",
+      /** The set-up's tooltip at the cap, which no refusal on a status line words. */
+      limit: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Passkeys")}`,
       /** A first passkey set up past the sign-in library's `freshAge`. */
       signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
+      /** The same, as the set-up's tooltip. */
+      signInTooOldLocked: "Erst nach neuer Anmeldung",
       /** A further passkey set up on an authenticator holding one of the person's already. */
       alreadyOnDevice: "Auf diesem Gerät hast du schon einen Passkey.",
     },
@@ -1142,11 +1152,15 @@ export const COPY = catalogue({
       /** When the Spielplan was drawn, beside its counts. */
       drawnOn: "Angelegt",
       noDraw: "Noch kein Spielplan.",
+      /** The same, as the activation's tooltip. */
+      noDrawLocked: "Erst mit Spielplan",
       /**
        * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
       gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
+      /** The same, as the draw's tooltip. */
+      gruppenOffRulesLocked: "Gruppen weichen von Regeln ab",
       recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
@@ -1187,14 +1201,19 @@ export const COPY = catalogue({
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
       isCurrent: "Die Website zeigt diese Saison.",
       onto: (saison: string) => boundBy("Auf", saisonName(saison)),
-      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${saisonName(saison)}.`,
+      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonName(saison))}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */
       activateQuestion: "Die Website wechselt die Saison.",
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
       unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
       undated: "Diese Saison hat noch Spieltage ohne Datum.",
+      /** The same two, as the activation's tooltip. */
+      unfinishedLocked: "Erst mit allen Ergebnissen",
+      undatedLocked: "Noch Spieltage ohne Datum",
       /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
       futureStands: "Eine Saison ist schon geplant.",
+      /** The same, as the create's tooltip. */
+      futureStandsLocked: "Eine Saison ist schon geplant",
     },
 
     spiel: {
@@ -1314,7 +1333,8 @@ export const COPY = catalogue({
       /** The chip of a row the check page's confirm refused. */
       shorthandTaken: "Kürzel vergeben",
       /** The title of the bulk's end card. */
-      acceptedCount: (count: number) => (count === 1 ? "1\u00A0Team aufgenommen" : `${boundBy(formatNumber(count), "Teams")} aufgenommen`),
+      acceptedCount: (count: number) =>
+        count === 1 ? "1\u00A0Bewerbung angenommen" : `${boundBy(formatNumber(count), "Bewerbungen")} angenommen`,
       /** The review page's facts of a decided application. */
       acceptedOn: "Angenommen am",
       declinedOn: "Abgelehnt am",
@@ -1335,7 +1355,7 @@ export const COPY = catalogue({
       /** The field group over the season's fields in „Team eintragen“. */
       inSaison: (saison: string) => boundBy("In", "der", saisonName(saison)),
       /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
-      renameReach: "Gilt für laufende und geplante Saisons.",
+      renameReach: "Gilt für laufende und geplante Saisons",
       /** The public text on the club's page. */
       description: "Beschreibung",
       descriptionNote: "Steht auf der Teamseite",
@@ -1369,7 +1389,7 @@ export const COPY = catalogue({
       retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
       reactivateConsequence: "Das Team steht wieder zur Auswahl.",
       /** The retiring's reason while locked. */
-      retireLocked: "Nur ohne laufende oder geplante Saison",
+      retireLocked: "Team spielt noch eine Saison",
     },
 
     /** The Spieler list and its editor. */
@@ -1453,7 +1473,7 @@ export const COPY = catalogue({
       /** The dialog's line once the ban stands, by what did not follow it. */
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
-        notice: "Die Sperre steht, aber die E-Mail ist nicht raus.",
+        notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
         both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
         /** The second press's note, once it ended what the first left running. */
         ended: "Die Anmeldungen sind beendet.",
@@ -1566,7 +1586,7 @@ export const COPY = catalogue({
         "spieler.changed": "Spieler geändert",
         "spieler.deregistered": "Spieler ausgetragen",
         "spieler.reactivated": "Spieler reaktiviert",
-        "registrierung.admitted": "Registrierung angenommen",
+        "registrierung.admitted": "Spieler aufgenommen",
         "registrierung.declined": "Registrierung abgelehnt",
         "schiedsrichter.created": "Schiedsrichter angelegt",
         "schiedsrichter.changed": "Schiedsrichter geändert",

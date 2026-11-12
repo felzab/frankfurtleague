@@ -11,8 +11,8 @@ import type { FLSchiedsrichterConfirmationData } from "./generated/client/types"
 import type { MailLink } from "./mailKinds";
 
 /**
- * The one place the referee's confirmation link is spelled. `token` is the parameter name because the edge's
- * `$credential_free_uri` matches that name; a second spelling reaches the access line and the referer unredacted.
+ * The one place the referee's confirmation link is spelled. `token` is the parameter name because the
+ * confirmation page reads that name alone.
  */
 function schiedsrichterConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.schiedsrichterConfirmation.path()}?token=${encodeURIComponent(token)}`;
@@ -34,8 +34,12 @@ export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrich
     kind: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
     origin: site,
-    // The deadline's day semibold, as the board draws it, between the page's two parts around it.
-    paragraphs: [[PAGE.opening, [PAGE.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]]],
+    // Both answers named before the press, in the sentence a contact seat's mail asks them in; then the deadline, its
+    // day semibold, between the page's two parts around it.
+    paragraphs: [
+      [PAGE.opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
+      [[PAGE.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]],
+    ],
     button: { label: COPY.page.entryConfirmation, href: schiedsrichterConfirmationLink(site, token) },
   };
 }

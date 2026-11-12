@@ -30,6 +30,7 @@ from app.core.crud import aggregate_many_from_db, patch_past_the_version_in_db, 
 from app.core.dependencies import (
     DBClient,
     SchiedsrichterCollection,
+    SnapshotSession,
     SpieleReadCollection,
     get_german_date_str,
     get_germany_now,
@@ -123,7 +124,7 @@ async def get_self_spiele(
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSpieleResponse:
     """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
@@ -133,16 +134,15 @@ async def get_self_spiele(
 
     # A snapshot, so each fixture is judged against the records, rows and report of one moment; never a transaction,
     # which a read writing nothing has no conflict to retry.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
-        spiele = await aggregate_many_from_db(
-            collection=spiele_collection,
-            pipeline=build_self_spiele_pipeline(
-                saison_id=saison_id, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
-            ),
-            session=session,
-        )
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+    spiele = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_self_spiele_pipeline(
+            saison_id=saison_id, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
+        ),
+        session=session,
+    )
 
     return FLSchiedsrichterSpieleResponse(
         saison_id=saison_id, spiele=order_self_spiele([compose_self_spiel(spiel, now=now) for spiel in spiele])
@@ -154,17 +154,16 @@ async def get_self_saisons(
     identifier: PersonIdentifier,
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
 ) -> FLOwnSaisonsResponse:
     """Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first."""
 
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
-        saisons = await aggregate_many_from_db(
-            collection=spiele_collection,
-            pipeline=build_self_saisons_pipeline([record.schiedsrichter_id for record in subject.schiedsrichter]),
-            session=session,
-        )
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+    saisons = await aggregate_many_from_db(
+        collection=spiele_collection,
+        pipeline=build_self_saisons_pipeline([record.schiedsrichter_id for record in subject.schiedsrichter]),
+        session=session,
+    )
 
     return FLOwnSaisonsResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons))

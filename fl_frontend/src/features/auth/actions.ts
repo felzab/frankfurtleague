@@ -15,8 +15,8 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
  * action is public, so a distinguishable "not authorized" would be a membership oracle. The bot check answers
  * before the address is read; a malformed address is the box's, which a format check may say safely.
  *
- * Public by necessity. The edge's `/signin` limit bounds that path, not this action: an action resolves from a
- * process-wide module map, so a POST to any page reaches it, metered there by the server-action zone pair alone.
+ * Public by necessity, and reached from every page: an action resolves from a process-wide module map, so a POST to
+ * any page runs it. What bounds it is its own: the bot check, and the per-address cap on code mails.
  */
 export const handleSignIn = action({
   lane: "public",

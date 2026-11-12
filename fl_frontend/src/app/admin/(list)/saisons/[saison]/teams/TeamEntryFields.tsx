@@ -70,7 +70,7 @@ export function TeamEntryFields({
             isRequired={required.shorthand}
             maxLength={SHORTHAND_LENGTH}
             minLength={SHORTHAND_LENGTH}
-            description={COPY.team.shorthandDescription}
+            description={COPY.team.shorthandDescription(SHORTHAND_LENGTH)}
           />
           <TextField
             label={COPY.team.fullName}

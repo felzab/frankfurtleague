@@ -19,7 +19,7 @@ import type { MailLink, MailOrigin } from "./mailKinds";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
- * `token`, because the edge's `$credential_free_uri` redacts that name alone.
+ * `token`, because the address page reads its link under that name alone.
  */
 function addressChangeLink(origin: string, token: string): string {
   return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
@@ -38,8 +38,9 @@ const LOST_MAILBOX_WAIT: Wait = { days: ADDRESS_CHANGE_WAIT_DAYS };
  */
 export function buildAddressChangeEmail({ way, holder }: FLAddressChangeLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const button = { label: COPY.shared.withObject(COPY.signIn.address, "confirm"), href: addressChangeLink(site, token) };
-  const subjectLine = COPY.shared.withObject(WORDS.newAddress, "confirm");
+  // One wording for the mail's subject, its button and the title of the page the button opens.
+  const subjectLine = COPY.shared.withObject(COPY.signIn.address, "confirm");
+  const button = { label: subjectLine, href: addressChangeLink(site, token) };
 
   // The person's own change, the address on file having confirmed it first: the page's question, its title the button.
   if (way === "account") {

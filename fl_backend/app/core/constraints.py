@@ -92,7 +92,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
-    # and what refuses a second grant a Playground paste adds for an address already holding one.
+    # and what refuses a second grant a hand-run `mongosh` file adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
     # Checked at each write rather than at the commit, so a handover demotes before it promotes
     # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
@@ -154,7 +154,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
-        "one season's queue narrowed to one status, which is what a triage tab reads",
+        "a season's undecided applications, oldest first on the season overview, counted by the duplicate check and erased at the season's end",
     ),
     # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
     # hashes, so each link answers how its change ended.
@@ -245,7 +245,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
         (("saison_id", ASCENDING),),
-        "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
+        "a season's reports, which the season overview and the season editor's count read, and a replace's or an undraw's removal filters on",
     ),
     # The reports are kept with no retention bound, and the pupil's erasure names no season the season-leading index could
     # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
