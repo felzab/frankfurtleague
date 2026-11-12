@@ -375,9 +375,12 @@ export const SERVER_COPY = catalogue({
       dueUntil: { before: "Trag sie bis\u00A0zum\u00A0", after: " ein." },
     },
 
-    /** An opponent's word that a club left the season. The lead follows the club's name, set semibold. */
+    /**
+     * An opponent's word that a club left the season. The lead follows the club's name, set semibold. A subject naming
+     * a team names it last, as every mail's does: a name runs to 60 characters, and a cut subject keeps what it is about.
+     */
     austrittNotice: {
-      subject: (team: string) => `${team} spielt nicht mehr mit`,
+      subject: (team: string) => `Ausgeschieden: ${team}`,
       lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonName(saison))} ausgeschieden.` },
       spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
       /** A match row's label, with its year as every other mail's date has it; undated, what is still to settle. */
@@ -459,8 +462,9 @@ export const SERVER_COPY = catalogue({
 
     /** A seat on a team's season: its sentences are the confirmation page's, `kontaktConfirmation`. */
     kontakt: {
-      subject: (team: string) => `Eintrag für ${team} bestätigen`,
-      /** A closed row's button, which has nothing to confirm. */
+      subject: (team: string) => `Eintrag bestätigen: ${team}`,
+      /** A closed row's subject and button, which have nothing to confirm. */
+      closedSubject: (team: string) => `Dein Eintrag für ${team}`,
       toEntry: "Zum Eintrag",
     },
 
@@ -585,7 +589,7 @@ export const SERVER_COPY = catalogue({
      * rather than pressed. It names no end date, since a window moved later moves every link with it.
      */
     invitation: {
-      subject: (team: string) => `Registrierungslink für ${team}`,
+      subject: (team: string) => `Registrierungslink: ${team}`,
       passOn: (saison: string, team: string) =>
         `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
@@ -599,14 +603,14 @@ export const SERVER_COPY = catalogue({
      */
     registrierung: {
       confirmation: {
-        subject: (team: string) => `Registrierung für ${team} bestätigen`,
+        subject: (team: string) => `Registrierung bestätigen: ${team}`,
         admission: "Erst wenn du bestätigt hast, kann dein Team dich aufnehmen.",
         /** The deadline where the mail's data counts days, the page's sentence taking a day. */
         deadlineIn: (days: number) =>
           `Bestätigst du nicht innerhalb ${boundBy("von", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
       },
       absage: {
-        subject: (team: string) => `Registrierung für ${team} abgelehnt`,
+        subject: (team: string) => `Registrierung abgelehnt: ${team}`,
         /** The lead follows the team's name, set semibold. */
         lead: { after: (saison: string) => ` hat deine Registrierung ${boundBy("für", "die", COPY.shared.saisonName(saison))} abgelehnt.` },
         askTeam: "Fragen dazu beantwortet dein Team.",

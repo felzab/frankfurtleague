@@ -72,7 +72,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
-  const newLink = await mailedLink(newAddress, "Neue E-Mail-Adresse bestätigen", afterTheFirst);
+  const newLink = await mailedLink(newAddress, "E-Mail-Adresse bestätigen", afterTheFirst);
   await context.clearCookies();
   await page.goto(newLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();

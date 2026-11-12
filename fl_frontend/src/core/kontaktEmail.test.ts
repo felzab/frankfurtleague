@@ -30,11 +30,13 @@ describe("a season row's contact link", () => {
     expect(mail.button).toStrictEqual({ label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(ORIGIN, "example-one") });
   });
 
-  /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
+  /* A closed row's link takes the Widerspruch alone, so neither its subject nor its body asks a confirmation the page
+     would then refuse. */
   it.each(["saison_past", "exited"] as const)("asks a person seated on a row that is %s for the Widerspruch alone", (row) => {
     const { mail, text } = rendered(data(row));
 
     expect(text).not.toContain(SERVER_COPY.mail.bewerbung.confirmOrOppose);
+    expect(mail.subjectLine).toBe(SERVER_COPY.mail.kontakt.closedSubject("Lessing-Kolleg"));
     expect(mail.button).toStrictEqual({ label: SERVER_COPY.mail.kontakt.toEntry, href: kontaktConfirmationLink(ORIGIN, "example-one") });
   });
 });
