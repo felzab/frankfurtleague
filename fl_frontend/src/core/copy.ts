@@ -162,6 +162,8 @@ const RETIREMENT = "Stilllegung";
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
+// A group matchday by its place, `shared`'s entry, which the application form's wished opponent names the first by.
+const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
 const teamSeason = (team: Words, saison: Copy) => `${textOf(team)}, ${saison}`;
 // A line-up's starters of the most that may start, alone in the save bar and after the count of everyone it names.
@@ -351,7 +353,7 @@ export const COPY = catalogue({
       finale: "Finale",
     },
     /** A group matchday, by its served `position`: the season's lists, a match's head and the season card name it alike. */
-    spieltag: (position: number) => `${formatOrdinal(position)} Spieltag`,
+    spieltag: spieltagName,
     /** A knockout matchday where its phase spans several, „Viertelfinale (2)“: the phase's name and the matchday's place in it. */
     knockoutRound: (phase: Copy, position: number) => `${phase} (${formatNumber(position)})`,
     /** The mark a result decided in a shoot-out carries, under the score in a match row and a match's head. */
@@ -479,7 +481,7 @@ export const COPY = catalogue({
     addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
-    wunschgegnerDescription: "Für den ersten Spieltag",
+    wunschgegnerDescription: `Für den ${spieltagName(1)}`,
     /** The name of the combo's arrow. */
     suggestions: "Vorschläge anzeigen",
     /** The one sentence above the submit, in the two parts around the privacy notice's title, which the form sets as its link. */
@@ -510,7 +512,8 @@ export const COPY = catalogue({
     seat: "Sitz",
     fullName: "Vollständiger Name",
     shorthand: "Kürzel",
-    shorthandDescription: "Drei Buchstaben",
+    /** By the length the backend fixes a club's code at. */
+    shorthandDescription: (length: number) => boundBy(formatNumber(length), "Buchstaben"),
     /** The closed box of a known club, whose code the acceptance does not set. */
     shorthandFixed: "Vergeben, als das Team angelegt wurde",
     /** Inside `shared.field.format`: no real club's code, so no reader takes it for one. */
@@ -564,7 +567,7 @@ export const COPY = catalogue({
     /** The select in the Trainer's box, whose two other entries are `seatName`'s. */
     trainerAlso: {
       label: "Übernimmt zugleich",
-      description: "Eine Person kann zwei Rollen haben.",
+      description: "Eine Person kann 2\u00A0Rollen haben.",
       none: "Keine weitere Rolle",
     },
   },
