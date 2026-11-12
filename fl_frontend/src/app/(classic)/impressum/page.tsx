@@ -1,4 +1,4 @@
-import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 
 import { KONTAKT_EMAIL, KONTAKT_MAILTO, SOURCE_URL, VORSTAND } from "@/core/brand";
@@ -19,8 +19,11 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 export default function LegalNoticePage() {
   const { provider, representation, contact, register, licence } = words;
   return (
-    <ClassicPage width="form">
-      <ClassicTitle text={COPY.page.legalNotice} />
+    <ClassicPage width="reading">
+      <PageHead
+        title={COPY.page.legalNotice}
+        lead={[SERVER_COPY.description.legalNotice]}
+      />
       <Prose
         blocks={[
           { kind: "heading", text: provider.heading },
