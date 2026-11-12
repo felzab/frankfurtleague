@@ -534,7 +534,10 @@ export const SERVER_COPY = catalogue({
       basis:
         "Wir speichern das auf Grundlage unseres berechtigten Interesses, den Spielbetrieb vor Störungen zu schützen (Art.\u00A06 Abs.\u00A01 lit.\u00A0f DSGVO).",
       /** Around the league's address. */
-      rights: { before: "Für eine Kopie deiner Daten, ihre Löschung, einen Widerruf oder Fragen zur Sperre schreib uns an\u00A0", after: "." },
+      rights: {
+        before: "Für eine Kopie deiner Daten, ihre Löschung, den Widerruf einer Einwilligung oder Fragen zur Sperre schreib uns an\u00A0",
+        after: ".",
+      },
     },
 
     /** The notice to every holder and the person named, one body for every reader, by what changed. */
