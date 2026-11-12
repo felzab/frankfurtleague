@@ -202,7 +202,7 @@ function ActDialog({
       <AriaDialog data-kit-focus>
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
-        <FormContext.Provider value={null}>
+        <FormContext value={null}>
           <Form
             className="grid gap-6"
             validationErrors={refused?.fieldErrors}
@@ -249,7 +249,7 @@ function ActDialog({
               />
             </FormFooter>
           </Form>
-        </FormContext.Provider>
+        </FormContext>
       </AriaDialog>
     </DialogOverlay>
   );

@@ -497,14 +497,14 @@ export function Menu({ label, trigger, head, groups, placement, align = "start",
               onOpenChange={setSubmenuOpen}>
               {/* The trigger's menu props belong to the first sheet's list; a chosen link here still
                   closes the whole menu through the root trigger's state. */}
-              <MenuContext.Provider value={null}>
+              <MenuContext value={null}>
                 <LinkList
                   label={shown.label}
                   links={shown.links}
                   size="phone"
                   onBack={() => setSubmenuOpen(false)}
                 />
-              </MenuContext.Provider>
+              </MenuContext>
             </SheetFrame>
           )}
         </SheetFrame>
