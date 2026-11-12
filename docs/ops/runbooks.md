@@ -1079,19 +1079,19 @@ that slot's `einwilligung.confirmed_at` as a fourth part; `rows`, an erasure's e
 other field that named the address, as `collection/id/path`, so a row naming two people says which
 of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
-**List the lines between the two moments**, from the running backend and the deploys' copies (§7),
-each in the `journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
+**List the lines between the two moments** from the host's journal (§7), each in the
+`journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
 an act naming more than a line holds, as a former owner's can, takes several: each carries the same
 `act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one line.
-A part the two commands do not find leaves that act's list short, so read the mail thread for it:
+A part the command does not find leaves that act's list short, so read the mail thread for it. The
+times are UTC, and the name is every backend container's, across deploys:
 
 ```bash
-docker compose logs --since 2026-10-15T03:00:00Z --until 2026-10-15T09:40:00Z backend | grep '"journal.act"'
-grep -h '"journal.act"' /var/log/frankfurtleague/*backend*
+sudo journalctl -t "$(docker compose ps --format '{{.Name}}' backend)" --since "2026-10-15 03:00:00 UTC" --until "2026-10-15 09:40:00 UTC" --output=cat | grep '"journal.act"'
 ```
 
-**A line outlives the stream only as far as the stream's size cap and the copies reach**, so read the
-mail thread beside the lines for every request that arrived by mail. A line whose commit lost its
+**A line outlives its act only as long as the journal keeps it** (§7), so read the mail thread
+beside the lines for every request that arrived by mail. A line whose commit lost its
 answer may name an act that never landed, and running it again wrongs nobody, the person having asked
 for it.
 
@@ -1176,7 +1176,7 @@ pass after the hold runs the pupils' deletion over the state the steps above re-
 deletions are re-derived: it writes no line.
 
 **Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
-and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
+and recreate the frontend with the command above.** The first pass runs a minute after the boot and pings the heartbeat, and the
 drain sends what waited, so these follow:
 
 - **The Postausgang came back with the snapshot**, so every mail open in it then goes out with the
@@ -1302,8 +1302,8 @@ trailing newline and surrounding blanks, and everything else in the file is part
 authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
-stack publishes on loopback, the local stack itself hands its services an inline config naming its
-own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
+stack publishes on loopback, and the local stack itself hands its services an inline config naming
+its own database.
 
 On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
 `fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
