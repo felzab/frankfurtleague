@@ -130,8 +130,10 @@ leaves a season by an `austritt` record, or by a replacement repointing that row
 survives both.
 
 **Retirement everywhere else is a date and never a delete, and it never cascades.** `inactive_since` retires
-a row and clearing it revives one; a played fixture keeps the team name it recorded at the time. What a
-retired row loses is NEW work. A retired club is entered into no season (`team_retired`). A retired venue or
+a row and clearing it revives one; a played fixture keeps the team name it recorded at the time. A new
+club, venue or referee whose shorthand or name a retired row holds is refused `duplicate_key`, while a
+registration's admission rewrites its person's retired squad row of that season. What a retired row
+loses is NEW work. A retired club is entered into no season (`team_retired`). A retired venue or
 referee is assigned to no fixture that does not already hold it, nor kept on one a save makes unplayed again
 (`booking_unknown_resource`). Both judge the reference being made rather than one merely stored, and
 reopening a fixture makes its references again. That is what lets a venue retire while played or called-off
