@@ -6,7 +6,8 @@ import { Card, CardPlaceholder } from "./Card";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
-import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
+import { placeholderBar } from "./Skeleton";
+import { SpielGroup } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -142,17 +143,26 @@ function Body({ state }: { state: SaisonState }) {
 }
 
 /**
- * The season's card while the season is read: the card's own head, its name's line and its chip's place, over the
- * running season's body, the last match and the next under their heads as bars, the state a season spends most of its
- * days in, whose words the other states do not hold.
+ * The card's body below `lg`, where it stands under the hero's text and nothing beside it sets its height: at least the
+ * tallest state's, the running season's last and next match, each a 40-px head over a 100-px match card, three hairlines
+ * between and under them, so no state, and not its wait, moves the sections under the card when it lands. From `lg` the
+ * hero's grid sets the card's height.
+ */
+const BODY_CLASSES = "max-lg:min-h-[calc(17.5rem+3px)]";
+
+/**
+ * The season's card while the season is read: the card's own head, its name's line and its chip's place, over one plain
+ * body, since which state's body lands is what the read tells. The body fills the card wherever the hero's grid
+ * stretches it, and stands at the card's one body height below `lg`.
  */
 export function SaisonBlockPlaceholder() {
   return (
-    <CardPlaceholder chip>
-      {/* The last and the next match, each under its head. */}
-      {[0, 1].map((index) => (
-        <SpielGroupPlaceholder key={index} />
-      ))}
+    <CardPlaceholder
+      chip
+      fill>
+      <div className={`grid p-4 ${BODY_CLASSES}`}>
+        <span className={placeholderBar("")} />
+      </div>
     </CardPlaceholder>
   );
 }
@@ -168,7 +178,9 @@ export function SaisonBlock({ title, state }: { title: Copy; state: SaisonState 
     <Card
       title={title}
       chip={STATE_CHIP[state.kind]}>
-      <Body state={state} />
+      <div className={BODY_CLASSES}>
+        <Body state={state} />
+      </div>
     </Card>
   );
 }

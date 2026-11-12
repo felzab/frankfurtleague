@@ -71,6 +71,7 @@ export function CardPlaceholder({
   chip = false,
   line = false,
   body = "rows",
+  fill = false,
   children,
 }: {
   title?: Words;
@@ -78,6 +79,8 @@ export function CardPlaceholder({
   chip?: boolean;
   line?: boolean;
   body?: "rows" | "fields";
+  /** The body takes the spare height of a card its grid stretches, for a wait drawn as one plain body. */
+  fill?: boolean;
   children?: ReactNode;
 }) {
   const s = card({ body });
@@ -91,7 +94,7 @@ export function CardPlaceholder({
       <span className={s.title()}>{textOf(title)}</span>
     );
   return (
-    <div className={s.root()}>
+    <div className={s.root({ class: fill ? "grid-rows-[auto_1fr]" : undefined })}>
       <div className={s.head()}>
         {name}
         {chip && (
@@ -111,7 +114,7 @@ export function CardPlaceholder({
           />
         )}
       </div>
-      {children !== undefined && <div className={s.body()}>{children}</div>}
+      {children !== undefined && <div className={s.body({ class: fill ? "grid" : undefined })}>{children}</div>}
     </div>
   );
 }

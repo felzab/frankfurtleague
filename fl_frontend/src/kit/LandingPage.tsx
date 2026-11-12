@@ -35,7 +35,10 @@ const hero = tv({
     // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
-    aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+    // From `lg` the card stands beside both rows and stretches to them, from the title's top to the acts' foot, its wait
+    // and every state of it alike: the text column sets its height, which no read decides. A grid of one, so the card,
+    // or its wait, fills it.
+    aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
     // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
     sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
   },
@@ -118,7 +121,7 @@ export function LandingPage({
         <div className={slots.aside()}>
           <PageWait
             fallback={
-              <Placeholder>
+              <Placeholder layoutClass="grid">
                 <SaisonBlockPlaceholder />
               </Placeholder>
             }>
