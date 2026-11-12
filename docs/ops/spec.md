@@ -661,27 +661,24 @@ be left out of the standalone output. **Both test tiers run**: the `db`-marked t
 
 ### 1.7 Script conventions
 
-All scripts source `scripts/lib/_lib.sh`, which applies strict mode and installs the error and
-interrupt traps, and which carries the guards, `wait_healthy` and the output verbs below. Two
-things a caller may rely on across every one of them: a script resolves the repository root itself,
-so it behaves the same from any working directory, and arguments are parsed before any
-environmental check, so a typo fails instantly rather than after a Docker probe.
+Every script sources `scripts/lib/_lib.sh`, which applies strict mode, installs the error and
+interrupt traps, and carries the guards and the output verbs below. A script resolves the
+repository root itself, so it behaves the same from any working directory, and parses its arguments
+before any environmental check, so a typo fails at once rather than after a Docker probe.
 
 **A path answers what a file is before the file is opened**: the directory names the category, the
-prefix names the class, the stem names the subject, and the extension names the harness. A new
-script goes into that scheme rather than beside it.
+prefix names the class, the stem names the subject, and the extension names the harness.
 
 | Part        | Reads as                                                                                                                                          |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract                                                          |
 | `_`         | Sourced by another script and never run on its own                                                                                                |
-| no prefix   | Run directly — by a person, by CI, or by another script as a subprocess                                                                           |
-| `.sh` `.py` | bash, and python at the version `fl_backend/.python-version` pins: the backend virtualenv's, or a CI job's own where no step needs the virtualenv |
-| `.mjs`      | node, taken only where the subject needs a parser bash and python do not have                                                                     |
+| no prefix   | Run directly, by a person, by CI or by another script as a subprocess                                                                             |
+| `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's, or a CI job's own where no step needs the virtualenv |
+| `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have                                                                     |
 
-`scripts/lib/checker_kernel.py` is the one name the scheme does not classify, and it keeps that
-name: it is imported rather than run, so the `_` marking a sourced script would say the wrong thing
-about it.
+`scripts/lib/checker_kernel.py` is the one name the scheme does not classify: it is imported rather
+than run, so the `_` marking a sourced script would say the wrong thing about it.
 
 **The output standard.** One vocabulary, one verb per meaning, and no script writes formatting of its
 own:
@@ -693,17 +690,12 @@ own:
 | `step`        | Opens a step and starts its timer                                                        |
 | `ok`          | The step passed, with the time it took                                                   |
 | `info`        | Neutral detail                                                                           |
-| `skip`        | Something was deliberately not run, dim so it can never read as a pass                   |
 | `warn`        | An advisory: a problem the run is meant to survive, on stderr                            |
-| `fail`        | A finding recorded, the run continuing — for a caller collecting several before it ends  |
+| `fail`        | A finding recorded, the run continuing, for a caller collecting several before it ends   |
 | `die`         | A finding that ends the run, on stderr                                                   |
 | `refuse`      | The check ran and its answer cannot stand as a verdict, so the run ends without one      |
 | `detail`      | Supporting output belonging to the line above it, from arguments or from stdin           |
-| `excerpt`     | The first few lines of something long, then a count of what `--verbose` would show       |
 | `finish`      | Ends a run that reached its end, printing the closing table and statement                |
-
-**The helpers a script leans on.** Not output verbs — one is a predicate, one wraps a command and
-one prints a script's own header — so a table of their own:
 
 | Helper    | Answers                                                                                                          |
 | --------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -711,9 +703,8 @@ one prints a script's own header — so a table of their own:
 | `quietly` | Runs a command with both streams captured into `QUIETLY_OUTPUT`, replayed only where the command fails           |
 | `usage`   | Prints the calling script's own header block as its help, so a script's help cannot drift from the script        |
 
-**A run has exactly one ending, and its exit code names which.** Nothing else may be inferred from
-the number: a caller that cannot tell "the change needs work" from "the check never ran" acts on the
-wrong one.
+**A run has exactly one ending, and its exit code names which.** A caller that cannot tell "the
+change needs work" from "the check never ran" acts on the wrong one.
 
 | Ending        | Exit      | What it says                                                                           |
 | ------------- | --------- | -------------------------------------------------------------------------------------- |
@@ -721,39 +712,19 @@ wrong one.
 | `findings`    | 1         | The change needs work, and each finding names what, in the section it came from        |
 | `refused`     | 2         | A check declined to judge its input, so nothing here stands as a verdict on the change |
 | `crashed`     | 3 or more | The script itself failed, so nothing past that line ran                                |
-| `interrupted` | 130       | Ctrl-C — the sections that had opened are all there is, and none of them is a verdict  |
+| `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
-The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for findings,
-2 for a check that could not judge its input and 3 or more for a broken environment, in one place, so
-a step reading a checker's status has one meaning to route rather than a private convention per
-checker.
+The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
+findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
+one place. `deploy.sh` keeps the scale's meaning for a deploy: 1 a failed deploy, 2 a refusal with
+the stack unchanged ([`runbooks.md`](runbooks.md) §1).
 
-**Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else** — the gate's own
+**Colour is decided centrally, through `FL_GATE_COLOR` ahead of everything else**: the gate's own
 variable, how `verify.sh` hands each scope's run its answer without exporting one every tool would
 take as an instruction.
 
-**A CONTAINER's own log passes through one filter more before any of those verbs.**
-`scripts/lib/_lib.sh :: redact_uri_credentials` replaces the userinfo in every `mongodb://` and
-`mongodb+srv://` URI on the line and leaves the host, port and options standing: a driver quotes the
-configured connection string back in precisely the failures `wait_healthy` greps a failing service's
-log for, and a host truncated as the file was written by hand is what separates a mistyped value
-from a cluster that is merely unreachable.
-`scripts/tests/test_redaction.py` pins both directions against fixtures.
-
-**What still gets through is accepted**: a credential arriving with no URI around it, which no filter of this shape reaches, and
-a URI carrying **no** userinfo that shares its line with a later `@`, whose host is replaced
-although nothing on the line was secret. That last one is the fail-safe half of the trade — bounding
-the match to spare it is what lets a real credential through.
-
-**Every script a person reads accepts `--verbose`**, which streams each tool's own output instead of
-capturing it — the one thing a captured run cannot give back afterwards. **One command discards both
-its streams whatever the flag says**: the configuration validation in
-`scripts/ops/deploy.sh :: check_compose_config`, whose parse error quotes a line of an environment
-file (§1.5).
-
-**A script whose output only a machine reads is exempt, and the interface is what decides, never the
-folder.** The assistant hooks answer in JSON, so a heading, a fold marker or a colour code in one is
-a corrupt answer rather than a nicer log.
+**`--verbose` streams each tool's own output instead of capturing it**, the one thing a captured run
+cannot give back afterwards; `verify.sh` and `nginx/edge_test.sh` take it.
 
 ### 1.8 The edge's declared state
 
