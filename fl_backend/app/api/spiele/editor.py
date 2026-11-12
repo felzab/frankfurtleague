@@ -106,7 +106,7 @@ class FLSpielEditorAufstellungen(BaseReadModel):
     team2: FLAufstellungSummary | None
 
 
-class FLSpielEditorBestaetigung(FLSpielbestaetigung):
+class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
     """A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
 
     `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
@@ -131,7 +131,7 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
     # The fixture's confirmation rows, newest first, as an administrator reads them.
-    spielbestaetigungen: list[FLSpielEditorBestaetigung]
+    spielbestaetigungen: list[FLSpielbestaetigungEditorRow]
     aufstellungen: FLSpielEditorAufstellungen
 
 
@@ -358,6 +358,6 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielEditorBestaetigung.model_validate({**row, "expired": expired(row)}) for row in confirmations],
+        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "expired": expired(row)}) for row in confirmations],
         aufstellungen=aufstellungen,
     )

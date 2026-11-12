@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, timeOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { eventOf, headedMatchOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
+import { eventOf, headedMatchOf, headOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -102,6 +102,13 @@ describe("what befell a match", () => {
     const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
     expect(first.absent).toBe("team1");
     expect(second.absent).toBe("team2");
+  });
+
+  it("strikes the side that did not turn up in the match's head, as its row does", () => {
+    const standings = { team1: null, team2: null };
+    const matchday = { spieltag_position: 1, count_spieltage_in_phase: 3 };
+    expect(headOf(spiel([3, 0], "nichtantreten_team2"), matchday, standings).absent).toBe("team2");
+    expect(headOf(spiel([3, 1]), matchday, standings).absent).toBeUndefined();
   });
 });
 

@@ -44,6 +44,22 @@ describe("the season's card before the start", () => {
     expect(screen.getByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBeTruthy();
   });
 
+  // The harm: a countdown naming an opening match that will not be played, with nothing saying so.
+  it("names what befell its opening match after the match's plaques", () => {
+    const label = COPY.spielplan.sonderereignis.ausgefallen;
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{
+          kind: "countdown",
+          start: new Date(Date.now() + 12 * DAY_MS).toISOString(),
+          opening: { ...OPENING, event: { tone: "danger", label } },
+        }}
+      />,
+    );
+    expect(screen.getByText(label).closest("p")?.textContent).toContain(OPENING.team2.record);
+  });
+
   it("shows the application window while no match is dated, with the way to apply", () => {
     render(
       <SaisonBlock

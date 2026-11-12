@@ -3,9 +3,11 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Card, CardPlaceholder } from "./Card";
+import { Chip } from "./Chip";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
+import { SAISON_CHIP } from "./saisonChip";
 import { placeholderBar } from "./Skeleton";
 import { SpielGroup } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
@@ -28,7 +30,14 @@ type OpeningSide = RecordText | null;
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: Copy; spieltag: Copy; team1: OpeningSide; team2: OpeningSide };
+type Opening = {
+  when: Copy;
+  spieltag: Copy;
+  team1: OpeningSide;
+  team2: OpeningSide;
+  /** What befell the match, drawn after its plaques as every match block draws it. */
+  event?: ChipProps;
+};
 
 /**
  * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
@@ -62,15 +71,14 @@ type SaisonState =
   | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
 /**
- * The chip naming the state in the card's head: a season still ahead, its application window included, in the
- * informing blue, a running one in the green of success, a decided one in the warning's amber, each apart from
- * the others by its hue.
+ * The chip naming the state in the card's head, from the season's one entry, so the card and the administration draw
+ * one chip for one state: a season still ahead, its application window included, as planned.
  */
 const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
-  countdown: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  window: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  running: { tone: "success", label: SERVER_COPY.saisonState.running },
-  decided: { tone: "warn", label: SERVER_COPY.saisonState.decided },
+  countdown: SAISON_CHIP.planned,
+  window: SAISON_CHIP.planned,
+  running: SAISON_CHIP.running,
+  decided: SAISON_CHIP.decided,
 };
 
 const block = tv({
@@ -103,6 +111,7 @@ function Body({ state }: { state: SaisonState }) {
                 <OpeningPlaque side={state.opening.team1} />
                 <span aria-hidden>{COPY.shared.versus}</span>
                 <OpeningPlaque side={state.opening.team2} />
+                {state.opening.event !== undefined && <Chip {...state.opening.event} />}
               </p>
             </>
           )}
@@ -143,17 +152,17 @@ function Body({ state }: { state: SaisonState }) {
 }
 
 /**
- * The card's body below `lg`, where it stands under the hero's text and nothing beside it sets its height: at least the
- * tallest state's, the running season's last and next match, each a 40-px head over a 100-px match card, three hairlines
- * between and under them, so no state, and not its wait, moves the sections under the card when it lands. From `lg` the
- * hero's grid sets the card's height.
+ * The card's body at every width: at least the tallest state's, the running season's last and next match, each a 40-px
+ * head over a 100-px match card, three hairlines between and under them, so no state, and not its wait, moves what
+ * stands beside or under the card when it lands. From `lg` that reserve is taller than the hero's text, so it sets the
+ * hero's height, before the read as after it.
  */
-const BODY_CLASSES = "max-lg:min-h-[calc(17.5rem+3px)]";
+const BODY_CLASSES = "min-h-[calc(17.5rem+3px)]";
 
 /**
  * The season's card while the season is read: the card's own head, its name's line and its chip's place, over one plain
- * body, since which state's body lands is what the read tells. The body fills the card wherever the hero's grid
- * stretches it, and stands at the card's one body height below `lg`.
+ * body, since which state's body lands is what the read tells. The body stands at the card's one body height, and fills
+ * the card wherever the hero's grid stretches it further.
  */
 export function SaisonBlockPlaceholder() {
   return (

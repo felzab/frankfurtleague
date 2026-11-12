@@ -34,9 +34,9 @@ import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
+  FLSpielbestaetigungEditorRow,
   FLSpieleAdminSingleResponse,
   FLSpielEditorBericht,
-  FLSpielEditorBestaetigung,
   FLSpielJoinedAdmin,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
@@ -244,7 +244,7 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
 }
 
 /** The party's open row about the fixture's Ansetzung as it stands, closed ones being about one it left. */
-const openRowOf = (rows: readonly FLSpielEditorBestaetigung[], party: (row: FLSpielEditorBestaetigung) => boolean) =>
+const openRowOf = (rows: readonly FLSpielbestaetigungEditorRow[], party: (row: FLSpielbestaetigungEditorRow) => boolean) =>
   rows.find((row) => row.closed === null && party(row));
 
 /**
@@ -252,7 +252,7 @@ const openRowOf = (rows: readonly FLSpielEditorBestaetigung[], party: (row: FLSp
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
  * An answer that lapsed unanswered, which the party can no longer give, says so as the party's own page does.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielEditorBestaetigung | undefined): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
