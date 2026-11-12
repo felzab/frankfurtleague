@@ -134,8 +134,8 @@ const GRUPPE = (gruppe: string) => `Gruppe ${gruppe}`;
 const SPIEL_FACT = { date: "Datum", time: "Uhrzeit" } as const;
 // A match or a matchday not dated yet, as a match row and a matchday's line say it.
 const DATE_OPEN = "Termin offen";
-// The mark beside a score a shoot-out decided.
-const AFTER_ELFMETERSCHIESSEN = "n. E.";
+// The mark beside a score a shoot-out decided, its two parts joined by a no-break space so a narrow row never parts them.
+const AFTER_ELFMETERSCHIESSEN = "n.\u00A0E.";
 // A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list.
 const ZUGESAGT = "Zugesagt";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
@@ -1187,7 +1187,7 @@ export const COPY = catalogue({
       /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
       isCurrent: "Die Website zeigt diese Saison.",
       onto: (saison: string) => boundBy("Auf", saisonName(saison)),
-      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${saisonName(saison)}.`,
+      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonName(saison))}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */
       activateQuestion: "Die Website wechselt die Saison.",
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
@@ -1335,7 +1335,7 @@ export const COPY = catalogue({
       /** The field group over the season's fields in „Team eintragen“. */
       inSaison: (saison: string) => boundBy("In", "der", saisonName(saison)),
       /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
-      renameReach: "Gilt für laufende und geplante Saisons.",
+      renameReach: "Gilt für laufende und geplante Saisons",
       /** The public text on the club's page. */
       description: "Beschreibung",
       descriptionNote: "Steht auf der Teamseite",

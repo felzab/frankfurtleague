@@ -2,10 +2,10 @@ import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME, VEREINSREGISTER, VORSTAND_JOINTLY } from "./brand";
 import { boundBy, catalogue, COPY, rollenText, textOf, waitWords } from "./copy";
-import { formatDate, formatDateLong, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
+import { formatDate, formatDateLong, formatDayAndTime, formatInstant, formatList, formatNumber, formatOrdinal, formatSigned } from "./format";
 
 import type { Copy, Wait, Words } from "./copy";
-import type { CalendarDay } from "./format";
+import type { CalendarDay, TimeOfDay } from "./format";
 import type { Code, FLBookingResource, FLKontaktRolle, FLOverviewCardName, FLRefusedField, Rule } from "./generated/client/types";
 import type { ROUTES } from "./routes";
 
@@ -68,7 +68,7 @@ const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag."
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
 const REFEREE_STORED =
-  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beenden.";
+  "Wir speichern deinen Namen, deine Kontaktdaten, dein Honorar, dein Geburtsdatum und deine Schule, wenn sie angegeben ist, bis du oder die Liga den Eintrag beendet.";
 
 /**
  * The bounds the frontend's code holds that the privacy notice's retention table states, passed by its page. An hour
@@ -380,6 +380,9 @@ export const SERVER_COPY = catalogue({
       subject: (team: string) => `${team} spielt nicht mehr mit`,
       lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonName(saison))} ausgeschieden.` },
       spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
+      /** A match row's label, with its year as every other mail's date has it; undated, what is still to settle. */
+      when: (day: CalendarDay | null, time: TimeOfDay | null) =>
+        day === null ? COPY.spielplan.when(null, null) : time === null ? formatDateLong(day) : formatDayAndTime(day, time),
     },
 
     /**
@@ -552,7 +555,7 @@ export const SERVER_COPY = catalogue({
         },
         completed: {
           handover: (address: string) => `${address} leitet jetzt die Verwaltung.`,
-          address: (previous: string, next: string) => `Die Adresse ${previous} heißt jetzt ${next}.`,
+          address: (previous: string, next: string) => `${previous} ist jetzt ${boundBy("zu", next)} gewechselt.`,
         },
       },
       /** On what waits. */
@@ -599,7 +602,8 @@ export const SERVER_COPY = catalogue({
         subject: (team: string) => `Registrierung für ${team} bestätigen`,
         admission: "Erst wenn du bestätigt hast, kann dein Team dich aufnehmen.",
         /** The deadline where the mail's data counts days, the page's sentence taking a day. */
-        deadlineIn: (days: number) => `Bestätigst du nicht ${boundBy("in", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
+        deadlineIn: (days: number) =>
+          `Bestätigst du nicht innerhalb ${boundBy("von", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
       },
       absage: {
         subject: (team: string) => `Registrierung für ${team} abgelehnt`,
@@ -917,7 +921,7 @@ export const SERVER_COPY = catalogue({
       kader: {
         heading: "Im Kader",
         text: (minAge: number, days: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+          `Für den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst, auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
@@ -1017,7 +1021,7 @@ export const SERVER_COPY = catalogue({
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Honorar, Antworten",
             period: (bound: RetentionBounds) =>
-              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beenden`,
+              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beendet`,
           },
           {
             name: "Teams und Spiele",
