@@ -1,10 +1,11 @@
+import { Suspense } from "react";
+
 import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
-import { PageWait } from "./PageFade";
 import { Placeholder, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -97,9 +98,9 @@ export function Steps({ items, band, closed }: { items: readonly Step[]; band: P
           ))}
         </ol>
       </div>
-      <PageWait fallback={<BandPlaceholder sentence={closed} />}>
+      <Suspense fallback={<BandPlaceholder sentence={closed} />}>
         <Band band={band} />
-      </PageWait>
+      </Suspense>
     </>
   );
 }

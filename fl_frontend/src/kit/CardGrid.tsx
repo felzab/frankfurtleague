@@ -1,6 +1,11 @@
+import { Suspense } from "react";
+
+import { CardLink, CardPlaceholder } from "./Card";
+import { Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { ReactNode } from "react";
+import type { CardLinkProps } from "./Card";
 
 const grid = tv({
   base: "grid gap-6",
@@ -33,5 +38,39 @@ export function CardGrid({
     <div className="@container w-full">
       <div className={grid({ across })}>{children}</div>
     </div>
+  );
+}
+
+/** The chooser's cards once the person's places are read. */
+async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
+  return (
+    <CardGrid across={3}>
+      {(await choices).map((choice) => (
+        <CardLink
+          key={choice.href}
+          {...choice}
+        />
+      ))}
+    </CardGrid>
+  );
+}
+
+/**
+ * The role chooser's places, each a card linking it, read in a boundary of their own under the titled strip. Meanwhile
+ * two cards stand, the fewest a person reaching the chooser holds, each its title's bar over its line's.
+ */
+export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
+  return (
+    <Suspense
+      fallback={
+        <Waiting>
+          <CardGrid across={3}>
+            <CardPlaceholder line />
+            <CardPlaceholder line />
+          </CardGrid>
+        </Waiting>
+      }>
+      <RoleChoicesOnceRead choices={choices} />
+    </Suspense>
   );
 }

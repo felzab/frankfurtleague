@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { Callout } from "./Callout";
 import { stacked } from "./cardStyles";
 import { ClassicPage, PageHead } from "./ClassicPage";
@@ -157,7 +159,7 @@ function Text({ sections }: { sections: ReturnType<typeof identified> }) {
  * each at a line's measure; a table, which the page places, across the column; a box as the kit's `Callout`; a list of
  * the site's pages as plain links.
  */
-export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
+function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
   return <Text sections={identified(sections)} />;
 }
 
@@ -183,7 +185,7 @@ export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<Pro
 }
 
 /** One heading's links while a read names the heading: its line and each link's, in the words they will stand in. */
-export function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
+function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
   const slots = prose();
   return (
     <Placeholder layoutClass={slots.section()}>
@@ -201,5 +203,25 @@ export function ProseLinksPlaceholder({ heading, links }: { heading: string; lin
         ))}
       </div>
     </Placeholder>
+  );
+}
+
+/** The sections once their read has landed. */
+async function ProseOnceRead({ sections }: { sections: Promise<ReadonlyArray<ProseSection>> }) {
+  return <Prose sections={await sections} />;
+}
+
+/** A text whose sections a read decides, in a boundary of its own: meanwhile `wait`, one heading over its links, stands in their place. */
+export function ProseWait({
+  sections,
+  wait,
+}: {
+  sections: Promise<ReadonlyArray<ProseSection>>;
+  wait: ComponentProps<typeof ProseLinksPlaceholder>;
+}) {
+  return (
+    <Suspense fallback={<ProseLinksPlaceholder {...wait} />}>
+      <ProseOnceRead sections={sections} />
+    </Suspense>
   );
 }

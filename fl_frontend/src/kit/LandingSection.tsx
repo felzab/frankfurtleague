@@ -1,8 +1,7 @@
-import { useId } from "react";
+import { Suspense, useId } from "react";
 
 import { smallCaps } from "./cardStyles";
 import { Link } from "./Link";
-import { PageWait } from "./PageFade";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -59,9 +58,9 @@ async function Decided({ block }: { block: Promise<ReactNode> }) {
  */
 export function LandingSectionWait({ block, fallback }: { block: Promise<ReactNode>; fallback: ReactNode }) {
   return (
-    <PageWait fallback={fallback}>
+    <Suspense fallback={fallback}>
       <Decided block={block} />
-    </PageWait>
+    </Suspense>
   );
 }
 

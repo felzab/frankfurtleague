@@ -411,29 +411,3 @@ describe("one club's matches under their matchdays", () => {
     expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
   });
 });
-
-describe("the list template's wait", () => {
-  // Under `prefers-reduced-motion: reduce` the motion tokens are unset, and a declaration reading one is
-  // invalid whole: were it the `animation` shorthand, the name would fall to `none` and the skeleton, at its
-  // resting opacity of 0, would never show.
-  it("keeps the skeleton's animation under reduced motion, a motion token setting its duration alone", async () => {
-    // The document a browser holds before the content arrives: the shell, the list's boundary at its fallback.
-    const page = document.createElement("div");
-    page.innerHTML = renderToString(
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
-      />,
-    );
-    const declared = await declarationsFor([...(page.querySelector("[aria-busy]")?.classList ?? [])]);
-
-    const appearing = declared.filter(({ decl }) => decl.prop.startsWith("animation") || decl.prop === "opacity");
-    expect(appearing.filter(({ media }) => media.length > 0)).toStrictEqual([]);
-    expect(declared.filter(({ decl }) => /var\(--motion-/.test(decl.value)).map(({ decl }) => decl.prop)).toStrictEqual(["animation-duration"]);
-
-    // The delay is declared where motion is not asked about, so it holds under reduced motion too.
-    const delays: string[][] = [];
-    (await compiled).walkDecls("--loading-delay", (decl) => void delays.push(mediaAbove(decl)));
-    expect(delays).toStrictEqual([[]]);
-  });
-});

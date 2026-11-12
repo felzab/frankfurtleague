@@ -1,5 +1,6 @@
+import { Suspense } from "react";
+
 import { FieldPlaceholder } from "./FieldPair";
-import { PageWait } from "./PageFade";
 import { QuestionForm, QuestionFormPlaceholder } from "./QuestionForm";
 import { RailPage } from "./RailFrame";
 import { TextField } from "./TextField";
@@ -51,7 +52,7 @@ export function QuestionPage<Input>({
     <RailPage
       scope="area"
       title={title}>
-      <PageWait
+      <Suspense
         fallback={
           <QuestionFormPlaceholder verb={form.verb}>
             {fields.map((field) => (
@@ -70,7 +71,7 @@ export function QuestionPage<Input>({
           holder={holder}
           fields={fields}
         />
-      </PageWait>
+      </Suspense>
     </RailPage>
   );
 }

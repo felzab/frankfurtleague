@@ -1,9 +1,10 @@
+import { Suspense } from "react";
+
 import { COPY } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage } from "./ClassicPage";
 import { Link } from "./Link";
-import { PageWait } from "./PageFade";
 import { SaisonBlockPlaceholder } from "./SaisonBlock";
 import { Placeholder, Waiting } from "./Skeleton";
 import { tv } from "./tv";
@@ -111,7 +112,7 @@ export function LandingPage({
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
-          <PageWait
+          <Suspense
             fallback={
               <Waiting layoutClass={slots.acts()}>
                 <span className={buttonPlaceholder()}>{COPY.page.spielplan}</span>
@@ -120,17 +121,17 @@ export function LandingPage({
               </Waiting>
             }>
             <Acts content={content} />
-          </PageWait>
+          </Suspense>
         </div>
         <div className={slots.aside()}>
-          <PageWait
+          <Suspense
             fallback={
               <Placeholder layoutClass="grid">
                 <SaisonBlockPlaceholder />
               </Placeholder>
             }>
             <Aside content={content} />
-          </PageWait>
+          </Suspense>
         </div>
         <div className={slots.sections()}>{sections}</div>
       </div>

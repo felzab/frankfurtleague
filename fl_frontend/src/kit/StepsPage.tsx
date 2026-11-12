@@ -1,4 +1,5 @@
-import { PageWait } from "./PageFade";
+import { Suspense } from "react";
+
 import { formColumn, RailPage } from "./RailFrame";
 import { Waiting } from "./Skeleton";
 
@@ -21,9 +22,9 @@ export function StepsPage({ title, wait, steps }: { title: PageTitle; wait: Reac
       scope="area"
       title={title}>
       <div className={formColumn()}>
-        <PageWait fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
+        <Suspense fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
           <StepsOnceRead steps={steps} />
-        </PageWait>
+        </Suspense>
       </div>
     </RailPage>
   );
