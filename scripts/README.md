@@ -10,6 +10,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/gate/zizmor/requirements.txt`  | —             | The zizmor release the ops scope installs, by its hashes                                        |
 | `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out      |
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it    |
+| `scripts/checks/check_retired_stems.py` | any           | Every tracked path and every name in a tracked code file against the retired German stems       |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own            |
 | `scripts/ops/seed/seed.js`              | dev, CI       | The made-up league `local.sh --seed-made-up` and `--e2e` load                                   |
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails         |
