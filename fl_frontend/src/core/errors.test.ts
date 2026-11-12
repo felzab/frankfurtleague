@@ -31,8 +31,6 @@ describe("a refusal read by its code, whatever its status", () => {
     for (const code of codes) {
       for (const status of [400, 401, 403, 404, 409, 410, 422, 429]) {
         const refusal = new APIBadStatusError({
-          url: "http://backend:8000/api/v0/x",
-          endpoint: "/x",
           traceId: "ab".repeat(16),
           message: "bad",
           statusCode: status,
@@ -49,8 +47,8 @@ describe("a refusal read by its code, whatever its status", () => {
 describe("the request a failure line names", () => {
   it("says a refused call's status, code and trace, an unanswered call's trace, and nothing of any other throw", () => {
     const traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
-    const refusal = new APIBadStatusError({ url: "", endpoint: "", traceId, message: "", statusCode: 409, serverErrorCode: "no_owner" });
-    const unanswered = new APINetworkError({ url: "", traceId, message: "", isTimeout: true });
+    const refusal = new APIBadStatusError({ traceId, message: "", statusCode: 409, serverErrorCode: "no_owner" });
+    const unanswered = new APINetworkError({ traceId, message: "" });
 
     expect(requestOf(refusal)).toStrictEqual({ status: 409, server_error_code: "no_owner", trace_id: traceId });
     expect(requestOf(unanswered)).toStrictEqual({ trace_id: traceId });

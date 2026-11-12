@@ -1,4 +1,3 @@
-import { PersonReadWithoutSubjectError } from "@/core/errors";
 import { getSubjectSession } from "@/core/subject";
 import { runWithIncomingTrace } from "@/core/traceScope";
 
@@ -9,10 +8,8 @@ import { runWithIncomingTrace } from "@/core/traceScope";
 export async function runPersonRead<T>(fn: () => Promise<T>): Promise<T> {
   return runWithIncomingTrace(async () => {
     // Inside the scope just opened, where the lookup records its actor on every call, memoised or not.
-    const subject = await getSubjectSession();
-    // Thrown to the error boundary: a page reads the session before any read, so only a caller
-    // skipping that check reaches this, a programming error that must be loud.
-    if (subject === null) throw new PersonReadWithoutSubjectError();
+    // With no person signed in it records none, and `sendToBackend` refuses the unattributed call unsent.
+    await getSubjectSession();
 
     return fn();
   });

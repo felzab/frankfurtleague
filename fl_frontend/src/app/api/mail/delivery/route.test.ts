@@ -99,9 +99,7 @@ async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutb
 const NETWORK_FAILURE = () =>
   new APINetworkError({
     message: "Request failed.",
-    url: "http://backend:8000",
     traceId: "t".repeat(32),
-    isTimeout: false,
   });
 
 beforeEach(() => {

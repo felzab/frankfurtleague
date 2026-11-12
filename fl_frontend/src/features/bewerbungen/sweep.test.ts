@@ -81,9 +81,7 @@ function seasons(saisonIds: string[], { passedOver = {}, fails = [] }: { passedO
     if (fails.includes(endpoint))
       throw new APINetworkError({
         message: "The backend did not answer.",
-        url: `http://backend${endpoint}`,
         traceId: TRACE_ID,
-        isTimeout: true,
       });
     if (endpoint === "/schiedsrichter/sweep") return { erased: 0, failed: passedOver[endpoint] ?? 0 };
     const saisonId = saisonOf(endpoint);

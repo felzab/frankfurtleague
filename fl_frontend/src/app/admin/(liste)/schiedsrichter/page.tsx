@@ -44,8 +44,7 @@ function rowOf(referee: FLSchiedsrichter): TableRow {
   const chip = chipOf(referee);
   return {
     id: referee.id,
-    // A hand-written row may hold no name; it is still a person in the league, found by its address.
-    name: referee.name === null ? COPY.shared.noValue : { record: referee.name },
+    name: { record: referee.name },
     href: ROUTES.adminSchiedsrichterRecord.path(referee.id),
     ...(chip === undefined ? {} : { chip }),
     muted: referee.inactive_since !== null,

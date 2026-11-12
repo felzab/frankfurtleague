@@ -23,10 +23,10 @@ export function SignedIn({ address }: { address: string }) {
     setIsPending(true);
     setError(null);
 
-    const result = await signOut().catch(() => null);
+    const ended = await signOut().catch(() => false);
     // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every hidden route
     // with its rows and typed text.
-    if (result?.success === true) return leaveDocumentFor("/");
+    if (ended) return leaveDocumentFor("/");
 
     setIsPending(false);
     setError(COPY.shared.failure.unexpected);

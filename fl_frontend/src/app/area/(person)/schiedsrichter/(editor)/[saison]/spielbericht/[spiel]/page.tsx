@@ -135,7 +135,7 @@ export default function SpielberichtPage({ params }: Props) {
   );
 }
 
-/** A pupil by number and name as the squad lists them; one an erasure took is „anonym“, as every page names them. */
+/** A pupil by number and name as the squad lists them; one no record holds is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
   const name = spielerName({ first_name: first, last_name: last });
   return { id, label: { record: COPY.shared.line([nummer === null ? null : { record: nummer }, name]) } };

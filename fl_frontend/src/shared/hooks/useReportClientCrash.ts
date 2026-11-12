@@ -18,6 +18,7 @@ export function useReportClientCrash(thrown: unknown): void {
     const error = asCaughtError(thrown);
     if (error.digest) return;
 
-    postClientError(String(error.message ?? "Unknown client error"), typeof error.stack === "string" ? error.stack : undefined);
+    // An empty message stands in as words of its own: the route refuses an empty one, and a refused report is lost.
+    postClientError(String(error.message || "Unknown client error"), typeof error.stack === "string" ? error.stack : undefined);
   }, [thrown]);
 }

@@ -17,11 +17,9 @@ export function refused(
 ): APIBadStatusError {
   return new APIBadStatusError({
     message: "refused",
-    url: "http://backend/api/v0/",
     statusCode: status,
     serverErrorCode: code,
     refusedFields: fields,
-    endpoint: "/",
     traceId: "0",
   });
 }

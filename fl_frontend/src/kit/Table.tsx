@@ -46,8 +46,9 @@ type TableColumn = {
   width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: cut with „…“ at the
-   * column `width` sets, whole in its tooltip while it is cut, and wrapping on a stacked phone row, where a touch reaches
-   * no tooltip. Every other column widens to its longest value, so only a value bounded to its column's width goes uncut.
+   * column `width` sets, whole in its tooltip while it is cut, which a touch never shows. So a `stack` table, whose rows
+   * open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only a
+   * value bounded to its column's width goes uncut.
    */
   cut?: true;
 } &
@@ -470,8 +471,6 @@ const table = tv({
     // Restated after the variants, so a `prose` or a `stack` table's stacked row, whose cells are grids there, never
     // draws a column a narrow box leaves out: the merger keeps the later of two `display` classes.
     { phone: "hidden", class: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" } },
-    // A stacked row's grid cell has a width of its own, which `max-w-0` would take to nothing.
-    { cut: true, stack: true, class: { cell: "@max-2xl:max-w-none" } },
     // In a stacked list a cut value counts nothing towards its track, which its head's least width alone sets, as
     // `max-w-0` has it in a table.
     { cut: true, stacks: "list", class: { cell: "@max-2xl:max-w-none @max-2xl:contain-inline-size" } },
@@ -591,7 +590,7 @@ function phoneEndStyle(rankLabel: Copy | undefined, columns: ReadonlyArray<Table
  * of the digits, and its name tells a screen reader what no line explains.
  * A record is its three counts, `RecordFigures`.
  */
-function Cell({ cell, slot, cut, stack }: { cell: TableCell | undefined; slot: boolean; cut: boolean; stack: boolean }) {
+function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean; cut: boolean }) {
   if (cell === undefined) return null;
   if (typeof cell === "object" && "counts" in cell) return <RecordFigures counts={cell.counts} />;
   const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
@@ -599,7 +598,7 @@ function Cell({ cell, slot, cut, stack }: { cell: TableCell | undefined; slot: b
     return (
       <CutText
         text={textOf(value)}
-        className={stack ? `block truncate ${PHONE_WRAPS_CLASSES}` : "block truncate"}
+        className="block truncate"
       />
     );
   if (!slot) return textOf(value);
@@ -981,7 +980,6 @@ export function Table({
                             cell={row.cells[column.key]}
                             slot={marked.has(column.key)}
                             cut={column.cut === true}
-                            stack={stack}
                           />
                         </td>
                       );

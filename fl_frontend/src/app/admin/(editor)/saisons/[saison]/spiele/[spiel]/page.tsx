@@ -267,7 +267,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
-/** Each party's answer about the fixture as it stands: both clubs, then the referee where one is booked. */
+/** Each party's answer about the fixture as it stands: both clubs, then the referee where a booking names one. */
 function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
   const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
@@ -282,13 +282,14 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
           ),
         ];
   const booked = spiel.schiedsrichter;
+  // A booking naming nobody, which an erasure leaves on a played match, has no party to ask or to answer.
   const referee =
-    booked === null
+    booked === null || booked.name === null
       ? []
       : [
           answerRow(
             "schiedsrichter",
-            booked.name === null ? COPY.shared.notProvided : { record: booked.name },
+            { record: booked.name },
             null,
             openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
           ),

@@ -14,7 +14,7 @@ export type SchiedsrichterValues = {
 
 export function valuesOf(referee: FLSchiedsrichter): SchiedsrichterValues {
   return {
-    name: referee.name ?? "",
+    name: referee.name,
     schule: referee.schule ?? "",
     email: referee.kontakt.email ?? "",
     phone: referee.kontakt.phone ?? "",

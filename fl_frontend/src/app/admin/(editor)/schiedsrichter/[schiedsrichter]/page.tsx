@@ -22,7 +22,7 @@ import { saveSchiedsrichter } from "./saveSchiedsrichter";
 import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 import { valuesOf } from "./schiedsrichterValues";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { FLSchiedsrichter, FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
@@ -47,13 +47,10 @@ async function readSchiedsrichter(params: Props["params"]) {
   return found;
 }
 
-/** A referee is named by their name; a hand-written row holding none by the glyph a missing value takes. */
-const nameOf = (referee: FLSchiedsrichter): Words => (referee.name === null ? COPY.shared.noValue : { record: referee.name });
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   return metadataFor(findSchiedsrichter(params), ({ schiedsrichter }) =>
     pageMetadata(parent, ROUTES.adminSchiedsrichterRecord, ROUTES.adminSchiedsrichterRecord.path(schiedsrichter.id), {
-      title: nameOf(schiedsrichter),
+      title: { record: schiedsrichter.name },
     }),
   );
 }
@@ -170,7 +167,7 @@ async function readEditor(params: Props["params"]) {
 
   return (
     <SchiedsrichterEditor
-      title={nameOf(referee)}
+      title={{ record: referee.name }}
       {...chipsOf(found)}
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}

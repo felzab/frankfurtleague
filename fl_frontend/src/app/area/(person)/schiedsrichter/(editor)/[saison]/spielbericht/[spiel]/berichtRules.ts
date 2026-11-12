@@ -18,7 +18,7 @@ const [namedScorer] = scorer.spieler_id.options;
 const [namedCarded] = card.spieler_id.options;
 
 /**
- * A goal's row as the form sends it, each box held to the write's rule. Its player is a choice to make: „Unbekannt“
+ * A goal's row as the form sends it, each box held to the write's rule. Its player is a choice to make: „Anonym“
  * stands for the null player the write takes as a scorer nobody named, so a row's own `null` is no choice yet.
  */
 export const Goal = z.object({

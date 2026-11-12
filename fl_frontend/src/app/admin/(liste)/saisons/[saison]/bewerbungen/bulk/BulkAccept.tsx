@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { ConfirmDialog } from "@/kit/ConfirmDialog";
 import { EmptyBox } from "@/kit/EmptyState";
-import { StatusCard } from "@/kit/StatusCard";
+import { RailCardBody } from "@/kit/StatusCard";
 import { CheckStep, StepCard } from "@/kit/StepCard";
 import { answering } from "@/kit/useFormAction";
 
@@ -119,10 +119,13 @@ export function BulkAccept({
   const accepted = rows.filter((row) => run.outcomes[row.id]?.kind === "accepted").length;
   if (open.length === 0 && accepted > 0)
     return (
-      <StatusCard
-        tone="success"
-        title={WORDS.acceptedCount(accepted)}
-        next={{ label: COPY.shared.end.toTeams, href: ROUTES.adminTeams.path(saison) }}
+      <RailCardBody
+        card={{
+          tone: "success",
+          title: WORDS.acceptedCount(accepted),
+          next: { label: COPY.shared.end.toTeams, href: ROUTES.adminTeams.path(saison) },
+        }}
+        scope="area"
       />
     );
 
