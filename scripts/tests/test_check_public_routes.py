@@ -843,7 +843,7 @@ def clean_tree() -> Path:
 
 
 def test_a_clean_pair_exits_zero(monkeypatch):
-    """The contract's passing arm, and what the gate's docs section reads as a green step."""
+    """The contract's passing arm, and what the gate's ops section reads as a green step."""
     assert run_main(clean_tree(), CLEAN, monkeypatch) == 0
 
 

@@ -209,7 +209,7 @@ and lockfile, or pnpm itself did not start (its own words are above). Fix with: 
 esac
 PY=""
 case "$SCOPE" in
-  scripts|docs|backend|ops|db)
+  scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
     # On a runner the job's own `uv sync --locked` has just run.
     if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
@@ -292,12 +292,6 @@ scope_docs() {
   step "docs · every link and fragment inside the repository resolves"
   check "lychee names each broken link or fragment above, with the file it stands in." check_links \
     && ok "every link inside the repository resolves"
-
-  # This scope because the check reads the App Router tree and `nginx/shared/site.conf` together.
-  step "docs · every route handler, link page and metadata convention is metered or accounted for"
-  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
-    "$PY" scripts/checks/check_public_routes.py \
-    && ok "every route handler is accounted for at the edge"
   return 0
 }
 
@@ -500,6 +494,11 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
 findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
+
+  step "ops · every route handler, link page and metadata convention is metered at the edge"
+  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
+    "$PY" scripts/checks/check_public_routes.py \
+    && ok "every route handler is accounted for at the edge"
 
   step "ops · nginx accepts prod.conf"
   # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
