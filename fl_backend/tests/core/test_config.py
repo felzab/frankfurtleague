@@ -47,87 +47,105 @@ VARIABLES = {"DB_BASE_NAME": "fl_boot_test"}
 VARIABLE_OF = {file: file.upper() for file in SECRET_FILES}
 
 
+# Every file refused at once, each by its own rule.
+REFUSED = Withheld(
+    {
+        MONGODB_URI_FILE: "reader:Made-Up-Password-7@localhost:27017",
+        **{file: a_key(f"Too-Short-{file}-7", INTERNAL_API_KEY_LENGTH - 1) for file in KEYS},
+    }
+)
+
+# A key's variable left behind beside its file, holding a value the settings refuse.
+STALE = Withheld({VARIABLE_OF["internal_api_key_base"]: a_key("Stale-Variable-7", INTERNAL_API_KEY_LENGTH - 1)})
+
+# A value the settings accept in every file's variable, standing in for files never written.
+STANDING_IN = Withheld(
+    {
+        VARIABLE_OF[MONGODB_URI_FILE]: "mongodb://Made-Up-Host-7:27017",
+        **{VARIABLE_OF[file]: a_key(f"Stand-In-{file}-7") for file in KEYS},
+    }
+)
+
+# TEST-NET-1 (RFC 5737), which no host answers, on a port no `mongod` this repository starts listens on: the ping fails
+# for the one reason its case is about wherever it runs, after the driver's own server selection.
+UNREACHABLE_HOST = "192.0.2.1"
+UNREACHABLE_URI = Withheld({MONGODB_URI_FILE: f"mongodb://{UNREACHABLE_HOST}:27018"})
+
+# Each case's secret files and whole environment.
+BOOTS = {
+    "refused": (REFUSED, VARIABLES),
+    "stale": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), Withheld({**VARIABLES, **STALE})),
+    "missing": ({}, Withheld({**VARIABLES, **STANDING_IN})),
+    "misspelled": (Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), {"DB_BASE_NAMES": VARIABLES["DB_BASE_NAME"]}),
+    "unreachable": (Withheld({**UNREACHABLE_URI, **KEYS}), VARIABLES),
+}
+
+
+@pytest.fixture(scope="module")
+def boots(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Boot]:
+    """Every case's boot at once, each from a folder of its own, so the others end inside the unreachable server's wait."""
+
+    return booted({name: (tmp_path_factory.mktemp(name), files, variables) for name, (files, variables) in BOOTS.items()})
+
+
 class TestARefusal:
-    def test_never_repeats_a_secret_s_value(self, tmp_path: Path):
+    def test_never_repeats_a_secret_s_value(self, boots: dict[str, Boot]):
         """Every file refused at once, each by its own rule, and the container log is the whole exposure: a name is all an operator needs."""
 
-        refused = Withheld(
-            {
-                MONGODB_URI_FILE: "reader:Made-Up-Password-7@localhost:27017",
-                **{file: a_key(f"Too-Short-{file}-7", INTERNAL_API_KEY_LENGTH - 1) for file in KEYS},
-            }
-        )
-
-        boot = booted(tmp_path, refused, VARIABLES)
+        boot = boots["refused"]
 
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
         assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == set(SECRET_FILES)
-        assert boot.leaked(refused) == []
+        assert boot.leaked(REFUSED) == []
 
 
 class TestASecretFile:
-    def test_beats_a_stale_variable_of_its_own_name(self, tmp_path: Path):
+    def test_beats_a_stale_variable_of_its_own_name(self, boots: dict[str, Boot]):
         """pydantic-settings ranks a variable above a secret file, so one left behind would win in silence.
 
         The variable holds a value the settings refuse, so which of the two won shows in whether the boot gets past them:
         the file's key is taken, and the boot stops at the database the file names.
         """
 
-        stale = {VARIABLE_OF["internal_api_key_base"]: a_key("Stale-Variable-7", INTERNAL_API_KEY_LENGTH - 1)}
-
-        boot = booted(tmp_path, Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), Withheld({**VARIABLES, **stale}))
+        boot = boots["stale"]
 
         assert (boot.code, boot.events) == (STARTUP_FAILED, [NO_SERVER.event])
 
-    def test_missing_is_named_without_the_value_a_variable_holds_for_it(self, tmp_path: Path):
+    def test_missing_is_named_without_the_value_a_variable_holds_for_it(self, boots: dict[str, Boot]):
         """Over every file the class reads, none written: a variable standing in for a missing file would boot on a value nobody chose.
 
         Each variable carries a value the settings accept, so only the missing file refuses the boot.
         """
 
-        standing_in = Withheld(
-            {
-                VARIABLE_OF[MONGODB_URI_FILE]: "mongodb://Made-Up-Host-7:27017",
-                **{VARIABLE_OF[file]: a_key(f"Stand-In-{file}-7") for file in KEYS},
-            }
-        )
-
-        boot = booted(tmp_path, {}, Withheld({**VARIABLES, **standing_in}))
+        boot = boots["missing"]
 
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
         assert names(boot.record("system.config_refused")["refusal"], "Invalid secret files") == set(SECRET_FILES)
-        assert boot.leaked(standing_in) == []
+        assert boot.leaked(STANDING_IN) == []
 
 
 class TestAMisspelledVariable:
-    def test_fails_the_boot(self, tmp_path: Path):
+    def test_fails_the_boot(self, boots: dict[str, Boot]):
         """Compose hands the container its dotenv file's names as variables, and the settings read declared names alone.
 
         So a misspelling refuses the boot only where the name it misses has no default; one with a default boots on it.
         """
 
-        boot = booted(tmp_path, Withheld({MONGODB_URI_FILE: NO_SERVER_URI, **KEYS}), {"DB_BASE_NAMES": VARIABLES["DB_BASE_NAME"]})
+        boot = boots["misspelled"]
 
         assert (boot.code, boot.events) == (BOOT_REFUSED, ["system.config_refused"])
         assert names(boot.record("system.config_refused")["refusal"], "Invalid environment variables") == {"DB_BASE_NAME"}
 
 
-# TEST-NET-1 (RFC 5737), which no host answers, on a port no `mongod` this repository starts listens on: the ping fails
-# for the one reason this case is about wherever it runs, after the driver's own server selection.
-UNREACHABLE_HOST = "192.0.2.1"
-
-
 class TestAServerThatCannotBeReached:
-    def test_is_named_by_its_file_and_never_by_its_host(self, tmp_path: Path):
+    def test_is_named_by_its_file_and_never_by_its_host(self, boots: dict[str, Boot]):
         """The driver's message carries the host it resolved out of the value, which is the half an operator must not be handed."""
 
-        uri = Withheld({MONGODB_URI_FILE: f"mongodb://{UNREACHABLE_HOST}:27018"})
-
-        boot = booted(tmp_path, Withheld({**uri, **KEYS}), VARIABLES)
+        boot = boots["unreachable"]
 
         assert (boot.code, boot.events) == (STARTUP_FAILED, [UNREACHABLE.event])
         assert boot.record(UNREACHABLE.event)["file"] == MONGODB_URI_FILE
-        assert boot.leaked(Withheld({"host": UNREACHABLE_HOST, **uri})) == []
+        assert boot.leaked(Withheld({"host": UNREACHABLE_HOST, **UNREACHABLE_URI})) == []
 
 
 @pytest.mark.db

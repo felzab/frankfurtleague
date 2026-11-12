@@ -11,7 +11,6 @@ import asyncio
 import json
 import os
 import re
-import subprocess
 import sys
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
@@ -124,33 +123,54 @@ class Boot:
         return sorted(name for name, value in values.items() if value in self.output)
 
 
-def booted(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
-    """The boot run to its exit, from `directory`, with `files` as its secrets and `variables` as its whole environment."""
+async def _started(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> asyncio.subprocess.Process:
+    """The boot started from `directory`, with `files` as its secrets and `variables` as its whole environment."""
 
-    finished = subprocess.run(
-        boot_command(),
-        cwd=directory,
-        env=_environment(_secrets_folder(directory, files), variables),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        timeout=BOOT_BOUND_S,
-        check=False,
-    )
-
-    return Boot(finished.returncode, finished.stdout.decode("utf-8", errors="replace"))
-
-
-@asynccontextmanager
-async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncIterator[Boot]:
-    """The boot, held running from the line `until` names until the block leaves; what it logged by then, or by its exit."""
-
-    process = await asyncio.create_subprocess_exec(
+    return await asyncio.create_subprocess_exec(
         *boot_command(),
         cwd=directory,
         env=_environment(_secrets_folder(directory, files), variables),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
+
+
+async def _to_its_exit(directory: Path, files: Mapping[str, str], variables: Mapping[str, str]) -> Boot:
+    process = await _started(directory, files, variables)
+    try:
+        async with asyncio.timeout(BOOT_BOUND_S):
+            output, _ = await process.communicate()
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+
+    return Boot(process.returncode, output.decode("utf-8", errors="replace"))
+
+
+Booting = tuple[Path, Mapping[str, str], Mapping[str, str]]
+
+
+def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
+    """Each boot, from its directory with its secrets and its variables, run to its exit, all at once.
+
+    At once, since most of a boot is a wait: an import, or the driver's server selection.
+    """
+
+    async def every() -> dict[str, Boot]:
+        names = list(boots)
+        ended = await asyncio.gather(*(_to_its_exit(*boots[name]) for name in names))
+
+        return dict(zip(names, ended, strict=True))
+
+    return asyncio.run(every())
+
+
+@asynccontextmanager
+async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncIterator[Boot]:
+    """The boot, held running from the line `until` names until the block leaves; what it logged by then, or by its exit."""
+
+    process = await _started(directory, files, variables)
     assert process.stdout is not None
     lines: list[bytes] = []
     try:
