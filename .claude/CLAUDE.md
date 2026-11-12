@@ -107,8 +107,9 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   a clean checkout — and name what was exercised and what was not.
 - **On a surface a person sees, match the conventions the neighbouring pages keep** — spacing,
   grade, tone, heading rung — rather than a locally better shape. An existing shape is judged on
-  merit unless a ratified decision (§7) holds it. **A string a visitor navigates by is the owner's**:
-  propose it, never ship it.
+  merit unless a ratified decision (§7) holds it. **A string a visitor reads ships under
+  [`docs/frontend/copy.md`](../docs/frontend/copy.md)**, a menu entry, a page title and an address
+  included; the owner flags on its screen what they dislike.
 - **Duplication is cheaper than the wrong abstraction**: abstract only what changes for the same
   reason, discovered from three real instances and never imposed on two that rhyme, and read a
   candidate's history first — several duplications here are ratified.

@@ -228,7 +228,7 @@ this order:
   what the landing merges, the files each changed, and the tip itself;
 - (b) every file you broke and restored, with `git status --porcelain` read after the last restore;
 - (c) per checklist item, the acceptance evidence, with real exit codes; and every user-facing string
-  you added or changed, with where it renders, each a draft until the owner approves it;
+  you added or changed, with where it renders, so the owner can flag one on its screen;
 - (d) what you could NOT verify, and why;
 - (e) under its own heading, ALWAYS answered: what in the brief was wrong -- a premise the tree
   contradicts, a figure that does not hold, a proof the brief prescribes that returns the opposite
