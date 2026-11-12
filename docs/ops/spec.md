@@ -494,274 +494,88 @@ read 2026-10-04).
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
 hijacking, and `form-action 'self'` blocks exfiltration through a form post.
 
-### 1.5 The scripts
+### 1.5 The environments
 
-`scripts/README.md` navigates the folder; each script's own header carries its usage and prints it
-with `--help`. What spans the scripts lives here.
+`scripts/README.md` lists the scripts; each script's own header carries its usage and prints it with
+`--help`.
 
-| Environment | What it is                                            | Database                                                                       | Entry point                                                                                             |
-| ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| **dev**     | source with hot reload, no Docker                     | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` |
-| **local**   | the production image built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                |
-| **e2e**     | the local stack again, for the Playwright journeys    | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                          |
-| **prod**    | published images on the server, never builds          | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                               |
+| Environment | What it is                                             | Database                                                                       | Entry point                                                                                             |
+| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` |
+| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                |
+| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                          |
+| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                               |
 
-**local** is the only place a packaging problem — a missing standalone file, a failing startup env
-gate, a header nginx does not set — is visible before a deploy: **dev** exercises none of that
-machinery, and **prod** only pulls. Machine-specific scripts will not start on the wrong
-platform.
+**local is the only place a packaging problem is visible before a deploy**: a missing standalone
+file, a failing startup gate, a header nginx does not set. dev exercises none of that machinery, and
+prod only pulls. `local.sh` refuses to start anywhere but Windows, and `deploy.sh` anywhere but
+Linux.
 
-**Each application service reads its own package's `.env` and no other**: every credential
-is a file under `secrets/` (§1.2), so the two services share no name an environment file could hold.
-**A `.env` beside the compose file is compose's own**, read for interpolation, for a bare
-pass-through's value and for compose's `COMPOSE_*` settings, and nothing in this repository writes
-or reads one: a line there steers compose itself, a project name aiming every command at another
-stack. **The deploy and the local stack refuse to start while one stands there**, naming the file
-and printing none of it, since git ignores it and
-nothing else shows it. Pinning the project name on each call is no substitute: it answers the name
-alone, the file's other settings and pass-through values still reaching compose. **The frontend's `dev` script sets `SECRETS_DIR`
-itself** before `next dev` starts, over the shell and `fl_frontend/.env`, to the checkout's `secrets/`,
-because `fl_frontend/.env` also reaches the frontend container, where a path written there would
-turn the frontend away from the secret's mount and its boot refuses.
+**Each application service reads its own package's `.env` and no other**, and every credential is a
+file under `secrets/` (§1.2). **On the server, the `.env` beside the compose file holds the deploy's
+pin alone** ([`runbooks.md`](runbooks.md) §1). Compose reads it for every command, and refuses to
+parse `docker-compose.yml` without a `TAG`. **The frontend's `dev` script sets `SECRETS_DIR` itself**,
+to the checkout's `secrets/`, because `fl_frontend/.env` also reaches the frontend container, where
+a path written there would turn the frontend away from the secret's mount.
 
-**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS`, a
-retired name of the ban list's key or a
-job switch the hourly scheduler replaced (`scripts/lib/_lib.sh :: RETIRED_ENV_NAMES`),
-refuses a deploy or a local start before its first compose call**, at exit 2, finding each
-such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
-`NAME: value` and a bare pass-through name — and giving it by number and the list's own spelling
-of the name, never the line's and never its value: compose would hand it to the
-container as a variable, which `docker inspect` prints. `deploy.sh --status` and
-`local.sh --down` create no container and ask compose without it. This check is the only one such a
-line meets: the deploy stops here before the pulled images' own name checks run, and the local stack
-runs neither. Each machine holds its own files and keys: they
-authenticate one machine's processes to each other, so a development machine generates fresh ones
-rather than copying production's ([`runbooks.md`](runbooks.md) §16).
+**The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what the
+override writes differs, and each difference is argued at its key. It builds both images from the
+tree, adds a `mongo` service publishing 27017 on loopback, serves nginx on `127.0.0.1:3000`, never
+starts the connector, and logs to `json-file`, Docker Desktop having no journald. **Both application
+services read its own database through one inline config**,
+`docker-compose.local.yml :: local_mongodb_uri`, which names the stack's `mongo` and holds no
+credential, so no machine needs a login to run it. It sets `APP_ENV` to `local` and hands the
+frontend no key to the mail provider, so every mail lands in the sink, `.tmp-mail/`, which each
+start empties of what earlier runs filed.
 
-**A key is printable ASCII without the space**: `secrets.compare_digest` raises on anything
-else, so a key outside the class would boot and then answer every internal request 500. Its file is
-its only reader, which parses no env-file syntax, so `"`, `#`, `$`, `'`, `\` and the backtick are
-part of the class. **A build from before the class took those six refuses a key carrying one**, so
-such a key also refuses the boot of an older image the automatic rollback restores; a key from
-`openssl rand -hex 32`, as [`runbooks.md`](runbooks.md) §16 generates one, carries none of them and
-is one every build takes. **The deploy's
-preflight judges a key with the pulled backend image's own validator**, in the backend's container, so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
-remedy is a new key ([`runbooks.md`](runbooks.md) §16).
-
-**Every line of both packages' `.env` files is blank, a comment opening with `#`, or `NAME=VALUE`
-with nothing around the `=` and a value drawn from RFC 3986's URL characters less `#`, `$` and `'`**
-(`scripts/lib/_lib.sh :: ENV_LINE_RE`), or a deploy, its `--check-env` and a local start
-refuse at exit 2 before their first compose call. Compose, python-dotenv, `@next/env` and
-`node:util :: parseEnv` each read such a line literally, and the set holds a spelling of every value
-the two settings schemas declare: a list joined without spaces, a path without one, a URL in ASCII
-writing `#`, `$` and `'` percent-encoded. Every other form is refused: several are read apart — an
-unclosed quote, a quoted escape, `NAME:`, a byte-order mark, an unspaced `#`, a `$` — and the rest so
-the check holds one shape rather than a parser chasing each reader's quirks. **No line, a comment
-included, holds a carriage return before its end, U+2028, U+2029 or a NUL byte**: python-dotenv
-ends a line at the carriage return and `@next/env` at all three, so a comment carrying one declares
-a name for them and none for compose, and the shell's own reader drops a NUL unseen. **No refusal
-over these files prints anything a line holds**: a pasted key's line may be any shape, an
-upper-case `NAME=` or `NAME:` included, so each refused line is given by file and number alone, and
-a name is printed only as a settings schema or the credential list spells it — this one, the
-credential check and either image's name check alike. The credential check runs first and reads a name in
-every form compose does, so a credential's line is refused as a line to delete before this
-check would have it rewritten; the two run as one, `scripts/lib/_lib.sh :: judge_env_files`.
-**`./scripts/ops/deploy.sh --check-env` runs every check the deploy makes of these files without
-Docker** — compose's own `.env`, the credential lines and this shape — after the platform
-check and before the daemon is asked anything, ending 0 where none refuses.
-
-**The local stack points both application services at its own database through one inline
-config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
-names the stack's `mongo` service and holds no credential, so no machine needs a login to run it and
-no run is left aimed at the wrong cluster.
-The same override sets `APP_ENV` to `local` and hands the frontend no key to the mail provider. The
-database is a copy of production, and every job runs here as it does there (§1.1): a pass deletes
-real applications and stamps real rows in the copy, and the account sweep deletes every account
-signed in here that no record references. `APP_ENV` is what keeps the notices they raise off the
-people those rows name, each landing in the sink instead but one to an address the ban list holds,
-which is filed nowhere. **Every start empties the sink of what earlier runs filed**, so
-no code there reads as current that is not (`scripts/ops/local.sh :: empty_mail_sink`): the
-directory is compose's own bind source for the frontend's sink, refused outside the checkout, and
-only a name the sink writes is removed.
-
-**`./scripts/ops/local.sh --seed` fills it from production with a read-only login**, whose URI is
-the machine's `secrets/dump_mongodb_uri` and which reads the application database and nothing else:
-**no development machine holds production's write login.** Of the two containers only one is
-handed that file — a discipline rather than a boundary, its costs written at
-`scripts/ops/local.sh :: take_dump`. A copy already on disk is reused however old it is,
-`--refresh-db` takes a new one and `--fresh` deletes the volume. The copy lands in `.local-db/`,
-which `.gitignore` and `.prettierignore` both cover because it is real data and this repository is
-public.
-
-**`./scripts/ops/local.sh --seed-made-up` fills it with the made-up league instead**
+**The local database starts empty, and `--seed-made-up` fills it with the made-up league**
 (`scripts/ops/seed/seed.js`): three seasons, ten clubs, venues, referees and grants, every one
 invented and every date relative to today, replacing the records of every collection of the
-application database and leaving `auth` as it is. It needs no login and reads nothing of production's.
+application database and leaving `auth` as it is. `--fresh` deletes the volume, and the database
+with it.
 
-**A seed is in place before anything renders a page**, so no empty read is cached for the days the
-reference reads hold a value. The copy is restored before the application services exist. The
-made-up seed is loaded after the backend's boot has built every index, and
-`python -m app.readback` then reads every document it wrote back through its record model;
-only then do the frontend and nginx start, the backend recreated with them.
+**A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
+loads once the backend's boot has built every index, and `python -m app.readback` then reads every
+document it wrote back through its record model; only then do the frontend and nginx start.
+
+**The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
+administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
+one is written, and anybody else is offered a sign-in only where the local backend holds records
+for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does
+not reach `/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
+(`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment
+first, bound to this machine's own authenticator and to `localhost`, the relying party the local
+`AUTH_URL` gives. Every machine, and every `--fresh`, enrols again.
 
 **`./scripts/ops/local.sh --e2e` starts the end-to-end stack instead** (`docker-compose.e2e.yml`,
-merged over the local stack's two files): a compose project of its own, `frankfurtleague-e2e`, so
-its volume and with it its sign-in store are never the local stack's; its settings written in that
-file rather than read from either package's `.env`; its keys generated under `.tmp-e2e/` on every
-start rather than read from `secrets/`; the made-up seed on an empty volume every start; and the
-local edge with one trust added (`nginx/e2e/e2e.conf`): it takes `CF-Connecting-IP` from
-172.30.1.1 and 172.30.0.1, the gateways `docker-compose.e2e.yml` pins on the two networks nginx
-stands on, since the host's requests arrive through either and Docker does not say which. Each
-journey therefore meets the rate limits as a visitor of its own (`fl_frontend/e2e/support/journey.ts`),
-as production's edge meets each person behind the connector. `--e2e --down` deletes the volume and `.tmp-e2e/`. **Either start refuses while another
-stack's container publishes port 3000 or 27017**, which both publish
-(`scripts/ops/local.sh :: refuse_another_stack_on_the_ports`). The journeys run against it from
-the `fl_frontend` of the checkout that started it, since they read that checkout's `.tmp-e2e/`, with
-`pnpm exec playwright test` (`fl_frontend/playwright.config.ts`).
+merged over the local stack's two files):
 
-**The copy is the application database and not the sign-in store beside it** — the backend's
-credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
-local stack starts with an empty `auth` and a sign-in builds it; the grants deciding
-which administrator may sign in, and which the backend admits, arrive with the copy
-(`grants`), so a `--fresh` stack admits nobody until one is written, and anybody else is
-offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
-`/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
-(`fl_frontend/src/core/auth/guards.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
-bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
-gives. Every machine, and every `--fresh`, enrols again. A second passkey is added on Konto's
-„Sicherheit“ page, `/account/security`, rather than from `/signin/passkey`, and adding or removing
-one asks for a passkey sign-in the machine made within the last minute.
+- a Compose project of its own, `frankfurtleague-e2e`, so its volume and its sign-in store are
+  never the local stack's;
+- its settings written in that file rather than read from either package's `.env`;
+- its keys generated under `.tmp-e2e/` on every start rather than read from `secrets/`;
+- the made-up seed on an empty volume every start;
+- the local edge with every rate and connection limit counting and refusing nothing
+  (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `nginx/edge_test.sh` proves
+  the limits instead.
 
-**The production tier's limitations shape that command**, and they are the fastest-rotting fact on
-this page: read from MongoDB's Atlas Flex limitations documentation, 2026-08-27. What each denial
-costs the command is written at `scripts/ops/local.sh :: take_dump`; the copy carries no users or
-roles, is taken one collection at a time against the tier's rate cap, and is consistent per
-collection rather than at one instant. Two things fix the local image's major version — that tier's
-MongoDB floor, and the tag the db tier runs against
-(`fl_backend/tests/conftest.py :: mongo_replica_set_url`) — and mongorestore refuses a dump whose
-source carries a different one.
+Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
+and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
+that started it, which reads that checkout's `.tmp-e2e/`, or from another checkout with `E2E_DIR`
+naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_URL` names an origin
+other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
 
-**`deploy.sh` reads the server's Docker Engine version in preflight, before it stops or pulls
-anything**, the compose files' `start_interval` being what needs it
-(`scripts/ops/deploy.sh :: ENGINE_MIN`). **It then asks the pulled backend image to read
-`fl_backend/.env`**, which is the only place the file is read as a file rather than handed to a
-container as variables (`scripts/ops/deploy.sh :: check_env_names`): it is mounted read-only into a
-throwaway container with no network, as the whole of what compose hands the service. A name the
-backend does not declare, a value it will not accept and a required variable the file omits all
-refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
-advisory ([`runbooks.md`](runbooks.md) §1). The backend's refusal counts the undeclared names and
-names none of them, since a pasted key's line can be its own name
-(`fl_backend/app/core/config.py :: read_environment`).
+**The checkers are Python, and one kernel makes their answers comparable**,
+`scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
+(`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is handed a
+file: below it a checker dies compiling and Python exits 1, which this scale reads as a finding
+about the change.
 
-**`fl_frontend/.env` is judged by the frontend's own boot, in the step after**
-(`scripts/lib/_lib.sh :: check_frontend_boot_config`): a variable the schema
-(`fl_frontend/src/core/config.ts`) declares with no default refuses the boot where the file
-misspells or omits it, so that boot, run before anything is recreated, refuses a release that makes
-a new name required on a host nobody edited, and no shipped value serves in its place. **What
-`APP_ENV=production` alone demands is a file and never a variable**
-(`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
-value to decide: the mail provider's sending key, its webhook's signing key, the bot check's
-secret and the heartbeat monitor's address, which the frontend's boot demands on the deploy, held
-to `production` below, and never on the local stack, which sends no mail, is sent no event,
-verifies the bot check with Cloudflare's published test secret and pings no monitor. **A bare
-pass-through `KEY` would satisfy no required name**: compose resolves that form's
-value from the shell that ran it, and failing that from compose's own `.env` beside the compose
-file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's
-shell holds none and the server's checkout carries no such file, so a pass-through there is never
-resolved and is dropped from the container's environment altogether —
-which is worse than the empty value, arriving as an empty string; `scripts/lib/_lib.sh :: check_env_spellings` refuses the line before either
-image is asked. **3 is each reader's own answer
-for a refusal, and the one code each arm grades as one**; the deploy's own exit is
-§1.7's 2, and a reader ending any other way leaves the deploy where it stood.
-
-**What that check accepts is what the container receives.** The preflight parses each package's
-file as python-dotenv does, and the running container gets it parsed as Compose does; `check_env_spellings` has
-refused, before either runs, every line the two could read apart, so a name and a value the
-preflight accepted are the ones the container will see. Compose cuts an unquoted value at its
-line's end and at a spaced `#`, trims trailing space and substitutes at a `$` alone, none of which
-an admitted line holds (compose-go v2.7.1, the release Docker Compose 2.38 builds on: its dotenv
-parser's extractVarValue and its template package, which move without us; read 2026-10-15).
-
-**Each service's own boot then judges its settings and secret files before the recreate**,
-in a one-off container `docker compose run` starts as the stack starts the service — its variables,
-its mounts, its user and group — and by the image about to run, so a value or a file a release
-starts requiring is asked for before the recreate that would meet it. A refusal is 3 from the
-container and exit 2 from the script, with nothing recreated; any other ending is an advisory.
-
-- **The frontend's is its boot itself, and no copy of it**
-  (`scripts/lib/_lib.sh :: check_frontend_boot_config`): the image's own command, the standalone
-  server, started with `BOOT_CHECK` naming the deployment about to start. Next runs the
-  instrumentation hook once as the server starts and before it serves; the hook runs every gate a
-  serving boot runs — the schema over the variables and the secret files — and
-  ends on 0, or on 3 at a refusal, its `CRITICAL` line naming the variable or the file and never a
-  value (`fl_frontend/src/instrumentationNode.ts :: registerOnNode`). A fault of
-  the build ends on 1, which is no verdict on the host. `run` publishes no port and no service
-  alias, so nothing reaches the server it starts.
-- **The boot holds `APP_ENV` to the deployment the script names**, a mismatch refusing `APP_ENV`:
-  the schema demands production's own files and refuses the published test keys on that one value,
-  so a production host whose file said `local` would otherwise pass holding none of them.
-- **The backend's builds its settings as its boot does**
-  (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
-  validators refuse both refuse there, named alike.
-
-**Before either of those reads, and before the pull, compose is asked whether it can parse its own
-configuration** (`scripts/ops/deploy.sh :: check_compose_config`): a configuration it cannot read —
-an unterminated quote in one of the three environment files is the reachable case — stops the recreate
-before a container is touched, so the health read and the rollback behind it fail on that same file
-and report a build that broke over a stack nothing stopped. The refusal names the four files and
-prints nothing compose itself said: the filter in §1.7 reaches a container's log alone, and a parse
-error quotes the line it could not read.
-
-**Before either application image is pulled, the deploy fetches every image the edge runs that the
-host lacks** (`scripts/ops/deploy.sh :: fetch_edge_images`), under the `missing` policy `up` itself
-applies, so a tag the host holds is never refreshed under a running edge. A failed fetch refuses at
-exit 2 with nothing recreated; left to the `up` that reloads nginx, it would arrive once the
-application pair was replaced, leaving nginx unreloaded on the configuration it had.
-
-**A pair the deploy refuses leaves the host's `:latest` tags as it found them**: a pinned run moves
-them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, and a bare run puts
-back what they named before its pull (`:: put_latest_back`), since an `up` reaching the application
-recreates it from whatever they name.
-
-**No tag deploys a build from before the frontend's boot check**: its image does not know
-`BOOT_CHECK`, so the preflight's one-off frontend would serve rather than end, and the deploy would
-wait on it with nothing recreated. Nothing in the script asks an image's age: every such image is
-deleted from the registry, so a pin's pull refuses before either tag moves, and the automatic
-rollback, which restores the running build by id and runs no preflight, is the one way such a
-build is served again ([`runbooks.md`](runbooks.md) §1).
-
-**The checkers are python, and one kernel is what makes their answers comparable** —
-`scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
-is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is
-handed a file: below it a checker dies compiling and python exits 1, which this scale reads as a
-finding about the change, so no checker's own body is written for an interpreter that cannot compile
-it.
-
-**Registry pruning stays manual and optional**, a botched delete destroying rollback history (§4).
-When pruning, keep roughly the last five `sha-` tags per package and never delete what is live
-(`./scripts/ops/deploy.sh --status`), what `latest` shares a digest with, or an **untagged version
-created alongside a tag still in use** — BuildKit provenance attestations the tagged image
-references by digest, so deleting one corrupts the tag it belongs to.
-
-**`--status` reads and changes nothing, and it ends green, with findings or refused (§1.7)** —
-pruning is decided from what it prints, so which ending it reached is the first thing to read.
-**Green is the
-only ending a registry may be pruned from**: findings mean something definite is wrong with what is
-running, and a refusal means a question the report is built from went unanswered, so the rollback
-list it printed may be short by whatever went unread and "never delete what is live" cannot be
-applied to it.
-
-**A stopped service is graded as a finding rather than an advisory**, because the edge can still
-answer 200 from a worker that outlived it: a green probe over a stopped pair is what a stale nginx
-or a stray container looks like, and it is the state that most resembles a healthy one from
-outside. **That probe and nginx's own dump of the configuration it holds are the report's two reads
-of the edge**, and every other row is read from the application's containers: a healthy pair says
-nothing about whether the edge reaches it, nor whether it holds this checkout's files.
-
-**`curl` writing `000`, on the other hand, is an advisory**, because `deploy.sh` runs on the server:
-the read is the host asking for its own public hostname, so a host that does not resolve the domain
-publicly, or whose network does not route 443 back to it, answers `000` while the site is perfectly
-well. The deploy's own probe of the same URL grades it the same way.
+**Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
+rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
+tags per package, never the one the server's `.env` pins, and never an **untagged version created
+alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
+digest, so deleting one corrupts the tag it belongs to.
 
 ### 1.6 The verification gate
 
