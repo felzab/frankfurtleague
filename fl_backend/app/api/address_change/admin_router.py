@@ -125,14 +125,9 @@ async def get_address_changes(
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeAdminListResponse:
-    """
-    Answer every running change, newest first: its two addresses and the step it waits on.
+    """Every running change this administrator may act on, newest first, with its two addresses and the step it waits on."""
 
-    ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
-    their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
-    each lasts days at most, and an ended one holds no address.
-    """
-
+    # Read whole: a capped list would hide a running change, each lasting days at most and an ended one holding no address.
     rows = await aggregate_many_from_db(
         collection=address_changes_collection,
         pipeline=[{"$match": dict(LIVE_KEYED_TERMS)}, {"$sort": {"_id": -1}}],
@@ -150,6 +145,7 @@ async def get_address_changes(
                 now=germany_now,
             )
             for row in rows
+            # Left out rather than refused: the actor's own, which their account page shows, and a holder's unless the owner asks.
             if address_change_viewable_denied(str(row["address"]), actor=operator, grants=grants) is None
         ]
     )
@@ -171,19 +167,10 @@ async def post_address_change_admin(
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeIdResponse:
-    """
-    Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
+    """Start a change of the typed address for a person who says they cannot sign in.
 
-    **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
-    new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
-    `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
-    answered. The address's live change ends replaced.
-
-    Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
-    the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
-    (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
-    (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
-    address is refused nothing: its link stops at the hand-out.
+    The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
+    the new mailbox confirms, the old address working until then.
     """
 
     identifier, email = sign_in_identifier(str(address_change_data.address)), str(address_change_data.email)
@@ -199,7 +186,8 @@ async def post_address_change_admin(
             spieler_collection=spieler_collection, identifier=sign_in_identifier(email), spieler_id=holdings.spieler["_id"], session=session
         )
         refuse(find_taken_refusal(taken=taken))
-        # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere.
+        # Judged here too, its reader trusted: a change its confirmation would refuse goes nowhere. A banned new address is
+        # refused nothing: its link stops at the hand-out.
         refuse(
             find_occupied_refusal(
                 occupied=await address_taken(
@@ -250,7 +238,7 @@ async def post_address_change_admin(
 
         return FLAddressChangeIdResponse(id=address_change_id)
 
-    # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
+    # One transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
     async with transaction_session(db) as session:
         return await session.with_transaction(judge_and_start_the_change)
@@ -272,22 +260,14 @@ async def invite_address_change(
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeIdResponse:
-    """
-    Owe the new mailbox a fresh link for the change this id names, in the same transaction.
+    """Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
 
-    The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
-    the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
-    next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
-    nothing.
-
-    Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
-    pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
-    ended (`address_change_ended`). 404 for an id naming no change, and
-    unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
-    re-send.
+    The previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a
+    link to re-send.
     """
 
     async def judge_and_remint_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
+        # The change the id names alone, so a page showing a change since replaced re-sends nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         identifier = str(record["address"])
         await _refuse_the_address(identifier, actor=operator, grants_collection=grants_collection, session=session)
@@ -303,7 +283,8 @@ async def invite_address_change(
             session=session,
         )
         refuse(find_new_taken_refusal(taken=taken or occupied))
-        # The filter is the judgement: a change confirmed is the 404 here.
+        # The filter is the judgement: a change confirmed is the 404 here. A lapsed link is no refusal while the change
+        # stands, which is until the next hourly pass ends it.
         updated = await patch_one_in_db(
             collection=address_changes_collection,
             db_filter=build_live_filter(address_change_id, build_resendable_terms()),
@@ -346,17 +327,13 @@ async def delete_address_change(
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeIdResponse:
-    """
-    Discard the change this id names: its links open nothing to press, and the address on file stays.
+    """Discard the change this id names, the address on file staying.
 
-    A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page
-    showing a change since replaced discards nothing.
-
-    Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
-    (`address_change_ended`); 404 for an id naming no change.
+    A holder's change in its wait tells every holder, and nobody else is mailed.
     """
 
     async def discard_the_change(session: AsyncClientSession) -> FLAddressChangeIdResponse:
+        # The change the id names alone, so a page showing a change since replaced discards nothing.
         record = await _pull_the_change(address_changes_collection, address_change_id, session=session)
         await _refuse_the_address(str(record["address"]), actor=operator, grants_collection=grants_collection, session=session)
         await end_the_change_in_session(

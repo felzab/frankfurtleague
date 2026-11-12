@@ -1,16 +1,13 @@
-"""
-SHARED · the evidence each consent choice keeps, and the one way a writer composes it
+"""Art. 7(1) DSGVO puts the proof of a consent on the league.
 
-Art. 7(1) DSGVO puts the proof of a consent on the league. Each choice a person makes on their
-record, `scope` and `media`, keeps when they set it and under which wording, and a withdrawal keeps
-the grant it ended: proof for as long as the record stands, bounded at one act per choice.
+Each choice a person makes on their record, `scope` and `media`, keeps when they set it and under
+which wording, and a withdrawal keeps the grant it ended: proof for as long as the record stands,
+bounded at one act per choice.
 
 Invariants:
 - Only the person's own writes grant a choice or stamp its evidence, an admission renewing from their own
   registration and a restore replaying their journalled withdrawal among them; no administrative write does.
 - A choice and its evidence move in one update, never one without the other.
-
-See: docs/glossary.md
 """
 
 import hashlib
@@ -29,7 +26,7 @@ CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("scope", "media")
 # one press stand beside two wordings.
 type TextVersions = Mapping[FLEinwilligungChoice, str]
 
-# The values that GRANT, across both vocabularies; every other value of a choice withholds. A
+# The values that grant, across both vocabularies; every other value of a choice withholds. A
 # contact seat's `kontakt_data` is the acknowledgement alone, and WhatsApp the consent on top of it.
 _GIVING: Final[Mapping[str, tuple[object, ...]]] = {"scope": ("kader_public", "kontakt_data_whatsapp"), "media": (True,)}
 

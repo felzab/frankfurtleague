@@ -406,7 +406,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeMintResponse": {
-        "description": "The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.",
+        "description": "The change started, whose link reaches the address on file by mail alone.",
         "properties": {
           "email": {
             "title": "Email",
@@ -432,7 +432,7 @@
         "type": "object"
       },
       "FLAccountAddressChangeOpen": {
-        "description": "The address's live change as its own account page reads it.",
+        "description": "The signed-in address's live change.",
         "properties": {
           "effective_from": {
             "anyOf": [
@@ -584,7 +584,7 @@
         "type": "object"
       },
       "FLAccountEinwilligung": {
-        "description": "A person's own record's two choices as its box shows them.\n\nThe choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the\nprecondition a press echoes.",
+        "description": "A person's own record's two consent choices.",
         "properties": {
           "media": {
             "title": "Media",
@@ -629,7 +629,7 @@
         "type": "object"
       },
       "FLAccountEinwilligungenResponse": {
-        "description": "Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.",
+        "description": "Every confirmed consent record the signed-in address holds, empty where it holds none.\n\nThe referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.",
         "properties": {
           "bewerbungen": {
             "items": {
@@ -970,7 +970,7 @@
         "type": "object"
       },
       "FLAccountSchiedsrichterEinwilligung": {
-        "description": "One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.",
+        "description": "One of the signed-in person's referee records: its stored data, its fee and its consent.",
         "properties": {
           "birth_date": {
             "anyOf": [
@@ -1100,7 +1100,7 @@
         "type": "object"
       },
       "FLAccountSpielerEinwilligung": {
-        "description": "The pupil's record on the account page: its stored data and the consent the page moves.",
+        "description": "The signed-in pupil's own record: its stored data and its consent.",
         "properties": {
           "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -1222,7 +1222,7 @@
         "type": "string"
       },
       "FLActionLogEntry": {
-        "description": "One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.",
+        "description": "One recorded act.",
         "properties": {
           "action": {
             "$ref": "#/components/schemas/FLAction"
@@ -1289,7 +1289,7 @@
       },
       "FLActionLogFilterPayload": {
         "additionalProperties": false,
-        "description": "What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.",
+        "description": "What the action log's read narrows by.",
         "properties": {
           "by": {
             "anyOf": [
@@ -1545,7 +1545,7 @@
         "type": "object"
       },
       "FLAddressChangeAdminOpen": {
-        "description": "One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.",
+        "description": "One live change, with both its addresses.",
         "properties": {
           "address": {
             "title": "Address",
@@ -2790,7 +2790,7 @@
         "type": "object"
       },
       "FLAustritt": {
-        "description": "How a team came to be out of one season, why, and from when.\n\n`reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
+        "description": "How a team came to be out of one season, why, and from when.\n\n`reason` is free text and public -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -2850,7 +2850,7 @@
       },
       "FLAustrittPayload": {
         "additionalProperties": false,
-        "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+        "description": "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the write side alone, so a read model takes a stored blank or a longer reason as it stands.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -2884,7 +2884,7 @@
         "type": "string"
       },
       "FLBanData": {
-        "description": "The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).",
+        "description": "The ban's own notice, the one mail a ban does not stop.",
         "properties": {
           "ban_reason": {
             "title": "Ban Reason",
@@ -2970,7 +2970,7 @@
         "type": "object"
       },
       "FLBanListWriteResponse": {
-        "description": "The removal is hard, so the id is all there is to answer with: no document survives to echo.",
+        "description": "The id of the ban lifted, whose row is gone.",
         "properties": {
           "ban_list_entry_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -3592,7 +3592,7 @@
         "type": "object"
       },
       "FLBewerbungEntryOffer": {
-        "description": "What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.",
+        "description": "What an acceptance into one season would meet, so a caller offers what the write takes without deriving it.",
         "properties": {
           "gruppen": {
             "items": {
@@ -3919,7 +3919,7 @@
         "type": "object"
       },
       "FLBewerbungListRow": {
-        "description": "One application as the season's list shows it, holding nothing of a person.",
+        "description": "One application of a season's list, holding nothing of a person.",
         "properties": {
           "duplicate": {
             "title": "Duplicate",
@@ -4220,7 +4220,7 @@
         "type": "object"
       },
       "FLBewerbungSingleResponse": {
-        "description": "One application as its review page shows it.",
+        "description": "One application, with what an acceptance of it would meet.",
         "properties": {
           "bewerbung": {
             "$ref": "#/components/schemas/FLBewerbung"
@@ -5476,7 +5476,7 @@
       },
       "FLGenerateSpielplanPayload": {
         "additionalProperties": false,
-        "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
+        "description": "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
         "properties": {
           "replace": {
             "default": false,
@@ -5680,7 +5680,7 @@
         "type": "integer"
       },
       "FLGrantWriteResponse": {
-        "description": "The grant an act named: a removal is hard, so the id is all there is to answer with.",
+        "description": "The grant the act named.",
         "properties": {
           "grant_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -5758,7 +5758,7 @@
         "type": "object"
       },
       "FLInvitationDispatchResponse": {
-        "description": "How the press's teams came out: the season editor's rows then read what each team holds.",
+        "description": "How the season's press came out, counted in teams.",
         "properties": {
           "failed": {
             "minimum": 0.0,
@@ -5791,7 +5791,7 @@
         "type": "object"
       },
       "FLInvitationLinkRow": {
-        "description": "One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.",
+        "description": "One team's registration link, and what the season's press would do for the team today.",
         "properties": {
           "has_link": {
             "title": "Has Link",
@@ -5842,7 +5842,7 @@
       },
       "FLInvitationMailPayload": {
         "additionalProperties": false,
-        "description": "The one live link a team's panel shows, to be mailed to the team's confirmed seats.",
+        "description": "The team's live link, to be mailed to its confirmed seats.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -5872,7 +5872,7 @@
         "type": "object"
       },
       "FLInvitationMintResponse": {
-        "description": "A freshly minted registration link, and the only answer that ever carries its raw value.\n\nShown once for copying and mailed on a separate press; no later read recovers it from the hash.",
+        "description": "A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6036,7 +6036,7 @@
         "type": "object"
       },
       "FLInvitationWriteResponse": {
-        "description": "The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere.",
+        "description": "The revoked link, which stays stored so a delivery event about it still lands.",
         "properties": {
           "invitation_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6280,7 +6280,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's\n`fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely\n(`docs/glossary.md :: Einwilligung`).",
+        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
         "properties": {
           "confirmed_at": {
             "anyOf": [
@@ -7565,7 +7565,7 @@
             "type": "string"
           },
           "undeliverable": {
-            "description": "Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.\n\nThe one judgement of it, which the backend's refusals and every page showing the seat read.",
+            "description": "Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.",
             "readOnly": true,
             "title": "Undeliverable",
             "type": "boolean"
@@ -7646,7 +7646,7 @@
         "type": "object"
       },
       "FLOverviewCard": {
-        "description": "One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.",
+        "description": "One card and its rows, a fixture once, ordered by kind, then each fixture's day, undated last, then its number.",
         "properties": {
           "card": {
             "$ref": "#/components/schemas/FLOverviewCardName"
@@ -8559,7 +8559,7 @@
       },
       "FLPatchTeamSaisonPayload": {
         "additionalProperties": false,
-        "description": "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+        "description": "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,\nwhich owes mail.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddressPayload"
@@ -9606,7 +9606,7 @@
         "type": "object"
       },
       "FLRegistrierungLinkData": {
-        "description": "A pupil's confirmation link.\n\nThe window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::\nFLRegistrierungConfirmationDeadlineDays`.",
+        "description": "A pupil's confirmation link; the window its mail states is a published bound, never carried here.",
         "properties": {
           "kind": {
             "const": "registrierung_confirmation",
@@ -9730,7 +9730,7 @@
       },
       "FLReplaceSaisonTeamPayload": {
         "additionalProperties": false,
-        "description": "Which club takes this season's row over. The path names the club going OUT.",
+        "description": "Which club takes this season's row over. The path names the club going out.",
         "properties": {
           "incoming_team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -9888,7 +9888,7 @@
         "type": "object"
       },
       "FLSaisonActRefusals": {
-        "description": "Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.\n\n`activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the\nstored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.",
+        "description": "Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.\n\n`activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the\nstored rules over the clubs entered, `recreate` then the reports it would delete.",
         "properties": {
           "activate": {
             "anyOf": [
@@ -10208,7 +10208,7 @@
         "type": "object"
       },
       "FLSaisonAdminTeam": {
-        "description": "One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.\n\nBoth flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's\nrefusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so\na pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the\nreplacement handing the whole schedule over.",
+        "description": "One club's row of the season as the swap and the replacement list it, graded as each write judges it.\n\n`group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and\n`spiel_taken_place` closes its replacement, which hands the whole schedule over.",
         "properties": {
           "austritt": {
             "anyOf": [
@@ -10258,7 +10258,7 @@
         "type": "object"
       },
       "FLSaisonBewerbung": {
-        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\n`open` pauses the form alone, its dates untouched and the applications already received staying in triage, as\n`FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_takes_bewerbungen`).",
+        "description": "When the league accepts applications for this season: while today lies between `start` and `end`, both included.\n\n`open` pauses the form alone, its dates untouched and the applications already received staying in triage.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10310,7 +10310,7 @@
         "type": "object"
       },
       "FLSaisonDrawn": {
-        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.\n\nCounted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,\n`spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where\nthose writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.",
+        "description": "A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.\n\n`generated_at` is `null` on a season whose rows no draw dated.",
         "properties": {
           "generated_at": {
             "anyOf": [
@@ -10344,7 +10344,7 @@
         "type": "object"
       },
       "FLSaisonForfeitErgebnis": {
-        "description": "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
+        "description": "What a fixture is awarded when one side does not appear, as both sides' goals rather than a margin.\n\nA level award needs a season with no knockout round.",
         "properties": {
           "sieger_tore": {
             "minimum": 0.0,
@@ -10446,7 +10446,7 @@
         "type": "string"
       },
       "FLSaisonPhaseSchedule": {
-        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order.",
+        "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is absent rather than present with zeroes, so the list is the\nphases the season plays, in playing order.",
         "properties": {
           "matches_per_spieltag": {
             "minimum": 0.0,
@@ -10471,7 +10471,7 @@
         "type": "object"
       },
       "FLSaisonRegistrierung": {
-        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "description": "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nPast `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.",
         "properties": {
           "end": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -10750,7 +10750,7 @@
         "type": "object"
       },
       "FLSaisonTeamKontakte": {
-        "description": "The three people a team is reached through, for ONE season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
+        "description": "The three people a team is reached through, for one season.\n\nOn the junction rather than the club: a school's staff turns over between seasons, and a\nfinished season keeps those who confirmed their seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -14655,7 +14655,7 @@
         "type": "object"
       },
       "FLSpieleSpielplanAdminResponse": {
-        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;\nin a finished season, the last. Null for a season with no matchday.",
+        "description": "A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.\n\n`current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,\nand the last in a finished season; null for a season with no matchday.",
         "properties": {
           "current_spieltag_id": {
             "anyOf": [
@@ -15630,7 +15630,7 @@
         "type": "object"
       },
       "FLSpielplanResponse": {
-        "description": "A season's matchdays in the order they are played, and the one the Spielplan opens on.\n\n`current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished\nseason, the last. Null for a season with no matchday.",
+        "description": "A season's matchdays in the order they are played, and the one the Spielplan opens on.\n\n`current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a\nfinished season; null for a season with no matchday.",
         "properties": {
           "current_spieltag_id": {
             "anyOf": [
@@ -15991,7 +15991,7 @@
         "type": "object"
       },
       "FLSpieltagAdminResponse": {
-        "description": "One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.\n\nOn the response rather than on the matchday, as the match editor's read serves it: a matchday carries no\nseason-scoped state.",
+        "description": "One matchday and its season's `status`, which says whether the matchday can still be re-dated.",
         "properties": {
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
@@ -16198,7 +16198,7 @@
       },
       "FLSwapGruppenPayload": {
         "additionalProperties": false,
-        "description": "The two clubs a group swap exchanges. Symmetric.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
+        "description": "The two clubs a group swap exchanges, in either order.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
         "properties": {
           "team1_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16543,7 +16543,7 @@
         "type": "object"
       },
       "FLTeamLinkState": {
-        "description": "The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.",
+        "description": "A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team.",
         "properties": {
           "invitation": {
             "anyOf": [
@@ -17396,7 +17396,7 @@
         "type": "object"
       },
       "FLTeamPanelTermin": {
-        "description": "One date the league asked the team to confirm, while it still holds work for the team or waits on the league.\n\nAn agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or\ndiscards it.",
+        "description": "One date the league asked the team to confirm, while it still holds work for the team or waits on the league.\n\nAn agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or\ndiscards it.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungViewAnsetzung"
@@ -17446,7 +17446,7 @@
         "type": "object"
       },
       "FLTeamRecord": {
-        "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
+        "description": "The club document as it is stored, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddress"
@@ -17651,7 +17651,7 @@
         "type": "object"
       },
       "FLTeamSeat": {
-        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,\ntelephone number or birthdate: only administrators see those.",
+        "description": "One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.\n\nA Trainer holding a second seat is one entry naming both, and no address, telephone number or birthdate is served,\nonly administrators seeing those.",
         "properties": {
           "confirmed": {
             "title": "Confirmed",
@@ -18045,7 +18045,7 @@
   "paths": {
     "/api/v0/account/address_change": {
       "delete": {
-        "description": "Stop the change pending on the signed-in address at any step: its new address goes.\n\nIts address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh\nconfirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no\nchange is pending on the address.",
+        "description": "Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.",
         "operationId": "account_delete_address_change",
         "responses": {
           "200": {
@@ -18110,7 +18110,7 @@
         ]
       },
       "get": {
-        "description": "Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.\n\nPERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused\n`address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole\nonly where the person typed it here: a change an administrator started may be a pretext whose target the holder of\nthe address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change\nmailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,\nwhose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and\n`owner` for a row a handover names, whatever its stored tier.",
+        "description": "The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.\n\nThe pending address is served whole only where the person typed it, and masked where an administrator started the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -18175,7 +18175,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.\n\n**The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the\nsecond; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within\n`ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole\nfrom that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the\nhourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on\nfile proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it\nholds -- so this start answers alike whatever the new address holds.\n\nRefused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's\nlive change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the\naddress holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.",
+        "description": "Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.\n\nEverything the address holds moves once the new address confirms, after a wait where it holds a grant; declining\neither link ends the change, and a live change of the address is replaced.",
         "operationId": "account_post_address_change",
         "requestBody": {
           "content": {
@@ -18252,7 +18252,7 @@
     },
     "/api/v0/account/einwilligungen": {
       "get": {
-        "description": "Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.\n\nThe seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;\n`bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;\n`registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.\n\nPERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered\n`spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's\nseat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is\nadmitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's\nconfirmation is not served: there is nothing on it yet to change.",
+        "description": "Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.\n\nAn address holding nothing is answered empty, never refused, and retired and past records are served too, so a\nwithdrawal stays open wherever a consent stands.",
         "operationId": "account_get_einwilligungen",
         "responses": {
           "200": {
@@ -18319,7 +18319,7 @@
     },
     "/api/v0/action_log/view": {
       "post": {
-        "description": "The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.\n\nA POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every\n`http.answered` line, where the log's scrubber reads no `%40`.\n\n`_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no\nindex is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.",
+        "description": "The newest 50 acts the filters keep, starting after `cursor` where one is given.",
         "operationId": "action_log_get_action_log",
         "requestBody": {
           "content": {
@@ -18397,7 +18397,7 @@
     },
     "/api/v0/address_change": {
       "get": {
-        "description": "Answer every running change, newest first: its two addresses and the step it waits on.\n\nADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which\ntheir account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:\neach lasts days at most, and an ended one holds no address.",
+        "description": "Every running change this administrator may act on, newest first, with its two addresses and the step it waits on.",
         "operationId": "address_change_get_address_changes",
         "responses": {
           "200": {
@@ -18462,7 +18462,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The\nnew mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect\n`ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is\nanswered. The address's live change ends replaced.\n\nRefused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),\nthe address on file typed again (`address_change_unchanged`), an address holding nothing a change moves\n(`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil\n(`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new\naddress is refused nothing: its link stops at the hand-out.",
+        "description": "Start a change of the typed address for a person who says they cannot sign in.\n\nThe new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after\nthe new mailbox confirms, the old address working until then.",
         "operationId": "address_change_post_address_change_admin",
         "requestBody": {
           "content": {
@@ -18539,7 +18539,7 @@
     },
     "/api/v0/address_change/address": {
       "post": {
-        "description": "Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.\n\nFor the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's\nview or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,\nended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no\nerror. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the\naddress only in the answer.",
+        "description": "The new address, folded, of the live change a new-mailbox link token or a change id names.\n\nA token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.",
         "operationId": "address_change_get_address_change_address",
         "requestBody": {
           "content": {
@@ -18617,7 +18617,7 @@
     },
     "/api/v0/address_change/confirmation": {
       "post": {
-        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\n**The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,\nand nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`\npast that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a\ndecline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the\naddress on file was mailed answers no confirmation (`link_invalid`).\n\nThe new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox\nway, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,\nconfirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing\nnone, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's\ncarry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass\nmoves it; a holder's tells every holder in effect, in this transaction.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`link_invalid`), a link already answered or a change ended\n(`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline\n(`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a\ngrant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed\nor not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused\nnone of these**: it removes an address nobody proved.\n\nA confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and\nthe change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps\nalike; only the edge keeps them from the link's holder.",
+        "description": "Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.\n\nThe new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and\n`effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.",
         "operationId": "address_change_post_address_change_answer",
         "requestBody": {
           "content": {
@@ -18694,7 +18694,7 @@
     },
     "/api/v0/address_change/confirmation/stop": {
       "post": {
-        "description": "Stop the change the address on file was mailed about: its new address goes.\n\n**Refused nothing but a token no change holds, a change ended, and the person's own change before its address on\nfile confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no\nchange holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this\nlink no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page\noffering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.\nFrom that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells\nevery holder.",
+        "description": "Stop the change the address on file was mailed about, its new address going, at any time until the change ends.\n\nThe person's own change offers this link no stop until its address on file confirmed it.",
         "operationId": "address_change_post_address_change_stop",
         "requestBody": {
           "content": {
@@ -18771,7 +18771,7 @@
     },
     "/api/v0/address_change/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\n**Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by\nit, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.\nA POST that reads,\nso the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's\nlinks answer `ended`, how it ended and on which day, for as long as its record is kept.\n\nThe new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever\nthe press would be refused for the address on file's sake or would\nfind it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press\nanswers each by its own code; what keeps the link's holder from telling them apart is the edge, where\nthe proxy routes no public call to this service. The address on file's side answers the step the change waits on,\n`release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,\nnever whether the new mailbox could confirm, and the day it confirmed once it has.",
+        "description": "What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.\n\nEach side is served in the state its press would meet, and an ended change's links answer for as long as its record\nis kept.",
         "operationId": "address_change_get_address_change_view",
         "requestBody": {
           "content": {
@@ -18849,7 +18849,7 @@
     },
     "/api/v0/address_change/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:\nits address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged\nagain as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or\nnothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take\neffect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts\nit, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an\napplication nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is\nowed in the Postausgang in its change's own transaction, so none rides on this answer.\n\nA page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of\nits own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.\n**A pass is a run of calls, each handing the next the `after` the last\nanswered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the\nchanges after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.\n\nA pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`\nnull; `remaining` is no stopping condition.",
         "operationId": "address_change_sweep_address_change",
         "parameters": [
           {
@@ -18935,7 +18935,7 @@
     },
     "/api/v0/address_change/sweep/moves": {
       "get": {
-        "description": "List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.\n\nEach effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and\nhands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the\nnext call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names\naddresses.",
+        "description": "The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.\n\nThe caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.",
         "operationId": "address_change_get_address_change_moves",
         "responses": {
           "200": {
@@ -19079,7 +19079,7 @@
     },
     "/api/v0/address_change/{address_change_id}": {
       "delete": {
-        "description": "Discard the change this id names: its links open nothing to press, and the address on file stays.\n\nA holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page\nshowing a change since replaced discards nothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), and where the change ended\n(`address_change_ended`); 404 for an id naming no change.",
+        "description": "Discard the change this id names, the address on file staying.\n\nA holder's change in its wait tells every holder, and nobody else is mailed.",
         "operationId": "address_change_delete_address_change",
         "parameters": [
           {
@@ -19158,7 +19158,7 @@
     },
     "/api/v0/address_change/{address_change_id}/invite": {
       "post": {
-        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the\npending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change\nended (`address_change_ended`). 404 for an id naming no change, and\nunless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to\nre-send.",
+        "description": "Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.\n\nThe previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a\nlink to re-send.",
         "operationId": "address_change_invite_address_change",
         "parameters": [
           {
@@ -19629,7 +19629,7 @@
     },
     "/api/v0/ban_list": {
       "get": {
-        "description": "List every ban, newest first: the address, why, on which day and the last season covered.\n\nRead whole: the list holds few rows, and a ban left out is one nobody can lift.",
+        "description": "Every ban, newest first, with the address, why, on which day and the last season it covers.",
         "operationId": "ban_list_get_ban_list_entries",
         "responses": {
           "200": {
@@ -19694,7 +19694,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.\n\nRefused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season\nis running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has\na row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the\nfifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives\nthat person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.\n\n`ban_reason` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.\n\nThe ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.",
         "operationId": "ban_list_post_ban_list_entry",
         "requestBody": {
           "content": {
@@ -19771,7 +19771,7 @@
     },
     "/api/v0/ban_list/{ban_list_entry_id}": {
       "delete": {
-        "description": "Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.",
+        "description": "Lift a ban before it lapses, deleting its row for good.",
         "operationId": "ban_list_delete_ban_list_entry",
         "parameters": [
           {
@@ -19850,7 +19850,7 @@
     },
     "/api/v0/bewerbungen": {
       "post": {
-        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `submitted_at`, `decision` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nThe `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again, whatever its body says: a form whose details changed\nsince its last press sends a new key.\n\nTwo people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the\nTrainer also holds being that one person.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the\npress: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same\neither way, so it tells a stranger nothing about the address.",
+        "description": "Store one school's application to play one season, and mail each contact person their confirmation link, one per person.\n\nA second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -19939,7 +19939,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice\nnaming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's\nseason row `link_expired` and `kontakt_saison_past`.",
+        "description": "Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.\n\nA Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that\nis the deletion notice too.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20046,7 +20046,7 @@
     },
     "/api/v0/bewerbungen/einwilligung/view": {
       "post": {
-        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token\nno seat holds is refused (`link_invalid`).",
+        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA confirmed, declined or expired link is served in that state; only a token no seat holds is refused.",
         "operationId": "bewerbungen_get_einwilligung_view",
         "requestBody": {
           "content": {
@@ -20124,7 +20124,7 @@
     },
     "/api/v0/bewerbungen/form/{saison_id}": {
       "get": {
-        "description": "One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.\n\n404 only where no season carries the id. A closed or paused window and a season recording none are served, for the\npage to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and\nnothing more (`READ-BEWERBUNG-001`).",
+        "description": "A season's application window, and while it runs the clubs a school may apply as and the colours taken.\n\nA closed or paused window and a season recording none are served too, and each club is served as its name alone.",
         "operationId": "bewerbungen_get_form",
         "parameters": [
           {
@@ -20202,7 +20202,7 @@
     },
     "/api/v0/bewerbungen/list/admin": {
       "get": {
-        "description": "One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.\n\nA row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`\ntaken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous\npublic form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.\nEvery application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers\nconfirms nothing, and a sender confirming one seat at a time has to hold each mailbox.",
+        "description": "The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.\n\nA long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.",
         "operationId": "bewerbungen_get_bewerbungen_admin",
         "parameters": [
           {
@@ -20347,7 +20347,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nThe drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met\nagain by the next pass. 404 where no season has the id.",
+        "description": "Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nA row that cannot be written is passed over, counted in `failed`, and met again by the next pass.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -20425,7 +20425,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application.\n\nEach seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open\napplication of the season, as the list takes it.",
+        "description": "One application, each seat's state judged today and `duplicate` taken over every open application of the season.",
         "operationId": "bewerbungen_get_bewerbung",
         "parameters": [
           {
@@ -20504,7 +20504,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/accept": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.\n\nThe bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:\none request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.\nA new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.\nA colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
+        "description": "Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.\n\nIt cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed\nthe acceptance.",
         "operationId": "bewerbungen_accept_bewerbung",
         "parameters": [
           {
@@ -20593,7 +20593,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung": {
       "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and\n`giving_not_allowed`.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.",
         "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
@@ -20675,7 +20675,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/decline": {
       "post": {
-        "description": "Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.\n\nThe submission itself is untouched: a decline moves `status` and `decision` and nothing else,\nso what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.",
+        "description": "Decline an application with the reason given, mailed verbatim to each person the application mailed.\n\nWhat the school submitted stays as it was, the record the decision was taken against.",
         "operationId": "bewerbungen_decline_bewerbung",
         "parameters": [
           {
@@ -20764,7 +20764,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend": {
       "post": {
-        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.\nThat seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.",
+        "description": "Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.\n\nWhere one person holds two seats both are replaced and one link answers both, and the answer names the address and\nseats as the write found them.",
         "operationId": "bewerbungen_resend_einwilligung",
         "parameters": [
           {
@@ -20852,7 +20852,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "„Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.\n\nOne write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a\nWiderspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative\nand confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it\nwaits on the other two. Where one person holds two seats both are written from one press and one link answers\nboth. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today\nEVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.\n\nRefused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on\na seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an\naddress or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,\n`bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.",
+        "description": "Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.\n\nWhere one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's\ndeadline starts again from today.",
         "operationId": "bewerbungen_post_kontakt_seat",
         "parameters": [
           {
@@ -20950,7 +20950,7 @@
     },
     "/api/v0/grants": {
       "get": {
-        "description": "List every grant by address: its tier, when it holds, and when a handover to it completes.\n\nUncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
+        "description": "Every grant by address: its tier, when it holds, and when a handover to it completes.\n\nA future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.",
         "operationId": "grants_get_grants",
         "responses": {
           "200": {
@@ -21015,7 +21015,7 @@
         ]
       },
       "post": {
-        "description": "Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.\n\nOnly the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier\nrequest is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban\nlist holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant\nto an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date\nit holds from.",
+        "description": "Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.\n\nEvery holder in effect and the address named are told, with the date it holds from.",
         "operationId": "grants_post_grant",
         "requestBody": {
           "content": {
@@ -21159,7 +21159,7 @@
     },
     "/api/v0/grants/{grant_id}": {
       "delete": {
-        "description": "Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.\n\nOnly the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.\nRefused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,\nand a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same\ntransaction. An address change standing on the row is left to run, as a\nchange of an address holding no grant.",
+        "description": "Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.\n\nOnly the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.",
         "operationId": "grants_delete_grant",
         "parameters": [
           {
@@ -21238,7 +21238,7 @@
     },
     "/api/v0/grants/{grant_id}/handover": {
       "delete": {
-        "description": "Stop a waiting handover, the role staying with the owner.\n\nOnly the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on\nno handover. Every holder in effect is told in the same transaction.",
+        "description": "Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.",
         "operationId": "grants_delete_handover",
         "parameters": [
           {
@@ -21315,7 +21315,7 @@
         ]
       },
       "post": {
-        "description": "Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.\n\nOnly the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.\nRefused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait\nstill runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in\nthe same transaction, and told what date it completes on.",
+        "description": "Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.\n\nOnly the owner starts one, and every holder in effect is told the date it completes on.",
         "operationId": "grants_post_handover",
         "parameters": [
           {
@@ -21989,7 +21989,7 @@
     },
     "/api/v0/outbox/event": {
       "post": {
-        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nThe row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds\nit all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before\nanything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later\none changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since\nits send, which keeps its key alone, rather than a refusal the provider\nwould retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding\nits address, in the same transaction.",
+        "description": "Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.\n\nA redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the\nclosed chase of every seat holding its address.",
         "operationId": "outbox_post_event",
         "requestBody": {
           "content": {
@@ -22066,7 +22066,7 @@
     },
     "/api/v0/outbox/handout": {
       "post": {
-        "description": "Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nThe sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline\nis given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would\nhold every claim until its deadline. A mail to an address a ban holds is stopped as\n`barred`, the ban's own notice alone excepted. A mail to a club's contact seats is stopped as `dropped` where no\nconfirmed seat of that club's season row holds its address any more. A mail carrying a link has it minted here, its hash written to\nthe record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer\nholding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is\nanswered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every\noutcome, with `lease`, to `POST /outbox/result`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
+        "description": "Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.\n\nThe caller sends each under the idempotency key its `attempt` names and reports every outcome with `lease` before the\nlease lapses, after which the next claim hands the mail out again.",
         "operationId": "outbox_post_handout",
         "responses": {
           "200": {
@@ -22133,7 +22133,7 @@
     },
     "/api/v0/outbox/result": {
       "post": {
-        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
+        "description": "Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.\n\n`held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and\n`retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in\nmail or past its deadline.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {
@@ -22210,7 +22210,7 @@
     },
     "/api/v0/outbox/sign_in": {
       "post": {
-        "description": "Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.\n\nEvery call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats\nthe call. `secret` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail\nis settled; `valid_until` is both the last moment a hand-out may send it and the moment the row is deleted, settled\nor not.",
+        "description": "Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.\n\n`secret` is stored as it arrives and dropped once the mail is settled; `valid_until` is both the last moment a send\nmay happen and when the row is deleted.",
         "operationId": "outbox_post_sign_in",
         "requestBody": {
           "content": {
@@ -22280,7 +22280,7 @@
     },
     "/api/v0/registrierungen": {
       "post": {
-        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `submitted_at` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed\nsince its last press sends a new key. The key goes with its registration, so one pressed again after the team\nadmitted or declined the pupil, or after the row lapsed, is a new registration.\n\nA mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses\nthe press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nA press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,\nand owes no second mail.",
         "operationId": "registrierungen_post_registrierung",
         "parameters": [
           {
@@ -22376,7 +22376,7 @@
     },
     "/api/v0/registrierungen/account/{registrierung_id}/einwilligung": {
       "patch": {
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,\n`choices_stale` and `giving_not_allowed`.",
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a request moving neither choice writes nothing.",
         "operationId": "registrierungen_patch_einwilligung",
         "parameters": [
           {
@@ -22458,7 +22458,7 @@
     },
     "/api/v0/registrierungen/confirmation": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,\n`confirmation_exists`, `confirmation_age` and `media_age`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.",
         "operationId": "registrierungen_post_confirmation",
         "requestBody": {
           "content": {
@@ -22535,7 +22535,7 @@
     },
     "/api/v0/registrierungen/confirmation/view": {
       "post": {
-        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has\nleft the season reading expired; only a token no registration holds is refused (`link_invalid`).",
+        "description": "What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.\n\nA confirmed or expired link is served in that state, and a link whose club has left the season reads expired.",
         "operationId": "registrierungen_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -22613,7 +22613,7 @@
     },
     "/api/v0/registrierungen/invitation/view": {
       "post": {
-        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA POST because the link value travels in the body and never in a path the edge would log. A paused\nor ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as\ninvalid; only a link that opens no live invite, or whose team has left the season, is refused.",
+        "description": "Answer what this registration link is for: the team, its school, the season, and what the form may offer.\n\nA paused or ended window is a state here, so such a link reads as closed rather than as invalid.",
         "operationId": "registrierungen_post_invitation_view",
         "requestBody": {
           "content": {
@@ -22691,7 +22691,7 @@
     },
     "/api/v0/registrierungen/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.\n\nEach is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.\nA confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate\ndiffers. An unconfirmed row names nobody: its address is unproven.\nNo address, telephone number, birthdate or consent record is served for anybody. Newest first, and no\nmore than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before\nany unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil\nconfirmed; `complete` is false where the cap cut some.",
+        "description": "Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.\n\nA confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,\n`kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or\nconsent record is served for anybody.",
         "operationId": "registrierungen_get_open_registrierungen",
         "parameters": [
           {
@@ -22779,7 +22779,7 @@
     },
     "/api/v0/registrierungen/list/admin": {
       "get": {
-        "description": "The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.\n\nThe page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.\n`confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past\n`OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than\nrefusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a\ntripwire would hand them the power to 500 this page, and `complete` reports the cut.",
+        "description": "One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.\n\n`unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether\nthe read's cap cut the list.",
         "operationId": "registrierungen_get_registrierungen_admin",
         "parameters": [
           {
@@ -22857,7 +22857,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the three registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline\nclock does not run for a `past` season, whose own end takes every row it reads.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Every removal names this season alone and is made inside a transaction.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `failed` sums the rows each of the three clocks passed over.\n\n404 where no season has the id. Idempotent: a run after every due row went writes nothing.",
+        "description": "Erase one season's due registrations, as of today in Europe/Berlin.\n\nA declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one\nstill undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -22935,7 +22935,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/admit": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name, its birthdate and its freshly\nconfirmed consent record. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address\nthis admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on\nthe day the registration was submitted, never today's and never lifted from a retired row; this person's retired\nrow of this season is rewritten rather than a second one written, whichever team it was on. The registration is\ndeleted in the same transaction, so a second press meets no row, and with it every other pending registration of\nits address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed\nabout any of them, and the admission's act counts them.\n\nRefuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one\nthe team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not\noffer (`registrierung_stufe_not_allowed`), a\n`spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person\nalready playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is\nwritten on any of them.",
+        "description": "Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.\n\n`spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;\nthe registration and every other pending one of its address this season are erased, and nobody is mailed.",
         "operationId": "registrierungen_admit",
         "parameters": [
           {
@@ -23024,7 +23024,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/decline": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records a reason from a closed set, never free text:\n`other_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A\nconfirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.\n\nRefuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and\none the team has declined already (404).",
+        "description": "Decline one pending registration, confirmed or not, for a reason from a closed set or none.\n\nA pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is\nmailed nothing.",
         "operationId": "registrierungen_decline",
         "parameters": [
           {
@@ -23113,7 +23113,7 @@
     },
     "/api/v0/saisons": {
       "post": {
-        "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nThe server names it: the year after the newest stored season's, or the league's first where none is stored, so a\nseason is never created out of turn. Its rules carry on from that newest season, or are the league's first season's\n(`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a\n`future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of\ntwo creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against\nthem. Making the season live is a separate step.",
+        "description": "Create the next season, always `future`, from its two days, answering the id it minted.\n\nIts id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league\nholds at most one planned season.",
         "operationId": "saisons_post_saison",
         "requestBody": {
           "content": {
@@ -23324,7 +23324,7 @@
     },
     "/api/v0/saisons/list/admin": {
       "get": {
-        "description": "List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begun` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what\nfixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.\n`count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, by its own judgement, or null.",
+        "description": "Every season, the `future` ones included, each with its start, play and decision states and its counts.\n\n`next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with\nnow, or null.",
         "operationId": "saisons_get_saisons_admin",
         "responses": {
           "200": {
@@ -23467,7 +23467,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.\n\n`status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a\nfixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored\n(`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season\nstarted too early is unlocked by one save moving its start and a second changing its rules.",
+        "description": "Save a season's dates and rules on the `version` it was read at, answering the version stored.\n\nWhat a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is\nfixed once a fixture has taken place, and moves later only while no club's exit is stored.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -23555,7 +23555,7 @@
     },
     "/api/v0/saisons/{saison_id}/activate": {
       "post": {
-        "description": "Make this the active season, moving whichever holds `active` to `past` in one transaction.\n\nThe only path to `status: \"active\"`. The outgoing season must be finished, a `past` target is\nrefused, and every matchday of the target carries a date.",
+        "description": "Make this the active season, moving whichever holds `active` to `past`.\n\nThe outgoing season must be finished, and every matchday of the target dated.",
         "operationId": "saisons_activate_saison",
         "parameters": [
           {
@@ -23633,7 +23633,7 @@
     },
     "/api/v0/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a\nfixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.\n\nEach club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's\n`replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes\nboth before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,\nwhich is what the replacement admits.\n\n`refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor\noffers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function\nthe press decides each team by, beside each team's live link and the day it was last sent.\nRead outside a transaction: a write landing between this read and a press is judged by the press. 404 where no\nseason holds that id.",
+        "description": "What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.\n\nThe season is served a `future` one included, and every flag and every refusal is judged as the write it stands for\njudges it, so an act is offered exactly where its write takes it.",
         "operationId": "saisons_get_saison_admin",
         "parameters": [
           {
@@ -23711,7 +23711,7 @@
     },
     "/api/v0/saisons/{saison_id}/gruppen/swap": {
       "post": {
-        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery Gruppenphase fixture fielding either club has that side rewritten in the same transaction,\nso each group stays a round robin. Neither `tore` nor `austritt` moves.",
+        "description": "Exchange the groups of two clubs entered in this season, as one write.\n\nEvery group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither\n`tore` nor `austritt` moves.",
         "operationId": "saisons_swap_gruppen",
         "parameters": [
           {
@@ -23799,7 +23799,7 @@
     },
     "/api/v0/saisons/{saison_id}/invitations/dispatch": {
       "post": {
-        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. A team this skips is left exactly as it was.\n\nFour skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,\nstored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and\nthe team's own press is what mails a club its link again. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero\ncounts.\n\n**An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
+        "description": "Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.\n\nA team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it\nwas, so pressing twice mails nobody twice.",
         "operationId": "saisons_post_invitations_dispatch",
         "parameters": [
           {
@@ -23955,7 +23955,7 @@
     },
     "/api/v0/saisons/{saison_id}/overview": {
       "get": {
-        "description": "The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.\n\nIn order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture\nwhose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date\nproposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,\neach referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,\neach undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act\nneeds: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.\nAnswers 404 for a season that does not exist. Writes nothing.",
+        "description": "The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.\n\nEvery card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`\namong it.",
         "operationId": "saisons_get_saison_overview",
         "parameters": [
           {
@@ -24121,7 +24121,7 @@
     },
     "/api/v0/saisons/{saison_id}/spielplan": {
       "delete": {
-        "description": "Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.\n\nEvery fixture's confirmations go with it.\n\nThe replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it\n(`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to\nan entry.",
+        "description": "Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.\n\nUndoing the draw reopens the shape rules to an edit and the groups to an entry.",
         "operationId": "saisons_delete_spielplan",
         "parameters": [
           {
@@ -24273,7 +24273,7 @@
         ]
       },
       "post": {
-        "description": "Draw the whole season at once: every matchday and every fixture, undated, in one transaction.\n\n`shape` states the three rules the fixtures come out of, and is stored with them. `replace`\ndeletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s\nwindow and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the\nremoved rows back.",
+        "description": "Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.\n\nA stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'\nconfirmations, reports and line-ups with it; nothing writes the removed rows back.",
         "operationId": "saisons_post_spielplan",
         "parameters": [
           {
@@ -27763,7 +27763,7 @@
     },
     "/api/v0/spielorte": {
       "get": {
-        "description": "An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).\n\nDeactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.",
+        "description": "Every venue in name order, the retired ones too where `include_inactive` asks for them.\n\n`maps_link` is a Maps search string, not a URL.",
         "operationId": "spielorte_get_spielorte",
         "parameters": [
           {
@@ -27840,7 +27840,7 @@
         ]
       },
       "post": {
-        "description": "Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.\n\nRefused where another venue holds the name (`duplicate_key`, naming `name`).",
+        "description": "Create a venue, its `maps_link` derived from the name and the address.\n\nA name another venue holds, a retired one included, is refused.",
         "operationId": "spielorte_post_spielort",
         "requestBody": {
           "content": {
@@ -27917,7 +27917,7 @@
     },
     "/api/v0/spielorte/{spielort_id}": {
       "delete": {
-        "description": "Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.\n\nA played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused\nwhile an unplayed fixture is still booked here (`spielort_still_booked`).",
+        "description": "Retire a venue, which stays readable for every match played there.\n\nRefused while an unplayed fixture is booked at it.",
         "operationId": "spielorte_delete_spielort",
         "parameters": [
           {
@@ -27987,7 +27987,7 @@
         ]
       },
       "get": {
-        "description": "The venue editor's one read: the record, its `version` with it, which the editor's save sends back.\n\nAdmin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:\nthe editor reactivates one, and a historical match's venue is the case worth answering.",
+        "description": "One venue, a retired one included, with the `version` its save sends back.",
         "operationId": "spielorte_get_spielort",
         "parameters": [
           {
@@ -28064,7 +28064,7 @@
         ]
       },
       "patch": {
-        "description": "Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.\n\nA fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each\nfixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming\n`name`).",
+        "description": "Save a venue on the `version` it was read at, answering the version stored.\n\nEvery fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.",
         "operationId": "spielorte_patch_spielort",
         "parameters": [
           {
@@ -28153,7 +28153,7 @@
     },
     "/api/v0/spielorte/{spielort_id}/reactivate": {
       "post": {
-        "description": "Clear `inactive_since`, putting the venue back into the picker and every default read.",
+        "description": "Return a retired venue to every default read.",
         "operationId": "spielorte_reactivate_spielort",
         "parameters": [
           {
@@ -28302,7 +28302,7 @@
         ]
       },
       "patch": {
-        "description": "Move a matchday's span, answering the matchday's `version` after the save.\n\nNo fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held\nto its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A\n`past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is\nclosed.",
+        "description": "Move a matchday's span, answering its `version` after the save.\n\nThe span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is\ndated in.",
         "operationId": "spieltage_patch_spieltag",
         "parameters": [
           {
@@ -28391,7 +28391,7 @@
     },
     "/api/v0/spieltage/{spieltag_id}/admin": {
       "get": {
-        "description": "Return one matchday by its id for the admin editor, a `future` season's included.\n\nThe shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many\nmatchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever\nactivated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on\nexactly the season the write refuses (`saison_past`).",
+        "description": "One matchday by its id, a `future` season's included, with how many matchdays its phase holds.\n\nBeside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as\nfinal.",
         "operationId": "spieltage_get_spieltag_admin",
         "parameters": [
           {
@@ -28532,7 +28532,7 @@
     },
     "/api/v0/system/is_ready": {
       "get": {
-        "description": "Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
+        "description": "Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.\n\nUnauthenticated, for a monitor outside.",
         "operationId": "system_check_is_ready",
         "responses": {
           "200": {
@@ -28594,7 +28594,7 @@
     },
     "/api/v0/teams/list/admin": {
       "get": {
-        "description": "The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.\n\nNo base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state\nthe type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every\nretired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,\neach group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`\nthe colours the season's rows hold. 404 where no season holds that id.",
+        "description": "One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.\n\n`state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`\nis true where the season, not being `future`, takes no entry.",
         "operationId": "teams_get_teams_admin",
         "parameters": [
           {
@@ -28704,7 +28704,7 @@
     },
     "/api/v0/teams/saisons/{saison_id}/entry": {
       "post": {
-        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,\nnaming `shorthand`. A retired club is refused `team_retired`, a club the season already holds\n`bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the\nseason and the group as an entry is.",
+        "description": "Enter a club into a `future` season in a group and a colour, founding it first where it is new.\n\nA club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.",
         "operationId": "teams_post_team_entry",
         "parameters": [
           {
@@ -28792,7 +28792,7 @@
     },
     "/api/v0/teams/{team_id}": {
       "delete": {
-        "description": "Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.\n\nRefused while the club is entered in an `active` or `future` season. Its junction rows are left\nalone: the seasons it played still happened.",
+        "description": "Retire a club from the league, its rows of the seasons it played left as they are.\n\nRefused while the club is entered in an `active` or `future` season.",
         "operationId": "teams_delete_team",
         "parameters": [
           {
@@ -29134,7 +29134,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.\n\n`version` is what the one save sends. `membership` serves the row with its seats' links, null for\na club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.\n`gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused\n`entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season\n`retire_blocked` refuses over, by each write's own judgement.\n`link` is the live registration link, the window's judgement of it, and why the season's press would pass the team\nover. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no\nseason holds that id.",
+        "description": "What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.\n\n`version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are\nnull for a club holding no row of the season.",
         "operationId": "teams_get_team_saison_admin",
         "parameters": [
           {
@@ -29220,7 +29220,7 @@
         ]
       },
       "patch": {
-        "description": "Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.\n\nRefused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per\npart: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour\nchanges, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one\nincluded, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and\n`entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming\n`trikot_farbe`. 404 where the club holds no row of the season.",
+        "description": "Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.\n\nA `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour\nare judged as an entry's.",
         "operationId": "teams_patch_team_saison",
         "parameters": [
           {
@@ -29318,7 +29318,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/austritt": {
       "put": {
-        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nRefused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;\n`saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`\nthe start: before it, the replacement takes a club out. 404 where the team holds no row of the season.",
+        "description": "Record how a team left the season, once: an exit is never lifted and never replaced.\n\nAn exit is taken from the season's start date on, before which the replacement takes a club out, and never on a\nfinished season.",
         "operationId": "teams_put_austritt",
         "parameters": [
           {
@@ -29409,7 +29409,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation": {
       "delete": {
-        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says\nwhich link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.",
+        "description": "Stamp this team's live registration link revoked, so it opens nothing from here on.\n\nThe row stays, so a delivery event about a mail carrying the link still has somewhere to land.",
         "operationId": "teams_delete_invitation",
         "parameters": [
           {
@@ -29495,7 +29495,7 @@
         ]
       },
       "post": {
-        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing the team's link is a separate press\n(`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended\n(`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\nA row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link\nopens nothing, whoever holds it.",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\nThe raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's\nregistration window does, judged afresh at each opening.",
         "operationId": "teams_post_invitation",
         "parameters": [
           {
@@ -29583,7 +29583,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch": {
       "post": {
-        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a\nseat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed\ntwice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail\nis handed out.\n\nRefused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A\nwindow shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on\nas a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since\nthe caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,\nas the mint refuses it.",
+        "description": "Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.\n\nEach mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on\none day owes nothing again.",
         "operationId": "teams_post_invitation_dispatch",
         "parameters": [
           {
@@ -29681,7 +29681,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}": {
       "put": {
-        "description": "„Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.\n\nThe same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and\n`email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link\nin this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's\nlast holder answers the team's match confirmations no more. A `past` season's seats and a departed team's\nstay correctable, and such a link takes the person's Widerspruch alone.\n\nWhere the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read\non the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the\nclaim, and the seat it named keeps its person. Left out, the claim stands.\n\nRefused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another\nseat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.",
+        "description": "Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.\n\nThe same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat\na write on either seat writes both under one link.",
         "operationId": "teams_put_kontakt_seat",
         "parameters": [
           {
@@ -29788,7 +29788,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite": {
       "post": {
-        "description": "Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.\n\nIt replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:\nthe previous link stops opening anything from this write on, and the deadline restarts from today. The answer names\nthe address the mail is owed to, never the link.\n\nRefused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its\nperson has already confirmed it (`kontakt_seat_without_confirmation`).\n404 for a team and season holding no row, and for a path naming no seat.",
+        "description": "Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.\n\nThe previous link opens nothing from this write on, the deadline restarts from today, and the answer names the\naddress the mail is owed to, never the link.",
         "operationId": "teams_invite_kontakt",
         "parameters": [
           {
@@ -29885,7 +29885,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/replace": {
       "post": {
-        "description": "Hand this season's junction row, and every fixture on it, to another club.\n\nIts `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and\ntheir links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:\nthe schedule survives.",
+        "description": "Hand this season's row, and every fixture on it, to another club, keeping the schedule.\n\nThe row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.",
         "operationId": "teams_replace_saison_team",
         "parameters": [
           {

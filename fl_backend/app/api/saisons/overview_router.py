@@ -37,15 +37,10 @@ async def get_saison_overview(
     schiedsrichter_collection: SchiedsrichterReadCollection,
     now: datetime = Depends(get_germany_now),
 ) -> FLSaisonOverviewResponse:
-    """The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+    """The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
 
-    In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
-    whose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date
-    proposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,
-    each referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,
-    each undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
-    needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
-    Answers 404 for a season that does not exist. Writes nothing.
+    Every card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`
+    among it.
     """
 
     read = await aggregate_many_from_db(
@@ -55,7 +50,7 @@ async def get_saison_overview(
         raise DocumentNotFoundError()
 
     (season,) = read
-    # The INTERNAL fixture, which the fault walk needs; every row serves it in the admin shape.
+    # The internal fixture, which the fault walk needs; every row serves it in the admin shape.
     spiele = FLSpielJoinedInternalListAdapter.validate_python(season[SPIELE_AS])
     faults = await bracket_faults_of(
         spiele=spiele,

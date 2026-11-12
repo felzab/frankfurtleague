@@ -1,13 +1,8 @@
-"""
-API · one address's pending change, as its own record keyed by the address: the record's shape, its steps, its filters and its refusals
+"""One address's pending change, keyed by the address: its shape, steps, filters and refusals, decided without a read or a write.
 
-Pure: no read and no write. A change belongs to an address, never to one of the records the address holds, so whose
-records it moves is read from the address when it takes effect (`app/api/address_change/crud.py :: read_the_holdings`).
-
-Invariants:
-- Every instant is stored as a BSON date and compared as one; a filter on one always carries `$type: "date"`, so a null
-  never compares.
-- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_address` indexes.
+A change belongs to an address, never to one of the records the address holds, so whose records it moves is read from
+the address when it takes effect. Every instant is stored as a BSON date and compared as one; a filter on one always
+carries `$type: "date"`, so a null never compares.
 """
 
 import math
@@ -34,7 +29,7 @@ FLAddressChangeNewState = Literal["valid", "expired", "not_confirmable", "confir
 # The one filter every read of a live change carries: `uniq_address_change_address` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
-# Every running change, the key's type stated beside the live terms for `build_address_filter`'s reason.
+# Every running change, the key's type stated beside the live terms so the read matches the partial index's filter.
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"address": {"$type": "string"}, **LIVE_TERMS}
 
 
@@ -85,10 +80,7 @@ def compose_record(
     way: FLAddressChangeWay,
     now: datetime,
 ) -> dict[str, Any]:
-    """The WHOLE record a start inserts.
-
-    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/outbox/system_router.py :: post_handout`).
-    """
+    """The whole record a start inserts, both links' arrays empty: each mail's hand-out mints its link into them."""
 
     return {
         "address": address,
@@ -169,7 +161,7 @@ def build_address_filter(address: str) -> dict[str, Any]:
 
 
 def build_addresses_filter(addresses: list[str]) -> dict[str, Any]:
-    """The live changes of these folded addresses, for `build_address_filter`'s reason."""
+    """The live changes of these folded addresses, the key's type stated so the planner reads it as the index's subset."""
 
     return {"address": {"$in": addresses, "$type": "string"}, **LIVE_TERMS}
 
@@ -193,7 +185,7 @@ def asks_the_address_on_file(record: Mapping[str, Any]) -> bool:
 
 
 def build_either_link_filter(token_hash: str) -> dict[str, Any]:
-    """The change either of whose links a token is, each clause answered by its own index (`app/core/constraints.py`)."""
+    """The change either of whose links a token is, each clause answered by its own index."""
 
     return {"$or": [{"token_hashes": token_hash}, {"stop.token_hashes": token_hash}]}
 
@@ -298,7 +290,7 @@ def masked_address(email: str) -> str:
     """
 
     # Folded, never judged by the address rule, whose tables move without us: a stored value it came to
-    # refuse would answer the account page a 500 (`app/shared/schemas/kontakt.py :: FLKontaktPayload`).
+    # refuse would answer the account page a 500.
     local, _, domain = sign_in_identifier(email).rpartition("@")
     labels = domain.split(".")
     shortened = f"{labels[0][:1]}•••" + (f".{labels[-1]}" if len(labels) > 1 else "")

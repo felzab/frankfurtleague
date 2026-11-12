@@ -24,9 +24,9 @@ from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
-# their address and, once they have confirmed, their date of birth (`READ-CONTACT-001`).
+# their address and, once they have confirmed, their date of birth.
 
-# `public_router.py` shares this prefix at base tier and reads no stored registration but the one a
+# The public router shares this prefix at base tier and reads no stored registration but the one a
 # link it was handed opens.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen",
@@ -45,14 +45,10 @@ async def get_registrierungen_admin(
     saisons_collection: SaisonsReadCollection,
     filters: FLRegistrierungenAdminFilters,
 ) -> FLRegistrierungenAdminListResponse:
-    """
-    The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+    """One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
 
-    The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
-    `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
-    `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
-    refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
-    tripwire would hand them the power to 500 this page, and `complete` reports the cut.
+    `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
+    the read's cap cut the list.
     """
 
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": filters.saison_id}, projection=["_id"])
@@ -79,7 +75,9 @@ async def get_registrierungen_admin(
                     "unmailed": registrierung_was_left_unmailed(confirmation=row.get("confirmation")),
                 }
             )
-            # Sliced before validation, so the probe row is never parsed and never reaches the wire.
+            # Sliced before validation, so the probe row is never parsed and never reaches the wire. Cut rather than
+            # refused: anybody a team's link reached writes these rows, and a refusal would hand them the power to fail
+            # this page.
             for row in read[:LIST_LIMIT_DEFAULT]
         ],
         complete=len(read) <= LIST_LIMIT_DEFAULT,

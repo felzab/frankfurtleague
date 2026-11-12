@@ -29,7 +29,7 @@ def group_matchdays(teams_per_gruppe: int) -> int:
 def group_matches_per_matchday(number_of_gruppen: int, teams_per_gruppe: int) -> int:
     """How many matches one group matchday holds, across every group.
 
-    `teams_per_group // 2` per group: an odd group pairs all but the team on its bye, and all groups
+    `teams_per_gruppe // 2` per group: an odd group pairs all but the team on its bye, and all groups
     play on the same matchday.
     """
 
@@ -49,15 +49,13 @@ def total_group_matches(number_of_gruppen: int, teams_per_gruppe: int) -> int:
 
 
 def qualifier_count(rules: FLSaisonRules) -> int:
-    """How many teams reach the bracket."""
-
     return rules.number_of_gruppen * rules.qualifiers_per_gruppe
 
 
 def knockout_phases_for(qualifiers: int) -> tuple[FLSaisonPhase, ...]:
     """The rounds a bracket of `qualifiers` teams plays, in playing order.
 
-    Read from the END of `KNOCKOUT_PHASES`, which lets a phase be added at the wide end without
+    Read from the end of `KNOCKOUT_PHASES`, which lets a phase be added at the wide end without
     renaming a round anybody plays. Empty for anything not a power of two in range.
     """
 

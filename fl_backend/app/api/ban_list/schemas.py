@@ -9,7 +9,7 @@ from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, Cus
 from app.shared.schemas.kontakt import CustomEmail, CustomStoredAddress
 from app.shared.schemas.responses import BaseAPIResponse
 
-# A DELIVERABLE shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
+# A deliverable shape and never a bare `@`: „Nach Absprache @ Schulleitung" is German prose an
 # administrator writes, and refusing it catches the rare case by refusing the ordinary one.
 ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 
@@ -31,11 +31,11 @@ class FLBanListRow(BaseModel):
     """One ban as the list serves it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Folded as every address payload is (`app/shared/folding.py :: league_address`), so a check is an equality.
+    # Folded as every address payload is, so a check is an equality.
     address: CustomNonEmptyString
     ban_reason: CustomNonEmptyString
     created_at: CustomDateString
-    # The last season the ban covers, INCLUSIVE. Served because a row whose bound nobody can read is
+    # The last season the ban covers, inclusive. Served because a row whose bound nobody can read is
     # one an administrator cannot tell from a standing ban, and the lapse removes it without asking.
     barred_until_saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
@@ -56,7 +56,7 @@ class FLPostBanListEntryPayload(BaseModel):
     email: CustomEmail
     # Whether the address is told of its ban: only where it has a sign-in account, which the frontend's store alone knows.
     notify: bool
-    # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the day.
+    # Stripped on the write side alone, and single-line because the admin card renders it beside the day.
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     ban_reason: Annotated[
         str,
@@ -78,6 +78,6 @@ class FLPostBanListEntryResponse(BaseAPIResponse):
 
 
 class FLBanListWriteResponse(BaseAPIResponse):
-    """The removal is hard, so the id is all there is to answer with: no document survives to echo."""
+    """The id of the ban lifted, whose row is gone."""
 
     ban_list_entry_id: CustomObjectId

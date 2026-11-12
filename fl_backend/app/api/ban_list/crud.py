@@ -1,10 +1,3 @@
-"""
-API · every read of the ban list that reaches a collection
-
-Here rather than in `services.py`, which decides from its arguments and names no handle at all.
-The router opens the collection and the client; what it does not do is compose a query.
-"""
-
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -15,7 +8,7 @@ from app.core.crud import aggregate_many_from_db, pull_many_from_db
 from app.core.readonly import ReadCollection
 from app.shared.folding import sign_in_identifier
 
-# What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
+# What a served row may hold beyond `_id`, which the projection keeps unless something drops it. An
 # inclusion rather than an exclusion: a field added to the collection is withheld until somebody
 # names it here.
 SERVED_FIELDS: Mapping[str, int] = {"address": 1, "ban_reason": 1, "created_at": 1, "barred_until_saison_id": 1}
@@ -63,7 +56,7 @@ async def read_barred_addresses(
     ban_list_collection: ReadCollection,
     session: AsyncClientSession | None = None,
 ) -> set[str]:
-    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in ONE read."""
+    """Which of these addresses a ban holds, each answered in the spelling it was asked in, in one read."""
 
     folded = {address: sign_in_identifier(address) for address in set(addresses)}
     if not folded:

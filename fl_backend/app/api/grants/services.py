@@ -1,9 +1,4 @@
-"""
-API · the grants' refusals, the one reading of a stored row, and the facts of their notices, apart from the handles they are asked of
-
-Each refusal takes what its caller read inside its own transaction, so a retry after a conflict
-judges the list afresh.
-"""
+"""Each refusal takes what its caller read inside its own transaction, so a retry after a conflict judges the list afresh."""
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
