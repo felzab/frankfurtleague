@@ -706,8 +706,9 @@ UNTOUCHED_SPIEL: Mapping[str, Any] = {
     "team2": {"team_id": BIEBER, "tore": None},
     "team1_quelle": None,
     "team2_quelle": None,
-    "spielort": {"spielort_id": None},
-    "schiedsrichter": {"schiedsrichter_id": None},
+    # No block, as the draw writes neither: a referee's block naming nobody is a record of its own.
+    "spielort": None,
+    "schiedsrichter": None,
 }
 
 # The OTHER shape the same draw writes, and the one an admin seeds by hand: a knockout slot wired to
@@ -796,6 +797,11 @@ class TestWhatCountsAsRecordedAgainstASpiel:
         stale = sorted(set(RECORDED_EDITS) - set(RECORDED_FACT_FIELDS))
 
         assert (unanswered, stale) == ([], [])
+
+    def test_a_spiel_as_the_draw_wrote_it_leaves_the_window_open(self):
+        """The premise of every case below: a shape already reading as recorded makes each of them pass whatever it edits."""
+
+        assert (holds_a_recorded_fact(UNTOUCHED_SPIEL), holds_a_recorded_fact(UNTOUCHED_BRACKET)) == (False, False)
 
     @pytest.mark.parametrize(("projected", "edit"), RECORDED_EDITS.items(), ids=list(RECORDED_EDITS))
     def test_a_spiel_carrying_that_edit_closes_the_window(self, projected: str, edit: RecordedEdit):
