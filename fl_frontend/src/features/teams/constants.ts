@@ -27,8 +27,10 @@ export function austrittChip(type: FLAustrittType): ChipProps {
 }
 
 /**
- * The chip after a club's name in the administration: „Stillgelegt“ once it left the league, else how it left the
- * season, whichever route, in the danger hue and in the full word, which the list and the editor have room for.
+ * The chip after a club's name in the administration where it is out of play: „Stillgelegt“ once it left the league,
+ * else how it left the season, whichever route, in the danger hue and in the full word, which the list and the editor
+ * have room for. A club playing on has none here: the editor's head names no default, and the list's „Stand“ column
+ * draws „Aktiv“ in its place.
  */
 export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
   if (retiredSince !== null) return { tone: "neutral", label: COPY.shared.retired };

@@ -81,13 +81,16 @@ const dayOf = (moment: string) => ({ record: formatDate(new Date(moment)) });
 
 const instantOf = (moment: string) => ({ record: formatInstantShort(moment) });
 
-/** One grant in effect: the owner's chip alone sets a row apart, and only an administrator's row can be removed. */
+/**
+ * One grant in effect: its tier's chip, the owner's „Leitung“ setting its row apart from every administrator's
+ * „Verwaltung“, and only an administrator's row can be removed.
+ */
 function activeRow(grant: FLGrantRow, actor: string | null): TableRow {
   const isOwner = grant.admin_tier === "owner";
   return {
     id: grant.id,
     name: { record: grant.address, address: true },
-    ...(isOwner ? { chip: { tone: "neutral" as const, label: WORDS.owner } } : {}),
+    chip: isOwner ? { tone: "neutral", label: WORDS.owner } : { tone: "success", label: COPY.admin.role },
     cells: { since: dayOf(grant.effective_from) },
     ...(actor === null || isOwner
       ? {}

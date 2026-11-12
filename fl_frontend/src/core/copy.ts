@@ -1348,7 +1348,7 @@ export const COPY = catalogue({
       gruppeFull: "Voll",
       /** „Team eintragen“'s reason while locked. */
       onlyPlanned: "Nur in einer geplanten Saison",
-      /** The state filter's option for a club playing on. */
+      /** A record in play: the state filter's option for a club playing on, and the chip of a list's default row. */
       active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */

@@ -8,9 +8,8 @@ import { FieldPlaceholder } from "@/kit/FieldPair";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
-import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
+import { confirmationStateOf, refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -23,7 +22,7 @@ import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 import { valuesOf } from "./schiedsrichterValues";
 
 import type { Copy } from "@/core/copy";
-import type { FLSchiedsrichter, FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -92,27 +91,13 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
   );
 }
 
-/** The chip after the name, as the list puts it: „Stillgelegt“, or where an entry not yet confirmed stands. */
-function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
-  switch (confirmationStateOf(referee)) {
-    case "confirmed":
-      return undefined;
-    case "objected":
-      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
-    case "unanswered":
-    case "unasked":
-      return { tone: "warn", label: WORDS.unconfirmed };
-  }
-}
-
 /**
  * The chips after the name, as a seat's row sets them: the state's, then what the last confirmation mail met where it
  * met trouble (`deliveryChip`). A confirmed entry carries no state chip, so its mail's trouble, a complaint after the
  * delivery, stands first.
  */
 function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip?: ChipProps; flag?: ChipProps } {
-  const state = chipOf(referee);
+  const state = refereeChip(referee);
   const mail = deliveryChip(delivery) ?? undefined;
   if (state === undefined) return mail === undefined ? {} : { chip: mail };
   return { chip: state, ...(mail === undefined ? {} : { flag: mail }) };
