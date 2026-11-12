@@ -42,8 +42,8 @@ export function byShirtNumber(one: { nummer: string | null }, other: { nummer: s
 }
 
 /**
- * A pupil as a read serves their names, or „anonym“ where it serves none: an erasure took the record, or the public
- * read withholds a name the consent does not publish.
+ * A pupil as a read serves their names, or „anonym“ where it serves none: no record holds the pupil an entry names, or
+ * the public read withholds a name the consent does not publish.
  */
 export function spielerName({ first_name, last_name }: { first_name: string | null; last_name: string | null }): Words {
   return first_name === null ? COPY.shared.anonymous : { record: kaderName({ first_name, last_name }) };
