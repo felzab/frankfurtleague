@@ -284,7 +284,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
             "decision": None,
         },
-        # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
+        # As a grant written by hand is: a BSON date, and the sentinel where no administrator granted it.
         "grants": {
             "_id": GRANT_OID,
             "address": "inhaberin@example.invalid",
@@ -428,7 +428,7 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
             **address_change_document(address="alt@example.invalid", email="zweite@example.invalid", token_hash="b" * 64, day="2026-03-16"),
         },
     ),
-    # A second owner at another address: a Playground paste is the one writer that could make one, and it would hold the
+    # A second owner at another address: a grant written by hand is the one writer that could make one, and it would hold the
     # role beside the first with nothing in the application able to take it away again.
     "uniq_grant_owner": (valid_documents()["grants"], valid_document("grants", _id=TEAM_OID, address="zweite@example.invalid")),
     "uniq_outbox_key": (

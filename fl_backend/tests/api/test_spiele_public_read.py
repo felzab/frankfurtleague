@@ -18,7 +18,7 @@ from app.api.spieltage.services import build_spielplan
 from tests.core.app_source import api_routes, application
 from tests.documents import rules_document, spiel_document, spieltag_document
 
-# The two figures `READ-MONEY-001` keeps off the base tier, spelled as a DOCUMENT spells them: the
+# The two figures the base tier never serves, the rent and the fee, spelled as a DOCUMENT spells them: the
 # assertions below search published property names, where a model's field name need not match.
 MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
@@ -49,7 +49,7 @@ PAYMENT = 30
 SPIELORT_NAME = "Sportplatz Ost"
 
 # Written out rather than composed from the pair, so a reducer agreeing with any spelling of the
-# rule -- the whole surname, or the initial without its dot -- fails these cases (`READ-REFEREE-001`).
+# rule -- the whole surname, or the initial without its dot -- fails these cases.
 SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
@@ -158,7 +158,7 @@ BASE_TIER_SPIEL_FIELDS = frozenset(
         "sonderereignis",
         "saison_phase",
         "saison_id",
-        # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
+        # Published by decision, and past what an erasure rewrites.
         "note",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
@@ -237,7 +237,7 @@ class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
     def test_the_base_tier_spiel_cuts_the_referees_surname(self):
-        """`READ-REFEREE-001`, on the shape a base-tier read answers with rather than on the reducer alone.
+        """The surname cut to its initial, on the shape a base-tier read answers with rather than on the reducer alone.
 
         The stored document carries the surname in full, so a model that stopped reducing would serve it.
         """
@@ -318,7 +318,7 @@ REFEREE_NAME_CASES = [
 
 
 class TestTheSurnameReduction:
-    """`READ-REFEREE-001` over the shapes of name a referee's one free-text field holds.
+    """The surname cut to its initial, over the shapes of name a referee's one free-text field holds.
 
     A rule taking the LAST word would serve `Ada van der B.` and `Anna Müller S.`, publishing a
     particle or half a double surname.
