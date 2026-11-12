@@ -77,7 +77,7 @@ export type DangerAct = {
     }
 );
 
-/** One danger row, whose question or dialog answers for its act, a passkey touch's refusal among what it shows. */
+/** One danger row, whose question or dialog answers for its act, or, behind the passkey touch, its toast. */
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);

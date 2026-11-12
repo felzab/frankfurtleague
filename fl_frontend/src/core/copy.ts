@@ -1524,7 +1524,7 @@ export const COPY = catalogue({
       /** The column naming the day a ban ends. */
       until: VALID_UNTIL,
       durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
-      /** The dialog's line once the ban stands, by what did not follow it. */
+      /** The toast once the ban stands, by what did not follow it. */
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
         notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
