@@ -217,7 +217,9 @@ start; after a match it would reopen what the start locks closed.
   (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
-  qualified for anything, and entering a result is what fills the slots downstream.
+  qualified for anything, and entering a result is what fills the slots downstream. A group's placings
+  are decided on its last fixture's day, never while any of its fixtures is undated, and a podium place
+  on its own match's day.
 - **A level knockout fixture is settled by a shoot-out**, whose own scoreline is stored beside the result and
   never inside it. A no-show is awarded a scoreline the season configures. A season that plays a knockout
   round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`), since a drawn
@@ -225,7 +227,10 @@ start; after a match it would reopen what the start locks closed.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
   took, and the club's own document is untouched by it. It takes effect on the season's start or later
   (`austritt_before_saison_start`): before the start a club out of the season is replaced, so the group swap,
-  which the start locks, never fields a departed club.
+  which the start locks, never fields a departed club. No rule reads which route it took: only a day
+  strictly before the record's date is still the club's, so a fixture fielding it from that date on is
+  reported, and a group placing decided from that date on falls to the club below, a podium place stands
+  vacant.
 
 ---
 
