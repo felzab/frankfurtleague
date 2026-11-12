@@ -8,17 +8,10 @@ import type { EndState, MailedState } from "./MailedPage";
 import type { StatusCardProps } from "./StatusCard";
 
 /*
- * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title, its
- * referrer, and the end a link no longer valid reaches. Apart from `MailedPage`, whose one-shot form brings the
- * client's stack to every route importing it.
+ * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title and the
+ * end a link no longer valid reaches. Apart from `MailedPage`, whose one-shot form brings the client's stack to every
+ * route importing it.
  */
-
-/**
- * A page a mail opens carries its link's token in its address, the first request of one in
- * `MAILED_LINK_PAGES` included: no outbound request may send that address on
- * as its referrer. `mailedMetadata` spreads it into each such page's metadata.
- */
-const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
 
 /**
  * The link no longer valid, one message for an expired, mistyped or tampered link alike, as the page opens on it
@@ -41,13 +34,13 @@ function mailedTitle(state: MailedState): Copy {
 }
 
 /**
- * A mailed page's metadata, titled by its state and under the mailed pages' referrer. `state` is the same read as the
- * page's, which the page memoizes with React's `cache`, since a link's state decides its heading.
+ * A mailed page's metadata, titled by its state. `state` is the same read as the page's, which the page memoizes with
+ * React's `cache`, since a link's state decides its heading.
  */
 export async function mailedMetadata(
   parent: ResolvingMetadata,
   row: RouteEntry & { readonly path: () => `/${string}` },
   state: Promise<MailedState>,
 ): Promise<Metadata> {
-  return { ...(await pageMetadata(parent, row, row.path(), { title: mailedTitle(await state) })), ...MAILED_PAGE_METADATA };
+  return pageMetadata(parent, row, row.path(), { title: mailedTitle(await state) });
 }

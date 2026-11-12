@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
@@ -6,9 +5,7 @@ import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { orMissing } from "@/core/errors";
 import { dayOf, formatList, timeOf } from "@/core/format";
-import { saisonsGetSaisonOverview } from "@/core/generated/client/sdk";
 import {
   SpielbestaetigungenEnterSpielbestaetigungBody,
   spielbestaetigungenEnterSpielbestaetigungBodyReasonMax,
@@ -16,7 +13,7 @@ import {
 } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { runAdminRead } from "@/shared/utils/adminRead";
+import { getSaisonOverview } from "@/features/saisons/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -43,12 +40,9 @@ const WORDS = SERVER_COPY.overview;
 const SPIEL = COPY.admin.spiel;
 const FACTS = COPY.admin.facts;
 
-/** The season's open work, `null` for a season the league does not hold: one read for the tab's title and the page alike. */
-const overviewOf = cache((saison: string) => runAdminRead(() => orMissing(saisonsGetSaisonOverview(saison))));
-
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const { saison } = await params;
-  return metadataFor(overviewOf(saison), () => pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison)));
+  return metadataFor(getSaisonOverview(saison), () => pageMetadata(parent, ROUTES.adminOverview, ROUTES.adminOverview.path(saison)));
 }
 
 /** A fixture by its two clubs, as the match editor names it, and by its number while a side is still open. */
@@ -228,7 +222,7 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
 /** The season's open work, read once: not-found for a season the league does not hold. */
 async function readOverview(params: Props["params"]) {
   const { saison } = await params;
-  const read = await overviewOf(saison);
+  const read = await getSaisonOverview(saison);
   if (read === null) notFound();
   return {
     cards: read.cards.map(({ card, rows }) => ({

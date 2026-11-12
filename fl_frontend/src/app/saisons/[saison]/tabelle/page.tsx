@@ -101,7 +101,7 @@ async function readGroups(params: Props["params"]) {
   if (tabelle === null) notFound();
   const groups = Object.entries(tabelle.gruppen).sort(([one], [other]) => one.localeCompare(other));
   return {
-    groups: groups.map(([gruppe, rows = []]) => ({
+    groups: groups.map(([gruppe, rows]) => ({
       id: gruppe,
       title: SERVER_COPY.season.gruppe(gruppe),
       table: {

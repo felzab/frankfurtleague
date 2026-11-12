@@ -5,10 +5,10 @@ import { useRef } from "react";
 import { Form } from "react-aria-components/Form";
 import { useObjectRef } from "react-aria/useObjectRef";
 
-import type { ComponentProps, FormEvent } from "react";
+import type { ComponentProps, SyntheticEvent } from "react";
 
 /** React Aria's `Form` types neither a capture handler, nor `noValidate`, nor `onChange`, and hands the DOM what it is spread. */
-const FORM_ATTRIBUTES = { noValidate: true, onResetCapture: (event: FormEvent<HTMLFormElement>) => event.preventDefault() };
+const FORM_ATTRIBUTES = { noValidate: true, onResetCapture: (event: SyntheticEvent<HTMLFormElement>) => event.preventDefault() };
 
 /**
  * A server-drawn form, handing `onSend` the fields as the press left them. A hydrated press stays on `onSubmit`, whose

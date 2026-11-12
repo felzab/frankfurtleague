@@ -52,7 +52,7 @@ vi.mock("@/features/roles/resolvers", () => ({
   readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
 }));
 vi.mock("@/features/spielberichte/queries", () => ({ getOwnSpielbericht: () => Promise.resolve(READ) }));
-vi.mock("@/features/saisons/queries", () => ({ isPublicSaison: () => Promise.resolve(false) }));
+vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: () => Promise.resolve({ saisons: [] }) }));
 
 /** The pupils each side's player lists offer, each by id and whether it can be picked. */
 async function offered() {

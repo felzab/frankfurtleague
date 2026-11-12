@@ -1,7 +1,7 @@
 import { isNoShow } from "@/features/spiele/result";
 
 import type { CalendarDay, TimeOfDay } from "@/core/format";
-import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
 export const NO_SONDEREREIGNIS = "none";
@@ -36,8 +36,7 @@ export type SpielValues = {
 };
 
 /** An event after which the match carries no result at all, which the write refuses goals beside. */
-export const takesNoResult = (sonderereignis: FLSonderereignis | string | null) =>
-  sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
+export const takesNoResult = (sonderereignis: string | null) => sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, and the report's version it stamps. */
 export type Proposal = { version: number; values: Partial<SpielValues> };
