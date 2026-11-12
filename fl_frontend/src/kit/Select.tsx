@@ -16,11 +16,14 @@ import type { Option } from "./OptionList";
 
 /**
  * Pick one of five or more choices, or an optional one where „Keines“ is a real answer: a field at the standard
- * width whatever its choices' length, whose trigger keeps its edge while its menu is open.
+ * width whatever its choices' length, whose trigger keeps its edge while its menu is open. A choice among counts
+ * takes `holds`, as a text field holding a count does, and stands as wide as the count and its arrow, so it can stand
+ * as a row of `FieldRows` beside the counts typed.
  */
 export function Select({
   label,
   labelHidden = false,
+  holds,
   description,
   consequence,
   options,
@@ -34,6 +37,8 @@ export function Select({
   label: Copy;
   /** Whether the label names the field to a screen reader alone, the title of a section holding this one field. */
   labelHidden?: boolean;
+  /** The characters the longest choice holds, where every choice is a count. */
+  holds?: 2;
   description?: Copy;
   consequence?: Copy;
   options: readonly Option[];
@@ -66,7 +71,14 @@ export function Select({
       )}
       <Button
         data-kit-focus="field"
-        className={fieldFrame({ width: "standard", inset: "start", layout: "trigger", class: hoverLook({ host: "aria" }) })}>
+        className={fieldFrame({
+          width: holds === undefined ? "standard" : "short",
+          holds,
+          figures: holds !== undefined,
+          inset: "start",
+          layout: "trigger",
+          class: hoverLook({ host: "aria" }),
+        })}>
         <SelectValue className="truncate" />
         <Icon
           glyph="expand"

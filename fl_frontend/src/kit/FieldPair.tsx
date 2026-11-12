@@ -1,4 +1,4 @@
-import { fieldFrame, fieldLabel, fieldRoot, fieldUnit, messageLine } from "./fieldStyles";
+import { fieldFrame, fieldLabel, fieldRoot, fieldUnit, messageLine, triggerHolds } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
@@ -6,10 +6,13 @@ import type { ReactNode } from "react";
 
 /**
  * What a field holds, which sets its width on the kit's scale (`fieldFrame`): a short value by its
- * count and its unit, or a field's kind, a value whose length varies at the standard width by default.
+ * count and its unit, a count chosen from a list (`choice`) by its count and the select's arrow, or a field's kind, a
+ * value whose length varies at the standard width by default.
  */
 type PlaceholderShape =
-  { holds: 2 | 5; unit?: Copy; kind?: never } | { kind?: "field" | "paragraph" | "date" | "time"; holds?: never; unit?: never };
+  | { holds: 2 | 5; unit?: Copy; kind?: never }
+  | { kind: "choice"; holds: 2; unit?: never }
+  | { kind?: "field" | "paragraph" | "date" | "time"; holds?: never; unit?: never };
 
 /** The frame's size and face for each kind, a short one's `ch` counted in the numeric face as its field's is. */
 const KIND_CLASSES = {
@@ -41,7 +44,7 @@ export function FieldPlaceholder({
   const size =
     at.holds === undefined
       ? KIND_CLASSES[at.kind ?? "field"]
-      : `${fieldFrame.variants.width.short} ${fieldFrame.variants.holds[at.holds]} ${numeric ? fieldFrame.variants.figures.true : ""}`;
+      : `${fieldFrame.variants.width.short} ${at.kind === "choice" ? triggerHolds[at.holds] : fieldFrame.variants.holds[at.holds]} ${numeric ? fieldFrame.variants.figures.true : ""}`;
   return (
     <div className={fieldRoot()}>
       <PlaceholderLine

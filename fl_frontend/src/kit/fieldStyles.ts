@@ -87,6 +87,13 @@ export const statusLine = tv({
 });
 
 /**
+ * A select's trigger holding a count, as wide as a text field holding the same count (`holds`) with its arrow: the
+ * count and one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare
+ * as a text field keeps them.
+ */
+export const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
+
+/**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside
  * its control edge, as every control is, so it takes the fill of the page or the card it stands on, as the
  * secondary button does. The edge is an inset ring, as the switch's track draws its own, so the frame's parts fill
@@ -140,6 +147,8 @@ export const fieldFrame = tv({
       true: "font-numeric",
     },
   },
+  // A select's trigger holds its arrow beside the count, so its short width is the text field's and the arrow's room.
+  compoundVariants: [{ layout: "trigger", holds: 2, class: triggerHolds[2] }],
 });
 
 /**

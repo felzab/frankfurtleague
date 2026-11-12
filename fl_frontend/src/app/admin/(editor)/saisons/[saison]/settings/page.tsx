@@ -5,6 +5,7 @@ import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
 import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
+import { FieldRows } from "@/kit/FieldRows";
 import { SectionPlaceholder } from "@/kit/Section";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -105,7 +106,19 @@ export default function SaisonSettingsPage({ params }: Props) {
         sections: [
           { note: WORDS.startFixed, rows: [{ rows: 2, holds: "day" }] },
           { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }] },
-          { note: WORDS.lockedByDraw, rows: [{ rows: 2, holds: "count" }, SELECT] },
+          {
+            note: WORDS.lockedByDraw,
+            rows: [
+              <FieldRows key="counts">
+                <FieldPlaceholder holds={2} />
+                <FieldPlaceholder holds={2} />
+                <FieldPlaceholder
+                  kind="choice"
+                  holds={2}
+                />
+              </FieldRows>,
+            ],
+          },
           [
             <FieldPlaceholder
               key="maxKader"

@@ -360,32 +360,32 @@ export function SaisonEditor({
       // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
       ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
-        <>
-          <FieldRows>
-            <TextField
-              label={WORDS.gruppen}
-              name="gruppen"
-              holds={2}
-              kind="digits"
-              isRequired={required.gruppen}
-              isDisabled={drawn}
-              value={draft.gruppen}
-              onChange={(value) => set("gruppen", value)}
-            />
-            <TextField
-              label={WORDS.teamsPerGruppe}
-              name="teamsPerGruppe"
-              holds={2}
-              kind="digits"
-              isRequired={required.teamsPerGruppe}
-              isDisabled={drawn}
-              value={draft.teamsPerGruppe}
-              onChange={(value) => set("teamsPerGruppe", value)}
-            />
-          </FieldRows>
+        <FieldRows>
+          <TextField
+            label={WORDS.gruppen}
+            name="gruppen"
+            holds={2}
+            kind="digits"
+            isRequired={required.gruppen}
+            isDisabled={drawn}
+            value={draft.gruppen}
+            onChange={(value) => set("gruppen", value)}
+          />
+          <TextField
+            label={WORDS.teamsPerGruppe}
+            name="teamsPerGruppe"
+            holds={2}
+            kind="digits"
+            isRequired={required.teamsPerGruppe}
+            isDisabled={drawn}
+            value={draft.teamsPerGruppe}
+            onChange={(value) => set("teamsPerGruppe", value)}
+          />
+          {/* A count like the two above, offered as a choice because only the counts the draw admits are valid. */}
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
+            holds={2}
             options={qualifiers}
             isRequired={required.qualifiers}
             isDisabled={facts.begun || drawn}
@@ -394,7 +394,7 @@ export function SaisonEditor({
               if (id !== null) set("qualifiers", id);
             }}
           />
-        </>
+        </FieldRows>
       ),
     },
     {
