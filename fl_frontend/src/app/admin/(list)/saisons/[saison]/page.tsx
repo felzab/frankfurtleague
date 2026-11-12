@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
 import { TextField } from "@/kit/TextField";
@@ -219,9 +219,13 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
   };
 }
 
-/** The season's open work, read once: not-found for a season the league does not hold. */
-async function readOverview(params: Props["params"]) {
-  const { saison } = await params;
+/**
+ * The season's open work, read once: not-found for a season the league does not hold, and the season list, where the
+ * first is created, while the league holds none.
+ */
+async function readOverview(of: Promise<string | null>) {
+  const saison = await of;
+  if (saison === null) redirect(ROUTES.adminSaisons.path());
   const read = await getSaisonOverview(saison);
   if (read === null) notFound();
   return {
@@ -237,9 +241,9 @@ async function readOverview(params: Props["params"]) {
  * The administrator's Übersicht of one season: its open work on four cards in the order of urgency, every card drawn
  * every day, a fixture once on each, for its first open kind. A slot still to set, a club's Zusage heard elsewhere and
  * a club's proposed date are each done on their row; everything else opens the fixture's editor, or the application's
- * page.
+ * page. Drawn for the season the address names, and at `/admin` for the season the administration works in by standard.
  */
-export default function OverviewPage({ params }: Props) {
+export function AdminOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
@@ -254,8 +258,12 @@ export default function OverviewPage({ params }: Props) {
             { title: WORDS.card.bewerbungen },
           ],
         },
-        content: readOverview(params),
+        content: readOverview(saison),
       }}
     />
   );
+}
+
+export default function OverviewPage({ params }: Props) {
+  return <AdminOverview saison={params.then(({ saison }) => saison)} />;
 }

@@ -313,13 +313,10 @@ export const COPY = catalogue({
     end: {
       /** A mailed page's link opened again, titled with what the person did and the day: „Eintrag bestätigt am 12. November 2026“. */
       doneOn: (done: Copy, day: CalendarDay) => `${done} ${boundBy("am", formatDateLong(day))}`,
-      /** An area with no season yet, where a page shows a season's work. */
-      noSaison: "Noch keine Saison",
       toHome: "Zur Startseite",
       toAccount: "Zum Konto",
       /** A signed-in frame's way home, its role's Übersicht. */
       toOverview: "Zur Übersicht",
-      toSaisons: "Zu den Saisons",
       toTeams: "Zu den Teams",
     },
 

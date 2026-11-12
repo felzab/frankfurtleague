@@ -176,6 +176,40 @@ describe("the season a page whose address names none works in", () => {
       ROUTES.adminTeams.path("2025"),
     ]);
   });
+
+  // A role's root draws the standard season's Übersicht, so a frame keeping the season chosen before there names 2025
+  // around a page showing 2026, and marks no entry for the page the person is on.
+  it("is the standard at the role's root, whose Übersicht is the entry marked, whatever was chosen before", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.admin.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2026"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2026"),
+      ROUTES.adminTeams.path("2026"),
+    ]);
+    expect(lit()).toEqual([ROUTES.adminOverview.title]);
+  });
 });
 
 const TEAM_GROUPS: RailGroup[] = [

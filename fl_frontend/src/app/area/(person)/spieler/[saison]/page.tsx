@@ -65,9 +65,16 @@ function tilesOf(saison: string, kader: FLSpielerSelfKaderRow, isPublic: boolean
   ];
 }
 
-/** The pupil's own season: a season their records do not stand in is no page of theirs. */
-async function readSaison(params: Props["params"]): Promise<ReadContent> {
-  const { saison } = await params;
+/** Their club's matches, none of which there are while the pupil's records stand in no season. */
+const SPIELE = { title: COPY.page.spiele, kind: "spiele", empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" } } as const;
+
+/**
+ * The pupil's own season: a season their records do not stand in is no page of theirs, and where they stand in none
+ * the page holds their matches' group alone, with none in it.
+ */
+async function readSaison(of: Promise<string | null>): Promise<ReadContent> {
+  const saison = await of;
+  if (saison === null) return { groups: [{ ...SPIELE, spiele: [] }] };
   const read = await saisonOf(saison);
   if (read === null) notFound();
   const { kader, spiele } = read;
@@ -77,14 +84,12 @@ async function readSaison(params: Props["params"]): Promise<ReadContent> {
     groups: [
       { kind: "tiles", tiles: { layout: "four", items: tilesOf(saison, kader, isPublic) } },
       {
-        title: COPY.page.spiele,
-        kind: "spiele",
+        ...SPIELE,
         spiele: spiele.map((spiel) => {
           const chip = spielChipOf(spiel, deregistered);
           const { head, spiel: row } = headedMatchOf(spiel, isPublic);
           return { head, spiel: { ...row, ...(chip === undefined ? {} : { chip }) } };
         }),
-        empty: { kind: "none", plural: COPY.page.spiele, glyph: "spielplan" },
       },
     ],
   };
@@ -101,16 +106,21 @@ const WAIT: ReadWait = {
 /**
  * A pupil's own Übersicht of one season: where they play, as four tiles, and their club's matches, each under its
  * matchday with the pupil's place in the line-up. Another season is the frame's season button's; the page has no act,
- * since what a pupil may change, their consent and their data, is Konto's.
+ * since what a pupil may change, their consent and their data, is Konto's. Drawn for the season the address names,
+ * and at `/area/spieler` for the season the frame takes by standard.
  */
-export default function SpielerOverviewPage({ params }: Props) {
+export function SpielerOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ReadPage
       scope="area"
       title={{ route: "spielerOverview" }}
       width="content"
       wait={WAIT}
-      record={readSaison(params)}
+      record={readSaison(saison)}
     />
   );
+}
+
+export default function SpielerOverviewPage({ params }: Props) {
+  return <SpielerOverview saison={params.then(({ saison }) => saison)} />;
 }

@@ -129,16 +129,21 @@ function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & 
 }
 
 /** The referee's games of the season, read once: not-found for a season none of their bookings stands in. */
-async function readSpiele(params: Props["params"]) {
-  const { saison } = await params;
+async function rowsIn(saison: string) {
   const read = await spieleOf(saison);
   if (read === null) notFound();
+  return read.spiele.map((spiel) => rowOf(spiel, saison));
+}
+
+/** The page's one card, with no game in it while the referee stands in no season, booked to none yet. */
+async function readSpiele(of: Promise<string | null>) {
+  const saison = await of;
   return {
     cards: [
       {
         id: "spiele",
         title: TITLE,
-        rows: read.spiele.map((spiel) => rowOf(spiel, saison)),
+        rows: saison === null ? [] : await rowsIn(saison),
         count: false as const,
         empty: { kind: "none" as const, plural: TITLE, glyph: "spielplan" as const },
       },
@@ -149,9 +154,10 @@ async function readSpiele(params: Props["params"]) {
 /**
  * A referee's Übersicht of one season: one box „Spiele“, searched on the page, a row a game in the order the read gives,
  * open work first, then the games to come, then the finished. A booking is answered on its row, and every row opens its
- * game's match report.
+ * game's match report. Drawn for the season the address names, and at `/area/schiedsrichter` for the season the frame
+ * takes by standard.
  */
-export default function SchiedsrichterOverviewPage({ params }: Props) {
+export function SchiedsrichterOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "schiedsrichterOverview" } }}
@@ -161,8 +167,12 @@ export default function SchiedsrichterOverviewPage({ params }: Props) {
         // A rail page's wait draws its taller state: every row with its two acts' bars, which a
         // row without acts lands a line shorter than on a phone, collapsing unseen under `main`.
         wait: { rows: 5, cards: [{ title: TITLE, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline], count: false }] },
-        content: readSpiele(params),
+        content: readSpiele(saison),
       }}
     />
   );
+}
+
+export default function SchiedsrichterOverviewPage({ params }: Props) {
+  return <SchiedsrichterOverview saison={params.then(({ saison }) => saison)} />;
 }

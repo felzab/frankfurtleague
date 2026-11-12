@@ -194,8 +194,8 @@ export const ROUTES = {
   area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
   /**
    * A pupil's and a referee's own pages, each a season's. The address without the season is the place itself, which
-   * „Funktion wechseln“ and a mail lead to, neither knowing the season: its page sends the reader on to the Übersicht
-   * of the season their records stand in, as `/admin` sends an administrator on.
+   * „Funktion wechseln“ and a mail lead to, neither knowing the season: it draws the Übersicht of the season the
+   * frame's season button stands on by standard, as `/admin` draws an administrator's (`ROLE_ROOTS`).
    */
   areaSpieler: { path: () => "/area/spieler" as const, title: COPY.shared.overview, crawl: "disallow" },
   spielerOverview: {
@@ -244,8 +244,8 @@ export const ROUTES = {
   },
 
   /**
-   * The administration's root, which a link uses where it cannot know the season: its page sends the reader on to the
-   * Übersicht of the season the site is on, as `/saisons` sends a visitor on to its Spielplan.
+   * The administration's root, which a link uses where it cannot know the season: it draws the Übersicht of the season
+   * the administration works in by standard (`ROLE_ROOTS`).
    */
   admin: { path: () => "/admin" as const, title: COPY.shared.overview, crawl: "disallow" },
   adminOverview: {
@@ -393,6 +393,17 @@ export const SAISONLESS_PAGES = [
   { route: "saisonsTeams", page: "teams" },
   { route: "saisonsSpielSearch", page: "spielSearch" },
 ] as const satisfies ReadonlyArray<{ route: keyof typeof ROUTES; page: keyof typeof ROUTES }>;
+
+/**
+ * Each role's Übersicht with its root, the address naming no season where it stands in the season its frame takes by
+ * standard: drawn in place there rather than sent on, so every link to a root is already the page. At a root the frame
+ * marks the Übersicht's entry and works in the standard season, whatever season an address named before.
+ */
+export const ROLE_ROOTS: Partial<Record<keyof typeof ROUTES, `/${string}`>> = {
+  adminOverview: ROUTES.admin.path(),
+  spielerOverview: ROUTES.areaSpieler.path(),
+  schiedsrichterOverview: ROUTES.areaSchiedsrichter.path(),
+};
 
 /** The league's own pages and its legal pages, in the order the classic footer lists them. */
 export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
