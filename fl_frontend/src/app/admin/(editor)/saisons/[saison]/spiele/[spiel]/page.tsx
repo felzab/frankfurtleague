@@ -131,7 +131,6 @@ export default function SpielEditorPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        lock: SERVER_COPY.refusalLine.saison_past,
         // A public season's match, the editor's state most days, links its page from the strip.
         link: COPY.shared.toSpiel,
         sections: [

@@ -115,7 +115,6 @@ export default function AufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        lock: COPY.area.team.aufstellung.lockedLine,
         // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {

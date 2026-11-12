@@ -7,9 +7,8 @@ import { useIsSSR } from "react-aria/SSRProvider";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
@@ -20,6 +19,11 @@ type Shared = {
   label: Words;
   isRequired?: boolean;
   isDisabled?: boolean;
+  /**
+   * Held fixed by its record, such as a season's points once it has begun: disabled, its label marked with the lock
+   * (`useFieldLock`), while the editor's lock line says why.
+   */
+  isLocked?: boolean;
   name?: string;
   value?: string;
   defaultValue?: string;
@@ -131,7 +135,18 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, labelHidden = false, description, consequence, isRequired = false, isDisabled = false, kind, maxLength, minLength } = props;
+  const {
+    label,
+    labelHidden = false,
+    description,
+    consequence,
+    isRequired = false,
+    isDisabled = false,
+    isLocked = false,
+    kind,
+    maxLength,
+    minLength,
+  } = props;
   const keys = KINDS[kind];
   const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
   const constraints: Constraints = {
@@ -158,6 +173,7 @@ export function TextField(props: TextFieldProps) {
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
   const root = useEarlyEdit();
+  const lock = useFieldLock(isDisabled, isLocked);
 
   return (
     <AriaTextField
@@ -169,7 +185,7 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}
+      isDisabled={lock.isDisabled}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}
@@ -181,6 +197,7 @@ export function TextField(props: TextFieldProps) {
         <FieldLabel
           label={label}
           isRequired={isRequired}
+          isLocked={lock.isMarked}
         />
       )}
       {props.unit === undefined ? (

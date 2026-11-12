@@ -7,9 +7,8 @@ import { Group } from "react-aria-components/Group";
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldButton, fieldFrame, fieldRoot, groupInput } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
 import { useEarlyEdit } from "./useEarlyEdit";
@@ -45,6 +44,7 @@ export function ComboBox({
   free,
   isRequired = false,
   isDisabled = false,
+  isLocked = false,
   name,
   value,
   onChange,
@@ -59,6 +59,8 @@ export function ComboBox({
   free?: FreeText;
   isRequired?: boolean;
   isDisabled?: boolean;
+  /** Held fixed by its record: disabled, its label marked with the lock (`useFieldLock`). */
+  isLocked?: boolean;
   name?: string;
   value?: string | null;
   onChange?: (id: string | null) => void;
@@ -71,6 +73,7 @@ export function ComboBox({
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
   const root = useEarlyEdit();
+  const lock = useFieldLock(isDisabled, isLocked);
   return (
     <AriaComboBox
       ref={root}
@@ -88,11 +91,12 @@ export function ComboBox({
       }}
       onInputChange={setText}
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={lock.isDisabled}>
       {!labelHidden && (
         <FieldLabel
           label={label}
           isRequired={isRequired}
+          isLocked={lock.isMarked}
         />
       )}
       <Group

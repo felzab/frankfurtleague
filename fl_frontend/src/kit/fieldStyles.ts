@@ -38,6 +38,12 @@ export const fieldLabel = tv({ base: "self-start text-sm font-medium text-fg" })
 export const requiredMark = tv({ base: "text-danger" });
 
 /**
+ * The lock after a locked field's label, in the muted hue the lock line under the editor's title takes, centred on the
+ * label's line, and inline, so a label-left row still cuts its label with „…“ rather than pushing its field out.
+ */
+export const lockMark = tv({ base: "ms-1.5 inline-flex align-middle text-fg-muted" });
+
+/**
  * The words under a field, standing only while it has some: a description, a consequence, or an error once the value
  * is committed or the form sent, which moves what stands under it as any answer to a press does, since no empty line
  * is reserved between two fields. A long one wraps at its field's width and takes a second line rather than being

@@ -160,27 +160,27 @@ const PRIVACY_NOTICE = "Datenschutz";
 const RETIREMENT = "Stilllegung";
 // An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
-// The season's start having passed: an act's reason, and the lock line's sentence naming what it holds.
+// The season's start having passed, as an act's reason.
 const LOCKED_SINCE_START = "Seit Saisonbeginn gesperrt";
-/** The boxes and fields one reason holds, as the lock line names them after it, in the editor's order. */
-const named = (names: readonly string[]) => names.join(", ");
 
 /**
- * Each reason an editor's fields can stand locked for, as its lock line says it, the boxes and fields it holds named
- * after it. The line says its reasons in this order: the reasons holding several boxes first, then the one fixed fact.
+ * Each reason an editor's fields can stand locked for, as its lock line says it after „Gesperrt“, in the order the
+ * line says them. Each is as short as its meaning allows: the line never wraps, and the longest pair, „Gesperrt seit
+ * Saisonbeginn und durch Spielplan.“, fills most of a 360-px phone's line.
  */
 const LOCK = {
-  /** The season's start has passed, which fixes its scoring, its qualifiers and its clubs. */
-  sinceStart: (names: readonly string[]) => `${LOCKED_SINCE_START}: ${named(names)}.`,
+  /**
+   * The season's start has passed, which fixes its scoring, its qualifiers and its clubs; it also stands for the start
+   * date a stored result fixes, so a running season's line keeps to the two reasons a phone's line holds.
+   */
+  sinceStart: "seit Saisonbeginn",
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
-  byDraw: (names: readonly string[]) => `Gesperrt, solange ein Spielplan steht: ${named(names)}.`,
+  byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
-  departed: (names: readonly string[]) => `Seit dem Ausscheiden gesperrt: ${named(names)}.`,
-  /** A match of the season has taken place, which fixes its start. */
-  takenPlace: (names: readonly string[]) => `${named(names)} ${names.length === 1 ? "steht" : "stehen"} fest.`,
+  departed: "seit dem Ausscheiden",
 } as const;
 
-/** Why an editor's box or field stands locked, which its lock line says once for everything it holds. */
+/** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
 
 // A season's name, `shared`'s entry, which the application page's title names its season by.
@@ -710,16 +710,11 @@ export const COPY = catalogue({
     /** In an editor's act's own line while its draft holds unsaved changes, which close every act of it. */
     draftUnsaved: "Gesperrt, solange Änderungen ungespeichert sind",
     /**
-     * An editor's one lock line, muted under its title, from each locked box or field in the editor's order with its
-     * reason: each reason once, in `LOCK`'s order, everything it holds named after it.
+     * An editor's one lock line, muted under its title: the reasons its fields stand locked for, each once, in `LOCK`'s
+     * order, „Gesperrt seit Saisonbeginn und durch Spielplan.“; each locked field carries the lock mark at its label.
      */
-    lockLine: (held: ReadonlyArray<readonly [LockReason, Copy]>) =>
-      (Object.keys(LOCK) as LockReason[])
-        .flatMap((by) => {
-          const names = held.filter(([each]) => each === by).map((pair) => pair[1]);
-          return names.length === 0 ? [] : [LOCK[by](names)];
-        })
-        .join(" "),
+    lockLine: (reasons: readonly LockReason[]) =>
+      `Gesperrt ${formatList((Object.keys(LOCK) as LockReason[]).filter((by) => reasons.includes(by)).map((by) => LOCK[by]))}.`,
     /** A finished season, which shuts every registration link and every acceptance: a link's state, and why „Annehmen“ is locked. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */

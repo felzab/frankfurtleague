@@ -188,18 +188,13 @@ export function TeamEditor({
           {
             id: "saison",
             title: row.saisonTitle,
-            // The lock line names the two fields under one reason where both stand fixed for it.
-            locked: [
-              ...(row.gruppeLocked === null ? [] : [{ by: row.gruppeLocked, fields: [COPY.team.gruppe] } as const]),
-              ...(row.colourLocked === null ? [] : [{ by: row.colourLocked, fields: [COPY.team.trikotFarbe] } as const]),
-            ],
             fields: (
               <>
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
                   isRequired={rules.gruppeRequired}
-                  isDisabled={row.gruppeLocked !== null}
+                  isLocked={row.gruppeLocked !== null}
                   options={row.gruppen}
                   value={draft.gruppe}
                   onChange={(gruppe) => set("gruppe", gruppe ?? record.values.gruppe)}
@@ -207,7 +202,7 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.trikotFarbe}
                   name="trikot_farbe"
-                  isDisabled={row.colourLocked !== null}
+                  isLocked={row.colourLocked !== null}
                   options={row.colours}
                   value={draft.trikot_farbe}
                   onChange={(colour) => set("trikot_farbe", colour ?? "")}
@@ -352,12 +347,16 @@ export function TeamEditor({
           },
         };
 
+  // The line says each reason once, an exit's once for the group and the colour it fixes alike.
+  const locks = row === null ? [] : [row.gruppeLocked, row.colourLocked].filter((reason) => reason !== null);
+
   return (
     <EditorPage
       title={title}
       chip={chip}
       editor={editor}
       {...(closed === undefined ? {} : { closed })}
+      locks={locks}
       sections={[club, adresse, ...seasonBoxes]}
       danger={{
         title: WORDS.dangerBox(exitAct !== null, true),

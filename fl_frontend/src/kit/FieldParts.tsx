@@ -8,7 +8,9 @@ import { Text } from "react-aria-components/Text";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { fieldLabel, messageLine, requiredMark, statusLine } from "./fieldStyles";
+import { fieldLabel, lockMark, messageLine, requiredMark, statusLine } from "./fieldStyles";
+import { FormClosed } from "./formClosed";
+import { Icon } from "./Icon";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
@@ -73,14 +75,35 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
 }
 
 /**
- * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
- * own such as a consent's question, which stands as it was shown.
+ * A field's disabled state and whether its label carries the lock mark. A field `isLocked` is one its record holds
+ * fixed, such as a season's points once it has begun: disabled, and marked at its label, so what stands locked is
+ * seen at the field while the editor's lock line says why. A closed form disables every field and marks none, since its
+ * one reason covers them all and a mark on each would single out nothing.
  */
-export function FieldLabel({ label, isRequired }: { label: Words; isRequired: boolean }) {
+export function useFieldLock(isDisabled: boolean, isLocked: boolean): { isDisabled: boolean; isMarked: boolean } {
+  const isClosed = useContext(FormClosed);
+  return { isDisabled: isClosed || isDisabled || isLocked, isMarked: isLocked && !isClosed };
+}
+
+/**
+ * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
+ * own such as a consent's question, which stands as it was shown. A locked field's label takes the lock mark in the
+ * asterisk's place, since a value nobody can change asks nothing of the reader; the field is named by its words alone.
+ */
+export function FieldLabel({ label, isRequired, isLocked = false }: { label: Words; isRequired: boolean; isLocked?: boolean }) {
   return (
     <Label className={fieldLabel()}>
       {textOf(label)}
-      <RequiredMark isRequired={isRequired} />
+      {isLocked ? (
+        <span className={lockMark()}>
+          <Icon
+            glyph="locked"
+            size={16}
+          />
+        </span>
+      ) : (
+        <RequiredMark isRequired={isRequired} />
+      )}
     </Label>
   );
 }
