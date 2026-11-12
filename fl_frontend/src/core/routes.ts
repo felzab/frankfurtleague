@@ -60,6 +60,8 @@ export const ADDRESS_WORDS = [
   "log",
   "mail",
   "passkey",
+  // A Funktion's code word, as the glossary spells it in code.
+  "roles",
   "search",
   "security",
   "settings",
@@ -190,8 +192,13 @@ export const ROUTES = {
   accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
   accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
-  /** Where a signed-in person lands, the switch between every Funktion they hold. */
-  area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
+  /**
+   * Where a signed-in person lands: a route handler sending the request on to Konto for a person holding no Funktion,
+   * to the one place they hold, or to the chooser between several.
+   */
+  area: { path: () => "/area" as const, title: null, crawl: "disallow" },
+  /** The chooser between every Funktion a person holds, each its card. */
+  areaRoles: { path: () => "/area/roles" as const, title: COPY.shared.overview, crawl: "disallow" },
   /**
    * A pupil's and a referee's own pages, each a season's. The address without the season is the place itself, which
    * „Funktion wechseln“ and a mail lead to, neither knowing the season: it draws the Übersicht of the season the

@@ -45,14 +45,14 @@ function targetsOf(roles: readonly Role[]): RoleTarget[] {
 }
 
 /**
- * Where a person's landing sends them straight on to: Konto's list where they hold no place, the place where they hold
- * one, whatever kind it is; `null` where they hold several, which the landing lists. Every way into the person area
- * asks this, so a sign-in lands where `/area` would send it without passing through it.
+ * Where a person's landing sends them: Konto's list where they hold no place, the place where they hold one, whatever
+ * kind it is, and the chooser where they hold several. Every way into the person area asks this, so a sign-in lands
+ * where `/area` would send it without passing through it.
  */
-export function landingTargetOf(targets: readonly RoleTarget[]): Route | null {
+export function landingTargetOf(targets: readonly RoleTarget[]): Route {
   const [first, ...rest] = targets;
   if (first === undefined) return ROUTES.account.path();
-  return rest.length === 0 ? first.href : null;
+  return rest.length === 0 ? first.href : ROUTES.areaRoles.path();
 }
 
 export const placesOf = (subject: SubjectSession): RoleTarget[] => targetsOf(rolesOf(subject).roles);

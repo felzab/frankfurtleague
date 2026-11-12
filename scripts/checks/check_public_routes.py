@@ -184,6 +184,12 @@ UNMETERED: Final[tuple[Unmetered, ...]] = (
         )
         for path in ("/saisons", "/saisons/ko-runde", "/saisons/tabelle", "/saisons/teams", "/saisons/search")
     ),
+    Unmetered(
+        "/area",
+        "a signed-in person's landing, a GET answering with one redirect off the session read and the backend lookup "
+        "every page under it makes, as cheap as the page GETs `location /` leaves unmetered; on the sign-in's zone it "
+        "would spend that budget twice on every sign-in",
+    ),
 )
 
 

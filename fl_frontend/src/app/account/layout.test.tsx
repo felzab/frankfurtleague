@@ -45,7 +45,8 @@ describe("the head of Konto's rail and the band over the list of its pages", () 
   it("lead a person holding a Funktion back to the Übersicht", async () => {
     await renderFor(Promise.resolve(person({ seats: [seat()] })));
 
-    expect(backs()).toEqual([ROUTES.area.path(), ROUTES.area.path()]);
+    const team = ROUTES.teamOverview.path(seat().team_id, seat().saison_id);
+    expect(backs()).toEqual([team, team]);
     expect(logos()).toEqual([]);
   });
 

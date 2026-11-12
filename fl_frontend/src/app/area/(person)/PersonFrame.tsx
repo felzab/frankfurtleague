@@ -35,7 +35,7 @@ type Frame = {
  */
 const FRAMES = {
   landing: {
-    groups: [{ entries: [{ id: "overview", label: ROUTES.area.title, href: ROUTES.area.path(), icon: "overview" }] }],
+    groups: [{ entries: [{ id: "overview", label: ROUTES.areaRoles.title, href: ROUTES.area.path(), icon: "overview" }] }],
     columnInLayouts: false,
   },
   spieler: {
