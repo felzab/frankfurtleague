@@ -191,6 +191,6 @@ describe("a mail's subject", () => {
   it.each([...KINDS.map((kind) => FACTS[kind]), MOVED_TO])("joins its words with plain spaces, in a $kind mail", (data) => {
     const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
     if (mail === undefined) throw new Error(`the kind ${data.kind} has no builder`);
-    expect(mail.subjectLine).not.toContain(" ");
+    expect(mail.subjectLine).not.toContain("\u00A0");
   });
 });
