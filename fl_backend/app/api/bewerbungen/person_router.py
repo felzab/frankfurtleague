@@ -25,11 +25,13 @@ from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
-# A person's route, as `app/api/teams/person_router.py` declares it and for its reason.
+# A person's route in place of `bind_actor`: a seat holder signs in by code and holds no grant, so the administrator's
+# actor check would refuse every one of them.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)])
 
 
-# `/account/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_overview`'s reason.
+# `/account/einwilligung`, its own segment: the admin router serves this application under its own paths, and one path in
+# both routers would be answered by whichever was mounted first.
 @router.patch(
     "/{bewerbung_id:objectid}/account/einwilligung",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -43,14 +45,10 @@ async def patch_einwilligung(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
-
-    A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
-    `giving_not_allowed`.
-    """
+    """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused."""
 
     pressed: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # One instant for every attempt, as `app/api/spieler/person_router.py :: patch_einwilligung` stamps its own.
+    # One instant for every attempt, so a retried transaction stamps the press as its first attempt did.
     at = utc_stamp(germany_now)
     journal = Journal()
 

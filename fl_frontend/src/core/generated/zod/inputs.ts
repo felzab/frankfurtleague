@@ -3,19 +3,10 @@ import "server-only";
 import * as zod from "zod";
 
 /**
- * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
- * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
- * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
- * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
- * from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
- * hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
- * file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
- * holds -- so this start answers alike whatever the new address holds.
- *
- * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
- * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
- * address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
+ * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
+ * either link ends the change, and a live change of the address is replaced.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChangeBodyEmailMax = 254;
@@ -25,13 +16,7 @@ export const AccountPostAddressChangeBody = zod.object({
 });
 
 /**
- * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
- *
- * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
- * `http.answered` line, where the log's scrubber reads no `%40`.
- *
- * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
- * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
+ * The newest 50 acts the filters keep, starting after `cursor` where one is given.
  * @summary List recorded acts
  */
 export const actionLogGetActionLogBodyByOneMax = 254;
@@ -76,21 +61,13 @@ export const ActionLogGetActionLogBody = zod
       ])
       .optional(),
   })
-  .describe("What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.");
+  .describe("What the action log's read narrows by.");
 
 /**
- * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
+ * Start a change of the typed address for a person who says they cannot sign in.
  *
- * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
- * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
- * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
- * answered. The address's live change ends replaced.
- *
- * Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
- * the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
- * (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
- * (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
- * address is refused nothing: its link stops at the hand-out.
+ * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
+ * the new mailbox confirms, the old address working until then.
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const addressChangePostAddressChangeAdminBodyAddressMax = 254;
@@ -105,13 +82,9 @@ export const AddressChangePostAddressChangeAdminBody = zod
   .describe("The address a change starts on, and the address it goes to.");
 
 /**
- * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+ * The new address, folded, of the live change a new-mailbox link token or a change id names.
  *
- * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
- * view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
- * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
- * error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
- * address only in the answer.
+ * A token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.
  * @summary Say which address a live change would move to
  */
 export const addressChangeGetAddressChangeAddressBodyAddressChangeIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -138,30 +111,8 @@ export const AddressChangeGetAddressChangeAddressBody = zod
 /**
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
- * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`
- * past that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
- * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
- * address on file was mailed answers no confirmation (`link_invalid`).
- *
- * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox
- * way, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,
- * confirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing
- * none, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's
- * carry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass
- * moves it; a holder's tells every holder in effect, in this transaction.
- * Either answer spends the link, which keeps answering what became of the change.
- *
- * Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
- * (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
- * (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
- * grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
- * or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
- * none of these**: it removes an address nobody proved.
- *
- * A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
- * the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
- * alike; only the edge keeps them from the link's holder.
+ * The new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and
+ * `effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.
  * @summary Confirm or decline a pending address
  */
 export const addressChangePostAddressChangeAnswerBodyTokenMax = 128;
@@ -174,15 +125,9 @@ export const AddressChangePostAddressChangeAnswerBody = zod.object({
 });
 
 /**
- * Stop the change the address on file was mailed about: its new address goes.
+ * Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
  *
- * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
- * file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
- * change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
- * link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
- * offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
- * From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
- * every holder.
+ * The person's own change offers this link no stop until its address on file confirmed it.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStopBodyTokenMax = 128;
@@ -196,21 +141,10 @@ export const AddressChangePostAddressChangeStopBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
+ * What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
- * it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
- * A POST that reads,
- * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
- * links answer `ended`, how it ended and on which day, for as long as its record is kept.
- *
- * The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
- * the press would be refused for the address on file's sake or would
- * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
- * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
- * `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
- * never whether the new mailbox could confirm, and the day it confirmed once it has.
+ * Each side is served in the state its press would meet, and an ended change's links answer for as long as its record
+ * is kept.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeViewBodyTokenMax = 128;
@@ -224,25 +158,10 @@ export const AddressChangeGetAddressChangeViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
+ * End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
  *
- * **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
- * its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
- * again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
- * nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
- * effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
- * it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
- * application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
- * owed in the Postausgang in its change's own transaction, so none rides on this answer.
- *
- * A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
- * its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
- * **A pass is a run of calls, each handing the next the `after` the last
- * answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
- * changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
- * logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
- * request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts
- * the changes standing due after the call, so it is no stopping condition.
+ * A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
+ * null; `remaining` is no stopping condition.
  * @summary End the lapsed address changes, and make the due ones take effect
  */
 export const addressChangeSweepAddressChangeQueryAfterOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -266,13 +185,9 @@ export const AddressChangePostAddressChangeMovesDoneBody = zod.object({
 });
 
 /**
- * Discard the change this id names: its links open nothing to press, and the address on file stays.
+ * Discard the change this id names, the address on file staying.
  *
- * A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page
- * showing a change since replaced discards nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
- * (`address_change_ended`); 404 for an id naming no change.
+ * A holder's change in its wait tells every holder, and nobody else is mailed.
  * @summary Discard a pending address change
  */
 export const addressChangeDeleteAddressChangePathAddressChangeIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -282,18 +197,10 @@ export const AddressChangeDeleteAddressChangeParams = zod.object({
 });
 
 /**
- * Owe the new mailbox a fresh link for the change this id names, in the same transaction.
+ * Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
  *
- * The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
- * the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
- * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
- * nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
- * pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
- * ended (`address_change_ended`). 404 for an id naming no change, and
- * unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
- * re-send.
+ * The previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a
+ * link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChangePathAddressChangeIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -440,15 +347,9 @@ export const AufstellungenPutAufstellungSelfBody = zod
   .describe("A club's whole line-up for one fixture, written wholesale.");
 
 /**
- * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
+ * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
- * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
- * a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
- * fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
- * that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
- *
- * `ban_reason` is served, mailed to the address and kept past that person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
  * @summary Ban an email address
  */
 export const banListPostBanListEntryBodyBanReasonMax = 500;
@@ -463,7 +364,7 @@ export const BanListPostBanListEntryBody = zod.object({
 });
 
 /**
- * Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.
+ * Lift a ban before it lapses, deleting its row for good.
  * @summary Lift a ban
  */
 export const banListDeleteBanListEntryPathBanListEntryIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -473,24 +374,9 @@ export const BanListDeleteBanListEntryParams = zod.object({
 });
 
 /**
- * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
+ * Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
  *
- * Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
- * scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
- * same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
- * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
- * is answered.
- *
- * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
- * since its last press sends a new key.
- *
- * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
- * Trainer also holds being that one person.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
- * press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
- * either way, so it tells a stranger nothing about the address.
+ * A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbungBodyKaderExpectedSizeMax = 200;
@@ -694,12 +580,10 @@ export const BewerbungenPostBewerbungBody = zod
   .describe("One school's application, as the public form submits it.\n\n`status`, `submitted_at` and `decision` are the server's.");
 
 /**
- * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
+ * Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
- * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
- * season row `link_expired` and `kontakt_saison_past`.
+ * A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
+ * is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyOneBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -737,8 +621,7 @@ export const BewerbungenPostEinwilligungBody = zod.union([
 /**
  * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
- * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
- * no seat holds is refused (`link_invalid`).
+ * A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungViewBodyTokenMax = 128;
@@ -752,11 +635,9 @@ export const BewerbungenGetEinwilligungViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+ * A season's application window, and while it runs the clubs a school may apply as and the colours taken.
  *
- * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
- * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
- * nothing more (`READ-BEWERBUNG-001`).
+ * A closed or paused window and a season recording none are served too, and each club is served as its name alone.
  * @summary What one Saison's application form shows
  */
 export const BewerbungenGetFormParams = zod.object({
@@ -764,13 +645,9 @@ export const BewerbungenGetFormParams = zod.object({
 });
 
 /**
- * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
+ * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
- * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
- * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
- * Every application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers
- * confirms nothing, and a sender confirming one seat at a time has to hold each mailbox.
+ * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
@@ -778,10 +655,9 @@ export const BewerbungenGetBewerbungenAdminQueryParams = zod.object({
 });
 
 /**
- * Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
- * again by the next pass. 404 where no season has the id.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
  * @summary Run one season's retention clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
@@ -789,10 +665,7 @@ export const BewerbungenSweepSaisonParams = zod.object({
 });
 
 /**
- * One application.
- *
- * Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
- * application of the season, as the list takes it.
+ * One application, each seat's state judged today and `duplicate` taken over every open application of the season.
  * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -802,17 +675,10 @@ export const BewerbungenGetBewerbungParams = zod.object({
 });
 
 /**
- * Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.
+ * Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
  *
- * The bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:
- * one request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
- *
- * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
- * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
- * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
- * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
- * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
- * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
+ * It cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed
+ * the acceptance.
  * @summary Accept a Bewerbung and enter the school into the season
  */
 export const bewerbungenAcceptBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -862,10 +728,7 @@ export const BewerbungenAcceptBewerbungBody = zod
   .describe("Which group the school enters, and the kit colour the league assigns it; the season is the application's own.");
 
 /**
- * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
- *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
- * `giving_not_allowed`.
+ * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -894,10 +757,9 @@ export const BewerbungenPatchEinwilligungBody = zod
   );
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
+ * Decline an application with the reason given, mailed verbatim to each person the application mailed.
  *
- * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
- * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
+ * What the school submitted stays as it was, the record the decision was taken against.
  * @summary Decline a Bewerbung
  */
 export const bewerbungenDeclineBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -919,13 +781,10 @@ export const BewerbungenDeclineBewerbungBody = zod
   .describe("Why the application was declined.");
 
 /**
- * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
+ * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
- * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
- * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
- * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
- * decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
+ * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
+ * seats as the write found them.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -936,19 +795,10 @@ export const BewerbungenResendEinwilligungParams = zod.object({
 });
 
 /**
- * „Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.
+ * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
- * One write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a
- * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
- * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
- * waits on the other two. Where one person holds two seats both are written from one press and one link answers
- * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
- * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
- *
- * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
- * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
- * `bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.
+ * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
+ * deadline starts again from today.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeatPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -980,13 +830,9 @@ export const BewerbungenPostKontaktSeatBody = zod
   .describe("The person a seat is to hold, who has agreed to nothing yet, and the `version` the page read the application at.");
 
 /**
- * Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.
+ * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Only the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier
- * request is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban
- * list holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant
- * to an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date
- * it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from.
  * @summary Add an administrator
  */
 export const grantsPostGrantBodyEmailMax = 254;
@@ -996,13 +842,9 @@ export const GrantsPostGrantBody = zod.object({
 });
 
 /**
- * Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.
+ * Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
  *
- * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
- * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
- * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction. An address change standing on the row is left to run, as a
- * change of an address holding no grant.
+ * Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
 export const grantsDeleteGrantPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1012,10 +854,7 @@ export const GrantsDeleteGrantParams = zod.object({
 });
 
 /**
- * Stop a waiting handover, the role staying with the owner.
- *
- * Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
- * no handover. Every holder in effect is told in the same transaction.
+ * Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.
  * @summary Stop a waiting handover
  */
 export const grantsDeleteHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1025,12 +864,9 @@ export const GrantsDeleteHandoverParams = zod.object({
 });
 
 /**
- * Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.
+ * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.
- * Refused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait
- * still runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in
- * the same transaction, and told what date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on.
  * @summary Hand the owner role over to an administrator
  */
 export const grantsPostHandoverPathGrantIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1174,15 +1010,10 @@ export const IdentityGetSubjectBody = zod
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
 /**
- * Record what the mail provider reported about one message, on the row of the mail it was.
+ * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
- * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
- * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
- * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
- * its send, which keeps its key alone, rather than a refusal the provider
- * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
- * its address, in the same transaction.
+ * A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
+ * closed chase of every seat holding its address.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEventBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1200,16 +1031,11 @@ export const OutboxPostEventBody = zod
   .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
 
 /**
- * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
+ * Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
  *
- * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
- * refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
- * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
- * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
- * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
- * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
- * counted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
- * one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
+ * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
+ * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
+ * mail or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResultBodyDeliveryReasonOneMax = 128;
@@ -1233,12 +1059,10 @@ export const OutboxPostResultBody = zod
   .describe("The outcome of one handed-out mail's send, reported as the send returns.");
 
 /**
- * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
+ * Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
  *
- * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
- * the call. `secret` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
- * is settled; `valid_until` is both the last moment a hand-out may send it and the moment the row is deleted, settled
- * or not.
+ * `secret` is stored as it arrives and dropped once the mail is settled; `valid_until` is both the last moment a send
+ * may happen and when the row is deleted.
  * @summary Owe one mail of the sign-in library
  */
 export const outboxPostSignInBodySecretOneMax = 4096;
@@ -1274,17 +1098,8 @@ export const OutboxPostSignInBody = zod
 /**
  * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
- * Everything the league decides -- the team, the season, `status`, `submitted_at` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
- * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
- *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
- * since its last press sends a new key. The key goes with its registration, so one pressed again after the team
- * admitted or declined the pupil, or after the row lapsed, is a new registration.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
- * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
+ * A press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,
+ * and owes no second mail.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -1325,8 +1140,7 @@ export const RegistrierungenPostRegistrierungBody = zod
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
- * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `choices_stale` and `giving_not_allowed`.
+ * A grant is refused, and a request moving neither choice writes nothing.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1354,9 +1168,6 @@ export const RegistrierungenPatchEinwilligungBody = zod
 
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
- *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age` and `media_age`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmationBodyBirthDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1380,10 +1191,9 @@ export const RegistrierungenPostConfirmationBody = zod
   .describe("One pupil's own answer: their date of birth and the two consents.");
 
 /**
- * What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
+ * What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
  *
- * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
- * left the season reading expired; only a token no registration holds is refused (`link_invalid`).
+ * A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationViewBodyTokenMax = 128;
@@ -1399,9 +1209,7 @@ export const RegistrierungenGetConfirmationViewBody = zod
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
  *
- * A POST because the link value travels in the body and never in a path the edge would log. A paused
- * or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
- * invalid; only a link that opens no live invite, or whose team has left the season, is refused.
+ * A paused or ended window is a state here, so such a link reads as closed rather than as invalid.
  * @summary What a registration link opens
  */
 export const registrierungenPostInvitationViewBodyTokenMax = 128;
@@ -1415,15 +1223,11 @@ export const RegistrierungenPostInvitationViewBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
+ * Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.
  *
- * Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
- * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
- * differs. An unconfirmed row names nobody: its address is unproven.
- * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
- * any unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil
- * confirmed; `complete` is false where the cap cut some.
+ * A confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,
+ * `kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or
+ * consent record is served for anybody.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungenPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1434,13 +1238,10 @@ export const RegistrierungenGetOpenRegistrierungenParams = zod.object({
 });
 
 /**
- * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+ * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
  *
- * The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
- * `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
- * `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
- * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
- * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
+ * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
+ * the read's cap cut the list.
  * @summary One Saison's pending Registrierungen for its list
  */
 export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
@@ -1448,20 +1249,10 @@ export const RegistrierungenGetRegistrierungenAdminQueryParams = zod.object({
 });
 
 /**
- * Run the three registration retention clocks over one season, as of today in Europe/Berlin.
+ * Erase one season's due registrations, as of today in Europe/Berlin.
  *
- * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
- * clock does not run for a `past` season, whose own end takes every row it reads.
- *
- * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Every removal names this season alone and is made inside a transaction.
- *
- * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
- * its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
- * nobody behind it. `failed` sums the rows each of the three clocks passed over.
- *
- * 404 where no season has the id. Idempotent: a run after every due row went writes nothing.
+ * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
+ * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1469,28 +1260,10 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
 });
 
 /**
- * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
+ * Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.
  *
- * The person survives the season, so the admission first looks for them: the stored person holding the
- * registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
- * confirmed consent record. Where that person's
- * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
- * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
- * this admission proves again.
- *
- * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
- * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
- * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
- * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them, and the admission's act counts them.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
- * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
- * offer (`registrierung_stufe_not_allowed`), a
- * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
- * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
- * written on any of them.
+ * `spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;
+ * the registration and every other pending one of its address this season are erased, and nobody is mailed.
  * @summary Admit a registration into the team's squad
  */
 export const registrierungenAdmitPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1508,16 +1281,10 @@ export const RegistrierungenAdmitBody = zod
   .describe("The team's answer to the question the read asked: the person this registration is admitted into, or none.");
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
+ * Decline one pending registration, confirmed or not, for a reason from a closed set or none.
  *
- * The decision records a reason from a closed set, never free text:
- * `other_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
- * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
- * confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
- * one the team has declined already (404).
+ * A pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is
+ * mailed nothing.
  * @summary Decline a registration
  */
 export const registrierungenDeclinePathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1535,12 +1302,8 @@ export const RegistrierungenDeclineBody = zod
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
  *
- * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
- * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
- * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
- * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
- * them. Making the season live is a separate step.
+ * Its id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league
+ * holds at most one planned season.
  * @summary Create a Saison
  */
 export const saisonsPostSaisonBodyEndDateRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1562,13 +1325,10 @@ export const SaisonsGetSaisonParams = zod.object({
 });
 
 /**
- * Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a season's dates and rules on the `version` it was read at, answering the version stored.
  *
- * `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
- * fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
- * (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
- * started too early is unlocked by one save moving its start and a second changing its rules.
+ * What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
+ * fixed once a fixture has taken place, and moves later only while no club's exit is stored.
  * @summary Update a Saison's dates and rules
  */
 export const SaisonsPatchSaisonParams = zod.object({
@@ -1625,7 +1385,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         open: zod.boolean(),
       })
       .describe(
-        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nNo start of its own, the activation being the opening (`app/api/registrierungen/services.py ::\nsaison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee\n(`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of\n`FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.",
+        "When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.\n\nPast `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.",
       ),
     zod.null(),
   ]),
@@ -1638,7 +1398,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
+        "What a fixture is awarded when one side does not appear, as both sides' goals rather than a margin.\n\nA level award needs a season with no knockout round.",
       ),
     loss_points: zod.int().min(saisonsPatchSaisonBodyRulesLossPointsMin),
     max_kader_size: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKaderSizeExclusiveMin).max(saisonsPatchSaisonBodyRulesMaxKaderSizeMax),
@@ -1653,10 +1413,9 @@ export const SaisonsPatchSaisonBody = zod.object({
 });
 
 /**
- * Make this the active season, moving whichever holds `active` to `past` in one transaction.
+ * Make this the active season, moving whichever holds `active` to `past`.
  *
- * The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
- * refused, and every matchday of the target carries a date.
+ * The outgoing season must be finished, and every matchday of the target dated.
  * @summary Make this the active Saison
  */
 export const SaisonsActivateSaisonParams = zod.object({
@@ -1664,21 +1423,10 @@ export const SaisonsActivateSaisonParams = zod.object({
 });
 
 /**
- * Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
+ * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
- * The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
- * fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
- *
- * Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
- * `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
- * both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
- * which is what the replacement admits.
- *
- * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
- * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
- * the press decides each team by, beside each team's live link and the day it was last sent.
- * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
- * season holds that id.
+ * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+ * judges it, so an act is offered exactly where its write takes it.
  * @summary One Saison for the admin editor
  */
 export const SaisonsGetSaisonAdminParams = zod.object({
@@ -1688,8 +1436,8 @@ export const SaisonsGetSaisonAdminParams = zod.object({
 /**
  * Exchange the groups of two clubs entered in this season, as one write.
  *
- * Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
- * so each group stays a round robin. Neither `tore` nor `austritt` moves.
+ * Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
+ * `tore` nor `austritt` moves.
  * @summary Exchange two teams' groups
  */
 export const SaisonsSwapGruppenParams = zod.object({
@@ -1705,29 +1453,14 @@ export const SaisonsSwapGruppenBody = zod
     team2_id: zod.string().regex(saisonsSwapGruppenBodyTeam2IdRegExp),
   })
   .describe(
-    "The two clubs a group swap exchanges. Symmetric.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
+    "The two clubs a group swap exchanges, in either order.\n\nNeither side carries a `gruppe`: reading one from the payload would let a stale form write a\ngroup nobody stands in.",
   );
 
 /**
- * Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
+ * Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
  *
- * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
- * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. A team this skips is left exactly as it was.
- *
- * Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,
- * stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and
- * the team's own press is what mails a club its link again. **The first is read off the junction row's
- * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
- * being a deliberate act rather than a bulk one.
- *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
- * counts.
- *
- * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
- * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
- * teams and reaches the rest.
+ * A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
+ * was, so pressing twice mails nobody twice.
  * @summary Mint every admitted team a link
  */
 export const SaisonsPostInvitationsDispatchParams = zod.object({
@@ -1745,15 +1478,10 @@ export const SaisonsGetKoRundeParams = zod.object({
 });
 
 /**
- * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ * The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
  *
- * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
- * whose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date
- * proposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,
- * each referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,
- * each undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
- * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
- * Answers 404 for a season that does not exist. Writes nothing.
+ * Every card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`
+ * among it.
  * @summary One Saison's open work, card by card
  */
 export const SaisonsGetSaisonOverviewParams = zod.object({
@@ -1775,13 +1503,9 @@ export const SaisonsGetSpielParams = zod.object({
 });
 
 /**
- * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+ * Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
  *
- * Every fixture's confirmations go with it.
- *
- * The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
- * (`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
- * an entry.
+ * Undoing the draw reopens the shape rules to an edit and the groups to an entry.
  * @summary Undraw this Saison's Spielplan
  */
 export const SaisonsDeleteSpielplanParams = zod.object({
@@ -1799,12 +1523,10 @@ export const SaisonsGetSpielplanParams = zod.object({
 });
 
 /**
- * Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
+ * Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
  *
- * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
- * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
- * removed rows back.
+ * A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
+ * confirmations, reports and line-ups with it; nothing writes the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const SaisonsPostSpielplanParams = zod.object({
@@ -1845,7 +1567,7 @@ export const SaisonsPostSpielplanBody = zod
       .optional(),
   })
   .describe(
-    "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
+    "Whether this draw may replace what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission.",
   );
 
 /**
@@ -3013,9 +2735,9 @@ export const SpielerReactivateSaisonSpielerParams = zod.object({
 });
 
 /**
- * An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+ * Every venue in name order, the retired ones too where `include_inactive` asks for them.
  *
- * Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+ * `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
 export const spielorteGetSpielorteQueryIncludeInactiveDefault = false;
@@ -3025,9 +2747,9 @@ export const SpielorteGetSpielorteQueryParams = zod.object({
 });
 
 /**
- * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+ * Create a venue, its `maps_link` derived from the name and the address.
  *
- * Refused where another venue holds the name (`duplicate_key`, naming `name`).
+ * A name another venue holds, a retired one included, is refused.
  * @summary Create a Spielort
  */
 export const spielortePostSpielortBodyAddressCityMax = 80;
@@ -3064,10 +2786,9 @@ export const SpielortePostSpielortBody = zod.object({
 });
 
 /**
- * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
+ * Retire a venue, which stays readable for every match played there.
  *
- * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
- * while an unplayed fixture is still booked here (`spielort_still_booked`).
+ * Refused while an unplayed fixture is booked at it.
  * @summary Deactivate a Spielort (soft delete)
  */
 export const spielorteDeleteSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3077,10 +2798,7 @@ export const SpielorteDeleteSpielortParams = zod.object({
 });
 
 /**
- * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
- *
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
- * the editor reactivates one, and a historical match's venue is the case worth answering.
+ * One venue, a retired one included, with the `version` its save sends back.
  * @summary One Spielort
  */
 export const spielorteGetSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3090,11 +2808,9 @@ export const SpielorteGetSpielortParams = zod.object({
 });
 
 /**
- * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a venue on the `version` it was read at, answering the version stored.
  *
- * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
- * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
- * `name`).
+ * Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
  * @summary Update a Spielort
  */
 export const spielortePatchSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3140,7 +2856,7 @@ export const SpielortePatchSpielortBody = zod.object({
 });
 
 /**
- * Clear `inactive_since`, putting the venue back into the picker and every default read.
+ * Return a retired venue to every default read.
  * @summary Bring a deactivated Spielort back
  */
 export const spielorteReactivateSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3162,12 +2878,10 @@ export const SpieltageGetSpieltagParams = zod.object({
 });
 
 /**
- * Move a matchday's span, answering the matchday's `version` after the save.
+ * Move a matchday's span, answering its `version` after the save.
  *
- * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
- * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
- * closed.
+ * The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
+ * dated in.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltagPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3187,12 +2901,10 @@ export const SpieltagePatchSpieltagBody = zod.object({
 });
 
 /**
- * Return one matchday by its id for the admin editor, a `future` season's included.
+ * One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
- * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
- * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
- * exactly the season the write refuses (`saison_past`).
+ * Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+ * final.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagAdminPathSpieltagIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3202,13 +2914,10 @@ export const SpieltageGetSpieltagAdminParams = zod.object({
 });
 
 /**
- * The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
+ * One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
  *
- * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
- * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
- * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
- * each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
- * the colours the season's rows hold. 404 where no season holds that id.
+ * `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
+ * is true where the season, not being `future`, takes no entry.
  * @summary One season's Teams list and what its create dialog offers
  */
 export const TeamsGetTeamsAdminQueryParams = zod.object({
@@ -3220,10 +2929,7 @@ export const TeamsGetTeamsAdminQueryParams = zod.object({
 /**
  * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
  *
- * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
- * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
- * `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
- * season and the group as an entry is.
+ * A club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const TeamsPostTeamEntryParams = zod.object({
@@ -3333,10 +3039,9 @@ export const TeamsPostTeamEntryBody = zod
   .describe("One club's entry into a season, the club known or new. One field rather than two nullable ones, so no body names both.");
 
 /**
- * Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
+ * Retire a club from the league, its rows of the seasons it played left as they are.
  *
- * Refused while the club is entered in an `active` or `future` season. Its junction rows are left
- * alone: the seasons it played still happened.
+ * Refused while the club is entered in an `active` or `future` season.
  * @summary Retire a team (soft delete)
  */
 export const teamsDeleteTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3419,16 +3124,10 @@ export const TeamsPatchEinwilligungBody = zod
   );
 
 /**
- * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+ * What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
- * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
- * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
- * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
- * `retire_blocked` refuses over, by each write's own judgement.
- * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
- * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
- * season holds that id.
+ * `version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are
+ * null for a club holding no row of the season.
  * @summary One team in one season for the admin editor
  */
 export const teamsGetTeamSaisonAdminPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3439,14 +3138,10 @@ export const TeamsGetTeamSaisonAdminParams = zod.object({
 });
 
 /**
- * Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+ * Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.
  *
- * Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
- * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
- * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
- * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
- * `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
- * `trikot_farbe`. 404 where the club holds no row of the season.
+ * A `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour
+ * are judged as an entry's.
  * @summary Save the team editor: the club and its row of the season, in one transaction
  */
 export const teamsPatchTeamSaisonPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3537,15 +3232,14 @@ export const TeamsPatchTeamSaisonBody = zod
     website_url: zod.union([zod.string().max(teamsPatchTeamSaisonBodyWebsiteUrlOneMax), zod.null()]),
   })
   .describe(
-    "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the\ndanger box's own write, which owes mail.",
+    "The team editor's one save: the club, and its colour and group in the season the page stands under.\n\nReplaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,\nwhich owes mail.",
   );
 
 /**
  * Record how a team left the season, once: an exit is never lifted and never replaced.
  *
- * Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
- * `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
- * the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * An exit is taken from the season's start date on, before which the replacement takes a club out, and never on a
+ * finished season.
  * @summary Record a team's exit from a season
  */
 export const teamsPutAustrittPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3567,14 +3261,13 @@ export const TeamsPutAustrittBody = zod
     type: zod.enum(["disqualifikation", "rueckzug"]),
   })
   .describe(
-    "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.",
+    "The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.\n\nOn the write side alone, so a read model takes a stored blank or a longer reason as it stands.",
   );
 
 /**
  * Stamp this team's live registration link revoked, so it opens nothing from here on.
  *
- * The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
- * which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
+ * The row stays, so a delivery event about a mail carrying the link still has somewhere to land.
  * @summary Revoke this team's live registration link for a season
  */
 export const teamsDeleteInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3587,19 +3280,8 @@ export const TeamsDeleteInvitationParams = zod.object({
 /**
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
- * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
- * this response is lost and the repair is another mint. Mailing the team's link is a separate press
- * (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
- *
- * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
- * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
- * every time somebody opens it, so a window moved after the mint moves this link with it.
- *
- * Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
- * (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
- *
- * A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
- * opens nothing, whoever holds it.
+ * The raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's
+ * registration window does, judged afresh at each opening.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitationPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3610,19 +3292,10 @@ export const TeamsPostInvitationParams = zod.object({
 });
 
 /**
- * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+ * Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.
  *
- * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
- * stays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a
- * seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
- * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
- * is handed out.
- *
- * Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
- * window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
- * as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
- * the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
- * as the mint refuses it.
+ * Each mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on
+ * one day owes nothing again.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
 export const teamsPostInvitationDispatchPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3638,23 +3311,13 @@ export const TeamsPostInvitationDispatchBody = zod
   .object({
     invitation_id: zod.string().regex(teamsPostInvitationDispatchBodyInvitationIdRegExp),
   })
-  .describe("The one live link a team's panel shows, to be mailed to the team's confirmed seats.");
+  .describe("The team's live link, to be mailed to its confirmed seats.");
 
 /**
- * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+ * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
- * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
- * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
- * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
- * last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
- * stay correctable, and such a link takes the person's Widerspruch alone.
- *
- * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
- * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
- * claim, and the seat it named keeps its person. Left out, the claim stands.
- *
- * Refused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another
- * seat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.
+ * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
+ * a write on either seat writes both under one link.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeatPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3688,15 +3351,10 @@ export const TeamsPutKontaktSeatBody = zod
   .describe("The person one seat is to hold, on the row's `version` the dialog read, who has agreed to nothing yet.");
 
 /**
- * Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
+ * Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
  *
- * It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
- * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
- * the address the mail is owed to, never the link.
- *
- * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its
- * person has already confirmed it (`kontakt_seat_without_confirmation`).
- * 404 for a team and season holding no row, and for a path naming no seat.
+ * The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
+ * address the mail is owed to, never the link.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontaktPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3708,11 +3366,9 @@ export const TeamsInviteKontaktParams = zod.object({
 });
 
 /**
- * Hand this season's junction row, and every fixture on it, to another club.
+ * Hand this season's row, and every fixture on it, to another club, keeping the schedule.
  *
- * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
- * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
- * the schedule survives.
+ * The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeamPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3728,7 +3384,7 @@ export const TeamsReplaceSaisonTeamBody = zod
   .object({
     incoming_team_id: zod.string().regex(teamsReplaceSaisonTeamBodyIncomingTeamIdRegExp),
   })
-  .describe("Which club takes this season's row over. The path names the club going OUT.");
+  .describe("Which club takes this season's row over. The path names the club going out.");
 
 /**
  * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.

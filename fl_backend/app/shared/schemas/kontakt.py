@@ -6,7 +6,6 @@ from app.shared.folding import league_address, sign_in_identifier
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomOptionalPhoneString
 
-# Every address payload's type but the erasure's lookup.
 # Never `EmailStr`, which never turns `allow_smtputf8` off and so stores a Unicode local part and
 # domain. The published schema states the ceiling and no `format`: this check is the one authority,
 # and a generated pattern would be a second rule beside it.
@@ -20,10 +19,9 @@ def _held_folded(address: str) -> str:
     return address
 
 
-# Every stored address field's type on the record models `python -m app.readback` judges, and on no read a page takes:
-# every lookup of a person by address, an erasure's and an admission's among them, is an equality on the asker's
-# fold, so a row stored otherwise is missed in silence. The fold alone and never the address rule, whose tables move
-# without us.
+# Every stored address field's type on a record model, and on no read a page takes: every lookup of a person by
+# address is an equality on the asker's fold, so a row stored otherwise is missed in silence. The fold alone and
+# never the address rule, whose tables move without us.
 CustomStoredAddress = Annotated[str, StringConstraints(min_length=1), AfterValidator(_held_folded)]
 
 # A person's name, or one part of one: what the public application form takes, and every payload
@@ -42,8 +40,7 @@ CustomKontaktName = Annotated[
 # Neither member carries a rule: a stored number the phone rule was
 # narrowed past would answer 500 for the whole referee list over one row.
 class FLKontakt(BaseModel):
-    # No empty-string coercion either, as `FLSchiedsrichter.schule` has none: a read answers the
-    # value as stored rather than a repaired copy of it.
+    # No empty-string coercion: a read answers the value as stored rather than a repaired copy of it.
     phone: str | None
     email: str | None
 

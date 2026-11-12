@@ -1,12 +1,7 @@
-"""
-API · the one sequence every consent press on the account page runs between finding its record and writing it
+"""Every consent press runs this one sequence between finding its record and writing it, a refusal at any step writing nothing.
 
-One sequence for every kind, so no two presses judge one press in two orders: the stale page first, then a
-grant the record may not take, then a grant under a replaced label, then the media age. The handler
-finds its record before and writes the move after, a write by the id it read in the same transaction never missing.
-
-Invariants:
-- A press refused at any step writes nothing.
+One sequence for every kind, so no two presses judge in two orders: the stale page first, then a grant the record may
+not take, then a grant under a replaced label, then the media age.
 """
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence

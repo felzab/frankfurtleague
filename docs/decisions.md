@@ -1,17 +1,16 @@
 # Decisions
 
-What this project never does, grouped by subject, each line closing on the harm it prevents in
-italics. Each clause after a line's key is a separate never, and a semicolon joins clauses that stand
-or fall together. A line changes only by a new decision of the owner, in the commit that makes the
-change.
+What this project never does, grouped by subject, a line closing on the harm it prevents in italics
+where one is recorded. Each clause after a line's key is a separate never, and a semicolon joins
+clauses that stand or fall together. A line changes only by a new decision of the owner, in the
+commit that makes the change.
 
 ## The league
 
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`. _The frontend
   words every label, and a null `quelle` already marks a side set by hand._
-- **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving
-  its role. _A fault is derived on each read, an undecided placing is a running group's normal
-  state, and a card keeping its role is announced twice._
+- **bracket** — Store a bracket fault; report a merely undecided placing. _A fault is derived on each
+  read, and an undecided placing is a running group's normal state._
 - **draw** — Hardcode the qualifier cap. _A knockout round added to the phases would leave a typed
   cap wrong._
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change. _A placing
@@ -26,8 +25,8 @@ change.
   run's report. _A result a save destroys is named to the administrator before it is lost._
 - **spiele** — Add a POST or a DELETE to `/spiele`. _The draw creates every fixture, and the bracket
   is wired to their numbers._
-- **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s; drop `E2`. _A value
-  outside the set fails every read serving it, and `E2` returns as the school year turns._
+- **spieler** — Widen a squad row's `position` or `stufe` past their `Literal`s. _A value outside
+  the set fails every read serving it._
 - **spieltage** — Refuse a manual pick as unqualified; field a team twice in a Spieltag. _A manual
   side is usually a deliberate replacement, and no club plays two fixtures at once._
 - **spieltage** — Derive a `Spieltag`'s position rather than reading it; write one outside the draw;
@@ -50,8 +49,6 @@ change.
 
 - **admin** — Give a shell page a second `h1`. _A second `h1` names the page twice in the outline a
   screen reader walks._
-- **cache** — Split the one site-wide cache tag by resource or season. _Every save would then have
-  to name the reads it moves, and one would be missed._
 - **cache** — Fault staleness within the `minutes` lifetime after a change no save makes. _A
   background pass or a hand edit clears no tag, and the lifetime is what bounds it._
 - **copy** — Word a field from anything but its patterns; add a pattern the owner did not approve;
@@ -75,8 +72,7 @@ change.
 - **structure** — Add a barrel file, an unrequired default export, a second nesting level below a
   slice's `components/<category>/`. _A barrel pulls a slice into client bundles, a default import
   compiles misnamed, and deeper folders scatter one kind._
-- **swap** — Make the club editor the swap's home; grade a swap pair separately in each component.
-  _A swap is the season's act on two clubs, and one grading offers the same pairs everywhere._
+- **swap** — Make the club editor the swap's home. _A swap is the season's act on two clubs._
 
 ## The backend
 
@@ -84,8 +80,9 @@ change.
   for a key._
 - **db** — Spell a collection name as a literal; enumerate the field names too. _A literal escapes
   the one declaration, and a field-name layer would be a hand-kept copy of every model._
-- **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`. _A guard on
-  the router puts a wrong tier in a wrong file, and `GET /{id}` gives every resource one address._
+- **routing** — Move a guard onto an endpoint; merge a slice's routers of different tiers; delete
+  `GET /{id}`. _A guard on the router puts a wrong tier in a wrong file, and `GET /{id}` gives every
+  resource one address._
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one. _A path names a
   resource, which a malformed id cannot, while a query carries input._
 - **tests** — Mark a test `db` for a decision the default tier reaches. _A test runs once, at the
@@ -103,9 +100,9 @@ change.
   it was not pointed at._
 - **images** — Merge the two images into one package; make either package private. _The deploy
   pulls with no registry login, and one package would mix two services' tags._
-- **logging** — Let nginx honour a client's traceparent; log our own lines outside the envelope;
-  patch or rewrite a library's or Next's console output into it. _Only the edge's trace, in one
-  envelope, joins our lines, and rewriting Next's output doubled every crash line._
+- **logging** — Log our own lines outside the envelope; patch or rewrite a library's or Next's
+  console output into it. _One envelope joins our lines, and rewriting Next's output doubled every
+  crash line._
 - **nginx** — Precompress brotli at build time. _Stock nginx has no brotli module and proxies static
   files rather than serving them from disk._
 - **patches** — Patch a dependency without its upstream issue named beside the entry; key a patch

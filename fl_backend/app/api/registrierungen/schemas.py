@@ -27,7 +27,7 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-# --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
+# --- The invite's read, the submission and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
 # models stay lax.
 
@@ -72,7 +72,7 @@ class _RegistrierungStored(BaseModel):
 class FLRegistrierungConfirmationRecord(FLConfirmation):
     """One registration's bookkeeping as `registrierungen` stores it: the hash of every link it was mailed, each live."""
 
-    # Null on a row past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which was owed no mail.
+    # Null on a row past `OPEN_LINKS_PER_MAILBOX`, which was owed no mail.
     sent_at: CustomOptionalDateString
     token_hashes: list[str]
 
@@ -90,7 +90,7 @@ class FLInvitationViewResponse(BaseAPIResponse):
     """What an invite's holder is told before they type anything, and the bounds the form is held to."""
 
     team: CustomNonEmptyString
-    # The club's `full_name`, a club here BEING a school: the consent copy names it, and a slot with
+    # The club's `full_name`, a club here being a school: the consent copy names it, and a slot with
     # no value renders as a hole in a consent text.
     schule: CustomNonEmptyString
     saison_id: str
@@ -118,10 +118,10 @@ class FLPostRegistrierungPayload(BaseModel):
     first_name: CustomKontaktName
     last_name: CustomKontaktName
     email: CustomEmail
-    # Each NULLABLE with the caller stating the null rather than omitting it, as a squad payload's
+    # Each nullable with the caller stating the null rather than omitting it, as a squad payload's
     # three are: the answer is then the pupil's and not a default nobody chose.
     position: FLSpielerPosition | None
-    # Tightened on the WRITE side alone, as a squad row's is.
+    # Tightened on the write side alone, as a squad row's is.
     nummer: str | None = Field(pattern=SQUAD_NUMMER_PATTERN)
     stufe: FLSpielerStufe | None
 
@@ -162,7 +162,7 @@ class FLRegistrierungenAdminListResponse(BaseAPIResponse):
     complete: bool
 
 
-# --- The CONFIRMATION. The token is the whole credential, as it is for the application's link, so
+# --- The confirmation. The token is the whole credential, as it is for the application's link, so
 # both endpoints are base-tier and every payload forbids an undeclared key.
 
 
@@ -170,20 +170,20 @@ class FLRegistrierungConfirmationViewResponse(BaseAPIResponse):
     """What one confirmation link opens, and no field past the ones declared here."""
 
     state: FLConfirmationState
-    # The club's short name and its own `full_name`, a club here BEING a school: the ruled consent
-    # text renders both, and a slot with no value renders as a hole in it.
+    # The club's short name and its own `full_name`, a club here being a school: the consent text
+    # renders both, and a slot with no value renders as a hole in it.
     team: CustomNonEmptyString
     schule: CustomNonEmptyString
     saison_id: str
     # Served rather than read from a constant of the page's own: the floor the write judges by is
     # the one the paragraph a pupil reads before consenting has to state.
     minimum_age: int
-    # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
+    # Served too: the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
     # The link's last day, stored at the mint: the page states it as the mail did.
     deadline: CustomDateString
     # The day of the pupil's own answer, so a reopened link says what they did and when; null on every state showing
-    # no answer, as `app/api/schiedsrichter/schemas.py :: FLSchiedsrichterConfirmationViewResponse` serves a referee's.
+    # no answer, as a referee's confirmation view serves it.
     answered_at: CustomOptionalDateString
 
 
@@ -220,7 +220,7 @@ class FLRegistrierungConfirmationResponse(BaseAPIResponse):
     media: bool
 
 
-# --- The retention SWEEP, system tier. The backend decides and erases; nothing a pupil's record holds leaves here.
+# --- The retention sweep, system tier. The backend decides and erases; nothing a pupil's record holds leaves here.
 
 
 class FLRegistrierungSweepResponse(BaseAPIResponse):
@@ -230,11 +230,11 @@ class FLRegistrierungSweepResponse(BaseAPIResponse):
     erased_unconfirmed: int
     erased_without_decision: int
     erased_declined: int
-    # One sum over every clock rather than a count a clock: the line logging each row names its clock.
+    # One sum over every clock rather than a count per clock: the line logging each row names its clock.
     failed: int
 
 
-# --- The TEAM's decision, person tier. No model below declares `email`, `phone`, `birth_date` or
+# --- The team's decision, person tier. No model below declares `email`, `phone`, `birth_date` or
 # `einwilligung`: a seat holder reads who registered and decides, and a pupil's address and birthdate
 # are the league administrators' alone.
 
@@ -287,7 +287,7 @@ class FLRegistrierungAdmitPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # REQUIRED with no default: a client that omitted it would be read as answering "a new person",
+    # Required with no default: a client that omitted it would be read as answering "a new person",
     # which is the one answer that can put a returning pupil into the league twice.
     spieler_id: CustomObjectId | None
 
@@ -318,8 +318,8 @@ class FLRegistrierungDeclinePayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Required, for `FLRegistrierungAdmitPayload.spieler_id`'s reason: the reason picks the
-    # sentence the pupil is mailed.
+    # Required with no default, so an omission is never read as declining without a reason: the
+    # reason picks the sentence the pupil is mailed.
     reason: FLRegistrierungDecisionReason | None
 
 

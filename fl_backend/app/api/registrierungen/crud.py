@@ -1,8 +1,4 @@
-"""
-API · what a registration is read and judged by, and the erasure's removal of an address's registrations
-
-Here rather than in `services.py`, which decides from its arguments and names no handle.
-"""
+"""The registrations' database reads and writes, kept apart from `services.py`, which decides from its arguments."""
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -59,9 +55,8 @@ async def judge_the_mailbox_in_session(
 ) -> bool:
     """Whether the season may mail this address's mailbox another confirmation link, anchoring the mailbox where it may.
 
-    Below `OPEN_LINKS_PER_MAILBOX` unanswered mailed links, as the application's press judges it
-    (`app/api/bewerbungen/public_router.py :: post_bewerbung`): the anchor puts two writes mailing one mailbox in one
-    write set, so neither passes on a count the other is about to raise.
+    Below `OPEN_LINKS_PER_MAILBOX` unanswered mailed links, as the application's press judges it: the anchor puts two
+    writes mailing one mailbox in one write set, so neither passes on a count the other is about to raise.
     """
 
     waiting = await registrierungen_collection.count_documents(
@@ -95,9 +90,9 @@ async def pull_open_registrierungen(
 
     Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
     flood of them bury every row a pupil confirmed. A confirmed row costs more: its own bot-checked submission and a
-    mailed link opened and answered, a mailbox holding `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`
-    unanswered at a time. Rows past the cap stay unread, as on the administration's list, and `complete` says so. Two
-    reads, each newest first, the second only for the room the first left.
+    mailed link opened and answered, a mailbox holding `OPEN_LINKS_PER_MAILBOX` unanswered at a time. Rows past the cap
+    stay unread, as on the administration's list, and `complete` says so. Two reads, each newest first, the second only
+    for the room the first left.
     """
 
     rows: list[Mapping[str, Any]] = []
@@ -185,7 +180,7 @@ async def erase_registrierungen_in_session(
     registrierungen_collection: AsyncCollection,
     # Each carrying its `_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
     """Remove these registrations whole, answering how many went: the document is the person's own."""

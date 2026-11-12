@@ -18,8 +18,6 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 type FLAddressChangeAnswer = Literal["confirmed", "declined"]
 
-# --- The record as `address_changes` stores it.
-
 
 class FLAddressChangeEnded(BaseModel):
     kind: FLAddressChangeEndKind
@@ -116,9 +114,6 @@ class FLAddressChangeAddressResponse(BaseAPIResponse):
     email: str | None
 
 
-# --- The two links, public.
-
-
 class FLAddressChangeViewNew(BaseModel):
     """What the new mailbox's link opens while the change stands."""
 
@@ -195,11 +190,8 @@ class FLAddressChangeStopResponse(BaseAPIResponse):
     stopped: Literal[True]
 
 
-# --- The administrator's tool, keyed by the address it types.
-
-
 class FLAddressChangeAdminOpen(BaseModel):
-    """One live change as Adressänderungen shows it, admin tier: both addresses, and no hash."""
+    """One live change, with both its addresses."""
 
     id: CustomObjectId
     address: str
@@ -234,9 +226,6 @@ class FLAddressChangeIdResponse(BaseAPIResponse):
     """A started, re-sent or discarded change: its mails are owed in the Postausgang, so no link is answered."""
 
     id: CustomObjectId
-
-
-# --- The hourly pass.
 
 
 class FLAddressChangeSweepParams(BaseModel):

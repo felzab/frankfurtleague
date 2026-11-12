@@ -55,9 +55,10 @@ The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Aut
 (`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
 percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
 is refused as naming nobody. The admin key and the private network are what make them believed.
-**`system/router.py` holds the one route with no guard**:
-`/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
-needs a secret fails for the wrong reasons.
+**`system/router.py` holds the two routes with no guard**: `/system/is_live`, the container
+healthcheck and the public uptime probe, and `/system/is_ready`, which answers 503 where the
+database does not answer a ping, for a monitor outside. A probe that needs a secret fails for the
+wrong reasons.
 
 ## Data access
 
@@ -73,9 +74,9 @@ are keyword-only and accept a session, which is what lets a read inside a transa
 transaction's own writes. A request making more than one write makes them in one transaction, so
 a refusal anywhere takes everything already written back with it. A background pass is the
 exception: it takes its rows a page or a row at a time, each in a transaction of its own
-(`fl_backend/app/core/transactions.py :: drain` for the paged ones), so a pass that fails part way
-keeps what it finished, and the next pass resumes from the stored state. A write helper records
-nothing: each recorded act adds one line inside its transaction
+(`fl_backend/app/core/transactions.py :: drain` for the paged ones). A pass that fails part way
+therefore keeps what it finished, and the next pass resumes from the stored state. A write helper
+records nothing: each recorded act adds one line inside its transaction
 (`Aktion`, `fl_backend/app/core/recording.py :: record_act`).
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
@@ -86,11 +87,11 @@ read of the Tabelle (`GET /saisons/{saison_id}/tabelle`) and stored nowhere.
 
 **Every failure answers one body, `{error_code, trace_id, fields}`, whatever its status**, in the
 shape of RFC 9457's problem details with this API's own members alone. `fields` names each body
-field the refusal judged, with a domain rule's bounds, and is empty where it judged none; a bound
+field the refusal judged, with a domain rule's bounds, and is empty where it judged none. A bound
 can be another field of the same payload, such as a span's start, but the body never carries the
-refused value or a stack trace. A code names one failure rather
-than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's one spelling:
-`fl_backend/openapi.json` lists them once, as the failure body's `error_code` on the one shared
+refused value or a stack trace. A code names one failure rather than a status class, and
+`fl_backend/app/core/codes.py :: Code` is every code's one spelling. `fl_backend/openapi.json`
+lists them once, as the failure body's `error_code` on the one shared
 response each status refers to, and never per operation. The status
 follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
 contradicts itself, 404 where what it names does not exist, 403 only where the caller's own

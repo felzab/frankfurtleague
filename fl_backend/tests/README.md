@@ -6,12 +6,16 @@ them.
 
 ## Folder overview
 
+The tree mirrors `app/`'s folders, so a module's tests are in the folder you would look in, `api/`
+being flat.
+
 | Read                                                                     | For                                                                                                                       |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | [`../../docs/backend/overview.md`](../../docs/backend/overview.md#tests) | The two tiers and the `db` marker                                                                                         |
 | `conftest.py`                                                            | The factory fixtures, and the session-scoped `mongod` replica set, yielded as a url                                       |
 | `config.py`                                                              | The settings an application under test is built with                                                                      |
 | `app_client.py`                                                          | The application under test, served in process to an HTTP client of the test's own                                         |
+| `boot.py`                                                                | The image's own boot, run in a process of its own over an environment and a secrets folder a case writes                  |
 | `session_headers.py`                                                     | The actor's session headers as the frontend's server sends them (`fl_backend/tests/session_headers.py :: StampedHeaders`) |
 | `database.py`                                                            | The database a db test opens for itself: built once, emptied per call, every document it leaves read back                 |
 | `worker.py`                                                              | The per-worker database naming, and the guard that holds every open to it                                                 |
@@ -33,15 +37,9 @@ them.
 | `bracket_reference.py`                                                   | The hand-written bracket rows the draw's construction is held to                                                          |
 | `shared/`                                                                | The custom types and shared schemas under `app/shared/`                                                                   |
 | `core/`                                                                  | What `app/core/` declares, and what a real `mongod` does with it                                                          |
+| `core/app_source.py`                                                     | The application as it mounts its routes, which the sweeps hold every operation to                                         |
 | `api/`                                                                   | The endpoint suites, split by concern rather than by entity                                                               |
-
-## Two tiers, and one of them needs Docker
-
-`cd fl_backend && uv run pytest` runs the fast tier, which needs no daemon.
-`uv run pytest -m db` runs the tier that starts a real `mongod`.
-
-The tree mirrors `app/`'s folders, so a module's tests are in the folder you would look in, `api/`
-being flat.
+| `api/address_change_harness.py`                                          | One person holding every record an address change moves, and every route driving a change                                 |
 
 ## Read next
 

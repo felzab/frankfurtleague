@@ -218,6 +218,21 @@ def mount_api(app: FastAPI) -> None:
 BOOT_REFUSED: Final = 3
 
 
+def create_shell() -> FastAPI:
+    """The application every route is served inside: the trace layer, the failure handlers and the lifespan, with no route.
+
+    Apart from `create_app`, which mounts the routers into it, so the stack a request passes through
+    is assembled in one place.
+    """
+
+    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
+    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the two probes.
+    app = TracedApp(lifespan=lifespan, openapi_url=None)
+    register_exception_handlers(app)
+
+    return app
+
+
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
@@ -240,12 +255,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
         raise SystemExit(BOOT_REFUSED) from None
 
-    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
-    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the two probes.
-    app = TracedApp(lifespan=lifespan, openapi_url=None)
+    app = create_shell()
     app.state.config = config
-
-    register_exception_handlers(app)
     mount_api(app)
 
     return app

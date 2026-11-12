@@ -49,7 +49,7 @@ async def refuse_a_taken_colour(
     trikot_farbe: FLTrikotFarbe | None,
     # The row the write saves, whose own colour is no other's; `None` for an entry.
     own_id: Any,
-    # REQUIRED, for `refuse_a_full_gruppe`'s reason: the anchor closes the race.
+    # Required: the anchor closes the race, so forgetting the session has to be a TypeError at the call.
     session: AsyncClientSession,
 ) -> None:
     """Refuse `trikot_farbe_taken`: another row of the season holds this colour, a club that left it among them.
@@ -79,7 +79,7 @@ async def refuse_a_full_gruppe(
     gruppe: FLGruppenNames,
     saison_status: str,
     rules: FLSaisonRules,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
@@ -111,13 +111,13 @@ async def pull_a_club_to_enter(
     *,
     teams_collection: AsyncCollection,
     team_id: Any,
-    # REQUIRED for `refuse_a_full_gruppe`'s reason: the anchor below closes the race.
+    # Required: the anchor below closes the race, so forgetting the session has to be a TypeError at the call.
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """The club a junction row is about to name, read for `team_retired` and for the identity the row copies.
 
-    Its own module for `refuse_a_full_gruppe`'s reason: the entry, the acceptance and the replacement
-    all name a club, from two packages.
+    In this module because the entry, the acceptance and the replacement all name a club, from two packages, and a rule
+    reached from two packages is one a package can enter past.
     """
 
     club = await pull_one_from_db(
@@ -168,7 +168,7 @@ async def enter_a_club(
     team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=team_id, session=session)
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-    # Before the count: the club's standing in the LEAGUE cannot be repaired by picking another group, so nobody should
+    # Before the count: the club's standing in the league cannot be repaired by picking another group, so nobody should
     # be handed a capacity figure to act on first.
     refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
 
@@ -226,7 +226,7 @@ async def refuse_a_gruppe_move(
         saisons_collection=saisons_collection,
         saison_id=saison_id,
         gruppe=gruppe,
-        # A MOVE is not an entry -- the club already holds a row -- so the status gate on entering does not judge it, and
+        # A move is not an entry -- the club already holds a row -- so the status gate on entering does not judge it, and
         # only its two group gates apply.
         saison_status="future",
         rules=rules,
