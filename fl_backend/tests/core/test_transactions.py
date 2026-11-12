@@ -27,8 +27,8 @@ from app.core.transactions import (
     run_isolated,
     transaction_session,
 )
-from app.main import create_app
-from tests.config import TEST_BASE_URL, build_test_config
+from app.main import create_shell
+from tests.config import TEST_BASE_URL
 
 PAGE = 3
 
@@ -752,7 +752,7 @@ class TestACancelledRequestStillAbortsItsTransaction:
                 inside.set()
                 await anyio.sleep_forever()
 
-        served = create_app(build_test_config())
+        served = create_shell()
         served.add_api_route(_HELD, held_inside_a_session)
 
         asyncio.run(cancel(served, inside))
@@ -772,7 +772,7 @@ class TestTheRouteRunsInTheServersTask:
         async def records_its_task() -> None:
             ran_in.append(asyncio.current_task())
 
-        served = create_app(build_test_config())
+        served = create_shell()
         served.add_api_route(_HELD, records_its_task)
 
         async def serve() -> asyncio.Task[Any] | None:
