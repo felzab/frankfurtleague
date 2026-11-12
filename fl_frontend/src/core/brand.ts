@@ -11,7 +11,7 @@ export const VEREIN_LEGAL_NAME = "Frankfurt League e. V.";
 
 // The same name on a screen or in a mail, „e. V.“ held together by a no-break space, so a line never ends between its
 // two parts.
-export const VEREIN_NAME = "Frankfurt League e. V.";
+export const VEREIN_NAME = "Frankfurt League e.\u00A0V.";
 
 export const VEREIN_ADDRESS = "Windmühlstraße 5, 60329 Frankfurt am Main";
 

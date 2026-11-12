@@ -19,7 +19,7 @@ const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 /** What every drain since the last pass settled, which a case sets and the pass takes. */
 let drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
 
-/** The restore's hold the boot reads, off unless a case sets it. */
+/** The hold on the background jobs the boot reads, off unless a case sets it. */
 const settings = { APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
 
 /** Each ping, as the monitor received it. */
@@ -154,7 +154,7 @@ describe("the one scheduler", () => {
 
   /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
      pupils' deletion, mail to people not yet erased again. */
-  it("arms nothing under a restore's hold, and says so", async () => {
+  it("arms nothing under the hold, and says so", async () => {
     settings.RESTORE_HOLD = "on";
 
     expect(await bootAndStep("production", [MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);

@@ -225,12 +225,15 @@ const SIGN_IN_STORE = {
     "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth/library.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
 };
 
-/** The eraser is whatever its caller hands in, so a second caller could delete an account erasing nothing. */
+/**
+ * The deletion spends its link before the backend judges anything, so the passkey touch and the owner's refusal stand
+ * ahead of it in its one action: a second caller could spend a link or delete an account without either.
+ */
 const OWN_ACCOUNT_DELETION = {
   regex: moduleNamed(String.raw`auth\x2Faccounts`),
   importNames: ["deleteOwnAccount"],
   message:
-    "deleteOwnAccount deletes the account around whatever eraser it is handed: fl_frontend/src/features/account/personActions.ts imports it, handing it the backend's own erasure, and a *.test.ts(x) file may; nothing else may.",
+    "deleteOwnAccount spends a mailed link and deletes the account: fl_frontend/src/features/account/personActions.ts imports it, behind the passkey touch and the owner's refusal, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /**
