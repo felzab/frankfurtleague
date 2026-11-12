@@ -103,22 +103,34 @@ def _nummer_for(case: EinwilligungCase) -> str:
 class TestTheSquadPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
-    def _served(self, url: str) -> dict[str, Mapping[str, Any]]:
+    def _rows(self, url: str) -> list[Mapping[str, Any]]:
         async def body(database: AsyncDatabase) -> Any:
-            rows = await aggregate_many_from_db(
+            return await aggregate_many_from_db(
                 collection=database.saison_spieler,
                 pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
             )
-
-            return {row["nummer"]: row for row in rows}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
-        served = self._served(seeded_url)[_nummer_for(case)]
+        """A published row is found by its number; a withheld one serves none, so its number is nowhere in the read."""
 
-        assert (served["first_name"], served["last_name"]) == ((FIRST_NAME, INITIAL) if case.published else (None, None))
+        numbered = {row["nummer"]: row for row in self._rows(seeded_url) if row["nummer"] is not None}
+
+        if case.published:
+            assert (numbered[_nummer_for(case)]["first_name"], numbered[_nummer_for(case)]["last_name"]) == (FIRST_NAME, INITIAL)
+        else:
+            assert _nummer_for(case) not in numbered
+
+    def test_every_withheld_row_serves_the_missing_name_and_nothing_beside_it(self, seeded_url: str):
+        """A number, a position or a mark beside a withheld name would say whose row it is."""
+
+        withheld = [row for row in self._rows(seeded_url) if row["first_name"] is None]
+
+        assert withheld == [dict.fromkeys(("first_name", "last_name", "position", "nummer", "rolle"))] * sum(
+            not case.published for case in NAME_IS_PUBLIC
+        )
 
 
 @pytest.mark.db

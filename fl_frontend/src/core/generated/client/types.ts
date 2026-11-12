@@ -61,7 +61,6 @@ export const Code = {
   aufstellung_locked: "aufstellung_locked",
   aufstellung_spiel_undated: "aufstellung_spiel_undated",
   aufstellung_nominee_without_shortage: "aufstellung_nominee_without_shortage",
-  aufstellung_starters_exceed_eleven: "aufstellung_starters_exceed_eleven",
   bewerbung_already_decided: "bewerbung_already_decided",
   bewerbung_subject_unresolved: "bewerbung_subject_unresolved",
   bewerbung_schule_unusable: "bewerbung_schule_unusable",
@@ -1003,10 +1002,11 @@ export interface FLAddressPayload {
 
 /**
  * One pupil a club fields in one match: on the pitch from the start, or on the bench.
+ *
+ * A null `spieler_id` names nobody: a pupil erased after the match was played, whose place in it stands.
  */
 export interface FLAufstellungEntry {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
+  spieler_id: string | null;
   starts: boolean;
 }
 
@@ -1026,19 +1026,11 @@ export const FLSpielerRolle = {
   co_kapitaen: "co_kapitaen",
 } as const;
 
-export type FLSpielberichtSpielerType = (typeof FLSpielberichtSpielerType)[keyof typeof FLSpielberichtSpielerType];
-
-export const FLSpielberichtSpielerType = {
-  named: "named",
-  anonymous: "anonymous",
-  unknown: "unknown",
-} as const;
-
 /**
- * One pupil of a line-up, as the base tier serves them, with the captaincy their squad row holds.
+ * One pupil of a line-up, as the base tier serves them; no record id.
  *
- * `rolle` only where `type` is `named`: the mark stands beside a name, and beside a withheld one it would say who the
- * nameless pupil is.
+ * Where the entry names nobody, or the name is withheld, every field but `starts` is null: a number, a position or a
+ * captaincy beside a nameless row would say who it is.
  */
 export interface FLAufstellungEntryPublic {
   first_name: string | null;
@@ -1046,17 +1038,6 @@ export interface FLAufstellungEntryPublic {
   nummer: string | null;
   position: FLSpielerPosition | null;
   rolle: FLSpielerRolle | null;
-  starts: boolean;
-  type: FLSpielberichtSpielerType;
-}
-
-/**
- * An entry of the locked line-up naming a pupil erased since it locked, which the club fielded and nobody names.
- *
- * Read-only and counted: no save names it, and every save keeps it as stored while the line-up stays locked, since it
- * is the record of whom the club fielded. A fixture re-dated ahead of its lock serves none, and its next save drops them.
- */
-export interface FLAufstellungErased {
   starts: boolean;
 }
 
@@ -1090,7 +1071,7 @@ export interface FLAufstellungPayload {
 }
 
 /**
- * One club's line-up for the match, starters and substitutes in the order the club entered them.
+ * One club's line-up for the match in the order the club entered it, its nameless rows after the named ones.
  */
 export interface FLAufstellungPublic {
   spieler: FLAufstellungEntryPublic[];
@@ -1189,7 +1170,6 @@ export interface FLAufstellungSpiel {
  * opens read-only, which the save refuses (`saison_past`).
  */
 export interface FLAufstellungResponse {
-  erased: FLAufstellungErased[];
   kader: FLAufstellungSpieler[];
   marks: FLAufstellungMarks | null;
   named: FLAufstellungSpieler[];
@@ -2186,7 +2166,7 @@ export interface FLBracketFaultBooking {
   booking_id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   inactive_since: string;
-  name: string | null;
+  name: string;
   reason: FLBracketFaultBookingReason;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -2798,7 +2778,7 @@ export interface FLSpielTeamFieldJoined {
 /**
  * One fixture as the public reads serve it, each side with its club's standing in the season.
  *
- * The referee is served only once they accepted the fixture as it stands.
+ * The referee is served only once they accepted the fixture as it stands, or where the booking names nobody.
  */
 export interface FLSpielJoined {
   ansetzung_confirmed: boolean | null;
@@ -3382,8 +3362,7 @@ export interface FLSpielSchiedsrichterField {
   name: string | null;
   /** @minimum 0 */
   payment: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
+  schiedsrichter_id: string | null;
 }
 
 /**
@@ -3785,8 +3764,7 @@ export interface FLSpielElfmeterschiessenPayload {
 export interface FLSpielSchiedsrichterFieldPayload {
   /** @minimum 0 */
   payment: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
+  schiedsrichter_id: string | null;
 }
 
 /**
@@ -4563,7 +4541,8 @@ export interface FLSchiedsrichter {
   id: string;
   inactive_since: string | null;
   kontakt: FLKontakt;
-  name: string | null;
+  /** @minLength 1 */
+  name: string;
   schule: string | null;
   version: number;
 }
@@ -4767,7 +4746,7 @@ export interface FLSpielberichtVorschlag {
 }
 
 /**
- * A pupil a report may name or names, with the names their record holds, both null where an erasure took the record.
+ * A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil.
  */
 export interface FLSpielberichtSpieler {
   first_name: string | null;
@@ -4778,7 +4757,7 @@ export interface FLSpielberichtSpieler {
 }
 
 /**
- * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
+ * One goal. A null `spieler_id` names nobody: a scorer the referee did not name, or a pupil erased since, read alike.
  */
 export interface FLSpielberichtScorer {
   eigentor: boolean;
@@ -4872,15 +4851,12 @@ export interface FLSpielEditorTeam {
 /**
  * One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
  *
- * The names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off
- * the pupil's squad row for that side's club in the match's season, kept where the name is withheld.
+ * The names where the pupil's consent publishes them, the surname as an initial (`READ-PUPIL-001`); both null where
+ * it does not, and where the entry names nobody, which the two cases share.
  */
 export interface FLSpielberichtSpielerPublic {
   first_name: string | null;
   last_name: string | null;
-  nummer: string | null;
-  position: FLSpielerPosition | null;
-  type: FLSpielberichtSpielerType;
 }
 
 /**
@@ -4956,8 +4932,7 @@ export interface FLSpielPageResponse {
 /**
  * One card: who was shown it, when, and its colour.
  *
- * A null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad
- * still takes cards.
+ * A null `spieler_id` names nobody, as a scorer's does: a side whose club holds no squad still takes cards.
  */
 export interface FLSpielberichtCard {
   colour: FLCardColour;

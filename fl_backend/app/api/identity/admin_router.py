@@ -11,12 +11,13 @@ from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_s
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
     address_change_viewable_denied,
-    build_unplayed_count_pipeline,
+    build_booked_spiele_pipeline,
     compose_erasure_view,
     find_admin_address_refusal,
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
+from app.api.teams.services import is_played
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -77,14 +78,16 @@ async def get_erasure_view(
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
     operator: str = Depends(get_actor_email),
+    now: datetime = Depends(get_germany_now),
 ) -> FLErasureViewResponse:
     """
     Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
-    counts the fixtures still to be played that a referee row is booked on. `address_change` counts the address's own live
-    change and each other address's change naming it, leaving out a grant holder's for an administrator without an owner's
-    power, since counting it would answer whether a typed address is its new one. Stores nothing.
+    counts the fixtures not yet kicked off that a referee row is booked on, whose booking the erasure takes off.
+    `address_change` counts the address's own live change and each other address's change naming it, leaving out a grant
+    holder's for an administrator without an owner's power, since counting it would answer whether a typed address is its
+    new one. Stores nothing.
 
     Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
     administrator holds an owner's power (`admin_address`).
@@ -109,10 +112,10 @@ async def get_erasure_view(
         grants_collection=grants_collection,
         session=session,
     )
-    unplayed = (
+    booked = (
         await aggregate_many_from_db(
             collection=spiele_collection,
-            pipeline=build_unplayed_count_pipeline(row["_id"] for row in subject.schiedsrichter),
+            pipeline=build_booked_spiele_pipeline(row["_id"] for row in subject.schiedsrichter),
             session=session,
         )
         if subject.schiedsrichter
@@ -134,7 +137,8 @@ async def get_erasure_view(
         registrierung_rows=subject.registrierungen,
         address_change_rows=[row for row in subject.address_change if row not in withheld],
         grant_rows=subject.grants,
-        spiele=sum(row["count"] for row in unplayed),
+        # Partitioned as the erasure partitions them, so the count is the bookings it takes off.
+        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in booked),
     )
 
 

@@ -13,7 +13,6 @@ from pymongo import MongoClient
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -46,11 +45,11 @@ MIETPREIS = 80
 PAYMENT = 30
 
 # A second fixture, holding a report and a confirmation row; a third, whose report and row are stored ahead of the
-# second's; a fourth, booked on the ghost a referee's erasure repoints their fixtures to; and a later season stored
-# ahead of the fixtures' own.
+# second's; a fourth, played and booking nobody, as a referee's erasure leaves it; and a later season stored ahead of the
+# fixtures' own.
 BERICHT_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230002")
 OTHER_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230003")
-GHOST_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230004")
+NAMELESS_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607230004")
 LATER_SAISON_ID = "2027"
 # A scorer on the home squad, a scorer on neither side's squad, and a pupil a card alone names.
 LINA = ObjectId("6890a1b2c3d4e5f607230031")
@@ -98,7 +97,7 @@ def spielort_row(spielort_id: ObjectId, name: str, *, inactive_since: str | None
 
 
 def schiedsrichter_rows() -> list[dict[str, Any]]:
-    """The booked referee, retired since and confirmed; a live one who never answered; one who objected; and the ghost, offered never."""
+    """The booked referee, retired since and confirmed; a live one who never answered; and one who objected."""
 
     confirmed = documents.own_einwilligung_document(text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at="2026-01-10")
     return [
@@ -126,18 +125,11 @@ def schiedsrichter_rows() -> list[dict[str, Any]]:
                 "declined_at": "2026-03-02",
             },
         ),
-        {
-            **documents.schiedsrichter_document(
-                GHOST_SCHIEDSRICHTER_ID, email="ghost@example.com", name="Ghost", default_payment=0, einwilligung=None
-            ),
-            "name": None,
-            "inactive_since": "2000-01-01",
-        },
     ]
 
 
 def other_spiele() -> list[dict[str, Any]]:
-    """The report's fixture, played 2:1; the fixture whose rows are stored first; the fixture booked on the ghost."""
+    """The report's fixture, played 2:1; the fixture whose rows are stored first; the fixture booking nobody."""
 
     def spiel(spiel_id: ObjectId, spiel_nr: int, **fields: Any) -> dict[str, Any]:
         return documents.spiel_document(
@@ -154,7 +146,7 @@ def other_spiele() -> list[dict[str, Any]]:
     return [
         spiel(BERICHT_SPIEL_ID, 2, team1={"team_id": HOME, "tore": 2}, team2={"team_id": AWAY, "tore": 1}, ergebnis="2:1"),
         spiel(OTHER_SPIEL_ID, 3),
-        spiel(GHOST_SPIEL_ID, 4, schiedsrichter={"schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID, "payment": 0}),
+        spiel(NAMELESS_SPIEL_ID, 4, schiedsrichter={"schiedsrichter_id": None, "payment": PAYMENT}),
     ]
 
 
@@ -315,7 +307,7 @@ def test_the_admin_key_gets_the_spiel_with_the_rent_and_the_payment(seeded_url: 
 
 @pytest.mark.db
 def test_the_editor_offers_the_live_rows_and_the_ones_the_spiel_books(seeded_url: str):
-    """Offering a retired row the fixture does not book, or the ghost, puts a booking on the editor the save then refuses.
+    """Offering a retired row the fixture does not book puts a booking on the editor the save then refuses.
 
     The fixture's own retired venue and referee stay offered, so the booking keeps its name; the unconfirmed referee is
     offered marked, the save refusing them, and an objection told from no answer yet: nobody asks a person who objected
@@ -375,10 +367,10 @@ def test_the_editor_lists_this_fixtures_confirmation_rows_alone(seeded_url: str)
 
 
 @pytest.mark.db
-def test_a_fixture_booked_on_the_ghost_opens_and_never_offers_the_ghost(seeded_url: str):
-    """The ghost has no name to offer: offered, the editor of every fixture an erased referee was booked on fails to answer."""
+def test_a_fixture_booking_nobody_opens_with_its_fee(seeded_url: str):
+    """Every fixture an erased referee officiated opens this way: the editor keeps the fee by sending the booking back."""
 
-    response = answered(seeded_url, _editor_path(GHOST_SPIEL_ID), ADMIN_AUTH)
+    response = answered(seeded_url, _editor_path(NAMELESS_SPIEL_ID), ADMIN_AUTH)
 
     assert response.status_code == 200, response.text
-    assert str(GHOST_SCHIEDSRICHTER_ID) not in [row["id"] for row in response.json()["schiedsrichter"]]
+    assert response.json()["spiel"]["schiedsrichter"] == {"schiedsrichter_id": None, "name": None, "payment": PAYMENT}

@@ -20,7 +20,7 @@ class TestTheLinksLastDay:
 
 
 class TestAPersonIsNeverWrittenNameless:
-    """The `spieler` record admits a null forename and record for the erased pupils' sentinel, so these guards are a person's last ones."""
+    """The `spieler` record model is applied by the read-back alone, so these guards are the last ones a write meets."""
 
     NEW = {
         "first_name": "Quillhilde",
@@ -29,7 +29,7 @@ class TestAPersonIsNeverWrittenNameless:
         "einwilligung": own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at=TODAY, scope="internal"),
     }
 
-    # Whitespace among them: `person_name_key` folds it to the empty key the sentinel's null name also folds to.
+    # Whitespace among them: `person_name_key` folds it to the empty key a null name also folds to.
     @pytest.mark.parametrize("first_name", [None, "", "   "], ids=("null", "empty", "whitespace"))
     def test_neither_composer_writes_a_person_with_no_forename(self, first_name: Any):
         nameless = {**self.NEW, "first_name": first_name}

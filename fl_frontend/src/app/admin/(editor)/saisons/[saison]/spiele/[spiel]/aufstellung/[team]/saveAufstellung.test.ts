@@ -1,5 +1,5 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
@@ -41,7 +41,6 @@ const STORED: FLAufstellungResponse = {
     { spieler_id: TWO, starts: true },
     { spieler_id: ONE, starts: false },
   ],
-  erased: [],
   version: 3,
   marks: null,
   saison_status: "active",
@@ -53,9 +52,15 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 const refusal = vi.hoisted(() => ({ write: null as Error | null }));
+/** The line-up the save reads again before its write. */
+const reading = { stored: STORED };
+
+beforeEach(() => {
+  reading.stored = STORED;
+});
 
 const calls = doubleApiClient((call) => {
-  if (call.method !== "PUT") return STORED;
+  if (call.method !== "PUT") return reading.stored;
   if (refusal.write !== null) throw refusal.write;
   return { ...STORED, version: 4 };
 });
@@ -85,6 +90,25 @@ describe("the league's save of a line-up", () => {
       },
     ]);
     expect(answer).toStrictEqual({ ok: true, value: 4 });
+  });
+
+  // The harm: the write keeps an entry naming nobody only where it is sent, so a save leaving it out takes a played
+  // match's record of a pupil who played out of it for good.
+  it("sends the stored entries naming nobody back after the pupils, as stored", async () => {
+    reading.stored = { ...STORED, spieler: [{ spieler_id: null, starts: true }, ...STORED.spieler] };
+    calls.length = 0;
+
+    await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } });
+
+    const [, write] = calls;
+    expect(JSON.parse(write?.body ?? "null")).toStrictEqual({
+      spieler: [
+        { spieler_id: ONE, starts: true },
+        { spieler_id: TWO, starts: false },
+        { spieler_id: null, starts: true },
+      ],
+      version: 3,
+    });
   });
 
   // The harm: the write names a refused pupil by the entry's index in the order it was sent, which the editor never
@@ -127,22 +151,5 @@ describe("the league's save of a line-up", () => {
       errorCode: "aufstellung_nominee_without_shortage",
       reason: "Nachnominierte füllen nur die Lücke bis\u00A09.",
     });
-  });
-
-  // The harm: the block counts erased pupils' kept entries, so only a page read before an erasure meets the starters'
-  // bound; answered as an unexpected failure, it names no way on, where a reload shows the true count.
-  it("answers the starters' bound as a page read before the line-up changed", async () => {
-    refusal.write = new APIBadStatusError({
-      message: "refused",
-      url: "http://backend/api/v0/",
-      statusCode: 409,
-      serverErrorCode: "aufstellung_starters_exceed_eleven",
-      refusedFields: [{ kind: "aufstellung_starters_exceed_eleven", path: ["spieler"], ctx: { max: 11 }, in: "body" }],
-      endpoint: "/",
-      traceId: "0",
-    });
-    const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE, TWO] } });
-
-    expect(answer).toStrictEqual({ ok: false, errorCode: "aufstellung_starters_exceed_eleven", reason: COPY.shared.failure.stale });
   });
 });

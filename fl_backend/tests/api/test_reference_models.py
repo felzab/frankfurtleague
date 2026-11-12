@@ -12,7 +12,6 @@ from app.api.spieler.schemas import (
     FLPatchSpielerSaisonPayload,
     FLSpielerRecord,
 )
-from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.teams.schemas import (
@@ -31,18 +30,15 @@ class TestSpieler:
 
         assert row.stufe == "E2"
 
-    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung"])
+    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung", "email"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
-        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
+        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
+
+        Without an address the person is out of every erasure's reach, each finding a person by address.
+        """
 
         with pytest.raises(ValidationError):
             FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"first_name": "Max", "last_name": "Mustermann", field: None}))
-
-    def test_the_record_refuses_the_sentinel_holding_an_address(self):
-        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
-
-        with pytest.raises(ValidationError):
-            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):

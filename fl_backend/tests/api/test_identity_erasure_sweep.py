@@ -29,7 +29,6 @@ from app.api.identity.schemas import FLErasureSweepParams
 from app.api.identity.system_router import ERASURES_PER_PASS, sweep_erasure
 from app.api.registrierungen.services import compose_decline_update
 from app.api.saisons.admin_router import activate_saison
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -41,8 +40,6 @@ from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     aufstellung_document,
-    ghost_schiedsrichter_document,
-    ghost_spieler_document,
     kontakte_document,
     kontaktperson_document,
     registrierung_document,
@@ -135,7 +132,7 @@ def a_report_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
 
 
 def a_line_up_naming(position: int) -> dict[Collection, list[dict[str, Any]]]:
-    """A line-up naming that due pupil on a match of an ended season, which kicked off: its entry is repointed."""
+    """A line-up naming that due pupil on a match of an ended season, which kicked off: its entry stands naming nobody."""
 
     spiel = spiel_document(
         spiel_id=numbered(8000 + position), saison_id="2024", spiel_nr=position + 1, spieltag_id=ObjectId(), date="2024-05-04", time="10:00:00"
@@ -154,14 +151,12 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mutates_schema: bool = False) -> Any:
-    """The shipped indexes, the seasons, one team, and both sentinels as an erasure writes them."""
+    """The shipped indexes, the seasons and one team."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             await database[Collection.SAISONS].insert_many([saison_document(saison_id, status) for saison_id, status in saisons.items()])
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
-            await database[Collection.SPIELER].insert_one(ghost_spieler_document())
-            await database[Collection.SCHIEDSRICHTER].insert_one(ghost_schiedsrichter_document())
 
             return await body(database, client)
 
@@ -298,21 +293,6 @@ class TestThePopulation:
             return [LABELS.get(spieler_id, str(spieler_id)) for spieler_id in await population(database)]
 
         assert on_a_league(mongo_replica_set_url, body) == [LABELS[TWO_SEASONS_BACK], LABELS[DECLINED_ALONE]]
-
-    def test_neither_sentinel_is_read_or_touched(self, mongo_replica_set_url: str):
-        """Seeded as an erasure writes them: the pupils' sentinel holds no address, which keeps it out."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            named = await population(database)
-            answer = await run(database, client)
-
-            return named, counts(answer), await database[Collection.SPIELER].find_one({"_id": build_ghost_spieler()["_id"]})
-
-        named, answer, ghost = on_a_league(mongo_replica_set_url, body)
-
-        assert named == []
-        assert answer["spieler"] == 0
-        assert ghost == ghost_spieler_document()
 
 
 # --- The run.
@@ -722,8 +702,8 @@ FIRST_BATCH = 101
 
 
 # One pupil's commands on the wire at their costliest, a report and a played match's line-up naming them: the line-ups'
-# read is one of them whether or not a line-up names the pupil, and the repoint one more where one does.
-COMMANDS_A_PERSON = 17
+# read is one of them whether or not a line-up names the pupil, and the entry's emptying one more where one does.
+COMMANDS_A_PERSON = 16
 
 # The call's other commands: three aggregates, and a `getMore` once the pending registrations outrun the driver's first
 # batch, the page being one document.

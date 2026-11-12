@@ -41,7 +41,6 @@ from app.core.crud import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSide
 
@@ -93,7 +92,7 @@ async def pull_named(
 ) -> list[FLSpielberichtSpieler]:
     """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    An erased pupil's entries name the sentinel, which comes nameless and reads „anonym“.
+    An entry naming nobody, a scorer the referee did not name or a pupil erased since, names no id and asks for none.
     """
 
     live = {row["spieler_id"] for side in SIDES for row in live_kader(context, side)} if kader_open else set()
@@ -255,14 +254,14 @@ async def stamp_the_adoption(
     )
 
 
-async def repoint_pupil_entries_in_session(
+async def empty_pupil_entries_in_session(
     *,
     spielberichte_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # REQUIRED: the erasure's own, so a report never names the sentinel of an erasure that rolled back.
+    # REQUIRED: the erasure's own, so no report loses a name to an erasure that rolled back.
     session: AsyncClientSession,
 ) -> None:
-    """Repoint every scorer and card entry naming this pupil at the sentinel.
+    """Make every scorer and card entry naming this pupil name nobody.
 
     The report stands as the league's record of the match, its adoption with it: this write raises the document's
     `version` and leaves `bericht.adopted` as it stands.
@@ -274,7 +273,7 @@ async def repoint_pupil_entries_in_session(
     await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"$or": [{"bericht.scorers.spieler_id": spieler_id}, {"bericht.cards.spieler_id": spieler_id}]},
-        update={"$set": {"bericht.scorers.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.cards.$[card].spieler_id": GHOST_SPIELER_ID}},
+        update={"$set": {"bericht.scorers.$[goal].spieler_id": None, "bericht.cards.$[card].spieler_id": None}},
         array_filters=[{"goal.spieler_id": spieler_id}, {"card.spieler_id": spieler_id}],
         session=session,
     )

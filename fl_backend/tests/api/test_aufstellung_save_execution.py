@@ -17,12 +17,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.aufstellungen.admin_router import get_aufstellung, put_aufstellung
 from app.api.aufstellungen.person_router import get_aufstellung_self, put_aufstellung_self
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload, FLAufstellungResponse, FLAufstellungSpieler
-from app.api.teams.person_router import get_team_spiele
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.recording import ACT_BY_KONTAKT, actor_var
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.acts import acts_of
@@ -443,38 +441,43 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, *pupils: Obje
 
 
 class TestAnErasedPupilsEntry:
-    """Kept as the record where the line-up is locked, removed where the club may still change it."""
+    """Kept naming nobody where the match was played, removed where it is still to come."""
 
-    def test_two_erased_after_kick_off_stay_apart_and_the_line_up_saves_as_served(self, mongo_replica_set_url: str):
-        """Both entries name the one sentinel: served among the named, a save of the screen as served was refused as naming one twice."""
+    def test_two_erased_after_kick_off_stand_naming_nobody_and_the_line_up_saves_as_served(self, mongo_replica_set_url: str):
+        """A played match keeps its shape: each entry stands in its place, and a save of the screen as served keeps both.
+
+        Each erasure raises the line-up's count, so a screen read before it is refused rather than writing the pupil back.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
+            saved, _ = await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
             await erase(database, client, LINA, OLE, now=PLAYED)
+            stale = await refusal_of(admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2, version=saved.version), now=PLAYED))
             served = await admin_reads(database, client, now=PLAYED)
             answer, _ = await admin_saves(database, client, FLAufstellungPayload(spieler=served.spieler, version=served.version), now=PLAYED)
             stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
             assert stored is not None
 
-            return served, answer, stored["spieler"]
+            return stale, served, answer, stored["spieler"]
 
-        served, answer, stored = on_a_season(mongo_replica_set_url, body)
+        stale, served, answer, stored = on_a_season(mongo_replica_set_url, body)
 
-        assert ([entry.spieler_id for entry in served.spieler], [row.spieler_id for row in served.named]) == ([MIA], [])
-        assert [entry.starts for entry in served.erased] == [True, True]
-        assert [entry.starts for entry in answer.erased] == [True, True]
+        assert stale == (Code.VERSION_STALE, [])
+        assert [(entry.spieler_id, entry.starts) for entry in served.spieler] == [(None, True), (None, True), (MIA, False)]
+        assert (served.named, answer.spieler) == ([], served.spieler)
         assert stored == [
+            {"spieler_id": None, "starts": True},
+            {"spieler_id": None, "starts": True},
             {"spieler_id": MIA, "starts": False},
-            {"spieler_id": GHOST_SPIELER_ID, "starts": True},
-            {"spieler_id": GHOST_SPIELER_ID, "starts": True},
         ]
 
-    def test_one_erased_before_kick_off_leaves_the_line_up(self, mongo_replica_set_url: str):
-        """The club fielded nobody yet: an entry kept would hold a place in the Startelf no save could free."""
+    @pytest.mark.parametrize("now", [pytest.param(OPEN, id="before-the-lock"), pytest.param(LOCKED, id="locked-before-kick-off")])
+    def test_one_erased_before_kick_off_leaves_the_line_up(self, mongo_replica_set_url: str, now: datetime):
+        """The match is still to come, locked or not: an entry kept would hold a place in the Startelf nobody could name."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seat_saves(database, client, _payload(LINA, OLE, starters=2))
-            await erase(database, client, LINA, now=OPEN)
+            await erase(database, client, LINA, now=now)
             stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
             assert stored is not None
 
@@ -482,23 +485,7 @@ class TestAnErasedPupilsEntry:
 
         assert on_a_season(mongo_replica_set_url, body) == [{"spieler_id": OLE, "starts": True}]
 
-    def test_one_erased_after_the_lock_stays_as_the_record(self, mongo_replica_set_url: str):
-        """From the lock the line-up is the club's final record, which only an administrator still writes."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seat_saves(database, client, _payload(LINA, OLE, starters=2))
-            await erase(database, client, LINA, now=LOCKED)
-            stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
-            assert stored is not None
-
-            return stored["spieler"]
-
-        assert on_a_season(mongo_replica_set_url, body) == [
-            {"spieler_id": GHOST_SPIELER_ID, "starts": True},
-            {"spieler_id": OLE, "starts": True},
-        ]
-
-    def test_one_naming_only_the_erased_after_the_lock_stands_as_stored(self, mongo_replica_set_url: str):
+    def test_one_naming_only_the_erased_after_kick_off_stands_as_stored(self, mongo_replica_set_url: str):
         """It is the club's record of whom it fielded: read as none, the club's marks would ask for a line-up it gave."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -506,66 +493,12 @@ class TestAnErasedPupilsEntry:
             await erase(database, client, LINA, now=PLAYED)
             screen = await seat_reads(database, client, now=PLAYED)
 
-            return screen.marks, screen.spieler, [entry.starts for entry in screen.erased]
+            return screen.marks, screen.spieler
 
-        marks, named, erased_starts = on_a_season(mongo_replica_set_url, body)
+        marks, spieler = on_a_season(mongo_replica_set_url, body)
 
         assert marks is not None
-        assert ((marks.stored, marks.phase), named, erased_starts) == ((True, "locked"), [], [True])
-
-    def test_one_kept_leaves_with_the_next_save_once_its_match_is_re_dated_ahead(self, mongo_replica_set_url: str):
-        """A match called off after kick-off and re-dated is picked anew: a kept entry would hold a starter's place nobody could free."""
-
-        others = [ObjectId() for _ in range(9)]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_many(
-                [documents.spieler_document(pupil, f"Mit{index}", "Muster") for index, pupil in enumerate(others)]
-            )
-            await database[Collection.SAISON_SPIELER].insert_many(
-                [documents.saison_spieler_document(pupil, SAISON_ID, HOME, nummer=str(20 + index)) for index, pupil in enumerate(others)]
-            )
-            await admin_saves(database, client, _payload(LINA, OLE, starters=1))
-            await erase(database, client, LINA, now=PLAYED)
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2026-11-21"}})
-            served = await seat_reads(database, client, now=PLAYED)
-            answer, _ = await seat_saves(database, client, _payload(OLE, MIA, *others, starters=11, version=served.version), now=PLAYED)
-            stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
-            assert stored is not None
-
-            return served, answer, stored["spieler"]
-
-        served, answer, stored = on_a_season(mongo_replica_set_url, body)
-
-        assert (served.erased, answer.erased) == ([], [])
-        assert GHOST_SPIELER_ID not in {entry["spieler_id"] for entry in stored}
-        assert sum(entry["starts"] for entry in stored) == 11
-
-    def test_one_naming_only_the_erased_stands_as_none_once_its_match_is_re_dated_ahead(self, mongo_replica_set_url: str):
-        """The screen shows nobody, so the club's marks say the line-up is still owed: read as stored, nothing would ask for it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await admin_saves(database, client, _payload(LINA, starters=1))
-            await erase(database, client, LINA, now=PLAYED)
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": "2026-11-21"}})
-            screen = await seat_reads(database, client, now=PLAYED)
-            listed = await get_team_spiele(
-                team_id=HOME,
-                saison_id=SAISON_ID,
-                identifier=HOME_SEAT,
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                spiele_collection=database[Collection.SPIELE],
-                records=record_collections(database),
-                db=client,
-                now=PLAYED,
-            )
-
-            return screen.marks, next(spiel.aufstellung for spiel in listed.spiele if spiel.id == SPIEL)
-
-        screen, listed = on_a_season(mongo_replica_set_url, body)
-
-        assert screen is not None and listed is not None
-        assert (screen.stored, screen.phase) == (listed.stored, listed.phase) == (False, "open")
+        assert ((marks.stored, marks.phase), spieler) == ((True, "locked"), [FLAufstellungEntry(spieler_id=None, starts=True)])
 
 
 # --- One document per club per fixture: a club's two seats saving at once meet on it, and the other club's save never does.

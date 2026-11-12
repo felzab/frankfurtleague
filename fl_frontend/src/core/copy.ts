@@ -327,8 +327,10 @@ export const COPY = catalogue({
     notProvided: "Nicht hinterlegt",
     /** A value not there yet, in a tile, a table cell or a score's place: a glyph, not a word. */
     noValue: "–",
-    /** A pupil whose consent publishes no name, or one erased since; client components name a pupil too, so it stands here. */
+    /** A pupil or a referee whose consent publishes no name, or one erased since; client components name a pupil too, so it stands here. */
     anonymous: "anonym",
+    /** A list's entry naming nobody, the same word opening the entry: a goal's or a card's player, a played match's referee. */
+    nobody: "Anonym",
     /** Between a pairing's two sides where no score stands between them, as a fixture's pairing reads: a glyph, not a word. */
     versus: "–",
     overview: "Übersicht",
@@ -925,8 +927,6 @@ export const COPY = catalogue({
 
       /** The match report's form; a goal's and a result's words are the match editor's and the match page's. */
       spielbericht: {
-        /** The player list's first entry on a goal, for a scorer nobody can name. */
-        unknown: "Unbekannt",
         /** Inside `shared.field.format` under a minute off its pattern: the played minute, and stoppage time after a plus. */
         minuteExample: "90+3",
         cards: "Karten",
