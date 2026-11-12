@@ -139,7 +139,7 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   const label = sonderereignisOf(sonderereignis, spiel);
   if (!isNoShow(sonderereignis)) return { chip: { tone: "danger", label }, muted: true };
   return {
-    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
+    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtantretenChip, spoken: label },
     muted: true,
     absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2",
   };
@@ -251,9 +251,9 @@ function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy 
   const words = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":
-      return words.nichtAngetreten(sidesOf(spiel).team1.name);
+      return words.nichtantreten(sidesOf(spiel).team1.name);
     case "nichtantreten_team2":
-      return words.nichtAngetreten(sidesOf(spiel).team2.name);
+      return words.nichtantreten(sidesOf(spiel).team2.name);
     default:
       return words[sonderereignis];
   }
@@ -270,9 +270,9 @@ export function eventOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "e
   const { consequence } = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team2.name) };
+      return { title, text: consequence.nichtantreten(sidesOf(spiel).team2.name) };
     case "nichtantreten_team2":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team1.name) };
+      return { title, text: consequence.nichtantreten(sidesOf(spiel).team1.name) };
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
     case "ausgefallen":

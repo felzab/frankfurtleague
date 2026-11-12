@@ -170,7 +170,7 @@ function confirmationBlock(sentOn) {
 // label (`fl_frontend/src/core/consentWordings.ts`): a pupil's (`SPIELER_TEXT_VERSIONS`), whose media wording every
 // kind shares.
 const CONSENTED = day(-60);
-const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
+const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-media-1" };
 
 /**
  * A referee as their own confirmation leaves the row
@@ -1270,7 +1270,7 @@ const addressChange = (address, way, label, step) => ({
 });
 
 // Its wait outlasts any run, as a handover's does: the hourly pass switches an address whose date has passed.
-const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug", {
+const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "move", {
   released_at: IN_EFFECT,
   confirmed_at: IN_EFFECT,
   effective_from: WAITING,

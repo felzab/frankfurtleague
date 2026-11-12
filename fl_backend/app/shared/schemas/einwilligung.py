@@ -11,7 +11,7 @@ from app.shared.schemas.responses import BaseReadModel
 # The label of each consent's current wording, the one a grant names: a page loaded before a deploy moved a label shows
 # words a grant's record would then cite.
 type FLWhatsappTextVersion = Literal["2026-11-whatsapp-1"]
-type FLMediaTextVersion = Literal["2026-11-medien-1"]
+type FLMediaTextVersion = Literal["2026-11-media-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 

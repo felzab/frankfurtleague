@@ -2,7 +2,7 @@ import { connection } from "next/server";
 
 import { SITE_URL } from "@/core/brand";
 import { ROUTES } from "@/core/routes";
-import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
+import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
 import { getSaisonFrame } from "@/features/saisons/queries";
 
 import type { RouteEntry } from "@/core/routes";
@@ -34,6 +34,6 @@ function listed(saisons: readonly string[]): MetadataRoute.Sitemap {
     })
     .map((address) => ({
       url: `${SITE_URL}${address}`,
-      ...(address === ROUTES.privacyNotice.path() ? { lastModified: DATENSCHUTZ_STAND } : {}),
+      ...(address === ROUTES.privacyNotice.path() ? { lastModified: DATENSCHUTZ_AS_OF } : {}),
     }));
 }

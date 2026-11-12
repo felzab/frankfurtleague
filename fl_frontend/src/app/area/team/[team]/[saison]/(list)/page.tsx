@@ -13,7 +13,7 @@ import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import { agreeTermin } from "./answerTermin";
+import { agreeSpielbestaetigung } from "./answerSpielbestaetigung";
 import { DeclineDialog } from "./DeclineDialog";
 
 import type { Copy, Words } from "@/core/copy";
@@ -24,7 +24,7 @@ import type {
   FLSpielbestaetigungViewAnsetzung,
   FLTeamPanelAufstellung,
   FLTeamPanelRegistrierung,
-  FLTeamPanelTermin,
+  FLTeamPanelSpielbestaetigung,
   FLTeamSeat,
 } from "@/core/generated/client/types";
 import type { TeamSeat } from "@/features/roles/resolvers";
@@ -40,7 +40,7 @@ const TEAM = COPY.area.team;
 const line = COPY.shared.line;
 
 const TITLES = {
-  termine: WORDS.card.dates,
+  spielbestaetigungen: WORDS.card.dates,
   aufstellungen: TEAM.aufstellung.plural,
   registrierungen: COPY.page.registrierungen,
   seats: COPY.team.kontakte,
@@ -64,7 +64,7 @@ const venueOf = (ansetzung: FLSpielbestaetigungViewAnsetzung): Words | null =>
   ansetzung.spielort === null ? null : { record: ansetzung.spielort.name };
 
 /** The other club of the fixture, whose decline proposes the date the team is asked about. */
-const opponentOf = ({ ansetzung, side }: FLTeamPanelTermin): Words => ({
+const opponentOf = ({ ansetzung, side }: FLTeamPanelSpielbestaetigung): Words => ({
   record: side === "team1" ? ansetzung.team2_name : ansetzung.team1_name,
 });
 
@@ -74,7 +74,7 @@ const opponentOf = ({ ansetzung, side }: FLTeamPanelTermin): Words => ({
  * answer, and a declined one waits on the league with the team's own proposal: neither carries an act. An agreed date
  * is no row of the read; one it serves anyway says so and carries none either.
  */
-function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: CalendarDay): Row {
+function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, saison: string, today: CalendarDay): Row {
   const { ansetzung } = row;
   const when = whenOf(ansetzung);
   const deadline = dayOf(row.deadline);
@@ -97,7 +97,7 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
             <PressAct
               variant="primary"
               label={COPY.shared.verb.agree}
-              act={agreeTermin}
+              act={agreeSpielbestaetigung}
               payload={{ id: row.spielbestaetigung_id }}
               done={COPY.shared.toast.agreed}
             />
@@ -123,7 +123,7 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
         line: line([when, row.vorschlag === null ? null : COPY.admin.spiel.proposed(whenOf(row.vorschlag))]),
       };
     case "agreed":
-      return { ...base, chip: { tone: "success", label: COPY.admin.spiel.zugesagt }, line: line([when, venueOf(ansetzung)]) };
+      return { ...base, chip: { tone: "success", label: COPY.admin.spiel.agreed }, line: line([when, venueOf(ansetzung)]) };
   }
 }
 
@@ -201,7 +201,11 @@ async function readOverview(params: Props["params"]) {
     drawn: {
       team: { plaque: { record: read.shorthand }, name: { record: read.full_name } },
       cards: [
-        { id: "termine", title: TITLES.termine, rows: read.termine.map((row) => terminRow(row, team, saison, today)) },
+        {
+          id: "spielbestaetigungen",
+          title: TITLES.spielbestaetigungen,
+          rows: read.spielbestaetigungen.map((row) => spielbestaetigungRow(row, team, saison, today)),
+        },
         { id: "aufstellungen", title: TITLES.aufstellungen, rows: read.aufstellungen.map((row) => aufstellungRow(row, team, saison)) },
         { id: "registrierungen", title: TITLES.registrierungen, rows: read.registrierungen.map((row) => registrierungRow(row, team, saison)) },
       ],
@@ -226,7 +230,7 @@ export default function TeamOverviewPage({ params }: Props) {
           team: true,
           rows: 2,
           cards: [
-            { title: TITLES.termine, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline] },
+            { title: TITLES.spielbestaetigungen, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline] },
             { title: TITLES.aufstellungen },
             { title: TITLES.registrierungen },
           ],

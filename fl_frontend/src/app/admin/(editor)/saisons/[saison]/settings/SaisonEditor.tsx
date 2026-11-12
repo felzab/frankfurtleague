@@ -356,7 +356,7 @@ export function SaisonEditor({
     },
     {
       id: "gruppen",
-      title: WORDS.gruppenUndKoRunde,
+      title: WORDS.gruppenAndKoRunde,
       // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
       ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
@@ -533,15 +533,15 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "registrierungslinks",
+      id: "invitations",
       // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
       block: (
         <Section
-          title={WORDS.registrierungslinks}
+          title={WORDS.invitations}
           list={
             <Table
               {...links.head}
-              label={WORDS.registrierungslinks}
+              label={WORDS.invitations}
               rows={links.rows}
               empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
               bare
@@ -550,13 +550,13 @@ export function SaisonEditor({
           <SectionAct
             acts={[
               {
-                label: COPY.shared.withObject(WORDS.registrierungslinks, "send"),
+                label: COPY.shared.withObject(WORDS.invitations, "send"),
                 variant: "primary",
                 // The press's own plan reaches nobody: every team is passed over or already mailed.
                 isDisabled: isClosed || links.mailed === 0,
                 confirm: {
                   verb: "send",
-                  subject: WORDS.registrierungslinks,
+                  subject: WORDS.invitations,
                   consequence: WORDS.dispatchConsequence(links.mailed),
                   tone: "primary",
                 },

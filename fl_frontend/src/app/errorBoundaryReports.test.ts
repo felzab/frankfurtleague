@@ -95,7 +95,7 @@ describe("the rail frame's own boundary", () => {
     onTestFinished(() => quiet.mockRestore());
 
     const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["uebersicht"], next }, h(FailingRead)), ROUTED));
+    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED));
     await act(() => Promise.resolve());
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 

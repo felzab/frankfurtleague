@@ -29,16 +29,16 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The states of a date the league asked the club about that still wait on the club's own answer. */
-const UNANSWERED: ReadonlySet<FLTeamPanelSpiel["termin"]> = new Set(["valid", "vorschlag", "expired"]);
+const UNANSWERED: ReadonlySet<FLTeamPanelSpiel["spielbestaetigung"]> = new Set(["valid", "vorschlag", "expired"]);
 
 /**
  * The one thing a match still needs from the club, its row's one chip: an answer to its date first, then its line-up,
  * missing until the day it is due and overdue from then, in the danger hue; nothing once the line-up is stored or locked,
  * since a match with no chip needs nothing from the club.
  */
-function openOn({ termin, aufstellung }: FLTeamPanelSpiel): ChipProps | undefined {
+function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps | undefined {
   const { missing } = SERVER_COPY.overview;
-  if (UNANSWERED.has(termin)) return { tone: "warn", label: missing(COPY.area.answer) };
+  if (UNANSWERED.has(spielbestaetigung)) return { tone: "warn", label: missing(COPY.area.answer) };
   if (aufstellung === null || aufstellung.stored) return undefined;
   if (aufstellung.phase === "open") return { tone: "warn", label: missing(SERVER_COPY.season.spiel.aufstellung) };
   if (aufstellung.phase === "overdue") return { tone: "danger", label: COPY.area.team.aufstellung.overdueOnCard };

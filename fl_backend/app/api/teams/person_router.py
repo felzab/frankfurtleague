@@ -35,7 +35,7 @@ from app.api.teams.panel import (
     FLTeamPanelAufstellung,
     FLTeamPanelRegistrierung,
     FLTeamPanelSpiel,
-    FLTeamPanelTermin,
+    FLTeamPanelSpielbestaetigung,
     FLTeamSpieleResponse,
 )
 from app.api.teams.schemas import FLTeamSeat
@@ -172,7 +172,7 @@ async def patch_einwilligung(
 
 # What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way and
 # proposal, which the Übersicht states of the team's own row alone. Never who answered.
-TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
+SPIELBESTAETIGUNG_ROW_FIELDS: Final[Mapping[str, int]] = {
     "saison_id": 1,
     "spiel_id": 1,
     "party": 1,
@@ -183,7 +183,7 @@ TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
     "closed": 1,
 }
 
-TERMIN_ROWS_AS: Final = "termin_rows"
+SPIELBESTAETIGUNG_ROWS_AS: Final = "spielbestaetigung_rows"
 OWN_AUFSTELLUNG_AS: Final = "own_aufstellung"
 
 
@@ -215,15 +215,15 @@ def _team_spiele_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, 
                 "foreignField": "spiel_id",
                 "pipeline": [
                     {"$match": {"saison_id": saison_id, "party.kind": "team", **build_closable_filter()}},
-                    {"$project": dict(TERMIN_ROW_FIELDS)},
+                    {"$project": dict(SPIELBESTAETIGUNG_ROW_FIELDS)},
                 ],
-                "as": TERMIN_ROWS_AS,
+                "as": SPIELBESTAETIGUNG_ROWS_AS,
             }
         },
     ]
 
 
-class _Termin(NamedTuple):
+class _Spielbestaetigung(NamedTuple):
     """The team's row about a fixture as it stands, and the state its pages show of it."""
 
     row: Mapping[str, Any]
@@ -232,11 +232,13 @@ class _Termin(NamedTuple):
     vorschlag_open: FLSpielbestaetigungAppointment | None
 
 
-def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime) -> _Termin | None:
+def _spielbestaetigung_of(
+    spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime
+) -> _Spielbestaetigung | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
     digest = ansetzung_digest_of(spiel_raw)
-    rows = [row for row in spiel_raw[TERMIN_ROWS_AS] if row["ansetzung"]["digest"] == digest]
+    rows = [row for row in spiel_raw[SPIELBESTAETIGUNG_ROWS_AS] if row["ansetzung"]["digest"] == digest]
     own = next((row for row in rows if row["party"]["team_id"] == team_id), None)
     if own is None:
         return None
@@ -254,7 +256,7 @@ def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[
         spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), now=now, vorschlag_open=vorschlag_open
     )
 
-    return None if state is None else _Termin(row=own, state=state, vorschlag_open=vorschlag_open)
+    return None if state is None else _Spielbestaetigung(row=own, state=state, vorschlag_open=vorschlag_open)
 
 
 def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
@@ -342,23 +344,27 @@ async def get_team_overview(
         registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
     )
 
-    termine: list[FLTeamPanelTermin] = []
+    spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
-        if termin is not None and termin.state != "agreed":
-            answer = termin.row.get("answer") or {}
-            declined = termin.state == "declined"
-            termine.append(
-                FLTeamPanelTermin.model_validate(
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        if spielbestaetigung is not None and spielbestaetigung.state != "agreed":
+            answer = spielbestaetigung.row.get("answer") or {}
+            declined = spielbestaetigung.state == "declined"
+            spielbestaetigungen.append(
+                FLTeamPanelSpielbestaetigung.model_validate(
                     {
-                        "spielbestaetigung_id": termin.row["_id"],
+                        "spielbestaetigung_id": spielbestaetigung.row["_id"],
                         "spiel_id": spiel["_id"],
                         "ansetzung": view_ansetzung_of(spiel),
                         "side": _side_of(spiel, team_id),
-                        "state": termin.state,
-                        "deadline": termin.row["deadline"],
-                        "vorschlag": answer.get("vorschlag") if declined else termin.vorschlag_open if termin.state == "vorschlag" else None,
+                        "state": spielbestaetigung.state,
+                        "deadline": spielbestaetigung.row["deadline"],
+                        "vorschlag": answer.get("vorschlag")
+                        if declined
+                        else spielbestaetigung.vorschlag_open
+                        if spielbestaetigung.state == "vorschlag"
+                        else None,
                     }
                 )
             )
@@ -386,7 +392,7 @@ async def get_team_overview(
         full_name=club["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
         rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
-        termine=termine,
+        spielbestaetigungen=spielbestaetigungen,
         aufstellungen=aufstellungen,
         registrierungen=[
             FLTeamPanelRegistrierung.model_validate(
@@ -424,7 +430,7 @@ async def get_team_spiele(
 ) -> FLTeamSpieleResponse:
     """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 
-    Each carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where
+    Each carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where
     no row asks the team about the fixture as it stands.
     """
 
@@ -441,9 +447,14 @@ async def get_team_spiele(
     )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
 
-        return {**spiel, **matchday_of(spiel), "termin": None if termin is None else termin.state, "aufstellung": _marks_of(spiel, now)}
+        return {
+            **spiel,
+            **matchday_of(spiel),
+            "spielbestaetigung": None if spielbestaetigung is None else spielbestaetigung.state,
+            "aufstellung": _marks_of(spiel, now),
+        }
 
     return FLTeamSpieleResponse(
         team_id=team_id, saison_id=saison_id, spiele=[FLTeamPanelSpiel.model_validate(served(spiel)) for spiel in spiele]

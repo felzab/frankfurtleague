@@ -1042,7 +1042,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 # A school whose own URL carries the three characters `validate_external_url` strips. Storable as
 # submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
-DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
+DIRTY_URL = "https://wirbelknoten\t.example.de/\rpath"
 DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WKX"
 
 
@@ -1091,7 +1091,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         # Every key either insert wrote, `inactive_since` included: both paths owe it.
         assert without_the_id(created) == without_the_id(through_the_entry)
         # The floor: two paths that both stored the block as submitted would compare equal above.
-        assert created["website_url"] == "https://wirbelknoten.example.de/pfad"
+        assert created["website_url"] == "https://wirbelknoten.example.de/path"
 
 
 @pytest.mark.db

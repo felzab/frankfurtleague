@@ -51,18 +51,18 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await expect(titleOf(page, "Übersicht")).toBeVisible();
 
   // The open work: the date to answer, the line-up it owes, and the registration waiting on the team.
-  const termine = box(page, "Termine");
+  const spielbestaetigungen = box(page, "Termine");
   const fixtureLink = page.getByRole("link", { name: fixture, exact: true });
-  await expect(termine.getByRole("link", { name: fixture, exact: true })).toBeVisible();
+  await expect(spielbestaetigungen.getByRole("link", { name: fixture, exact: true })).toBeVisible();
   await expect(box(page, "Aufstellungen").getByRole("link", { name: fixture, exact: true })).toBeVisible();
   await expect(box(page, "Registrierungen").getByRole("link", { name: pupil, exact: true })).toBeVisible();
 
   // „Zusagen“ acts at once: its toast, and the answered date leaves the box. A card row carries no role, so the row is
   // the kit's marked one holding the fixture's link.
-  const agree = termine.locator("[data-kit-row]").filter({ has: fixtureLink }).getByRole("button", { name: "Zusagen" });
+  const agree = spielbestaetigungen.locator("[data-kit-row]").filter({ has: fixtureLink }).getByRole("button", { name: "Zusagen" });
   await agree.click();
   await expect(toast(page, "Zugesagt")).toBeVisible();
-  await expect(termine.getByRole("link", { name: fixture, exact: true })).toHaveCount(0);
+  await expect(spielbestaetigungen.getByRole("link", { name: fixture, exact: true })).toHaveCount(0);
 
   // The registration's row opens its dialog, titled by the pupil's name, whose „Aufnehmen“ admits at once: its toast,
   // and the row leaves the list.

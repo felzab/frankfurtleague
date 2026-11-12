@@ -129,10 +129,10 @@ def test_a_handler_recorded_unmetered_is_no_finding_and_its_neighbour_still_is(m
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
     """Next resolves both configured extensions, so a walk seeing one of them accounts for part of the tree."""
-    findings = accounted(tree("/api/beispiel", file="route.tsx"), served(METERED, CATCH_ALL))
+    findings = accounted(tree("/api/example", file="route.tsx"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/beispiel" in details(findings)
+    assert "/api/example" in details(findings)
 
 
 GENERATED = "export default function meta() {\n  return [];\n}\n"
@@ -246,21 +246,21 @@ def test_an_exact_match_carrying_no_limit_req_is_a_finding():
 
 def test_a_handler_no_location_names_is_a_finding():
     """A route handler added with no edge change at all, which is how one ships unmetered."""
-    findings = accounted(tree("/api/beispiel"), served(METERED, CATCH_ALL))
+    findings = accounted(tree("/api/example"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/api/beispiel" in details(findings)
+    assert "/api/example" in details(findings)
 
 
 def test_the_catch_all_is_never_coverage():
     """`location /` matches every URI, so counting it would leave this check unable to fail."""
-    assert routes.covering_prefix("/api/beispiel", served(CATCH_ALL)) is None
+    assert routes.covering_prefix("/api/example", served(CATCH_ALL)) is None
 
 
 def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
     """A prefix names where a path goes and meters nothing, so the reason is the whole accounting."""
     monkeypatch.setattr(routes, "REASONS", ())
-    findings = accounted(tree("/api/beispiel/eins"), served(prefix("/api/beispiel/"), CATCH_ALL))
+    findings = accounted(tree("/api/example/one"), served(prefix("/api/example/"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "no recorded reason" in details(findings)
@@ -268,9 +268,9 @@ def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
 
 def test_a_recorded_reason_covers_the_handlers_that_fall_to_its_prefix(monkeypatch):
     """The other half of the same rule: a handler under a recorded prefix is accounted for by its reason."""
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/beispiel/", "each behind a guard of its own"),))
+    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/example/", "each behind a guard of its own"),))
 
-    assert accounted(tree("/api/beispiel/eins", "/api/beispiel/zwei"), served(prefix("/api/beispiel/"), CATCH_ALL)) == []
+    assert accounted(tree("/api/example/one", "/api/example/two"), served(prefix("/api/example/"), CATCH_ALL)) == []
 
 
 def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
@@ -329,23 +329,23 @@ def unmetered(app: Path, where: tuple) -> list:
 )
 def test_a_link_page_only_the_catch_all_answers_is_a_finding(text):
     """Under every spelling of the read, the hook's being what a case-blind match exists for."""
-    findings = unmetered(link_page("/neu", text), served(METERED, CATCH_ALL))
+    findings = unmetered(link_page("/new", text), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/neu reaches `location /`" in details(findings)
+    assert "/new reaches `location /`" in details(findings)
 
 
 def test_a_link_page_another_zone_meters_is_a_finding():
     """Metered is not enough: another zone passes any rule asking only for a `limit_req`."""
-    findings = unmetered(link_page("/neu"), served(exact("/neu"), CATCH_ALL))
+    findings = unmetered(link_page("/new"), served(exact("/new"), CATCH_ALL))
 
     assert severities(findings) == ["fail"]
-    assert "/neu reaches `location = /neu`" in details(findings)
+    assert "/new reaches `location = /new`" in details(findings)
 
 
 def test_a_link_page_on_the_link_zone_is_no_finding():
     """The control for the two above."""
-    assert unmetered(link_page("/neu"), served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL)) == []
+    assert unmetered(link_page("/new"), served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL)) == []
 
 
 def test_no_link_page_at_all_refuses():
@@ -354,44 +354,44 @@ def test_no_link_page_at_all_refuses():
         unmetered(tree("/api/bewerbung"), served(METERED, CATCH_ALL))
 
 
-MINTER = 'const NEU_PATH = "/neuhilfe";\nexport const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n'
+MINTER = 'const NEW_PATH = "/newhelp";\nexport const newLink = (origin: string, token: string) => `${origin}${NEW_PATH}?token=${token}`;\n'
 
 
 def test_a_link_page_reading_its_token_through_another_module_is_found_by_its_minter():
     """The page's own module names neither word the reader matches, so the minter is what finds it."""
     app = link_page(
-        "/neuhilfe",
-        'import { linkSchluessel } from "./linkLesen";\nexport default async function Page(props) {\n  return linkSchluessel(props);\n}\n',
+        "/newhelp",
+        'import { linkToken } from "./linkRead";\nexport default async function Page(props) {\n  return linkToken(props);\n}\n',
     )
-    write(app, "neuhilfe/linkLesen.ts", "export const linkSchluessel = async (props) => (await props.searchParams).token;\n")
-    write(app.parent, "core/neuLink.ts", MINTER)
+    write(app, "newhelp/linkRead.ts", "export const linkToken = async (props) => (await props.searchParams).token;\n")
+    write(app.parent, "core/newLink.ts", MINTER)
     paged = routes.pages(app)
     assert routes.link_pages(paged) == (), "the page names its token itself, so this case tests the reader instead"
 
-    assert [page.url for page in routes.linked_pages(paged, routes.minted(app.parent))] == ["/neuhilfe"]
+    assert [page.url for page in routes.linked_pages(paged, routes.minted(app.parent))] == ["/newhelp"]
 
 
-RECORD_LINK = "export const neuLink = (origin: string, art: Art, token: string) => `${origin}${NEU_PFAD[art]}?token=${token}`;\n"
+RECORD_LINK = "export const newLink = (origin: string, kind: Kind, token: string) => `${origin}${NEW_PATHS[kind]}?token=${token}`;\n"
 
 
 def test_a_link_through_a_record_of_paths_mints_one_to_each_of_its_values():
     """The key is a run-time value, so every value is a page some mail opens; a quoted key spells the same record."""
     root = new_root("check-public-routes-")
-    record = 'const NEU_PFAD: Readonly<Record<Art, string>> = {\n  eins: "/neuhilfe",\n  "zwei": "/neuhilfe/zwei",\n};\n'
-    write(root, "core/neuLink.ts", record + RECORD_LINK)
+    record = 'const NEW_PATHS: Readonly<Record<Kind, string>> = {\n  one: "/newhelp",\n  "two": "/newhelp/two",\n};\n'
+    write(root, "core/newLink.ts", record + RECORD_LINK)
 
-    assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
+    assert [path for _, path in routes.minted(root)] == ["/newhelp", "/newhelp/two"]
 
 
 ROUTES_TABLE = (
     "export const ROUTES = {\n"
-    '  neuhilfe: { path: () => "/neuhilfe" as const, title: null, crawl: "disallow" },\n'
-    "  neuZwei: {\n"
-    '    path: () => "/neuhilfe/zwei" as const,\n'
+    '  newhelp: { path: () => "/newhelp" as const, title: null, crawl: "disallow" },\n'
+    "  newTwo: {\n"
+    '    path: () => "/newhelp/two" as const,\n'
     "    title: null,\n"
     '    crawl: "disallow",\n'
     "  },\n"
-    '  neuSaison: { path: (saison: string) => `/neuhilfe/${saison}` as const, title: null, crawl: "disallow" },\n'
+    '  newSaison: { path: (saison: string) => `/newhelp/${saison}` as const, title: null, crawl: "disallow" },\n'
     "};\n"
 )
 
@@ -402,25 +402,25 @@ def test_a_link_through_a_routes_row_mints_one_to_that_row_s_path():
     write(root, "core/routes.ts", ROUTES_TABLE)
     write(
         root,
-        "core/neuLink.ts",
-        "export const eins = (origin: string, token: string) => `${origin}${ROUTES.neuhilfe.path()}?token=${token}`;\n"
-        "export const zwei = (origin: string, token: string) => `${origin}${ROUTES.neuZwei.path()}?token=${token}`;\n",
+        "core/newLink.ts",
+        "export const one = (origin: string, token: string) => `${origin}${ROUTES.newhelp.path()}?token=${token}`;\n"
+        "export const two = (origin: string, token: string) => `${origin}${ROUTES.newTwo.path()}?token=${token}`;\n",
     )
 
-    assert [path for _, path in routes.minted(root)] == ["/neuhilfe", "/neuhilfe/zwei"]
+    assert [path for _, path in routes.minted(root)] == ["/newhelp", "/newhelp/two"]
 
 
 @pytest.mark.parametrize(
     "key",
-    ["neuDrei", "neuSaison"],
+    ["newThree", "newSaison"],
     ids=["a-row-the-table-does-not-hold", "a-row-taking-segments"],
 )
 def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(key):
     """A row it skipped would drop its page from the listing; a row taking segments names no one page."""
     root = new_root("check-public-routes-")
     write(root, "core/routes.ts", ROUTES_TABLE)
-    minter = "export const neuLink = (origin: string, token: string) => `${origin}${ROUTES." + key + ".path()}?token=${token}`;\n"
-    write(root, "core/neuLink.ts", minter)
+    minter = "export const newLink = (origin: string, token: string) => `${origin}${ROUTES." + key + ".path()}?token=${token}`;\n"
+    write(root, "core/newLink.ts", minter)
 
     with pytest.raises(routes.RouteShape, match=f"ROUTES.{key}"):
         routes.minted(root)
@@ -429,9 +429,9 @@ def test_a_link_through_a_routes_row_this_reader_cannot_place_refuses(key):
 @pytest.mark.parametrize(
     "text",
     [
-        "export const neuLink = (origin: string, token: string) => origin + `/neuhilfe?token=${token}`;\n",
-        "export const neuLink = (origin: string, token: string) => `${origin}${NEU_PATH}?token=${token}`;\n",
-        'const NEU_PFAD = { eins: "/neuhilfe", zwei: NEU_PATH };\n' + RECORD_LINK,
+        "export const newLink = (origin: string, token: string) => origin + `/newhelp?token=${token}`;\n",
+        "export const newLink = (origin: string, token: string) => `${origin}${NEW_PATH}?token=${token}`;\n",
+        'const NEW_PATHS = { one: "/newhelp", two: NEW_PATH };\n' + RECORD_LINK,
         RECORD_LINK,
     ],
     ids=["no-origin-in-the-template", "a-path-constant-of-another-module", "a-record-value-no-literal-spells", "a-record-of-another-module"],
@@ -442,9 +442,9 @@ def test_a_minted_link_this_reader_cannot_place_refuses(text):
     A record is placed whole or not at all: dropping the value it cannot read drops that value's page.
     """
     root = new_root("check-public-routes-")
-    write(root, "core/neuLink.ts", text)
+    write(root, "core/newLink.ts", text)
 
-    with pytest.raises(routes.RouteShape, match="neuLink"):
+    with pytest.raises(routes.RouteShape, match="newLink"):
         routes.minted(root)
 
 
@@ -452,7 +452,7 @@ def test_a_minted_link_this_reader_cannot_place_refuses(text):
 def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
     """Every extension the walk reads: a fixture is no minter."""
     root = new_root("check-public-routes-")
-    write(root, f"core/neuLink.test{suffix}", "const fixture = `/neuhilfe?token=kein-echtes-token`;\n")
+    write(root, f"core/newLink.test{suffix}", "const fixture = `/newhelp?token=not-a-real-token`;\n")
 
     assert routes.minted(root) == ()
 
@@ -460,7 +460,7 @@ def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
 def test_a_link_burst_sized_for_another_squad_is_a_finding():
     """A squad of 10 at 30 a minute needs 10 x 10 - 2 x 30 = 40."""
     sized = "        limit_req zone=linkpage burst=40 nodelay;\n"
-    where = served(block("location = /neu", sized, PASS), block("location /neu/", sized, PASS), CATCH_ALL)
+    where = served(block("location = /new", sized, PASS), block("location /new/", sized, PASS), CATCH_ALL)
 
     assert routes.unsized_links(accounting(where=where, squad=10)) == []
 
@@ -480,8 +480,8 @@ DISCARDED = "        error_log /dev/null;\n"
 
 
 def unlogged(*lines: str) -> list:
-    """What the error-log rule says about a link page at `/neu` whose exact location carries `lines`."""
-    return routes.unlogged_links(accounting(link_page("/neu"), served(block("location = /neu", LINK_ZONE, *lines, PASS), CATCH_ALL)))
+    """What the error-log rule says about a link page at `/new` whose exact location carries `lines`."""
+    return routes.unlogged_links(accounting(link_page("/new"), served(block("location = /new", LINK_ZONE, *lines, PASS), CATCH_ALL)))
 
 
 def test_a_link_page_s_location_discarding_its_error_lines_is_no_finding():
@@ -499,45 +499,45 @@ def test_a_link_page_s_location_writing_an_error_line_anywhere_is_a_finding(line
     findings = unlogged(*lines)
 
     assert severities(findings) == ["fail"]
-    assert "/neu reaches `location = /neu`" in details(findings)
+    assert "/new reaches `location = /new`" in details(findings)
 
 
-NEU_REFERRER = (("/neu", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+NEW_REFERRER = (("/new", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
 
 
-def referring(where: tuple, referrer: tuple, url: str = "/neu") -> list:
+def referring(where: tuple, referrer: tuple, url: str = "/new") -> list:
     """What the referrer rule says about a link page at `url`, the locations and the map's entries given."""
     return routes.referring_links(accounting(link_page(url), where, referrer=referrer))
 
 
 def test_a_link_page_its_location_s_entry_withholds_the_referrer_from_is_no_finding():
     """The control, an exact match and a prefix each spelled as they match."""
-    assert referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), NEU_REFERRER) == []
-    prefixed = (("~^/neu/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
-    assert referring(served(block("location /neu/", LINK_ZONE, PASS), CATCH_ALL), prefixed, "/neu/seite") == []
+    assert referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), NEW_REFERRER) == []
+    prefixed = (("~^/new/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+    assert referring(served(block("location /new/", LINK_ZONE, PASS), CATCH_ALL), prefixed, "/new/page") == []
 
 
 def test_a_link_page_the_map_hands_the_site_s_policy_is_a_finding():
     """A link page added with its block and no entry, which is how one ships handing its address on."""
-    findings = referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
+    findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (("default", "strict-origin-when-cross-origin"),))
 
     assert severities(findings) == ["fail"]
-    assert "gives /neu strict-origin-when-cross-origin" in details(findings)
+    assert "gives /new strict-origin-when-cross-origin" in details(findings)
 
 
 def test_an_exact_entry_answers_before_a_regex_withholding_the_referrer():
     """nginx's own order: the exact key wins, so a regex covering the page does not."""
-    entries = (("/neu/seite", "strict-origin-when-cross-origin"), ("~^/neu/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
-    findings = referring(served(block("location /neu/", LINK_ZONE, PASS), CATCH_ALL), entries, "/neu/seite")
+    entries = (("/new/page", "strict-origin-when-cross-origin"), ("~^/new/", "no-referrer"), ("default", "strict-origin-when-cross-origin"))
+    findings = referring(served(block("location /new/", LINK_ZONE, PASS), CATCH_ALL), entries, "/new/page")
 
     assert severities(findings) == ["fail"]
-    assert "gives /neu/seite strict-origin-when-cross-origin" in details(findings)
+    assert "gives /new/page strict-origin-when-cross-origin" in details(findings)
 
 
-@pytest.mark.parametrize("key", ["/andere", "~^/ne", "~*^/neu"], ids=["another-page", "a-wider-regex", "a-caseless-regex"])
+@pytest.mark.parametrize("key", ["/other", "~^/ne", "~*^/new"], ids=["another-page", "a-wider-regex", "a-caseless-regex"])
 def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches_is_a_finding(key):
     """Every other page keeps the site's policy, so an entry matching more, or elsewhere, is one."""
-    findings = referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), (*NEU_REFERRER, (key, "no-referrer")))
+    findings = referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), (*NEW_REFERRER, (key, "no-referrer")))
 
     assert severities(findings) == ["fail"]
     assert f"gives {key!r} no-referrer, a match no link page's location" in details(findings)
@@ -546,16 +546,16 @@ def test_an_entry_withholding_the_referrer_where_no_link_page_s_location_matches
 def test_no_referrer_map_at_all_refuses():
     """The rule judged nothing, which would otherwise read as every link page withholding it."""
     with pytest.raises(routes.NothingJudged, match="no map setting"):
-        referring(served(block("location = /neu", LINK_ZONE, PASS), CATCH_ALL), ())
+        referring(served(block("location = /new", LINK_ZONE, PASS), CATCH_ALL), ())
 
 
 def test_the_referrer_map_is_read_off_the_http_level_in_order():
     """Its entries as nginx reads them, a quoted key unquoted, the map's other variables left out."""
     root = new_root("check-public-routes-")
     other = "map $uri $other {\n    default x;\n}\n"
-    write(root, "http.conf", other + 'map $uri $referrer_policy {\n    "~^/neu/" no-referrer;\n    /neu no-referrer;\n    default y;\n}\n')
+    write(root, "http.conf", other + 'map $uri $referrer_policy {\n    "~^/new/" no-referrer;\n    /new no-referrer;\n    default y;\n}\n')
 
-    assert routes.map_entries(root / "http.conf", "$referrer_policy") == (("~^/neu/", "no-referrer"), ("/neu", "no-referrer"), ("default", "y"))
+    assert routes.map_entries(root / "http.conf", "$referrer_policy") == (("~^/new/", "no-referrer"), ("/new", "no-referrer"), ("default", "y"))
     assert routes.map_entries(root / "http.conf", "$absent") == ()
 
 
@@ -582,7 +582,7 @@ def loosened(*blocks: str, app: Path | None = None) -> list:
 
 def test_a_page_s_location_written_with_the_catch_all_s_meter_is_no_finding():
     """The control: a further zone of its own beside both lines is no looser."""
-    assert loosened(block("location = /neu", CEILING, LINK_ZONE, ACTION_ZONE, PASS)) == []
+    assert loosened(block("location = /new", CEILING, LINK_ZONE, ACTION_ZONE, PASS)) == []
 
 
 @pytest.mark.parametrize(
@@ -597,10 +597,10 @@ def test_a_page_s_location_written_with_the_catch_all_s_meter_is_no_finding():
 )
 def test_a_page_s_location_lacking_a_line_of_the_catch_all_s_meter_is_a_finding(lines, lacking):
     """Next runs a server action at any page's path, so a block lacking either line is where a script posts past it."""
-    findings = loosened(block("location /neu/", *lines, PASS))
+    findings = loosened(block("location /new/", *lines, PASS))
 
     assert severities(findings) == ["fail"]
-    assert f"`location /neu/` is carved out of `location /` and lacks its {lacking}" in details(findings)
+    assert f"`location /new/` is carved out of `location /` and lacks its {lacking}" in details(findings)
 
 
 def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone():
@@ -619,7 +619,7 @@ def test_an_exact_match_carved_out_of_a_handler_s_prefix_owes_the_prefix_s_zone(
 def test_a_route_handler_s_own_location_and_one_proxying_elsewhere_owe_no_page_meter():
     """A handler runs no server action, and a backend location serves no page."""
     backend = block("location = /probe", "        proxy_pass http://backend:8000;\n")
-    page = block("location = /neu", CEILING, ACTION_ZONE, PASS)
+    page = block("location = /new", CEILING, ACTION_ZONE, PASS)
 
     assert loosened(METERED, backend, page, app=tree("/api/bewerbung")) == []
 
@@ -637,7 +637,7 @@ def test_a_location_the_ceiling_is_recorded_not_to_bound_still_owes_the_action_z
 @pytest.mark.parametrize(
     ("blocks", "said"),
     [
-        ((block("location = /neu", RAISED_ZONE, PASS), CATCH_ALL.replace(CEILING, "")), "meters nothing"),
+        ((block("location = /new", RAISED_ZONE, PASS), CATCH_ALL.replace(CEILING, "")), "meters nothing"),
         ((ACTION_CATCH_ALL,), "no location but"),
     ],
     ids=["a-catch-all-metering-nothing", "no-page-s-location-beside-it"],
@@ -702,8 +702,8 @@ def test_an_error_page_sending_to_no_named_location_refuses():
 
 def test_a_variable_error_page_reaches_every_location_its_map_names():
     """Read through the http level's map, so neither the page nor the sentence reads as unreached."""
-    text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + block("location @satz", PASS) + CATCH_ALL + "}\n"
-    maps = routes.map_values(routes.parse('map $http_accept $ziel {\n    "~*text/html" @seite;\n    default @satz;\n}\n', SOURCE))
+    text = "server {\n    error_page 429 = $target;\n" + block("location @page", PASS) + block("location @sentence", PASS) + CATCH_ALL + "}\n"
+    maps = routes.map_values(routes.parse('map $http_accept $target {\n    "~*text/html" @page;\n    default @sentence;\n}\n', SOURCE))
 
     found = routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
 
@@ -712,12 +712,12 @@ def test_a_variable_error_page_reaches_every_location_its_map_names():
 
 @pytest.mark.parametrize(
     ("maps", "named"),
-    [({}, "\\$ziel"), ({"$ziel": frozenset({"@seite", "@weg"})}, "@weg")],
+    [({}, "\\$target"), ({"$target": frozenset({"@page", "@gone"})}, "@gone")],
     ids=["no-map-defines-it", "its-map-names-no-location"],
 )
 def test_a_variable_error_page_this_reader_cannot_resolve_refuses(maps, named):
     """Unresolved, every named location it reaches would read as dead; resolved to nothing, as reached."""
-    text = "server {\n    error_page 429 = $ziel;\n" + block("location @seite", PASS) + CATCH_ALL + "}\n"
+    text = "server {\n    error_page 429 = $target;\n" + block("location @page", PASS) + CATCH_ALL + "}\n"
     with pytest.raises(routes.NginxSyntax, match=named):
         routes.locations(routes.parse(text, SOURCE), SOURCE, maps)
 
@@ -741,9 +741,9 @@ def test_a_path_two_exact_matches_declare_refuses():
 
 def test_a_prefix_written_with_the_no_regex_modifier_still_matches_a_prefix():
     """`^~` changes which locations nginx goes on to consider, not what this one matches."""
-    found = served(block("location ^~ /api/beispiel/", PASS))
+    found = served(block("location ^~ /api/example/", PASS))
 
-    assert [(one.exact, one.path) for one in found] == [(False, "/api/beispiel/")]
+    assert [(one.exact, one.path) for one in found] == [(False, "/api/example/")]
 
 
 def test_a_server_body_file_is_read_at_its_top_level():
@@ -807,13 +807,13 @@ def test_a_regex_holding_an_escaped_quote_stays_inside_its_string():
 # discarding its error lines, the referrer withheld from it, and the catch-all metering server actions.
 HTTP_CONF = (
     "limit_req_zone $client_net zone=linkpage:10m rate=30r/m;\n"
-    "map $uri $referrer_policy {\n    /neu no-referrer;\n    default strict-origin-when-cross-origin;\n}\n"
+    "map $uri $referrer_policy {\n    /new no-referrer;\n    default strict-origin-when-cross-origin;\n}\n"
 )
 LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 * 30
 CLEAN = (
     "server {\n"
     + METERED
-    + block("location = /neu", CEILING, f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
+    + block("location = /new", CEILING, f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
     + ACTION_CATCH_ALL
     + "}\n"
 )
@@ -837,7 +837,7 @@ def run_main(app: Path, text: str, monkeypatch) -> int:
 
 def clean_tree() -> Path:
     """A route handler and a link page, each with the location `CLEAN` gives it."""
-    app = link_page("/neu")
+    app = link_page("/new")
     write(app, "api/bewerbung/route.ts", HANDLER)
     return app
 

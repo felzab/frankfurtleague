@@ -109,7 +109,7 @@ class TestARecordCitesItsKindsWordings:
 
 # Constructed past validation: every kind's records cite its current labels alone until a rewording adds one, so no
 # request can carry another yet.
-STALE: Final = "2026-10-ersetzt-1"
+STALE: Final = "2026-10-replaced-1"
 
 
 def _replaced(kind: type[FLSeatTextVersions] | type[FLSpielerTextVersions] | type[FLSchiedsrichterTextVersions], choice: str) -> Any:

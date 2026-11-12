@@ -116,8 +116,8 @@ export function BerichtEditor({
   });
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
-    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team1.name) },
-    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team2.name) },
+    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team1.name) },
+    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team2.name) },
     { id: "abgebrochen", label: SPIEL.abgebrochen },
   ];
 
@@ -268,7 +268,7 @@ export function BerichtEditor({
           ),
         },
         {
-          id: "karten",
+          id: "cards",
           block: (
             <Section
               title={WORDS.cards}
@@ -311,7 +311,7 @@ export function BerichtEditor({
           ),
         },
         {
-          id: "bemerkungen",
+          id: "remarks",
           title: WORDS.remarks,
           fields: (
             <TextField

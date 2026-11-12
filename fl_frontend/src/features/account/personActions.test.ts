@@ -51,7 +51,7 @@ const mail = registerAuthDoubles({
   },
 });
 
-const store = memoryStore("__flKontoLoeschenStore");
+const store = memoryStore("__flAccountErasureStore");
 
 /** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
 const HELD = new Map<string, LookupFixture>();

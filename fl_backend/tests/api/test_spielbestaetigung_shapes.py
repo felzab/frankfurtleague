@@ -26,9 +26,9 @@ def spiel(**overrides: Any) -> dict[str, Any]:
     }
 
 
-class TestTheStandNamesOneAnsetzung:
+class TestTheDigestNamesOneAnsetzung:
     def test_a_fixed_spiel_keeps_its_digest(self):
-        """Pinned: every stored row's `stand` was composed this way, so a changed composition makes every open row read as moved."""
+        """Pinned: every stored row's `ansetzung.digest` was composed this way, so a changed composition makes every open row read as moved."""
 
         assert ansetzung_digest_of(spiel()) == "ff22b9d18168e96dd86358f6bbc4997b59b77f23fd3028389a8a9f0b1c0ffc27"
         assert ansetzung_digest_of(spiel(spielort=None)) == "e214a39a277656e1c74a8aec08602c77631e7c7a6cdc9a1c2d48fb9b86364259"

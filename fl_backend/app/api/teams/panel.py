@@ -15,7 +15,7 @@ from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpi
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class FLTeamPanelTermin(BaseModel):
+class FLTeamPanelSpielbestaetigung(BaseModel):
     """One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
 
     An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
@@ -75,7 +75,7 @@ class FLTeamOverviewResponse(BaseAPIResponse):
     # The seats the signed-in person holds on this team, in `KONTAKT_ROLLEN` order: never empty, the read refusing
     # anybody holding none.
     rollen: list[FLKontaktRolle]
-    termine: list[FLTeamPanelTermin]
+    spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
     # Whether every pending registration is listed, as `FLOpenRegistrierungenResponse.complete` says of the same read: the
@@ -89,7 +89,7 @@ class FLTeamPanelSpiel(FLTeamPageSpiel):
     """One of the team's matches as its own list shows it: the fixture and its matchday, and the two things that can be open on it."""
 
     # The state of the date the league asked the team to confirm, null where no row asks the team about the fixture as it stands.
-    termin: FLSpielbestaetigungTeamState | None
+    spielbestaetigung: FLSpielbestaetigungTeamState | None
     # Null for a fixture holding no day or no hour, which owes no line-up.
     aufstellung: FLAufstellungMarks | None
 

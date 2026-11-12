@@ -58,7 +58,7 @@ describe("one bare mailbox, the only recipient the mailer takes", () => {
     ["a leading dot", ".gerda@schule.de"],
     ["a doubled dot", "gerda..gesperrt@schule.de"],
     ["two at signs", "gerda@x@schule.de"],
-    ["no at sign", "gerda.gesperrt"],
+    ["no at sign", "gerda.barred"],
     ["an undotted domain", "gerda@localhost"],
   ];
 

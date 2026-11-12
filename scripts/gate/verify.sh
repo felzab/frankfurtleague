@@ -520,6 +520,12 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
+  step "ops · no path or name in the tree holds a retired German stem"
+  check --checker "A path or a name holds a retired German stem. Each finding above names the file, the line, the name
+and the stem; rename it to English by the glossary's rule." \
+    "$PY" scripts/checks/check_retired_stems.py \
+    && ok "every path and name in the tree is clear of the retired stems"
+
   step "ops · nginx accepts prod.conf"
   # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
   # `write`, not `print`: a Windows stdout would end the name in a carriage return.
