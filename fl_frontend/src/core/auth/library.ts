@@ -18,6 +18,7 @@ import { COPY } from "../copy";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
+import { identityPostAccountErasure } from "../generated/client/sdk";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
 import { passkeyLastUse } from "../passkeyLastUse";
@@ -284,15 +285,16 @@ class DeletionWithoutErasure extends Error {
   override name = "DeletionWithoutErasure";
 }
 
-// Our own dependency injection, never a compensation for the library: the hook takes no per-call
-// value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
 /**
- * One press of a mailed deletion link: the erasure of the league's records it hands `deleteOwnAccount`, and whether
- * the library has spent the link, which it does before this hook runs and whatever the hook then answers.
+ * One press of a mailed deletion link: whether the library has spent the link, which it does before this hook runs and
+ * whatever the hook then answers.
  */
-export type DeletionPress = { readonly erase: () => Promise<unknown>; linkSpent: boolean };
+export type DeletionPress = { linkSpent: boolean };
 
-/** The press `deleteOwnAccount` runs the library's deletion under, for the deletion that call makes. */
+/**
+ * The press `deleteOwnAccount` runs the library's deletion under, for the deletion that call makes: the hook takes no
+ * per-call value, so the press reaches it here.
+ */
 export const ownErasure = new AsyncLocalStorage<DeletionPress>();
 
 /**
@@ -304,12 +306,12 @@ async function eraseBeforeTheAccount(user: { id: string; email: string }): Promi
   // First: whatever follows, the link this press carried is spent.
   if (press !== undefined) press.linkSpent = true;
   // The backend erases the request's person and the library deletes the session's user, so the two must
-  // be one address; with no erasure handed in, no deletion goes ahead at all.
+  // be one address; outside a press, no deletion goes ahead at all.
   const actor = getRequestActor();
   if (press === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
 
   // Thrown on as it came, for the press to word: the account and its passkeys stand, the link spent.
-  await press.erase();
+  await identityPostAccountErasure();
 
   // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
   // never passkeys whose account is gone.

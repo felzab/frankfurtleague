@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure, PyMongoError
 
 from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
-from app.api.saisons.schedule import group_matchdays, total_group_matches
+from app.api.saisons.schedule import group_matchdays
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
@@ -310,6 +310,12 @@ def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
     return (*sizes[:-1], sizes[-1] + 1) if len(sizes) > 1 else tuple(sizes)
 
 
+def group_phase_count(rules: FLSaisonRules) -> int:
+    """Every group-phase fixture these rules imply: `C(n, 2)` per group."""
+
+    return rules.number_of_gruppen * (rules.teams_per_gruppe * (rules.teams_per_gruppe - 1) // 2)
+
+
 def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
     """How many matchdays and fixtures these rules imply, from arithmetic rather than the draw's own helpers.
 
@@ -320,7 +326,7 @@ def expected_counts(rules: FLSaisonRules) -> tuple[int, int]:
     bracket = bracket_rounds(rules)
     spieltage = group_matchdays(rules.teams_per_gruppe) + len(bracket)
 
-    return spieltage, total_group_matches(rules.number_of_gruppen, rules.teams_per_gruppe) + sum(bracket)
+    return spieltage, group_phase_count(rules) + sum(bracket)
 
 
 @dataclass(frozen=True)
@@ -385,7 +391,7 @@ def group_spiele(drawn: DrawnSeason) -> list[dict[str, Any]]:
     rules = FLSaisonRules.model_validate(drawn.saison["rules"])
     spiele = [row for row in drawn.spiele if row["saison_phase"] == "gruppenphase"]
 
-    assert len(spiele) == total_group_matches(rules.number_of_gruppen, rules.teams_per_gruppe)
+    assert len(spiele) == group_phase_count(rules)
 
     return spiele
 

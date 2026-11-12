@@ -18,7 +18,7 @@ import { CustomObjectIdStringSchema } from "@/core/objectId";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
-import { isPublicSaison } from "@/features/saisons/queries";
+import { isPublicSaison } from "@/features/saisons/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
 import { matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";

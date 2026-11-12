@@ -1,7 +1,7 @@
 import { tv } from "./tv";
 
 /**
- * What the rail's parts share between the frame, drawn on the server, and its client parts (`RailState.tsx`):
+ * What the rail's parts share between the frame, drawn on the server, and its client parts:
  * kept apart from the client module, whose every export the server would receive as a reference it cannot
  * call.
  */
@@ -27,7 +27,7 @@ export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 /**
  * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
  * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line, the
- * account row's name keeping one line however long (`FrameNav.tsx :: AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
+ * account row's name keeping one line however long (`AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
  * the column's left edge and the save at its right, the content's and the bar's paddings alike centring the column.
  * The row ends at its right as `FormFooter`'s does, since a status line with nothing to say leaves the row's flow
  * (`statusLine`'s `quiet`) and the save must not move when it starts or stops speaking.

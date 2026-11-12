@@ -113,16 +113,12 @@ export async function erasureLinkStands(token: string): Promise<boolean> {
 }
 
 /**
- * Completes a mailed deletion link for the session `requestHeaders` names, `eraseRecords` erasing that
- * person's league records first. A failure before the library spends the link comes back as thrown; one after it
+ * Completes a mailed deletion link for the session `requestHeaders` names, the library's hook erasing that person's
+ * league records first. A failure before the library spends the link comes back as thrown; one after it
  * as `spentUnerased` or `DeletionOutcomeUnknown`.
  */
-export async function deleteOwnAccount(
-  token: string,
-  requestHeaders: Headers,
-  eraseRecords: () => Promise<unknown>,
-): Promise<OwnAccountDeletion> {
-  const press: DeletionPress = { erase: eraseRecords, linkSpent: false };
+export async function deleteOwnAccount(token: string, requestHeaders: Headers): Promise<OwnAccountDeletion> {
+  const press: DeletionPress = { linkSpent: false };
   try {
     // The completing endpoint itself, the one the library's own link reaches: it expires the session's cookie on
     // its own answer, which `nextCookies` carries onto the action's. `deleteUser` with a token calls it as a plain

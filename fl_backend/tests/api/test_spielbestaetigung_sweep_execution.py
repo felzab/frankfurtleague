@@ -10,7 +10,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import SWEEP_PAGE, days_after
+from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
@@ -41,6 +41,7 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.transactions import SWEEP_PAGE
 from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents

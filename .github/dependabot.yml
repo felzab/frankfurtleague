@@ -77,6 +77,19 @@ updates:
       frontend-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Three majors held by hand; an entry goes when its reason does.
+      # typescript-eslint's peer range ends below TypeScript 7, which ships without the API it reads.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # eslint-plugin-react, -import and -jsx-a11y, which eslint-config-next brings, end their peer
+      # ranges at ESLint 9.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # 4.x takes its merge configuration only through an entry that ships tailwind-merge's table
+      # compiler to the browser, about 14 KB gzip on every page.
+      - dependency-name: tailwind-variants
+        update-types: ["version-update:semver-major"]
 
   # --- Backend (uv) ---------------------------------------------------------------------------
 

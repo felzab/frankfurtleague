@@ -688,7 +688,6 @@ class FLSpielJoinedInternal(FLSpielJoinedAdmin):
 
 FLSpielListAdapter = TypeAdapter(list[FLSpiel])
 FLSpielJoinedListAdapter = TypeAdapter(list[FLSpielJoined])
-FLSpielJoinedAdminListAdapter = TypeAdapter(list[FLSpielJoinedAdmin])
 FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 

@@ -52,7 +52,7 @@ function owedChange(control: Control) {
  * controls to what the server drew in the hydrating commit, before any render can write them, and raises the change a
  * press would have, so a replayed edit is an edit to everything above the field, its draft and the leave guard included.
  * A first client mount finds nothing to raise. A `textarea` holding text is past its reach: React writes that text back
- * while hydrating, so a stored paragraph takes no edit until the page's code runs (`./TextField.tsx`).
+ * while hydrating, so a stored paragraph takes no edit until the page's code runs (`ParagraphBox`).
  *
  * Each change is raised in its own microtask, as React raises its own after the commit: React then flushes the render
  * of one before the next, so a handler reads the state the one before it left, and all of them run before a press

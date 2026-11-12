@@ -161,7 +161,7 @@ VALUE_OF: Mapping[str, Any] = {
 # A path parameter naming one document of a season's contents, which a by-id read judges by that document's season.
 SEASON_DOCUMENT_IDS = frozenset({"spiel_id", "spieltag_id"})
 
-# The application reads name a `future` season by design: it is the one taking applications (`READ-BEWERBUNG-001`).
+# The application reads name a `future` season by design: it is the one taking applications.
 SERVES_A_PLANNED_SEASON = (f"{PREFIX}/bewerbungen/",)
 
 

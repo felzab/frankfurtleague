@@ -33,7 +33,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/confirm/kontakt">;
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
+/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.kontaktConfirmation, readState(searchParams));
 }

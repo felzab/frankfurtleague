@@ -183,7 +183,7 @@ export function CardLink({ href, title, line }: CardLinkProps) {
   );
 }
 
-// A card's act row is the container its parts read (`cardStyles.ts :: actRow`): it spans its card, so its width is the
+// A card's act row is the container its parts read (`actRow`): it spans its card, so its width is the
 // card's and every row of one card takes one form.
 const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm ${cardHover()}`;
 
@@ -201,7 +201,7 @@ export type CardActRowProps = {
  * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying what is
  * open where the name and the chip leave something to say, and its acts, one or two kit buttons: a decision, such as
  * „Zusagen“ and „Ablehnen“, or the row's one act, labelled at every width. The chip stands directly after the name on
- * its line (`cardStyles.ts :: nameWithChips`). The card's width picks where the acts stand, for every row of the card
+ * its line (`nameWithChips`). The card's width picks where the acts stand, for every row of the card
  * alike: on a card from 32 rem beside the words, before the chevron; on a narrower one, a phone's and each of two beside
  * the rail, on one line under the words. The whole row opens the record through its name, as every card row does, and
  * ends in the chevron, with acts or none; under the pointer the row takes the one hover layer and an act's own stacks

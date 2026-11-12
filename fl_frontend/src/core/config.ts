@@ -173,8 +173,8 @@ const environment = {
   // read as unset, in a build handed none.
   APP_VERSION: z.string().min(1).optional(),
 
-  // On for a restore's steps alone: no pass is armed and no write's drain sends, so nothing acts on the restored state
-  // before those steps have. Off where the server sets nothing.
+  // On while the stored data is changed by hand, in a restore or a migration: no pass is armed and no write's drain
+  // sends, so nothing acts on that data before the steps judging it have run. Off where the server sets nothing.
   RESTORE_HOLD: z
     .string()
     .transform((value) => value.toLowerCase())

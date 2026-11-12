@@ -270,7 +270,7 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * row's end. Below it the rows are stacked, and several lines are what no table row can be, so the table is a grid
  * there and its rows subgrids, head and rows sharing one set of tracks (`stackedTracks`). The name cell gives way to
  * its parts, `contents`, and each part of the row takes a line of its own, in one order: the name's, its chips directly
- * after the name (`cardStyles.ts :: nameWithChips`), with the columns the phone keeps beside it, each in its own track
+ * after the name (`nameWithChips`), with the columns the phone keeps beside it, each in its own track
  * under its head; the muted line; a refusal; and the acts on one line. The chevron spans the lines, centred on the row,
  * and so does the „⋯“ of a list whose side acts fold. A line that holds nothing takes no height, and a head cell's words stand
  * on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
@@ -278,7 +278,7 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
  * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
  * a row stands exactly as tall as one whose chips stand after its name, and as its wait's rows. A list whose rows carry
- * their acts under their words pads its rows 12 px, as a card's act row is (`cardStyles.ts :: actRow`).
+ * their acts under their words pads its rows 12 px, as a card's act row is (`actRow`).
  */
 const table = tv({
   slots: {
@@ -309,7 +309,7 @@ const table = tv({
     // The muted line's words and a refusal's.
     lineWords: "truncate",
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
-    // least width, as the name's does (`cardStyles.ts :: nameWithChips`).
+    // least width, as the name's does (`nameWithChips`).
     line: "grid grid-cols-[minmax(0,max-content)] text-xs text-fg-muted",
     // The status column's cell, and the row's chips in it, side by side on one line.
     state: "px-3",
@@ -621,7 +621,7 @@ function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean;
 
 /**
  * A row's name line: a club's plaque, then the name with its mark and the chips after it, as every row holds them
- * (`cardStyles.ts :: nameWithChips`). Its least width is the name's, 5 rem, with a plaque its 40 px and their gap
+ * (`nameWithChips`). Its least width is the name's, 5 rem, with a plaque its 40 px and their gap
  * besides, so the table narrows the column to no less: the name's words count nothing towards it, where a cut name in
  * a flex row would count whole, a table cell being never narrower than its content's least width, and push the table
  * past its box.

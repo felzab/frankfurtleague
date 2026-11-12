@@ -3,7 +3,15 @@ export const KONTAKT_EMAIL = "kontakt@frankfurtleague.de";
 /** The mail link to it, a literal as the two profiles' addresses are, so a link takes each as it stands. */
 export const KONTAKT_MAILTO = `mailto:${KONTAKT_EMAIL}` as const;
 
-export const VEREIN_NAME = "Frankfurt League e. V.";
+/**
+ * The association's name as its register entry spells it, plain spaces throughout: the form data a machine reads
+ * carries.
+ */
+export const VEREIN_LEGAL_NAME = "Frankfurt League e. V.";
+
+// The same name on a screen or in a mail, „e. V.“ held together by a no-break space, so a line never ends between its
+// two parts.
+export const VEREIN_NAME = "Frankfurt League e. V.";
 
 export const VEREIN_ADDRESS = "Windmühlstraße 5, 60329 Frankfurt am Main";
 

@@ -201,11 +201,10 @@
 }
 
 /* A placeholder's bar, the kit's `Skeleton`: 12 % of its ground's text colour, the hover layer's figure, so a bar shows
-   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. Applied here
-   rather than set as a class, so it stands outside `globals.css`'s reduced-motion stop for `.animate-pulse`: a loading
-   indicator that stops reads as stuck. One utility, so a page waiting in hundreds of bars carries one class for all of
-   this rather than its every class on each bar. Its properties sort it ahead of the single-property utilities on the
-   same property, so a bar's own display, size or corners, set beside it, win. */
+   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. One utility, so
+   a page waiting in hundreds of bars carries one class for all of this rather than its every class on each bar. Its
+   properties sort it ahead of the single-property utilities on the same property, so a bar's own display, size or
+   corners, set beside it, win. */
 @utility skeleton-bar {
   @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }

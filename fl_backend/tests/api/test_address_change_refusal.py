@@ -54,7 +54,7 @@ class TestAWaitCountsHours:
 
 
 class TestWhatALeakedLinkLearns:
-    """`READ-ADRESSWECHSEL-001`: a link is a stranger's to forward, so its page learns little.
+    """A link is a stranger's to forward, so its page learns little.
 
     Its side, its state, its way and its days, and the new address, masked where an administrator started the change.
     """
@@ -72,7 +72,7 @@ class TestWhatALeakedLinkLearns:
 
 
 class TestTheSystemsReadOfTheNewAddress:
-    """`READ-ADRESSWECHSEL-002`: the address a change would move to, for the frontend's server alone."""
+    """The address a change would move to, for the frontend's server alone."""
 
     def test_the_base_key_is_refused_as_the_wrong_credential(self):
         """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""

@@ -12,7 +12,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -167,7 +167,7 @@ def booted(boots: Mapping[str, Booting]) -> dict[str, Boot]:
 
 
 @asynccontextmanager
-async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncIterator[Boot]:
+async def serving(directory: Path, files: Mapping[str, str], variables: Mapping[str, str], *, until: str) -> AsyncGenerator[Boot]:
     """The boot, held running from the line `until` names until the block leaves; what it logged by then, or by its exit."""
 
     process = await _started(directory, files, variables)

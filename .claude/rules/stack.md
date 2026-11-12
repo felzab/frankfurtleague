@@ -49,6 +49,8 @@ writing a line that depends on it.
   [FastAPI](https://fastapi.tiangolo.com) · [Playwright](https://playwright.dev/docs/intro) ·
   [PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/). For a package
   missing from this table, probe `<docs-root>/llms.txt` and add the row when one turns up.
+- The hooks under `.claude/hooks/` run a bare `node`, the machine's own: keep it at the release
+  `fl_frontend/package.json :: devEngines` names, and move it when the pin moves.
 
 ## Deprecations the toolchain will NOT catch
 

@@ -71,6 +71,14 @@ or uv is refused by `scripts/tests/test_image_pins.py` until the pin moves on th
 uv that refusal is the only wait a new release meets**: `ghcr.io` publishes no date, so the
 ecosystem's cooldown holds nothing back.
 
+**A frontend dependency held narrower than a caret** (`fl_frontend/package.json`) is held so for a
+reason of its own:
+
+- `zod` takes patches alone (`~`): a minor can change which field a refusal names or which hosts a
+  pattern admits, which only the bounds cases see, so a minor moves as its own change;
+- `orval` is pinned exactly: a generator release can change the generated client, so a bump is its
+  own change, regenerated in the same pull request.
+
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever its own base is refreshed
 ([the Official Images FAQ](https://github.com/docker-library/faq/blob/ce1a70af72a522f8638d6bffd930ef3252de7837/README.md#why-does-my-security-scanner-show-that-an-image-has-cves),

@@ -10,7 +10,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.services import aufstellung_marks, aufstellung_reminder_owed, aufstellung_stands
-from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import (
     FLAufstellungReminderData,
@@ -86,7 +85,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.security import verify_access_system
-from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
+from app.core.transactions import SWEEP_PAGE, Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLSweepSaisonsResponse

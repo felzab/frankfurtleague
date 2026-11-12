@@ -222,7 +222,7 @@ export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FL
   return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.spiele(spiele.length)], {
     title: COPY.page.spiele,
     facts: spiele.map((spiel) => ({
-      label: COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
+      label: words.when(dayOf(spiel.date), timeOf(spiel.time)),
       value: paarung(spiel),
     })),
   });

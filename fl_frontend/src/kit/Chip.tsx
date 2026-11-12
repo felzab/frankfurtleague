@@ -24,7 +24,7 @@ export type ChipProps = { tone: "success" | "info" | "warn" | "danger" | "neutra
 
 /**
  * A status said in one word, which belongs to a name: set directly after it on its line, as every row holds it
- * (`cardStyles.ts :: nameWithChips`), or in the status column of a list that is a table. A page never places one: the
+ * (`nameWithChips`), or in the status column of a list that is a table. A page never places one: the
  * blocks that carry a name render it from their `chip` prop.
  */
 export function Chip({ tone, label, spoken }: ChipProps) {

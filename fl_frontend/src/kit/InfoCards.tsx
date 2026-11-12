@@ -8,10 +8,8 @@ type Info = { title: Copy; text: Copy };
 
 const cards = tv({
   slots: {
-    // Three side by side from `lg`, one under another below it.
     root: "grid gap-4 lg:grid-cols-3",
     card: `grid content-start gap-1 ${cardSurface()} p-4`,
-    // The label in the kit's small capitals over its sentence.
     title: smallCaps(),
     text: "text-sm",
   },

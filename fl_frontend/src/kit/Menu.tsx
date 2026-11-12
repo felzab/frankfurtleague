@@ -56,7 +56,7 @@ export type MenuEntry =
       label: Copy;
       /**
        * An action that destroys: its words in the danger hue, as every destroying act's button words them
-       * (`buttonStyles.ts`'s `dangerOutline`), so the entry reads as what it does before it is pressed. It stands after
+       * (`dangerOutline`), so the entry reads as what it does before it is pressed. It stands after
        * the menu's other entries.
        */
       tone?: "danger";
@@ -497,14 +497,14 @@ export function Menu({ label, trigger, head, groups, placement, align = "start",
               onOpenChange={setSubmenuOpen}>
               {/* The trigger's menu props belong to the first sheet's list; a chosen link here still
                   closes the whole menu through the root trigger's state. */}
-              <MenuContext.Provider value={null}>
+              <MenuContext value={null}>
                 <LinkList
                   label={shown.label}
                   links={shown.links}
                   size="phone"
                   onBack={() => setSubmenuOpen(false)}
                 />
-              </MenuContext.Provider>
+              </MenuContext>
             </SheetFrame>
           )}
         </SheetFrame>

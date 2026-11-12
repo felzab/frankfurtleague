@@ -48,4 +48,15 @@ describe("a grant notice", () => {
 
     expect(text).toContain(WORDS.lead.withdrawn.address(ADDRESS, WORDS.unnamedNewAddress));
   });
+
+  /* The completed change's lead takes the builder's stand-ins for an erased side, a subject's and a dative's, so its
+     sentence has to read with either one in either place. */
+  it.each([
+    { previous: ADDRESS, next: "nora.neu@zweitschule.de", lead: "nora.neu@beispielschule.de ist jetzt zu nora.neu@zweitschule.de gewechselt." },
+    { previous: null, next: "nora.neu@zweitschule.de", lead: "Eine nicht genannte Adresse ist jetzt zu nora.neu@zweitschule.de gewechselt." },
+    { previous: ADDRESS, next: null, lead: "nora.neu@beispielschule.de ist jetzt zu einer nicht genannten Adresse gewechselt." },
+    { previous: null, next: null, lead: "Eine nicht genannte Adresse ist jetzt zu einer nicht genannten Adresse gewechselt." },
+  ])("reads the completed address change as a sentence from $previous to $next", ({ previous, next, lead }) => {
+    expect(rendered({ change: "address", stage: "completed", address: previous, new_address: next })).toContain(lead);
+  });
 });

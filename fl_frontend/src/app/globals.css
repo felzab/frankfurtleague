@@ -104,17 +104,10 @@ input:focus:placeholder-shown::placeholder {
 /* Reduced motion, softened: the policy is "remove movement, keep fades", never
    "remove motion". Zeroing every duration makes the site motionless rather than
    calm, and reads as flickering. Deliberately unlayered. */
-/* Autonomous loops stop, but never a loading indicator — a frozen one says nothing about the wait
-   it exists to report. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-  }
-
-  .animate-ping,
-  .animate-pulse {
-    animation: none !important;
   }
 }

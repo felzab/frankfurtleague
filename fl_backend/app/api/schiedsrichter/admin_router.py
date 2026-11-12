@@ -45,7 +45,6 @@ from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
-    build_query,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -90,7 +89,7 @@ async def get_schiedsrichter(
 
     schiedsrichter_raw = await pull_many_from_db(
         collection=schiedsrichter_collection,
-        db_filter=build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive),
+        db_filter={} if filters.include_inactive else {"inactive_since": None},
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )

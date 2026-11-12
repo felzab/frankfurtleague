@@ -17,7 +17,6 @@ import {
   accountDeleteAddressChange,
   accountPostAddressChange,
   bewerbungenPatchEinwilligung,
-  identityPostAccountErasure,
   registrierungenPatchEinwilligung,
   schiedsrichterPatchEinwilligung,
   spielerPatchEinwilligung,
@@ -70,7 +69,7 @@ export const eraseAccount = action({
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => identityPostAccountErasure());
+      outcome = await deleteOwnAccount(token, await headers());
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
       logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });

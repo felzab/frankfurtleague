@@ -109,8 +109,9 @@ const {
   core: {
     db: DB_DOUBLE,
     logging: LOGGING_DOUBLE,
-    // Where the send gate's backend read goes, answered by the `fetch` below rather than a server.
-    config: configDouble({ API_URL: API_ORIGIN }),
+    // Where the send gate's backend read goes, answered by the `fetch` below rather than a server, and the admin key
+    // the person lane's erasure is sent under.
+    config: configDouble({ API_URL: API_ORIGIN }, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
@@ -151,10 +152,23 @@ function holdNext(arm: (hold: Hold) => void): { arrived: Promise<void>; release:
   return { arrived, release: () => release() };
 }
 
+/** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
+const ERASURE_PATH = "/api/v0/identity/account/erasure";
+
+/** The backend's erasure done, as it answers one. */
+const ERASED = (): Promise<Response> => Promise.resolve(new Response(null, { status: 204 }));
+
+/** What the backend answers the erasure, which a case replaces: done, unless it says otherwise. */
+let erasureAnswer = ERASED;
+
+/** How many erasures the backend has been asked for, which a case reads before and after its press. */
+const erasuresAsked = (): number => asked.filter((path) => path === ERASURE_PATH).length;
+
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   asked.push(path);
+  if (path === ERASURE_PATH) return erasureAnswer();
   const held = heldRead;
   if (held !== undefined) {
     heldRead = undefined;
@@ -2372,7 +2386,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
+      // A token nobody verifies: the backend these cases reach is the `fetch` double above.
       actor: { email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
@@ -2425,20 +2439,22 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
   pending: store.verification.filter((held) => pending.includes(held.identifier)).length,
 });
 
-/** The backend's refusal of the owner's own erasure, as the API client raises one. */
-async function erasureRefused(): Promise<Error> {
-  const { APIBadStatusError } = await import("./errors.ts");
-  return new APIBadStatusError({
-    message: "API returned a bad status.",
-    statusCode: 409,
-    serverErrorCode: "owner_erasure",
-    traceId: "0".repeat(32),
-  });
-}
+/** The backend's refusal of the owner's own erasure, as it answers one. */
+const ERASURE_REFUSED = (): Promise<Response> =>
+  Promise.resolve(
+    new Response(JSON.stringify({ error_code: "owner_erasure", trace_id: "0".repeat(32), fields: [] }), {
+      status: 409,
+      headers: { "content-type": "application/json" },
+    }),
+  );
 
 /* The library completes a deletion through the hook alone, so every case below drives the in-process call
    the press makes. */
 describe("a person's own account deletion", () => {
+  beforeEach(() => {
+    erasureAnswer = ERASED;
+  });
+
   /* The library's own link deletes on a GET, which a mail scanner's fetch would set off: the mail spells
      the interstitial's link from the token instead. */
   it("mails a link to the interstitial carrying the stored token, never the library's deleting URL, and deletes nothing", async () => {
@@ -2464,17 +2480,14 @@ describe("a person's own account deletion", () => {
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
     const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
     const person = await seedAccount("loeschende@example.org");
-    const erasures: string[] = [];
+    const erasuresBefore = erasuresAsked();
 
     const answer = await asPerson("loeschende@example.org", () =>
-      deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
-        return Promise.resolve({});
-      }),
+      deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
     );
 
     expect(answer).toBe("deleted");
-    expect(erasures, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
+    expect(erasuresAsked() - erasuresBefore, "the league's records were not erased exactly once").toBe(1);
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -2484,19 +2497,31 @@ describe("a person's own account deletion", () => {
   /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it, its link spent", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
-    const refusal = await erasureRefused();
-    const erasures: string[] = [];
+    erasureAnswer = ERASURE_REFUSED;
+    const erasuresBefore = erasuresAsked();
 
     expect(
       await asPerson("verweigert-loeschung@example.org", () =>
-        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erasures.push("asked");
-          return Promise.reject(refusal);
-        }),
+        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
       ),
     ).toBe("spentUnerased");
 
-    expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
+    expect(erasuresAsked() - erasuresBefore, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    const held = heldOf(person);
+    expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
+  });
+
+  /* A call the backend never answered may have erased the records or not: the account stays, for a reload to show. */
+  it("leaves the account and its passkeys standing where the erasure fails, its outcome one the press cannot name", async () => {
+    const person = await seedAccount("gescheitert-loeschung@example.org");
+    erasureAnswer = () => Promise.reject(new TypeError("fetch failed"));
+    const erasuresBefore = erasuresAsked();
+
+    await expect(
+      asPerson("gescheitert-loeschung@example.org", () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }))),
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionOutcomeUnknown");
+
+    expect(erasuresAsked() - erasuresBefore, "the backend was never asked, so the failure proves nothing").toBe(1);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
@@ -2505,21 +2530,16 @@ describe("a person's own account deletion", () => {
      reaching it with one would be told of a deletion while a fresh link went out instead. */
   it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
     const person = await seedAccount("leerer-link@example.org");
-    const erasures: string[] = [];
+    const erasuresBefore = erasuresAsked();
     const mailed = sent.length;
     const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
 
-    const answer = await asPerson("leerer-link@example.org", () =>
-      deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
-        return Promise.resolve({});
-      }),
-    );
+    const answer = await asPerson("leerer-link@example.org", () => deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie })));
 
     expect(answer).toBe("linkRefused");
     expect(sent.length, "an empty token mailed a new link").toBe(mailed);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length).toBe(tokens);
-    expect(erasures).toStrictEqual([]);
+    expect(erasuresAsked()).toBe(erasuresBefore);
     expect(heldOf(person).user).toBe(1);
   });
 
@@ -2528,27 +2548,24 @@ describe("a person's own account deletion", () => {
   it("refuses a link minted for another account, erasing and deleting nothing", async () => {
     const holder = await seedAccount("linkhalterin@example.org");
     const other = await signIn("andere-sitzung@example.org");
-    const erasures: string[] = [];
+    const erasuresBefore = erasuresAsked();
 
     const answer = await asPerson("andere-sitzung@example.org", () =>
-      deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie }), () => {
-        erasures.push("erased");
-        return Promise.resolve({});
-      }),
+      deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie })),
     );
 
     expect(answer).toBe("linkRefused");
-    expect(erasures).toStrictEqual([]);
+    expect(erasuresAsked()).toBe(erasuresBefore);
     expect(heldOf(holder).user).toStrictEqual(1);
     expect(store.user.filter((user) => user.id === other.row.userId).length).toBe(1);
   });
 
   /* The hook is what keeps an account from going ahead of the league's records, so a caller reaching the
-     library without an erasure, or with the backend's person not the account's, deletes nothing. */
-  it("deletes nothing where no erasure was handed in, or where the request acts for another person", async () => {
+     library outside a press, or with the backend's person not the account's, erases and deletes nothing. */
+  it("deletes nothing where no press runs the library's deletion, or where the request acts for another person", async () => {
     const person = await seedAccount("ohne-loeschung@example.org");
     const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
-    const erasures: string[] = [];
+    const erasuresBefore = erasuresAsked();
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
@@ -2557,18 +2574,13 @@ describe("a person's own account deletion", () => {
 
     await requestAccountDeletion(headers);
     await expect(
-      asPerson("jemand-anderes@example.org", () =>
-        deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
-          erasures.push("erased");
-          return Promise.resolve({});
-        }),
-      ),
+      asPerson("jemand-anderes@example.org", () => deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers)),
       // Past the library's spend of the link, so of an outcome the press cannot name.
     ).rejects.toSatisfy(
       (thrown: Error) => thrown.name === "DeletionOutcomeUnknown" && (thrown.cause as Error).name === "DeletionWithoutErasure",
     );
 
-    expect(erasures, "another person's records were erased").toStrictEqual([]);
+    expect(erasuresAsked(), "another person's records were erased").toBe(erasuresBefore);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });

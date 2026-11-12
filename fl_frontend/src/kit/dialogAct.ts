@@ -7,7 +7,7 @@ import type { ConfirmQuestion, Tone } from "./ConfirmDialog";
 import type { Fact } from "./Facts";
 
 /**
- * What a dialog's act is, read by the dialog (`Dialog.tsx`) and by the list page drawing its trigger on the
+ * What a dialog's act is, read by the dialog and by the list page drawing its trigger on the
  * server: kept apart from the client module, whose every export the server would receive as a reference it
  * cannot call.
  */

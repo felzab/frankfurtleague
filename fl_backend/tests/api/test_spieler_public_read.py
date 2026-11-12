@@ -185,7 +185,7 @@ class TestTheBaseTierReadExecuted:
         return on_a_database(url, body)
 
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
-        """`READ-SQUAD-001`: the retirement this read filters on."""
+        """The retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
 
     def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
@@ -354,13 +354,13 @@ MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, star
 MASK_ROLLEN = {"Offen": "kapitaen", "Internal": "co_kapitaen"}
 
 # Both names of both withheld rows: a payload grep on the surnames alone leaves the forename, which
-# is the half `READ-PUPIL-001` never withheld and `READ-PUPIL-003` is the first rule to reach.
+# is the half the surname's reduction never withheld and the consent gate is the first rule to reach.
 WITHHELD_NAMES = ("Bruno", "Gerber")
 
 
 @pytest.mark.db
 class TestThePublicationGate:
-    """`READ-PUPIL-003` over both base-tier reads, against a squad holding one row per state the predicate decides between."""
+    """The consent gate over both base-tier reads, against a squad holding one row per state the predicate decides between."""
 
     def _read(self, url: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
@@ -391,7 +391,7 @@ class TestThePublicationGate:
 
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
-        """`READ-PUPIL-005`, against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
+        """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
         assert str(MASKED_SQUAD[case].oid) not in json.dumps(self._read(masked_url))
 
     @pytest.mark.parametrize("key", ["einwilligung", "scope"])
@@ -421,7 +421,7 @@ class TestThePublicationGate:
 
 @pytest.fixture(scope="module")
 def masked_url(mongo_replica_set_url: str) -> Iterator[str]:
-    """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
+    """One squad in one season, holding a row for every consent state the gate parts."""
 
     async def _seed() -> None:
         async with a_clean_database(mongo_replica_set_url, MASK_DATABASE_NAME) as (_, database):

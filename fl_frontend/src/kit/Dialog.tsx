@@ -120,7 +120,7 @@ export function RouteDialog({
 }
 
 /**
- * A dialog's part ending its record, shaped as a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width:
+ * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width:
  * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
  * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
  * act's name over its consequence at the left and its outlined button at the right.
@@ -214,7 +214,7 @@ function ActDialog({
       <AriaDialog data-kit-focus>
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
-        <FormContext.Provider value={null}>
+        <FormContext value={null}>
           <Form
             className="grid gap-6"
             validationErrors={refused?.fieldErrors}
@@ -261,7 +261,7 @@ function ActDialog({
               />
             </FormFooter>
           </Form>
-        </FormContext.Provider>
+        </FormContext>
       </AriaDialog>
     </DialogOverlay>
   );

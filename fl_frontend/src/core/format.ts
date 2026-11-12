@@ -119,8 +119,15 @@ export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): 
 /** „1.234,5“. */
 export const formatNumber = (number: number): string => NUMBER.format(number);
 
-/** „+3“, „0“, „-3“: a difference, its sign written wherever it is not level. */
-export const formatSigned = (number: number): string => SIGNED.format(number);
+/**
+ * „+3“, „0“, „−3“: a difference, its sign written wherever it is not level. The German locale writes a negative sign
+ * as the hyphen-minus, which reads as a hyphen and is spoken as one („Bindestrich-Minus“ in CLDR's speech names), so
+ * the sign is the minus sign, U+2212, the width of its plus in the table's figures.
+ */
+export const formatSigned = (number: number): string =>
+  SIGNED.formatToParts(number)
+    .map((part) => (part.type === "minusSign" ? "−" : part.value))
+    .join("");
 
 /** „3.“: a place or a position, a German ordinal being its figure and a full stop. */
 export const formatOrdinal = (number: number): string => `${NUMBER.format(number)}.`;

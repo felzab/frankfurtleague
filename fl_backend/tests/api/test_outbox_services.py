@@ -1,12 +1,25 @@
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Final
 
 from bson import ObjectId
 
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.services import confirmed_recipients
 from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielNoticeData
-from app.api.outbox.services import DELIVERY_DEADLINE, REPETITION_AFTER, RETENTION, OwedMail, final_update, retry_update, row_of
+from app.api.outbox.services import (
+    DELIVERY_DEADLINE,
+    LEASE_DURATION,
+    PAGE,
+    REPETITION_AFTER,
+    RETENTION,
+    OwedMail,
+    final_update,
+    retry_update,
+    row_of,
+)
 from app.api.spielbestaetigungen.services import austritt_notices_of, team_mails
 from app.core import clock
 
@@ -93,3 +106,20 @@ def test_a_recipient_read_off_a_row_stored_unfolded_is_owed_in_the_fold():
     row = row_of(replace(MAIL, to=f" Nora.Neu@BeispielSchule.de{chr(0xA0)}"), now=BEFORE_THE_CLOCK_FALLS_BACK, secret=None, valid_until=None)
 
     assert row["to"] == "nora.neu@beispielschule.de"
+
+
+# The frontend drain's two bounds: one on each call to this API, one on each send to the provider.
+DRAIN_BOUNDS: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "drain_bounds.json").read_bytes().decode("utf-8"))
+
+
+def test_the_lease_outlasts_a_page_of_sends_and_reports_at_their_bounds():
+    """A claim's rows go to the next drain once its lease lapses, so a page outliving it is sent twice.
+
+    The second mail carries a fresh link, which kills the first one's.
+    """
+
+    call = timedelta(milliseconds=DRAIN_BOUNDS["fetch_timeout_ms"])
+    send = timedelta(milliseconds=DRAIN_BOUNDS["mail_timeout_ms"])
+
+    # The claim's own answer, then each send and the report after it.
+    assert call + PAGE * (send + call) < LEASE_DURATION
