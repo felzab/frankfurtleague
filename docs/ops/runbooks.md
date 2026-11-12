@@ -445,19 +445,19 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour and its minute (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then          |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have written: a report names no writer and its page shows it to the referee booked now alone, so a read-only Playground query on that field finds them whole, while a report they wrote on a fixture booked to somebody else since is found by no field |
-| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only Playground query on those fields finds                                                                                                                                                                                                                                                                                                                         |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour and its minute (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only query on those two fields finds, run with `mongosh --file`; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then |
+| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only query on that field finds, run with `mongosh --file`; plus the remarks, until the season-end strip, of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have written: a report names no writer and its page shows it to the referee booked now alone, so a read-only query on that field finds them whole, while a report they wrote on a fixture booked to somebody else since is found by no field   |
+| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only query on those fields finds, run with `mongosh --file`                                                                                                                                                                                                                                                                                                                |
+| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
 holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
-`address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
-fields finds them.
+`address_changes.move.new`); no page renders any of these, and a read-only query on those
+fields finds them, run with `mongosh --file`.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -498,8 +498,8 @@ Send the categories, the values, where each came from, who receives them
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
 they are kept, and the address for a complaint to the supervisory authority. Point at the published
 notice at `/datenschutz` for the standing text
-rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy a hand paste
-made from its confirmation's log row before the log was emptied
+rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy made by hand
+from its confirmation's log row before the log was emptied
 ([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
 it as the proof of that consent.
 
@@ -567,7 +567,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   nothing: its link stops at the hand-out.
 - **The owner's own mailbox, lost or hijacked.** The address on file answers an owner's own change, so
   whoever holds it can decline or stop every attempt, and this tool refuses it: the way out is §3's
-  recovery paste.
+  recovery write.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /address_change/{address_change_id}/invite`); a new address taken since the start refuses the
   re-send (`address_change_new_taken`). **Discard** a change that turns out to be
@@ -739,8 +739,8 @@ page says so too, and a session left standing lasts until it lapses, no request 
 is refused as its session would be created**, by a code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.**
 The Postausgang's drain settles every mail to the address `barred` at its hand-out, the ban's own notice excepted, so no link reaches it.
 A form takes a barred address and stores it, and a link already mailed still opens and confirms, so a person reading the
-queue is still what keeps a barred address out of everything. A grant of the address is refused (`grant_barred`), and a grant the Playground
-wrote onto it admits nobody. **The
+queue is still what keeps a barred address out of everything. A grant of the address is refused (`grant_barred`), and a grant written onto it by
+hand admits nobody. **The
 ban takes away nothing the address already holds**, and the ban's row names none of it: a record stays until you take it
 away, a registration excepted, which ends by itself. Read what the address holds first, on „Löschungen“: a
 referee is retired once their unplayed fixtures are reassigned, which `schiedsrichter_still_assigned`
@@ -1161,8 +1161,8 @@ for it.
 
 **A withdrawal is set again on its record, on a seat's in the `einwilligung` of each slot its `seats`
 name and no other, a seat's Widerspruch's seats emptied again, and a referee's stamped again in
-`confirmation.declined_at` with the line's German day**, each in the
-Playground, from the fields of its line, the person's evidence having gone with the lost window.
+`confirmation.declined_at` with the line's German day**, each by a file run with
+`mongosh --file`, from the fields of its line, the person's evidence having gone with the lost window.
 A line names the choice and no value, and each choice withholds by one value on each kind of record:
 `scope` is set to `internal` on a pupil, a referee or a registration and to `kontakt_data` on a seat,
 and `media` to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
@@ -1207,7 +1207,7 @@ and each role's guard reads something the restore took away:
   owner** who handed the role over and was then erased comes back as the `owner` row, the handover being
   undone with everything else, and the person the role passed to is an administrator again or holds
   nothing. Nobody who holds no owner's power can erase that address, and the row's holder is the erased
-  person. So the recovery paste runs first: it demotes that row and writes the true owner's, as §3's
+  person. So §3's recovery write runs first: it demotes that row and writes the true owner's, as §3's
   recovery says; only then does the owner run the erasure. The same applies to a handover the restore
   undid with the old owner still present: that person is the owner again until it is started afresh.
 - **A record holding no address.** No erasure reaches one
@@ -1437,7 +1437,7 @@ and update the password-manager entry. Both containers are recreated by the comm
 new keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
 the same way: its holder, reaching the backend on the private network, can act as any administrator,
 so rotating is not finished until `action_log` has been read for every `grants` write since the
-leak, and every grant nobody can account for is revoked in the Playground. **A new `auth_secret` signs everybody out.**
+leak, and every grant nobody can account for is removed on the „Administratoren“ page. **A new `auth_secret` signs everybody out.**
 
 ## 17. Clearing an address's code lock
 
