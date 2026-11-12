@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
-from pymongo.errors import BulkWriteError, PyMongoError
+from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -274,9 +274,17 @@ async def break_after_the_status() -> StreamingResponse:
     return StreamingResponse(body())
 
 
+# What `with_transaction` raises for a commit sent and never answered within the deadline.
+LOST_COMMIT = ExecutionTimeout("timed out", 50, {"ok": 0, "code": 50, "errorLabels": ["UnknownTransactionCommitResult"]})
+
+
+async def lose_the_commit() -> None:
+    raise LOST_COMMIT
+
+
 @functools.cache
 def _crashing_app() -> FastAPI:
-    """The shell every route is served inside, around two routes that fail: no route the application serves fails so on purpose.
+    """The shell every route is served inside, around routes that fail: no route the application serves fails so on purpose.
 
     Built on first use rather than at import, which every xdist worker pays at collection.
     """
@@ -284,6 +292,7 @@ def _crashing_app() -> FastAPI:
     crashing = create_shell()
     crashing.add_api_route("/crash", crash)
     crashing.add_api_route("/broken-stream", break_after_the_status)
+    crashing.add_api_route("/lost-commit", lose_the_commit)
 
     return crashing
 
@@ -354,3 +363,12 @@ def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_wri
     response = asyncio.run(_answered())
 
     assert (response.status_code, response.json()["error_code"]) == (500, code)
+
+
+class TestACommitOfUnknownOutcomeIsNotCalledFailed:
+    def test_it_answers_its_own_code_over_a_safe_method(self):
+        """Over a safe method, so the label alone can answer: a commit lost to anything but a timeout carries nothing else saying so."""
+
+        response = TestClient(_crashing_app(), raise_server_exceptions=False).get("/lost-commit")
+
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
