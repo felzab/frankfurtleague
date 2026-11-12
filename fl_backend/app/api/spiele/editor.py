@@ -270,7 +270,7 @@ async def read_spiel_editor(
     spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
 
     booked_spielort = None if spiel.spielort is None else spiel.spielort.spielort_id
-    gebuchter_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
+    booked_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
     # The rest named by the fixture alone, so read beside one another, in two groups because `asyncio.gather`'s typing
     # stops at six.
@@ -288,7 +288,7 @@ async def read_spiel_editor(
             ),
             pull_many_from_db(
                 collection=schiedsrichter_collection,
-                db_filter=_offered(gebuchter_schiedsrichter),
+                db_filter=_offered(booked_schiedsrichter),
                 limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
