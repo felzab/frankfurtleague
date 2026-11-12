@@ -42,6 +42,8 @@ export type SpielHeadProps = {
   team2: SpielHeadSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: SpielRowProps["result"];
+  /** The side that did not turn up, its name struck as a list's row strikes it, the box under the head naming the event. */
+  absent?: SpielRowProps["absent"];
 };
 
 const head = tv({
@@ -71,9 +73,12 @@ function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
   return <span className={head(look(score, part)).goals()}>{goalsOf(score, part)}</span>;
 }
 
-/** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */
-function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part: "team1" | "team2" }) {
-  const style = head(look(score, part));
+/**
+ * A side as the centred look sets it: the plaque over the name, and under it where the club stands. A struck name that
+ * is a link takes the strike on the link itself, in the link's own colour and kept under its hover's underline.
+ */
+function Side({ side, score, part, struck }: { side: SpielHeadSide; score: Figures; part: "team1" | "team2"; struck: boolean }) {
+  const style = head({ ...look(score, part), struck: struck && side.href === undefined });
   return (
     <span className={style.side()}>
       <TeamPlaque plaque={side.plaque} />
@@ -85,7 +90,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
         ) : (
           <Link
             href={side.href}
-            placement="standalone"
+            placement={struck ? "struck" : "standalone"}
             label={side.name}
           />
         )}
@@ -109,7 +114,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
  * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
  * block that names a match by its two sides.
  */
-export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
+export function SpielHead({ eyebrow, team1, team2, result, absent, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const style = head({ placement });
@@ -121,6 +126,7 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
           side={team1}
           score={score}
           part="team1"
+          struck={absent === "team1"}
         />
         <span className="grid justify-items-center pt-0.5">
           <span className="text-3xl leading-none">
@@ -141,6 +147,7 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
           side={team2}
           score={score}
           part="team2"
+          struck={absent === "team2"}
         />
       </div>
     </div>

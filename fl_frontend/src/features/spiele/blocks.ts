@@ -212,10 +212,12 @@ function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, s
 
 /**
  * The match's head, as its pop-up and its page show it: the matchday over the pairing and its score, each club's
- * name a link to its page and under it where it stands, a link to that place.
+ * name a link to its page and under it where it stands, a link to that place; the side that did not turn up struck, as
+ * every list's row strikes it, the box under the head naming the event.
  */
 export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSpielSideStandings): SpielHeadProps {
   const { team1, team2 } = sidesOf(spiel);
+  const { absent } = befellOf(spiel);
   const eyebrow = matchdayOf(spiel, matchday);
   const side = (shown: SpielSide, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null) => ({
     ...shown,
@@ -227,6 +229,7 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
     team1: side(team1, spiel.team1, standings.team1),
     team2: side(team2, spiel.team2, standings.team2),
     ...resultOf(spiel),
+    ...(absent === undefined ? {} : { absent }),
   };
 }
 
