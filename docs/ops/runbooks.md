@@ -718,24 +718,17 @@ mirrored from the authority's own pages, which move without us and were read on 
 The clock starts when a person becomes aware, and nothing here raises an alert, so the first minutes
 are yours to spend on the steps below rather than on looking for one.
 
-**The fix can ship at once: a deploy keeps both application streams.** Every deploy copies them to
-`/var/log/frankfurtleague/` before it recreates either container, and refuses at exit 2 with nothing
-recreated where it cannot write there (`scripts/ops/deploy.sh :: copy_streams`); a deploy that
-rolls back copies the failed build's streams as well. **Ship it through the deploy and no other route**: a
-`docker compose down`, or an `up --force-recreate` typed by hand, discards a stream with no copy
-taken ([`../logging/overview.md`](../logging/overview.md)). The edge's own two logs are host files
-under `/var/log/frankfurtleague/nginx`, which no recreate reaches.
+**The fix can ship at once: a deploy loses no log line.** Every service logs to the host's journal,
+which keeps a replaced container's lines ([section 7](#7-the-journals-age-limit)).
 
-**What those logs can and cannot answer.** How far back each reaches is bounded
-([section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)): a running container's
-stream by the runtime's size rotation (`docs/logging/overview.md`), so a busy period rotates its
-own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
-thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
-access line carries the visitor's address, user agent and referer with the credential arms redacted
-(`nginx/shared/http.conf :: map $request_uri $credential_free_uri`), so no confirmation token is in it, and a sign-in code travels in a
-request body rather than a URL; the
-same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
-dashboard rather than here.
+**What those logs can and cannot answer.** A line lives between eight and nine days, and a flood can
+take one sooner (section 7). The edge's access line carries the visitor's address, the path without
+its query and the browser identifier (`nginx/shared/http.conf :: log_format fl_json`), so no mailed
+link's token is in it, and a sign-in code travels in a request body rather than a URL. **nginx's
+error line repeats the request line whole, its query with it**, on an upstream failure among other
+causes; a link page's location writes no error line at all (`nginx/shared/site.conf`). The same
+request reached Cloudflare whole, and what Cloudflare keeps is settled in its dashboard rather than
+here.
 
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
 log.** Every recorded act appends a row carrying who acted, what they did and to which record
@@ -748,181 +741,53 @@ may be completed later, and a late one may not; and tell the people affected whe
 them is high. Write down what you established and when you established it: the authority asks, and
 no log above outlives its bound.
 
-## 7. The logs' age bounds, and the copies a deploy leaves behind
+## 7. The journal's age limit
 
-**Every deploy stops both application containers and copies their streams to
-`/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
-file per service stamped to the second, so a line written in the seconds before the recreate — an
-erasure's `journal.act` lines among them (§13) — is in the copy. A container already stopped, a failed
-build's backend that exited among them, is copied as well and left stopped; one that keeps
-restarting is running to the engine, and is stopped and copied with the other.
-A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
-stop puts back the containers it stopped, as §1 says, nothing recreated either way.
-**A deploy that rolls back
-recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
-`-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
-`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
-and error log — host files rather than a container's stream, because every line naming a visitor
-is in one of the two. Both directories are created
-by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
+**Every production service logs to the host's journal** (`docker-compose.yml :: x-logging`): the
+edge's access lines, which name each visitor's address, the application logs and the backend's
+`journal.act` lines. **The published notice gives them nine days**
+(`fl_frontend/src/core/serverCopy.ts`), and journald ages nothing by default, so the limit is a
+drop-in on the host that no file in this repository can install. Write it as
+`/etc/systemd/journald.conf.d/frankfurtleague.conf`:
+
+```ini
+[Journal]
+Storage=persistent
+MaxFileSec=12h
+MaxRetentionSec=204h
+```
+
+**Both age settings are needed.** journald deletes an archived file only once its first entry is
+older than `MaxRetentionSec`, and never touches the file it is still writing, so `MaxFileSec`
+archives that file every twelve hours. Together they give a line between eight and nine days of
+life. `Storage=persistent` keeps the journal on disk across a reboot, where a `journal.act` line has
+to outlast one ([section 13](#13-after-a-restore-from-a-snapshot)).
+
+Apply it, then read back the drop-in and the oldest line the journal holds:
 
 ```bash
-sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfurtleague/nginx
+sudo systemctl restart systemd-journald
+systemd-analyze cat-config systemd/journald.conf
+sudo journalctl --output=short-iso | head -n 1
 ```
 
-**The age bounds are four host files no file in this repository can install** — written on the
-server in the same deployment that ships the published texts stating them
-([`../datenschutz.md`](../datenschutz.md) §6): eight days for the edge's two logs, thirty for the
-copied application logs. **They are two mechanisms because they are two kinds of file.** The edge's
-logs are open and growing, so their bound is a rotation the edge has to be told about; a deploy's
-copy is written once and never appended, so its bound is a deletion.
+**Two other bounds can take a line sooner, and neither can keep one longer.** journald deletes the
+oldest files once the journal fills its share of the disk, by default a tenth of the file system and
+at most 4 GB. It also drops lines one service writes past its rate limit, by default 10,000 in 30
+seconds, and every container logs through `docker.service`, so all four share that budget. A flood
+of access lines can therefore cost `journal.act` lines, which is why a restore reads the mail
+threads beside them.
 
-**The edge's two logs, at `/etc/frankfurtleague/access-log.conf`.** **A host carrying an earlier
-stanza that names `access.log` alone takes the one below whole**: nginx writes `error.log` from the
-first time it loads a configuration naming it, and that file then grows past the eight days with
-nothing on the host reporting it. Substitute the server's own checkout path for `<checkout>` —
-`docker compose` takes its project name from the directory holding the file `-f` names, so a path
-pointing anywhere else finds no `nginx` service and the rotation goes on without the reopen. Spell
-`docker` with the path `command -v docker` prints if it is not on systemd's own PATH, which is what
-this runs under rather than a login shell's.
-
-```text
-# nginx writes these files through a bind mount, so they outlive the container and can be rotated
-# by rename: the master reopens every log it holds on USR1 and a renamed file stops growing, the
-# lines written in between having gone to the renamed file rather than nowhere.
-/var/log/frankfurtleague/nginx/access.log /var/log/frankfurtleague/nginx/error.log {
-    daily
-    # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
-    # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
-    rotate 7
-    maxage 7
-    # The disk stays bounded whatever the traffic: a day that outgrows this rotates early, so the
-    # eight days above are the most an entry lives, never a period a spike can stretch.
-    maxsize 100M
-    dateext
-    # Seconds in the name, because a day can hold more than one rotation: under a bare `-%Y%m%d`
-    # the second one lands on the name the first took, and logrotate skips it and exits 1.
-    dateformat -%Y%m%d-%H%M%S
-    create 0640 root root
-    missingok
-    # No `notifempty`: after a failed reopen the live file is empty, and skipping empty files would
-    # skip every rotation after this one, so nothing would ever send USR1 again.
-    compress
-    delaycompress
-    # One USR1 for both files, which one reopen covers; without it each rotated file sends its own.
-    sharedscripts
-    postrotate
-        docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
-    endscript
-}
-```
-
-**Read once with `logrotate -d -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf`**,
-which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
-stays unproven until the first real rotation.
-
-**A failed reopen leaves each live log empty beside a dated file that keeps growing**: the rename
-has happened and nginx still writes through its open descriptor, and nothing on the host says so —
-the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, a live file at
-zero bytes under a dated file of its own name with a newer mtime. The next rotation sends USR1
-again and recovers, losing only the lines written to the orphaned file between its compression and
-the signal.
-
-**That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
-cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
-between two of them is unbounded. One config file read by one scheduler against one state file of
-its own is what keeps the two from rotating the same log twice with two ideas of when it last
-happened.
-
-```text
-# /etc/systemd/system/frankfurtleague-logrotate.service
-[Unit]
-Description=Rotate the Frankfurt League edge logs
-
-[Service]
-Type=oneshot
-ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf
-```
-
-```text
-# /etc/systemd/system/frankfurtleague-logrotate.timer
-[Unit]
-Description=Hourly size check on the Frankfurt League edge logs
-
-[Timer]
-OnCalendar=hourly
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`,
-which systemd ships enabled and runs daily, is what runs it, so the thirty days need no scheduler of
-their own. **The
-line ages the directory rather than a name**, so every copy a deploy writes into it is reached
-whatever it is called — the `-failed` pair a rollback leaves included, and any suffix a later change
-adds. The command below is what confirms it is running on this host.
-
-```text
-# Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
-# chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
-e /var/log/frankfurtleague - - - m:30d
-# The line above reaches every level below it, and the edge's live logs are there: on a quiet month
-# the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
-x /var/log/frankfurtleague/nginx
-```
+**Read a service's lines with Compose in the checkout**, which the `.env` pin points at the build
+that runs, or with `journalctl` by the container's name, which outlives a recreate:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now frankfurtleague-logrotate.timer
-systemctl list-timers frankfurtleague-logrotate.timer systemd-tmpfiles-clean.timer
-sudo systemd-tmpfiles --clean --prefix=/var/log/frankfurtleague
+docker compose logs --since 2h backend
+sudo journalctl -t "$(docker compose ps --format '{{.Name}}' backend)" --since "2 hours ago" --output=cat
 ```
 
-**The last of those is also how this host answers whether it reads the age qualifier at all**: one it
-cannot parse is an error naming the file and the line, an exit of 65, and nothing deleted — never a
-line skipped in silence.
-
-**What each shape refuses, and why the obvious one is not here:**
-
-- **A second `logrotate` stanza over `/var/log/frankfurtleague/*.log`** reaches a copy once. The
-  first run renames it out of the glob, and `maxage` prunes what logrotate still finds a source for,
-  so nothing looks at the file again. `olddir`, a `postrotate` or `dateext` off each move the name
-  around and leave that unchanged.
-- **`find -mtime +30 -delete` from cron** deletes the same files, and costs a second scheduler and a
-  file stating an age that `tmpfiles.d` already states declaratively.
-- **Numbered rotation instead of `dateext`** never collides, because every rotation renames every
-  older file. It also takes the date off the names, so a file's age is readable only from its mtime
-  and never from the listing an operator is already looking at.
-- **`dateformat -%Y%m%d-%s`** sorts identically and reads as a number nobody can date by eye.
-- **Leaving the stanza in `/etc/logrotate.d/` and making the host's `logrotate.timer` hourly** is one
-  file fewer and changes the cadence for every other package on the machine.
-
-**Two rotations inside one second still collide**, the name carrying seconds and no more: an hourly
-timer cannot reach that, and two runs by hand can.
-
-**Nothing here rotates the containers' own `json-file` logs**, whose whole bound is the compose size
-cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runtime holds open is
-`copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
-document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
-above runs. The copies are what carry an application log past a deploy, and their thirty days is the
-only age bound over one. The edge's own container stream is bounded by that cap alone, which is why
-nothing written there may name a visitor.
-
-**The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
-reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
-is what the rotation leaves, and the first line written after the reopen changes that ownership;
-reading the file needs the host's root either way.
-
-## 8. Taking the tunnel back out
-
-**The rollback is `git revert` of the change that put the tunnel in and a redeploy, not
-`deploy.sh`'s own.** That path restores IMAGES, and what would be wrong here is the topology: only
-the reverted commit puts the `ports:` block back and stops the connector, and re-running the
-deploy after it is what applies them. **The edge is the other half, and no commit reaches it**: the
-two hostnames come off the tunnel, the address records naming the origin are created again, and
-whatever closed the host's inbound 80 and 443 is opened.
+`docker compose logs` reads the current container alone; `journalctl` reads every container that
+held the name, so it is the one reaching back past a deploy.
 
 ## 9. Checking that the hourly passes have run
 
@@ -1088,8 +953,8 @@ which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; t
 ## 10. The mail provider's dashboard
 
 **None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
-are taken by hand in the mail provider's own console; step 3 is a line in the server's environment
-file, and it is the one that stops the frontend booting.
+are taken by hand in the mail provider's own console; step 3 is a file on the server, and it is
+the one that stops the frontend booting.
 
 1. Create an endpoint at `https://<the league's domain>/api/mail/delivery`.
 2. Subscribe exactly six events — `email.delivered`, `email.bounced`, `email.complained`,
