@@ -69,6 +69,7 @@ from app.core.dependencies import (
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
     SaisonTeamsCollection,
+    SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
     get_german_date_str,
@@ -104,7 +105,7 @@ async def get_open_registrierungen(
     saisons_collection: SaisonsReadCollection,
     spieler_collection: SpielerReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
 ) -> FLOpenRegistrierungenResponse:
     """Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.
 
@@ -115,82 +116,81 @@ async def get_open_registrierungen(
 
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the
     # seat, the rows and the persons they resolve to from straddling a commit.
-    async with db.start_session(snapshot=True) as session:
-        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
+    await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
-        opened = await pull_open_registrierungen(
-            registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
-        )
-        served = opened.rows
-        confirmed = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
+    opened = await pull_open_registrierungen(
+        registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
+    )
+    served = opened.rows
+    confirmed = [row for row in served if registrierung_is_confirmed(einwilligung=row.get("einwilligung"))]
 
-        persons = await persons_at(
-            spieler_collection=spieler_collection,
-            addresses=[sign_in_identifier(str(row["email"])) for row in confirmed],
-            session=session,
-        )
-        by_address = {person["email"]: person for person in persons}
+    persons = await persons_at(
+        spieler_collection=spieler_collection,
+        addresses=[sign_in_identifier(str(row["email"])) for row in confirmed],
+        session=session,
+    )
+    by_address = {person["email"]: person for person in persons}
 
-        worn = nummern_in_kader(
-            await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
-        )
+    worn = nummern_in_kader(
+        await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
+    )
 
-        # What the admission judges the cap by, read as it reads them: the season's rules and window, the squad's count,
-        # and each resolved person's row of the season for a stored Nachnominierung mark.
-        saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
-        )
-        # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
-        # a squad before it reaches the cap.
-        room = await pull_squad_room(
+    # What the admission judges the cap by, read as it reads them: the season's rules and window, the squad's count,
+    # and each resolved person's row of the season for a stored Nachnominierung mark.
+    saison_raw = await pull_one_from_db(
+        collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "registrierung"], session=session
+    )
+    # Nobody excluded: the one a row resolves to has no capped row here, or the admission refuses them as already in
+    # a squad before it reaches the cap.
+    room = await pull_squad_room(
+        saison_spieler_collection=saison_spieler_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        rules=saison_raw["rules"],
+        excluding_spieler_id=None,
+        session=session,
+    )
+    kader_by_person = {
+        kader["spieler_id"]: kader
+        for kader in await kader_rows_of(
             saison_spieler_collection=saison_spieler_collection,
             saison_id=saison_id,
-            team_id=team_id,
-            rules=saison_raw["rules"],
-            excluding_spieler_id=None,
+            spieler_ids=[person["_id"] for person in persons],
             session=session,
         )
-        kader_by_person = {
-            kader["spieler_id"]: kader
-            for kader in await kader_rows_of(
-                saison_spieler_collection=saison_spieler_collection,
-                saison_id=saison_id,
-                spieler_ids=[person["_id"] for person in persons],
-                session=session,
-            )
-        }
+    }
 
-        def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
-            admissible = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
-            person = by_address.get(sign_in_identifier(str(row["email"]))) if admissible else None
-            nominee = admits_a_nominee(
-                kader_raw=None if person is None else kader_by_person.get(person["_id"]),
-                registrierung=saison_raw.get("registrierung"),
-                submitted_at=row["submitted_at"],
-            )
+    def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
+        admissible = registrierung_is_confirmed(einwilligung=row.get("einwilligung"))
+        person = by_address.get(sign_in_identifier(str(row["email"]))) if admissible else None
+        nominee = admits_a_nominee(
+            kader_raw=None if person is None else kader_by_person.get(person["_id"]),
+            registrierung=saison_raw.get("registrierung"),
+            submitted_at=row["submitted_at"],
+        )
 
-            return FLOpenRegistrierung.model_validate(
-                {
-                    "registrierung_id": row["_id"],
-                    "submitted_at": row["submitted_at"],
-                    "first_name": row["first_name"],
-                    "last_name": row["last_name"],
-                    "nummer": row.get("nummer"),
-                    "position": row.get("position"),
-                    "stufe": row.get("stufe"),
-                    "admissible": admissible,
-                    "kader_full": find_full_squad_refusal(room=room, nominee=nominee) is not None,
-                    "nummer_double": row.get("nummer") in worn,
-                    "person": None
-                    if person is None
-                    else {
-                        "spieler_id": person["_id"],
-                        "first_name": person["first_name"],
-                        "last_name": person.get("last_name"),
-                        "deviates_from": person_deviates(registrierung_raw=row, spieler_raw=person),
-                    },
-                }
-            )
+        return FLOpenRegistrierung.model_validate(
+            {
+                "registrierung_id": row["_id"],
+                "submitted_at": row["submitted_at"],
+                "first_name": row["first_name"],
+                "last_name": row["last_name"],
+                "nummer": row.get("nummer"),
+                "position": row.get("position"),
+                "stufe": row.get("stufe"),
+                "admissible": admissible,
+                "kader_full": find_full_squad_refusal(room=room, nominee=nominee) is not None,
+                "nummer_double": row.get("nummer") in worn,
+                "person": None
+                if person is None
+                else {
+                    "spieler_id": person["_id"],
+                    "first_name": person["first_name"],
+                    "last_name": person.get("last_name"),
+                    "deviates_from": person_deviates(registrierung_raw=row, spieler_raw=person),
+                },
+            }
+        )
 
     return FLOpenRegistrierungenResponse(
         team_id=team_id,

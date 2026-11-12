@@ -34,6 +34,6 @@ test("a club leaves the season, and its opponent is told at once", async ({ page
   await expect(page.getByRole("main").getByRole("button", { name: "Entfernen" })).toHaveCount(0);
 
   // The opponent's notice names the fixture still open between the two.
-  const notice = await mailedMessage(OPPONENT, `${club} spielt nicht mehr mit`, before);
+  const notice = await mailedMessage(OPPONENT, `Ausgeschieden: ${club}`, before);
   expect(notice.join("\n"), "the fixture the opponent is told of").toContain(fixture);
 });

@@ -154,7 +154,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
-        "one season's queue narrowed to one status, which is what a triage tab reads",
+        "a season's undecided applications, oldest first on the season overview, counted by the duplicate check and erased at the season's end",
     ),
     # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
     # hashes, so each link answers how its change ended.
@@ -245,7 +245,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
         (("saison_id", ASCENDING),),
-        "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
+        "a season's reports, which the season overview and the season editor's count read, and a replace's or an undraw's removal filters on",
     ),
     # The reports are kept with no retention bound, and the pupil's erasure names no season the season-leading index could
     # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.

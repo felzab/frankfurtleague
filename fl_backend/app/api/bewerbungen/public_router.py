@@ -32,7 +32,6 @@ from app.api.bewerbungen.services import (
     build_form_pipeline,
     build_key_filter,
     build_open_links_filter,
-    build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
     compose_confirmations,
@@ -345,7 +344,7 @@ async def _saison_view(
 ) -> FLBewerbungEinwilligungViewResponse:
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
 
-    row = await saison_teams_collection.find_one(build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_FIELDS)
+    row = await saison_teams_collection.find_one(build_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_FIELDS)
     seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
     refuse(find_unknown_token_refusal(seat=seat))
     assert row is not None and seat is not None
@@ -470,7 +469,7 @@ async def post_einwilligung(
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
 
         row = await saison_teams_collection.find_one(
-            build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANSWER_FIELDS, session=session
+            build_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANSWER_FIELDS, session=session
         )
         seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))

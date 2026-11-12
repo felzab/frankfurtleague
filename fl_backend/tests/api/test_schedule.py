@@ -8,7 +8,6 @@ from app.api.saisons.schedule import (
     group_matches_per_matchday,
     knockout_phases_for,
     schedule_for,
-    total_group_matches,
 )
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
@@ -82,13 +81,9 @@ class TestTheGroupPhase:
     def test_the_total_agrees_with_the_schedule_at_every_group_size(self):
         """An odd group's extra round offsets its smaller rounds exactly, so the bye never reaches the product."""
 
-        assert total_group_matches(4, 4) == 24
-        assert total_group_matches(1, 5) == 10
-        assert total_group_matches(1, 6) == 15
-
-        # The equality is what lets the schedule report a per-matchday figure at all.
+        # The equality is what lets the schedule report a per-matchday figure at all: `C(n, 2)` per group.
         for teams in range(1, 13):
-            assert total_group_matches(3, teams) == 3 * group_matchdays(teams) * group_matches_per_matchday(1, teams)
+            assert 3 * (teams * (teams - 1) // 2) == 3 * group_matchdays(teams) * group_matches_per_matchday(1, teams)
 
 
 class TestTheBracket:
@@ -136,7 +131,8 @@ class TestTheMatchForThirdPlace:
 
         shape = rules(groups=groups, per_group=4, qualifiers=qualifiers)
 
-        assert total_season_spiele(shape) == total_group_matches(groups, 4) + bracket
+        # Six matches in each group of four, `C(4, 2)`.
+        assert total_season_spiele(shape) == groups * 6 + bracket
 
 
 class TestTheWholeSeason:

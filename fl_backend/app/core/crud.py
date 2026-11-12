@@ -10,7 +10,7 @@ its own transaction.
 """
 
 import re
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
@@ -410,46 +410,6 @@ async def aggregate_many_from_db(
     cursor = await collection.aggregate(pipeline, collation=collation, session=session)
 
     return await cursor.to_list(length=limit)
-
-
-# One query builder for every resource, because a term each resource translated for itself is a
-# term one of them translates differently.
-
-
-def build_query(
-    filters: BaseModel,
-    *,
-    terms: Set[str],
-    include_inactive: bool | None = None,
-    compiled: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """`keep_oid` is unconditional: an ObjectId term dumped to its string matches no document, and matching nothing looks empty, not wrong."""
-
-    query: dict[str, Any] = filters.model_dump(include=set(terms), exclude_none=True, context={"keep_oid": True})
-
-    # Translated, never dumped: its False means "add a term", so a dump by value would write the
-    # switch itself into the query as a field to match on.
-    if include_inactive is False:
-        query["inactive_since"] = None
-
-    # Last, so a term needing translation -- a phase widened to `$ne`, a boolean read as a record
-    # check -- replaces the raw value the dump wrote for it.
-    if compiled:
-        query.update(compiled)
-
-    return query
-
-
-def build_sort(*, sort_by: str, order: str, chain: Sequence[tuple[str, int]] = ()) -> list[tuple[str, int]]:
-    """The requested key, then the tie-break chain, each entry in the direction it names.
-
-    A chain entry equal to `sort_by` is skipped: pymongo builds a dict from this list, so a
-    repeated key would overwrite the requested direction.
-    """
-
-    direction = 1 if order == "asc" else -1
-
-    return [(sort_by, direction), *((field, tie_direction) for field, tie_direction in chain if field != sort_by)]
 
 
 def literal_pattern(value: str) -> str:

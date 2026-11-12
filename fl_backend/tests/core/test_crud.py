@@ -4,8 +4,6 @@ from collections.abc import Mapping
 from typing import Any, cast
 
 import pytest
-from bson import ObjectId
-from pydantic import BaseModel
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError
@@ -13,48 +11,9 @@ from pymongo.errors import BulkWriteError
 from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
-    build_query,
     literal_pattern,
     post_many_to_db,
 )
-from app.shared.schemas.custom import CustomObjectId
-
-TEAM_OID = "6890a1b2c3d4e5f607182930"
-
-
-class _Filters(BaseModel):
-    """A stand-in for a slice's filter params: two query terms, and the paging a query must never carry."""
-
-    saison_id: str | None = None
-    team_id: CustomObjectId | None = None
-    include_inactive: bool = False
-    limit: int = 1024
-    sort_by: str = "name"
-    order: str = "asc"
-
-
-TERMS = {"saison_id", "team_id"}
-
-
-class TestBuildQuery:
-    def test_an_objectid_term_stays_an_objectid(self):
-        """The stringified form matches no document, and matching nothing looks like an empty result rather than a fault."""
-        query = build_query(_Filters.model_validate({"team_id": TEAM_OID}), terms=TERMS)
-
-        assert query["team_id"] == ObjectId(TEAM_OID)
-
-    def test_a_false_switch_scopes_the_read_to_live_rows(self):
-        query = build_query(_Filters.model_validate({}), terms=TERMS, include_inactive=False)
-
-        assert query == {"inactive_since": None}
-
-    def test_a_compiled_term_replaces_the_raw_one_it_was_compiled_from(self):
-        """A parameter the database does not store is compiled by its slice, and the compiled form has to win."""
-        compiled: dict[str, Any] = {"saison_id": {"$ne": "2526"}}
-        query = build_query(_Filters.model_validate({"saison_id": "2526"}), terms=TERMS, compiled=compiled)
-
-        assert query == {"saison_id": {"$ne": "2526"}}
-
 
 # A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
 # pinned against a real mongod by `fl_backend/tests/api/test_kontakt_erasure_execution.py`'s NUL case.

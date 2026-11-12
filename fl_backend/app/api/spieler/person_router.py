@@ -51,6 +51,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
+    SnapshotSession,
     SpielerCollection,
     SpielerReadCollection,
     get_german_date_str,
@@ -165,7 +166,7 @@ async def get_kader(
     saison_spieler_collection: SaisonSpielerReadCollection,
     saisons_collection: SaisonsReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
 ) -> FLKaderResponse:
     """
     The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.
@@ -175,17 +176,14 @@ async def get_kader(
 
     # A snapshot, so the squad served is the one the seat was judged against; never a transaction,
     # which a read writing nothing has no conflict to retry and no anchor to take.
-    async with db.start_session(snapshot=True) as session:
-        await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
+    await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
-        return FLKaderResponse(
-            team_id=team_id,
-            saison_id=saison_id,
-            allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
-            kader=await _read_the_squad(
-                saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session
-            ),
-        )
+    return FLKaderResponse(
+        team_id=team_id,
+        saison_id=saison_id,
+        allowed_stufen=await _allowed_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
+        kader=await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session),
+    )
 
 
 @router.patch(

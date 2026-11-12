@@ -276,17 +276,18 @@ async def notes_owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 async def read(
     database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = ANNA, team_id: ObjectId = TEAM_OID, saison_id: str = SAISON_ID
 ) -> Any:
-    return await get_open_registrierungen(
-        team_id=team_id,
-        saison_id=saison_id,
-        identifier=identifier,
-        registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saisons_collection=database[Collection.SAISONS],
-        spieler_collection=database[Collection.SPIELER],
-        records=record_collections(database),
-        db=client,
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await get_open_registrierungen(
+            team_id=team_id,
+            saison_id=saison_id,
+            identifier=identifier,
+            registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+            saison_spieler_collection=database[Collection.SAISON_SPIELER],
+            saisons_collection=database[Collection.SAISONS],
+            spieler_collection=database[Collection.SPIELER],
+            records=record_collections(database),
+            session=session,
+        )
 
 
 async def refused(call: Awaitable[Any]) -> str:

@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
-    SWEEP_PAGE,
     acceptance_erasure_is_due,
     build_deletion_filter,
     build_lapsed_seats_filter,
@@ -64,7 +63,7 @@ from app.core.dependencies import (
 )
 from app.core.recording import ACT_BY_SYSTEM, record_act
 from app.core.security import verify_access_system
-from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
+from app.core.transactions import SWEEP_PAGE, Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import DECLINED_RETENTION_DAYS, LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.schemas.responses import FLSweepSaisonsResponse

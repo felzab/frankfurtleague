@@ -26,11 +26,12 @@ export function buildKontaktConfirmationEmail(
   const site = mailOrigin(origin);
   const opening = PAGE.opening.seasonRow({ record: schule }, saison, { record: rollenText(rollen) });
   const href = kontaktConfirmationLink(site, token);
-  const shell = { kind: "firstContact", subjectLine: SERVER_COPY.mail.kontakt.subject(schule), origin: site } as const;
+  const shell = { kind: "firstContact", origin: site } as const;
 
   if (row === "open") {
     return {
       ...shell,
+      subjectLine: SERVER_COPY.mail.kontakt.subject(schule),
       paragraphs: [
         [opening, SERVER_COPY.mail.bewerbung.confirmOrOppose],
         [[DEADLINE.before, { strong: formatDateLong(dayOf(deadline)) }, DEADLINE.after]],
@@ -41,6 +42,7 @@ export function buildKontaktConfirmationEmail(
 
   return {
     ...shell,
+    subjectLine: SERVER_COPY.mail.kontakt.closedSubject(schule),
     paragraphs: [
       [opening, row === "exited" ? PAGE.teamDeparted({ record: schule }) : SERVER_COPY.refusalLine.saison_past, PAGE.objectionEffect.seasonRow],
     ],

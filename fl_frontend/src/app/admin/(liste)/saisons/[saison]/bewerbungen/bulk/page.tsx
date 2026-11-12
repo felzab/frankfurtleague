@@ -8,6 +8,7 @@ import { StepsPage } from "@/kit/StepsPage";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
+import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
 import { ACCEPT_RULES } from "@/features/bewerbungen/fieldRules";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
 import { standingOf } from "@/features/bewerbungen/standing";
@@ -56,7 +57,7 @@ export default function BulkAcceptPage({ params }: Props) {
           <FieldGroupPlaceholder>
             <FieldPlaceholder
               holds={5}
-              description={COPY.team.shorthandDescription}
+              description={COPY.team.shorthandDescription(SHORTHAND_LENGTH)}
             />
             <CalloutPlaceholder text={COPY.admin.bewerbung.addressPublic} />
           </FieldGroupPlaceholder>

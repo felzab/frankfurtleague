@@ -26,7 +26,6 @@ from tests.documents import (
     spieler_document,
 )
 from tests.erasure import erased
-from tests.plans import plans_of_sent_reads
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -322,24 +321,3 @@ class TestTheirEntriesNameNobody:
 
         assert entries == [{"spieler_id": other_id, "starts": True}, {"spieler_id": None, "starts": True}]
         assert untouched == seeded
-
-    def test_the_erasure_reads_an_index_per_kind_of_entry(self, mongo_replica_set_url: str):
-        """The reports are kept with no retention bound, and every pupil's erasure reads them inside its transaction."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            document = person_row(ERASED_FIRST_NAME)
-            await database[Collection.SPIELER].insert_one(document)
-            await database[Collection.SPIELBERICHTE].insert_one(a_report_naming(scorers=[document["_id"]], carded=[]))
-            _, sent = await plans_of_sent_reads(
-                mongo_replica_set_url,
-                database,
-                lambda watched, watching: erase_the_pupil(watched, watching, document["_id"]),
-                lambda collection, _: collection == Collection.SPIELBERICHTE,
-                commands=("update",),
-            )
-
-            return sent
-
-        [(_, plan)] = on_a_league(mongo_replica_set_url, body)
-
-        assert plan == "IXSCAN { bericht.scorers.spieler_id: 1 }, IXSCAN { bericht.cards.spieler_id: 1 }"

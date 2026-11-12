@@ -53,6 +53,7 @@ from app.core.dependencies import (
     GrantsCollection,
     GrantsReadCollection,
     OutboxCollection,
+    SnapshotSession,
     SpielerReadCollection,
     get_german_date_str,
     get_germany_now,
@@ -74,7 +75,7 @@ router = APIRouter(
 async def get_einwilligungen(
     identifier: PersonIdentifier,
     spieler_collection: SpielerReadCollection,
-    db: DBClient,
+    session: SnapshotSession,
     today: str = Depends(get_german_date_str),
 ) -> FLAccountEinwilligungenResponse:
     """Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
@@ -85,8 +86,7 @@ async def get_einwilligungen(
 
     # One aggregation, every kind of own record unioned and each joined to what it names, so the page costs one round trip;
     # in a snapshot, so its arms and their joins are read as of one moment.
-    async with db.start_session(snapshot=True) as session:
-        rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_account_pipeline(identifier), session=session)
+    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_account_pipeline(identifier), session=session)
 
     arms = account_arms(rows)
     pupils, referees, seat_rows = arms["spieler"], arms["schiedsrichter"], arms["seats"]

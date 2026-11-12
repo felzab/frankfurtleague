@@ -224,9 +224,10 @@ async def put(
 
 
 async def form_read(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = REFEREE_EMAIL) -> Any:
-    return await get_spielbericht_bericht(
-        spiel_id=SPIEL, identifier=email, records=record_collections(database), db=client, now=NOW, **handles(database)
-    )
+    async with client.start_session(snapshot=True) as session:
+        return await get_spielbericht_bericht(
+            spiel_id=SPIEL, identifier=email, records=record_collections(database), session=session, now=NOW, **handles(database)
+        )
 
 
 async def stored(database: AsyncDatabase) -> list[dict[str, Any]]:

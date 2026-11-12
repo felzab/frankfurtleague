@@ -20,7 +20,6 @@ from app.api.spielorte.services import build_unplayed_booking_filter, find_venue
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    build_query,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -57,12 +56,9 @@ async def get_spielorte(
     `maps_link` is a Maps search string, not a URL.
     """
 
-    # Empty `terms`: nothing here is matched by value, `include_inactive` being translated.
-    db_filter = build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive)
-
     spielorte_raw = await pull_many_from_db(
         collection=spielorte_collection,
-        db_filter=db_filter,
+        db_filter={} if filters.include_inactive else {"inactive_since": None},
         sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )

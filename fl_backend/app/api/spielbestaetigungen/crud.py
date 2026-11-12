@@ -72,20 +72,13 @@ async def pull_ansetzung_state(
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
-    # `None` for the stored fixture whole, which a judgement validates as `FLSpiel` and which names nothing; a
-    # projection reads it through the name join.
-    spiel_projection: Mapping[str, Any] | None,
     verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
 ) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
-    by_id = {"_id": spielbestaetigung_raw["spiel_id"]}
-    if spiel_projection is None:
-        spiel = await spiele_collection.find_one(by_id, session=session)
-    else:
-        named = await pull_named_spiele(spiele_collection=spiele_collection, db_filter=by_id, projection=spiel_projection, session=session)
-        spiel = named[0] if named else None
+    # The stored fixture whole, which a judgement validates as `FLSpiel` and which names nothing.
+    spiel = await spiele_collection.find_one({"_id": spielbestaetigung_raw["spiel_id"]}, session=session)
     if spiel is None:
         return None
 
