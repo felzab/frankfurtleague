@@ -6,6 +6,8 @@ from uuid import UUID
 
 import pytest
 from bson import ObjectId
+from fastapi import FastAPI
+from pydantic import SecretStr
 from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -23,7 +25,9 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
 )
+from app.core.db import lifespan
 from app.shared.tokens import hash_token
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     address_change_document,
@@ -514,6 +518,24 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_index(mongo_repli
         except RuntimeError as failure:
             return _raised(failure, "uniq_shorthand")
         return "carried on"
+
+    assert on_a_database(mongo_replica_set_url, body) == "raised"
+
+
+def test_the_application_refuses_to_start_over_a_broken_index(mongo_replica_set_url: str):
+    """The case above holds the apply; this one the start that calls it, which would otherwise serve with no unique guard."""
+
+    async def body(database: AsyncDatabase) -> str:
+        await database.teams.insert_many([valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")])
+        app = FastAPI()
+        app.state.config = build_test_config().model_copy(
+            update={"mongodb_uri": SecretStr(mongo_replica_set_url), "db_base_name": database.name}
+        )
+        try:
+            async with lifespan(app):
+                return "started"
+        except RuntimeError as failure:
+            return _raised(failure, "uniq_shorthand")
 
     assert on_a_database(mongo_replica_set_url, body) == "raised"
 
