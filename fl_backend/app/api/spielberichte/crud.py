@@ -147,8 +147,8 @@ async def write_bericht(
     saved: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
     now: datetime,
-    # REQUIRED with no default: the `version` the form was served, null where it showed no report, which the caller
-    # has judged against `saved` (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # Required with no default: the `version` the form was served, null where it showed no report, which the caller
+    # has judged against `saved`.
     version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
@@ -205,7 +205,7 @@ async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
     saison_id: str,
-    # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # The following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
     """Once the season after `saison_id` has ended, every report's remarks, answering how many reports it stripped."""
@@ -237,7 +237,7 @@ async def stamp_the_adoption(
     version: int,
     # The clubs the save leaves on the fixture: a report written about others credits neither.
     sides: Mapping[FLSpielSide, ObjectId | None],
-    # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
+    # The fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
 ) -> None:
     """Stamp the report adopted, matching it only while its document still stands at `version`.
@@ -258,7 +258,7 @@ async def empty_pupil_entries_in_session(
     *,
     spielberichte_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # REQUIRED: the erasure's own, so no report loses a name to an erasure that rolled back.
+    # The erasure's own, so no report loses a name to an erasure that rolled back.
     session: AsyncClientSession,
 ) -> None:
     """Make every scorer and card entry naming this pupil name nobody.

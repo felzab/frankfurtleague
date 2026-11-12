@@ -16,8 +16,8 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 AUFSTELLUNG_ENTRIES_MAX = 60
 
 # Where a line-up stands against its fixture's kick-off, by the clock alone: `open` before the due mark, `overdue` from
-# it to the lock, `locked` from the lock, for the team alone (`app/shared/schemas/bounds.py :: AUFSTELLUNG_DUE_DAYS`,
-# `AUFSTELLUNG_LOCK_HOURS`). Whether one is stored is a second fact beside it: a page combines the two.
+# it to the lock, `locked` from the lock, for the team alone (`AUFSTELLUNG_DUE_DAYS`, `AUFSTELLUNG_LOCK_HOURS`).
+# Whether one is stored is a second fact beside it: a page combines the two.
 type FLAufstellungPhase = Literal["open", "overdue", "locked"]
 
 
@@ -46,11 +46,10 @@ class FLAufstellung(Anchored):
     team_id: CustomObjectId
     # In the order the save sent them; an emptied line-up is an empty list, never a removed document.
     spieler: list[FLAufstellungEntry]
-    # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
 
-# --- The WRITE: one payload for a seat's save and an administrator's.
+# --- The write: one payload for a seat's save and an administrator's.
 
 
 class FLAufstellungPayload(BaseModel):
@@ -60,7 +59,7 @@ class FLAufstellungPayload(BaseModel):
 
     spieler: Annotated[list[FLAufstellungEntry], Field(max_length=AUFSTELLUNG_ENTRIES_MAX)]
     # The document's `version` the screen was served, null where it showed no line-up: required with no default, since
-    # an omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # an omitted one would check nothing.
     version: CustomVersion | None
 
     @model_validator(mode="after")
@@ -74,7 +73,7 @@ class FLAufstellungPayload(BaseModel):
         return self
 
 
-# --- The line-up's SCREEN, read by a seat of the club and by an administrator alike.
+# --- The line-up's screen, read by a seat of the club and by an administrator alike.
 
 
 class FLAufstellungSpiel(BaseModel):
@@ -118,7 +117,7 @@ class FLAufstellungMarks(BaseReadModel):
     none stored, and overdue where the due mark has passed with none stored.
     """
 
-    # Judged by `app/api/aufstellungen/services.py :: aufstellung_stands`: a line-up holding no entry is stored as none.
+    # A line-up holding no entry counts as none stored.
     stored: bool
     phase: FLAufstellungPhase
     due_at: FLUtcInstant
@@ -127,8 +126,7 @@ class FLAufstellungMarks(BaseReadModel):
 class FLAufstellungResponse(BaseAPIResponse):
     """One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
 
-    `saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up
-    opens read-only, which the save refuses (`saison_past`).
+    A finished season's line-up, which `saison_status` marks, is read-only.
     """
 
     spiel: FLAufstellungSpiel
@@ -154,7 +152,7 @@ class FLAufstellungSummary(BaseReadModel):
     starters: int = Field(ge=0)
 
 
-# --- The PUBLIC read: a line-up as the match page shows it, every pupil through the base tier's mask.
+# --- The public read: a line-up as the match page shows it, every pupil through the base tier's mask.
 
 
 class FLAufstellungEntryPublic(BaseReadModel):

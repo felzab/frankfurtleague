@@ -64,19 +64,12 @@ async def get_confirmation_view(
     schiedsrichter_collection: SchiedsrichterReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterConfirmationViewResponse:
-    """
-    Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.
+    """What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
 
-    **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
-    entry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has
-    confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second
-    URL.
-
-    Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
-    is SERVED in that state rather than refused, so a reopened link shows what became of it. `answered_at` is the day the
-    state's answer was given, the consent's or the objection's, and null on every state showing none.
+    A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.
     """
 
+    # A POST that reads, so the token travels in a body and never in a URL.
     token_hash = hash_token(view_data.token)
 
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
@@ -112,21 +105,10 @@ async def post_confirmation(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterConfirmationResponse:
-    """
-    Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
+    """Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
 
-    The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
-    evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
-    publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
-    fixture stores.
-
-    Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
-    declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
-    `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
-    `MEDIA_MIN_AGE_YEARS` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
-
-    **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
-    a withheld name would go on being served for as long as that entry lives.
+    The caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as
+    long as that entry lives.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -144,7 +126,7 @@ async def post_confirmation(
         refuse(find_unknown_token_refusal(found=raw is not None))
         assert raw is not None
 
-        # The STAMP is asked first, as `state_of` ranks it: a person who answered on the last
+        # The stamp is asked first, as `state_of` ranks it: a person who answered on the last
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
@@ -153,7 +135,8 @@ async def post_confirmation(
         refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=answer_data.birth_date, today=today))
 
         # The person's own press, judged on the read above, on fields the referee editor never saves: an editor's save
-        # read before it still lands.
+        # read before it still lands. No fixture is written: the scope has one home, which the fixture list joins at read
+        # time.
         await patch_past_the_version_in_db(
             collection=schiedsrichter_collection,
             db_filter={"_id": raw["_id"]},
@@ -191,15 +174,10 @@ async def post_decline(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """
-    Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
+    """Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
 
-    The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
-    unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
-    re-send or reactivation asks the person again. The objection is journalled.
-
-    Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
-    confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).
+    The entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks
+    the person again.
     """
 
     token_hash = hash_token(decline_data.token)
@@ -218,7 +196,7 @@ async def post_decline(
         refuse(find_already_answered_refusal(einwilligung=raw.get(EINWILLIGUNG_FIELD), confirmation=raw[CONFIRMATION_FIELD]))
         refuse(find_expired_token_refusal(deadline=raw[CONFIRMATION_FIELD]["deadline"], today=today))
 
-        # The confirmation's way past the count, for its reason: the objection's day is no field the editor saves.
+        # Past the count: the objection's day is no field the editor saves.
         await patch_past_the_version_in_db(
             collection=schiedsrichter_collection, db_filter={"_id": raw["_id"]}, update=compose_decline_update(today=today), session=session
         )

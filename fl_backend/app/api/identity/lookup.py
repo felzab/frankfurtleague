@@ -1,8 +1,6 @@
-"""
-API · the collections a mailbox's records are read from, as one request holds them
+"""One dependency hands every reader of a person's records the same five handles.
 
-One dependency hands every reader of a person's records the same five handles, so no handler wires
-them by hand and a reader left short of one is a type error rather than a list answered empty.
+No handler wires them by hand, so a reader left short of one is a type error rather than a list answered empty.
 """
 
 from dataclasses import dataclass

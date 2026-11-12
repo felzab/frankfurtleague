@@ -1,9 +1,4 @@
-"""
-API · where a line-up stands against its fixture's kick-off, and what its screen and its save judge
-
-The one place a line-up's marks are counted from a fixture's `date` and `time`: the line-up's own read and its lock,
-the team's reads and the reminder's window all ask here, so no two of them can disagree on an instant.
-"""
+"""The one place a line-up's marks are counted from a fixture's `date` and `time`, so no two readers disagree on an instant."""
 
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
@@ -102,8 +97,8 @@ def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
 def aufstellung_stands(saved: Mapping[str, Any] | None) -> bool:
     """Whether the club's stored line-up stands as one: it holds an entry.
 
-    What every reader calls stored, the team's marks, the reminder and the public read alike: a line-up is owed for every
-    dated fixture, so one emptied, by its club or by an erasure ahead of the match, stays due.
+    What every reader calls stored: a line-up is owed for every dated fixture, so one emptied, by its club or by an
+    erasure ahead of the match, stays due.
     """
 
     return saved is not None and bool(saved["spieler"])
@@ -185,7 +180,7 @@ _UNNUMBERED = "unnumbered"
 def build_aufstellung_kader_pipeline(*, saison_id: str, team_id: ObjectId) -> list[Mapping[str, Any]]:
     """Every squad row of one club in one season, live and ausgetragen alike, with its pupil's two names, in shirt-number order.
 
-    The line-up's own rather than the report's (`app/api/spielberichte/services.py :: build_bericht_kader_pipeline`):
+    The line-up's own rather than the report's `build_bericht_kader_pipeline`:
     its screen shows each row's position and captaincy, judges its nominees, and lists the squad by number.
     """
 
@@ -225,7 +220,7 @@ def build_aufstellung_kader_pipeline(*, saison_id: str, team_id: ObjectId) -> li
     ]
 
 
-# --- The PUBLIC read: each side's line-up on the match page, every pupil through the base tier's mask.
+# --- The public read: each side's line-up on the match page, every pupil through the base tier's mask.
 
 PUBLIC_AUFSTELLUNGEN_AS = "aufstellungen_rows"
 
@@ -280,8 +275,8 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
 def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellungenPublic:
     """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where none stands.
 
-    An entry naming nobody and one whose name is withheld are served alike, as a name and nothing else, after the named
-    ones. A line-up holding no entry stands as none (`aufstellung_stands`).
+    An entry naming nobody and one whose name is withheld are served alike, holding nothing but `starts`, after the named
+    ones. A line-up holding no entry stands as none.
     """
 
     by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}

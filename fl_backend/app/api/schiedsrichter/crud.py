@@ -23,7 +23,7 @@ async def owe_the_confirmation(
     # The referee's `version` after the write owing the mail: the same on a retry of that write, another on every other.
     version: int,
     now: datetime,
-    # REQUIRED: the mail is owed by the write that minted the block, and stands or falls with it.
+    # The mail is owed by the write that minted the block, and stands or falls with it.
     session: AsyncClientSession,
 ) -> None:
     """Owe the referee their confirmation link at the address the write left them, the link minted when it is handed out.
@@ -56,14 +56,12 @@ async def erase_referee_in_session(
     schiedsrichter_id: CustomObjectId,
     # The erasing request's clock, which judges each fixture played or still to come.
     now: datetime,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> None:
     """Delete the referee, every confirmation row they are the party of, and their bookings of fixtures still to come.
 
-    A played fixture's booking stands naming nobody, its `payment` kept: it records what that match agreed. Judged once,
-    here, by `app/api/teams/services.py :: is_played`. One function for an erasure on request, by the season rule and by
-    the sweep alike.
+    A played fixture's booking stands naming nobody, its `payment` kept: it records what that match agreed.
     """
 
     # In-session, so the 404 for an id already erased is decided on the snapshot the delete
