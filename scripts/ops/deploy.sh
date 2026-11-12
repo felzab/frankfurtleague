@@ -80,17 +80,42 @@ ok "every image is on this host"
 # Through a second file and a rename, so the pin is never half written.
 pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 
+# Every service the compose file defines that is not running and healthy, into FAILING: one with no
+# running container, and one whose health is anything but none or `healthy`, `starting` included.
+# `up --wait` judges each service once, so one can turn unhealthy while it waits on another, and some
+# Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
+# the project's running containers and no one-off container `docker compose run` left
+# (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
+# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read.
+FAILING=()
+read_states() {
+  local defined listed service state health
+  local -A running=() other=()
+  FAILING=()
+  defined="$(docker compose config --services)" || return 2
+  listed="$(docker compose ps --format '{{.Service}} {{.State}} {{.Health}}')" || return 2
+  while IFS=' ' read -r service state health; do
+    if [[ "$state" == running && ( -z "$health" || "$health" == healthy ) ]]; then
+      running[$service]=1
+    elif [[ -n "$service" ]]; then
+      other[$service]=1
+    fi
+  done <<<"$listed"
+  while IFS= read -r service; do
+    if [[ -n "$service" && ( -n "${other[$service]-}" || -z "${running[$service]-}" ) ]]; then FAILING+=("$service"); fi
+  done <<<"$defined"
+  (( ${#FAILING[@]} == 0 ))
+}
+
 # The services' own healthchecks decide, and their last lines say why.
 show_failure() {
   local IFS=' '
-  local -a failing=()
   info "compose's own account of each service:"
   docker compose ps --all 2>&1 | detail || true
-  mapfile -t failing < <(docker compose ps --all --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null \
-    | awk '$2 != "running" || ($3 != "" && $3 != "healthy") { print $1 }')
-  if (( ${#failing[@]} )); then
-    info "the last 60 lines of ${failing[*]}:"
-    docker compose logs --tail=60 "${failing[@]}" 2>&1 | detail || true
+  read_states || true
+  if (( ${#FAILING[@]} )); then
+    info "the last 60 lines of ${FAILING[*]}:"
+    docker compose logs --tail=60 "${FAILING[@]}" 2>&1 | detail || true
   fi
 }
 
@@ -132,7 +157,8 @@ fi
 step "Starting ${tag}"
 failure="${tag} did not come up"
 if up; then
-  ok "every service is running and healthy"
+  # What `up` answered and nothing more: the read below judges each service.
+  ok "compose's wait ended without a failure"
   # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
   step "nginx's configuration"
   failure="nginx did not take this checkout's configuration and still runs the one it had"
@@ -142,10 +168,21 @@ if up; then
 reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
   elif reload_nginx; then
     ok "tested, and its new workers started"
-    pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
+    step "Every service's state"
+    read_rc=0
+    read_states || read_rc=$?
+    if (( read_rc == 0 )); then
+      ok "every service is running and healthy"
+      pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
-    ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
-    exit 0
+      ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
+      exit 0
+    elif (( read_rc == 1 )); then
+      printf -v named '%s, ' "${FAILING[@]}"
+      failure="${tag} came up, but the last read finds ${named%, } not running and healthy"
+    else
+      failure="${tag} came up, but compose could not read each service's state after it"
+    fi
   fi
 fi
 
@@ -164,7 +201,7 @@ fi
 # before this run.
 step "Going back to ${prev}"
 export TAG="$prev"
-if up; then
+if up && read_states; then
   die "${failure}, so the stack went back to ${prev}, which is live."
 fi
 show_failure
