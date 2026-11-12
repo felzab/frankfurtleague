@@ -6,7 +6,8 @@ import { tv } from "./tv";
  * control's own words' colour over its fill), which shows on any ground; `full` also takes muted words to their full
  * colour; `words` does that alone, for a control that takes no layer or takes it elsewhere; `line` thickens the
  * underline a link of words carries at rest; `underline` draws the one a link of words lacks at rest, `fullUnderline`
- * taking its muted words to their full colour too and `bandUnderline` its dimmed white on the band to full white.
+ * taking its muted words to their full colour too, `bandUnderline` its dimmed white on the band to full white and
+ * `struckUnderline` drawing it beside the strike struck words keep.
  *
  * `host` is what marks the state. React Aria's control marks its own hover, which a touch never sets, and keeps
  * `data-pressed` while the overlay it opened stands, so the control that opened it stays in view; a plain anchor takes
@@ -28,6 +29,8 @@ export const hoverLook = tv({
       underline: "",
       fullUnderline: "",
       bandUnderline: "",
+      // `underline` alone would set the one decoration line and drop the strike.
+      struckUnderline: "",
     },
   },
   compoundVariants: [
@@ -41,6 +44,11 @@ export const hoverLook = tv({
     { host: "link", answer: "line", class: "hover:decoration-2 active:decoration-2" },
     { host: "link", answer: ["underline", "fullUnderline", "bandUnderline"], class: "hover:underline active:underline" },
     { host: "link", answer: "bandUnderline", class: "hover:text-on-brand active:text-on-brand" },
+    {
+      host: "link",
+      answer: "struckUnderline",
+      class: "hover:[text-decoration-line:underline_line-through] active:[text-decoration-line:underline_line-through]",
+    },
   ],
   defaultVariants: { answer: "layer" },
 });

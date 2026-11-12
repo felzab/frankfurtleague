@@ -24,6 +24,8 @@ const link = tv({
       // underlined already in text thickens its line. A link drawn as a row, a card or a button takes their layer.
       text: `text-brand underline ${hoverLook({ host: "link", answer: "line" })}`,
       standalone: `text-brand ${hoverLook({ host: "link", answer: "underline" })}`,
+      // A name struck through, such as a player who did not turn up: the pointer's underline joins the strike.
+      struck: `text-brand line-through ${hoverLook({ host: "link", answer: "struckUnderline" })}`,
       // A line of detail that leads on, such as a team's place under its name: muted until the pointer is over it.
       detail: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // A row's name takes its row's colour, muted in a row that no longer counts.
@@ -33,6 +35,11 @@ const link = tv({
       footer: `rounded-md text-sm leading-6 text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
       // Drawn by `buttonLook` in the look the link names.
       button: "",
+      // Drawn by `frameLink` in the tone the link names.
+      frame: "",
+      // An entry of a reading page's contents list, on the list's 2-px track: muted until the pointer is over it, and
+      // the section the reader is in marked by the track's brand stretch and its words in full.
+      contents: `block border-s-2 border-border py-1.5 ps-4 text-sm text-fg-muted transition-colors duration-(--motion-state) aria-[current=location]:border-brand aria-[current=location]:font-medium aria-[current=location]:text-fg ${hoverLook({ host: "link", answer: "words" })}`,
     },
     // A card standing as a row of a list's columns (`SpielList`): a grid of those columns rather than a block.
     subgrid: {
@@ -82,7 +89,18 @@ export const menuEntry = tv({
 // The focus file's mark for each placement: a ring hugging the words, a ring with its gap, a ring drawn
 // inside the row the link covers, or one inside the card, which a list's card would otherwise clip; a link
 // drawn as a button rings as a button does. The footer's words hug their ring as text does.
-const FOCUS = { text: "text", standalone: "ring", detail: "ring", row: "row", card: "inset", footer: "text", button: "ring" } as const;
+const FOCUS = {
+  text: "text",
+  standalone: "ring",
+  struck: "ring",
+  detail: "ring",
+  row: "row",
+  card: "inset",
+  footer: "text",
+  button: "ring",
+  frame: "ring",
+  contents: "ring",
+} as const;
 
 /** The link's words: the catalogue's, or a record's own name, such as a club's or a venue's. */
 type Worded = { label: Words; children?: never };
@@ -109,6 +127,15 @@ type Row = { placement: "row" } & (Worded | { children: ReactNode; label?: never
 
 /** A link of the classic footer: its words, or a sponsor's logo with its short name. */
 type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?: never });
+
+/**
+ * An entry of a reading page's contents list. `current` marks the section the reader is in as `aria-current="location"`,
+ * WAI-ARIA's value for the current place in a set of links such as a table of contents.
+ */
+type Contents = { placement: "contents"; current: boolean } & Worded;
+
+/** A link a frame draws, as tall as every control, in the tone of the ground it stands on (`frameLink`). */
+type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "rail" } & Worded;
 
 type Card = {
   placement: "card";
@@ -149,7 +176,7 @@ export function Link<T extends string>(
      * prefetching says of a large list: with `optimisticRouting` off, each address in view costs a request of its own.
      */
     prefetch?: false;
-  } & (({ placement: "text" | "standalone" | "detail" } & Worded) | Row | Footer | Button | IconOnly | Card),
+  } & (({ placement: "text" | "standalone" | "struck" | "detail" } & Worded) | Row | Footer | Button | IconOnly | Card | Frame | Contents),
 ) {
   const { href, sponsored = false, fullPage = false, prefetch } = props;
   const elsewhere = ELSEWHERE.test(href);
@@ -171,9 +198,12 @@ export function Link<T extends string>(
     href,
     "data-kit-focus": FOCUS[props.placement],
     className:
-      button === undefined
-        ? link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true })
-        : buttonLook({ look: button.look, host: "link" }),
+      button !== undefined
+        ? buttonLook({ look: button.look, host: "link" })
+        : props.placement === "frame"
+          ? frameLink({ tone: props.tone })
+          : link({ placement: props.placement, subgrid: props.placement === "card" && props.subgrid === true }),
+    "aria-current": props.placement === "contents" && props.current ? ("location" as const) : undefined,
     ...tab,
   };
   const words = (
