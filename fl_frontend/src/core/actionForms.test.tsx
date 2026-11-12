@@ -64,6 +64,19 @@ describe("each form's posted names meet its lane's keys", () => {
     expect(namesIn(<SpielortFields rules={SPIELORT_RULES} />).toSorted()).toStrictEqual(keysOf(createSpielort));
   });
 
+  it("loses no box of the season create dialog", async () => {
+    const { createSaison } = await import("@/features/saisons/createSaison");
+    const { CreateFields } = await import("@/app/admin/(liste)/saisons/CreateFields");
+    const names = namesIn(
+      <CreateFields
+        next={{ start: null, end: null }}
+        required={{ start: true, end: true }}
+      />,
+    );
+
+    expect(names.toSorted()).toStrictEqual(keysOf(createSaison));
+  });
+
   it("loses no box of a new school's entry", async () => {
     const { enterTeam } = await import("@/app/admin/(liste)/saisons/[saison]/teams/enterTeam");
     const { TeamEntryFields } = await import("@/app/admin/(liste)/saisons/[saison]/teams/TeamEntryFields");
@@ -144,7 +157,6 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it.each([
-    ["the season create dialog", "@/features/saisons/createSaison", "createSaison", ["app/admin/(liste)/saisons/CreateFields.tsx"]],
     [
       "a Zusage's dialog",
       "@/app/admin/(liste)/saisons/[saison]/enterZusage",

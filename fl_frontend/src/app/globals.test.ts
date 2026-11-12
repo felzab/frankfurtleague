@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 
 import type { Container, Document, Rule } from "postcss";
 
+// Compiled once for both cases, which only read it.
+const compiled = compiledGlobals();
+
 /*
  * `font-numeric` alone sets a readout's figures in columns: no lint pairs it with `tabular-nums`, so the one
  * theme line in `globals.css` naming the feature is all that holds a table's digits under each other.
  */
 describe("the numerals in the built stylesheet", () => {
   it("sets tabular figures wherever font-numeric stands", async () => {
-    const root = await compiledGlobals();
+    const root = await compiled;
     const settings = declared(root, "font-numeric", "font-feature-settings").map(({ value }) => {
       // Tailwind emits the feature through the theme variable beside the family.
       const variable = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
@@ -29,7 +32,7 @@ describe("the numerals in the built stylesheet", () => {
  */
 describe("the type sizes in the built stylesheet", () => {
   it("sets a line height wherever a theme size sets the font size", async () => {
-    const root = await compiledGlobals();
+    const root = await compiled;
     const sized: Array<{ selector: string; lineHeight: boolean }> = [];
     root.walkDecls("font-size", (decl) => {
       if (!/^var\(--text-[\w-]+\)$/.test(decl.value)) return;
