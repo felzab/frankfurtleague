@@ -45,7 +45,7 @@ export type OneShotActs = { primary: Copy; refusal?: Refusal } | { primary?: nev
 const ACT_FIELD = "act";
 
 /**
- * The server action a one-shot form posts to, built by `fl_frontend/src/core/action.ts :: action`: the fields by their
+ * The server action a one-shot form posts to, built by `action`: the fields by their
  * `name`s, the values the page carries, and the act pressed under `ACT_FIELD`.
  */
 export type OneShotAction = (formData: FormData) => Promise<ActionAnswer<EndState>>;
@@ -55,7 +55,7 @@ const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 
 /**
  * The one-shot's end, held above the mailed page's state, whose place a done answer takes for good. A done action
- * renders the page again with the cache tag its write cleared (`fl_frontend/src/core/action.ts :: body`), and the
+ * renders the page again with the cache tag its write cleared, and the
  * link read again is in another state, the opened-again one, which takes the form's place in the same response.
  * React keeps a component's state only while its type stays at its place in the tree
  * (https://react.dev/learn/preserving-and-resetting-state), so the answer is lifted to this boundary, whose place the
@@ -108,7 +108,7 @@ export function OneShotForm({
    * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
    */
   touch?: boolean;
-  /** The bot check's public key, on a form whose action declares the check (`fl_frontend/src/core/action.ts`). */
+  /** The bot check's public key, on a form whose action declares the check. */
   botCheck?: { siteKey: string };
   /**
    * The field a replay key posts under, where a press whose answer was lost may have landed: a press posting what the

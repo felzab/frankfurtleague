@@ -42,7 +42,7 @@ const PARTY_CLASSES = "flex min-w-0 items-center gap-2";
 
 /**
  * A party's name with its chips, here and on a seat's row (`SeatRows`): the chips directly after the name on its line,
- * as every row holds them (`cardStyles.ts :: nameWithChips`), after its plaque. A name too long for its line is cut with
+ * as every row holds them (`nameWithChips`), after its plaque. A name too long for its line is cut with
  * „…“.
  */
 export function PartyHead({

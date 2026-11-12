@@ -9,8 +9,8 @@ import type { StatusCardProps } from "./StatusCard";
 
 /*
  * What a mailed page's link reads as, for the modules that word it without drawing the page: its tab's title and the
- * end a link no longer valid reaches. Apart from `MailedPage.tsx`, whose one-shot form brings the
- * client's stack to every route importing it.
+ * end a link no longer valid reaches. Apart from `MailedPage`, whose one-shot form brings the client's stack to every
+ * route importing it.
  */
 
 /**

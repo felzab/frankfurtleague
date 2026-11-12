@@ -108,7 +108,7 @@ export function RouteDialog({
 }
 
 /**
- * A dialog's part ending its record, shaped as a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width:
+ * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width:
  * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
  * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
  * act's name over its consequence at the left and its outlined button at the right.

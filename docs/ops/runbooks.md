@@ -306,7 +306,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   The owner stays the owner until then. The new owner signs in once more before acting: a session
   older than the handover holds nothing. An erasure removes an administrator's grant; the owner's
   own erasure is refused until a handover (`owner_erasure`).
-- **The database is written directly for two things alone: the first owner, before anybody can sign
+- **`grants` is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when the owner cannot sign in.** Write it with a file run by
   `mongosh --file` in a terminal, into the `grants` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds three fields: `address`,

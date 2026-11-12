@@ -44,7 +44,7 @@ type Answer =
   { readonly passed: boolean; readonly codes: readonly string[]; readonly status: number } | { readonly refusedStatus: number } | null;
 
 /**
- * Too many requests is Cloudflare declining to judge, which garbage tokens sent at the action pair's rate can bring on
+ * Too many requests is Cloudflare declining to judge, which garbage tokens sent at the edge's action zone's rate can bring on
  * while the site stands: let through, a flood would switch the check off for itself.
  */
 const TOO_MANY_REQUESTS = 429;

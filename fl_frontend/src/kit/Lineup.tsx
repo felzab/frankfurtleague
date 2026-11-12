@@ -27,7 +27,7 @@ import type { RoleMarkProps } from "./RoleMark";
  * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
  * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
  * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
- * table's box is the container its rows read, at a list's width, 42 rem (`Table.tsx :: table`).
+ * table's box is the container its rows read, at a list's width, 42 rem.
  */
 const lineup = tv({
   slots: {
@@ -46,7 +46,7 @@ const lineup = tv({
     // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
     // keep inside the row's 56, so such a row stands as tall as one without a chip.
     name: "w-full px-3 py-2 @max-2xl:py-1.5",
-    // The name with its mark and the chip after it, as every row holds them (`cardStyles.ts :: nameWithChips`). The
+    // The name with its mark and the chip after it, as every row holds them (`nameWithChips`). The
     // line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status column:
     // a row's tick and act stand taller than its name's line, which a row of several lines cannot centre against them.
     nameLine: "min-w-20",
@@ -519,7 +519,7 @@ function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; start
  */
 export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
   const s = lineup();
-  // Inline, so its line keeps the count's baseline, which the band aligns on, as a fold's head does (`ReadFolds.tsx`).
+  // Inline, so its line keeps the count's baseline, which the band aligns on, as a fold's head does (`ReadFolds`).
   const count = (
     <span className={s.count()}>
       <span className={placeholderBar("inline-block h-3 w-4 align-middle")} />
