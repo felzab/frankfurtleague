@@ -286,11 +286,7 @@ export const SERVER_COPY = catalogue({
     discardConsequence: "Der Termin bleibt.",
   },
 
-  /**
-   * The mail shell's own lines, and the words of the account's, the fixtures', the line-up's, the referee's, the
-   * application's and the registration's mails; every other mail's sentences are its template's until its area's session
-   * rewrites them.
-   */
+  /** The mail shell's own lines, and every mail's words. */
   mail: {
     greeting: "Hallo,",
     /** Under the button, above its link printed to copy. */

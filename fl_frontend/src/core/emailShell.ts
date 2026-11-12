@@ -7,8 +7,6 @@ import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 
-export const BRAND_NAME: string = COPY.brand.name;
-
 /**
  * What a mail is, which decides its sender, its „Nicht du?“ line and its Art. 21 line, so no caller can
  * pair them apart: a sign-in code, a change to what signs in, the first word to an address somebody
@@ -327,7 +325,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
           <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
           <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
-              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.card)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.width)}" height="${String(LOGO.height)}" alt="${escapeHtml(COPY.brand.name)}" style="display:block;width:${String(LOGO.width)}px;height:${String(LOGO.height)}px;border:0;outline:none;text-decoration:none;" /></td>
             </tr>
             <tr>
               <td class="fl-pad" style="padding:${String(GAP.card)}px;font-family:${FONT_STACK};">
