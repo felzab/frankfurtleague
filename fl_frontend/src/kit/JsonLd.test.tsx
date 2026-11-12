@@ -21,7 +21,7 @@ describe("the league's structured data", () => {
     const { legalName } = published();
 
     expect(legalName).toBe("Frankfurt League e. V.");
-    expect(VEREIN_NAME).toContain(" ");
-    expect(VEREIN_NAME.replace(" ", " ")).toBe(legalName);
+    expect(VEREIN_NAME).toContain("\u00A0");
+    expect(VEREIN_NAME.replace("\u00A0", " ")).toBe(legalName);
   });
 });
