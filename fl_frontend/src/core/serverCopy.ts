@@ -821,8 +821,8 @@ export const SERVER_COPY = catalogue({
     },
   },
 
-  /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
-  saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
+  /** One word for where a season stands, before its start, running, or over once its places are decided: a season card's chip, a list's. */
+  saisonState: { planned: "Geplant", running: "Läuft", decided: "Vorbei" },
 
   /** The public season pages and the kit's season blocks, drawn on the server alone. */
   season: {
