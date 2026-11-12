@@ -4930,7 +4930,7 @@
         "type": "string"
       },
       "FLCitedMediaTextVersion": {
-        "const": "2026-11-medien-1",
+        "const": "2026-11-media-1",
         "type": "string"
       },
       "FLConfirmationState": {
@@ -6920,7 +6920,7 @@
         "type": "integer"
       },
       "FLMediaTextVersion": {
-        "const": "2026-11-medien-1",
+        "const": "2026-11-media-1",
         "type": "string"
       },
       "FLNameKaderTextVersion": {

@@ -373,7 +373,7 @@ export interface FLEinwilligungStatePayload {
   scope: string | null;
 }
 
-export type FLCitedMediaTextVersion = "2026-11-medien-1";
+export type FLCitedMediaTextVersion = "2026-11-media-1";
 
 export type FLSpielerScopeTextVersion = "2026-11-name-kader-1";
 
@@ -3012,7 +3012,7 @@ export interface FLLandingResponse {
 
 export type FLMediaMinAgeYears = 18;
 
-export type FLMediaTextVersion = "2026-11-medien-1";
+export type FLMediaTextVersion = "2026-11-media-1";
 
 export type FLNameKaderTextVersion = "2026-11-name-kader-1";
 
