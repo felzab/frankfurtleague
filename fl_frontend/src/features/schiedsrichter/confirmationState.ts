@@ -1,3 +1,5 @@
+import { UNCONFIRMED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -35,6 +37,6 @@ export function refereeChip(referee: Pick<FLSchiedsrichter, "inactive_since" | "
       return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
     case "unanswered":
     case "unasked":
-      return { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed };
+      return UNCONFIRMED_CHIP;
   }
 }

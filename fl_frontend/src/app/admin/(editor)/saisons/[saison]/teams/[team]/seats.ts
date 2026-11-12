@@ -1,4 +1,4 @@
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -49,12 +49,11 @@ function standingOf(
     return { chip: entered ? { tone: "neutral", label: COPY.admin.erased } : null, day: null, asks: false };
   }
   const confirmed = person.einwilligung.confirmed_at;
-  if (confirmed !== null)
-    return { chip: { tone: "success", label: COPY.admin.confirmed }, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };
-  if (link === null) return { chip: { tone: "warn", label: COPY.template.open }, day: null, asks: true };
+  if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };
+  if (link === null) return { chip: UNCONFIRMED_CHIP, day: null, asks: true };
   return link.expired
     ? { chip: EXPIRED_CHIP, day: DAYS.expiredOn(dayOf(link.deadline)), asks: true }
-    : { chip: { tone: "warn", label: COPY.template.open }, day: DAYS.openUntil(dayOf(link.deadline)), asks: true };
+    : { chip: UNCONFIRMED_CHIP, day: COPY.admin.spiel.answerBy(dayOf(link.deadline)), asks: true };
 }
 
 /** One seat's row, and what its acts read: one row per person, the Trainer's carrying a second seat they hold. */

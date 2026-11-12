@@ -117,7 +117,7 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
       return confirmation?.declined_at == null ? null : WORDS.objectedOn(dayOf(confirmation.declined_at));
     case "unanswered":
       if (confirmation === null) return null;
-      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : WORDS.openUntil(dayOf(confirmation.deadline));
+      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }

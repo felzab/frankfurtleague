@@ -46,8 +46,18 @@ describe("where a team's seat stands", () => {
 
   it("tells a lapsed link from an open one", () => {
     const held = { ...NOBODY, ansprechperson: person("Anna") };
-    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.template.open);
+    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.admin.schiedsrichter.unconfirmed);
     expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.admin.expired);
+  });
+
+  // One state, one word on the row: a line saying „Offen“ under the chip „Unbestätigt“ names it twice, two ways.
+  it("dates an open link by the answer it awaits, in no other word for its state", () => {
+    const held = { ...NOBODY, ansprechperson: person("Anna") };
+    const [seat] = seatsOf({ kontakte: held, confirmations: { trainer: null, stellvertretung: null, ansprechperson: link({}) } }).filter(
+      (row) => row.id === "ansprechperson",
+    );
+
+    expect(seat?.line).toBe(COPY.admin.seatLine(["ansprechperson"], "anna@example.com", COPY.admin.spiel.answerBy("2026-10-15")));
   });
 
   it("tells a seat its person objected to from one an erasure emptied", () => {
@@ -64,7 +74,7 @@ describe("where a team's seat stands", () => {
       (row) => row.id === "ansprechperson",
     );
 
-    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.template.open, COPY.admin.saison.linkNotSent]);
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.saison.linkNotSent]);
   });
 });
 

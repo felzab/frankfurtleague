@@ -1061,17 +1061,22 @@ export const COPY = catalogue({
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
-      /** A referee who has not confirmed their entry: the chip after the name, and the note on the match editor's closed choice. */
+      /**
+       * An entry waiting on its person's confirmation, a referee's, a seat's or a registration's: the chip after the
+       * name, and the note on the match editor's closed choice.
+       */
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
-      /** The fact saying where the referee's confirmation stands, one of the four lines below. */
+      /**
+       * The fact saying where the referee's confirmation stands, one of the three lines below or, while it is still
+       * awaited, `COPY.admin.spiel.answerBy`.
+       */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
       confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
-      openUntil: (day: CalendarDay) => `Offen ${boundBy("bis", formatDate(day))}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
       objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
@@ -1286,6 +1291,7 @@ export const COPY = catalogue({
       cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
       reason: "Grund",
+      /** The day an awaited answer is due by: a party's about a date, and a seat's or a referee's about their entry. */
       answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
       enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",

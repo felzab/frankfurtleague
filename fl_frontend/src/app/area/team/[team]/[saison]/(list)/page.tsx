@@ -2,7 +2,7 @@ import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -164,7 +164,7 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
     id: row.registrierung_id,
     href: ROUTES.teamRegistrierungen.path(team, saison),
     name: { record: `${row.first_name} ${row.last_name}` },
-    chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+    chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(plays === null ? {} : { line: plays }),
   };
 }
@@ -180,9 +180,7 @@ function seatRow(seat: FLTeamSeat) {
     : {
         id: seat.rollen.join(" "),
         name: { record: seat.name },
-        chips: [
-          seat.confirmed ? { tone: "success" as const, label: COPY.admin.confirmed } : { tone: "warn" as const, label: COPY.template.open },
-        ],
+        chips: [seat.confirmed ? CONFIRMED_CHIP : UNCONFIRMED_CHIP],
         line: held,
       };
 }

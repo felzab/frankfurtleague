@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -60,7 +61,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
   return {
     id: row.registrierung_id,
     name: { record: name },
-    chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+    chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(line === undefined ? {} : { line }),
     cells: { received },
     entry: {

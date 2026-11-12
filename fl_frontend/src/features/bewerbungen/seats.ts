@@ -1,4 +1,4 @@
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -33,8 +33,8 @@ const WORDS = COPY.admin.schiedsrichter;
 export const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
 
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
-  confirmed: { tone: "success", label: COPY.admin.confirmed },
-  valid: { tone: "warn", label: COPY.template.open },
+  confirmed: CONFIRMED_CHIP,
+  valid: UNCONFIRMED_CHIP,
   expired: EXPIRED_CHIP,
   declined: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
   erased: { tone: "neutral", label: COPY.admin.erased },
@@ -51,7 +51,7 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, ent
     case "expired":
       return status === "submitted" ? WORDS.expiredOn(dayOf(entry.deadline)) : null;
     case "valid":
-      return WORDS.openUntil(dayOf(entry.deadline));
+      return COPY.admin.spiel.answerBy(dayOf(entry.deadline));
   }
 }
 

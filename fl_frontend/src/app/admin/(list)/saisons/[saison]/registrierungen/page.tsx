@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -41,8 +42,8 @@ const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label:
 
 /** Whether the pupil answered, and where they did not whether they were ever asked: the row lapses on its day either way. */
 function chipOf(row: FLRegistrierungAdminRow): ChipProps {
-  if (row.confirmed) return { tone: "success", label: COPY.admin.confirmed };
-  return row.unmailed ? NOT_SENT : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed };
+  if (row.confirmed) return CONFIRMED_CHIP;
+  return row.unmailed ? NOT_SENT : UNCONFIRMED_CHIP;
 }
 
 /**
