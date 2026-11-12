@@ -55,7 +55,7 @@ const facts = tv({
         // included, takes the row's whole width, so no empty cell stands beside it.
         row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams. A lone pair
+      // No box and no hairlines, two pairs a row at every width: the match pop-up's facts under its teams. A lone pair
       // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",

@@ -66,8 +66,7 @@ type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };
 /**
  * The one way a browser form posts: a server action through React's `useActionState`, whose rejection would
  * otherwise reach the nearest error boundary with nothing to say, so every throw answers in the form's own
- * status line, as `answering` words it. Every form kind takes it: the editor's bar, a Konto box, and the
- * one-shot submit.
+ * status line, as `answering` words it.
  *
  * Next keeps a page the person left in a hidden `Activity`. With `resetOnLeave`, an answer already shown is
  * cleared as the page hides, so a „Gespeichert“ never greets a later visit; a draft not yet sent stays, which

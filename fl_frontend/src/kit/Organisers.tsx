@@ -10,7 +10,7 @@ const row = tv({
   slots: {
     root: `flex flex-wrap items-center gap-x-6 gap-y-4 ${cardSurface()} p-6`,
     person: "flex items-center gap-2.5",
-    // Board: the avatar, the first letter of the name in a 40-px circle, as the account row draws one.
+    // The avatar, the first letter of the name in a 40-px circle, as the account row draws one.
     avatar: "flex size-10 shrink-0 items-center justify-center rounded-full bg-bg-muted font-numeric text-sm font-semibold",
     name: "text-sm font-semibold",
     role: "text-xs text-fg-muted",

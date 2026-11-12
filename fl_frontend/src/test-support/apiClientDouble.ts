@@ -136,7 +136,7 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 
 /**
  * `doubleApiClient` answering every call with `answer`, until `answerWith` names another for the rest
- * of that case: the double a suite drives a slice's real `mutations.ts` through.
+ * of that case: the double a suite drives a slice's real calls to the backend through.
  */
 export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({})): {
   calls: ApiCall[];

@@ -16,8 +16,7 @@ const WORDS = SERVER_COPY.mail.registrierung;
  * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
  * `core` may not import a feature.
  *
- * `token` is the parameter name because the edge's `$credential_free_uri` matches that name; a second spelling
- * reaches the access line and the referer unredacted.
+ * `token` is the parameter name because the confirmation page reads that name alone.
  */
 function spielerConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
@@ -32,8 +31,7 @@ function spielerConfirmationLink(origin: string, token: string): string {
  */
 export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
-  // which the edge's noindex prefix does not match.
+  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail.
   const site = mailOrigin(origin);
 
   return {

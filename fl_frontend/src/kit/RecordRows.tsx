@@ -185,8 +185,8 @@ function RecordRow<Row extends EditorRow>({
  * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
  * fields on two or three lines in a list narrower than 42 rem and on one, or two with a cell below, from it, the remove
  * control at the end of its first line, and the add
- * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `list`), the hairline
- * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
+ * control in the foot under the list. It stands edge to edge in its box (`Section`'s `list`), the hairline
+ * between two rows reaching the box's edges. The value is the editor's (`EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
  *
  * Each refused field's refusal stands under it, however many of a row's fields are refused, and the refused field takes
@@ -227,10 +227,10 @@ export function RecordRows<Row extends EditorRow>({
   remove: Copy;
   /**
    * Why the list takes no new row as the draft stands, such as a no-show's goals: the add control stays reachable and
-   * says it, as every locked act does (`./Button.tsx`'s `locked`). The rows stand, each with its remove control.
+   * says it, as every locked act does (`Button`'s `locked`). The rows stand, each with its remove control.
    */
   locked?: Copy;
-  /** The editor's served refusals by box (`./useEditor.ts`'s `fieldErrors`). */
+  /** The editor's served refusals by box (`useEditor`'s `fieldErrors`). */
   errors?: Readonly<Record<string, Copy>>;
 }) {
   const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });

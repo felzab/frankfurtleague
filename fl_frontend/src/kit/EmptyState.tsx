@@ -46,7 +46,6 @@ export type EmptyStateProps = {
  */
 type Clear = { kind: "clear" };
 
-/** The blank slate's parts. */
 const slate = tv({
   slots: {
     root: "grid justify-items-center gap-3 px-4 py-8 text-center",

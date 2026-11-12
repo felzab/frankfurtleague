@@ -94,7 +94,7 @@ export default function AdminAufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
+        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (

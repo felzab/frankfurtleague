@@ -207,7 +207,7 @@ function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fiel
 /**
  * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
- * meanwhile the column holds the state that lands most often, as the classic frame's footer asks (`Skeleton.tsx`): the
+ * meanwhile the column holds the state that lands most often, as the classic frame's footer asks: the
  * question, the state a link is opened on, or `end`, the status card of a page that lands an end most days, as the
  * application form does outside its window.
  */
