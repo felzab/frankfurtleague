@@ -1,4 +1,4 @@
-import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
 import { Table } from "@/kit/Table";
 
@@ -35,8 +35,8 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * The privacy notice: its first layer as a plain list under the title, then each processing in its section, the
- * retention table, the rights with the objection set apart, and the day its words took effect as its last line.
+ * The privacy notice: under its head, which names the day its words took effect, its first layer as a plain list, then
+ * each processing in its section, the retention table, and the rights with the objection set apart.
  * Every figure the frontend's code holds is read from it, so the notice states the bound the code keeps.
  */
 export default function PrivacyNoticePage() {
@@ -126,11 +126,14 @@ export default function PrivacyNoticePage() {
     paragraph(rights.text.before, MAIL, rights.text.after),
     { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
     paragraph(rights.closing),
-    paragraph(words.asOf(DATENSCHUTZ_AS_OF)),
   ];
   return (
-    <ClassicPage width="form">
-      <ClassicTitle text={COPY.page.privacyNotice} />
+    <ClassicPage width="reading">
+      <PageHead
+        title={COPY.page.privacyNotice}
+        lead={[SERVER_COPY.description.privacyNotice]}
+        date={words.asOf(DATENSCHUTZ_AS_OF)}
+      />
       <Prose blocks={blocks} />
     </ClassicPage>
   );
