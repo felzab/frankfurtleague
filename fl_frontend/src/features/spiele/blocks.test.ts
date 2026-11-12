@@ -97,14 +97,11 @@ describe("what befell a match", () => {
 
   // The strike alone says which school stayed away on every public list: read backwards it names the wrong school
   // with nothing failing.
-  it("strikes the side that did not turn up in a list's row", () => {
+  it("strikes the side that did not turn up in a list's row and in the match's head", () => {
     const first = matchRowOf(spiel([0, 3], "nichtantreten_team1"));
     const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
     expect(first.absent).toBe("team1");
     expect(second.absent).toBe("team2");
-  });
-
-  it("strikes the side that did not turn up in the match's head, as its row does", () => {
     const standings = { team1: null, team2: null };
     const matchday = { spieltag_position: 1, count_spieltage_in_phase: 3 };
     expect(headOf(spiel([3, 0], "nichtantreten_team2"), matchday, standings).absent).toBe("team2");

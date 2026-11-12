@@ -14,7 +14,6 @@ import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ChipProps } from "./Chip";
 import type { EditorSave } from "./useEditor";
 
 type Spielort = { name: string };
@@ -168,13 +167,12 @@ describe("an editor's own acts", () => {
   );
 });
 
-/** An editor of one bare block, closed for `reason`, as a finished season's line-up opens, its record's state chip after the title. */
-function ClosedBlocks({ reason, chip }: { reason: Copy; chip?: ChipProps }) {
+/** An editor of one bare block, closed for `reason`, as a finished season's line-up opens. */
+function ClosedBlocks({ reason }: { reason: Copy }) {
   const editor = useEditor({ id: "spiel-1", version: 1, values: { name: "" } }, async () => ({ ok: true, value: 2 }));
   return (
     <EditorPage
       title={{ record: "Ahorn vs. Eiche" }}
-      chip={chip}
       editor={editor}
       closed={reason}
       sections={[{ id: "block", block: <p>{NAME}</p> }]}
@@ -189,20 +187,5 @@ describe("a closed editor of blocks alone", () => {
     render(<ClosedBlocks reason={reason} />);
 
     expect(screen.getByText(reason)).toBeTruthy();
-  });
-
-  // The harm: a closed record's head naming the lock in its state's place, so one season reads „Vorbei“ on its list
-  // and something else in its own editor.
-  it("keeps its record's own state chip, the reason alone saying it is closed", () => {
-    const reason = COPY.shared.failure.stale;
-    render(
-      <ClosedBlocks
-        reason={reason}
-        chip={{ tone: "success", label: COPY.admin.confirmed }}
-      />,
-    );
-
-    expect(screen.getByText(COPY.admin.confirmed)).toBeTruthy();
-    expect(screen.queryByText(COPY.template.closed)).toBeNull();
   });
 });

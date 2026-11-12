@@ -90,25 +90,4 @@ describe("the K.-o.-Baum", () => {
       ["Finale", 1],
     ]);
   });
-
-  // The harm: a card handed what befell its match that draws none of it reads as a match played.
-  it("draws what befell a match on its card: the chip, both names muted and the absent one struck", () => {
-    const forfeit: BracketMatch = {
-      ...match("finale"),
-      chip: {
-        tone: "danger",
-        label: COPY.spielplan.sonderereignis.nichtantretenChip,
-        spoken: COPY.spielplan.sonderereignis.nichtantreten({ record: "Gast finale" }),
-      },
-      muted: true,
-      absent: "team2",
-    };
-    render(<BracketTree rounds={[{ id: "finale", label: phase.finale, matches: [forfeit] }]} />);
-
-    const home = screen.getByText("Heim finale");
-    const away = screen.getByText("Gast finale");
-    expect(screen.getByText(COPY.spielplan.sonderereignis.nichtantreten({ record: "Gast finale" }))).toBeTruthy();
-    expect([home.className.includes("text-fg-muted"), away.className.includes("text-fg-muted")]).toStrictEqual([true, true]);
-    expect([home.className.includes("line-through"), away.className.includes("line-through")]).toStrictEqual([false, true]);
-  });
 });

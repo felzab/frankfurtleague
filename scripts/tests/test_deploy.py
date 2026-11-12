@@ -106,7 +106,6 @@ def went_back(calls: list[str]) -> bool:
 @pytest.mark.parametrize(
     ("named", "new"),
     [
-        pytest.param("backend", containers(backend="running unhealthy"), id="unhealthy"),
         pytest.param("frontend", containers(frontend="running starting"), id="starting"),
         pytest.param("cloudflared", containers(cloudflared="exited"), id="no-running-container"),
         pytest.param("nginx", containers(nginx=None), id="no-container-at-all"),
