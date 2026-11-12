@@ -153,7 +153,9 @@ verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · 
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
   case "$2" in
     0) return 0 ;;
-    1) if (( pytest )) && annotate_cases; then summary=(--summary); fi
+    # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
+    1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
+       if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
