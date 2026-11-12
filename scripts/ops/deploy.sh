@@ -86,10 +86,12 @@ pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 # Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
 # the project's running containers and no one-off container `docker compose run` left
 # (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
-# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read.
+# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read or named no
+# service, of which a read can find none failing.
 FAILING=()
 read_states() {
   local defined listed service state health
+  local -i services=0
   local -A running=() other=()
   FAILING=()
   defined="$(docker compose config --services)" || return 2
@@ -102,8 +104,11 @@ read_states() {
     fi
   done <<<"$listed"
   while IFS= read -r service; do
-    if [[ -n "$service" && ( -n "${other[$service]-}" || -z "${running[$service]-}" ) ]]; then FAILING+=("$service"); fi
+    if [[ -z "$service" ]]; then continue; fi
+    services+=1
+    if [[ -n "${other[$service]-}" || -z "${running[$service]-}" ]]; then FAILING+=("$service"); fi
   done <<<"$defined"
+  (( services )) || return 2
   (( ${#FAILING[@]} == 0 ))
 }
 
