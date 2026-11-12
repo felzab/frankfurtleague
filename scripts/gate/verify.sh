@@ -626,7 +626,7 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   wait "$frontend" || true
   spinner_stop
 
-  step "db · pytest -m db, distributed over the two shared mongods"
+  step "db · pytest -m db, distributed over one shared replica set"
   beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
 own message above says which." "pytest -m db" \
     && ok "db-tier tests pass"
