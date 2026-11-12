@@ -8,12 +8,12 @@ import { DUPLICATE_KEY } from "./signInRows";
 
 import type { GenericEndpointContext } from "better-auth";
 
-/** A second row for a credential `fl_frontend/src/core/authIndexes.ts` already holds one of. */
+/** A second row for a credential the unique index already holds one of. */
 export function isDuplicateCredential(failed: unknown): boolean {
   return failed instanceof MongoServerError && failed.code === DUPLICATE_KEY && "credentialID" in (failed.keyPattern ?? {});
 }
 
-/** Named for the same reason as `ClaimMatchedNoAccount`. */
+/** Named, because the library's failure line records an error's name and nothing else. */
 class CeremonyNamedNoCredential extends Error {
   override name = "CeremonyNamedNoCredential";
 }
@@ -45,8 +45,7 @@ async function challengeOf(ctx: GenericEndpointContext): Promise<{ readonly valu
 
 /**
  * When this ceremony's options were issued, read before the plugin spends the challenge: the moment the enrolment's
- * options request was judged, which its verify call is held to (`fl_frontend/src/core/auth/enrolment.ts ::
- * refuseEnrolment`). `null` where no challenge stands.
+ * options request was judged, which its verify call is held to. `null` where no challenge stands.
  */
 export async function challengeIssuedAt(ctx: GenericEndpointContext): Promise<Date | null> {
   const challenge = await challengeOf(ctx);

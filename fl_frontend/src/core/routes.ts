@@ -5,18 +5,16 @@ import type { Copy } from "./copy";
 /**
  * What a search engine may do with a page: list it (`index`, which puts it in the sitemap); fetch it without
  * listing it (`noindex`, which the page says itself, so the engine must be let in to read that); or never
- * fetch it (`disallow`, which `fl_frontend/src/app/robots.ts` says before any fetch, by the address's first
- * segment).
+ * fetch it (`disallow`, which the robots file says before any fetch, by the address's first segment).
  */
 type Crawl = "index" | "noindex" | "disallow";
 
 /**
  * One page: the address it answers at, built from its segments, the name its tab and its strip show,
  * and what a search engine may do with it. A link takes its address from here, so each address is spelled
- * once. Next's typed routes are off (`typedRoutes` in `next.config.ts`), so the compiler does not hold a row to
- * a page; `routes.test.ts` holds the rows a mail names. A page named by its record,
- * such as a club's, holds `null`: the page hands its record's name as a title of its own (`{ record }`); so does
- * an address that renders nothing, a route handler sending the request on.
+ * once. Next's typed routes are off, so the compiler does not hold a row to a page; a test holds the rows a mail
+ * names. A page named by its record, such as a club's, holds `null`: the page hands its record's name as a title of
+ * its own (`{ record }`); so does an address that renders nothing, a route handler sending the request on.
  */
 export type RouteEntry = {
   readonly path: (...segments: never) => `/${string}`;
@@ -24,8 +22,7 @@ export type RouteEntry = {
   readonly crawl: Crawl;
   /**
    * The menu entry the page belongs to, where its address lies under another entry's: a frame marks that entry and
-   * leads back to it rather than to the entry the address lies under (`kit/navPlace.tsx :: placeOf`). `entry` is the
-   * entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
+   * leads back to it rather than to the entry the address lies under. `entry` is the entry's row; `pattern` is the address the page answers at as its route folder writes it, each dynamic segment
    * `[name]`.
    */
   readonly place?: { readonly entry: string; readonly pattern: `/${string}` };
@@ -34,8 +31,8 @@ export type RouteEntry = {
 /**
  * The English words an address may carry. An address follows the code's naming rule: a segment is German only where
  * it is the league's own word, a core entity or attribute of the glossary, and every word for what the website does
- * with one is English and stands here. `fl_frontend/src/core/routes.test.ts` holds every fixed segment of every row
- * and every page to this list or to a league word, so a new word is added here, in English, or the build fails.
+ * with one is English and stands here. This module's test holds every fixed segment of every row and every page to
+ * this list or to a league word, so a new word is added here, in English, or the build fails.
  * @internal
  */
 export const ADDRESS_WORDS = [
@@ -133,7 +130,7 @@ export const ROUTES = {
   sponsors: { path: () => "/sponsors" as const, title: COPY.page.sponsors, crawl: "index" },
   legalNotice: { path: () => "/impressum" as const, title: COPY.page.legalNotice, crawl: "index" },
   privacyNotice: { path: () => "/datenschutz" as const, title: COPY.page.privacyNotice, crawl: "index" },
-  /** The site's pages for a person; `/sitemap.xml` is the crawler's list (`fl_frontend/src/app/sitemap.ts`). */
+  /** The site's pages for a person; `/sitemap.xml` is the crawler's list. */
   sitemap: { path: () => "/sitemap" as const, title: COPY.page.sitemap, crawl: "index" },
   /**
    * A coming season's application form, which the landing and a mail lead to. Never listed, in the sitemap or by a search
@@ -318,7 +315,7 @@ export const ROUTES = {
     title: COPY.page.adminBewerbungenBulk,
     crawl: "disallow",
   },
-  /** One application, named by its school; the list and the Übersicht's applications card open it. */
+  /** One application, named by its school. */
   adminBewerbung: {
     path: (saison: string, bewerbung: string) => `/admin/saisons/${saison}/bewerbungen/${bewerbung}` as const,
     title: null,

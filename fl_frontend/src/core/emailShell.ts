@@ -7,7 +7,6 @@ import { SERVER_COPY } from "./serverCopy";
 
 import type { Copy } from "./copy";
 
-/** The league's name as every message spells it. */
 export const BRAND_NAME: string = COPY.brand.name;
 
 /**
@@ -17,7 +16,6 @@ export const BRAND_NAME: string = COPY.brand.name;
  */
 type MailKind = "signIn" | "security" | "firstContact" | "notice";
 
-/** The two sending addresses (`fl_frontend/src/core/mail.ts :: SENDER_ADDRESSES`). */
 export type MailSender = "signIn" | "league";
 
 const SENDER: Readonly<Record<MailKind, MailSender>> = {
@@ -34,7 +32,6 @@ const SENDER: Readonly<Record<MailKind, MailSender>> = {
  */
 type Run = Copy | { readonly strong: string } | { readonly address: string } | { readonly url: string };
 
-/** One sentence, a catalogue entry or its runs. */
 export type Sentence = Copy | readonly Run[];
 
 /** One paragraph, its sentences in order. The first sentence of the first paragraph is the mail's hidden preview. */
@@ -69,7 +66,6 @@ export interface Mail {
   readonly button?: Button;
 }
 
-/** What a mail is handed to the mailer as. */
 export interface RenderedMail {
   readonly subject: string;
   readonly html: string;
@@ -116,7 +112,7 @@ const GAP = {
 const CARD_WIDTH = 480;
 
 /**
- * The site's header band in one picture, `kit/Brand.tsx`'s mark and wordmark drawn at four times this size: the
+ * The site's header band in one picture, the site's mark and wordmark drawn at four times this size: the
  * wordmark's face reaches no mail client as a font. Both sizes as attributes, which Outlook on Windows reads where
  * it ignores the CSS, so the picture never shows at its file's width.
  */
@@ -151,8 +147,8 @@ function singleLine(value: string): string {
 }
 
 /**
- * The serving origin, refused rather than defaulted: `SKIP_ENV_VALIDATION` lets a build past
- * `config.ts`'s gate, and a message composed there would carry a bare path.
+ * The serving origin, refused rather than defaulted: `SKIP_ENV_VALIDATION` lets a build past the
+ * configuration's gate, and a message composed there would carry a bare path.
  */
 export function mailOrigin(raw: string): string {
   try {
@@ -200,7 +196,7 @@ function previewBy(mail: Mail): string {
   return sentenceText(mail.paragraphs[0][0]);
 }
 
-/** The Art. 21 line, the address in it a link: a first contact's footer, and the ban-list mail's own last paragraph. */
+/** The Art. 21 line, the address in it a link. */
 export const OBJECTION: Sentence = [SERVER_COPY.mail.objection.before, { address: KONTAKT_EMAIL }, SERVER_COPY.mail.objection.after];
 
 function notYou(kind: MailKind): string | undefined {

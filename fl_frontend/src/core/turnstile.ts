@@ -15,7 +15,7 @@ import type { LogMeta } from "./logging";
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 // Cloudflare's own example's bound, from https://developers.cloudflare.com/turnstile/get-started/server-side-validation/,
-// read 2026-10-04, over both attempts: past it the submission goes on unchecked rather than waiting longer.
+// over both attempts: past it the submission goes on unchecked rather than waiting longer.
 const SITEVERIFY_TIMEOUT_MS = 10_000;
 
 // The published ceiling on a token, from the same page: a longer one is no token Cloudflare minted.
@@ -74,7 +74,7 @@ async function ask(request: string, signal: AbortSignal): Promise<Answer> {
     if (!response.ok) return unjudged({ status });
     body = await response.json();
   } catch (failed) {
-    // The NAME alone: a `TimeoutError` is the bound, anything else the network or a body that is no JSON.
+    // The name alone: a `TimeoutError` is the bound, anything else the network or a body that is no JSON.
     return unjudged({ name: failed instanceof Error ? failed.name : "unknown" });
   }
 

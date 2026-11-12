@@ -13,7 +13,7 @@ import { HOUR_MS } from "../timeUnits";
 import type { AuthContext, DBTransactionAdapter } from "better-auth";
 import type { APIError } from "better-auth/api";
 
-/** How the plugin names a sign-in code's row: its type, then the address (`email-otp/utils :: toOTPIdentifier`). */
+/** How the plugin names a sign-in code's row: its type, then the address, as its `toOTPIdentifier` builds it. */
 export const CODE_ROW_PREFIX = "sign-in-otp-";
 
 // The newest stamp this process gave a new sign-in code, which the next one's passes. Held in memory:
@@ -34,7 +34,7 @@ export function nextCodeStamp(issued: number): number {
 }
 
 // Prefixes the plugin never writes, so these rows are told from its code rows by identifier alone,
-// and an operator can clear every lock at once (`docs/ops/runbooks.md` §17).
+// and an operator can clear every lock at once.
 export const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 
 export const MAIL_ROW_PREFIX = "sign-in-mail-";
@@ -45,12 +45,11 @@ export const DELETE_TOKEN_ROW_PREFIX = "delete-account-";
 // The server's code for an insert a unique index refused; the driver exports no name for it.
 export const DUPLICATE_KEY = 11000;
 
-/** Named for the same reason as `ClaimMatchedNoAccount`. */
+/** Named, because the library's failure line records an error's name and nothing else. */
 export class RemovalOutsideTransaction extends Error {
   override name = "RemovalOutsideTransaction";
 }
 
-/** As much of the library's context as the bounds below read and write. */
 type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
 
 /**
@@ -62,7 +61,7 @@ export async function boundIdentifier(prefix: string, email: string, secret: str
 }
 
 /**
- * The row goes in BEFORE the count, so racing requests each count the other's; a refused event takes
+ * The row goes in before the count, so racing requests each count the other's; a refused event takes
  * its own back out, so hammering a closed bound never holds it past its window. Answers the admitted
  * row, or `null`.
  */

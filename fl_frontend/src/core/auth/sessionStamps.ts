@@ -9,7 +9,7 @@ import type { Lifetime } from "../sessionLifetimes";
 // outlives the session adding it, so a session borrowed for longer than this adds none.
 export const FRESH_SIGN_IN_SECONDS = 5 * 60;
 
-/** What made a session, stamped on its row and read by every guard. */
+/** What made a session, stamped on its row. */
 export const PASSKEY_FACTOR = "passkey";
 
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
@@ -33,7 +33,7 @@ export type SessionStamps = { readonly createdAt: Date | string; readonly authFa
 export function isPasskeyTouch(session: SessionStamps, at: Date = now()): boolean {
   const created = new Date(session.createdAt).getTime();
   const elapsed = at.getTime() - created;
-  // An unreadable stamp is no touch, as `withinLifetime` reads one.
+  // An unreadable stamp is no touch.
   return session.authFactor === PASSKEY_FACTOR && Number.isFinite(elapsed) && elapsed >= 0 && elapsed < PASSKEY_TOUCH_SECONDS * 1000;
 }
 
@@ -59,14 +59,14 @@ export function stampsOf(session: object): SessionStamps {
  * row.
  */
 export function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
-  // Through `Reflect`, as `stampsOf` reads a stamp: the library types a ceremony's read to its own base shape.
+  // Through `Reflect`: the library types a ceremony's read to its own base shape.
   const stamp: unknown = Reflect.get(user, SESSIONS_ENDED_FIELD);
   if (stamp === null || stamp === undefined) return false;
 
   const created = new Date(Reflect.get(session, "createdAt") as Date | string).getTime();
   const ended = new Date(stamp as Date | string).getTime();
 
-  // An unreadable instant on either side serves nothing, as `withinLifetime` reads an unreadable stamp.
+  // An unreadable instant on either side serves nothing.
   return !Number.isFinite(created) || !Number.isFinite(ended) || created <= ended;
 }
 
@@ -84,7 +84,6 @@ export function withinLifetime(session: { createdAt: Date; updatedAt: Date }, li
   return at - updated < lifetime.idle && at - created < lifetime.absolute;
 }
 
-/** Exported for `fl_frontend/src/core/subject.ts`, which judges the same window in its own lane. */
 export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Date }): boolean {
   return withinLifetime(session, PERSON_LIFETIME);
 }

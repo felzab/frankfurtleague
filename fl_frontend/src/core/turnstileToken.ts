@@ -1,9 +1,8 @@
-// A module of its own so the browser's forms and the server's checks spell one name each,
-// `fl_frontend/src/core/turnstile.ts` being server-only.
+// A module of its own so the browser's forms and the server's checks spell one name each, the bot check's
+// module being server-only.
 
 import { COPY } from "./copy";
 
-/** The field a form posting to a server action carries the bot check's token in. */
 export const TURNSTILE_FIELD = "cf-turnstile-response";
 
 /**

@@ -1,9 +1,9 @@
 /**
- * `core`, because the sign-in fold and the mailer read these rules, and
- * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`.
+ * In `core`, because the sign-in fold and the mailer read these rules, and the lint's layer boundary refuses `core` an
+ * import from `shared`.
  */
 
-/** The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`, which `isDeliverableAddress` below holds. */
+/** The whole-address ceiling, mirrored from the backend's bounds. */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
 /**
@@ -45,8 +45,8 @@ const MAILBOX_ATOM = String.raw`[^\p{Z}\p{C}\s"(),:;<>@[\]\\.]+`;
 const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})*@${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})+$`, "u");
 
 /**
- * Read before the ban list is asked: a provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
- * keying refuses the spelling and answers it unbarred.
+ * Read before the ban list is asked: a provider reads a display name, a list or a trailing dot as the mailbox inside
+ * it, where the list's keying refuses the spelling and answers it unbarred.
  */
 export function isOneBareMailbox(value: string): boolean {
   return ONE_BARE_MAILBOX_REGEX.test(value);
@@ -81,7 +81,7 @@ function asciiLowerCase(value: string): string {
 
 /**
  * The form every record stores an address in and every lookup asks with: trimmed and lower-cased. The sign-in
- * library lower-cases but never trims: better-auth 1.7.10 as installed, read 2026-10-20, moves without us.
+ * library lower-cases but never trims, and moves without us.
  */
 export function asSignInIdentifier(value: string): string {
   return asciiLowerCase(value.trim());
