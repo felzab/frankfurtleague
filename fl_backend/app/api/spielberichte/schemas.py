@@ -120,11 +120,10 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht
-    # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
 
-# --- The WRITE: the referee's PUT.
+# --- The write: the referee's PUT.
 
 
 class FLSpielberichtVorschlagPayload(BaseModel):
@@ -132,7 +131,7 @@ class FLSpielberichtVorschlagPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Both required as KEYS and null where unused: an omitted key would read as a form that forgot it.
+    # Both required as keys and null where unused: an omitted key would read as a form that forgot it.
     elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
 
@@ -189,11 +188,11 @@ class FLSpielberichtPayload(BaseModel):
 
     bericht: FLSpielberichtBerichtPayload
     # The document's `version` the form was served, null where it showed no report: required with no default, since an
-    # omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # omitted one would check nothing.
     version: CustomVersion | None
 
 
-# --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
+# --- The read of the referee's form: the fixture, both live squads to pick from, and the stored block.
 
 
 class FLSpielberichtTeam(BaseModel):
@@ -255,14 +254,14 @@ class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
     reportable: bool
 
 
-# --- The PUBLIC read: what the match page shows of a report, every pupil through the base tier's mask.
+# --- The public read: what the match page shows of a report, every pupil through the base tier's mask.
 
 
 class FLSpielberichtSpielerPublic(BaseReadModel):
-    """One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
+    """One pupil an entry names, as the base tier serves them, without their record's id.
 
-    The names where the pupil's consent publishes them, the surname as an initial (`READ-PUPIL-001`); both null where
-    it does not, and where the entry names nobody, which the two cases share.
+    The names where the pupil's consent publishes them, the surname as an initial; both null where it does not, and
+    where the entry names nobody, which the two cases share.
     """
 
     first_name: str | None
