@@ -224,7 +224,7 @@ class TestTheScheduleServesTheRefereeByConsent:
         document = joined_document()
         fixture = {**document, "schiedsrichter": {**document["schiedsrichter"], **referee}}
         spieltag = spieltag_document(SPIELTAG_ID, SAISON_ID, 1)
-        (route,) = [route for route in api_routes(application()) if route.path == path and "GET" in route.methods]
+        (route,) = [route for route in api_routes(application()) if route.path == path and route.methods == {"GET"}]
 
         spieltage = build_spielplan([spieltag], [fixture], FLSaisonRules.model_validate(rules_document()))
         answer = route.response_model.model_validate({"spieltage": spieltage, **beside}).model_dump(mode="json", by_alias=True)
