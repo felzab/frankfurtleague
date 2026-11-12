@@ -4,7 +4,8 @@ description: >-
   Several jobs of the verify workflow want exactly this block, and a copy per job is a copy that can
   drift.
 
-# The caller checks out first, for the reason `.github/actions/frontend-toolchain/action.yml` gives.
+# The caller checks out first: a `./` action is read from the workspace, so the runner cannot find
+# this file until actions/checkout has run.
 
 inputs:
   application:
@@ -30,8 +31,8 @@ runs:
         # One writer: on a miss every saving job archives the whole cache at job end and all but the
         # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
         save-cache: ${{ inputs.save-cache }}
-        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names
-        # (`scripts/tests/test_image_pins.py :: test_ci_installs_the_uv_the_backend_image_copies_in`).
+        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names, which the image pin
+        # tests hold.
         # Neither unset nor `version-file` serves: each installs that day's newest uv, fl_backend's
         # `required-version` being a range.
         version: "0.13.7"
