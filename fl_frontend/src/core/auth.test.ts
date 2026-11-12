@@ -242,6 +242,7 @@ const { getAccountSession, getAdminSession, isAdminSession, judgeAdminRequest, p
 const { getPasskeyStep, getSignInLanding } = await import("./auth/landing.ts");
 const { PASSKEY_LIMIT } = await import("./auth/enrolment.ts");
 const { readServedSession } = await import("./auth/session.ts");
+const { getSubjectSession } = await import("./subject.ts");
 const { CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
@@ -602,15 +603,18 @@ describe("a cookie whose session row is gone", () => {
 });
 
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
-  it("refuses a session a minute past twenty-four hours old for an address holding a grant, and serves it for anyone else", async () => {
+  // The landing ends a granted address's session it sends to sign in afresh, which the person lane alone would still
+  // serve: left standing, the proxy would send it from the sign-in to the landing and back without end.
+  it("refuses a session a minute past twenty-four hours old for an address holding a grant, the landing ending it, and serves it for anyone else", async () => {
     const admin = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, admin.row);
     ageRow(admin.row, { created: 24 * HOUR_MS + MINUTE_MS });
     arriveAs(admin.cookie);
 
     expect(await getAdminSession()).toBe(null);
+    assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    assert.ok(store.session.includes(admin.row), "the landing ended a session the person lane still serves");
+    expect(store.session.includes(admin.row), "the landing left the spent session standing").toBe(false);
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
@@ -651,15 +655,16 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect((await getSignInLanding()).destination).toBe("/signin");
   });
 
-  it("refuses an administrator's session a minute past an hour idle, and keeps it for the person lane", async () => {
+  it("refuses an administrator's session a minute past an hour idle, which the person lane serves until the landing ends it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     ageRow(row, { created: 2 * HOUR_MS, idle: HOUR_MS + MINUTE_MS });
     arriveAs(cookie);
 
     expect(await getAdminSession()).toBe(null);
+    assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    assert.ok(store.session.includes(row), "the landing ended a session the person lane still serves");
+    expect(store.session.includes(row), "the landing left the spent session standing").toBe(false);
   });
 });
 

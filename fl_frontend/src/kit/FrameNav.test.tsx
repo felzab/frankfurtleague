@@ -6,7 +6,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 
-import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
+import { BarPlaces, EditorBack, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 
 import type { ReactNode } from "react";
 import type { RailGroup, Saisons } from "./FrameNav";
@@ -117,6 +117,24 @@ describe("the entries on a page whose address names the season", () => {
     expect(hrefs()).toEqual([...rail, ...rail.slice(0, 2), ...rail.slice(2)]);
   });
 
+  it("lead an editor's way back to its list while the seasons are still read", async () => {
+    address.path = ROUTES.adminSpiel.path("2026", "6890a1b2c3d4e5f607190001");
+    address.saison = "2026";
+    await act(async () =>
+      render(
+        <Suspense fallback={null}>
+          <SaisonScope value={{ saisons: PENDING, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+            <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
+              <EditorBack />
+            </MenuScope>
+          </SaisonScope>
+        </Suspense>,
+      ),
+    );
+
+    expect(hrefs()).toEqual([ROUTES.adminSpiele.path("2026")]);
+  });
+
   it("lead to the team's pages in that season in a team's frame while the seats are still read", async () => {
     address.path = ROUTES.teamKader.path("ahorn", "2026");
     address.saison = "2026";
@@ -175,6 +193,40 @@ describe("the season a page whose address names none works in", () => {
       ROUTES.adminSpiele.path("2025"),
       ROUTES.adminTeams.path("2025"),
     ]);
+  });
+
+  // A role's root draws the standard season's Übersicht, so a frame keeping the season chosen before there names 2025
+  // around a page showing 2026, and marks no entry for the page the person is on.
+  it("is the standard at the role's root, whose Übersicht is the entry marked, whatever was chosen before", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.admin.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2026"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2026"),
+      ROUTES.adminTeams.path("2026"),
+    ]);
+    expect(lit()).toEqual([ROUTES.adminOverview.title]);
   });
 });
 

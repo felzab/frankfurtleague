@@ -1,25 +1,13 @@
 import { buttonPlaceholder } from "./buttonStyles";
-import { CardLink } from "./Card";
-import { CardGrid } from "./CardGrid";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { placeholderBar, Waiting } from "./Skeleton";
 import { RailCardBody, statusCard } from "./StatusCard";
 
-import type { CardLinkProps } from "./Card";
 import type { RailPageHead } from "./RailFrame";
 import type { RailCard } from "./StatusCard";
 
-/**
- * What a page that sends its reader on lists where the reader holds several places it could send them to: the role
- * chooser's cards, each one link, standing where the card would.
- */
-type RailChoices = { choices: ReadonlyArray<CardLinkProps> };
-
-/**
- * The rail card while the page's read says which end it is: its mark and its button, centred, as a boundary with no page
- * of its own lands. An end carrying its own title stands only where the league has no season yet.
- */
+/** The rail card while the page's read says which end it is: its mark and its button, centred, as a boundary with no page of its own lands. */
 function RailCardPlaceholder() {
   const slots = statusCard();
   return (
@@ -32,24 +20,11 @@ function RailCardPlaceholder() {
   );
 }
 
-/** The card once the page's read has said which end it is, or the choices it lists instead, in the rail form's boundary. */
-async function CardOnceRead({ card, scope }: { card: Promise<RailCard | RailChoices>; scope: RailPageHead["scope"] }) {
-  const read = await card;
-  if ("choices" in read) {
-    return (
-      <CardGrid across={3}>
-        {read.choices.map((choice) => (
-          <CardLink
-            key={choice.href}
-            {...choice}
-          />
-        ))}
-      </CardGrid>
-    );
-  }
+/** The card once the page's read has said which end it is, in the rail form's boundary. */
+async function CardOnceRead({ card, scope }: { card: Promise<RailCard>; scope: RailPageHead["scope"] }) {
   return (
     <RailCardBody
-      card={read}
+      card={await card}
       scope={scope}
     />
   );
@@ -58,14 +33,12 @@ async function CardOnceRead({ card, scope }: { card: Promise<RailCard | RailChoi
 /**
  * The status template in the rail frames: not found, an error, no access, and every other end a rail page reaches,
  * plainly said: a mark, a title and one way on, the strip carrying the page's title and the card the end's where the
- * two differ. The classic frame's form is `ClassicStatusPage`. The card is read with the
- * page, as `/saisons` learns that the league has no season yet where it does not send the reader on, so it waits in a
- * boundary of its own under the strip, drawn meanwhile as its placeholder; a card known before any read, as an error
- * boundary's, which is a Client Component and awaits nothing, is drawn at once. A read that sends its reader on may
- * answer instead the places it lists for a reader holding several, the landing's chooser, in the card's place and after
- * the same wait.
+ * two differ. The classic frame's form is `ClassicStatusPage`. A card read with the page, as an administration address
+ * no page holds is judged before its not-found card, waits in a boundary of its own under the strip, drawn meanwhile as
+ * its placeholder; a card known before any read, as an error boundary's, which is a Client Component and awaits
+ * nothing, is drawn at once.
  */
-export function StatusPage(props: { card: Promise<RailCard | RailChoices> | RailCard } & Omit<RailPageHead, "chip" | "action">) {
+export function StatusPage(props: { card: Promise<RailCard> | RailCard } & Omit<RailPageHead, "chip" | "action">) {
   return (
     <RailPage
       scope={props.scope}

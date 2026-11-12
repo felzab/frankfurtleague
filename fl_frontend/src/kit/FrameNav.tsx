@@ -8,7 +8,7 @@ import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
@@ -161,10 +161,16 @@ type FrameSaison = {
   pages: ReadonlyArray<SaisonAddress>;
 };
 
+/** The frame's root, the address naming no season where its first page stands in the standard season (`ROLE_ROOTS`). */
+function rootOf(frame: SaisonScopeValue | null): Route | undefined {
+  return frame === null || frame.teams !== undefined ? undefined : ROLE_ROOTS[frame.home];
+}
+
 /**
- * The season the page works in: the one its address names where the frame holds it; on a page whose address names
- * none, the one the last address naming one named where the frame holds it; else the frame's standard. In a team's
- * frame among the seasons of the team the address names; `null` where there is none.
+ * The season the page works in: the one its address names where the frame holds it; at the frame's root, which draws
+ * the standard season's page, the standard; on another page whose address names none, the one the last address naming
+ * one named where the frame holds it; else the frame's standard. In a team's frame among the seasons of the team the
+ * address names; `null` where there is none.
  */
 export function useFrameSaison(): FrameSaison | null {
   return useWorkingSaison(false) ?? null;
@@ -177,11 +183,13 @@ export function useFrameSaison(): FrameSaison | null {
 function useWorkingSaison(listless: boolean): FrameSaison | null | undefined {
   const frame = useContext(SaisonContext);
   const { saison, team } = useParams();
+  const path = usePathname();
   if (frame === null) return null;
   if (listless && typeof saison === "string" && (frame.teams === undefined || typeof team === "string")) return undefined;
-  // The season chosen before is sought only where the address names none: an address naming a season the frame does not
-  // hold, as a not-found page's, falls to the standard, as it would on the first page the frame shows.
-  const sought = typeof saison === "string" ? saison : frame.chosen;
+  // The season chosen before is sought only where the address names none and the page is no root: an address naming a
+  // season the frame does not hold, as a not-found page's, falls to the standard, as it would on the first page the
+  // frame shows, and so does a root, whose page is the standard season's.
+  const sought = typeof saison === "string" ? saison : path === rootOf(frame) ? undefined : frame.chosen;
   const activeIn = (held: Saisons) => held.entries.find((entry) => entry.id === sought)?.id ?? held.standard;
 
   if (frame.teams !== undefined) {
@@ -281,7 +289,8 @@ function useEntries(groups: ReadonlyArray<RailGroup>, listless = false) {
         const href = hrefOf(entry);
         if (href === undefined) return [];
         const own = entry.saison === undefined || saison !== null || led.filter((each) => each === href).length === 1;
-        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
+        const home = entry.saison !== undefined && entry.saison === frame?.home;
+        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own, home }];
       }),
     }))
     .filter((group) => group.entries.length > 0);
@@ -407,12 +416,18 @@ function AccountMenu({
   );
 }
 
-/** The entry the address belongs to: only by an address of its own, since a page several entries lead to is the place of none of them. */
-function useCurrent<Entry extends { href: Route; own: boolean }>(entries: ReadonlyArray<Entry>) {
+/**
+ * The entry the address belongs to: only by an address of its own, since a page several entries lead to is the place of
+ * none of them; at the frame's root, the first page's, which the root draws, its entry leading to the season's address.
+ */
+function useCurrent<Entry extends { href: Route; own: boolean; home: boolean }>(entries: ReadonlyArray<Entry>) {
   const { saison } = useParams();
+  const path = usePathname();
+  const root = rootOf(useContext(SaisonContext));
   const own = entries.filter((entry) => entry.own);
+  if (path === root) return own.find((entry) => entry.home);
   const href = placeOf(
-    usePathname(),
+    path,
     typeof saison === "string" ? saison : undefined,
     own.map((entry) => entry.href),
   );
@@ -672,10 +687,13 @@ const barPlace = tv({
 export type FrameMenu = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
-  /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
-  extra: ReadonlyArray<{ label: Copy; href: Route }>;
+  /**
+   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“; `prefetch: false` for
+   * „Konto“, whose prefetched sign-in would be drawn before the proxy sends a signed-in person on.
+   */
+  extra: ReadonlyArray<{ label: Copy; href: Route; prefetch?: false }>;
   account?: AccountRead;
-  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep Next's default. */
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep theirs. */
   prefetch?: true;
 };
 
@@ -781,6 +799,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                     <NextLink
                       key={link.href}
                       href={link.href}
+                      prefetch={link.prefetch}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
                       {link.label}
@@ -970,10 +989,26 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`).
+ * declares the list it belongs to (`placeOf`). Where the address names the season it stands at once, as the rail's
+ * entries do (`RailEntries`).
  */
 export function EditorBack() {
-  const groups = useEntries(useContext(MenuContext)?.groups ?? []);
+  const groups = useContext(MenuContext)?.groups ?? [];
+  return (
+    <Suspense
+      fallback={
+        <EditorBackTo
+          groups={groups}
+          listless
+        />
+      }>
+      <EditorBackTo groups={groups} />
+    </Suspense>
+  );
+}
+
+function EditorBackTo({ groups: given, listless }: { groups: ReadonlyArray<RailGroup>; listless?: true }) {
+  const groups = useEntries(given, listless);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return current === undefined ? null : <BackControl href={current.href} />;
 }

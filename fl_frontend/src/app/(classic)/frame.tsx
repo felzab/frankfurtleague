@@ -13,8 +13,8 @@ const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
 
 /** The footer's „Saison“ group, at the addresses that read the season on arrival. */
-const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route }) => ({
-  label: ROUTES[route].title,
+const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, page }) => ({
+  label: ROUTES[page].title,
   href: ROUTES[route].path(),
 }));
 
@@ -22,7 +22,7 @@ const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route })
 export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   ...LIGA_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
   { label: COPY.template.bewerbung, href: `${ROUTES.home.path()}#${JOIN_SECTION}` },
-  { label: COPY.template.account, href: ROUTES.signIn.path() },
+  { label: COPY.template.account, href: ROUTES.signIn.path(), prefetch: false },
 ];
 
 /** The legal pages, in the sitemap page's group and, with the sitemap page itself, in the footer's. */

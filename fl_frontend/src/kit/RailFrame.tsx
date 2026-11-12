@@ -22,7 +22,7 @@ import {
 } from "./FrameNav";
 import { Icon } from "./Icon";
 import { LeaveGuardProvider } from "./LeaveGuard";
-import { frameLink } from "./Link";
+import { frameLink, Link } from "./Link";
 import { PageFade } from "./PageFade";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
@@ -115,7 +115,7 @@ export function RailFrame({
   const extra =
     foot.kind === "signIn"
       ? [
-          { label: COPY.template.account, href: foot.href },
+          { label: COPY.template.account, href: foot.href, prefetch: false as const },
           { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
@@ -160,6 +160,8 @@ export function RailFrame({
                 <RailTooltip label={COPY.template.account}>
                   <NextLink
                     href={foot.href}
+                    // A prefetched sign-in would be drawn before the proxy sends a signed-in person on to their landing.
+                    prefetch={false}
                     data-kit-focus="ring"
                     className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
                     <span className={railGlyph()}>
@@ -353,12 +355,17 @@ export function RailPage({
               />
             </Placeholder>
           ) : (
-            <NextLink
-              href={link.href}
-              data-kit-focus="ring"
-              className={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
-              {link.label}
-            </NextLink>
+            // A whole document, never Next's client navigation: the match's pop-up intercepts every client navigation to
+            // its address, and the editor's way leads to the page itself.
+            <span className="ms-auto flex shrink-0">
+              <Link
+                href={link.href}
+                placement="frame"
+                tone="strip"
+                fullPage
+                label={link.label}
+              />
+            </span>
           ))}
         {scope === "saison" && (
           <nav

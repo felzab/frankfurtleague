@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import SchiedsrichterOverviewPage from "./page";
+import { SchiedsrichterOverview } from "./page";
 
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -45,9 +45,9 @@ type Row = { id: string; words?: string; chip?: ChipProps; acts?: ReactElement<{
 /** The rows the page draws for these games. */
 async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
   state.spiele = [...spiele];
-  const page = SchiedsrichterOverviewPage({ params: Promise.resolve({ saison: "2027" }) } as Parameters<
-    typeof SchiedsrichterOverviewPage
-  >[0]) as { props: { list: { content: Promise<{ cards: ReadonlyArray<{ rows: readonly Row[] }> }> } } };
+  const page = SchiedsrichterOverview({ saison: Promise.resolve("2027") }) as {
+    props: { list: { content: Promise<{ cards: ReadonlyArray<{ rows: readonly Row[] }> }> } };
+  };
   const { cards } = await page.props.list.content;
   return cards[0]?.rows ?? [];
 }

@@ -13,13 +13,11 @@ import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
 import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { Link } from "./Link";
 import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 /** A press the view offers: its words, the spinner while it runs, and what it does. */
@@ -82,18 +80,7 @@ type PasskeyView = Head & {
   later?: Act;
 };
 
-/** `/signin` for somebody signed in: who they are, the address set semibold inside the sentence, the way on, and signing out. */
-type SignedInView = Head & {
-  view: "signedIn";
-  /** The sentence's two parts around the address. */
-  sentence: { before: Copy; after: Copy };
-  /** The account signed in: data, not catalogue text. */
-  address: string;
-  continue: { label: Copy; href: Route };
-  signOut: Act;
-};
-
-export type SignInView = AddressView | CodeView | PasskeyView | SignedInView;
+export type SignInView = AddressView | CodeView | PasskeyView;
 
 const look = tv({
   slots: {
@@ -279,36 +266,6 @@ function Body(props: SignInView) {
                 {...later}
               />
             )}
-          </div>
-        </>
-      );
-    }
-
-    case "signedIn": {
-      const { signOut } = props;
-      return (
-        <>
-          <div className={slots.head()}>
-            <ClassicTitle
-              text={props.title}
-              place="page"
-            />
-            <p className={slots.sentence()}>
-              {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
-            </p>
-          </div>
-          <div className={slots.acts()}>
-            <Link
-              href={props.continue.href}
-              placement="button"
-              look="primary"
-              label={props.continue.label}
-            />
-            {/* The step out beside the way on, quiet as „Später“ is. */}
-            <Button
-              variant="quiet"
-              {...signOut}
-            />
           </div>
         </>
       );

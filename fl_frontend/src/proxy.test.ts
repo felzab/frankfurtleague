@@ -360,3 +360,56 @@ describe("where a session that is only read slides", () => {
     expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });
 });
+
+const SIGN_IN_URL = "http://localhost:3000/signin";
+
+/** The address a redirect names, its path and query as the browser would request them, or `null` where none was sent. */
+function sentTo(answer: Response): string | null {
+  const location = answer.headers.get("location");
+  if (location === null) return null;
+  const { pathname, search } = new URL(location, SIGN_IN_URL);
+  return `${pathname}${search}`;
+}
+
+describe("where the proxy sends a session asking for the sign-in", () => {
+  /* Reverted, a signed-in person pressing „Konto“ meets the sign-in form, whose code would replace the session they hold. */
+  it("sends it on to the landing before the page renders, the return address carried where the allowlist holds it", async () => {
+    const { cookie } = await signIn("leserin@example.org");
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
+    expect(sentTo(await visit(`${SIGN_IN_URL}?return=%2Faccount`, cookie))).toBe(`${ROUTES.signInLanding.path()}?return=%2Faccount`);
+    expect(sentTo(await visit(`${SIGN_IN_URL}?return=%2F%2Fexample.com`, cookie))).toBe(ROUTES.signInLanding.path());
+
+    // The form's own server action posts to the sign-in's address, and a redirect would replay it as a POST it cannot read.
+    const action = await proxy(
+      new NextRequest(SIGN_IN_URL, { method: "POST", headers: { host: "localhost:3000", cookie, "next-action": "1" } }),
+    );
+    expect(sentTo(action), "the proxy redirected the form's server action").toBe(null);
+  });
+
+  it("lets a cookie naming no stored session through to the form", async () => {
+    const { cookie, row } = await signIn("leserin@example.org");
+    store.session.splice(store.session.indexOf(row), 1);
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(null);
+  });
+
+  /* Reverted, the landing sends the session back to the sign-in alive, and the proxy sends it to the landing again:
+     the browser follows the two redirects until it gives up. */
+  it("ends a granted address's spent session at the landing, so its next request for the sign-in meets the form", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
+    row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
+    refreshedAgo(row, MINUTE_MS);
+    arriveAs(cookie);
+    assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
+    expect(await landedAt(cookie)).toBe(landsOn(ROUTES.signIn.path()));
+    expect(
+      store.session.some(({ token }) => token === row.token),
+      "the landing left the spent session standing",
+    ).toBe(false);
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document")), "the sign-in sent the spent session to the landing again").toBe(null);
+  });
+});

@@ -175,11 +175,6 @@ const signInStore = (answers: SignInAnswers) => ({
   landing: {
     // The landing as read for a session the person lookup is not doubled for: its person stands unread.
     getSignInLanding: () => Promise.resolve({ destination: answers.destination, subject: null }),
-    // The sign-in page's read, `null` wherever the landing sends the caller to sign in, as the real one judges.
-    getSignedInAddress: () =>
-      answers.session instanceof Error
-        ? Promise.reject(answers.session)
-        : Promise.resolve(answers.session === null || answers.destination === "/signin" ? null : answers.session.user.email),
     // `null`, as the real store answers the session `served` holds: one its passkey made is offered no card.
     getPasskeyStep: () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(null)),
   },
