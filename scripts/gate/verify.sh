@@ -136,12 +136,15 @@ SCOPE="${SELECTED[0]}"
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
 # `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
-  local said rc=0
+  local said rc=0 command
   local -a flags=()
   while [[ "$1" == --checker || "$1" == --summary || "$1" == --pytest ]]; do flags+=("$1"); shift; done
   said="$1"; shift
+  # Joined on spaces here: `$*` joins on the repository's IFS, a newline, and a crash would print the
+  # command one word to a line.
+  printf -v command '%s ' "$@"
   quietly "$@" || rc=$?
-  verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "$*"
+  verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "${command% }"
 }
 
 # `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
