@@ -141,6 +141,10 @@ const LAYER_BOUNDARY = {
     regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)features/`,
     message: "shared must not import features. Hand a feature's part in through props or children.",
   },
+  kit: {
+    regex: String.raw`^(?:@/|\.{1,2}/(?:.*/)?)(?:features|app)/`,
+    message: "The kit must not import a feature or a route: every page draws it. Hand the part in through props or children.",
+  },
 };
 
 /** One of the local modules `names`, by any path, bare or with its extension. */
@@ -272,10 +276,11 @@ const importBan = (entry, reach, options) => ban("@typescript-eslint/no-restrict
 
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
-  // Layer boundaries, `core`'s and `shared`'s alone: a slice's page reads and renders other slices' records through
-  // their modules, which a ban between features would refuse.
+  // Layer boundaries, `core`'s, `shared`'s and the kit's alone: a slice's page reads and renders other slices' records
+  // through their modules, which a ban between features would refuse.
   importBan(LAYER_BOUNDARY.core, LAYER("core")),
   importBan(LAYER_BOUNDARY.shared, LAYER("shared")),
+  importBan(LAYER_BOUNDARY.kit, KIT),
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/kit/JsonLd.tsx"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/kit/RootProviders.tsx"] }),
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
@@ -1211,8 +1216,6 @@ const eslintConfig = defineConfig([
   {
     files: JS_FILES,
     rules: {
-      "react/no-unescaped-entities": "off",
-
       // Bans `dangerouslySetInnerHTML`. It is the compensating control for the CSP keeping
       // 'unsafe-inline' on script-src, so the CSP does not mitigate script injection.
       "react/no-danger": "error",
