@@ -985,10 +985,26 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`).
+ * declares the list it belongs to (`placeOf`). Where the address names the season it stands at once, as the rail's
+ * entries do (`RailEntries`).
  */
 export function EditorBack() {
-  const groups = useEntries(useContext(MenuContext)?.groups ?? []);
+  const groups = useContext(MenuContext)?.groups ?? [];
+  return (
+    <Suspense
+      fallback={
+        <EditorBackTo
+          groups={groups}
+          listless
+        />
+      }>
+      <EditorBackTo groups={groups} />
+    </Suspense>
+  );
+}
+
+function EditorBackTo({ groups: given, listless }: { groups: ReadonlyArray<RailGroup>; listless?: true }) {
+  const groups = useEntries(given, listless);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return current === undefined ? null : <BackControl href={current.href} />;
 }
