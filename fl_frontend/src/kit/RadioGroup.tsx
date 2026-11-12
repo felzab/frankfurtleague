@@ -71,26 +71,18 @@ export function RadioGroupPlaceholder({ label, choices }: { label: string; choic
  */
 export function RadioGroup({
   label,
-  description,
   isRequired = false,
-  isDisabled = false,
   name,
-  value,
   defaultValue,
-  onChange,
   "aria-describedby": describedBy,
   ...answers
 }: {
   label: Words;
-  description?: Copy;
-  /** A line outside the group describing it, such as a consent's, by its id; read with the description's own. */
+  /** A line outside the group describing it, such as a consent's, by its id. */
   "aria-describedby"?: string;
   isRequired?: boolean;
-  isDisabled?: boolean;
   name?: string;
-  value?: string | null;
   defaultValue?: string | null;
-  onChange?: (id: string) => void;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
   const root = useEarlyEdit();
   return (
@@ -99,11 +91,9 @@ export function RadioGroup({
       className={fieldRoot()}
       aria-describedby={describedBy}
       name={name}
-      value={value}
       defaultValue={defaultValue}
-      onChange={onChange}
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={useDisabled(false)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
@@ -151,7 +141,7 @@ export function RadioGroup({
               </Radio>
             ))}
       </div>
-      <MessageLine description={description} />
+      <MessageLine />
     </AriaRadioGroup>
   );
 }

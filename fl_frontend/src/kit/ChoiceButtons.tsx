@@ -19,9 +19,7 @@ import type { Choice } from "./FieldParts";
 
 type Shared = {
   label: Copy;
-  description?: Copy;
   choices: readonly Choice[];
-  isDisabled?: boolean;
   /** The write takes no record without an answer here: the asterisk after the label, and the group heard as required. */
   isRequired?: boolean;
   /**
@@ -32,12 +30,12 @@ type Shared = {
 };
 
 /**
- * The message line under the answers: the served refusal, the browser's own check's (`MessageLine`), else the
- * description. The refusal stands in React Aria's `errorMessage` slot, so each answer is described by it while the
- * group is invalid, as a field's input is.
+ * The message line under the answers: the served refusal, else the browser's own check's (`MessageLine`). The refusal
+ * stands in React Aria's `errorMessage` slot, so each answer is described by it while the group is invalid, as a
+ * field's input is.
  */
-function GroupMessage({ description, errorMessage }: { description: Copy | undefined; errorMessage: Copy | undefined }) {
-  if (errorMessage === undefined) return <MessageLine description={description} />;
+function GroupMessage({ errorMessage }: { errorMessage: Copy | undefined }) {
+  if (errorMessage === undefined) return <MessageLine />;
   return (
     <Text
       slot="errorMessage"
@@ -66,21 +64,14 @@ type MarkedChoice = Choice & { mark?: ReactNode };
 export function Segmented({
   label,
   labelHidden = false,
-  description,
   errorMessage,
   choices,
-  isDisabled = false,
   isRequired = false,
-  name,
   value,
-  defaultValue,
   onChange,
 }: Omit<Shared, "choices"> & {
   choices: readonly MarkedChoice[];
-  /** The name the chosen answer posts under, where the form reads it; React Aria names it otherwise. */
-  name?: string;
   value?: string | null;
-  defaultValue?: string;
   onChange?: (id: string) => void;
   labelHidden?: boolean;
 }) {
@@ -91,14 +82,12 @@ export function Segmented({
       className={fieldRoot()}
       aria-label={labelHidden ? label : undefined}
       orientation="horizontal"
-      name={name}
       value={value}
-      defaultValue={defaultValue}
       onChange={onChange}
       isRequired={isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={useDisabled(false)}>
       {!labelHidden && (
         <FieldLabel
           label={label}
@@ -124,10 +113,7 @@ export function Segmented({
           </Radio>
         ))}
       </div>
-      <GroupMessage
-        description={description}
-        errorMessage={errorMessage}
-      />
+      <GroupMessage errorMessage={errorMessage} />
     </RadioGroup>
   );
 }
@@ -166,17 +152,13 @@ export function ToggleBoxesPlaceholder({ count }: { count: number }) {
  */
 export function ToggleBoxes({
   label,
-  description,
   errorMessage,
   choices,
-  isDisabled = false,
   isRequired = false,
   value,
-  defaultValue,
   onChange,
 }: Shared & {
   value?: readonly string[];
-  defaultValue?: readonly string[];
   onChange?: (ids: string[]) => void;
 }) {
   const root = useEarlyEdit();
@@ -185,12 +167,11 @@ export function ToggleBoxes({
       ref={root}
       className={fieldRoot()}
       value={value === undefined ? undefined : [...value]}
-      defaultValue={defaultValue === undefined ? undefined : [...defaultValue]}
       onChange={onChange}
       isRequired={isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={useDisabled(false)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
@@ -206,10 +187,7 @@ export function ToggleBoxes({
           </Checkbox>
         ))}
       </div>
-      <GroupMessage
-        description={description}
-        errorMessage={errorMessage}
-      />
+      <GroupMessage errorMessage={errorMessage} />
     </CheckboxGroup>
   );
 }

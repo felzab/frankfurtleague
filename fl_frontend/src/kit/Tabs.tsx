@@ -66,16 +66,9 @@ export function Tabs({
   label,
   selectedKey,
   tabs: entries,
-  scroll = true,
   children,
 }: {
   label: Copy;
-  /**
-   * Next's link's own `scroll`: whether choosing a tab lets Next scroll to the page's first element where it
-   * is out of view, which Next's link does by default, or leaves the page where the reader stands. The
-   * default is the board's to settle.
-   */
-  scroll?: boolean;
   /** The tab the address names, or the one most likely wanted, chosen on the server by `chosenTab`. */
   selectedKey: string;
   /** Each tab's label, a matchday's name. */
@@ -100,7 +93,6 @@ export function Tabs({
               className="shrink-0">
               <NextLink
                 href={`?${new URLSearchParams({ [TAB_PARAM]: entry.id }).toString()}`}
-                scroll={scroll}
                 aria-current={entry.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
                 className={tab({
