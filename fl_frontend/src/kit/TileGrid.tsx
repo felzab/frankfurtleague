@@ -25,18 +25,11 @@ export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href
  */
 export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route; line?: Copy; chip?: ChipProps; muted?: boolean };
 
-/**
- * What a grid of tiles takes its columns from. A block reads its own box; on the landing every block reads the screen,
- * so the page switches as one. `box` turns at 42 rem of the box the tiles stand in, `screen` at `lg`; the sponsors page
- * sets the landing's sponsor tiles as the landing does.
- */
-export type TilesReads = "box" | "screen";
-
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
-// fixed grid, two columns and four from the width `reads` names; each tile's content is its own.
+// fixed grid, two columns and four from 42 rem of the box they stand in; each tile's content is its own.
 const grid = tv({
   slots: {
-    root: "grid grid-cols-2 gap-2",
+    root: "grid grid-cols-2 gap-2 @2xl:grid-cols-4",
     // The tile's edge and corners hold the link, which fills under the pointer and rings inside them.
     tile: `overflow-hidden ${cardSurface()}`,
     content: "text-sm font-medium",
@@ -50,28 +43,24 @@ const grid = tv({
       // on the dark one. The plate's height, 64 px.
       sponsor: { content: "grid content-start gap-2 p-2 text-center" },
     },
-    reads: {
-      box: { root: "@2xl:grid-cols-4" },
-      screen: { root: "lg:grid-cols-4" },
-    },
   },
 });
 
 /**
- * The container a grid reading its box takes its columns from, since a query reads an ancestor; `w-full`, since a
- * container's width counts none of its content. A grid reading the screen needs none.
+ * The container the grid takes its columns from, since a query reads an ancestor; `w-full`, since a container's width
+ * counts none of its content.
  */
-function TilesBox({ reads, children }: { reads: TilesReads; children: ReactNode }) {
-  return reads === "box" ? <div className="@container w-full">{children}</div> : children;
+function TilesBox({ children }: { children: ReactNode }) {
+  return <div className="@container w-full">{children}</div>;
 }
 
 /**
  * The season's schools, each an equal tile leading to its club's page.
  */
-export function SchoolTiles({ schools, reads = "box" }: { schools: readonly SchoolTile[]; reads?: TilesReads }) {
-  const slots = grid({ kind: "school", reads });
+export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
+  const slots = grid({ kind: "school" });
   return (
-    <TilesBox reads={reads}>
+    <TilesBox>
       <ul className={slots.root()}>
         {schools.map((school) => (
           <li
@@ -103,13 +92,13 @@ export function SchoolTiles({ schools, reads = "box" }: { schools: readonly Scho
 
 /**
  * The schools while they are read: `count` of the grid's tiles, each its plaque, its name's line and the line under
- * it as bars, at a tile's height. 24 by default, six rows of four on a wide screen, for every grid of
+ * it as bars, at a tile's height. 24 by default, six rows of four in a wide box, for every grid of
  * schools: how many clubs a season holds is what the read tells, so no page states it.
  */
-export function SchoolTilesPlaceholder({ count = 24, reads = "box" }: { count?: number; reads?: TilesReads }) {
-  const slots = grid({ kind: "school", reads });
+export function SchoolTilesPlaceholder({ count = 24 }: { count?: number }) {
+  const slots = grid({ kind: "school" });
   return (
-    <TilesBox reads={reads}>
+    <TilesBox>
       <div className={slots.root()}>
         {Array.from({ length: count }, (_, index) => (
           <div
@@ -140,10 +129,10 @@ export function SchoolTilesPlaceholder({ count = 24, reads = "box" }: { count?: 
  * `sponsored`, with no glyph saying it leaves the site. On the landing under the organisers and on the
  * sponsors' page.
  */
-export function SponsorTiles({ sponsors, reads = "box" }: { sponsors: readonly Sponsor[]; reads?: TilesReads }) {
-  const slots = grid({ kind: "sponsor", reads });
+export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
+  const slots = grid({ kind: "sponsor" });
   return (
-    <TilesBox reads={reads}>
+    <TilesBox>
       <ul className={slots.root()}>
         {sponsors.map((sponsor) => (
           <li

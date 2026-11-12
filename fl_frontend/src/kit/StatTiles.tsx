@@ -14,7 +14,6 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { Counts } from "./Table";
-import type { TilesReads } from "./TileGrid";
 
 /**
  * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
@@ -45,11 +44,10 @@ export type StatTile = {
  * „Mo., 28.10.“, about 114 px at the value's size, and its widest label „Schiedsrichter“ about 102 px: a fifth of the full form
  * column (`--container-form`, 760 px) less the gaps is 142 px, which holds either inside its 12-px insets, and a fifth
  * of any narrower column, such as 1024 px beside the open rail, would not. Two columns hold them at every phone width.
- * The landing's four read the screen instead, as every block of the landing does (`reads`, `TilesReads`).
  */
 type Layout =
-  | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile]; reads?: TilesReads }
-  | { layout: "five"; items: readonly [StatTile, StatTile, StatTile, StatTile, StatTile]; reads?: never };
+  | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile] }
+  | { layout: "five"; items: readonly [StatTile, StatTile, StatTile, StatTile, StatTile] };
 
 const tiles = tv({
   slots: {
@@ -68,7 +66,7 @@ const tiles = tv({
   },
   variants: {
     layout: {
-      four: { root: "grid-cols-2" },
+      four: { root: "grid-cols-2 @2xl:grid-cols-4" },
       // Five from the form column's full width, 47.5rem (`--container-form`), which a container query spells as a figure,
       // since it reads no variable. The 12-px insets leave the widest figure room in a fifth of it.
       five: { root: "grid-cols-2 @min-[47.5rem]:grid-cols-5", tile: "px-3" },
@@ -82,16 +80,7 @@ const tiles = tv({
     wide: {
       true: { tile: "col-span-2 @min-[47.5rem]:col-span-1" },
     },
-    reads: {
-      box: {},
-      screen: {},
-    },
   },
-  compoundVariants: [
-    { layout: "four", reads: "box", class: { root: "@2xl:grid-cols-4" } },
-    { layout: "four", reads: "screen", class: { root: "lg:grid-cols-4" } },
-  ],
-  defaultVariants: { reads: "box" },
 });
 
 const { fact } = COPY.spielplan;
@@ -109,11 +98,11 @@ const MATCH_WAIT = [
 ] as const satisfies ReadonlyArray<{ label: string; value: string; line?: string; words?: true }>;
 
 /**
- * The container a grid of tiles reading its box takes its columns from, the column the tiles stand in, since a query
- * reads an ancestor; `w-full`, since a container's width counts none of its content. A grid reading the screen needs none.
+ * The container a grid of tiles takes its columns from, the column the tiles stand in, since a query reads an ancestor;
+ * `w-full`, since a container's width counts none of its content.
  */
-function TilesColumn({ reads = "box", children }: { reads?: TilesReads; children: ReactNode }) {
-  return reads === "box" ? <div className="@container w-full">{children}</div> : children;
+function TilesColumn({ children }: { children: ReactNode }) {
+  return <div className="@container w-full">{children}</div>;
 }
 
 /** A match's tiles while it is read, `five`'s own grid at `MATCH_WAIT`'s words. */
@@ -155,17 +144,13 @@ function MatchTilesPlaceholder() {
  * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
  * value's and, unless `line` says these tiles carry none, the line under it as bars, at a tile's size.
  */
-export function StatTilesPlaceholder({
-  layout,
-  line = true,
-  reads,
-}: { line?: boolean } & ({ layout: "four"; reads?: TilesReads } | { layout: "five"; reads?: never })) {
+export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["layout"]; line?: boolean }) {
   if (layout === "five") return <MatchTilesPlaceholder />;
   return (
-    <TilesColumn reads={reads}>
-      <div className={tiles({ layout, reads }).root()}>
+    <TilesColumn>
+      <div className={tiles({ layout }).root()}>
         {Array.from({ length: 4 }, (_, index) => {
-          const slots = tiles({ layout, reads });
+          const slots = tiles({ layout });
           return (
             <div
               key={index}
@@ -209,12 +194,12 @@ function TileValue({ item }: { item: StatTile }) {
  * facts. A page states each fact once, in a tile or elsewhere, never both. A definition list, each tile a
  * term and its values, so a reader hears the label with its value.
  */
-export function StatTiles({ layout, items, reads }: Layout) {
+export function StatTiles({ layout, items }: Layout) {
   return (
-    <TilesColumn reads={reads}>
-      <dl className={tiles({ layout, reads }).root()}>
+    <TilesColumn>
+      <dl className={tiles({ layout }).root()}>
         {items.map((item, index) => {
-          const slots = tiles({ layout, reads, words: item.words, wide: layout === "five" && index === 4 });
+          const slots = tiles({ layout, words: item.words, wide: layout === "five" && index === 4 });
           return (
             <div
               key={item.label}

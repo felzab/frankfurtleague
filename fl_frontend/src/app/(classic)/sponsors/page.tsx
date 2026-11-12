@@ -30,10 +30,7 @@ export default function SponsorsPage() {
         lead={[SERVER_COPY.description.sponsors]}
       />
       <ReadingColumn>
-        <SponsorTiles
-          sponsors={SPONSORS}
-          reads="screen"
-        />
+        <SponsorTiles sponsors={SPONSORS} />
         <Door
           title={words.doors.support}
           level={2}

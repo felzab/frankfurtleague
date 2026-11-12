@@ -23,8 +23,8 @@ const doors = tv({
     act: "mt-1",
   },
   variants: {
-    // Two side by side from `lg`; the one left once the school's door goes takes the full width.
-    pair: { true: { root: "lg:grid-cols-2" } },
+    // Two side by side from 42 rem of the block's own width; the one left once the school's door goes takes the full width.
+    pair: { true: { root: "@2xl:grid-cols-2" } },
   },
 });
 
@@ -97,32 +97,36 @@ export function Doors({
       eyebrow={eyebrow}
       title={SERVER_COPY.landing.doors.title(school !== undefined)}
       more={more}>
-      <div className={doors({ pair: school !== undefined }).root()}>
-        {school !== undefined && (
+      {/* The container the doors' columns read, since a query reads an ancestor; `w-full`, since a container's width
+          counts none of its content. */}
+      <div className="@container w-full">
+        <div className={doors({ pair: school !== undefined }).root()}>
+          {school !== undefined && (
+            <Door
+              title={school.title}
+              text={school.text}
+              act={
+                <Link
+                  href={school.act.href}
+                  placement="button"
+                  look="primary"
+                  label={school.act.label}
+                />
+              }
+            />
+          )}
           <Door
-            title={school.title}
-            text={school.text}
+            title={question.title}
+            text={question.text}
             act={
-              <Link
-                href={school.act.href}
-                placement="button"
-                look="primary"
-                label={school.act.label}
+              <SocialButtons
+                email={email}
+                instagram={instagram}
+                threads={threads}
               />
             }
           />
-        )}
-        <Door
-          title={question.title}
-          text={question.text}
-          act={
-            <SocialButtons
-              email={email}
-              instagram={instagram}
-              threads={threads}
-            />
-          }
-        />
+        </div>
       </div>
     </LandingSection>
   );
