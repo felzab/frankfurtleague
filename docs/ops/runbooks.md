@@ -1322,14 +1322,9 @@ read 2026-10-04). **Production holds the widget's own pair**, the site key in `f
 and the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile
 widget, and refuses to boot on either published test key.
 
-**`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
-reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production
-with it and with no other login. Copy its URI out of the password manager into the file in an
-editor, never through a shell command that echoes it.
-
-**No line in either package file names a value a secret file holds**: the deploy and `local.sh`
-refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
-editor, never with `cat`.
+**No line in either package's `.env` holds a value a secret file holds**: Compose hands every line
+to the container as a variable, which `docker inspect` prints. Delete such a line in an editor,
+never with `cat`.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1337,22 +1332,30 @@ shell's history. For a value that exists only in the password manager, run the l
 and paste the value, then Ctrl-D:
 
 ```bash
+sudo install -o 65532 -g 65532 -m 400 /dev/stdin secrets/tunnel_token
 sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/<a frontend file>
 sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
-**Each service reads its files once, as it boots**, so a value replaced on a running stack — a
-wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then — takes
-effect only with the next `./scripts/ops/deploy.sh`, which judges it and recreates both containers.
+**Each service reads its files once, as it boots**, and Compose recreates a container for a
+changed definition or image, never for a file's new content. So a value replaced on a running stack,
+a wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then, takes
+effect only once both containers are recreated. Run this in the checkout, whose `.env` pins the
+build that runs; `--wait` reports their healthchecks:
 
-**Where a deploy refuses naming a file**, the refusal says
-which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
-one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
-the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
+```bash
+docker compose up -d --wait --force-recreate frontend backend
+```
+
+**Where a service refuses to boot naming a file**, its last lines say which fault, and a failed
+deploy prints them: a missing file is written, an unreadable one is given the user and mode above,
+and a blank one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a
+character outside the class** ([`spec.md`](spec.md) §1.2): generate all three again on the server,
+each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
-and update the password-manager entry. Both containers are recreated by the same deploy, so the new
-keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
+and update the password-manager entry. Both containers are recreated by the command above, so the
+new keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
 the same way: its holder, reaching the backend on the private network, can act as any administrator,
 so rotating is not finished until `action_log` has been read for every `grants` write since the
 leak, and every grant nobody can account for is revoked in the Playground. **A new `auth_secret` signs everybody out.**
