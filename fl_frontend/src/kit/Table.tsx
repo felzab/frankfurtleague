@@ -419,7 +419,7 @@ const table = tv({
         part: "@max-2xl:contents",
         headRow: "@max-2xl:col-span-full @max-2xl:grid @max-2xl:grid-cols-subgrid",
         head: "@max-2xl:row-start-1 @max-2xl:leading-10",
-        row: "@max-2xl:col-span-full @max-2xl:grid @max-2xl:h-auto @max-2xl:min-h-14 @max-2xl:grid-cols-subgrid @max-2xl:content-center @max-2xl:items-center @max-2xl:py-1.5 lg:@max-2xl:h-auto lg:@max-2xl:min-h-13 lg:@max-2xl:py-1",
+        row: "@max-2xl:col-span-full @max-2xl:grid @max-2xl:h-auto @max-2xl:min-h-14 @max-2xl:grid-cols-subgrid @max-2xl:content-center @max-2xl:items-center @max-2xl:py-1.5 lg:@max-2xl:min-h-13 lg:@max-2xl:py-1",
         name: "@max-2xl:contents",
         // A stacked row's chips stand on its name's line (`chipsOnLine`).
         state: "@max-2xl:hidden",
