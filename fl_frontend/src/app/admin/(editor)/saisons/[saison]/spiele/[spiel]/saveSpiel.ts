@@ -28,7 +28,6 @@ const figure = (rule: z.ZodType<number>) => numberBox(z.union([rule, z.null()]))
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SaveSpiel = z.object({
   id: SpielePatchSpielParams.shape.spiel_id,
-  // The fixture's version as the editor read it.
   version: shape.version,
   // The report's version the result was carried over from by „Übernehmen“, which the save stamps adopted.
   adoptsBericht: z.union([z.int().min(1), z.null()]),

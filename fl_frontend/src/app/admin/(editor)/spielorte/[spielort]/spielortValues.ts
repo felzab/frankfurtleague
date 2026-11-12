@@ -14,7 +14,6 @@ export type SpielortValues = {
   mietpreis: string;
 };
 
-/** The editor's values as a stored venue gives them. */
 export function valuesOf(spielort: FLSpielort): SpielortValues {
   const { address } = spielort;
   return {

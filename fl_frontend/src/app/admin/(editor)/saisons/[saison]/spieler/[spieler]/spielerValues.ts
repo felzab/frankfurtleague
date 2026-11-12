@@ -14,7 +14,6 @@ export type SpielerValues = {
   rolle: string;
 };
 
-/** The editor's values as the read gives them. */
 export function valuesOf({ person, kader }: FLSpielerSaisonAdminResponse): SpielerValues {
   return {
     first_name: person.first_name,

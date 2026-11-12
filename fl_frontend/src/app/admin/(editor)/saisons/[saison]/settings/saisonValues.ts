@@ -28,7 +28,6 @@ export type SaisonValues = {
   registrierungPaused: boolean;
 };
 
-/** The editor's values as a stored season gives them. */
 export function valuesOf(saison: FLSaisonAdmin): SaisonValues {
   const { rules } = saison;
   return {
