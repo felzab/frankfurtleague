@@ -220,6 +220,28 @@ class TestTheSpielShapes:
         with pytest.raises(ValidationError):
             FLSpielJoined.model_validate(unjudged)
 
+    @pytest.mark.parametrize(
+        ("schiedsrichter_id", "served"), [pytest.param(None, True, id="nobody"), pytest.param(ObjectId(), False, id="a-referee")]
+    )
+    def test_a_booking_naming_nobody_is_served_nameless_where_a_referee_s_waits_for_their_agreement(self, schiedsrichter_id, served):
+        """An erased referee's played match reads as nobody named; withheld, it would read as no referee booked at all."""
+
+        document = joined_document()
+        nobody_agreed = {
+            **document,
+            "schiedsrichter": {
+                **document["schiedsrichter"],
+                "schiedsrichter_id": schiedsrichter_id,
+                "name": None,
+                "name_is_public": False,
+                "einsatz_confirmed": False,
+            },
+        }
+
+        parsed = FLSpielJoined.model_validate(nobody_agreed)
+
+        assert (parsed.schiedsrichter is not None, None if parsed.schiedsrichter is None else parsed.schiedsrichter.name) == (served, None)
+
     def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.
 

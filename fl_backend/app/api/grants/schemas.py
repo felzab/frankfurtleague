@@ -58,7 +58,7 @@ class FLPostGrantPayload(BaseModel):
 
 
 class FLGrantWriteResponse(BaseAPIResponse):
-    """The grant an act named: a removal is hard, so the id is all there is to answer with."""
+    """The grant the act named."""
 
     grant_id: CustomObjectId
 

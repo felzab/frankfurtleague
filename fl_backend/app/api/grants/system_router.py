@@ -11,7 +11,7 @@ from app.core.dependencies import DBClient, GrantsCollection, OutboxCollection, 
 from app.core.security import verify_access_system
 from app.core.transactions import transaction_session
 
-# System tier, as the application sweep's own router is: the pass holds no session.
+# System tier: the pass holds no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/grants/handover",
     dependencies=[Depends(verify_access_system)],
@@ -29,8 +29,7 @@ async def post_handover_pass(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantHandoverPassResponse:
-    """
-    Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.
+    """Move the owner role to the row whose `owner_from` has passed, the old owner staying an administrator, and tell every holder.
 
     Late rather than early where a pass is missed: nothing moves until one runs, and a quiet pass writes nothing.
     """

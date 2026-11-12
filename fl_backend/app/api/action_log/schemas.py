@@ -10,7 +10,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 
 class FLActionLogRecord(BaseModel):
-    """One act as `action_log` stores it, written by `app/core/recording.py :: record_act` alone."""
+    """One act as `action_log` stores it, inserted by `record_act` alone."""
 
     id: CustomObjectId = Field(validation_alias="_id")
     at: datetime
@@ -24,11 +24,11 @@ class FLActionLogRecord(BaseModel):
 
 
 class FLActionLogFilterPayload(BaseModel):
-    """What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed."""
+    """What the action log's read narrows by."""
 
     model_config = ConfigDict(extra="forbid")
 
-    # The last row of the page before. A malformed one answers 422, as every payload's id does.
+    # The last row of the page before.
     cursor: CustomObjectId | None = None
     # A case-blind search over the team and the label: German action words are reached by `type`.
     q: str | None = Field(default=None, max_length=ACTION_LOG_SEARCH_MAX_LENGTH)
@@ -40,7 +40,7 @@ class FLActionLogFilterPayload(BaseModel):
 
 
 class FLActionLogEntry(BaseModel):
-    """One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store."""
+    """One recorded act."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: FLUtcInstant

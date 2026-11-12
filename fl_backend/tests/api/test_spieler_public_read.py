@@ -231,14 +231,14 @@ class TestTheBaseTierReadExecuted:
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Six people and their squad rows.
 
     A retired row, a surname whose initial is two bytes, and a person carrying no surname at all.
     """
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON, "active"))
             await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
@@ -266,8 +266,8 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 SQUAD_DATABASE_NAME = worker_database("fl_spieler_squad_season_test")
@@ -290,11 +290,11 @@ class TestTheClubPageReadsOneSeasonsSquad:
 
 
 @pytest.fixture(scope="module")
-def squad_url(mongo_url: str) -> Iterator[str]:
+def squad_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Two seasons of one club: a player in both, and one who played the past season alone."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
             await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
             await _enter_the_club(database, SAISON, PAST_SAISON)
             await database.spieler.insert_many(
@@ -321,8 +321,8 @@ def squad_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, SQUAD_DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, SQUAD_DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 MASK_DATABASE_NAME = worker_database("fl_spieler_mask_read_test")
@@ -346,7 +346,8 @@ MASKED_SQUAD = {
     "Internal": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("internal"), None, None),
 }
 
-# A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
+# A shirt per row. Both play one position, so the order by position and forename alone would put the withheld row,
+# whose served forename is null, first.
 MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, start=1)}
 
 # Both rows hold a captaincy, and the read serves the one beside a published name alone.
@@ -367,21 +368,21 @@ class TestThePublicationGate:
 
         return _on_the_mask_database(url, body)
 
-    def _by_nummer(self, url: str) -> dict[str, dict[str, Any]]:
-        return {row["nummer"]: row for row in self._read(url)["kader"]}
+    def _rows(self, url: str) -> list[dict[str, Any]]:
+        return self._read(url)["kader"]
 
-    @pytest.mark.parametrize("case", MASKED_SQUAD)
-    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str, case: str):
-        row = MASKED_SQUAD[case]
-        served = self._by_nummer(masked_url)[MASK_NUMMERN[case]]
+    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str):
+        served = [(row["first_name"], row["last_name"]) for row in self._rows(masked_url)]
 
-        assert (served["first_name"], served["last_name"]) == (row.served_first_name, row.served_last_name)
+        assert served == [(row.served_first_name, row.served_last_name) for row in MASKED_SQUAD.values()]
 
-    def test_a_captaincy_is_served_beside_a_published_name_alone(self, masked_url: str):
-        """A squad holds one of each, so the mark beside a nameless row would say who that row is."""
-        served = self._by_nummer(masked_url)
+    def test_a_nameless_row_serves_the_name_alone_after_the_named_ones(self, masked_url: str):
+        """A number, a position, a mark or a place among the named rows beside a withheld name would say who the row is."""
 
-        assert [served[MASK_NUMMERN[case]]["rolle"] for case in MASKED_SQUAD] == ["kapitaen", None]
+        assert self._rows(masked_url) == [
+            {"first_name": "Alina", "last_name": "F.", "nummer": MASK_NUMMERN["Offen"], "position": "Angriff", "rolle": "kapitaen"},
+            dict.fromkeys(PUBLIC_FIELDS),
+        ]
 
     @pytest.mark.parametrize("name", WITHHELD_NAMES)
     def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
@@ -396,7 +397,7 @@ class TestThePublicationGate:
     @pytest.mark.parametrize("key", ["einwilligung", "scope"])
     def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
         """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
-        assert all(key not in served for served in self._by_nummer(masked_url).values())
+        assert all(key not in served for served in self._rows(masked_url))
 
     def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
@@ -419,11 +420,11 @@ class TestThePublicationGate:
 
 
 @pytest.fixture(scope="module")
-def masked_url(mongo_url: str) -> Iterator[str]:
+def masked_url(mongo_replica_set_url: str) -> Iterator[str]:
     """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, MASK_DATABASE_NAME) as (_, database):
             await database.saisons.insert_one(saison_document(SAISON, "active"))
             await _enter_the_club(database, SAISON)
             await database.spieler.insert_many(
@@ -441,8 +442,8 @@ def masked_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, MASK_DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, MASK_DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 SORT_ORACLE_DATABASE_NAMES = {
@@ -485,12 +486,12 @@ class TestTheOrderIsNoOracleForAWithheldName:
 
 
 @pytest.fixture(scope="module")
-def sort_oracle_url(mongo_url: str) -> Iterator[str]:
+def sort_oracle_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Two corpora, each one squad of three: two published rows and one the `internal` scope withholds."""
 
     async def _seed() -> None:
         for corpus, withheld_forename in WITHHELD_FORENAMES.items():
-            async with a_clean_database(mongo_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
+            async with a_clean_database(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
                 await database.saisons.insert_one(saison_document(SAISON, "active"))
                 await _enter_the_club(database, SAISON)
                 await database.spieler.insert_many(
@@ -512,8 +513,11 @@ def sort_oracle_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["first"]), unwritten(mongo_url, SORT_ORACLE_DATABASE_NAMES["last"]):
-        yield mongo_url
+    with (
+        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["first"]),
+        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["last"]),
+    ):
+        yield mongo_replica_set_url
 
 
 def _on_the_mask_database(url: str, body: Body) -> Any:

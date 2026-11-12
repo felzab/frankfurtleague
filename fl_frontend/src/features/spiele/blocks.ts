@@ -221,6 +221,15 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
 }
 
 /**
+ * Who referees the match as the public read serves it: the name where it is published, „anonym“ where the booking is
+ * served without one, and a dash where none is served.
+ */
+export function refereeOf(spiel: Pick<FLSpielJoined, "schiedsrichter">): Words {
+  if (spiel.schiedsrichter === null) return COPY.shared.noValue;
+  return spiel.schiedsrichter.name === null ? COPY.shared.anonymous : { record: spiel.schiedsrichter.name };
+}
+
+/**
  * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
  * match is played, and who referees it. The matchday stands in the head and the result in its score, so
  * neither is repeated here.
@@ -240,11 +249,7 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
           glyph: "spielorte",
           elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_link), label: { record: spiel.spielort.name } },
         },
-    {
-      label: fact.schiedsrichter,
-      glyph: "schiedsrichter",
-      value: spiel.schiedsrichter?.name == null ? noValue : { record: spiel.schiedsrichter.name },
-    },
+    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
   ];
 }
 

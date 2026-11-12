@@ -17,7 +17,6 @@ from app.api.identity.services import own_entries, seat_saisons
 from app.api.identity.system_router import get_sign_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.folding import sign_in_identifier
 from tests.app_client import app_client
@@ -65,7 +64,6 @@ SCHIEDSRICHTER_ACTIVE = "pfeife.aktiv@schule.de"
 SCHIEDSRICHTER_RETIRED = "pfeife.ruhestand@schule.de"
 SCHIEDSRICHTER_OPEN = "pfeife.offen@schule.de"
 SCHIEDSRICHTER_RETIRED_OPEN = "pfeife.ruhestand.offen@schule.de"
-GHOST = "geist@schule.de"
 # A registration stored as every payload stores an address, folded, and asked in another spelling.
 REGISTERED = "rita.registriert@schule.de"
 REGISTERED_STORED = REGISTERED
@@ -199,8 +197,6 @@ async def _seed(database: AsyncDatabase) -> None:
                 inactive_since="2026-03-01",
                 einwilligung=None,
             ),
-            # The ghost as no write leaves it: an address, a stamp, not retired, so its id alone keeps it out.
-            _referee(GHOST_SCHIEDSRICHTER_ID, GHOST, "D. Geist"),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -294,7 +290,6 @@ class TestWhatCountsAsAnOwnRecord:
             pytest.param(SCHIEDSRICHTER_RETIRED_OPEN, id="an unconfirmed retired referee"),
             pytest.param(SCHIEDSRICHTER_ACTIVE.replace("@schule.de", "@anderswo.de"), id="a confirmed referee's local part at another domain"),
             pytest.param(SEAT_EXITED_OPEN, id="an unconfirmed seat on a withdrawn team's row"),
-            pytest.param(GHOST, id="the placeholder referee"),
             pytest.param(REGISTERED_DECLINED, id="a declined registration"),
             pytest.param(REGISTERED_OPEN, id="an unconfirmed registration"),
             pytest.param(NOBODY, id="nothing at all"),

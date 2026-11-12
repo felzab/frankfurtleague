@@ -666,9 +666,8 @@ def nummern_in_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def _person_fields(*, registrierung_raw: Mapping[str, Any], address: str) -> dict[str, Any]:
-    # Here and not in the `spieler` record model, which admits a null forename for the erased pupils'
-    # sentinel alone: every person the admission writes passes here, and the administrator's edit
-    # requires one by its payload.
+    # Here as well as in the `spieler` record model, which the read-back alone applies: every person the admission
+    # writes passes here, and the administrator's edit requires one by its payload.
     if not person_name_key(registrierung_raw.get("first_name")):
         raise ValueError("a registration carrying no forename names no person")
 
@@ -686,8 +685,8 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], saved: Any, a
     """
 
     fields = _person_fields(registrierung_raw=registrierung_raw, address=address)
-    # Only the sentinel stores a null record, so a matched person holding none is that row or a hand
-    # edit: renewing fails on the dotted paths below, and leaving it keeps a person nobody asked.
+    # No write stores a person without a record, so a matched person holding none is a hand edit: renewing fails on the
+    # dotted paths below, and leaving it keeps a person nobody asked.
     if not isinstance(saved, Mapping):
         raise ValueError("a matched person holding no consent record is no person to admit")
 

@@ -2,7 +2,7 @@ import math
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal
 
@@ -45,11 +45,10 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.services import DecidedStanding, in_the_season_when_decided, offered_gruppen
+from app.api.teams.services import DecidedStanding, in_the_season_when_decided, is_played, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import FieldPath, WriteRefusal
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSide
@@ -346,7 +345,7 @@ def _joined_referee() -> Mapping[str, Any]:
     """The block with its row's name and both verdicts folded in, conditional as `_joined_side` is, so an empty slot stays null."""
 
     joined = {
-        # Null where no row answers, as on the ghost: an erased referee is served nameless.
+        # Null where no row answers: a booking naming nobody is served nameless.
         "name": {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.name"}, None]},
         # A join answering nothing withholds: it costs a page a name, never a person theirs.
         NAME_IS_PUBLIC_KEY: {"$ifNull": [{"$first": f"${SCHIEDSRICHTER_AS_NAME}.{NAME_IS_PUBLIC_KEY}"}, False]},
@@ -955,10 +954,7 @@ class BookedVenue:
 
 @dataclass(frozen=True)
 class BookedReferee:
-    """The `schiedsrichter` row a fixture's referee reference names.
-
-    The ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`) reads retired and never confirmed.
-    """
+    """The `schiedsrichter` row a fixture's referee reference names."""
 
     inactive_since: str | None
     #: Whether the referee's own confirmation stands on the record; no write takes one back.
@@ -1034,14 +1030,20 @@ def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> Co
     return ComposedResult(team1_tore=team1_tore, team2_tore=team2_tore, absent_side=absent_side)
 
 
-def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> FLSpiel:
+def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules, *, now: datetime) -> FLSpiel:
     """Composed once for the save and its `dry_run` preview.
 
     `rules` arrives as a VALUE, keeping this module synchronous and collection-free: a forfeit from a
-    constant could disagree with the season in play.
+    constant could disagree with the season in play. `now` judges the fixture as written played or still to come.
     """
 
     result = compose_result(payload, rules)
+
+    schiedsrichter = _composed_schiedsrichter(payload.schiedsrichter)
+    # A match to come books nobody it cannot name: a re-dating that puts a played match back among those to come leaves
+    # its slot empty for a referee to be booked.
+    if schiedsrichter is not None and schiedsrichter.schiedsrichter_id is None and not is_played(date=payload.date, time=payload.time, now=now):
+        schiedsrichter = None
 
     is_knockout = stored.saison_phase != "gruppenphase"
     # `absent_side` too: a composed forfeit never went to penalties, and a season regulating 0:0
@@ -1054,7 +1056,7 @@ def apply_payload_to_spiel(stored: FLSpiel, payload: FLPatchSpielDataPayload, ru
             "date": payload.date,
             "time": payload.time,
             "spielort": _composed_spielort(payload.spielort),
-            "schiedsrichter": _composed_schiedsrichter(payload.schiedsrichter),
+            "schiedsrichter": schiedsrichter,
             "team1": _composed_side(payload.team1, result.team1_tore),
             "team2": _composed_side(payload.team2, result.team2_tore),
             "team1_quelle": payload.team1_quelle,
@@ -1265,9 +1267,23 @@ def find_booking_refusal(
     resolved: ResolvedReferences,
     rules: FLSaisonRules,
 ) -> WriteRefusal | None:
-    """Why this patch's VENUE or REFEREE must be refused, or `None`. Only a reference `find_new_bookings` names is judged."""
+    """Why this patch's VENUE or REFEREE must be refused, or `None`. Only a reference `find_new_bookings` names is judged.
+
+    A booking naming nobody is kept where the fixture stores one and never made: only an erasure makes one.
+    """
 
     stored = stored_in_slice(spiel_id, season)
+    if (
+        payload.schiedsrichter is not None
+        and payload.schiedsrichter.schiedsrichter_id is None
+        and (stored.schiedsrichter is None or stored.schiedsrichter.schiedsrichter_id is not None)
+    ):
+        return WriteRefusal(
+            error_code=Code.BOOKING_UNKNOWN_RESOURCE,
+            status=HTTPStatus.CONFLICT,
+            fields=(RESOURCE_PATHS["Schiedsrichter"],),
+        )
+
     new = find_new_bookings(stored, payload, rules)
 
     references = (
@@ -1293,7 +1309,7 @@ def find_booking_refusal(
                 fields=(path,),
             )
 
-    # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
+    # After both arms above, so a retired referee meets the retirement first.
     if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.confirmed:
         return WriteRefusal(
             error_code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
@@ -1344,10 +1360,7 @@ def find_slot_claims(spiel: BookedSpiel | FLPatchSpielDataPayload) -> list[SlotC
     if held.spielort_id is not None:
         claims.append(SlotClaim("Spielort", "spielort.spielort_id", held.spielort_id, spiel.date, spiel.time))
 
-    # The ghost claims nothing, where `find_new_bookings` beside this still names it: every erased
-    # referee's fixtures share this one id, so two strangers' matches would read as one person
-    # double-booked.
-    if held.schiedsrichter_id is not None and held.schiedsrichter_id != GHOST_SCHIEDSRICHTER_ID:
+    if held.schiedsrichter_id is not None:
         claims.append(SlotClaim("Schiedsrichter", "schiedsrichter.schiedsrichter_id", held.schiedsrichter_id, spiel.date, spiel.time))
 
     return claims
@@ -1573,15 +1586,22 @@ def find_retired_bookings(
                 )
             )
 
-        if spiel.schiedsrichter is not None and (retired_on := retired_referees.get(spiel.schiedsrichter.schiedsrichter_id)) is not None:
+        # A booking naming nobody joins no row, so neither a name nor a retirement.
+        referee = spiel.schiedsrichter
+        if (
+            referee is not None
+            and referee.schiedsrichter_id is not None
+            and referee.name is not None
+            and (retired_on := retired_referees.get(referee.schiedsrichter_id)) is not None
+        ):
             faults.append(
                 FLBracketFaultBooking(
                     reason="retired_booking",
                     spiel_id=spiel.id,
                     spiel_nr=spiel.spiel_nr,
                     booking="schiedsrichter",
-                    booking_id=spiel.schiedsrichter.schiedsrichter_id,
-                    name=spiel.schiedsrichter.name,
+                    booking_id=referee.schiedsrichter_id,
+                    name=referee.name,
                     inactive_since=retired_on,
                 )
             )
@@ -1919,10 +1939,9 @@ def recipients_named(parties: Sequence[Mapping[str, Any]], *, names: Mapping[tup
 
     Every row's party holds a record: a club its season row, which nothing deletes, and a referee their own, which an
     erasure deletes in the transaction removing every row naming them
-    (`app/api/spielbestaetigungen/crud.py :: erase_referee_confirmations_in_session`). No row names the ghost, since the
-    pass mints it none (`app/api/spielbestaetigungen/services.py :: parties_of`) and the erasure removes a referee's
-    rows rather than repointing them. So a party `names` lacks is a broken reference, refused rather than dropped from
-    the question in silence.
+    (`app/api/schiedsrichter/crud.py :: erase_referee_in_session`). No row names nobody, since the pass mints a booking
+    naming nobody no row (`app/api/spielbestaetigungen/services.py :: parties_of`). So a party `names` lacks is a broken
+    reference, refused rather than dropped from the question in silence.
     """
 
     unnamed = [party for party in parties if names.get(party_key(party)) is None]

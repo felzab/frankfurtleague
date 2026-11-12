@@ -20,20 +20,16 @@ router = APIRouter(
 )
 
 
+# A POST that reads: `by` is an address and `q` whatever was typed, and a query string stands on every `http.answered`
+# log line, where the log's scrubber reads no `%40`.
 @router.post("/view", response_model=FLActionLogListResponse, summary="List recorded acts", openapi_extra=SAFE)
 async def get_action_log(
     action_log_collection: ActionLogReadCollection, filters: Annotated[FLActionLogFilterPayload, Body()]
 ) -> FLActionLogListResponse:
-    """The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
+    """The newest 50 acts the filters keep, starting after `cursor` where one is given."""
 
-    A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
-    `http.answered` line, where the log's scrubber reads no `%40`.
-
-    `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
-    index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
-    """
-
-    # One past the page, so whether another follows costs no count.
+    # Paged by a range over `_id` rather than by a skip: no row repeats or drops at a seam, and no index is needed past
+    # `_id`. One past the page, so whether another follows costs no count.
     read, by_options = await asyncio.gather(
         pull_many_from_db(
             collection=action_log_collection,

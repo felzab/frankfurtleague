@@ -17,7 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.overview import FLOverviewSpielberichtRow
 from app.api.saisons.overview_router import get_saison_overview
-from app.api.spielberichte.crud import count_submitted_berichte, repoint_pupil_entries_in_session
+from app.api.spielberichte.crud import count_submitted_berichte, empty_pupil_entries_in_session
 from app.api.spielberichte.person_router import get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtBericht, FLSpielberichtPayload
 from app.api.spielberichte.services import bericht_state_of, build_state_pipeline
@@ -28,7 +28,6 @@ from app.api.spiele.schemas import (
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
-from app.core.sentinels import GHOST_SPIELER_ID
 from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
@@ -817,7 +816,10 @@ def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str,
         "spielorte_collection": database[Collection.SPIELORTE],
         "schiedsrichter_collection": database[Collection.SCHIEDSRICHTER],
         "spielberichte_collection": database[Collection.SPIELBERICHTE],
+        "aufstellungen_collection": database[Collection.AUFSTELLUNGEN],
         "spielbestaetigungen_collection": database[Collection.SPIELBESTAETIGUNGEN],
+        # The save judges the fixture played or still to come by it.
+        "now": NOW,
     }
 
 
@@ -939,14 +941,14 @@ class TestTheAdoptionIsOneStoredAnswer:
 
         assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, COMMITTED, ["differing"])
 
-    def test_an_erased_pupil_s_repoint_keeps_it_adopted(self, mongo_replica_set_url: str):
-        """The repoint writes the document, and a report un-adopted by it would take its goals off the public page for good."""
+    def test_an_erased_pupil_s_emptied_entries_keep_it_adopted(self, mongo_replica_set_url: str):
+        """The erasure writes the document, and a report un-adopted by it would take its goals off the public page for good."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             read = await a_report_adopted(database, client)
             async with client.start_session() as session:
                 await session.with_transaction(
-                    lambda session: repoint_pupil_entries_in_session(
+                    lambda session: empty_pupil_entries_in_session(
                         spielberichte_collection=database[Collection.SPIELBERICHTE], spieler_id=LINA, session=session
                     )
                 )
@@ -954,4 +956,4 @@ class TestTheAdoptionIsOneStoredAnswer:
 
             return document["version"] - read, document["bericht"]["scorers"][0]["spieler_id"], await season_states(database)
 
-        assert on_the_league(mongo_replica_set_url, body) == (2, GHOST_SPIELER_ID, ["adopted"])
+        assert on_the_league(mongo_replica_set_url, body) == (2, None, ["adopted"])

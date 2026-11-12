@@ -81,17 +81,15 @@ class FLSchiedsrichterConfirmation(FLConfirmation):
 
 class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Nullable where the payload is not, for the one row that stands behind nobody
-    # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`). The floor stays on the string branch, an
-    # empty one being the sentinel this design exists to remove.
-    name: CustomNonEmptyString | None
+    # Without the payload's ceiling and pattern: a read refusing a stored name would answer 500 for the whole list.
+    name: CustomNonEmptyString
     # Redeclared without the payload's empty-string coercion: a read answers with the value as
     # stored, never a repaired copy of it.
     schule: str | None
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
-    # Defaulted, on no payload: the ghost carries none, the create no record or birthdate before
-    # confirmation, and an address correction on a retired, unconfirmed referee drops the link.
+    # Defaulted, on no payload: the create stores no record or birthdate before confirmation, and an address
+    # correction on a retired, unconfirmed referee drops the link.
     # Refusing an absent key would 500 the list.
     confirmation: FLSchiedsrichterConfirmation | None = None
     einwilligung: FLEinwilligung | None = None
@@ -110,7 +108,9 @@ class FLSchiedsrichterConfirmationRecord(FLSchiedsrichterConfirmation):
 class FLSchiedsrichterKontaktRecord(FLKontakt):
     """A referee's channel as stored: the address in the fold every lookup of the referee compares, which the read-back holds."""
 
-    email: CustomStoredAddress | None
+    # Required as the payloads require it: every referee is entered by an administrator, and the address is how the
+    # person learns of it.
+    email: CustomStoredAddress
 
 
 class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
@@ -118,8 +118,8 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
 
     kontakt: FLSchiedsrichterKontaktRecord
     confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered or declined, and absent once confirmed and on the ghost, neither of which the
-    # hourly pass erases (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    # Held while the entry is unanswered or declined, and absent once confirmed, which the hourly pass never erases
+    # (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
     erase_at: datetime | None = None
 
     @model_validator(mode="after")

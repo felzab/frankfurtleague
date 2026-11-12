@@ -12,7 +12,7 @@ from app.core.db import RETRY_AFTER, get_db_client
 from app.core.exceptions import APIError
 
 # The one router without a blanket guard, because its probes must be reachable by the container
-# healthcheck and by a monitor outside -- so an endpoint added here is PUBLIC unless it declares otherwise.
+# healthcheck and by a monitor outside -- so an endpoint added here is public unless it declares otherwise.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 
@@ -30,7 +30,7 @@ async def check_is_live() -> JSONResponse:
 @router.get("/is_ready", response_model=CheckIsReadyResponse, summary="Readiness probe")
 async def check_is_ready(client: AsyncMongoClient = Depends(get_db_client)) -> JSONResponse:
     """
-    Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.
+    Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
 
     Unauthenticated, for a monitor outside.
     """

@@ -36,8 +36,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # undo, by renaming one.
     UniqueIndex(Collection.SPIELORTE, "uniq_spielort_name", ("name",), "a name identifies exactly one venue"),
     # Every row, as the venue index above takes every row: an erasure deletes the referee rather
-    # than nulling them, so the one null name this can meet is the ghost's and there is only ever
-    # one ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+    # than nulling the name, so the index meets no null.
     UniqueIndex(Collection.SCHIEDSRICHTER, "uniq_schiedsrichter_name", ("name",), "a name identifies exactly one referee"),
     # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
     # holds several matchdays numbered 1.
@@ -237,7 +236,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING),),
         "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
     ),
-    # The reports are kept with no retention bound, and the pupil repoint names no season the season-leading index could
+    # The reports are kept with no retention bound, and the pupil's erasure names no season the season-leading index could
     # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
     *(
         SupportIndex(

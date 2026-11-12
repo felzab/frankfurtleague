@@ -7,6 +7,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.aufstellungen.crud import drop_nameless_entries
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spielberichte.crud import stamp_the_adoption
@@ -74,6 +75,7 @@ from app.api.teams.services import (
     build_decided_standings,
     build_statistik_by_team,
     build_team_pipeline,
+    is_played,
     offered_gruppen,
 )
 from app.core.crud import (
@@ -648,6 +650,7 @@ class SpielSaveCollections:
     spielorte: AsyncCollection
     schiedsrichter: AsyncCollection
     spielberichte: AsyncCollection
+    aufstellungen: AsyncCollection
 
 
 @dataclass(frozen=True)
@@ -662,7 +665,12 @@ class _JudgedSave:
 
 
 async def _judge_spiel_save(
-    *, spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, collections: SpielSaveCollections, session: AsyncClientSession | None
+    *,
+    spiel_id: CustomObjectId,
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    now: datetime,
+    session: AsyncClientSession | None,
 ) -> _JudgedSave:
     """Judge this payload against the fixture's season, and compose the fixture it saves to.
 
@@ -750,7 +758,7 @@ async def _judge_spiel_save(
         rules=rules,
         season=season,
         releases=verdict.releases,
-        patched=apply_payload_to_spiel(stored, payload, rules),
+        patched=apply_payload_to_spiel(stored, payload, rules, now=now),
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
         anchored=find_references_to_anchor(stored, payload, rules),
@@ -794,7 +802,7 @@ async def preview_spiel_save(
     No transaction: a preview that took a write lock would be paying for a question.
     """
 
-    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=None)
+    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=None)
     # The fixture's rows holding their party's question, as the pass's close reads them. Whole, as the pass judges
     # them: a row cut from the read is a mail the question would not name.
     rows = await pull_whole_from_db(
@@ -835,6 +843,8 @@ async def save_spiel_in_session(
     payload: FLPatchSpielDataPayload,
     collections: SpielSaveCollections,
     adopts_bericht: int | None,
+    # The request's clock, which judges the fixture played or still to come.
+    now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
     # REQUIRED: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
@@ -846,7 +856,7 @@ async def save_spiel_in_session(
     where its document still stands at that version about the clubs the save leaves; a miss refuses nothing.
     """
 
-    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, session=session)
+    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)
 
     # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture would put `saison_id`,
     # `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
@@ -860,8 +870,14 @@ async def save_spiel_in_session(
         session=session,
         return_document=ReturnDocument.BEFORE,
     )
+    stored = stored_in_slice(spiel_id, judged.season)
+    # A match to come holds no entry naming nobody: a re-dating that puts a played match back among those to come drops
+    # them from its line-ups, as `apply_payload_to_spiel` drops such a booking.
+    if is_played(date=stored.date, time=stored.time, now=now) and not is_played(date=judged.patched.date, time=judged.patched.time, now=now):
+        await drop_nameless_entries(aufstellungen_collection=collections.aufstellungen, spiel_id=spiel_id, session=session)
+
     # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
-    ergebnis_moved = judged.patched.ergebnis != stored_in_slice(spiel_id, judged.season).ergebnis
+    ergebnis_moved = judged.patched.ergebnis != stored.ergebnis
     await record_act(
         collection=collections.spiele,
         action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),

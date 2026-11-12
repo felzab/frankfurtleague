@@ -24,11 +24,9 @@ class FLTokenPayload(BaseModel):
     token: CustomToken
 
 
+# No token hash: it is a raw document key the confirmation query alone reads, so no read serves one.
 class FLConfirmation(BaseReadModel):
-    """One person's confirmation bookkeeping as an administrator reads it, and no token hash.
-
-    The hash is a raw document key the confirmation query alone reads, so no read serves one.
-    """
+    """One person's confirmation bookkeeping as an administrator reads it."""
 
     sent_at: CustomDateString
     # Stored beside the send rather than derived from it: raising the bound would otherwise move the

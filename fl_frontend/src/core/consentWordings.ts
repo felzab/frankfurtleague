@@ -58,7 +58,7 @@ export const CONSENT_WORDINGS = {
     question: "Was darf von deinem Namen auf der Website stehen?",
     options: {
       kader_public: "Vorname und Anfangsbuchstabe des Nachnamens",
-      internal: "Kein Name, nur Nummer und Position",
+      internal: "Kein Name",
     },
     line: [
       "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
