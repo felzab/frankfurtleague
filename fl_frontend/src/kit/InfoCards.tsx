@@ -8,26 +8,33 @@ type Info = { title: Copy; text: Copy };
 
 const cards = tv({
   slots: {
-    root: "grid gap-4 lg:grid-cols-3",
+    root: "grid gap-4 @2xl:grid-cols-3",
     card: `grid content-start gap-1 ${cardSurface()} p-4`,
     title: smallCaps(),
     text: "text-sm",
   },
 });
 
-/** Small cards of practical facts, each a label over one sentence: on the landing, under the season's line. */
+/**
+ * Small cards of practical facts, each a label over one sentence: on the landing, under the season's line. Three side
+ * by side from 42 rem of the block's own width, one under another below it.
+ */
 export function InfoCards({ items }: { items: readonly [Info, Info, Info] }) {
   const slots = cards();
   return (
-    <ul className={slots.root()}>
-      {items.map((item) => (
-        <li
-          key={item.title}
-          className={slots.card()}>
-          <h3 className={slots.title()}>{item.title}</h3>
-          <p className={slots.text()}>{item.text}</p>
-        </li>
-      ))}
-    </ul>
+    // The container the cards' columns read, since a query reads an ancestor; `w-full`, since a container's width
+    // counts none of its content.
+    <div className="@container w-full">
+      <ul className={slots.root()}>
+        {items.map((item) => (
+          <li
+            key={item.title}
+            className={slots.card()}>
+            <h3 className={slots.title()}>{item.title}</h3>
+            <p className={slots.text()}>{item.text}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
