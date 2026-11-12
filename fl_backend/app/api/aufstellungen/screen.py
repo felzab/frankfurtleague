@@ -199,11 +199,10 @@ def _compose(
         row = rows.get(spieler_id)
         if row is not None:
             return FLAufstellungSpieler.model_validate(row)
-        # Every pupil a line-up names stands in `spieler`: an erasure empties the entry with the record.
-        person = people[spieler_id]
+        person = people.get(spieler_id, {})
         return FLAufstellungSpieler(
             spieler_id=spieler_id,
-            first_name=person["first_name"],
+            first_name=person.get("first_name"),
             last_name=person.get("last_name"),
             nummer=None,
             position=None,

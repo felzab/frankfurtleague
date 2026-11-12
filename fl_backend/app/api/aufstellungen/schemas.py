@@ -95,10 +95,13 @@ class FLAufstellungSpiel(BaseModel):
 
 
 class FLAufstellungSpieler(BaseModel):
-    """A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds."""
+    """A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.
+
+    Both names null where no record holds the pupil.
+    """
 
     spieler_id: CustomObjectId
-    first_name: str
+    first_name: str | None
     last_name: str | None
     nummer: str | None
     position: FLSpielerPosition | None

@@ -2656,11 +2656,18 @@
         "type": "object"
       },
       "FLAufstellungSpieler": {
-        "description": "A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.",
+        "description": "A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.\n\nBoth names null where no record holds the pupil.",
         "properties": {
           "first_name": {
-            "title": "First Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
           },
           "is_nachnominiert": {
             "title": "Is Nachnominiert",
@@ -13755,11 +13762,18 @@
         "type": "object"
       },
       "FLSpielberichtSpieler": {
-        "description": "A pupil a report may name or names, with the names their record holds.",
+        "description": "A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil.",
         "properties": {
           "first_name": {
-            "title": "First Name",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
           },
           "last_name": {
             "anyOf": [

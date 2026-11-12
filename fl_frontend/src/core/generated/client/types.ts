@@ -1112,9 +1112,11 @@ export interface FLAufstellungReminderData {
 
 /**
  * A pupil a line-up may name or names, as the club's own people read them: the whole surname, and what their squad row holds.
+ *
+ * Both names null where no record holds the pupil.
  */
 export interface FLAufstellungSpieler {
-  first_name: string;
+  first_name: string | null;
   is_nachnominiert: boolean;
   last_name: string | null;
   nummer: string | null;
@@ -4766,10 +4768,10 @@ export interface FLSpielberichtVorschlag {
 }
 
 /**
- * A pupil a report may name or names, with the names their record holds.
+ * A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil.
  */
 export interface FLSpielberichtSpieler {
-  first_name: string;
+  first_name: string | null;
   last_name: string | null;
   nummer: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
