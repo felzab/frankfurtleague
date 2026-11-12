@@ -24,7 +24,7 @@ import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, under the mailed pages' referrer. */
+/** A row no crawler fetches, titled by the link's state. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.accountErasure, readState());
 }

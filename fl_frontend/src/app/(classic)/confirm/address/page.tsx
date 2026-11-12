@@ -30,7 +30,7 @@ import type { Side } from "./ends";
 
 type Props = PageProps<"/confirm/address">;
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token. */
+/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
   return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
 }
