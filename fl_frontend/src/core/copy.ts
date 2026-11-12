@@ -159,6 +159,8 @@ const ENTRY = "Eintrag";
 const PRIVACY_NOTICE = "Datenschutz";
 // The danger box over a record's retiring: a venue's, a referee's and a club's alike.
 const RETIREMENT = "Stilllegung";
+// An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
+const AFTER_CONFIRMATION = "Erst nach Bestätigung";
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
@@ -882,7 +884,7 @@ export const COPY = catalogue({
          * Why „Aufstellen“ is locked on a nominee's row once the line-up names `max` of the squad's own players, a nominee
          * filling a shortage alone: the bound the backend publishes, never a typed figure.
          */
-        nomineeLocked: (max: number) => `Nur, wenn weniger ${boundBy("als", formatNumber(max))} aufgestellt sind`,
+        nomineeLocked: (max: number) => `Nur bei weniger ${boundBy("als", formatNumber(max))}`,
         needsSlot: "Erst mit Datum und Uhrzeit",
         /** A missing line-up's line, by the day it is due: until then, and from then on. */
         dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
@@ -909,7 +911,7 @@ export const COPY = catalogue({
         returning: "War schon in der Liga",
         /** Why „Aufnehmen“ is locked: the squad is at its cap, or the pupil's own link is unanswered. */
         kaderFull: "Kader voll",
-        awaitsConfirmation: "Erst, wenn die Person bestätigt hat",
+        awaitsConfirmation: AFTER_CONFIRMATION,
         /** The decline's one sentence, under its question. */
         declineConsequence: "Die Person kommt nicht in den Kader.",
         /**
@@ -1325,7 +1327,7 @@ export const COPY = catalogue({
       acceptedOn: "Angenommen am",
       declinedOn: "Abgelehnt am",
       /** „Annehmen“'s reason while locked, a seat open, objected or erased alike. */
-      awaitsConfirmations: "Erst, wenn alle Kontaktpersonen bestätigt haben",
+      awaitsConfirmations: AFTER_CONFIRMATION,
     },
 
     /** The Teams list, its create dialog and the team editor. */
