@@ -23,7 +23,6 @@ const ids = AufstellungenPutAufstellungSelfBody.shape.spieler.element.shape.spie
 const SaveAufstellung = z.object({
   team_id: AufstellungenPutAufstellungSelfParams.shape.team_id,
   saison_id: TeamsGetTeamSpieleParams.shape.saison_id,
-  // The fixture, the editor's record.
   id: AufstellungenPutAufstellungSelfParams.shape.spiel_id,
   version: AufstellungenPutAufstellungSelfBody.shape.version,
   changes: z.object({ picked: z.array(ids).readonly(), starters: z.array(ids).readonly() }).partial(),

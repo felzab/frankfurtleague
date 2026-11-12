@@ -18,8 +18,7 @@ export type RegistrierungRow = Pick<TableRow, "id" | "name" | "chip" | "cells"> 
 /**
  * The team's pending registrations as the list template's table, searched by the template's field, each row opening
  * the one dialog, as the Kader's rows open theirs: mounted closed while a row stands, so a press opens it by its state
- * as a held dialog asks (`fl_frontend/src/kit/useOpenUntilHidden.ts`); it keeps the row last pressed, which it shows
- * while it closes.
+ * as a held dialog asks; it keeps the row last pressed, which it shows while it closes.
  */
 export function RegistrierungTable({ head, rows, empty }: { head: TableHead; rows: readonly RegistrierungRow[]; empty: TableProps["empty"] }) {
   const [chosen, setChosen] = useState<string | null>(null);

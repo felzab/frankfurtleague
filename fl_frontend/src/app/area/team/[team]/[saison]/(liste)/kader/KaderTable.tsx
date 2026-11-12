@@ -45,8 +45,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
 /**
  * The team's Kader as the list template's table, searched by the template's field, and the dialog its live rows open.
  * One dialog for every row, mounted closed while the squad holds a live row, so a press opens it by its state as a held
- * dialog asks (`fl_frontend/src/kit/useOpenUntilHidden.ts`); it keeps the row last pressed, which it shows while it
- * closes.
+ * dialog asks; it keeps the row last pressed, which it shows while it closes.
  */
 export function KaderTable({ head, read, team, saison }: { head: TableHead; read: FLKaderResponse; team: string; saison: string }) {
   const [chosen, setChosen] = useState<string | null>(null);
