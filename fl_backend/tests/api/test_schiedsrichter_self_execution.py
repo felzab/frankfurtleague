@@ -157,24 +157,26 @@ def on_the_league(url: str, body: Any, *, saison_status: str = "active") -> Any:
 
 
 def own_spiele(identifier: str = OTTO) -> Any:
-    def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return get_self_spiele(
-            saison_id=SAISON_ID,
-            identifier=identifier,
-            spiele_collection=database[Collection.SPIELE],
-            records=record_collections(database),
-            db=client,
-            now=NOW,
-        )
+    async def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async with client.start_session(snapshot=True) as session:
+            return await get_self_spiele(
+                saison_id=SAISON_ID,
+                identifier=identifier,
+                spiele_collection=database[Collection.SPIELE],
+                records=record_collections(database),
+                session=session,
+                now=NOW,
+            )
 
     return call
 
 
 def own_saisons(identifier: str) -> Any:
-    def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return get_self_saisons(
-            identifier=identifier, spiele_collection=database[Collection.SPIELE], records=record_collections(database), db=client
-        )
+    async def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async with client.start_session(snapshot=True) as session:
+            return await get_self_saisons(
+                identifier=identifier, spiele_collection=database[Collection.SPIELE], records=record_collections(database), session=session
+            )
 
     return call
 

@@ -37,6 +37,7 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     SaisonSpielerReadCollection,
     SaisonsReadCollection,
+    SnapshotSession,
     SpielberichteCollection,
     SpielberichteReadCollection,
     SpieleCollection,
@@ -75,7 +76,7 @@ async def get_spielbericht_bericht(
     spieler_collection: SpielerReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielberichtSchiedsrichterResponse:
     """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
@@ -83,34 +84,31 @@ async def get_spielbericht_bericht(
     Where `reportable` is false or `completed` true, both squads are empty and every pupil the report names is in `named`.
     """
 
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_own_entry_refusal(held=bool(subject.schiedsrichter)))
 
-        context = await pull_bericht_context(
-            spiele_collection=spiele_collection,
-            saisons_collection=saisons_collection,
-            saison_spieler_collection=saison_spieler_collection,
-            spiel_id=spiel_id,
-            session=session,
-        )
-        refuse(
-            find_not_refereed_refusal(
-                spiel_raw=context.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter]
-            )
-        )
+    context = await pull_bericht_context(
+        spiele_collection=spiele_collection,
+        saisons_collection=saisons_collection,
+        saison_spieler_collection=saison_spieler_collection,
+        spiel_id=spiel_id,
+        session=session,
+    )
+    refuse(
+        find_not_refereed_refusal(spiel_raw=context.spiel, schiedsrichter_ids=[record.schiedsrichter_id for record in subject.schiedsrichter])
+    )
 
-        # After the season, the referee's page is a view of the report: no squad to pick from, no write.
-        completed = is_concluded(context)
-        kader_open = kader_is_open(context, now=now)
-        document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
-        named = await pull_named(
-            spieler_collection=spieler_collection,
-            context=context,
-            kader_open=kader_open,
-            bericht=None if document is None else document["bericht"],
-            session=session,
-        )
+    # After the season, the referee's page is a view of the report: no squad to pick from, no write.
+    completed = is_concluded(context)
+    kader_open = kader_is_open(context, now=now)
+    document = await spielberichte_collection.find_one({"spiel_id": spiel_id}, session=session)
+    named = await pull_named(
+        spieler_collection=spieler_collection,
+        context=context,
+        kader_open=kader_open,
+        bericht=None if document is None else document["bericht"],
+        session=session,
+    )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
         {**compose_view(context, kader_open=kader_open, named=named, document=document), "completed": completed, "reportable": kader_open}
