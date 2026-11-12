@@ -243,7 +243,8 @@ export type TableHead = Pick<
         acts?: never;
         /**
          * The act every row of a list of side acts (`SideActs`) carries, whose rows open nothing: its wait draws that
-         * act's button where the list is a table, and the „⋯“ where it is stacked, as the rows will stand (`SideActBar`).
+         * act's button where the list is a table, and the „⋯“ where it is stacked, as the rows will stand
+         * (`SideActsPlaceholder`).
          */
         sideAct: Copy;
       }
@@ -273,8 +274,8 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * its parts, `contents`, and each part of the row takes a line of its own, in one order: the name's, its chips directly
  * after the name (`nameWithChips`), with the columns the phone keeps beside it, each in its own track
  * under its head; the muted line; a refusal; and a decision's acts on one line. The chevron spans the lines, centred on
- * the row, and so does the „⋯“ side acts fold into there. A line that holds nothing takes no height, and a head cell's words stand
- * on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
+ * the row, and so does the „⋯“ side acts fold into there. A line that holds nothing takes no height, and a head cell's
+ * words stand on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
  * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
@@ -1047,8 +1048,8 @@ const barOf = (column: TableColumn) => (column.figures === true ? "mx-auto w-4" 
  * chip's bar after the name's, the muted line's under it where the rows carry one, a phone's left-out columns left
  * out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons, which a stacked row sets on a line
  * under its words, a list of side acts its act's button in a table and the „⋯“'s at a stacked row's end
- * (`SideActsPlaceholder`). Each cell's bar
- * stands in a line of the cell's own height, so a row holds its height wherever its lines stack.
+ * (`SideActsPlaceholder`). Each cell's bar stands in a line of the cell's own height, so a row holds its height
+ * wherever its lines stack.
  */
 export function TablePlaceholder({
   head,
