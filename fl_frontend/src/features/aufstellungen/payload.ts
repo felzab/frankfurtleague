@@ -5,7 +5,7 @@ import { byShirtNumber } from "@/features/spieler/constants";
 import type { ActionAnswer } from "@/core/action";
 import type { FLAufstellungEntry, FLAufstellungResponse } from "@/core/generated/client/types";
 
-/** The line-up an editor's draft holds: the pupils it names, and those of them who start (`kit/Lineup.tsx :: LineupValue`). */
+/** The line-up an editor's draft holds: the pupils it names, and those of them who start. */
 type Drafted = { readonly picked: ReadonlyArray<string>; readonly starters: ReadonlyArray<string> };
 
 /**
@@ -29,7 +29,7 @@ export function entriesOf(stored: Pick<FLAufstellungResponse, "spieler" | "kader
   ];
 }
 
-/** The box a pupil's refusal stands on, by their id: the block's row (`useAufstellungEditor`'s `refusals`). */
+/** The box a pupil's refusal stands on, by their id: the block's row. */
 export const REFUSED_ROW = "picked.";
 
 /**
