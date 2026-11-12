@@ -2,202 +2,142 @@
 
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
-The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
-[`spec.md`](spec.md).
+The services, scripts and gate scopes these procedures rest on are [`spec.md`](spec.md)'s.
 
-**A section number is spent once taken**: a gap in the run below is a number whose procedure left,
-and renumbering what stands would repoint every citation of it, the scripts' own messages among them.
+**A section keeps its number for good**, so a gap in the run below is a number no procedure holds:
+renumbering would repoint every citation of a section, the scripts' own messages among them.
 
-| Section                                                                                                                        | Answers                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)       | The order a shape or index change runs in, then the read-back  |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
-| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
-| [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                 | What reverses the tunnel, and the half no commit reaches       |
-| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                     | What answers each, and what each answer means                  |
-| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
-| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)      | What finds the rows, and why no save clears one                |
-| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                     | Who is re-erased, and what the restore took the record of      |
-| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                            | What builds them, and what a boot that could not leaves        |
-| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                             | What the person cannot tell apart, and the line that can       |
-| [16. The secret files](#16-the-secret-files)                                                                                   | What each holds, and how each machine makes its own            |
-| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
-| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
-| [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and for how long               |
+| Section                                                                                                                       | Answers                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [1. Deploying a build, and going back to an earlier one](#1-deploying-a-build-and-going-back-to-an-earlier-one)               | What a deploy does, each way it ends, and how to go back by hand |
+| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)      | The order a shape or index change runs in, then the read-back    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                  | Who can sign in, and what revoking actually ends                 |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows        |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered    |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish        |
+| [7. The journal's age limit](#7-the-journals-age-limit)                                                                       | The host drop-in that bounds every log line, and how to read one |
+| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                    | What answers each, and what each answer means                    |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                         | The six steps no code can carry, and what breaks without them    |
+| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)     | What finds the rows, and why no save clears one                  |
+| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                    | Who is re-erased, and what the restore took the record of        |
+| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                           | What builds them, and what a boot that could not leaves          |
+| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                            | What the person cannot tell apart, and the line that can         |
+| [16. The secret files](#16-the-secret-files)                                                                                  | What each holds, and how each machine makes its own              |
+| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                     | Who meets it, when it lifts, and what clearing it costs          |
+| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                  | What `pnpm install` fetches, and how a new release lands         |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                           | What fills the tier unseen, and the two alerts that show it      |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                          | What a hand edit leaves cached, and for how long                 |
 
 ---
 
-## 1. The server
+## 1. Deploying a build, and going back to an earlier one
 
-**The repository does not record which host this is**, and deliberately holds no credentials. Getting onto
-the machine is outside the repository. What it does tell you:
+**The repository records no host and holds no credential**, so getting onto the server is outside
+it. `deploy.sh` runs on Linux alone, from the checkout of this repository on the server.
 
-- `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
-  server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
-  compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, every file under
-  `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
-  checks each before anything is pulled. What each secret file holds, who owns it and how it is
-  made, is §16.
-- **A line naming a value a secret file holds, `ALLOWED_ADMIN_EMAILS` or a job switch the hourly
-  scheduler replaced refuses the deploy at exit 2 before compose is asked anything**, giving each
-  line by file, number and the name as the list spells it, never by anything the line holds
-  (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
-  and the administrator list and the switches read by nothing.
-- **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
-  deploy at exit 2 before compose is asked anything**, each line listed
-  as `file:line` alone, never by anything the line holds. Rewrite it with nothing
-  around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
-  no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
-  `%27`. No line, a comment included, may hold a carriage return before its end, U+2028, U+2029 or a
-  NUL byte.
-- **`./scripts/ops/deploy.sh --check-env` runs the three checks above and below that ask Docker
-  nothing** — the credential lines, the line shape and compose's own `.env` — and nothing else, so
-  run it after the pull and before the deploy: it changes nothing and ends 0 where none refuses.
-- **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
-  `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
-  `git status` never shows it; move it out of the checkout, keeping it only if it holds something
-  you still need ([`spec.md`](spec.md) §1.5).
-- **Compose is asked whether it can parse its own configuration before anything is pulled**
-  (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
-  recreated**, and names the compose file and the two environment files without printing what compose
-  said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
-  message, run the same check on the server, where its answer is not being captured:
-  `docker compose -f docker-compose.yml config --quiet`.
-- **The images the edge runs are fetched next, where the host lacks them, before either application
-  image is pulled** (`scripts/ops/deploy.sh :: fetch_edge_images`): a fetch that fails refuses at
-  exit 2 with nothing recreated, and compose's own reason is printed above the refusal
-  ([`spec.md`](spec.md) §1.5).
-- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
-  (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
-  and the settings class looks up none but its own, so a typo there reads as an omission and the
-  shipped default serves production. **A name the backend does not declare, or a value it will not
-  accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names a
-  variable the backend declares, gives each line declaring any other name by its number alone, and
-  prints no value — so the remedy is read off the names and the numbers: **correct a named
-  variable's value; open a numbered line, then delete it or declare its name in the settings
-  class**. A check that could not be made at all is an advisory the deploy goes on
-  past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
-  the check judges it; a line the two parsers
-  could read differently was refused before either image was asked.
-- **Each application service's own boot then judges its settings and secret files, before anything
-  is recreated**, in a one-off container started as the stack starts the service, so with its
-  variables, as its own user and in its own group. The frontend's runs the image's own server, which
-  runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
-  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, and an
-  `APP_ENV` naming another deployment than the one being deployed each refuse the deploy at exit
-  2** with nothing recreated — Cloudflare's published test site key under
-  production and a sign-in secret below its library's floor of 32 characters among them. The
-  `CRITICAL` line above the refusal names the variable or the file and never a value:
-  correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
-  backend's container builds its settings as its boot does
-  (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
-  validators refuse — an internal key outside its alphabet among them — refuse there, naming the
-  variable or the file.
-- **Both application containers are stopped for their logs' copy just before the recreate** (§7),
-  and a run ending in between puts them back on its way out, a failed copy, an interrupt and a
-  dropped SSH session alike: it starts them, reloads nginx and waits for each to be
-  healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
-  and at 1 where the start, the reload or a health wait answered badly**: a bad start or health
-  wait leaves the site out of service, and a refused reload leaves nginx on a configuration not this
-  checkout's. Killed outright, or interrupted again while it puts them back, the run leaves them
-  stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
-  `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
-  restarts
-  ([Docker's restart policies](https://docs.docker.com/engine/containers/start-containers-automatically/),
-  which move without us; read 2026-10-16). **Start them and reload the edge by hand, never with
-  `up`**, which would recreate them from the build the pull fetched, with no copy taken; the reload
-  prints nginx's reply, then `200` once applied:
+**Put a merge live once its `verify` and `publish` jobs on `main` have concluded**, in the checkout:
 
-  ```bash
-  docker compose -f docker-compose.yml start frontend backend
-  docker compose -f docker-compose.yml exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config
-  ```
+```bash
+git pull
+./scripts/ops/deploy.sh
+```
 
-- **Only the application containers are recreated**, and nginx is reloaded once they are healthy
-  (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
-  the reload applied. The edge keeps running across the swap and finds the new containers by name
-  , so from the stop before the copy until the new pair answers a deploy
-  that succeeds answers 502 rather than refusing the connection: an estimated 10 to 30 seconds on an
-  idle site, and about eleven minutes where the stop runs to the grace periods
-  (`docker-compose.yml :: stop_grace_period`), each copy to its bound
-  (`scripts/ops/deploy.sh :: copy_streams`) and each health wait to its last poll
-  (`scripts/ops/deploy.sh :: HEALTH_WAIT_BACKEND`, `:: HEALTH_WAIT_FRONTEND`). The reload is what
-  applies a file the pull changed
-  under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running container reads
-  what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
-  makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
-  nginx's own lines**: fix what they name, then recreate nginx. **The deploy then compares every file
-  under `nginx/prod/` and `nginx/shared/`, as nginx holds it in memory, with the checkout's, and a
-  difference ends the run in a finding** naming the recreate that repairs it
-  (`scripts/ops/deploy.sh :: edge_reads_checkout`). A file there that nginx
-  never loads, a README among them, reads as absent and fails every deploy.
-- **A build that fails the health wait is put back automatically** — to the images the application services
-  were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
-  and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
-  pair answers, up to about twenty-two minutes where the deploy's
-  stop, copies and health waits and the rollback's own all run to their bounds. **The failed build's
-  own two streams are copied off first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
-  `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
-  being down by then. **An interrupt during that copy leaves the failed build stopped and nothing put
-  back**, the failed build not being started again after failing its health wait: finish the rollback
-  by deploying the build preflight printed as its rollback target, `./scripts/ops/deploy.sh <tag>`,
-  whose own copy takes the stopped pair's streams. Nothing is put back where preflight recorded no target,
-  because nothing was running, because only half the pair was, or because compose could not be asked; nor
-  where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
-  rollback undoes a build and nothing there reached a verdict on the new one.
-- **A rollback is local to the server, and the registry still names the build that failed.** Nothing in
-  the deploy path pushes or re-tags anything at ghcr, so `git pull && ./scripts/ops/deploy.sh` afterwards
-  pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
-  the tag the rollback names — until a good build is published. Nothing is put back where the pull left
-  `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
-- **Never deploy by tag a build from before the frontend's boot check.** Its image does not know
-  `BOOT_CHECK`, so the preflight's one-off frontend serves instead of ending, and the deploy waits on
-  it with nothing recreated until Ctrl-C. Every such image is deleted from the registry, where the
-  pull of its tag refuses before anything moves. **The automatic rollback is not a deploy by tag**: it
-  restores the running build by image id and runs no preflight, so the first deploy of a build
-  carrying the check can still fall back to the build before it. Then publish a fixed build rather
-  than deploying the restored one by the tag the script names.
-- **Never deploy by tag a build declaring no
-  `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID` once a later build has erased a pupil or an
-  administrator; roll forward instead.** Each erasure writes a row such a build mishandles, and
-  nothing refuses the deploy:
+A bare run deploys `sha-` and the first seven hex digits of the checkout's `HEAD`, the tag the
+publish job pushed for that commit; `./scripts/ops/deploy.sh sha-1a2b3c4` deploys a tag named. The
+pull is what brings the compose file and `nginx/` up to date. A run does this, in order:
+
+1. **It prunes every image no container references**, so the running build stays and the one before
+   it goes. The build this run replaces stays on the host until the next deploy.
+2. **It pulls every image the tag runs with**, taking an image already on the host as it is. A pull
+   that fails refuses with the stack unchanged: a tag CI never pushed, the registry or the network.
+3. **It starts the build and waits up to 180 seconds for every service's healthcheck**
+   (`docker compose up --wait`). Compose recreates a service only where its definition or image
+   moved, so a deploy moving only the application images recreates those two, and nginx keeps
+   serving across the swap.
+4. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
+   seconds for nginx's own line `start worker processes`. An `[emerg]`, `[alert]` or `[crit]` line,
+   or no line at all, fails the deploy, the line shown.
+5. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
+   and the build before it.
+
+**A healthy verdict is container health and the reload, never a page.** The frontend answers a
+static file, the backend its liveness probe, the connector holds a tunnel connection, and nginx is
+running. A site whose every page errors can pass, so open the site once the run ends.
+
+**The pin is the stack's own memory.** Compose reads `.env` for every command, so
+`docker compose ps`, `logs` and `exec` typed in the checkout reach the build that runs, and a later
+run that fails goes back to the build it names. Only the deploy writes it. A pinned value that is
+not a `sha-` tag is warned about and counts as no pin.
+
+| Ending                             | Exit | What stands afterwards                                                |
+| ---------------------------------- | ---- | --------------------------------------------------------------------- |
+| Deployed                           | 0    | The new build, pinned; the replaced build's images still on the host  |
+| Live, but the pin unwritable       | 1    | The new build; `.env` pinning the previous one, and the line to write |
+| Failed, and went back              | 1    | The previous build's images, pinned; nginx not reloaded               |
+| Failed, with no other build pinned | 1    | The stack as Compose left it; the pin unmoved                         |
+| Failed, and going back failed too  | 1    | The stack as Compose left it; `.env` pinning the previous build       |
+| Failed under `--no-rollback`       | 1    | The stack as it stands; `.env` pinning the new build                  |
+| Refused                            | 2    | The stack unchanged; unused images pruned where the run reached that  |
+| Interrupted                        | 130  | The stack as far as Compose took it; the pin unmoved                  |
+
+**A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
+pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
+
+**Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
+and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
+recreated it. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
+files, which any later start of nginx, a reboot included, loads and fails on: pull a commit whose
+configuration nginx takes and deploy it.
+
+**`--no-rollback` is for a build the one before it must never run after**, such as one whose
+migration has already changed the data. It pins the new build before starting it, so a failure
+leaves the stack as it stands and no later run goes back past it.
+
+**A first run finds no pin and goes back to nothing.** The build it replaces is then whatever ran
+before this script, which must never run again.
+
+### Going back by hand
+
+**`./scripts/ops/deploy.sh <older tag>` needs the registry**: its prune removes the older build's
+images, which no container references, and its pull fetches them again. **Without the registry**,
+start the build the last deploy replaced, whose images are still on the host, by naming its tag in
+the shell:
+
+```bash
+docker image ls ghcr.io/felzab/frankfurtleague-backend
+TAG=sha-1a2b3c4 docker compose up -d --wait
+```
+
+The first command lists the tags on the host. `.env` still pins the newer build afterwards, so name
+`TAG=` on every Compose command typed until a deploy pins another.
+
+**Some older builds must not serve again, so roll forward instead:**
+
+- **A build declaring no `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`, once a later
+  build has erased a pupil or an administrator.** Each erasure writes a row such a build mishandles:
   - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
     name, so that build's player list in the administration answers 500, and its public
     `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
     name;
-  - an administrator's queues a grant notice withheld as `erased`, and that build's hourly grant
-    pass writes its claim on the row before reading anything, a write that build's validator refuses
-    with code 121, so every pass fails and no change of access is mailed again, where the row is
-    still queued as that build boots;
+  - an administrator's queues a grant notice withheld as `erased`, which that build's hourly grant
+    pass claims before reading anything, a write its validator refuses with code 121, so every pass
+    fails and no change of access is mailed again;
   - that build's boot attaches its own validators again, which refuse any write over either row.
-- **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
-  records as the deletion of every pupil and referee row and the emptying of the action log left
-  them; roll forward instead.** Such a build stamps consent labels the current wordings do not hold
+- **A build published before `sha-3eebe79`**, the first requiring the records as the deletion of
+  every pupil and referee row and the emptying of the action log left them. Such a build stamps
+  consent labels the current wordings do not hold
   (`fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`), so a record it confirms cites
-  words nobody can produce; `python -m app.readback` names each such record, the evidence's label
-  being a `Literal` of the current ones.
-- **After serving a build older than the season-row confirmation links, re-send the link of every
-  contact seat that build re-staffed, once the current build is back.** That build's contacts editor
-  leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
-  seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
-  so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
-  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
-  A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
-  the contacts editor and save, then enter the person again and save, which voids the old link and
-  mints the person a new one.
-- After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
-  that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
-  are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
-  probe and the configuration nginx holds too — every other row it prints comes from a container, and a
-  healthy pair is no statement about whether the edge in front of it reaches the pair or what it
-  loads.
+  words nobody can produce; `python -m app.readback` names each such record.
+
+**After serving a build older than the season-row confirmation links, re-send the link of every
+contact seat that build re-staffed, once the current build is back.** That build's contacts editor
+leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
+seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
+so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
+The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
+A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
+the contacts editor and save, then enter the person again and save, which voids the old link and
+mints the person a new one.
 
 ## 2. Before deploying a change to a stored shape or an index
 
