@@ -1,5 +1,3 @@
-"use client";
-
 import { Dialog } from "@/kit/Dialog";
 import { PressAct } from "@/kit/PressAct";
 
