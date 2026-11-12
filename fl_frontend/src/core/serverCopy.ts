@@ -602,8 +602,7 @@ export const SERVER_COPY = catalogue({
     registrierung: {
       confirmation: {
         subject: (team: string) => `Registrierung für ${team} bestätigen`,
-        confirm: "Bestätige deine Registrierung.",
-        admission: "Erst danach kann dein Team dich aufnehmen.",
+        admission: "Erst wenn du bestätigt hast, kann dein Team dich aufnehmen.",
         /** The deadline where the mail's data counts days, the page's sentence taking a day. */
         deadlineIn: (days: number) => `Bestätigst du nicht ${boundBy("in", formatNumber(days), "Tagen")}, löschen wir deine Registrierung.`,
       },
