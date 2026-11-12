@@ -75,8 +75,8 @@ function partialOutcome(sessionsEnded: boolean, noticeOwed: boolean): Copy | und
 /**
  * Bans an address from the dialog over the list, behind the passkey touch: its next sign-in is refused, its live
  * sessions end here, and an address holding an account is owed its notice in the ban's own transaction. Nothing that
- * fails after the write undoes the ban, so the dialog stays open on what did not follow, its button pressable where a
- * second press can still end the sessions. A second ban is the unique index's refusal, which the shared 409 answers with
+ * fails after the write undoes the ban, so the toast after the dialog closed says what did not follow, in the warn tone,
+ * and a second press, the address typed again, can still end the sessions. A second ban is the unique index's refusal, which the shared 409 answers with
  * no field, and the address is the one box it can be about; its sessions end all the same, and a press that ended some
  * says so rather than refusing.
  */
@@ -100,8 +100,8 @@ export const enterBan = action({
       // this press is the only one that can still end them. A session of an address banned earlier is already gone, so this
       // costs nobody anything, and finding one is what tells this press from a true second ban.
       const stood = await sessionsRunAt(email);
-      // No field error here: React Aria keeps a server's on its input until the value changes, and the browser then holds
-      // back every press of this address, the one press that can still end the sessions.
+      // No field error here: the dialog closed before the touch, so a box's phrase would reach the toast as the form's
+      // pointer at its fields, which says nothing of the sessions still running.
       if (!(await sessionsEndedAt(email))) return { ok: false, reason: PARTIAL.sessions, warn: true };
       if (stood) return { ok: true, value: undefined, note: PARTIAL.ended };
       return { ok: false, errorCode: "duplicate_key", fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } };
@@ -111,7 +111,7 @@ export const enterBan = action({
     const ended = await sessionsEndedAt(email);
     const note = partialOutcome(ended, account !== null);
     if (note === undefined) return { ok: true, value: undefined };
-    // Marked as an erasure's partial is, so its button stays for the second press; no press sends a notice the first left.
+    // Marked as an erasure's partial is, so its toast reads in the warn tone; no press sends a notice the first left.
     return ended ? { ok: true, value: undefined, note, warn: true } : { ok: false, reason: note, warn: true };
   },
 });

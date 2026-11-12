@@ -9,9 +9,11 @@ import { COPY } from "@/core/copy";
 
 import { QuestionForm } from "./QuestionForm";
 import { TextField } from "./TextField";
+import { toastAnswer } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 import type { AskedInput } from "./QuestionForm";
+import type * as ToastModule from "./Toast";
 
 type Input = { email: string };
 
@@ -31,6 +33,11 @@ vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: acts.touch } }),
   usePreloadedAuthClient: () => undefined,
 }));
+// Read off the call rather than the region: the toast queue is the module's own, and a toast outlives its test.
+vi.mock("./Toast", async (original) => {
+  const toast = await original<typeof ToastModule>();
+  return { ...toast, toastAnswer: vi.fn(toast.toastAnswer) };
+});
 
 const box = () => screen.getByRole<HTMLInputElement>("textbox");
 
@@ -114,22 +121,21 @@ describe("a form asking its question over what the press read", () => {
     });
   });
 
-  it("stays open on an act's refusal, its boxes kept, and its press runs the act again", async () => {
+  // The harm: a refused erasure's address gone, so the repeat that reaches the account left standing is typed anew.
+  it("toasts an act's refusal, its boxes kept, and the form's press runs the act again", async () => {
     acts.act.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });
     await press();
 
-    const question = await screen.findByRole("alertdialog");
-    const final = within(question).getByRole("button", { name: VERB });
-    await userEvent.click(final);
-    expect(await within(question).findByText(COPY.admin.erasure.partial)).toBeTruthy();
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await waitFor(() => {
+      expect(vi.mocked(toastAnswer)).toHaveBeenLastCalledWith({ ok: false, reason: COPY.admin.erasure.partial }, COPY.shared.toast.done.delete);
+    });
+    expect([screen.queryByRole("alertdialog"), box().value]).toStrictEqual([null, ADDRESS]);
 
-    await userEvent.click(final);
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
     await waitFor(() => {
       expect(acts.act).toHaveBeenCalledTimes(2);
-    });
-    await userEvent.click(within(question).getByRole("button", { name: COPY.shared.back }));
-    await waitFor(() => {
-      expect(box().value).toBe(ADDRESS);
     });
   });
 });

@@ -20,6 +20,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Verb } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
+import type { TouchVerb } from "./dialogAct";
 import type { FormStatus } from "./useFormAction";
 
 /**
@@ -41,8 +42,8 @@ export type AskedInput<Input> = {
  * A form that is a page's one act: its fields in a box, the act and its status line under them, no title but the page's.
  * The press sends the fields to `read`, whose answer is the question, worded from what it read, so the act is confirmed
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
- * form's line, no question asked. The question's final press asks the touch and runs `act`, which answers in the
- * question's own line while it stays open. A done act names itself in its answer's `note`, which stands in the form's
+ * form's line, no question asked. The question's final press closes it, asks the touch and runs `act`, whose refusal
+ * answers in a toast (`ConfirmDialog`). A done act names itself in its answer's `note`, which stands in the form's
  * line over boxes drawn empty.
  */
 export function QuestionForm<Input>({
@@ -53,7 +54,8 @@ export function QuestionForm<Input>({
   holder,
   children,
 }: {
-  verb: Verb;
+  /** The act's verb, behind the passkey touch, so one its toast words as done. */
+  verb: TouchVerb;
   /** The press's and the question's button alike. */
   tone: ConfirmWords["tone"];
   read: (formData: FormData) => Promise<ActionAnswer<AskedInput<Input>>>;

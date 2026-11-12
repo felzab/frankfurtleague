@@ -25,6 +25,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Verb, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
+import type { TouchVerb } from "./dialogAct";
 import type { FormStatus } from "./useFormAction";
 
 /**
@@ -355,14 +356,19 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
  * where the page knows at render that the act would be refused, the button saying why (`Button`).
  */
 type Remove = {
-  verb: Verb;
   subject: Copy;
   consequence: Copy;
-  /** The address the page was drawn for, the one account the touch may answer for. */
-  touch?: { holder: string };
   locked?: Copy;
   run: () => Promise<ActionAnswer<unknown>>;
-};
+} & (
+  | { verb: Verb; touch?: never }
+  | {
+      /** A verb the touched act's toast words as done. */
+      verb: TouchVerb;
+      /** The address the page was drawn for, the one account the touch may answer for. */
+      touch: { holder: string };
+    }
+);
 
 /** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
@@ -378,7 +384,10 @@ const rowLook = tv({
   },
 });
 
-/** A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog. */
+/**
+ * A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog, or, for an act behind
+ * the passkey touch, in its toast.
+ */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rowLook();
   return (
@@ -436,12 +445,11 @@ function RemoveAct({ remove }: { remove: Remove }) {
     );
   return (
     <ConfirmDialog
-      verb={remove.verb}
+      {...(remove.touch === undefined ? { verb: remove.verb } : { verb: remove.verb, touch: remove.touch })}
       subject={remove.subject}
       consequence={remove.consequence}
       tone="danger"
       onConfirm={remove.run}
-      touch={remove.touch}
       trigger={face}
     />
   );

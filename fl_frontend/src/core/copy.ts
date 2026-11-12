@@ -208,6 +208,8 @@ const VALID_UNTIL = "Gültig bis";
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
 const ACCOUNT_ERASED = "Konto gelöscht";
+// A record deleted: a person's erasure, and the toast of an act deleting one.
+const DELETED = "Gelöscht";
 // One word for every retention pass, its noun saying what it took.
 const DELETED_BY_PASS = "Nach Frist gelöscht";
 
@@ -313,6 +315,20 @@ export const COPY = catalogue({
       agreed: AGREED,
       admitted: "Aufgenommen",
       failure: UNEXPECTED,
+      /**
+       * An act behind the passkey touch done, by its verb: its question or dialog closed before the touch, so the toast
+       * is where it answers. A handover only starts its wait, as its row under „Angekündigt“ says.
+       */
+      done: {
+        remove: "Entfernt",
+        withdraw: "Zurückgezogen",
+        discard: "Verworfen",
+        delete: DELETED,
+        recreate: "Neu angelegt",
+        activate: "Umgestellt",
+        enter: "Eingetragen",
+        handOver: "Übergabe angekündigt",
+      } satisfies Partial<Record<Verb, string>>,
     },
 
     /** The spinner's accessible name; a busy button keeps its own label. */
@@ -1058,7 +1074,7 @@ export const COPY = catalogue({
     /** The chip of a contact seat, and of a registration where it says confirmed. */
     confirmed: "Bestätigt",
     expired: "Abgelaufen",
-    erased: "Gelöscht",
+    erased: DELETED,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
@@ -1539,7 +1555,7 @@ export const COPY = catalogue({
         addressChanges: "Laufende Adressänderungen",
         grant: "Zugang",
       },
-      /** The dialog's note, the account undeleted or unknown: the dialog stays open, so „Löschen“ retries. */
+      /** The toast's note, the account undeleted or unknown: the form keeps the address, so its „Löschen“ retries. */
       partial: "Die Daten sind gelöscht, das Konto vielleicht nicht.",
     },
 
