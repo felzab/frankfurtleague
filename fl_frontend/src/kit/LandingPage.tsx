@@ -28,16 +28,18 @@ export type LandingContent = {
 const hero = tv({
   slots: {
     // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both,
-    // 48 px between; one column below. The side card's width, 25 rem. The rows part by their items' padding.
-    root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem]",
+    // 48 px between; one column below. The side card's width, 25 rem. The rows part by their items' padding. From `lg`
+    // the words' row takes what the card adds beyond the text, so the lead stays under the title and the slack falls
+    // under the acts.
+    root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr]",
     title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
     words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:pb-0",
     // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
-    // From `lg` the card stands beside both rows and stretches to them, from the title's top to the acts' foot, its wait
-    // and every state of it alike: the text column sets its height, which no read decides. A grid of one, so the card,
-    // or its wait, fills it.
+    // From `lg` the card stands beside both rows, from the title's top to the words' foot. Its reserved body, the same
+    // for its wait and every state, is taller than the text column, so it sets the hero's height, which no read
+    // decides. A grid of one, so the card, or its wait, fills it.
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
     // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
     sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
