@@ -820,7 +820,7 @@ def test_a_read_over_rows_a_stranger_writes_walks_its_index(
 OTHER_SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200010")
 
 
-class TestTwoRefereesOpenRowsOnOneStand:
+class TestTwoRefereesOpenRowsOnOneAnsetzung:
     def test_each_referee_holds_an_open_row_of_their_own(self, mongo_replica_set_url: str):
         """The mint inserts a new referee's row while the close's share still leaves the old one's open.
 

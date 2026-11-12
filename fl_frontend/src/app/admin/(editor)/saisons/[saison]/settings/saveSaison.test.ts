@@ -33,25 +33,25 @@ const STORED: FLSaisonAdmin = {
 };
 
 /** Every payload the save sends, and the season the save reads. */
-const stand = vi.hoisted(() => ({ sent: [] as unknown[], saison: null as unknown }));
+const state = vi.hoisted(() => ({ sent: [] as unknown[], saison: null as unknown }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
 vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/features/saisons/queries", () => ({ getAdminSaison: async () => ({ saison: stand.saison }) }));
+vi.mock("@/features/saisons/queries", () => ({ getAdminSaison: async () => ({ saison: state.saison }) }));
 
 // The backend client itself is replaced, so the write runs through the real generated call and the real dispatch.
 doubleApiClient((call) => {
-  stand.sent.push(JSON.parse(call.body ?? "null"));
+  state.sent.push(JSON.parse(call.body ?? "null"));
   return { version: 4 };
 });
 
 const { saveSaison } = await import("./saveSaison");
 
 beforeEach(() => {
-  stand.sent = [];
-  stand.saison = STORED;
+  state.sent = [];
+  state.saison = STORED;
 });
 
 describe("the season editor's save", () => {
@@ -60,7 +60,7 @@ describe("the season editor's save", () => {
     const answer = await saveSaison({ id: "2027", version: 3, changes: { gruppen: "2", registrierungPaused: false } });
 
     expect(answer).toEqual({ ok: true, value: 4 });
-    expect(stand.sent).toEqual([
+    expect(state.sent).toEqual([
       {
         start_date: "2027-03-06",
         end_date: "2027-07-03",
@@ -75,10 +75,10 @@ describe("the season editor's save", () => {
   /* The write replaces the window whole: a pause dropped from it would open a form the league closed, in silence. */
   it("sets the application form's pause alone and keeps a stored one through a save that leaves it", async () => {
     await saveSaison({ id: "2027", version: 3, changes: { bewerbungPaused: true } });
-    stand.saison = { ...STORED, bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" } };
+    state.saison = { ...STORED, bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" } };
     await saveSaison({ id: "2027", version: 3, changes: { maxKader: "20" } });
 
-    expect(stand.sent).toMatchObject([
+    expect(state.sent).toMatchObject([
       { bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" }, registrierung: STORED.registrierung },
       { bewerbung: { open: false, start: "2027-01-10", end: "2027-02-07" } },
     ]);
@@ -91,7 +91,7 @@ describe("the season editor's save", () => {
       const answer = await saveSaison({ id: "2027", version: 3, changes: { [cleared]: null } });
 
       expect(answer).toEqual({ ok: false, fieldErrors: { [`changes.${cleared}`]: COPY.shared.field.required } });
-      expect(stand.sent).toEqual([]);
+      expect(state.sent).toEqual([]);
     },
   );
 });

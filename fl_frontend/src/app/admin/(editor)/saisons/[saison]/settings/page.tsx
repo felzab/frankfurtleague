@@ -20,15 +20,7 @@ import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import {
-  activateSaison,
-  deleteSpielplan,
-  drawSpielplan,
-  recreateSpielplan,
-  replaceTeam,
-  sendRegistrierungslinks,
-  swapGruppen,
-} from "./saisonActs";
+import { activateSaison, deleteSpielplan, drawSpielplan, recreateSpielplan, replaceTeam, sendInvitations, swapGruppen } from "./saisonActs";
 import { SaisonEditor } from "./SaisonEditor";
 import { valuesOf } from "./saisonValues";
 import { saveSaison } from "./saveSaison";
@@ -156,7 +148,7 @@ export default function SaisonSettingsPage({ params }: Props) {
                     bare
                   />
                 }
-                rows={[{ acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] }]}
+                rows={[{ acts: [COPY.shared.withObject(WORDS.invitations, "send")] }]}
               />
             ),
           },
@@ -247,7 +239,7 @@ async function readEditor(params: Props["params"]) {
         activate: activateSaison,
         swap: swapGruppen,
         replace: replaceTeam,
-        sendLinks: sendRegistrierungslinks,
+        sendLinks: sendInvitations,
       }}
       // A finished season takes no change of its rules, its draw or its clubs, so the editor opens on it read-only.
       {...(saison.status === "past" ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}

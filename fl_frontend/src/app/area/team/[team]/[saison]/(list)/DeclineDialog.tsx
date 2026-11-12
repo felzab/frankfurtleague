@@ -9,7 +9,7 @@ import { blankIsNull, requires } from "@/core/action";
 import { COPY } from "@/core/copy";
 import { SpielbestaetigungenPostTeamAnswerBody, spielbestaetigungenPostTeamAnswerBodyReasonOneMax } from "@/core/generated/zod/inputs";
 
-import { declineTermin } from "./answerTermin";
+import { declineSpielbestaetigung } from "./answerSpielbestaetigung";
 
 import type { Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
@@ -47,7 +47,7 @@ export function DeclineDialog({
       // A refusal is the dialog's destroying act: the red fill every destroying press takes.
       tone="danger"
       lead={spiel}
-      action={declineTermin}
+      action={declineSpielbestaetigung}
       carry={{ id }}
       consequence={COPY.area.team.declineConsequence}
       trigger={{ label: COPY.shared.verb.decline }}>

@@ -7,7 +7,7 @@ import { RolledBackError } from "@/core/errors";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 /** Every step of an erasure in its order, the backend's refusal or the account's failure each case sets, and the log. */
-const stand = vi.hoisted(() => ({
+const state = vi.hoisted(() => ({
   steps: [] as string[],
   refusal: null as unknown,
   accountFailure: null as unknown,
@@ -25,20 +25,20 @@ vi.mock("@/core/requestScope", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getRequestActor: () => ({ email: "pia@example.org" }),
 }));
-vi.mock("@/core/logging", () => ({ logger: { error: (...line: unknown[]) => void stand.logged.push(line) } }));
+vi.mock("@/core/logging", () => ({ logger: { error: (...line: unknown[]) => void state.logged.push(line) } }));
 vi.mock("@/core/auth/accounts", () => ({
-  accountHoldingsAt: async () => stand.holdings,
+  accountHoldingsAt: async () => state.holdings,
   deleteAccountFor: async () => {
-    stand.steps.push("account");
-    if (stand.accountFailure !== null) throw stand.accountFailure;
+    state.steps.push("account");
+    if (state.accountFailure !== null) throw state.accountFailure;
     return true;
   },
 }));
 
 doubleApiClient(({ endpoint }) => {
-  if (endpoint.endsWith("/view")) return stand.view;
-  stand.steps.push("records");
-  if (stand.refusal !== null) throw stand.refusal;
+  if (endpoint.endsWith("/view")) return state.view;
+  state.steps.push("records");
+  if (state.refusal !== null) throw state.refusal;
   return {};
 });
 
@@ -64,18 +64,18 @@ const asked = async () => {
 };
 
 beforeEach(() => {
-  stand.view = NO_RECORDS;
-  stand.holdings = { account: 0, passkeys: 0 };
-  stand.steps.length = 0;
-  stand.logged.length = 0;
-  stand.refusal = null;
-  stand.accountFailure = null;
+  state.view = NO_RECORDS;
+  state.holdings = { account: 0, passkeys: 0 };
+  state.steps.length = 0;
+  state.logged.length = 0;
+  state.refusal = null;
+  state.accountFailure = null;
 });
 
 describe("the erasure's question", () => {
   // The harm: „Unter dieser Adresse steht nichts.“ over an account the act then deletes.
   it("counts an address holding its account alone, each row above zero and no other", async () => {
-    stand.holdings = { account: 1, passkeys: 2 };
+    state.holdings = { account: 1, passkeys: 2 };
 
     expect(await asked()).toMatchObject({
       consequence: COPY.admin.erasure.consequence,
@@ -94,25 +94,25 @@ describe("the erasure's question", () => {
 describe("the erasure's two stores", () => {
   it("deletes the account after the records, and says so", async () => {
     expect(await press()).toStrictEqual({ ok: true, value: undefined, note: COPY.admin.erased });
-    expect(stand.steps).toStrictEqual(["records", "account"]);
+    expect(state.steps).toStrictEqual(["records", "account"]);
   });
 
   it("leaves the account standing where the backend refuses the records", async () => {
-    stand.refusal = refused("own_address");
+    state.refusal = refused("own_address");
 
     expect(await press()).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.own_address });
-    expect(stand.steps).toStrictEqual(["records"]);
+    expect(state.steps).toStrictEqual(["records"]);
   });
 
   it.each([
     ["rolled back", new RolledBackError(new Error("max@example.org"))],
     ["of unknown outcome", new Error("max@example.org")],
   ])("stays open on an account deletion %s, logging no address", async (_, failure) => {
-    stand.accountFailure = failure;
+    state.accountFailure = failure;
 
     // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
     expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
-    expect(JSON.stringify(stand.logged)).not.toContain("max@example.org");
-    expect(stand.logged).toHaveLength(1);
+    expect(JSON.stringify(state.logged)).not.toContain("max@example.org");
+    expect(state.logged).toHaveLength(1);
   });
 });

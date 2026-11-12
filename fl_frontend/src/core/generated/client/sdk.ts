@@ -4078,7 +4078,7 @@ export const getTeamsGetTeamSpieleUrl = (teamId: string, saisonId: string) => {
 /**
  * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
  *
- * Each carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where
+ * Each carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where
  * no row asks the team about the fixture as it stands.
  * @summary A team's fixtures in one season, with what is open on each
  */

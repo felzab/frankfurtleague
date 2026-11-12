@@ -30,24 +30,24 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 function setUpClosedOf(
   served: { readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown } },
-  stand: HeldPasskeys,
+  held: HeldPasskeys,
 ): Copy | undefined {
-  if (!stand.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
-  if (stand.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
+  if (!held.canAdd) return COPY.account.passkeys.limit(PASSKEY_LIMIT);
+  if (held.rows.length > 0 || served.session.authFactor === PASSKEY_FACTOR) return undefined;
   return isFreshForEnrolment(served.session) ? undefined : COPY.account.passkeys.signInTooOldLocked;
 }
 
 /** The passkeys and the devices, read for the session the page is drawn for. */
 async function SecurityContent() {
   const { subject, served } = await requireAccountSession(ROUTES.accountSecurity.path());
-  const [stand, devices] = await Promise.all([heldPasskeysOf(served), devicesOf(served)]);
+  const [held, devices] = await Promise.all([heldPasskeysOf(served), devicesOf(served)]);
   return (
     <SecurityBoxes
       holder={subject.email}
-      passkeys={stand.rows}
-      setUpClosed={setUpClosedOf(served, stand)}
+      passkeys={held.rows}
+      setUpClosed={setUpClosedOf(served, held)}
       // An administrator's last passkey is their only way into the administration, which the removal refuses.
-      lastKept={served.isAdmin && stand.rows.length === 1 ? COPY.account.passkeys.lastKeptLocked : undefined}
+      lastKept={served.isAdmin && held.rows.length === 1 ? COPY.account.passkeys.lastKeptLocked : undefined}
       devices={COPY.account.devices.description(devices)}
       name={{ required: requires(PasskeyNameSchema, ""), max: PASSKEY_NAME_MAX }}
     />

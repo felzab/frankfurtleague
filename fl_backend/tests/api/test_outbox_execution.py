@@ -366,7 +366,7 @@ class TestTheDrain:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BAN_LIST].insert_one(ban_document(NORA.upper(), until="2999"))
-            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
+            code = await owe(database, client, "sign-in-code/1", data=FLSignInCodeData(kind="sign_in_code"))
             linked = await owe(database, client, "link/1", data=FLSignInCodeData(kind="sign_in_code"), link=True)
             ban = await owe(database, client, "ban/1")
             answer = await claimed(database, client)
@@ -454,7 +454,7 @@ class TestTheSignInCode:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             for position in range(PAGE):
                 await owe(database, client, f"ban/{position}")
-            code = await owe(database, client, "anmeldecode/1", data=FLSignInCodeData(kind="sign_in_code"))
+            code = await owe(database, client, "sign-in-code/1", data=FLSignInCodeData(kind="sign_in_code"))
             answer = await claimed(database, client)
 
             return code, [mail.id for mail in answer.mails]

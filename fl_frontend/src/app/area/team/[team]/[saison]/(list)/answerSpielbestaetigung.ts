@@ -15,10 +15,10 @@ const ROW = SpielbestaetigungenPostTeamAnswerParams.shape.spielbestaetigung_id;
  * signed-in person's seat on the row's team and the row itself in its transaction, so a row of another team, or one
  * answered, closed or moved since the page was read, is refused there.
  */
-export const agreeTermin = action({
+export const agreeSpielbestaetigung = action({
   lane: "person",
   claim: "record",
-  name: "agreeTermin",
+  name: "agreeSpielbestaetigung",
   input: z.object({ id: ROW }),
   run: async ({ id }) => {
     await spielbestaetigungenPostTeamAnswer(id, { answer: "agreed", reason: null, vorschlag: null });
@@ -30,10 +30,10 @@ export const agreeTermin = action({
  * The team's decline of a date, proposing another day and hour and, where the person gives one, a reason. A proposal
  * the administrator's own save of that date would refuse is refused here in that save's words.
  */
-export const declineTermin = action({
+export const declineSpielbestaetigung = action({
   lane: "person",
   claim: "record",
-  name: "declineTermin",
+  name: "declineSpielbestaetigung",
   input: z.object({ id: ROW, date: vorschlag.date, time: vorschlag.time, reason: blankIsNull(answer.reason) }),
   ownWords: ["ansetzung_vorschlag_unchanged", "spiel_outside_spieltag", "spiel_double_booked", "eligibility_disqualified"],
   run: async ({ id, date, time, reason }) => {

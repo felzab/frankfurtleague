@@ -18,7 +18,7 @@ export const BEWERBUNG_MIN_AGE = 16 satisfies FLBewerbungKontaktMinAgeYears;
  * The floor the Ansprechperson and the Stellvertretung clear. Those two sign what binds the school, which asks
  * contractual capacity rather than the age a person consents for themselves at.
  */
-export const VERTRETUNG_MIN_AGE = 18 satisfies FLSignatoryMinAgeYears;
+export const SIGNATORY_MIN_AGE = 18 satisfies FLSignatoryMinAgeYears;
 
 /** The deadline a confirmation link runs on, so the page states the day the sweep deletes on. */
 export const BEWERBUNG_CONFIRMATION_DEADLINE_DAYS = 14 satisfies FLBewerbungConfirmationDeadlineDays;

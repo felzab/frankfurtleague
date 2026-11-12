@@ -118,7 +118,7 @@ async def view_one(database: Any, bewerbung_id: ObjectId) -> Any:
 class TestTheReviewPagesRead:
     pytestmark = pytest.mark.db
 
-    def test_it_says_what_the_list_says_of_a_dublette(self, mongo_replica_set_url: str):
+    def test_it_says_what_the_list_says_of_a_duplicate(self, mongo_replica_set_url: str):
         """A row's one chip can hide the Dublette, so this read is where an administrator deciding on it learns of the collision."""
 
         async def read(database: Any) -> Any:

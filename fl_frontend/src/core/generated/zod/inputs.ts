@@ -566,7 +566,7 @@ export const BewerbungenPostEinwilligungBody = zod.union([
       media: zod.boolean(),
       text_versions: zod
         .object({
-          media: zod.literal("2026-11-medien-1"),
+          media: zod.literal("2026-11-media-1"),
           scope: zod.literal("2026-11-whatsapp-1"),
         })
         .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
@@ -711,7 +711,7 @@ export const BewerbungenPatchEinwilligungBody = zod
     scope: zod.enum(["kontakt_data", "kontakt_data_whatsapp"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
@@ -1087,7 +1087,7 @@ export const RegistrierungenPatchEinwilligungBody = zod
     scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
@@ -1110,7 +1110,7 @@ export const RegistrierungenPostConfirmationBody = zod
     scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
@@ -1597,7 +1597,7 @@ export const SchiedsrichterPatchEinwilligungBody = zod
     scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-name-spielplan-1"),
       })
       .describe("A referee's two wordings: the name on the fixtures and the media switch."),
@@ -1622,7 +1622,7 @@ export const SchiedsrichterPostConfirmationBody = zod.object({
   scope: zod.enum(["kader_public", "internal"]),
   text_versions: zod
     .object({
-      media: zod.literal("2026-11-medien-1"),
+      media: zod.literal("2026-11-media-1"),
       scope: zod.literal("2026-11-name-spielplan-1"),
     })
     .describe("A referee's two wordings: the name on the fixtures and the media switch."),
@@ -2228,7 +2228,7 @@ export const SpielerPatchEinwilligungBody = zod
     scope: zod.enum(["kader_public", "internal"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-name-kader-1"),
       })
       .describe("A pupil's two wordings: the name on the squad and the media switch."),
@@ -2769,7 +2769,7 @@ export const TeamsPatchEinwilligungBody = zod
     scope: zod.enum(["kontakt_data", "kontakt_data_whatsapp"]),
     text_versions: zod
       .object({
-        media: zod.literal("2026-11-medien-1"),
+        media: zod.literal("2026-11-media-1"),
         scope: zod.literal("2026-11-whatsapp-1"),
       })
       .describe("A contact seat's two wordings: the WhatsApp switch and the media switch."),
@@ -3057,7 +3057,7 @@ export const TeamsGetTeamOverviewParams = zod.object({
 /**
  * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
  *
- * Each carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where
+ * Each carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where
  * no row asks the team about the fixture as it stands.
  * @summary A team's fixtures in one season, with what is open on each
  */

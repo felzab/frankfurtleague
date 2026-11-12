@@ -883,7 +883,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
 
 
-class TestTheProtokollTellsAResultFromARedating:
+class TestTheLogTellsAResultFromARedating:
     @pytest.mark.parametrize(
         ("moved", "action"),
         [
@@ -988,7 +988,7 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
             opened = await payload_for(database, VIERTELFINALE, version=0)
             first = await call_patch(database, client, VIERTELFINALE, opened)
             with pytest.raises(APIError) as refused:
-                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "veraltet"}))
+                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "stale"}))
 
             return first, refused.value, await spiele_now(database)
 

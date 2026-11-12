@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  */
 const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
+    entries: [{ id: "overview", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
   },
   {
     heading: COPY.admin.group.saisonsAndSpiele,
@@ -66,7 +66,7 @@ const RAIL_GROUPS: RailGroup[] = [
 ];
 
 /** The phone bar's pages, before „Mehr“. */
-const BAR = ["uebersicht", "spiele", "teams"] as const;
+const BAR = ["overview", "spiele", "teams"] as const;
 
 /**
  * The administration's frame. It is drawn without waiting for the session: the account and the seasons it shows
@@ -76,7 +76,7 @@ const BAR = ["uebersicht", "spiele", "teams"] as const;
  * grant to the error page, each inside the page, since a redirect thrown in a frame unmounts it whole. A session
  * turned away is shown no account and no season. One frame stands around every page of the area, so moving between
  * a list and an editor, or between seasons, keeps it. The phone's band and bar are the route groups' (`RailColumn`):
- * an editor's route lies in `(editor)`, every other page in `(liste)`.
+ * an editor's route lies in `(editor)`, every other page in `(list)`.
  */
 export function AdminFrame({ children }: { children: ReactNode }) {
   // One judgement for both reads.

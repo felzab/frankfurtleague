@@ -66,13 +66,13 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
 def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_naming_one():
     """The paths the screen marks its rows by: an entry stored before, or in the squad, is never among them."""
 
-    outside, ausgetragen = ObjectId(), ObjectId()
+    outside, withdrawn = ObjectId(), ObjectId()
     kader = [
         *({**row, "inactive_since": None} for row in KADER),
-        {"spieler_id": ausgetragen, "is_nachnominiert": False, "inactive_since": "2026-10-01"},
+        {"spieler_id": withdrawn, "is_nachnominiert": False, "inactive_since": "2026-10-01"},
     ]
-    saved = {"spieler": [{"spieler_id": ausgetragen, "starts": False}]}
-    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, ausgetragen, outside)]
+    saved = {"spieler": [{"spieler_id": withdrawn, "starts": False}]}
+    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, withdrawn, outside)]
 
     refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=0, kader=kader)
 

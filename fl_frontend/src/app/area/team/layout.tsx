@@ -72,7 +72,7 @@ async function readTeams(): Teams {
  * frame; it is handed neither, and its menus read both from the address on the client. It is drawn without waiting for
  * the session, the seasons and the account streaming into their places, and judges no page: each team page's read asks
  * for the person's seat itself. The phone's band
- * and bar are the route groups' (`RailColumn`): the line-up lies in `(editor)`, every other page in `(liste)`.
+ * and bar are the route groups' (`RailColumn`): the line-up lies in `(editor)`, every other page in `(list)`.
  */
 export default function TeamLayout({ children }: { children: ReactNode }) {
   return (

@@ -46,7 +46,7 @@ export const CONSENT_WORDINGS = {
       ".",
     ],
   },
-  "2026-11-medien-1": {
+  "2026-11-media-1": {
     label: "Die Liga darf Fotos, Videos und Interviews von mir auf ihrer Website und auf Instagram veröffentlichen.",
     line: [
       "Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de widerrufen. Mehr unter ",
@@ -86,17 +86,17 @@ export const CONSENT_WORDINGS = {
 // may name, though the request schema admits every label its kind's records cite so a withdrawal from an older page
 // still reaches. Checked against the backend's current labels, so a rewording that moves one fails here rather than
 // refusing every grant from the page.
-export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-medien-1" } as const satisfies FLSeatTextVersions & {
+export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-media-1" } as const satisfies FLSeatTextVersions & {
   readonly scope: FLWhatsappTextVersion;
   readonly media: FLMediaTextVersion;
 };
-export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" } as const satisfies FLSpielerTextVersions & {
+export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-media-1" } as const satisfies FLSpielerTextVersions & {
   readonly scope: FLNameKaderTextVersion;
   readonly media: FLMediaTextVersion;
 };
 export const SCHIEDSRICHTER_TEXT_VERSIONS = {
   scope: "2026-11-name-spielplan-1",
-  media: "2026-11-medien-1",
+  media: "2026-11-media-1",
 } as const satisfies FLSchiedsrichterTextVersions & { readonly scope: FLNameSpielplanTextVersion; readonly media: FLMediaTextVersion };
 
 /** The words a kind's page shows beside its two choices, read off its labels so a page shows what its press stamps. */

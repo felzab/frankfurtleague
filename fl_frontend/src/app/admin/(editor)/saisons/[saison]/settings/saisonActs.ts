@@ -120,9 +120,9 @@ export const replaceTeam = action({
  * Mails every admitted team of the season a fresh registration link, passing over each team the editor's link rows
  * mark as skipped: one gone, one no confirmed address reaches, and one whose live link was already sent.
  */
-export const sendRegistrierungslinks = action({
+export const sendInvitations = action({
   lane: "admin",
-  name: "sendRegistrierungslinks",
+  name: "sendInvitations",
   input: OfSaison,
   ownWords: ["saison_past"],
   run: async ({ saison_id }) => {
