@@ -147,9 +147,9 @@ class SupportIndex:
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    # Ending in the read's own sort order, `submitted_at` then `_id`: with the sort key unindexed
-    # every request scans the collection and sorts it in memory, which is work proportional to an
-    # archive an anonymous form can grow.
+    # Ending in `submitted_at` then `_id`, the sort order of a read filtering on the season and the
+    # status, which walks these keys in order: with the sort keys unindexed such a read sorts in
+    # memory, which is work proportional to an archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
