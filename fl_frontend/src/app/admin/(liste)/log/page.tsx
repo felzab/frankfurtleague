@@ -11,7 +11,6 @@ import { getActionLog } from "@/features/action-log/queries";
 import { rowOf } from "@/features/action-log/rows";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { FLActionLogPageSize } from "@/core/generated/client/types";
 import type { Filter } from "@/kit/Filters";
 import type { TableHead } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -69,7 +68,8 @@ export default function ActionLogPage({ searchParams }: Props) {
         kind: "table",
         search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax },
         head: HEAD,
-        wait: 50 satisfies FLActionLogPageSize,
+        // The kit's cap on a list's wait, short of the 50 a page holds.
+        wait: 30,
         paged: true,
         content: log.then(({ filters, page, by }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
