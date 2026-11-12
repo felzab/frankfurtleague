@@ -206,7 +206,10 @@ describe("a pass meeting a failure", () => {
     await runAccountSweep();
 
     expect(deleteCalls).toStrictEqual([]);
-    expect(failures().map(({ event }) => event)).toStrictEqual(["account.references_failed"]);
+    // The refusal's trace, which joins this line to the backend's own for that request.
+    expect(failures().map(({ event, fields }) => ({ event, fields }))).toMatchObject([
+      { event: "account.references_failed", fields: { trace_id: refused("no_owner").traceId } },
+    ]);
   });
 
   /* Every kind of line a pass writes, each failure carrying an address in its message the way a real

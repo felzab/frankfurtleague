@@ -336,8 +336,8 @@ jobs:
       # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
       - name: Generate the stack's throwaway keys
-        # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
-        # which the runner's user is not. Nothing is printed.
+        # As `local.sh`'s `write_e2e_keys` generates them, each file readable by the containers' own
+        # users, which the runner's user is not. Nothing is printed.
         run: |
           mkdir -p .tmp-e2e/secrets .tmp-e2e/mail
           chmod 777 .tmp-e2e/mail

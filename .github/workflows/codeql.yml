@@ -33,7 +33,7 @@ defaults:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  # Same rule as `.github/workflows/verify.yml`: supersede an in-flight PR run, never a run on main.
+  # Supersede an in-flight run on a pull request, never a run on main.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -54,8 +54,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Same reasoning as `.github/workflows/verify.yml`: the token is not needed after checkout, and leaving it in
-          # .git/config exposes it to every later step.
+          # The token is not needed after checkout, and leaving it in .git/config exposes it to every
+          # later step.
           persist-credentials: false
       - name: Initialise CodeQL
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3

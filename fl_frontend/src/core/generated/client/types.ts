@@ -508,7 +508,7 @@ export interface FLAccountErasureRegistrierung {
 }
 
 export interface FLAccountErasureSchiedsrichter {
-  name: string | null;
+  name: string;
 }
 
 /**
@@ -1385,7 +1385,7 @@ export interface FLEinwilligungEvidenceSet {
 }
 
 /**
- * How this person's record came to be held, and what they answered.
+ * The scope this person's record is held on, the day they were seated, and what they answered.
  *
  * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
  * other values entirely.

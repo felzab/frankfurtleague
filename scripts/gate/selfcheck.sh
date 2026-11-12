@@ -64,7 +64,7 @@ ACTIONLINT_IMAGE_DIGEST="sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936
 mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
 
 step "3. shellcheck"
-# SC1091 throughout: shellcheck cannot follow the sourced `scripts/lib/_lib.sh`.
+# SC1091 throughout: shellcheck cannot follow the sourced library.
 sc_rc=0
 if [[ "$(shellcheck --version 2>/dev/null | awk '$1 == "version:" { print $2 }')" == "$SHELLCHECK_VERSION" ]]; then
   shellcheck -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?

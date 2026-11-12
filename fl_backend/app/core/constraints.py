@@ -186,6 +186,17 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("confirmation.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
     ),
+    # One per clause of the link lookup's `$or`, each multikey: every open of a contact's link reads this collection by
+    # the hash, and anybody can grow it through the public application form.
+    *(
+        SupportIndex(
+            Collection.BEWERBUNGEN,
+            f"bewerbungen_confirmations_{seat}_token_hashes",
+            ((f"confirmations.{seat}.token_hashes", ASCENDING),),
+            "a contact seat's confirmation page, through the application's lookup, driven by strangers",
+        )
+        for seat in KONTAKT_ROLLEN
+    ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
     # keys." Mirrored from

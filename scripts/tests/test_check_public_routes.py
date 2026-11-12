@@ -1,4 +1,4 @@
-"""SCRIPTS · the route-handler accounting, driven red on each finding it can report.
+"""The route-handler accounting, driven red on each finding it can report.
 
 `check_public_routes.py` is the only thing comparing the App Router tree to the edge's locations, so
 a defect in it is silent by construction: the gate stays green and the handler ships unmetered. Every

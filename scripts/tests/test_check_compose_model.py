@@ -1,4 +1,4 @@
-"""SCRIPTS · the checks over the models Compose renders
+"""The checks over the models Compose renders
 
 The models here are written in the long form `docker compose config` renders ports and volumes in
 (https://docs.docker.com/reference/compose-file/services/#long-syntax-4), so each case pins the

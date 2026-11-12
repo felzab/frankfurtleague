@@ -1,4 +1,4 @@
-"""SCRIPTS · the readers and runners the scripts' suites share
+"""The readers and runners the scripts' suites share
 
 The readers hold no state and are shared whole -- a module spelling one for itself answers a question
 nothing else is held to, which is how two copies of one reader come to disagree.

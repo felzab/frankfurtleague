@@ -1,4 +1,4 @@
-"""SCRIPTS · the image checks a successful build does not make, and how each answer is graded.
+"""The image checks a successful build does not make, and how each answer is graded.
 
 A `docker build` reports success over an image missing `instrumentation.js`, over one that runs as
 root, and over a context its dockerignore stopped covering, so the three probes in the images scope
@@ -166,7 +166,7 @@ def test_each_answer_the_image_assertions_can_give_ends_the_run_its_own_way() ->
 
 
 def _searched_shapes() -> frozenset[str]:
-    """Every name shape `scripts/lib/_lib.sh :: IMAGE_CONTEXT_FIND` looks for.
+    """Every name shape the library's `IMAGE_CONTEXT_FIND` looks for.
 
     Quoted names only, which is what leaves the two pruned directories out: they are spelled bare
     in the same expression.

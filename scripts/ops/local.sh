@@ -39,8 +39,7 @@ for arg in "$@"; do
     --e2e)   E2E=1 ;;
     --help|-h) usage ;;
     # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on the
-    # stack, which the exit contract spells 2 (`docs/ops/spec.md` §1.7). 1 would say the stack is
-    # what needs fixing.
+    # stack, which the exit contract spells 2. 1 would say the stack is what needs fixing.
     *)       refuse "Unknown option: ${arg}. Try --help." ;;
   esac
 done
@@ -79,8 +78,8 @@ if (( E2E )); then MAIL_SINK="${E2E_DIR}/mail"; fi
 E2E_KEYS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
-# local one, and a key it held for longer than one run would be a key to keep. Each command is
-# `docs/ops/runbooks.md` §16's own, and nothing prints a value.
+# local one, and a key it held for longer than one run would be a key to keep. Nothing prints a
+# value.
 write_e2e_keys() {
   local -
   set +x
@@ -93,7 +92,7 @@ write_e2e_keys() {
 }
 
 # Read by mongosh inside the database container, where `127.0.0.1:27017` is that container's own
-# server and nothing else's (`scripts/ops/seed/seed.js`).
+# server and nothing else's.
 SEED_FILE="scripts/ops/seed/seed.js"
 SEED_TARGET="/tmp/made-up-seed.js"
 
@@ -106,7 +105,7 @@ load_made_up_seed() {
     die "the backend could not be asked which database it reads (exit ${rc}), so nothing was seeded.
 compose's own account is above."
   fi
-  # The backend's own pattern for the name (`fl_backend/app/core/config.py :: db_base_name`).
+  # The backend's own pattern for the name.
   if [[ ! "$base" =~ ^[A-Za-z0-9_-]+$ ]]; then
     die "the backend reads a database name that is not one, so nothing was seeded."
   fi
@@ -198,7 +197,7 @@ step "Where the frontend writes the mail it does not send"
 # Made here rather than left to the engine: a bind-mount source it creates is root-owned, and the
 # frontend writes as `nextjs`.
 mkdir -p "$MAIL_SINK" || die "the mail sink's directory could not be created; mkdir's own account is above."
-# `fl_frontend/src/core/mail.ts :: sinkFileStem`'s names, each a timestamp and then `.html`.
+# The names the frontend's mail sink gives each message, a timestamp and then `.html`.
 rm -f -- "$MAIL_SINK"/*.html || die "a message an earlier run filed could not be removed from ${MAIL_SINK}; rm's own account is above."
 ok "emptied — this run's withheld mail lands in ${MAIL_SINK#"$REPO_ROOT"/}"
 
@@ -210,7 +209,7 @@ ok "images built"
 
 # After the backend's boot, which gives every collection its indexes, so each insert meets them as
 # it lands; before the frontend's, so no page renders, and no cache keeps, a read of a database
-# still filling (`docs/ops/spec.md` §1.5). The waits are the journeys' CI job's for the same starts.
+# still filling. The waits are the journeys' CI job's for the same starts.
 if (( E2E || MADE_UP )); then
   section "database"
 
