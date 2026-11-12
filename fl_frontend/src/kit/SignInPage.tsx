@@ -318,7 +318,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
 
   return (
     <>
-      {/* The column's 16 px above the field, as the board drew the view. */}
+      {/* The column's 16 px above the field. */}
       <ClassicTitle text={title} />
       <HeldForm
         ref={form}

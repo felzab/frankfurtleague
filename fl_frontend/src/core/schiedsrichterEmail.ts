@@ -34,7 +34,7 @@ export function buildSchiedsrichterConfirmationEmail({ deadline }: FLSchiedsrich
     kind: "firstContact",
     subjectLine: COPY.page.entryConfirmation,
     origin: site,
-    // The deadline's day semibold, as the board draws it, between the page's two parts around it.
+    // The deadline's day semibold, between the page's two parts around it.
     paragraphs: [[PAGE.opening, [PAGE.deadline.before, { strong: formatDateLong(dayOf(deadline)) }, PAGE.deadline.after]]],
     button: { label: COPY.page.entryConfirmation, href: schiedsrichterConfirmationLink(site, token) },
   };
