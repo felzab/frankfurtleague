@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { RailFrame } from "./RailFrame";
+import { RailFrame, RailPage } from "./RailFrame";
 
 import type { ComponentProps } from "react";
 import type { Account } from "./FrameNav";
@@ -119,5 +119,25 @@ describe("the account menu", () => {
 
     await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.failure));
     expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
+  });
+});
+
+describe("the strip's way to a record's public page", () => {
+  // A client navigation to a match's address opens its pop-up over the editor rather than the page, and nothing on the
+  // editor shows which the link will do.
+  it("is a plain anchor loading the page as a whole document", () => {
+    render(
+      <RailPage
+        scope="area"
+        title={null}
+        link={{ href: "/saisons/2026/spiele/1", label: COPY.shared.toSpiel }}>
+        <p>Seite</p>
+      </RailPage>,
+    );
+
+    const link = screen.getByRole("link", { name: COPY.shared.toSpiel });
+    // This file's stand-in for Next's link writes `data-prefetch`; a plain anchor writes none.
+    expect(link.hasAttribute("data-prefetch")).toBe(false);
+    expect(link.getAttribute("href")).toBe("/saisons/2026/spiele/1");
   });
 });
