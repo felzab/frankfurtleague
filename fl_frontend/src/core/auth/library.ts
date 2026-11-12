@@ -285,7 +285,7 @@ class DeletionWithoutErasure extends Error {
 }
 
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
-// value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
+// value, so the press hands it the erasure to run.
 /**
  * One press of a mailed deletion link: the erasure of the league's records it hands `deleteOwnAccount`, and whether
  * the library has spent the link, which it does before this hook runs and whatever the hook then answers.
