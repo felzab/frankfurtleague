@@ -1,3 +1,5 @@
+import { EXPIRED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -33,7 +35,7 @@ export const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.link
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: { tone: "success", label: COPY.admin.confirmed },
   valid: { tone: "warn", label: COPY.template.open },
-  expired: { tone: "neutral", label: COPY.admin.expired },
+  expired: EXPIRED_CHIP,
   declined: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
   erased: { tone: "neutral", label: COPY.admin.erased },
 };

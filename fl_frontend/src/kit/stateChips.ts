@@ -12,3 +12,9 @@ export const ACTIVE_CHIP: ChipProps = { tone: "success", label: COPY.admin.team.
 
 /** A person who confirmed their entry: a seat, a registration, a referee. */
 export const CONFIRMED_CHIP: ChipProps = { tone: "success", label: COPY.admin.confirmed };
+
+/**
+ * What lapsed unanswered past its deadline, which no answer reaches now: a date asked of a club or a referee, a seat's
+ * link, a step of an address change. Grey, as a thing out of play: nobody can act on it but the league.
+ */
+export const EXPIRED_CHIP: ChipProps = { tone: "neutral", label: COPY.admin.expired };

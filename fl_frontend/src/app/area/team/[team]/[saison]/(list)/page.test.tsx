@@ -130,11 +130,18 @@ describe("a date the team cannot answer", () => {
 
     expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
   });
+
+  // One state in one word and hue on every page showing it: the team's Spiele, the referee's list and the match editor say „Abgelaufen“ too.
+  it("says „Abgelaufen“ in grey past its deadline", async () => {
+    const [expired] = await spielbestaetigungen(spielbestaetigung({ state: "expired" }));
+
+    expect(expired?.chip).toStrictEqual({ tone: "neutral", label: COPY.admin.expired });
+  });
 });
 
-// A row past its due mark that says so only in its muted line reads as one still in time, beside an overdue date's chip.
+// A row past its due mark that says so only in its muted line reads as one still in time.
 describe("a line-up's row", () => {
-  it("carries „Überfällig“ from its due mark, as an overdue date does, and „Gesperrt“ from the lock", async () => {
+  it("carries „Überfällig“ from its due mark and „Gesperrt“ from the lock", async () => {
     const aufstellung = (phase: FLAufstellungPhase): FLTeamPanelAufstellung => ({
       spiel_id: "0000000000000000000000a1",
       ansetzung: { date: "2026-11-14", time: "16:00:00", spielort: null, team1_name: "Ahorn", team2_name: "Eiche" },
@@ -142,10 +149,8 @@ describe("a line-up's row", () => {
       marks: { due_at: "2026-11-13T15:00:00Z", phase, stored: false },
     });
     const rows = await rowsOf("aufstellungen", { aufstellungen: [aufstellung("open"), aufstellung("overdue"), aufstellung("locked")] });
-    const [overdueDate] = await spielbestaetigungen(spielbestaetigung({ state: "expired" }));
 
     const overdue = { tone: "danger", label: COPY.area.team.aufstellung.overdue };
-    expect(overdueDate?.chip).toStrictEqual(overdue);
     expect(rows.map(({ chip }) => chip)).toStrictEqual([undefined, overdue, { tone: "neutral", label: COPY.area.team.aufstellung.locked }]);
   });
 });

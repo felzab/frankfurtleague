@@ -5,7 +5,8 @@ and each of those slices imports this one's schemas.
 """
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from pydantic import Field
@@ -22,8 +23,9 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.crud import pull_admin_rows
+from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
+from app.api.spielbestaetigungen.services import AnsetzungState, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -104,6 +106,16 @@ class FLSpielEditorAufstellungen(BaseReadModel):
     team2: FLAufstellungSummary | None
 
 
+class FLSpielEditorBestaetigung(FLSpielbestaetigung):
+    """A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
+
+    `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
+    that the party may still answer, or open that it may not.
+    """
+
+    expired: bool
+
+
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
     """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
@@ -119,8 +131,22 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
     # The fixture's confirmation rows, newest first, as an administrator reads them.
-    spielbestaetigungen: list[FLSpielbestaetigung]
+    spielbestaetigungen: list[FLSpielEditorBestaetigung]
     aufstellungen: FLSpielEditorAufstellungen
+
+
+async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection) -> list[Mapping[str, Any]]:
+    """The season rows of every club the confirmation rows' Ansetzungen name, as `state_of` judges a row against them."""
+
+    clubs = {club for row in rows for club in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
+    if not clubs:
+        return []
+
+    return await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
+        projection=JUDGED_VEREIN_FIELDS,
+    )
 
 
 async def _none() -> None:
@@ -259,6 +285,7 @@ async def read_spiel_editor(
     spielbestaetigungen_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     aufstellungen_collection: ReadCollection,
+    now: datetime,
 ) -> FLSpieleAdminSingleResponse:
     """Everything the match editor shows, the fixture first: `document_not_found` for an id no fixture holds."""
 
@@ -313,6 +340,11 @@ async def read_spiel_editor(
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection),
     )
+    vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
+    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
+
+    def expired(row: Mapping[str, Any]) -> bool:
+        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None) == "expired"
 
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
@@ -326,6 +358,6 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations],
+        spielbestaetigungen=[FLSpielEditorBestaetigung.model_validate({**row, "expired": expired(row)}) for row in confirmations],
         aufstellungen=aufstellungen,
     )

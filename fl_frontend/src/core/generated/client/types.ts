@@ -4793,6 +4793,111 @@ export interface FLSpielEditorBericht {
 }
 
 /**
+ * The Ansetzung a row answers about: every input of `digest`, stored beside it.
+ *
+ * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
+ * rather than `digest`.
+ */
+export interface FLSpielbestaetigungAnsetzung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  date: string;
+  digest: string;
+  spielort_id: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team1_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team2_id: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  time: string;
+}
+
+export type FLSpielbestaetigungByKontaktKind = (typeof FLSpielbestaetigungByKontaktKind)[keyof typeof FLSpielbestaetigungByKontaktKind];
+
+export const FLSpielbestaetigungByKontaktKind = {
+  kontakt: "kontakt",
+} as const;
+
+/**
+ * The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded.
+ */
+export interface FLSpielbestaetigungByKontakt {
+  kind: FLSpielbestaetigungByKontaktKind;
+  rolle: FLKontaktRolle;
+}
+
+export type FLSpielbestaetigungBySchiedsrichterKind =
+  (typeof FLSpielbestaetigungBySchiedsrichterKind)[keyof typeof FLSpielbestaetigungBySchiedsrichterKind];
+
+export const FLSpielbestaetigungBySchiedsrichterKind = {
+  schiedsrichter: "schiedsrichter",
+} as const;
+
+export interface FLSpielbestaetigungBySchiedsrichter {
+  kind: FLSpielbestaetigungBySchiedsrichterKind;
+}
+
+export type FLSpielbestaetigungBy = FLSpielbestaetigungByKontakt | FLByAdmin | FLSpielbestaetigungBySchiedsrichter;
+
+export type FLSpielbestaetigungAnswerKind = (typeof FLSpielbestaetigungAnswerKind)[keyof typeof FLSpielbestaetigungAnswerKind];
+
+export const FLSpielbestaetigungAnswerKind = {
+  agreed: "agreed",
+  declined: "declined",
+} as const;
+
+/**
+ * Written once, while the row is open: a second press finds the row answered and changes nothing.
+ */
+export interface FLSpielbestaetigungAnswer {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  at: string;
+  by: FLSpielbestaetigungBy;
+  kind: FLSpielbestaetigungAnswerKind;
+  reason: string | null;
+  vorschlag: FLSpielbestaetigungAppointment | null;
+}
+
+export type FLSpielbestaetigungClosedReason = (typeof FLSpielbestaetigungClosedReason)[keyof typeof FLSpielbestaetigungClosedReason];
+
+export const FLSpielbestaetigungClosedReason = {
+  ansetzung_changed: "ansetzung_changed",
+  austritt: "austritt",
+  spiel_decided: "spiel_decided",
+  cancelled: "cancelled",
+  schiedsrichter_switched: "schiedsrichter_switched",
+  schiedsrichter_declined: "schiedsrichter_declined",
+  discarded: "discarded",
+  spiel_past: "spiel_past",
+} as const;
+
+export interface FLSpielbestaetigungClosed {
+  reason: FLSpielbestaetigungClosedReason;
+}
+
+/**
+ * A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
+ *
+ * `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
+ * that the party may still answer, or open that it may not.
+ */
+export interface FLSpielEditorBestaetigung {
+  ansetzung: FLSpielbestaetigungAnsetzung;
+  answer: FLSpielbestaetigungAnswer | null;
+  asked_at: string | null;
+  closed: FLSpielbestaetigungClosed | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  deadline: string;
+  expired: boolean;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
+  reminded_at: string | null;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+}
+
+/**
  * A referee the editor offers: their whole name, the fee they default to, how they answered their entry, and the day they retired.
  */
 export interface FLSpielEditorSchiedsrichter {
@@ -5039,110 +5144,6 @@ export interface FLSpielberichtSchiedsrichterResponse {
 }
 
 /**
- * The Ansetzung a row answers about: every input of `digest`, stored beside it.
- *
- * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
- * rather than `digest`.
- */
-export interface FLSpielbestaetigungAnsetzung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  date: string;
-  digest: string;
-  spielort_id: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team1_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team2_id: string;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  time: string;
-}
-
-export type FLSpielbestaetigungByKontaktKind = (typeof FLSpielbestaetigungByKontaktKind)[keyof typeof FLSpielbestaetigungByKontaktKind];
-
-export const FLSpielbestaetigungByKontaktKind = {
-  kontakt: "kontakt",
-} as const;
-
-/**
- * The seat its holder answered from, never the person: of two seats one person holds, the first in order is recorded.
- */
-export interface FLSpielbestaetigungByKontakt {
-  kind: FLSpielbestaetigungByKontaktKind;
-  rolle: FLKontaktRolle;
-}
-
-export type FLSpielbestaetigungBySchiedsrichterKind =
-  (typeof FLSpielbestaetigungBySchiedsrichterKind)[keyof typeof FLSpielbestaetigungBySchiedsrichterKind];
-
-export const FLSpielbestaetigungBySchiedsrichterKind = {
-  schiedsrichter: "schiedsrichter",
-} as const;
-
-export interface FLSpielbestaetigungBySchiedsrichter {
-  kind: FLSpielbestaetigungBySchiedsrichterKind;
-}
-
-export type FLSpielbestaetigungBy = FLSpielbestaetigungByKontakt | FLByAdmin | FLSpielbestaetigungBySchiedsrichter;
-
-export type FLSpielbestaetigungAnswerKind = (typeof FLSpielbestaetigungAnswerKind)[keyof typeof FLSpielbestaetigungAnswerKind];
-
-export const FLSpielbestaetigungAnswerKind = {
-  agreed: "agreed",
-  declined: "declined",
-} as const;
-
-/**
- * Written once, while the row is open: a second press finds the row answered and changes nothing.
- */
-export interface FLSpielbestaetigungAnswer {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  at: string;
-  by: FLSpielbestaetigungBy;
-  kind: FLSpielbestaetigungAnswerKind;
-  reason: string | null;
-  vorschlag: FLSpielbestaetigungAppointment | null;
-}
-
-export type FLSpielbestaetigungClosedReason = (typeof FLSpielbestaetigungClosedReason)[keyof typeof FLSpielbestaetigungClosedReason];
-
-export const FLSpielbestaetigungClosedReason = {
-  ansetzung_changed: "ansetzung_changed",
-  austritt: "austritt",
-  spiel_decided: "spiel_decided",
-  cancelled: "cancelled",
-  schiedsrichter_switched: "schiedsrichter_switched",
-  schiedsrichter_declined: "schiedsrichter_declined",
-  discarded: "discarded",
-  spiel_past: "spiel_past",
-} as const;
-
-export interface FLSpielbestaetigungClosed {
-  reason: FLSpielbestaetigungClosedReason;
-}
-
-/**
- * One party's confirmation of one Ansetzung, as an administrator reads it.
- *
- * The close reaches an answered row too, so an agreement a move overtook records why it stopped
- * applying.
- */
-export interface FLSpielbestaetigung {
-  ansetzung: FLSpielbestaetigungAnsetzung;
-  answer: FLSpielbestaetigungAnswer | null;
-  asked_at: string | null;
-  closed: FLSpielbestaetigungClosed | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  deadline: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
-  reminded_at: string | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-}
-
-/**
  * What the answer recorded: its way, the seat it came from, and the answering club's own proposal. No receipt is mailed off it.
  */
 export interface FLSpielbestaetigungAnswerResponse {
@@ -5239,7 +5240,7 @@ export interface FLSpieleAdminSingleResponse {
   schiedsrichter: FLSpielEditorSchiedsrichter[];
   spiel: FLSpielJoinedAdmin;
   spielbericht: FLSpielEditorBericht | null;
-  spielbestaetigungen: FLSpielbestaetigung[];
+  spielbestaetigungen: FLSpielEditorBestaetigung[];
   spielorte: FLSpielEditorSpielort[];
   teams: FLSpielEditorTeam[] | null;
 }

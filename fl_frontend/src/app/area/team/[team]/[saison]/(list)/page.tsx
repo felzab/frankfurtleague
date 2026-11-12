@@ -2,6 +2,7 @@ import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -113,8 +114,8 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
     case "expired":
       return {
         ...base,
-        chip: { tone: "danger", label: TEAM.aufstellung.overdue },
-        line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]),
+        chip: EXPIRED_CHIP,
+        line: line([when, venueOf(ansetzung), COPY.admin.schiedsrichter.expiredOn(deadline), TEAM.leagueDecides]),
       };
     case "declined":
       return {

@@ -1,3 +1,5 @@
+import { EXPIRED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -51,7 +53,7 @@ function standingOf(
     return { chip: { tone: "success", label: COPY.admin.confirmed }, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };
   if (link === null) return { chip: { tone: "warn", label: COPY.template.open }, day: null, asks: true };
   return link.expired
-    ? { chip: { tone: "neutral", label: COPY.admin.expired }, day: DAYS.expiredOn(dayOf(link.deadline)), asks: true }
+    ? { chip: EXPIRED_CHIP, day: DAYS.expiredOn(dayOf(link.deadline)), asks: true }
     : { chip: { tone: "warn", label: COPY.template.open }, day: DAYS.openUntil(dayOf(link.deadline)), asks: true };
 }
 

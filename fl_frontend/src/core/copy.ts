@@ -863,7 +863,7 @@ export const COPY = catalogue({
       accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
       /**
        * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
-       * date; and the last part of an overdue date's line on the Übersicht, which takes no answer past its deadline. A
+       * date; and the last part of an expired date's line on the Übersicht, which takes no answer past its deadline. A
        * declined row's line ends on the team's proposal.
        */
       declineConsequence: "Über den Termin entscheidet die Liga.",
@@ -893,8 +893,8 @@ export const COPY = catalogue({
         dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
         overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
         /**
-         * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
-         * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
+         * The chip of a line-up overdue, after its page's title and on the Übersicht's row; on a Spiele card the chip names
+         * what is overdue.
          */
         overdue: "Überfällig",
         overdueOnCard: "Aufstellung überfällig",

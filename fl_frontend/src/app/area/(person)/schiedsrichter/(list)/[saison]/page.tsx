@@ -2,6 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -69,7 +70,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.state === "agreed") {
     return { chip: { tone: "success", label: SPIEL.agreed }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
   }
-  if (spiel.state === "expired") return { chip: { tone: "neutral", label: COPY.admin.expired } };
+  if (spiel.state === "expired") return { chip: EXPIRED_CHIP };
   return {};
 }
 
