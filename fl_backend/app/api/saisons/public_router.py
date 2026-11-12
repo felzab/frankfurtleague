@@ -125,6 +125,7 @@ def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
                 "spieltag_position": {"$first": f"${SPIELTAG_ROWS_AS}.position"},
                 "team1": 1,
                 "team2": 1,
+                "sonderereignis": 1,
             },
         ),
     ]

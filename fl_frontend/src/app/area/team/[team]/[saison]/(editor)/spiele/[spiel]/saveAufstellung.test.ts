@@ -32,6 +32,7 @@ const STORED: FLAufstellungResponse = {
     spieltag_position: 2,
     count_spieltage_in_phase: 5,
     for_third_place: false,
+    sonderereignis: null,
   },
   saison_status: "active",
   team_id: TEAM,

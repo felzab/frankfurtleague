@@ -1291,9 +1291,8 @@ export const COPY = catalogue({
       /** What a declining club proposed, after its answer's date on the party's line. */
       proposed: (when: Copy) => `Vorschlag ${when}`,
       agreed: AGREED,
-      /** A club's decline and a referee's alike: „Abgesagt“ is a match called off. */
+      /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
       declined: "Abgelehnt",
-      cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
       reason: "Grund",
       /** The day an awaited answer is due by: a party's about a date, and a seat's or a referee's about their entry. */

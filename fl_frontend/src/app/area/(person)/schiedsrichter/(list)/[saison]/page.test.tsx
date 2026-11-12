@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { COPY } from "@/core/copy";
+
 import SchiedsrichterOverviewPage from "./page";
 
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 import type { ReactElement } from "react";
 
 const state = vi.hoisted(() => ({ spiele: [] as unknown[] }));
@@ -26,6 +29,7 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   date: "2026-11-17",
   time: "17:00",
   spielort: null,
+  sonderereignis: null,
   spielbestaetigung_id: "5f0000000000000000000b01",
   state: "valid",
   reason: null,
@@ -36,7 +40,7 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   ...overrides,
 });
 
-type Row = { id: string; words?: string; acts?: ReactElement<{ id: string }> };
+type Row = { id: string; words?: string; chip?: ChipProps; acts?: ReactElement<{ id: string }> };
 
 /** The rows the page draws for these games. */
 async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
@@ -79,6 +83,23 @@ describe("a game's answers", () => {
         spiel({ state: "valid", past: true }),
       ),
     ).toStrictEqual([undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+  });
+});
+
+/* One match, one word: the Spielplan names the event, so a list naming it otherwise reads as a second thing that
+   happened, and a no-show read as „Abgesagt“ sends the referee looking for a new date that never comes. */
+describe("a game something befell", () => {
+  it("carries the event's own chip, as the Spielplan's row does, whatever the booking says", async () => {
+    const rows = await rowsOf(
+      spiel({ spiel_id: "5f0000000000000000000001", state: "cancelled", sonderereignis: "ausgefallen" }),
+      spiel({ spiel_id: "5f0000000000000000000002", state: "agreed", past: true, reportable: true, sonderereignis: "nichtantreten_team2" }),
+    );
+
+    const words = COPY.spielplan.sonderereignis;
+    expect(rows.map(({ chip }) => chip)).toStrictEqual([
+      { tone: "danger", label: words.ausgefallen },
+      { tone: "danger", label: words.nichtantretenChip, spoken: words.nichtantreten({ record: "Eiche" }) },
+    ]);
   });
 });
 

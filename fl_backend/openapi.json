@@ -2579,6 +2579,16 @@
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -2632,7 +2642,8 @@
           "date",
           "time",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLAufstellungSpiel",
         "type": "object"
@@ -6715,6 +6726,16 @@
             "title": "Date",
             "type": "string"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spieltag_position": {
             "minimum": 1.0,
             "title": "Spieltag Position",
@@ -6758,7 +6779,8 @@
           "time",
           "spieltag_position",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLLandingOpeningSpiel",
         "type": "object"
@@ -11310,6 +11332,16 @@
             "title": "Reportable",
             "type": "boolean"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -11410,6 +11442,7 @@
           "date",
           "time",
           "spielort",
+          "sonderereignis",
           "spielbestaetigung_id",
           "state",
           "reason",

@@ -1136,6 +1136,16 @@ export const FLSaisonPhase = {
   finale: "finale",
 } as const;
 
+export type FLSonderereignis = (typeof FLSonderereignis)[keyof typeof FLSonderereignis];
+
+export const FLSonderereignis = {
+  ausgefallen: "ausgefallen",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+  abgebrochen: "abgebrochen",
+  annulliert: "annulliert",
+} as const;
+
 export interface FLSpielberichtTeam {
   name: string;
   shorthand: string;
@@ -1153,6 +1163,7 @@ export interface FLAufstellungSpiel {
   for_third_place: boolean;
   saison_id: string;
   saison_phase: FLSaisonPhase;
+  sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @minimum 1 */
@@ -2734,16 +2745,6 @@ export interface FLSpielSchiedsrichterFieldPublic {
   name_is_public: boolean;
 }
 
-export type FLSonderereignis = (typeof FLSonderereignis)[keyof typeof FLSonderereignis];
-
-export const FLSonderereignis = {
-  ausgefallen: "ausgefallen",
-  nichtantreten_team1: "nichtantreten_team1",
-  nichtantreten_team2: "nichtantreten_team2",
-  abgebrochen: "abgebrochen",
-  annulliert: "annulliert",
-} as const;
-
 /**
  * The venue as the public reads serve it: which ground, its current name and where to find it, without the rent.
  */
@@ -2921,6 +2922,7 @@ export interface FLLandingSide {
 export interface FLLandingOpeningSpiel {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   date: string;
+  sonderereignis: FLSonderereignis | null;
   /** @minimum 1 */
   spieltag_position: number;
   team1: FLLandingSide | null;
@@ -4652,6 +4654,7 @@ export interface FLSchiedsrichterSpiel {
   past: boolean;
   reason: string | null;
   reportable: boolean;
+  sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   spielbestaetigung_id: string | null;

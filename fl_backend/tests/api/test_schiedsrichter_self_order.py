@@ -24,6 +24,7 @@ def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: An
             "date": date,
             "time": time,
             "spielort": None,
+            "sonderereignis": None,
             "spielbestaetigung_id": None,
             "state": "agreed",
             "reason": None,
