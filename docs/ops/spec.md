@@ -1,22 +1,22 @@
 # Ops — spec
 
-**Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
+**Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles, `.github/workflows/`
 
-| Section                                                       | Answers                                                                      |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [1.1 Service inventory](#11-service-inventory)                | What runs in production, and where its limits and health checks are set      |
-| [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                                      |
-| [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                             |
-| [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                              |
-| [1.5 The scripts](#15-the-scripts)                            | Which script to reach for, and which environment it belongs to               |
-| [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and what each needs                      |
-| [1.7 Script conventions](#17-script-conventions)              | What a path says, what every script shares, and what its output goes through |
-| [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it                 |
-| [2. Invariants](#2-invariants)                                | The rules that must hold                                                     |
-| [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                                |
-| [4. Known-open](#4-known-open)                                | The accepted gaps                                                            |
+| Section                                                       | Answers                                                                 |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [1.1 Service inventory](#11-service-inventory)                | What runs in production, and what each service is trusted with          |
+| [1.2 Mounts and secrets](#12-mounts-and-secrets)              | What the host provides, and who owns each secret file                   |
+| [1.3 nginx routing](#13-nginx-routing)                        | Which location serves which path, and what meters it                    |
+| [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                         |
+| [1.5 The environments](#15-the-environments)                  | Which stack to reach for, and what each one's database holds            |
+| [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and the CI jobs that run them       |
+| [1.7 Script conventions](#17-script-conventions)              | What a path says, what every script shares, and what its exit code says |
+| [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it            |
+| [2. Invariants](#2-invariants)                                | The rules that must hold, and what holds each                           |
+| [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                           |
+| [4. Known-open](#4-known-open)                                | The accepted gaps                                                       |
 
-The recurring procedures are in [`runbooks.md`](runbooks.md).
+The procedures, the deploy among them, are in [`runbooks.md`](runbooks.md).
 
 ---
 
@@ -24,115 +24,100 @@ The recurring procedures are in [`runbooks.md`](runbooks.md).
 
 ### 1.1 Service inventory
 
-**Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port at
-all**: `cloudflared` dials out to Cloudflare and carries every
-request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
-internet, and the connector holds a static address on that network because `nginx/shared/http.conf` trusts
-it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
-variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
-settings are dashboard state (§1.8).
+**Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port.**
+`cloudflared` dials out to Cloudflare and carries every request back to nginx over
+`frankfurtleague-net`. It holds the static address `172.30.0.250` there, because
+`nginx/shared/http.conf` trusts it by address (§1.3). It reads its credential with `--token-file`,
+which no process listing and no `docker inspect` shows. The tunnel's public hostnames and its origin
+are dashboard state (§1.8).
 
-**The connector reaches nginx and nothing else**: nginx alone joins both
-`frankfurtleague-net`, which it shares with the connector, and `frankfurtleague-app`, which it
-shares with `frontend` and `backend`. An origin set in the dashboard is read by nothing in this
-repository, so without the split a hostname pointed at `backend:8000` would publish the whole API
-past nginx and its routing; with it, that origin does not resolve.
+**The connector reaches nginx and nothing else.** nginx alone joins both `frankfurtleague-net`,
+which it shares with the connector, and `frankfurtleague-app`, which it shares with `frontend` and
+`backend`. A dashboard origin naming `backend:8000` therefore resolves to nothing, where on one
+network it would publish the whole API past nginx.
 
-Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
-`image:`, its `deploy.resources` and its `healthcheck:`.
+**Each service's image, resource limits and healthcheck are `docker-compose.yml`'s own.** Three
+services declare a healthcheck:
 
-**Every base image in a Dockerfile's `FROM`, every image either compose file names, and every image
-`scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and the journeys' CI job run is pinned by tag and digest**
-(`name:tag@sha256:<digest>`), this repository's two own images excepted: a build or a pull fetches
-the digest, the registry's multi-platform index, so a tag rebuilt or repointed upstream changes
-nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
-`docker` and `docker-compose` ecosystems compare to propose the next pair; those pins move by hand,
-no ecosystem reading a shell string. **Each tag names the exact release its digest
-is**, the runtime bases included: a series tag (`mongo:8`) is a label no reader can hold to one
-release. `local.sh`'s
-copy and both database test tiers run the local stack's own mongo, digest included, so a
-`docker-compose` update moving the stack alone fails. `scripts/tests/test_image_pins.py` holds every
-such reference to that form, the copy and the backend's tier to the stack, and the frontend's tier
-to the backend's.
+- `frontend`: Node answers a `HEAD` of `/favicon.ico`, which renders no route and reads no backend.
+- `backend`: `/api/v0/system/is_live`, which reads no database.
+- `cloudflared`: `cloudflared tunnel ready`, healthy while the connector holds a connection to
+  Cloudflare, so a refused token restarting in a loop is never counted healthy.
+
+nginx declares none, so Compose counts it healthy while it runs.
+
+**Every image this repository does not build is pinned by tag and digest** (`name:tag@sha256:…`):
+each Dockerfile's `FROM`, each compose file's `image:`, and the images `scripts/gate/selfcheck.sh`,
+`scripts/gate/verify.sh`, `fl_backend/tests/conftest.py` and `.github/workflows/verify.yml` run. A
+pull fetches the digest, so a tag rebuilt upstream changes nothing here until a pull request moves
+it. **Each tag names the exact release its digest is**, since a series tag (`mongo:8`) is a label no
+reader can hold to one release. Dependabot compares the tag to propose the next pair; the pins
+`.github/dependabot.yml` lists move by hand, no ecosystem reading a shell string. Both database test
+tiers run the local stack's own mongo. `scripts/tests/test_image_pins.py` holds every reference to
+that form, and the two tiers to the stack.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
-production runs. The frontend base's Node is the exact release
-`fl_frontend/package.json :: devEngines` names, which `pnpm/setup` installs for every CI job from the
-manifest alone and `pnpm install` records in `fl_frontend/pnpm-lock.yaml` for every checkout, while
-the image's install passes `--no-runtime` and keeps its base's own; the frontend image's pnpm is
-`packageManager`'s; the backend base's Python lies inside the series `fl_backend/.python-version`
-pins, which every CI job's interpreter comes from; and the backend image's uv is the release
-`.github/actions/backend-toolchain/action.yml` installs for every CI job,
-`fl_backend/pyproject.toml :: "required-version"` being a range that admits Dependabot's own uv
-rather than a pin. Dependabot's
-`docker` ecosystem moves a tag alone, so its pull request for a new Node or uv, or for a Python
-outside that series, is refused by `scripts/tests/test_image_pins.py` until the pin moves on the same
-branch — for Node, with the lockfile `pnpm install` rewrites. **For uv that refusal is the only
-wait a new release meets**: `ghcr.io` publishes no date, so the ecosystem's cooldown holds nothing
-back.
+production runs:
+
+- the frontend base's Node is the exact release `fl_frontend/package.json :: devEngines` names,
+  which `pnpm/setup` installs for every CI job and `fl_frontend/pnpm-lock.yaml` records;
+- the backend base's Python lies inside the series `fl_backend/.python-version` pins, which every
+  CI job's interpreter comes from;
+- the backend image's uv is the release `.github/actions/backend-toolchain/action.yml` installs.
+
+Dependabot's `docker` ecosystem moves a tag alone, so its pull request for a new Node, Python series
+or uv is refused by `scripts/tests/test_image_pins.py` until the pin moves on the same branch. **For
+uv that refusal is the only wait a new release meets**: `ghcr.io` publishes no date, so the
+ecosystem's cooldown holds nothing back.
 
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
-rebuilt under the same tags whenever the image it is built `FROM` is refreshed
+rebuilt under the same tags whenever its own base is refreshed
 ([the Official Images FAQ](https://github.com/docker-library/faq/blob/ce1a70af72a522f8638d6bffd930ef3252de7837/README.md#why-does-my-security-scanner-show-that-an-image-has-cves),
-read 2026-09-25), so a correct pin's digest and its tag's current one routinely differ, and a
-registry comparison would refuse pins that are right. The tag is an unverified label that Dependabot
-keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
+read 2026-09-25), so a correct pin's digest and its tag's current one routinely differ. A hand edit
+moving one without the other goes unnoticed.
 
-**A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
-sends a reader to: the connector resolves its origin on every new connection and holds no address
-between them, and only the sockets it had pooled to the container that went fail, once each. Read
-from cloudflared's own source at the release `docker-compose.yml` pins, 2026-09-07, and a version
-bump moves it; nothing here observes it.
+**A recreated nginx needs no connector restart.** The connector resolves its origin on every new
+connection and holds no address between them, so only the sockets it had pooled to the old container
+fail, once each. This was read from cloudflared's source at an earlier pin, 2026-09-07; nothing here
+observes it.
 
-All four: `restart: unless-stopped`, and JSON file logging capped by
-`docker-compose.yml :: x-logging`, on their bridge networks. **That cap is the whole bound on a container's own stream**:
-the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
-destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy cannot install bound
-those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
-host files rather than a container stream (§1.2), holding every line that names a visitor
-— to eight, through an hourly `logrotate`
+**Every service restarts `unless-stopped` and logs to the host's journal**, each line tagged with
+its container's name (`docker-compose.yml :: x-logging`). The journal's age limit is a host setting
 ([`runbooks.md`](runbooks.md) §7).
 
-**Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
-adds any back**: four, each one its master, starting as root, fails to start without.
-
-- `CHOWN` hands the workers the temp directories they write.
-- `SETUID` and `SETGID` make the workers their own user.
-- `DAC_OVERRIDE` opens the logs, and the TLS key wherever root does not own it: the log directory
-  belongs to the deploying user
-  ([`runbooks.md`](runbooks.md) §7), and root is no owner there. Re-owning it to root does not
-  replace this capability, because nginx gives each log it reopens to its worker's user, and a
-  master started after that cannot write to a file it has given away.
-
+**Every service drops every capability and runs under `no-new-privileges:true`, and nginx alone
+adds any back**: three, each one its master, starting as root, fails to start without. `CHOWN` hands
+the workers their temp directories, and `SETUID` and `SETGID` make the workers their own user.
 `NET_BIND_SERVICE` is not among them: a container's `net.ipv4.ip_unprivileged_port_start` is 0,
 which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With `NET_RAW` in no
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
-**The frontend container is also what runs the background jobs, from one scheduler.**
+**The frontend container also runs the background jobs, from one scheduler.**
 `fl_frontend/src/instrumentationNode.ts :: registerOnNode` arms `:: armScheduler` under a production
-build, and it runs one pass a minute after start and then hourly, so every job runs in the process
-that serves the site and stops when it stops. A pass runs each job in turn: the retention sweep
-(`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
-(`fl_frontend/src/features/roles/sweep.ts :: runAccountSweep`), the pupils' deletion
-(`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`), the fixture confirmations
-(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the handover pass
-(`fl_frontend/src/features/grants/sweep.ts :: runHandoverPass`). Then the
-Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
-write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
-wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
-nothing. **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
-([`runbooks.md`](runbooks.md) §13): read once at the boot, off where the file sets nothing, it arms
-no pass and makes a write's drain send nothing
-(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang for the
-first drain after it. Production declares no replicas, so one process arms one timer, and an hour that finds the
-previous pass still running is skipped with one line rather than overlapping it. Every job selects
-on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
-each cost nothing, and a job that throws stops none of the others. The deletion notice is
-idempotent to one floor: a crash between a delivery and its stamp repeats that one notice once.
-Ending an address change whose step lapsed is the retention sweep's alone, and so is making one
-take effect once its waiting time ends. The backend
-judges each pupil of a deletion again in a transaction of their own, and the account sweep counts
-an account already gone as such.
+build, which runs one pass a minute after start and then hourly, in the process that serves the site.
+A pass runs each job in turn:
+
+- the retention sweep (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`);
+- the account sweep (`fl_frontend/src/features/roles/sweep.ts :: runAccountSweep`);
+- the pupils' deletion (`fl_frontend/src/features/saisons/sweep.ts :: runErasureSweep`);
+- the fixture confirmations (`fl_frontend/src/features/spielbestaetigungen/sweep.ts ::
+runSpielSweep`);
+- the handover pass (`fl_frontend/src/features/grants/sweep.ts :: runHandoverPass`).
+
+Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed;
+a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
+wherever a production build runs, the local stack included, and `next dev` arms nothing.
+**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
+([`runbooks.md`](runbooks.md) §13): read once at the boot, it arms no pass and makes a write's drain
+send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
+Postausgang.
+
+Production declares no replicas, so one process arms one timer, and an hour finding the previous
+pass still running is skipped with one line. Every job selects on dates, lapses or season statuses
+and is idempotent, so a redeploy, a restart and a missed hour each cost nothing, and a job that
+throws stops none of the others. The deletion notice is idempotent to one floor: a crash between a
+delivery and its stamp repeats that one notice once. The backend judges each pupil of a deletion
+again in a transaction of their own, and the account sweep counts an account already gone as such.
 
 **After every pass the scheduler pings Better Stack's heartbeat**, at the address
 `secrets/betterstack_heartbeat_url` holds. It appends `/fail` and names each job where a job threw,
