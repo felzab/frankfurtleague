@@ -117,6 +117,7 @@ about and counts as no pin.
 | Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
+| Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                          |
 | Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
 | Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
 | Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |
@@ -157,16 +158,22 @@ serves again (below).
 
 **`./scripts/ops/deploy.sh <older tag>` needs the registry**: its prune removes the older build's
 images, which no container references, and its pull fetches them again. **Without the registry**,
-start the build the last deploy replaced, whose images are still on the host, then pin it:
+start the build the last deploy replaced, whose images are still on the host, read its services,
+then pin it:
 
 ```bash
 docker image ls ghcr.io/felzab/frankfurtleague-backend
 TAG=sha-1a2b3c4 docker compose up -d --wait
+TAG=sha-1a2b3c4 docker compose ps --format '{{.Service}} {{.State}} {{.Health}}'
 printf 'TAG=%s\n' sha-1a2b3c4 > .env
 ```
 
-The first command lists the tags on the host, and the second starts the one named. The third pins
-it once it is up, so every later Compose command, and a later deploy that fails, reach it.
+The first command lists the tags on the host, and the second starts the one named. **The wait's
+answer is no verdict**: it judges each service once, so a service can be starting or unhealthy when
+it answers. The third lists each running service. Pin only once it lists all four, each `running`
+and `healthy`, and nginx `running` with nothing after it. A service still `starting` is read again
+a minute later. The fourth command pins the build, so every later Compose command, and a later
+deploy that fails, reach it.
 
 **No build published before the first run on this server can serve again, so roll forward
 instead.** Each asks for secret files this compose file does not mount. None can read a match report
@@ -1468,10 +1475,12 @@ sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 changed definition or image, never for a file's new content. So a value replaced on a running stack
 takes effect only once the services reading it are recreated, which [`spec.md`](spec.md) §1.2's
 table names. A wrong `secrets/turnstile_secret_key` fails every bot check until then. Run this in
-the checkout, naming those services; `--wait` reports their healthchecks:
+the checkout, naming those services. The wait judges each service once, so the second command reads
+them after it: the recreate has taken once each is listed `running` and `healthy`.
 
 ```bash
 docker compose up -d --wait --force-recreate frontend backend
+docker compose ps --format '{{.Service}} {{.State}} {{.Health}}' frontend backend
 ```
 
 - **The three internal keys** are read by both application services, so recreate `frontend backend`

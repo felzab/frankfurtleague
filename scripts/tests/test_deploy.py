@@ -24,18 +24,21 @@ SAID_HEALTHY: Final = "every service is running and healthy"
 
 # Every engine call the script makes, logged one per line with the tag it ran under. `ps` reads the
 # containers of the tag the script exported, `service state health` a line, and prints the stopped
-# ones and the one-offs only under `--all`.
+# ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_DEPLOY_DIR"
 printf '%s TAG=%s\n' "$*" "${TAG-}" >> "$d/calls"
 [[ "$1" == compose ]] || exit 0
 shift
+unread="$(cat "$d/unread.${TAG-}" 2>/dev/null)"
 case "$1" in
   up) exit "$(cat "$d/up.$TAG" 2>/dev/null || printf 0)" ;;
-  config) printf '%s\n' frontend backend nginx cloudflared ;;
+  config)
+    if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 15; fi
+    if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
   logs) if [[ " $* " == *" --since "* ]]; then printf '%s\n' '2026/11/12 08:46:11 [notice] 1#1: start worker processes'; fi ;;
   ps)
-    if [[ -e "$d/ps-fails.$TAG" ]]; then printf '%s\n' 'Cannot connect to the Docker daemon' >&2; exit 1; fi
+    if [[ "$unread" == ps-fails ]]; then printf '%s\n' 'Cannot connect to the Docker daemon' >&2; exit 1; fi
     all=0 format=0
     for arg in "$@"; do
       case "$arg" in --all|-a) all=1 ;; --format) format=1 ;; esac
@@ -64,7 +67,7 @@ def deploy(
     previous: str = containers(),
     new_up: int = 0,
     one_offs: str = "",
-    read_fails: bool = False,
+    unread: dict[str, str] | None = None,
 ) -> tuple[int, str, str, list[str], str]:
     """One run deploying `NEW` over a stack pinning `PREVIOUS`: its exit code, stdout, stderr, the engine calls and the `.env` it left."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
@@ -83,8 +86,8 @@ def deploy(
     (engine / f"up.{NEW}").write_bytes(str(new_up).encode())
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
-    if read_fails:
-        (engine / f"ps-fails.{NEW}").write_bytes(b"")
+    for tag, read in (unread or {}).items():
+        (engine / f"unread.{tag}").write_bytes(read.encode())
     environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"], "FL_DEPLOY_DIR": engine.as_posix()}
     environment.pop("TAG", None)
     done = run_shell(BASH, root / "scripts/ops/deploy.sh", NEW, *args, env=environment, cwd=root)
@@ -101,17 +104,18 @@ def went_back(calls: list[str]) -> bool:
 
 
 @pytest.mark.parametrize(
-    ("named", "state"),
+    ("named", "new"),
     [
-        pytest.param("backend", "running unhealthy", id="unhealthy"),
-        pytest.param("frontend", "running starting", id="starting"),
-        pytest.param("cloudflared", "exited", id="no-running-container"),
-        pytest.param("nginx", None, id="no-container-at-all"),
+        pytest.param("backend", containers(backend="running unhealthy"), id="unhealthy"),
+        pytest.param("frontend", containers(frontend="running starting"), id="starting"),
+        pytest.param("cloudflared", containers(cloudflared="exited"), id="no-running-container"),
+        pytest.param("nginx", containers(nginx=None), id="no-container-at-all"),
+        pytest.param("backend", containers() + "backend running unhealthy\n", id="one-of-two-containers-unhealthy"),
     ],
 )
-def test_a_service_the_last_read_names_goes_back_although_up_answered_0(named: str, state: str | None):
+def test_a_service_the_last_read_names_goes_back_although_up_answered_0(named: str, new: str):
     """`up --wait` judges each service once, and on some Compose releases answers 0 at its timeout with one still starting."""
-    code, out, err, calls, pinned = deploy(new=containers(**{named: state}))
+    code, out, err, calls, pinned = deploy(new=new)
 
     assert code == 1, out + err
     assert went_back(calls), calls
@@ -132,8 +136,10 @@ def test_a_stopped_one_off_container_names_nothing():
     assert not went_back(calls)
 
 
-def test_a_read_compose_cannot_answer_judges_nothing_live():
-    code, out, err, calls, pinned = deploy(read_fails=True)
+@pytest.mark.parametrize("read", ["ps-fails", "config-fails", "config-empty"])
+def test_a_read_compose_cannot_answer_judges_nothing_live(read: str):
+    """A list naming no defined service names none failing, so it is no answer either."""
+    code, out, err, calls, pinned = deploy(unread={NEW: read})
 
     assert code == 1, out + err
     assert went_back(calls), calls
@@ -144,13 +150,29 @@ def test_a_read_compose_cannot_answer_judges_nothing_live():
 
 
 def test_a_rollback_whose_build_reads_unhealthy_is_never_called_live():
-    code, out, err, calls, pinned = deploy(new_up=1, previous=containers(backend="running unhealthy"))
+    """The failed `up` comes first: its account names the service from a read of its own, since no read ran before it."""
+    code, out, err, calls, pinned = deploy(
+        new_up=1, new=containers(frontend="running unhealthy"), previous=containers(backend="running unhealthy")
+    )
 
     assert code == 1, out + err
+    assert f"compose logs --tail=60 frontend TAG={NEW}" in calls, calls
     assert went_back(calls), calls
     assert pinned == f"TAG={PREVIOUS}\n"
     assert f"{PREVIOUS} did not come up either" in last_line(err), err
     assert "which is live" not in out + err
+
+
+def test_a_rollback_whose_read_compose_cannot_answer_says_only_that():
+    """The run knows the previous build's `up` answered 0 and nothing of its services, so it says neither live nor down."""
+    code, out, err, calls, pinned = deploy(new_up=1, unread={PREVIOUS: "ps-fails"})
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    said = last_line(err)
+    assert f"the stack went back to {PREVIOUS}, but compose could not read each service's state after it" in said, err
+    assert "did not come up either" not in said and "which is live" not in said, err
 
 
 def test_no_rollback_stops_on_a_service_the_last_read_names():

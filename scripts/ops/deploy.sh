@@ -86,10 +86,12 @@ pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 # Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
 # the project's running containers and no one-off container `docker compose run` left
 # (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
-# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read.
+# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read or named no
+# service, of which a read can find none failing.
 FAILING=()
 read_states() {
   local defined listed service state health
+  local -i services=0
   local -A running=() other=()
   FAILING=()
   defined="$(docker compose config --services)" || return 2
@@ -102,8 +104,11 @@ read_states() {
     fi
   done <<<"$listed"
   while IFS= read -r service; do
-    if [[ -n "$service" && ( -n "${other[$service]-}" || -z "${running[$service]-}" ) ]]; then FAILING+=("$service"); fi
+    if [[ -z "$service" ]]; then continue; fi
+    services+=1
+    if [[ -n "${other[$service]-}" || -z "${running[$service]-}" ]]; then FAILING+=("$service"); fi
   done <<<"$defined"
+  (( services )) || return 2
   (( ${#FAILING[@]} == 0 ))
 }
 
@@ -201,8 +206,17 @@ fi
 # before this run.
 step "Going back to ${prev}"
 export TAG="$prev"
-if up && read_states; then
+back_rc=1
+if up; then
+  back_rc=0
+  read_states || back_rc=$?
+fi
+if (( back_rc == 0 )); then
   die "${failure}, so the stack went back to ${prev}, which is live."
 fi
 show_failure
+# `up` answered 0 and nothing read the services after it, so the build is neither live nor down.
+if (( back_rc == 2 )); then
+  die "${failure}, so the stack went back to ${prev}, but compose could not read each service's state after it. .env pins ${prev}."
+fi
 die "${failure}, and ${prev} did not come up either when the stack went back to it. .env pins ${prev}."
