@@ -91,14 +91,14 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLSweepSaisonsResponse
 
-# System tier, for `app/api/bewerbungen/system_router.py`'s reason: the timer holds no session.
+# System tier: the timer holds no session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",
     dependencies=[Depends(verify_access_system)],
 )
 
-# Each close costs one command; the three shares below fit `app/core/middlewares.py :: REQUEST_DEADLINE_S`
-# together, each step's mails owed in two commands of its own.
+# Each close costs one command; the three shares below fit the request's deadline together, each step's mails owed in
+# two commands of its own.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole.
@@ -245,13 +245,7 @@ class _Minted:
 
 @router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the confirmation pass visits")
 async def get_sweep_saisons(saisons_collection: SaisonsReadCollection) -> FLSweepSaisonsResponse:
-    """
-    Answer every `active` season's id, oldest first.
-
-    `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
-    entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
-    bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
-    """
+    """Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over."""
 
     seasons = await pull_many_from_db(
         collection=saisons_collection,
@@ -282,60 +276,9 @@ async def sweep_spielbestaetigungen(
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielbestaetigungSweepResponse:
-    """
-    Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.
+    """Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
 
-    Each mail is owed through the Postausgang in the transaction that writes its row.
-
-    The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
-    to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
-    those, a row whose fixture has kicked off, or reached its day where it holds no time, closes `spiel_past`, so
-    nobody answers about a match already started. A club's decline closed `discarded` is closed again for each of
-    those but a move and a referee change, in the pass that closes an agreement beside it, and once the slot it was
-    about has kicked off: the public fixture then stops counting it as that club's agreement.
-
-    A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
-    about a slot not yet kicked off: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
-    where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
-    referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
-    as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
-    each opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::
-    owe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a
-    referee at the address their record holds; a party nobody is left to tell is told nothing.
-
-    The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
-    ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
-    its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
-    decline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period
-    (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
-    A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
-    link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
-    seat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A
-    party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
-    transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
-    the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
-    its answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture
-    holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
-    its notice first.
-
-    The one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never
-    reminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and
-    whose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is
-    reminded of nothing.
-
-    The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
-    kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_DAYS` and `:: AUFSTELLUNG_DUE_DAYS`
-    ahead, each counted back at the kick-off's clock time, and for which the club stores no line-up, neither the
-    fixture decided or called off nor the club out by its
-    day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
-    :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
-    reminder of it went. Each states the moment the line-up is due and is given up at it.
-
-    Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
-    and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
-
-    A season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for
-    a season ended since the listing, mails nobody. 404 where no season has the id.
+    Each step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
@@ -483,7 +426,7 @@ async def sweep_spielbestaetigungen(
             return _Minted(written=0, asked=0, closed=0, mails=0)
 
         # Whole: a cut read would mint a second row for a party that already answered. Its refusal halves the page
-        # (`app/core/transactions.py :: isolate`) until each half's rows fit one read.
+        # until each half's rows fit one read.
         read = await pull_whole_from_db(
             collection=spielbestaetigungen_collection,
             db_filter=build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]),
