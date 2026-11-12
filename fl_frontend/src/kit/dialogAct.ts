@@ -23,8 +23,10 @@ export type DialogDanger = {
   /**
    * The question its button opens, over the dialog; the button carries the question's verb and tone. The question
    * shows its act's refusal and stays open with it, as every question does, and a done act closes it and the dialog.
+   * It asks no passkey touch: the question steps aside for the prompt, but the dialog's own modal under it would stand
+   * and block the prompt (`DialogOverlay`'s `isAside`).
    */
-  confirm: ConfirmQuestion;
+  confirm: ConfirmQuestion & { touch?: never };
 };
 
 /** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
