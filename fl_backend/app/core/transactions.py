@@ -2,7 +2,7 @@ import asyncio
 import contextvars
 import time
 import traceback
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from typing import Any, Final
 
@@ -107,7 +107,7 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
 
 
 @asynccontextmanager
-async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[AsyncClientSession]:
+async def transaction_session(client: AsyncMongoClient) -> AsyncGenerator[AsyncClientSession]:
     """The session every transaction runs on: work failing inside it leaves the server no transaction."""
 
     async with client.start_session() as session:

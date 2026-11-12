@@ -11,7 +11,7 @@ Invariants:
   as in production, so a route that forgets its `by` fails here rather than recording the suite's.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
@@ -33,7 +33,7 @@ async def app_client(
     config: BackendConfig | None = None,
     now: datetime | None = None,
     app: FastAPI | None = None,
-) -> AsyncIterator[AsyncClient]:
+) -> AsyncGenerator[AsyncClient]:
     """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
 
     So a server that never answers is bounded by that deadline, or by a shorter `pymongo.timeout` the caller holds around the request.

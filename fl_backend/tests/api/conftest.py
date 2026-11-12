@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from pymongo import MongoClient
@@ -42,7 +42,7 @@ def _documents(database: Database) -> Corpus:
 
 
 @contextmanager
-def unwritten(url: str, database_name: str) -> Iterator[None]:
+def unwritten(url: str, database_name: str) -> Generator[None]:
     """Fails a module that WROTE to the corpus seeded once for it, naming the collections it moved.
 
     `tests/database.py :: _schema` compares the schema instead, which a write never touches.
