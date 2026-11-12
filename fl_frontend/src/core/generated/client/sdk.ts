@@ -199,11 +199,7 @@ export const getAccountDeleteAddressChangeUrl = () => {
 };
 
 /**
- * Stop the change pending on the signed-in address at any step: its new address goes.
- *
- * Its address on file's question unanswered too, which the link mailed there declines rather than stops. Asks no fresh
- * confirmation and counts nothing: a stop hands nothing over. A holder's change in its wait tells every holder. 404 where no
- * change is pending on the address.
+ * Stop the change pending on the signed-in address at any step, its new address going; a holder's change in its wait tells every holder.
  * @summary Stop the address change pending on the signed-in person
  */
 export const accountDeleteAddressChange = async (
@@ -220,15 +216,9 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * Answer the change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
+ * The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
  *
- * PERSON TIER. Whether the address holds anything a change moves is the start's to answer, refused
- * `address_change_nothing`. **The pending address is served masked where an administrator started the change**, whole
- * only where the person typed it here: a change an administrator started may be a pretext whose target the holder of
- * the address on file must not learn. `waits_on` names the step, `previous_address` the link the person's own change
- * mailed the address on file, which this page answers nothing of; `expired` says the step the change waits on lapsed,
- * whose press is refused until the hourly pass ends the change. `wait_tier` is null for an address holding no grant, and
- * `owner` for a row a handover names, whatever its stored tier.
+ * The pending address is served whole only where the person typed it, and masked where an administrator started the change.
  * @summary The address change pending on a signed-in person
  */
 export const accountGetAddressChange = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountAddressChangeResponse> => {
@@ -243,19 +233,10 @@ export const getAccountPostAddressChangeUrl = () => {
 };
 
 /**
- * Start a change of the address the person signs in on, its first mail owed in the same transaction and no link answered.
+ * Start a change of the address the person signs in on: the address on file is mailed a link, and its confirmation mails the new one.
  *
- * **The address on file confirms first**: it is owed a link, and only its confirmation owes the new mailbox the
- * second; **everything the address holds as its person's own moves when the new mailbox confirms**, each link within
- * `ADDRESS_CHANGE_VALID_HOURS`, and declining either ends the change. Where it holds a grant, the change waits whole
- * from that confirmation, `GRANT_WAIT_HOURS` or the owner's `OWNER_WAIT_DAYS`, the old address working until the
- * hourly pass moves it. The address's live change ends replaced, an administrator's too: a sign-in at the address on
- * file proves the mailbox is not lost. **Nothing about the new address is judged here** -- another pupil, a grant it
- * holds -- so this start answers alike whatever the new address holds.
- *
- * Refused `address_change_started_recently`, a 429 whose `Retry-After` names the seconds left, where the address's
- * live change owed its last mail less than `ADDRESS_CHANGE_RESTART_SECONDS` ago; `address_change_nothing` where the
- * address holds nothing a change moves; and `address_change_unchanged` where the typed address is the one signed in.
+ * Everything the address holds moves once the new address confirms, after a wait where it holds a grant; declining
+ * either link ends the change, and a live change of the address is replaced.
  * @summary Start a change of the signed-in person's address
  */
 export const accountPostAddressChange = async (
@@ -287,17 +268,10 @@ export const getAccountGetEinwilligungenUrl = () => {
 };
 
 /**
- * Answer every confirmed consent record the signed-in address holds, its pupil, referee and contact-seat records alike.
+ * Every confirmed consent record the signed-in address holds, pending applications and registrations as withdraw-only.
  *
- * The seats come one entry per team season on which the address holds a confirmed seat, however many of its slots;
- * `bewerbungen` one per PENDING application on which it does, whose two choices the account page may only withdraw;
- * `registrierungen` one per pending registration its pupil confirmed, withdraw-only alike until the admission.
- *
- * PERSON TIER, for the account page, which every signed-in person reaches: an address holding nothing is answered
- * `spieler: null` and four empty lists, never refused. A retired record, a past season's seat and a withdrawn team's
- * seat are served too, a withdrawal staying open wherever a consent stands; `givable` says whether a grant is
- * admitted, `media_offered` whether the media consent may be switched on. A record awaiting its person's
- * confirmation is not served: there is nothing on it yet to change.
+ * An address holding nothing is answered empty, never refused, and retired and past records are served too, so a
+ * withdrawal stays open wherever a consent stands.
  * @summary A signed-in person's own consent records
  */
 export const accountGetEinwilligungen = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLAccountEinwilligungenResponse> => {
@@ -312,13 +286,7 @@ export const getActionLogGetActionLogUrl = () => {
 };
 
 /**
- * The newest 50 acts the filters keep, after `cursor` where one is given, with where the next page starts and no count.
- *
- * A POST that reads: `by` is an administrator's address and `q` whatever was typed, and a query string stands on every
- * `http.answered` line, where the log's scrubber reads no `%40`.
- *
- * `_id` orders them, the manual's own range pagination (`cursor.skip`'s page): no row repeats or drops at a seam, and no
- * index is needed past `_id`. `by_options` is every `by` the log holds, whatever the filters keep.
+ * The newest 50 acts the filters keep, starting after `cursor` where one is given.
  * @summary List recorded acts
  */
 export const actionLogGetActionLog = async (
@@ -350,11 +318,7 @@ export const getAddressChangeGetAddressChangesUrl = () => {
 };
 
 /**
- * Answer every running change, newest first: its two addresses and the step it waits on.
- *
- * ADMIN TIER. The rows `address_change_viewable_denied` refuses are left out, rather than refused: the actor's own, which
- * their account page shows, and a holder's unless the owner asks. Read whole, a capped list would hide a running change:
- * each lasts days at most, and an ended one holds no address.
+ * Every running change this administrator may act on, newest first, with its two addresses and the step it waits on.
  * @summary List the running address changes
  */
 export const addressChangeGetAddressChanges = async (
@@ -371,18 +335,10 @@ export const getAddressChangePostAddressChangeAdminUrl = () => {
 };
 
 /**
- * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
+ * Start a change of the typed address for a person who says they cannot sign in.
  *
- * **Nothing moves here.** A person who can still sign in at the address on file changes it on their own account page. The
- * new mailbox is owed its link and the address on file a notice with its stop link; the change then takes effect
- * `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox confirms, the old address working until then. No link is
- * answered. The address's live change ends replaced.
- *
- * Refused the administrator's own address (`own_address`), a grant holder's unless the owner asks (`admin_address`),
- * the address on file typed again (`address_change_unchanged`), an address holding nothing a change moves
- * (`address_change_nothing`), a new address another pupil signs in on where the change moves a pupil
- * (`address_change_taken`), and a new address any entry names, confirmed or not (`address_change_occupied`). A banned new
- * address is refused nothing: its link stops at the hand-out.
+ * The new mailbox is mailed a link and the address on file a stop link, and nothing moves until a waiting period after
+ * the new mailbox confirms, the old address working until then.
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const addressChangePostAddressChangeAdmin = async (
@@ -414,13 +370,9 @@ export const getAddressChangeGetAddressChangeAddressUrl = () => {
 };
 
 /**
- * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+ * The new address, folded, of the live change a new-mailbox link token or a change id names.
  *
- * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
- * view or a re-send; the link's own view never serves the address. A token or id naming no live change -- unknown,
- * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
- * error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
- * address only in the answer.
+ * A token or id naming no live change is answered null rather than refused, so a lapsed or answered link costs no error.
  * @summary Say which address a live change would move to
  */
 export const addressChangeGetAddressChangeAddress = async (
@@ -454,30 +406,8 @@ export const getAddressChangePostAddressChangeAnswerUrl = () => {
 /**
  * Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
  *
- * **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
- * and nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`
- * past that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
- * decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
- * address on file was mailed answers no confirmation (`link_invalid`).
- *
- * The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox
- * way, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,
- * confirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing
- * none, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's
- * carry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass
- * moves it; a holder's tells every holder in effect, in this transaction.
- * Either answer spends the link, which keeps answering what became of the change.
- *
- * Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
- * (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
- * (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
- * grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
- * or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
- * none of these**: it removes an address nobody proved.
- *
- * A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
- * the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
- * alike; only the edge keeps them from the link's holder.
+ * The new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and
+ * `effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.
  * @summary Confirm or decline a pending address
  */
 export const addressChangePostAddressChangeAnswer = async (
@@ -509,15 +439,9 @@ export const getAddressChangePostAddressChangeStopUrl = () => {
 };
 
 /**
- * Stop the change the address on file was mailed about: its new address goes.
+ * Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
  *
- * **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
- * file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
- * change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
- * link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
- * offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
- * From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
- * every holder.
+ * The person's own change offers this link no stop until its address on file confirmed it.
  * @summary Stop a pending address change
  */
 export const addressChangePostAddressChangeStop = async (
@@ -549,21 +473,10 @@ export const getAddressChangeGetAddressChangeViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
+ * What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
  *
- * **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
- * it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
- * A POST that reads,
- * so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
- * links answer `ended`, how it ended and on which day, for as long as its record is kept.
- *
- * The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
- * the press would be refused for the address on file's sake or would
- * find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
- * answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
- * the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
- * `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
- * never whether the new mailbox could confirm, and the day it confirmed once it has.
+ * Each side is served in the state its press would meet, and an ended change's links answer for as long as its record
+ * is kept.
  * @summary What one address link opens
  */
 export const addressChangeGetAddressChangeView = async (
@@ -597,25 +510,10 @@ export const getAddressChangeSweepAddressChangeUrl = (params?: AddressChangeSwee
 };
 
 /**
- * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
+ * End a share of the changes whose step lapsed, and make each due one take effect, or end it where its judgement now refuses it.
  *
- * **A lapsed change** -- its new mailbox's link, or the question it asked the address on file -- ends as `expired`:
- * its address and reason out of the record (`removed`). **A due change**, one whose waiting time has ended, is judged
- * again as its confirmation was: another pupil signing in on the new address, a grant at it, an entry naming it, or
- * nothing left to move ends it discarded, and `discarded` counts it, its new address owed a notice that it did not take
- * effect and never why; otherwise everything the replaced address holds moves, a grant included, and `effective` counts
- * it, its completion notice owed. A holder's change is stopped only by an entry a person confirmed, never by a seat or an
- * application nobody did: anyone can name an address there, and only the owner stops a holder's change. Each notice is
- * owed in the Postausgang in its change's own transaction, so none rides on this answer.
- *
- * A page's lapsed changes end in one transaction beside their one log row, and each due change takes a transaction of
- * its own; each judges again, so one confirmed, stopped, discarded or replaced since this call read it is left standing.
- * **A pass is a run of calls, each handing the next the `after` the last
- * answered**, the first naming none; it ends at the call answering `after` null. A call reaches at most a fixed share of the
- * changes after `after`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is
- * logged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the
- * request's deadline cuts the call, it stops at that change, warns once, and answers what it did. `remaining` counts
- * the changes standing due after the call, so it is no stopping condition.
+ * A pass is a run of calls, each handing the next the `after` the last answered, ending at the call answering `after`
+ * null; `remaining` is no stopping condition.
  * @summary End the lapsed address changes, and make the due ones take effect
  */
 export const addressChangeSweepAddressChange = async (
@@ -633,12 +531,9 @@ export const getAddressChangeGetAddressChangeMovesUrl = () => {
 };
 
 /**
- * List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
+ * The ended changes still owing to carry a sign-in account to their new address, oldest first and a page at a time.
  *
- * Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
- * hands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the
- * next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
- * addresses.
+ * The caller reports the ones it moved to `POST /address_change/sweep/moves/done`, and the next call lists the rest again.
  * @summary List the sign-in accounts the effects still owe to carry
  */
 export const addressChangeGetAddressChangeMoves = async (
@@ -687,13 +582,9 @@ export const getAddressChangeDeleteAddressChangeUrl = (addressChangeId: string) 
 };
 
 /**
- * Discard the change this id names: its links open nothing to press, and the address on file stays.
+ * Discard the change this id names, the address on file staying.
  *
- * A holder's change in its wait tells every holder; nothing else is mailed. Acts on the change the id names alone, so a page
- * showing a change since replaced discards nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), and where the change ended
- * (`address_change_ended`); 404 for an id naming no change.
+ * A holder's change in its wait tells every holder, and nobody else is mailed.
  * @summary Discard a pending address change
  */
 export const addressChangeDeleteAddressChange = async (
@@ -711,18 +602,10 @@ export const getAddressChangeInviteAddressChangeUrl = (addressChangeId: string) 
 };
 
 /**
- * Owe the new mailbox a fresh link for the change this id names, in the same transaction.
+ * Mail the new mailbox a fresh link for the change this id names, its deadline restarting now.
  *
- * The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
- * the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
- * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
- * nothing.
- *
- * Refused as the start is about who asks (`own_address`, `admin_address`), where another pupil has come to sign in on the
- * pending address or an entry has come to name it, confirmed or not (`address_change_new_taken`), and where the change
- * ended (`address_change_ended`). 404 for an id naming no change, and
- * unless the change waits on the new mailbox: one awaiting the address on file's confirmation, or confirmed, has no link to
- * re-send.
+ * The previous link stops working once the fresh one is handed out, and only a change waiting on the new mailbox has a
+ * link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const addressChangeInviteAddressChange = async (
@@ -893,9 +776,7 @@ export const getBanListGetBanListEntriesUrl = () => {
 };
 
 /**
- * List every ban, newest first: the address, why, on which day and the last season covered.
- *
- * Read whole: the list holds few rows, and a ban left out is one nobody can lift.
+ * Every ban, newest first, with the address, why, on which day and the last season it covers.
  * @summary List the banned addresses
  */
 export const banListGetBanListEntries = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLBanListResponse> => {
@@ -910,15 +791,9 @@ export const getBanListPostBanListEntryUrl = () => {
 };
 
 /**
- * Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
+ * Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
  *
- * Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
- * is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
- * a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
- * fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
- * that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
- *
- * `ban_reason` is served, mailed to the address and kept past that person's erasure.
+ * The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
  * @summary Ban an email address
  */
 export const banListPostBanListEntry = async (
@@ -950,7 +825,7 @@ export const getBanListDeleteBanListEntryUrl = (banListEntryId: string) => {
 };
 
 /**
- * Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id.
+ * Lift a ban before it lapses, deleting its row for good.
  * @summary Lift a ban
  */
 export const banListDeleteBanListEntry = async (
@@ -968,24 +843,9 @@ export const getBewerbungenPostBewerbungUrl = () => {
 };
 
 /**
- * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
+ * Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
  *
- * Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
- * scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
- * same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
- * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
- * is answered.
- *
- * The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
- * since its last press sends a new key.
- *
- * Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
- * Trainer also holds being that one person.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
- * press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
- * either way, so it tells a stranger nothing about the address.
+ * A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
  * @summary Submit a Bewerbung
  */
 export const bewerbungenPostBewerbung = async (
@@ -1017,12 +877,10 @@ export const getBewerbungenPostEinwilligungUrl = () => {
 };
 
 /**
- * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
+ * Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
- * naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
- * season row `link_expired` and `kontakt_saison_past`.
+ * A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
+ * is the deletion notice too.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -1056,8 +914,7 @@ export const getBewerbungenGetEinwilligungViewUrl = () => {
 /**
  * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
- * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
- * no seat holds is refused (`link_invalid`).
+ * A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungView = async (
@@ -1089,11 +946,9 @@ export const getBewerbungenGetFormUrl = (saisonId: string) => {
 };
 
 /**
- * One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+ * A season's application window, and while it runs the clubs a school may apply as and the colours taken.
  *
- * 404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
- * page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
- * nothing more (`READ-BEWERBUNG-001`).
+ * A closed or paused window and a season recording none are served too, and each club is served as its name alone.
  * @summary What one Saison's application form shows
  */
 export const bewerbungenGetForm = async (
@@ -1113,13 +968,9 @@ export const getBewerbungenGetBewerbungenAdminUrl = (params: BewerbungenGetBewer
 };
 
 /**
- * One read for the season's list and its bulk accept: its rows, newest first, and what an acceptance would meet.
+ * The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
  *
- * A row holds nothing of a person: a seat's count stands for it. 404 where no season carries the id, and `duplicate`
- * taken over every open application of the season. Degrades rather than refusing: the rows are written by an anonymous
- * public form, so a tripwire would hand whoever writes them the power to 500 this page, and `complete` reports the cut.
- * Every application with a confirmed seat is served past the newest rows a flood can fill: a flood naming strangers
- * confirms nothing, and a sender confirming one seat at a time has to hold each mailbox.
+ * A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
  * @summary One Saison's Bewerbungen for its list
  */
 export const bewerbungenGetBewerbungenAdmin = async (
@@ -1152,10 +1003,9 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Run one season's seven retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
+ * Run one season's retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
- * again by the next pass. 404 where no season has the id.
+ * A row that cannot be written is passed over, counted in `failed`, and met again by the next pass.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -1173,10 +1023,7 @@ export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * One application.
- *
- * Each seat's `expired` says whether its own deadline has passed today, and `duplicate` is taken over every open
- * application of the season, as the list takes it.
+ * One application, each seat's state judged today and `duplicate` taken over every open application of the season.
  * @summary One Bewerbung for its review page
  */
 export const bewerbungenGetBewerbung = async (
@@ -1194,17 +1041,10 @@ export const getBewerbungenAcceptBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Accept an application, creating the school's club where the applicant proposed a new one, each call one transaction.
+ * Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
  *
- * The bulk accept is this endpoint once per card, so a refusal lands on its card and nothing already done is undone:
- * one request over a season's applications would outrun `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
- *
- * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
- * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
- * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
- * A new school takes its `shorthand` here, a taken one refused `duplicate_key` naming it; a picked club sends null.
- * A colour another row of the season holds is refused `trikot_farbe_taken` naming it; no colour stays free for any number.
- * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
+ * It cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed
+ * the acceptance.
  * @summary Accept a Bewerbung and enter the school into the season
  */
 export const bewerbungenAcceptBewerbung = async (
@@ -1237,10 +1077,7 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
- *
- * A grant is refused. Refuses, writing nothing: `role_not_held`, `choices_stale` and
- * `giving_not_allowed`.
+ * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application; a grant is refused.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
@@ -1273,10 +1110,9 @@ export const getBewerbungenDeclineBewerbungUrl = (bewerbungId: string) => {
 };
 
 /**
- * Decline an application, recording who decided and the reason they gave, and owe each person it mailed the decline.
+ * Decline an application with the reason given, mailed verbatim to each person the application mailed.
  *
- * The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
- * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
+ * What the school submitted stays as it was, the record the decision was taken against.
  * @summary Decline a Bewerbung
  */
 export const bewerbungenDeclineBewerbung = async (
@@ -1309,13 +1145,10 @@ export const getBewerbungenResendEinwilligungUrl = (bewerbungId: string, seat: s
 };
 
 /**
- * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
+ * Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
  *
- * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
- * The answer names the address and the seats as the write found them, so a seat write landing mid-request is where the link goes.
- * That seat's 14 days restart from today, no other seat's moving, and its reminder is owed again. The mirrored seat
- * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
- * decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
+ * Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
+ * seats as the write found them.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenResendEinwilligung = async (
@@ -1334,19 +1167,10 @@ export const getBewerbungenPostKontaktSeatUrl = (bewerbungId: string, seat: stri
 };
 
 /**
- * „Sitz bearbeiten“: write the person into one seat and owe them their link in the same transaction.
+ * Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
  *
- * One write judged by the seat's state. A standing seat's person is replaced or their address corrected, a seat a
- * Widerspruch emptied is filled, and a confirmed seat's person gives way, the record written being administrative
- * and confirming nothing: the person's own link is what asks them, and an acceptance waits on that answer as it
- * waits on the other two. Where one person holds two seats both are written from one press and one link answers
- * both. The link the seat's last holder was sent opens nothing afterwards, and that seat's 14 days restart from today
- * EVEN WHERE THEY HAD PASSED: left where they were, the person would be handed a link that opens nothing.
- *
- * Refused on a stale `version` (`version_stale`), on an application already decided (`bewerbung_already_decided`), on
- * a seat erased at its person's request, the claimed mirror included (`bewerbung_seat_already_answered`), and on an
- * address or a number another contact person on this application already holds (`bewerbung_kontakt_email_taken`,
- * `bewerbung_kontakt_phone_taken`). A path naming no seat is a 404.
+ * Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
+ * deadline starts again from today.
  * @summary Write the person one contact seat holds and mail them a fresh link
  */
 export const bewerbungenPostKontaktSeat = async (
@@ -1380,9 +1204,9 @@ export const getGrantsGetGrantsUrl = () => {
 };
 
 /**
- * List every grant by address: its tier, when it holds, and when a handover to it completes.
+ * Every grant by address: its tier, when it holds, and when a handover to it completes.
  *
- * Uncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
+ * A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
  * @summary List who may enter the administration
  */
 export const grantsGetGrants = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantsListResponse> => {
@@ -1397,13 +1221,9 @@ export const getGrantsPostGrantUrl = () => {
 };
 
 /**
- * Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.
+ * Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
  *
- * Only the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier
- * request is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban
- * list holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant
- * to an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date
- * it holds from.
+ * Every holder in effect and the address named are told, with the date it holds from.
  * @summary Add an administrator
  */
 export const grantsPostGrant = async (
@@ -1452,13 +1272,9 @@ export const getGrantsDeleteGrantUrl = (grantId: string) => {
 };
 
 /**
- * Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.
+ * Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
  *
- * Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
- * Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
- * and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
- * transaction. An address change standing on the row is left to run, as a
- * change of an address holding no grant.
+ * Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
  * @summary Remove an administrator, or withdraw a waiting addition
  */
 export const grantsDeleteGrant = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantWriteResponse> => {
@@ -1473,10 +1289,7 @@ export const getGrantsDeleteHandoverUrl = (grantId: string) => {
 };
 
 /**
- * Stop a waiting handover, the role staying with the owner.
- *
- * Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
- * no handover. Every holder in effect is told in the same transaction.
+ * Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told.
  * @summary Stop a waiting handover
  */
 export const grantsDeleteHandover = async (
@@ -1494,12 +1307,9 @@ export const getGrantsPostHandoverUrl = (grantId: string) => {
 };
 
 /**
- * Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.
+ * Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
  *
- * Only the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.
- * Refused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait
- * still runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in
- * the same transaction, and told what date it completes on.
+ * Only the owner starts one, and every holder in effect is told the date it completes on.
  * @summary Hand the owner role over to an administrator
  */
 export const grantsPostHandover = async (grantId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLGrantWriteResponse> => {
@@ -1813,15 +1623,10 @@ export const getOutboxPostEventUrl = () => {
 };
 
 /**
- * Record what the mail provider reported about one message, on the row of the mail it was.
+ * Record what the mail provider reported about one message on its mail's row, where the row's state may follow into it.
  *
- * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
- * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
- * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `applied: false`, as do an id no row has and a row whose address was replaced since
- * its send, which keeps its key alone, rather than a refusal the provider
- * would retry for hours. A delivery applied to a mail about an application opens the closed chase of every seat holding
- * its address, in the same transaction.
+ * A redelivered or out-of-order event changes nothing, and a delivery of a mail about an application reopens the
+ * closed chase of every seat holding its address.
  * @summary Record one delivery event on its mail's row
  */
 export const outboxPostEvent = async (
@@ -1853,20 +1658,10 @@ export const getOutboxPostHandoutUrl = () => {
 };
 
 /**
- * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
+ * Claim a page of the mails owed now, the sign-in library's first, and hand each out with the link minted for it.
  *
- * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
- * is given up rather than handed out, and counted in `abandoned`, as is one whose facts no kind reads, which would
- * hold every claim until its deadline. A mail to an address a ban holds is stopped as
- * `barred`, the ban's own notice alone excepted. A mail to a club's contact seats is stopped as `dropped` where no
- * confirmed seat of that club's season row holds its address any more. A mail carrying a link has it minted here, its hash written to
- * the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
- * holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
- * answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
- * outcome, with `lease`, to `POST /outbox/result`;
- * where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
- * staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
- * and secrets.
+ * The caller sends each under the idempotency key its `attempt` names and reports every outcome with `lease` before the
+ * lease lapses, after which the next claim hands the mail out again.
  * @summary Claim the mails owed now and hand them out
  */
 export const outboxPostHandout = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLOutboxHandoutResponse> => {
@@ -1881,16 +1676,11 @@ export const getOutboxPostResultUrl = () => {
 };
 
 /**
- * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
+ * Settle the named mail by its send's outcome where the named claim still holds it, counting a mail it does not hold in `ignored`.
  *
- * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
- * refusal every send would meet, any 4xx but a 429. A failed send's `delivery_reason`, the provider's own name for the refusal,
- * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
- * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
- * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
- * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
- * counted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
- * one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
+ * `held` reports a deployment that sends no mail, `abandon` a refusal every send would meet (any 4xx but a 429), and
+ * `retry` a 429, a 5xx or a send that never reached the provider, which hands the mail back unless it is a sign-in
+ * mail or past its deadline.
  * @summary Settle one mail a claim handed out
  */
 export const outboxPostResult = async (
@@ -1922,12 +1712,10 @@ export const getOutboxPostSignInUrl = () => {
 };
 
 /**
- * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
+ * Owe one mail the sign-in library sends, such as a code, a passkey notice or the deletion link, to the address named.
  *
- * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
- * the call. `secret` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
- * is settled; `valid_until` is both the last moment a hand-out may send it and the moment the row is deleted, settled
- * or not.
+ * `secret` is stored as it arrives and dropped once the mail is settled; `valid_until` is both the last moment a send
+ * may happen and when the row is deleted.
  * @summary Owe one mail of the sign-in library
  */
 export const outboxPostSignIn = async (

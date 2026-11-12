@@ -254,7 +254,7 @@ export interface FLAcceptBewerbungResponse {
 }
 
 /**
- * The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang.
+ * The change started, whose link reaches the address on file by mail alone.
  */
 export interface FLAccountAddressChangeMintResponse {
   email: string;
@@ -279,7 +279,7 @@ export const FLAddressChangeWay = {
 } as const;
 
 /**
- * The address's live change as its own account page reads it.
+ * The signed-in address's live change.
  */
 export interface FLAccountAddressChangeOpen {
   effective_from: string | null;
@@ -362,10 +362,7 @@ export const FLEinwilligungScope = {
 } as const;
 
 /**
- * A person's own record's two choices as its box shows them.
- *
- * The choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the
- * precondition a press echoes.
+ * A person's own record's two consent choices.
  */
 export interface FLAccountEinwilligung {
   media: boolean;
@@ -421,7 +418,7 @@ export interface FLKontakt {
 }
 
 /**
- * One referee record on the account page: the stored data its box shows, its fee and the consent the page moves.
+ * One of the signed-in person's referee records: its stored data, its fee and its consent.
  */
 export interface FLAccountSchiedsrichterEinwilligung {
   birth_date: string | null;
@@ -458,7 +455,7 @@ export interface FLAccountSeatEinwilligung {
 }
 
 /**
- * The pupil's record on the account page: its stored data and the consent the page moves.
+ * The signed-in pupil's own record: its stored data and its consent.
  */
 export interface FLAccountSpielerEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -474,7 +471,7 @@ export interface FLAccountSpielerEinwilligung {
 }
 
 /**
- * Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.
+ * Every confirmed consent record the signed-in address holds, empty where it holds none.
  *
  * The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.
  */
@@ -613,7 +610,7 @@ export const FLAction = {
 } as const;
 
 /**
- * One act as the Protokoll serves it. Its `trace_id` and `record_id` stay in the store.
+ * One recorded act.
  */
 export interface FLActionLogEntry {
   action: FLAction;
@@ -649,7 +646,7 @@ export const FLActionType = {
 } as const;
 
 /**
- * What the Protokoll's read narrows by, in a body: `by` is an address and `q` whatever was typed.
+ * What the action log's read narrows by.
  */
 export interface FLActionLogFilterPayload {
   by?: string | null;
@@ -734,16 +731,12 @@ export const FLOutboxStatusState = {
 export interface FLOutboxStatus {
   delivery: FLOutboxDelivery | null;
   state: FLOutboxStatusState;
-  /**
-   * Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
-   *
-   * The one judgement of it, which the backend's refusals and every page showing the seat read.
-   */
+  /** Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient. */
   readonly undeliverable: boolean;
 }
 
 /**
- * One live change as Adressänderungen shows it, admin tier: both addresses, and no hash.
+ * One live change, with both its addresses.
  */
 export interface FLAddressChangeAdminOpen {
   address: string;
@@ -1288,7 +1281,7 @@ export interface FLAustrittPayload {
 }
 
 /**
- * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNBARRED`).
+ * The ban's own notice, the one mail a ban does not stop.
  */
 export interface FLBanData {
   ban_reason: string;
@@ -1325,7 +1318,7 @@ export interface FLBanListResponse {
 }
 
 /**
- * The removal is hard, so the id is all there is to answer with: no document survives to echo.
+ * The id of the ban lifted, whose row is gone.
  */
 export interface FLBanListWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1700,7 +1693,7 @@ export interface FLBewerbungGruppeOffer {
 }
 
 /**
- * What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it.
+ * What an acceptance into one season would meet, so a caller offers what the write takes without deriving it.
  */
 export interface FLBewerbungEntryOffer {
   gruppen: FLBewerbungGruppeOffer[];
@@ -1846,7 +1839,7 @@ export interface FLBewerbungLinkData {
 }
 
 /**
- * One application as the season's list shows it, holding nothing of a person.
+ * One application of a season's list, holding nothing of a person.
  */
 export interface FLBewerbungListRow {
   duplicate: boolean;
@@ -1917,7 +1910,7 @@ export interface FLBewerbungSchulePayload {
 }
 
 /**
- * One application as its review page shows it.
+ * One application, with what an acceptance of it would meet.
  */
 export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
@@ -2568,7 +2561,7 @@ export interface FLGrantRow {
 export type FLGrantWaitHours = 24;
 
 /**
- * The grant an act named: a removal is hard, so the id is all there is to answer with.
+ * The grant the act named.
  */
 export interface FLGrantWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2592,7 +2585,7 @@ export interface FLInvitationData {
 }
 
 /**
- * How the press's teams came out: the season editor's rows then read what each team holds.
+ * How the season's press came out, counted in teams.
  */
 export interface FLInvitationDispatchResponse {
   /** @minimum 0 */
@@ -2615,7 +2608,7 @@ export const FLInvitationSkipReason = {
 } as const;
 
 /**
- * One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
+ * One team's registration link, and what the season's press would do for the team today.
  */
 export interface FLInvitationLinkRow {
   has_link: boolean;
@@ -2628,7 +2621,7 @@ export interface FLInvitationLinkRow {
 }
 
 /**
- * The one live link a team's panel shows, to be mailed to the team's confirmed seats.
+ * The team's live link, to be mailed to its confirmed seats.
  */
 export interface FLInvitationMailPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2644,9 +2637,7 @@ export interface FLInvitationMailResponse {
 }
 
 /**
- * A freshly minted registration link, and the only answer that ever carries its raw value.
- *
- * Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
+ * A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it.
  */
 export interface FLInvitationMintResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2703,7 +2694,7 @@ export interface FLInvitationViewResponse {
 }
 
 /**
- * The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere.
+ * The revoked link, which stays stored so a delivery event about it still lands.
  */
 export interface FLInvitationWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3237,10 +3228,7 @@ export interface FLSpielVorschlagDiscardedData {
 }
 
 /**
- * A pupil's confirmation link.
- *
- * The window its mail states is published, never carried here: `app/shared/schemas/bounds.py ::
- * FLRegistrierungConfirmationDeadlineDays`.
+ * A pupil's confirmation link; the window its mail states is a published bound, never carried here.
  */
 export interface FLRegistrierungLinkData {
   kind: "registrierung_confirmation";
@@ -5777,7 +5765,7 @@ export interface FLTeamEntryOffer {
 }
 
 /**
- * The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team.
+ * A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team.
  */
 export interface FLTeamLinkState {
   invitation: FLInvitationRow | null;

@@ -22,16 +22,13 @@ from app.shared.folding import sign_in_identifier
 async def clear_seats(
     collection: AsyncCollection,
     rows: Sequence[Mapping[str, Any]],
-    # Folded (`app/shared/folding.py :: sign_in_identifier`): each seat's address is compared on the fold.
+    # Folded: each seat's address is compared on the fold.
     identifiers: Set[str],
     session: AsyncClientSession,
     *,
     names: Set[PersonName] = frozenset(),
 ) -> None:
-    """Null these people's slots, one patch per row holding any.
-
-    One patch per row and never `patch_many_in_db`: which slots a row gives up is that row's own.
-    """
+    """Null these people's slots, one patch per row holding any and never one over many: which slots a row gives up is that row's own."""
 
     for row in rows:
         slots = departing_slots(row, identifiers, names)
@@ -89,7 +86,7 @@ async def erase_kontaktperson_in_session(
     # `confirmations`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> None:
     """Clear the seats of the rows the caller read in-session, so a retry re-reads them."""

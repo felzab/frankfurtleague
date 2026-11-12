@@ -4,6 +4,9 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.api.outbox.schemas import FLOutboxStatus
+
+# Imported rather than restated: an application's three people become the junction's three people at acceptance, so a
+# second declaration of the block is one the two would drift apart on. Acyclic: no model in `teams` imports this slice.
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontakteRecord, FLTrainerAlso, _KontaktpersonWritablePayload
 from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
@@ -36,10 +39,6 @@ from app.shared.schemas.custom import (
     validate_external_url,
 )
 from app.shared.schemas.einwilligung import FLSeatTextVersions, refuse_a_stale_grant
-
-# Imported rather than restated: an application's three people BECOME the junction's three people at
-# acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
-# no model in `teams` imports this slice.
 from app.shared.schemas.literals import (
     FLGruppenNames,
     FLKontaktRolle,
@@ -50,8 +49,8 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-# `submitted` is the only state a submission arrives in; the other two are the triage's, and
-# `app/api/bewerbungen/admin_router.py` is the only writer of either.
+# `submitted` is the only state a submission arrives in; the other two are the triage's, written by an administrator's
+# decision alone.
 type FLBewerbungStatus = Literal["submitted", "accepted", "declined"]
 
 
@@ -64,14 +63,14 @@ class _FLBewerbungSeatState(BaseReadModel):
     """One seat's confirmation bookkeeping, as the record and the read share it."""
 
     # The day the link was last mailed; a re-send moves it. Null on a seat the submission owed no mail, its mailbox holding
-    # `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX` unanswered links, until an administrator sends one.
+    # `OPEN_LINKS_PER_MAILBOX` unanswered links, until an administrator sends one.
     sent_at: CustomOptionalDateString
     # The day this seat's link stops working, counted from that mail, and the application goes with it if its person
-    # never answers. NOT the season's `Bewerbungsfrist`, which is the window the form is open in.
+    # never answers. Not the season's `Bewerbungsfrist`, which is the window the form is open in.
     deadline: CustomDateString
     # The day this seat's one reminder was owed. A re-send and a seat write clear it.
     reminded_at: CustomOptionalDateString
-    # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
+    # Beside the slot rather than inside it: a decline empties the person's slot, and a marker in
     # there would go with it.
     declined_at: CustomOptionalDateString
 
@@ -100,7 +99,7 @@ class FLBewerbungSchule(BaseModel):
     While the application is `submitted`, exactly one of this and `team_id` carries a value.
     """
 
-    # `team_name`, not `name`: it becomes the club's SHORT name beside `full_name`, and `name` inside
+    # `team_name`, not `name`: it becomes the club's short name beside `full_name`, and `name` inside
     # a block called `schule` would read as the school's own.
     team_name: CustomNonEmptyString
     full_name: CustomNonEmptyString
@@ -144,7 +143,7 @@ class FLBewerbung(BaseReadModel):
     saison_id: str
     submitted_at: CustomDateString
     status: FLBewerbungStatus
-    # The club the applicant PICKED, null where they proposed a new school. Acceptance writes the
+    # The club the applicant picked, null where they proposed a new school. Acceptance writes the
     # created club's id back here, so a decided application always names one.
     team_id: CustomObjectId | None
     schule: FLBewerbungSchule | None
@@ -154,8 +153,8 @@ class FLBewerbung(BaseReadModel):
     # How many pupils the school's whole Abi-Jahrgang holds, which the applicant states and nothing
     # later checks.
     stufengroesse: int
-    # A FREE STRING, never a club reference: the school may name an applicant the league has not
-    # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
+    # A free string, never a club reference: the school may name an applicant the league has not
+    # accepted yet, and a picker over the accepted ones would give a later applicant the longer list.
     wunschgegner: str | None
     decision: FLBewerbungDecision | None
     confirmations: FLBewerbungConfirmations
@@ -165,9 +164,9 @@ class FLBewerbungConfirmationRecord(_FLBewerbungSeatState):
     """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
     token_hashes: list[str]
-    # The day the clock closed this seat's chase, its last mail not having arrived (`app/api/bewerbungen/services.py ::
-    # closed_chases`), which takes it out of the clock's read. A delivered mail to the seat's address, a re-send and a seat
-    # write clear it. Served to nobody: the page reads the seat's last mail. A row stored without the key reads as null.
+    # The day the clock closed this seat's chase, its last mail not having arrived, which takes it out of the clock's read.
+    # A delivered mail to the seat's address, a re-send and a seat write clear it. Served to nobody: the page reads the
+    # seat's last mail. A row stored without the key reads as null.
     chase_closed_at: CustomOptionalDateString = None
 
 
@@ -190,7 +189,7 @@ class FLBewerbungRecord(FLBewerbung):
 class FLMailboxAnchorRecord(Anchored):
     """One mailbox a public form named, as `mailbox_anchors` stores it; no read serves it."""
 
-    # `app/api/bewerbungen/services.py :: mailbox_anchor_ids`, never the address.
+    # The mailbox's hash, never the address.
     id: str = Field(validation_alias="_id")
     anchored_at: datetime
 
@@ -235,7 +234,7 @@ class FLBewerbungGruppeOffer(BaseModel):
 
 
 class FLBewerbungEntryOffer(BaseReadModel):
-    """What an acceptance into one season would meet, so its dialog offers what the write takes: no page derives it."""
+    """What an acceptance into one season would meet, so a caller offers what the write takes without deriving it."""
 
     # An application is accepted into a `future` season alone (`entry_saison_not_future`).
     status: FLSaisonStatus
@@ -246,7 +245,7 @@ class FLBewerbungEntryOffer(BaseReadModel):
 
 
 class FLBewerbungListRow(BaseReadModel):
-    """One application as the season's list shows it, holding nothing of a person."""
+    """One application of a season's list, holding nothing of a person."""
 
     id: CustomObjectId
     version: int
@@ -268,8 +267,8 @@ class FLBewerbungListRow(BaseReadModel):
     people: int
     # Whether this open application and another one for the season name the same club (`Dublette`).
     duplicate: bool
-    # Whether this open application holds a seat past `app/api/bewerbungen/services.py :: OPEN_LINKS_PER_MAILBOX`, which the
-    # sweep erases with the application unless an administrator sends its link.
+    # Whether this open application holds a seat past `OPEN_LINKS_PER_MAILBOX`, which the sweep erases with the application
+    # unless an administrator sends its link.
     unmailed: bool
 
 
@@ -291,7 +290,7 @@ class FLBewerbungEntry(BaseModel):
 
 
 class FLBewerbungSingleResponse(BaseAPIResponse):
-    """One application as its review page shows it."""
+    """One application, with what an acceptance of it would meet."""
 
     bewerbung: FLBewerbung
     # Null until an acceptance enters the club.
@@ -313,7 +312,7 @@ class FLAcceptBewerbungResponse(BaseAPIResponse):
     # created. Echoed because a created club has an id the caller has no other way to learn.
     team_id: CustomObjectId
     # Whether this acceptance created that club, which the admin surface words differently either
-    # way: what the caller renders is what this call DID, not what the application holds.
+    # way: what the caller renders is what this call did, not what the application holds.
     created_team: bool
     # Unconstrained, as an echo of a stored id is.
     saison_id: str
@@ -327,8 +326,8 @@ class FLDeclineBewerbungResponse(BaseAPIResponse):
     id: CustomObjectId
 
 
-# --- The PUBLIC submission. Every model below is reached from a request body alone, so each forbids
-# an undeclared key; the read models above stay lax.
+# Every model of the public submission below is reached from a request body alone, so each forbids an undeclared key;
+# the read models above stay lax.
 
 
 def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> bool:
@@ -339,8 +338,7 @@ def age_outside_the_bounds(*, birth_date: str, today: str, minimum_age: int) -> 
 
     age = whole_years_between(born=birth_date, today=today)
 
-    # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
-    # hold (`app/api/bewerbungen/services.py :: minimum_age_for`).
+    # The caller's floor, never a constant read here: a person's is the highest of the seats they hold.
     return not minimum_age <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 
 
@@ -375,7 +373,7 @@ class FLBewerbungKontaktePayload(BaseModel):
 class FLBewerbungAddressPayload(FLAddressPayload):
     """The school's address, with the district required."""
 
-    # The ceiling on what arrives, the floor after the strip, as `reason`'s.
+    # The ceiling on what arrives and the floor after the strip, so spaces alone are no district.
     district: Annotated[
         str, StringConstraints(max_length=ADDRESS_DISTRICT_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
     ]
@@ -404,14 +402,14 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
     ]
-    # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
-    # Angabe". The stored field stays nullable (`app/api/teams/schemas.py :: _TeamWritable.schulform`).
+    # Required and non-null here alone: the form offers the real Schulformen and no "keine
+    # Angabe". The stored field stays nullable.
     schulform: FLSchulform
     address: FLBewerbungAddressPayload
     # Constrained here where the read model leaves it a bare string: acceptance parses this block
     # through `FLPostTeamPayload`, so a value refused there is one an administrator cannot accept.
 
-    # Composed from `str` rather than wrapping `CustomExternalUrl`, so the ceiling is judged BEFORE
+    # Composed from `str` rather than wrapping `CustomExternalUrl`, so the ceiling is judged before
     # the host regex runs -- `validate_external_url` reads the scheme and the host and no length.
     website_url: Annotated[
         Annotated[
@@ -439,7 +437,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
     # `ge=1` because a squad of nobody enters no season; `good_spieler` counts a subset of it, so
     # zero is its floor.
 
-    # The CEILING keeps an int32 validator from answering 500 where this endpoint promises 422.
+    # The ceiling keeps an int32 validator from answering 500 where this endpoint promises 422.
     expected_size: int = Field(ge=1, le=BEWERBUNG_KADER_SIZE_MAX)
     good_spieler: int = Field(ge=0, le=BEWERBUNG_KADER_SIZE_MAX)
 
@@ -482,17 +480,12 @@ class FLPostBewerbungPayload(BaseModel):
     # Required where `wunschgegner` is defaulted: a wish has a null answer and a cohort's size has
     # none, so an omitted key is a 422. `ge=1` -- a school with no Abi-Jahrgang fields no team.
     stufengroesse: int = Field(ge=1, le=BEWERBUNG_STUFENGROESSE_MAX)
-    # DEFAULTED where this payload's other nullable keys are required: `scripts/ops/deploy.sh` recreates
-    # both packages at one pinned build, so the only form older than this field is a page already
-    # open in a visitor's browser across a recreate.
+    # Defaulted where this payload's other nullable keys are required: the deploy recreates both packages at one pinned
+    # build, so the only form older than this field is a page already open in a visitor's browser across a recreate.
 
     # What the default costs: `extra="forbid"` makes a misspelled key a 422 while an omitted one is a
     # silent null, so a frontend regression that stops sending this ships green -- where every
     # sibling's omission is a 422.
-
-    # `SINGLE_LINE_PATTERN` earns a second reason here:
-    # `fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail` sets this inside a sentence, and a
-    # break there still opens a line in a line-oriented text body.
 
     # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
     # `min_length` counts characters, so spaces alone would be stored as a wish the school made.
@@ -518,8 +511,8 @@ FLBewerbungSchuleOptionListAdapter = TypeAdapter(list[FLBewerbungSchuleOption])
 
 
 # Where a season's window stands today: taking applications, opening on its `start`, shut, or over with its season.
-# `closed` folds a pause into a window past its end, which `app/api/bewerbungen/services.py :: find_window_refusal` tells no
-# anonymous visitor apart, and a pause names no day it lifts. `ended` serves nothing the rule withholds: `future` and
+# `closed` folds a pause into a window past its end, which the submission's refusal tells no anonymous visitor apart,
+# and a pause names no day it lifts. `ended` serves nothing the rule withholds: `future` and
 # `active` answer alike, and a finished season reads as over whatever dates it stores.
 FLBewerbungWindowState = Literal["running", "upcoming", "closed", "ended"]
 
@@ -545,8 +538,7 @@ class FLBewerbungFormResponse(BaseAPIResponse):
     taken: list[FLTrikotFarbe]
 
 
-# --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
-# endpoints are base-tier and every payload forbids an undeclared key.
+# A confirmation's token is the whole credential, as a sign-in code is, so every payload below forbids an undeclared key.
 
 # What a reopened link shows: where its seat stands.
 # `saison_past`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_past`).
@@ -573,11 +565,10 @@ class FLBewerbungEinwilligungViewResponse(BaseAPIResponse):
     # carries in that season.
     schule: str
     rolle: FLKontaktRolle
-    # The second seat this link's answer writes (`app/api/bewerbungen/services.py :: paired_seat`),
-    # and never `trainer_is_also` itself: null on every other seat, so no link says whether two
-    # OTHER seats are one person.
+    # The second seat this link's answer writes, and never `trainer_is_also` itself: null on every other seat, so no link
+    # says whether two other seats are one person.
     also_rolle: FLKontaktRolle | None
-    # The PERSON's floor over the seats this link answers for, so the page bounds its date control
+    # The person's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     minimum_age: int
     # The ceiling beside it, `confirmation_age`'s other bound.
@@ -642,7 +633,7 @@ class FLSaisonTeamEinwilligungAnswerResponse(BaseAPIResponse):
     outcome: FLEinwilligungOutcome
     birth_date: CustomOptionalDateString
     whatsapp: bool
-    # `FLBewerbungEinwilligungAnswerResponse.media`'s.
+    # As stored on every seat the answer wrote: `false` after a Widerspruch, which stores no answer.
     media: bool
 
 
@@ -676,10 +667,7 @@ class FLBewerbungKontaktSeatResponse(BaseAPIResponse):
     email: str
 
 
-# --- The retention SWEEP, system tier. The backend decides, erases and owes each mail in the Postausgang; nothing a
-# person's record holds leaves here (`READ-BEWERBUNG-004`).
-
-
+# Counts alone: nothing a person's record holds leaves the backend in the retention sweep's answer.
 class FLBewerbungSweepResponse(BaseAPIResponse):
     """One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to."""
 

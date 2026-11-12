@@ -1,9 +1,4 @@
-"""
-API · the actor check every admin-tier router declares
-
-Here beside the grants it reads, so `app/core/security.py`, which verifies the session it judges,
-depends on no slice.
-"""
+"""Here beside the grants it reads, so the core's session check depends on no slice."""
 
 from datetime import datetime
 from http import HTTPStatus
