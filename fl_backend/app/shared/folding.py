@@ -50,9 +50,8 @@ def _validated(address: str) -> ValidatedEmail:
     try:
         return validate_email(bare, allow_smtputf8=False, check_deliverability=False)
     except EmailNotValidError:
-        # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
-        # the library's message quotes the value it rejected, and no address reaches a traceback or
-        # a log line.
+        # `from None`: the library's message quotes the value it rejected, and no address reaches a
+        # traceback or a log line.
         raise rule_refusal(*_REFUSAL) from None
 
 
@@ -70,7 +69,7 @@ def league_address(address: str) -> str:
 
 
 def sign_in_identifier(address: str) -> str:
-    """`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`'s spelling in Python: trimmed and lower-cased.
+    """The frontend's `asSignInIdentifier` in Python: trimmed and lower-cased.
 
     A stored address is compared in this form, or one mailbox's two spellings compare unequal and
     nothing fails. It never raises, so an address no rule takes today still folds.

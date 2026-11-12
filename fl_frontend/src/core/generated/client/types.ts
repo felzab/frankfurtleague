@@ -1238,7 +1238,7 @@ export const FLAustrittType = {
 /**
  * How a team came to be out of one season, why, and from when.
  *
- * `reason` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no
+ * `reason` is free text and public -- it appears on the team's page, and this league publishes no
  * disciplinary code an enum could cite.
  */
 export interface FLAustritt {
@@ -1273,7 +1273,7 @@ export interface FLAustrittNoticeData {
 /**
  * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
  *
- * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
+ * On the write side alone, so a read model takes a stored blank or a longer reason as it stands.
  */
 export interface FLAustrittPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1415,9 +1415,8 @@ export interface FLEinwilligungEvidenceSet {
 /**
  * How this person's record came to be held, and what they answered.
  *
- * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
- * `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
- * (`docs/glossary.md :: Einwilligung`).
+ * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
+ * other values entirely.
  */
 export interface FLKontaktKenntnisnahme {
   confirmed_at: string | null;
@@ -1450,7 +1449,7 @@ export const FLTrainerAlso = {
 } as const;
 
 /**
- * The three people a team is reached through, for ONE season.
+ * The three people a team is reached through, for one season.
  *
  * On the junction rather than the club: a school's staff turns over between seasons, and a
  * finished season keeps those who confirmed their seat.
@@ -2486,10 +2485,10 @@ export interface FLSpielplanShape {
 }
 
 /**
- * Whether this draw may REPLACE what the season already holds, and the shape it runs from.
+ * Whether this draw may replace what the season already holds, and the shape it runs from.
  *
  * An absent body is a first draw off the season's own rules: nothing is destroyed and no
- * number moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.
+ * number moves by omission.
  */
 export interface FLGenerateSpielplanPayload {
   replace?: boolean;
@@ -3610,7 +3609,7 @@ export type FLOverviewRow =
   | FLOverviewBewerbungRow;
 
 /**
- * One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number.
+ * One card and its rows, a fixture once, ordered by kind, then each fixture's day, undated last, then its number.
  */
 export interface FLOverviewCard {
   card: FLOverviewCardName;
@@ -3676,10 +3675,7 @@ export interface FLSaisonBewerbungPayload {
 /**
  * When a pupil's entry is an ordinary one: from the season's activation to `end`, which falls before the season's start.
  *
- * No start of its own, the activation being the opening (`app/api/registrierungen/services.py ::
- * saison_takes_registrierungen`). Past `end` the link runs on until the season ends and an entry is a nominee
- * (`app/api/saisons/services.py :: entry_is_a_nominee`); `open` pauses the link alone. Its own model rather than an alias of
- * `FLSaisonBewerbung` above: the two windows are two decisions an administrator takes apart.
+ * Past `end` the link runs on until the season ends and an entry is a Nachnominierung; `open` pauses the link alone.
  */
 export interface FLSaisonRegistrierung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3688,10 +3684,9 @@ export interface FLSaisonRegistrierung {
 }
 
 /**
- * What a fixture is awarded when one side does not appear.
+ * What a fixture is awarded when one side does not appear, as both sides' goals rather than a margin.
  *
- * Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
- * A LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).
+ * A level award needs a season with no knockout round.
  */
 export interface FLSaisonForfeitErgebnis {
   /** @minimum 0 */
@@ -3965,8 +3960,8 @@ export interface FLPatchSpieltagPayload {
 /**
  * The team editor's one save: the club, and its colour and group in the season the page stands under.
  *
- * Replaced wholesale. No seat and no `austritt`: a seat is its dialog's, and an exit is the
- * danger box's own write, which owes mail.
+ * Replaced wholesale, with no seat and no `austritt`: a seat is its own write's, and an exit is a write of its own,
+ * which owes mail.
  */
 export interface FLPatchTeamSaisonPayload {
   address: FLAddressPayload;
@@ -4297,7 +4292,7 @@ export interface FLRegistrierungenAdminListResponse {
 }
 
 /**
- * Which club takes this season's row over. The path names the club going OUT.
+ * Which club takes this season's row over. The path names the club going out.
  */
 export interface FLReplaceSaisonTeamPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4329,8 +4324,7 @@ export interface FLReplaceSaisonTeamResponse {
 /**
  * When the league accepts applications for this season: while today lies between `start` and `end`, both included.
  *
- * `open` pauses the form alone, its dates untouched and the applications already received staying in triage, as
- * `FLSaisonRegistrierung.open` pauses a link (`app/api/bewerbungen/services.py :: saison_takes_bewerbungen`).
+ * `open` pauses the form alone, its dates untouched and the applications already received staying in triage.
  */
 export interface FLSaisonBewerbung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4343,7 +4337,7 @@ export interface FLSaisonBewerbung {
 /**
  * One phase of a season: how many matchdays it takes, and how many matches each holds.
  *
- * A phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the
+ * A phase the bracket does not reach is absent rather than present with zeroes, so the list is the
  * phases the season plays, in playing order.
  */
 export interface FLSaisonPhaseSchedule {
@@ -4371,8 +4365,8 @@ export interface FLSaison {
 /**
  * Why each of the editor's season acts would be refused if pressed now, judged by its write's own rules; null where it takes it.
  *
- * `activate` and `undraw` are their writes' whole judgement. `create` and `recreate` are the draw's judgement of the
- * stored rules the editor's presses draw, over the clubs entered, `recreate` then the reports it would delete.
+ * `activate` and `undraw` are their writes' whole judgement, and `create` and `recreate` the draw's judgement of the
+ * stored rules over the clubs entered, `recreate` then the reports it would delete.
  */
 export interface FLSaisonActRefusals {
   activate: Code | null;
@@ -4436,11 +4430,9 @@ export interface FLSaisonAdminListed {
 }
 
 /**
- * A season's Spielplan as every write judges it: the matchdays and fixtures it holds, and the day the draw wrote them.
+ * A season's Spielplan as every write judges it: the matchdays and fixtures it holds, counted per read, and the draw's day.
  *
- * Counted per read off the stored rows, the facts a first draw refuses on (`spielplan_already_drawn`,
- * `spielplan_spieltage_held`) and the undraw and the replace remove, so the editor shows the draw's acts exactly where
- * those writes take them. `generated_at` is the draw's own day, `null` on a season whose rows no draw dated.
+ * `generated_at` is `null` on a season whose rows no draw dated.
  */
 export interface FLSaisonDrawn {
   generated_at: string | null;
@@ -4451,12 +4443,10 @@ export interface FLSaisonDrawn {
 }
 
 /**
- * One club's row of the season as the editor's swap and replacement sections list it, graded as each write judges it.
+ * One club's row of the season as the swap and the replacement list it, graded as each write judges it.
  *
- * Both flags are `app/api/teams/services.py :: has_taken_place` over the row's fixtures, the predicate each write's
- * refusal reads: over its group fixtures for the swap's `swap_sides_taken_place`, the swap rewriting those alone, so
- * a pair is closed where either club's is; over every fixture for the replacement's `replace_sides_taken_place`, the
- * replacement handing the whole schedule over.
+ * `group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and
+ * `spiel_taken_place` closes its replacement, which hands the whole schedule over.
  */
 export interface FLSaisonAdminTeam {
   austritt: FLAustritt | null;
@@ -5334,8 +5324,8 @@ export interface FLSpielplanSpieltagAdmin {
 /**
  * A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
  *
- * `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
- * in a finished season, the last. Null for a season with no matchday.
+ * `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,
+ * and the last in a finished season; null for a season with no matchday.
  */
 export interface FLSpieleSpielplanAdminResponse {
   current_spieltag_id: string | null;
@@ -5523,8 +5513,8 @@ export interface FLSpielorteSingleResponse {
 /**
  * A season's matchdays in the order they are played, and the one the Spielplan opens on.
  *
- * `current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished
- * season, the last. Null for a season with no matchday.
+ * `current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a
+ * finished season; null for a season with no matchday.
  */
 export interface FLSpielplanResponse {
   current_spieltag_id: string | null;
@@ -5573,10 +5563,7 @@ export interface FLSpieltagAdmin {
 }
 
 /**
- * One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
- *
- * On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
- * season-scoped state.
+ * One matchday and its season's `status`, which says whether the matchday can still be re-dated.
  */
 export interface FLSpieltagAdminResponse {
   saison_status: FLSaisonStatus;
@@ -5653,7 +5640,7 @@ export interface FLSubjectResponse {
 }
 
 /**
- * The two clubs a group swap exchanges. Symmetric.
+ * The two clubs a group swap exchanges, in either order.
  *
  * Neither side carries a `gruppe`: reading one from the payload would let a stale form write a
  * group nobody stands in.
@@ -5851,8 +5838,8 @@ export interface FLTeamPanelRegistrierung {
 /**
  * One person on the team's seats as the people beside them see it: who, which seats, and whether they answered their link.
  *
- * A Trainer holding a second seat is one entry naming both, as the league's own team editor lists them. No address,
- * telephone number or birthdate: only administrators see those.
+ * A Trainer holding a second seat is one entry naming both, and no address, telephone number or birthdate is served,
+ * only administrators seeing those.
  */
 export interface FLTeamSeat {
   confirmed: boolean;
@@ -5863,7 +5850,7 @@ export interface FLTeamSeat {
 /**
  * One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
  *
- * An agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or
+ * An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
  * discards it.
  */
 export interface FLTeamPanelTermin {
@@ -6016,7 +6003,7 @@ export interface FLTeamPanelSpiel {
 }
 
 /**
- * The club document as it is STORED, and what the write endpoints echo.
+ * The club document as it is stored, and what the write endpoints echo.
  *
  * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
  * -- and a club being created holds no row yet.

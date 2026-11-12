@@ -34,12 +34,11 @@ type FLAustrittType = Literal["disqualifikation", "rueckzug"]
 
 # --- The club
 
-# Slugs rather than the German the league's CI document spells, for the reason
-# `app/api/spieler/schemas.py :: FLSpielerRolle` gives.
+# Slugs rather than the German the league's CI document spells: the value also has a label, and a stored German word
+# would be a second spelling for it to drift from.
 type FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
 
-# The league's kit palette, slugged for `FLSchulform`'s reason. A slug is never renamed or dropped: stored
-# rows hold it.
+# The league's kit palette, slugged as the school forms are. A slug is never renamed or dropped: stored rows hold it.
 type FLTrikotFarbe = Literal[
     "schwarz",
     "weiss",
@@ -69,8 +68,7 @@ type FLTrikotFarbe = Literal[
 
 # --- The contact seats
 
-# The three seats as a closed set, in the order `app/api/teams/schemas.py :: FLSaisonTeamKontakte` declares
-# them.
+# The three seats as a closed set, in the order a season team's contact block declares them.
 type FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
 
 # The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
@@ -87,7 +85,7 @@ type FLKontaktKenntnisnahmeScope = Literal["kontakt_data", "kontakt_data_whatsap
 
 # --- The pupils
 
-# In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad list is
+# In the order a squad sheet lists them. `sort_by="position"` sorts the string, so a public squad list is
 # alphabetical instead.
 type FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
 
@@ -98,7 +96,7 @@ type FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
 # What a pupil or a referee agreed may be published about them.
 type FLEinwilligungScope = Literal["kader_public", "internal"]
 
-# TWO members and not three: an admission deletes the row, its content having become the person and the
+# Two members and not three: an admission deletes the row, its content having become the person and the
 # squad row, so a state naming an admitted registration would be one no document is ever read in.
 type FLRegistrierungStatus = Literal["submitted", "declined"]
 

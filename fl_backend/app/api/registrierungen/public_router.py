@@ -89,9 +89,9 @@ SAISON_PROJECTION = ["registrierung", "rules.allowed_stufen", "rules.max_kader_s
 # What a season row serves this tier: the name the club plays the season under, and the Austritt that kills its link.
 JUNCTION_PROJECTION = {"name": 1, "austritt": 1}
 
-# `resolve_public_saison` is deliberately NOT called below, where every other base-tier season read
+# `resolve_public_saison` is deliberately not called below, where every other base-tier season read
 # calls it: a link minted for a season that takes no registration today, a `future` one among them,
-# reads as closed rather than as a season nobody knows. The INVITE authorises instead.
+# reads as closed rather than as a season nobody knows. The invite authorises instead.
 
 
 async def _club_departed(
@@ -112,7 +112,7 @@ async def _club_departed(
 async def _open_invitation(*, invitations_collection: ReadCollection, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
-    ONE code for unknown and for revoked, the reason `link_invalid` records: nothing tells a
+    One code for unknown and for revoked, the reason `link_invalid` records: nothing tells a
     stranger's guess from a link an administrator replaced.
     """
 
@@ -122,6 +122,7 @@ async def _open_invitation(*, invitations_collection: ReadCollection, token: str
     return invitation_raw
 
 
+# A POST, so the link's token travels in the body and never in a path the edge would log.
 @router.post(
     "/invitation/view",
     response_model=FLInvitationViewResponse,
@@ -137,12 +138,9 @@ async def post_invitation_view(
     teams_collection: TeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationViewResponse:
-    """
-    Answer what this registration link is for: the team, its school, the season, and what the form may offer.
+    """Answer what this registration link is for: the team, its school, the season, and what the form may offer.
 
-    A POST because the link value travels in the body and never in a path the edge would log. A paused
-    or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
-    invalid; only a link that opens no live invite, or whose team has left the season, is refused.
+    A paused or ended window is a state here, so such a link reads as closed rather than as invalid.
     """
 
     invitation_raw = await _open_invitation(invitations_collection=invitations_collection, token=view_data.token)
@@ -160,7 +158,7 @@ async def post_invitation_view(
     # The club itself for `full_name`, which the consent copy renders and the junction does not hold.
     team_raw = await pull_one_from_db(collection=teams_collection, db_filter={"_id": team_id}, projection=["name", "full_name"])
 
-    # What an entry submitted TODAY would store, the admission judging the submission's day.
+    # What an entry submitted today would store, the admission judging the submission's day.
     nominee = entry_is_a_nominee(registrierung=saison_raw.get("registrierung"), day=today)
     room = await pull_squad_room(
         saison_spieler_collection=saison_spieler_collection,
@@ -209,20 +207,10 @@ async def post_registrierung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLPostRegistrierungResponse:
-    """
-    Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
+    """Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
 
-    Everything the league decides -- the team, the season, `status`, `submitted_at` and the
-    deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
-    the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
-
-    An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
-    registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
-    since its last press sends a new key. The key goes with its registration, so one pressed again after the team
-    admitted or declined the pupil, or after the row lapsed, is a new registration.
-
-    A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
-    the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
+    A press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,
+    and owes no second mail.
     """
 
     key = None if idempotency_key is None else str(idempotency_key)
@@ -232,7 +220,9 @@ async def post_registrierung(
 
         # Before every judgement: a replay answers what the first request did, even where the invite
         # has been revoked or the window has closed since.
-        # The id alone: the registration its first press stored, whose mail that press owed.
+        # The id alone: the registration its first press stored, whose mail that press owed. A form whose details
+        # changed sends a new key. The key goes with its registration: a press after the row was admitted or lapsed is
+        # a new registration, and one after a decline answers the declined row until the sweep erases it.
         stored = None if key is None else await registrierungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
             return FLPostRegistrierungResponse(registrierung_id=stored["_id"])
@@ -241,7 +231,7 @@ async def post_registrierung(
         saison_id = str(invitation_raw["saison_id"])
         team_id = invitation_raw["team_id"]
 
-        # The ROW rather than a count: the answer's `team` is the junction's own copy of the name,
+        # The row rather than a count: the answer's `team` is the junction's own copy of the name,
         # which the confirmation mail addresses the pupil by, and one read serves both.
         junction_raw = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id}, JUNCTION_PROJECTION, session=session
@@ -273,6 +263,8 @@ async def post_registrierung(
             )
         )
 
+        # A mailbox already holding its most open links is owed nothing, and nothing refuses the press: the row
+        # stands unmailed and lapses on its deadline, so the answer cannot tell anybody what that mailbox holds.
         mailed = await judge_the_mailbox_in_session(
             registrierungen_collection=registrierungen_collection,
             mailbox_anchors_collection=mailbox_anchors_collection,
@@ -349,10 +341,9 @@ async def get_confirmation_view(
     saison_teams_collection: SaisonTeamsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungConfirmationViewResponse:
-    """What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
+    """What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
 
-    A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
-    left the season reading expired; only a token no registration holds is refused (`link_invalid`).
+    A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
     """
 
     token_hash = hash_token(view_data.token)
@@ -395,11 +386,7 @@ async def post_confirmation(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungConfirmationResponse:
-    """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
-
-    Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
-    `confirmation_exists`, `confirmation_age` and `media_age`.
-    """
+    """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides."""
 
     token_hash = hash_token(answer_data.token)
 

@@ -1961,17 +1961,8 @@ export const getRegistrierungenPostRegistrierungUrl = () => {
 /**
  * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
- * Everything the league decides -- the team, the season, `status`, `submitted_at` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
- * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
- *
- * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds, stores none and owes no second mail, whatever its body says: a form whose details changed
- * since its last press sends a new key. The key goes with its registration, so one pressed again after the team
- * admitted or declined the pupil, or after the row lapsed, is a new registration.
- *
- * A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses
- * the press: the row stands unmailed and lapses on its deadline, and the answer is the same either way.
+ * A press repeating a stored `Idempotency-Key` answers the registration the first one stored, whatever its body says,
+ * and owes no second mail.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierung = async (
@@ -2005,8 +1996,7 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
- * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
- * `choices_stale` and `giving_not_allowed`.
+ * A grant is refused, and a request moving neither choice writes nothing.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
@@ -2040,9 +2030,6 @@ export const getRegistrierungenPostConfirmationUrl = () => {
 
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
- *
- * Refuses, writing nothing: `link_invalid`, `link_expired`, its club having left the season among its cases,
- * `confirmation_exists`, `confirmation_age` and `media_age`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostConfirmation = async (
@@ -2074,10 +2061,9 @@ export const getRegistrierungenGetConfirmationViewUrl = () => {
 };
 
 /**
- * What the confirmation page renders for the registration this token opens, and nothing of the pupil but the day they answered.
+ * What the registration this confirmation link opens shows, and nothing of the pupil but the day they answered.
  *
- * A POST, so the token travels in the body. A confirmed or expired link is served in that state, a link whose club has
- * left the season reading expired; only a token no registration holds is refused (`link_invalid`).
+ * A confirmed or expired link is served in that state, and a link whose club has left the season reads expired.
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetConfirmationView = async (
@@ -2111,9 +2097,7 @@ export const getRegistrierungenPostInvitationViewUrl = () => {
 /**
  * Answer what this registration link is for: the team, its school, the season, and what the form may offer.
  *
- * A POST because the link value travels in the body and never in a path the edge would log. A paused
- * or ended window is a STATE here rather than a refusal, so such a link reads as closed rather than as
- * invalid; only a link that opens no live invite, or whose team has left the season, is refused.
+ * A paused or ended window is a state here, so such a link reads as closed rather than as invalid.
  * @summary What a registration link opens
  */
 export const registrierungenPostInvitationView = async (
@@ -2145,15 +2129,11 @@ export const getRegistrierungenGetOpenRegistrierungenUrl = (teamId: string, sais
 };
 
 /**
- * Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
+ * Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.
  *
- * Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
- * A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
- * differs. An unconfirmed row names nobody: its address is unproven.
- * No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
- * more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
- * any unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil
- * confirmed; `complete` is false where the cap cut some.
+ * A confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,
+ * `kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or
+ * consent record is served for anybody.
  * @summary A team's pending registrations for one season
  */
 export const registrierungenGetOpenRegistrierungen = async (
@@ -2174,13 +2154,10 @@ export const getRegistrierungenGetRegistrierungenAdminUrl = (params: Registrieru
 };
 
 /**
- * The Registrierungen page in one read: the season's pending rows, newest first, each named and with its club.
+ * One season's pending registrations, newest first, each with its club and whether its pupil confirmed it.
  *
- * The page narrows what the read holds; a declined row waits out its 14 days and asks nothing of an administrator.
- * `confirmed` says whether the pupil answered their own link, `unmailed` whether the row was owed none, its mailbox past
- * `OPEN_LINKS_PER_MAILBOX`. 404 where no season holds that id. Degrades rather than
- * refusing, as `GET /bewerbungen/list/admin` does: the rows are written through a link anybody it reached can use, so a
- * tripwire would hand them the power to 500 this page, and `complete` reports the cut.
+ * `unmailed` marks a row owed no mail, its mailbox already holding the most open links, and `complete` says whether
+ * the read's cap cut the list.
  * @summary One Saison's pending Registrierungen for its list
  */
 export const registrierungenGetRegistrierungenAdmin = async (
@@ -2198,20 +2175,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
 };
 
 /**
- * Run the three registration retention clocks over one season, as of today in Europe/Berlin.
+ * Erase one season's due registrations, as of today in Europe/Berlin.
  *
- * A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
- * clock does not run for a `past` season, whose own end takes every row it reads.
- *
- * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Every removal names this season alone and is made inside a transaction.
- *
- * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
- * its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
- * nobody behind it. `failed` sums the rows each of the three clocks passed over.
- *
- * 404 where no season has the id. Idempotent: a run after every due row went writes nothing.
+ * A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
+ * still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -2229,28 +2196,10 @@ export const getRegistrierungenAdmitUrl = (registrierungId: string) => {
 };
 
 /**
- * Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
+ * Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.
  *
- * The person survives the season, so the admission first looks for them: the stored person holding the
- * registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
- * confirmed consent record. Where that person's
- * name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
- * person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
- * this admission proves again.
- *
- * The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
- * the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
- * row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
- * deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
- * its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
- * about any of them, and the admission's act counts them.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
- * the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
- * offer (`registrierung_stufe_not_allowed`), a
- * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
- * already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
- * written on any of them.
+ * `spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;
+ * the registration and every other pending one of its address this season are erased, and nobody is mailed.
  * @summary Admit a registration into the team's squad
  */
 export const registrierungenAdmit = async (
@@ -2283,16 +2232,10 @@ export const getRegistrierungenDeclineUrl = (registrierungId: string) => {
 };
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
+ * Decline one pending registration, confirmed or not, for a reason from a closed set or none.
  *
- * The decision records a reason from a closed set, never free text:
- * `other_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
- * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
- * confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
- *
- * Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
- * one the team has declined already (404).
+ * A pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is
+ * mailed nothing.
  * @summary Decline a registration
  */
 export const registrierungenDecline = async (
@@ -2327,12 +2270,8 @@ export const getSaisonsPostSaisonUrl = () => {
 /**
  * Create the next season, always `future`, from its two days, answering the id it minted.
  *
- * The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
- * season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
- * (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
- * `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
- * two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
- * them. Making the season live is a separate step.
+ * Its id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league
+ * holds at most one planned season.
  * @summary Create a Saison
  */
 export const saisonsPostSaison = async (
@@ -2399,15 +2338,10 @@ export const getSaisonsGetSaisonsAdminUrl = () => {
 };
 
 /**
- * List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.
+ * Every season, the `future` ones included, each with its start, play and decision states and its counts.
  *
- * The admin surfaces read here because a season is created `future` and clubs are entered while it
- * still is, so an admin who cannot see one cannot run the league. `begun` is the start every
- * start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
- * fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
- * `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
  * `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
- * now, by its own judgement, or null.
+ * now, or null.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsAdmin = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSaisonsAdminListResponse> => {
@@ -2442,13 +2376,10 @@ export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a season's dates and rules on the `version` it was read at, answering the version stored.
  *
- * `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
- * fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
- * (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
- * started too early is unlocked by one save moving its start and a second changing its rules.
+ * What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
+ * fixed once a fixture has taken place, and moves later only while no club's exit is stored.
  * @summary Update a Saison's dates and rules
  */
 export const saisonsPatchSaison = async (
@@ -2481,10 +2412,9 @@ export const getSaisonsActivateSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Make this the active season, moving whichever holds `active` to `past` in one transaction.
+ * Make this the active season, moving whichever holds `active` to `past`.
  *
- * The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
- * refused, and every matchday of the target carries a date.
+ * The outgoing season must be finished, and every matchday of the target dated.
  * @summary Make this the active Saison
  */
 export const saisonsActivateSaison = async (
@@ -2502,21 +2432,10 @@ export const getSaisonsGetSaisonAdminUrl = (saisonId: string) => {
 };
 
 /**
- * Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
+ * What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
  *
- * The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
- * fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
- *
- * Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
- * `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
- * both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
- * which is what the replacement admits.
- *
- * `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
- * offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
- * the press decides each team by, beside each team's live link and the day it was last sent.
- * Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
- * season holds that id.
+ * The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+ * judges it, so an act is offered exactly where its write takes it.
  * @summary One Saison for the admin editor
  */
 export const saisonsGetSaisonAdmin = async (
@@ -2536,8 +2455,8 @@ export const getSaisonsSwapGruppenUrl = (saisonId: string) => {
 /**
  * Exchange the groups of two clubs entered in this season, as one write.
  *
- * Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
- * so each group stays a round robin. Neither `tore` nor `austritt` moves.
+ * Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
+ * `tore` nor `austritt` moves.
  * @summary Exchange two teams' groups
  */
 export const saisonsSwapGruppen = async (
@@ -2570,25 +2489,10 @@ export const getSaisonsPostInvitationsDispatchUrl = (saisonId: string) => {
 };
 
 /**
- * Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
+ * Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
  *
- * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
- * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
- * handed out; no link is answered. A team this skips is left exactly as it was.
- *
- * Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, or its live link was already sent. **The fourth is read off the day the live link was sent,
- * stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails nobody twice, and
- * the team's own press is what mails a club its link again. **The first is read off the junction row's
- * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
- * being a deliberate act rather than a bulk one.
- *
- * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
- * counts.
- *
- * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
- * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
- * teams and reaches the rest.
+ * A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
+ * was, so pressing twice mails nobody twice.
  * @summary Mint every admitted team a link
  */
 export const saisonsPostInvitationsDispatch = async (
@@ -2623,15 +2527,10 @@ export const getSaisonsGetSaisonOverviewUrl = (saisonId: string) => {
 };
 
 /**
- * The administrator's Übersicht for one season: its open work on four cards, every card served, an empty one included.
+ * The administrator's Übersicht for one season: its open work on the cards `due`, `ergebnisse`, `dates` and `bewerbungen`.
  *
- * In order: `due`, each fixture whose clubs owe their answer past its deadline or by today; `ergebnisse`, each fixture
- * whose day has gone by without a result, and each report not adopted as it stands; `dates`, each club's open date
- * proposal, each fixture lacking its date, time, venue, referee or, in the knockout stage, a side's club and source,
- * each referee's own decline while the slot stays empty, and each fault of the bracket or its bookings; `bewerbungen`,
- * each undecided application to play the season. A fixture called off or struck out lacks nothing. Each row carries what its act
- * needs: the fixture with its `version`, each open party's confirmation row, a proposal's row and its date and hour.
- * Answers 404 for a season that does not exist. Writes nothing.
+ * Every card is served, an empty one included, and each row carries what its act needs, the fixture with its `version`
+ * among it.
  * @summary One Saison's open work, card by card
  */
 export const saisonsGetSaisonOverview = async (
@@ -2671,13 +2570,9 @@ export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
 };
 
 /**
- * Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+ * Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
  *
- * Every fixture's confirmations go with it.
- *
- * The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
- * (`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
- * an entry.
+ * Undoing the draw reopens the shape rules to an edit and the groups to an entry.
  * @summary Undraw this Saison's Spielplan
  */
 export const saisonsDeleteSpielplan = async (
@@ -2712,12 +2607,10 @@ export const getSaisonsPostSpielplanUrl = (saisonId: string) => {
 };
 
 /**
- * Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
+ * Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
  *
- * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
- * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
- * window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
- * removed rows back.
+ * A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
+ * confirmations, reports and line-ups with it; nothing writes the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
 export const saisonsPostSpielplan = async (
@@ -4091,9 +3984,9 @@ export const getSpielorteGetSpielorteUrl = (params?: SpielorteGetSpielorteParams
 };
 
 /**
- * An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+ * Every venue in name order, the retired ones too where `include_inactive` asks for them.
  *
- * Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+ * `maps_link` is a Maps search string, not a URL.
  * @summary List Spielorte
  */
 export const spielorteGetSpielorte = async (
@@ -4111,9 +4004,9 @@ export const getSpielortePostSpielortUrl = () => {
 };
 
 /**
- * Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+ * Create a venue, its `maps_link` derived from the name and the address.
  *
- * Refused where another venue holds the name (`duplicate_key`, naming `name`).
+ * A name another venue holds, a retired one included, is refused.
  * @summary Create a Spielort
  */
 export const spielortePostSpielort = async (
@@ -4145,10 +4038,9 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
+ * Retire a venue, which stays readable for every match played there.
  *
- * A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
- * while an unplayed fixture is still booked here (`spielort_still_booked`).
+ * Refused while an unplayed fixture is booked at it.
  * @summary Deactivate a Spielort (soft delete)
  */
 export const spielorteDeleteSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
@@ -4163,10 +4055,7 @@ export const getSpielorteGetSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
- *
- * Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
- * the editor reactivates one, and a historical match's venue is the case worth answering.
+ * One venue, a retired one included, with the `version` its save sends back.
  * @summary One Spielort
  */
 export const spielorteGetSpielort = async (
@@ -4184,11 +4073,9 @@ export const getSpielortePatchSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
+ * Save a venue on the `version` it was read at, answering the version stored.
  *
- * A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
- * fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
- * `name`).
+ * Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
  * @summary Update a Spielort
  */
 export const spielortePatchSpielort = async (
@@ -4221,7 +4108,7 @@ export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
 };
 
 /**
- * Clear `inactive_since`, putting the venue back into the picker and every default read.
+ * Return a retired venue to every default read.
  * @summary Bring a deactivated Spielort back
  */
 export const spielorteReactivateSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
@@ -4256,12 +4143,10 @@ export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
 };
 
 /**
- * Move a matchday's span, answering the matchday's `version` after the save.
+ * Move a matchday's span, answering its `version` after the save.
  *
- * No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
- * to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
- * `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
- * closed.
+ * The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
+ * dated in.
  * @summary Re-date a Spieltag
  */
 export const spieltagePatchSpieltag = async (
@@ -4294,12 +4179,10 @@ export const getSpieltageGetSpieltagAdminUrl = (spieltagId: string) => {
 };
 
 /**
- * Return one matchday by its id for the admin editor, a `future` season's included.
+ * One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
  *
- * The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
- * matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
- * activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
- * exactly the season the write refuses (`saison_past`).
+ * Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+ * final.
  * @summary One Spieltag for the admin editor
  */
 export const spieltageGetSpieltagAdmin = async (
@@ -4335,7 +4218,7 @@ export const getSystemCheckIsReadyUrl = () => {
 };
 
 /**
- * Readiness: does this process reach its database? 503 where a ping does not come back within the request's deadline.
+ * Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
  *
  * Unauthenticated, for a monitor outside.
  * @summary Readiness probe
@@ -4354,13 +4237,10 @@ export const getTeamsGetTeamsAdminUrl = (params: TeamsGetTeamsAdminParams) => {
 };
 
 /**
- * The Teams page in one read: the season's clubs, a `future` season's included, and what entering another offers.
+ * One season's clubs, a `future` season's included, each with its seats and state, and what entering another offers.
  *
- * No base-tier season gate: a club is entered while its season is still planned. Each row counts its seats, its state
- * the type of an exit and the day its club left the league. `state=retired` reads past the season's rows to every
- * retired club, which is the way back to one. `entry` is every club still in the league holding no row of the season,
- * each group with whether it is full, `closed` where the season is not `future`, which the entry refuses, and `taken`
- * the colours the season's rows hold. 404 where no season holds that id.
+ * `state=retired` reads past the season's rows to every retired club, which is the way back to one, and `entry.closed`
+ * is true where the season, not being `future`, takes no entry.
  * @summary One season's Teams list and what its create dialog offers
  */
 export const teamsGetTeamsAdmin = async (
@@ -4380,10 +4260,7 @@ export const getTeamsPostTeamEntryUrl = (saisonId: string) => {
 /**
  * Enter a club into a `future` season in a group and a colour, founding it first where it is new.
  *
- * A new club's `shorthand` is unique across every club, retired ones included: a taken one is refused `duplicate_key`,
- * naming `shorthand`. A retired club is refused `team_retired`, a club the season already holds
- * `bewerbung_picked_team_already_entered`, a colour another row holds `trikot_farbe_taken`, naming `trikot_farbe`, and the
- * season and the group as an entry is.
+ * A club's `shorthand` is unique across every club, retired ones included, and a colour across the season's rows.
  * @summary Enter a club into a season, one the league holds or a new one
  */
 export const teamsPostTeamEntry = async (
@@ -4416,10 +4293,9 @@ export const getTeamsDeleteTeamUrl = (teamId: string) => {
 };
 
 /**
- * Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
+ * Retire a club from the league, its rows of the seasons it played left as they are.
  *
- * Refused while the club is entered in an `active` or `future` season. Its junction rows are left
- * alone: the seasons it played still happened.
+ * Refused while the club is entered in an `active` or `future` season.
  * @summary Retire a team (soft delete)
  */
 export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
@@ -4522,16 +4398,10 @@ export const getTeamsGetTeamSaisonAdminUrl = (teamId: string, saisonId: string) 
 };
 
 /**
- * Return what the team editor shows in one read: the club, its row of the season, and what each act of the page meets.
+ * What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
  *
- * `version` is what the one save sends. `membership` serves the row with its seats' links, null for
- * a club holding no row of the season, a retired one reached through the list's filter; `link` is null with it.
- * `gruppen` is each group the season offers with whether it is full, `gruppe_locked` whether a group move is refused
- * `entry_gruppe_locked`, `taken_trikot_farben` the colours another row holds, and `retire_blocked_by` the season
- * `retire_blocked` refuses over, by each write's own judgement.
- * `link` is the live registration link, the window's judgement of it, and why the season's press would pass the team
- * over. Read outside a transaction: a write landing under this read is judged by its own write. 404 where no club or no
- * season holds that id.
+ * `version` is what the one save sends, each flag is judged as its write judges it, and `membership` and `link` are
+ * null for a club holding no row of the season.
  * @summary One team in one season for the admin editor
  */
 export const teamsGetTeamSaisonAdmin = async (
@@ -4550,14 +4420,10 @@ export const getTeamsPatchTeamSaisonUrl = (teamId: string, saisonId: string) => 
 };
 
 /**
- * Save the team editor's one version: the club, the rename's fan-out, and the group and colour of this season's row.
+ * Save the team editor's one version: the club, its name on its unfinished seasons' rows, and this season's group and colour.
  *
- * Refused `version_stale` once the club or the row has moved since the editor read them, whichever it was. Judged per
- * part: a `past` season keeps the club's fields open and refuses `saison_past` only where the group or the colour
- * changes, since a finished season's table and podium are read off its rows. A shorthand another club holds, a retired one
- * included, is refused `duplicate_key`, naming `shorthand`. A group move is refused as `entry_gruppe_locked` and
- * `entry_gruppe_full` refuse it, and a colour the save moves onto one another row holds `trikot_farbe_taken`, naming
- * `trikot_farbe`. 404 where the club holds no row of the season.
+ * A `past` season keeps the club's fields open and fixes the row's group and colour, and a group move and a colour
+ * are judged as an entry's.
  * @summary Save the team editor: the club and its row of the season, in one transaction
  */
 export const teamsPatchTeamSaison = async (
@@ -4593,9 +4459,8 @@ export const getTeamsPutAustrittUrl = (teamId: string, saisonId: string) => {
 /**
  * Record how a team left the season, once: an exit is never lifted and never replaced.
  *
- * Refused `version_stale` on a row whose exit stands, whatever the write carries, the page having been read before it;
- * `saison_past` on a finished season; and `austritt_before_saison_start` until the season's start date, its `earliest`
- * the start: before it, the replacement takes a club out. 404 where the team holds no row of the season.
+ * An exit is taken from the season's start date on, before which the replacement takes a club out, and never on a
+ * finished season.
  * @summary Record a team's exit from a season
  */
 export const teamsPutAustritt = async (
@@ -4631,8 +4496,7 @@ export const getTeamsDeleteInvitationUrl = (teamId: string, saisonId: string) =>
 /**
  * Stamp this team's live registration link revoked, so it opens nothing from here on.
  *
- * The row stays: a delivery event about a message carrying that link still has somewhere to land, and a reissue's history is what says
- * which link a bounce was about. 404 where the team holds no live link for the season; a link of a season that has ended stays revocable.
+ * The row stays, so a delivery event about a mail carrying the link still has somewhere to land.
  * @summary Revoke this team's live registration link for a season
  */
 export const teamsDeleteInvitation = async (
@@ -4653,19 +4517,8 @@ export const getTeamsPostInvitationUrl = (teamId: string, saisonId: string) => {
 /**
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
- * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
- * this response is lost and the repair is another mint. Mailing the team's link is a separate press
- * (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
- *
- * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
- * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
- * every time somebody opens it, so a window moved after the mint moves this link with it.
- *
- * Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
- * (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
- *
- * A row whose exit stands is refused `version_stale`, the page offering this press having been read before the exit: its team's link
- * opens nothing, whoever holds it.
+ * The raw link is in this answer and in no other, the row storing only its hash, and it opens for as long as the season's
+ * registration window does, judged afresh at each opening.
  * @summary Mint this team's registration link for a season
  */
 export const teamsPostInvitation = async (
@@ -4684,19 +4537,10 @@ export const getTeamsPostInvitationDispatchUrl = (teamId: string, saisonId: stri
 };
 
 /**
- * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+ * Owe this team's live registration link to every seat whose own person has confirmed it, one mail each, `mailed` counting them.
  *
- * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
- * stays valid beside the mailed ones. `mailed` counts who is owed it, one per stored address, and is 0 where nobody has confirmed a
- * seat, which owes nothing. Where it owes anyone, the row's `sent_at` becomes today, the day the season editor shows. Pressed
- * twice on one day, the second owes nothing again; a later day's press mails the seats afresh. A barred address is stopped when its mail
- * is handed out.
- *
- * Refused where the season has ended (`saison_past`), as the mint and the season's press are: its link opens nothing for good. A
- * window shut for now is no refusal, the link opening once the season takes registrations, and past the window's end it opens on
- * as a Nachnominierung. 404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since
- * the caller read it among them, and where the season holds no row for the team. A row whose exit stands is refused `version_stale`,
- * as the mint refuses it.
+ * Each mail mints a link of its own at its hand-out, so a copied link stays valid beside them, and a second press on
+ * one day owes nothing again.
  * @summary Mail this team's live registration link to its confirmed contact seats
  */
 export const teamsPostInvitationDispatch = async (
@@ -4730,20 +4574,10 @@ export const getTeamsPutKontaktSeatUrl = (teamId: string, saisonId: string, seat
 };
 
 /**
- * „Sitz bearbeiten“: write the person into one seat, judged by the seat's state, on the row's `version`.
+ * Write the person one seat holds on the row's `version`, a newly seated person owed a fresh link whose address `email` names.
  *
- * The same person, the address and name folded, keeps the seat's record and link, so a corrected number mails nobody and
- * `email` answers null. Anyone else takes the seat unconfirmed, a confirmed person giving way, and is owed a fresh link
- * in this write's own transaction, the answer naming the address; an emptied seat is filled the same way. The seat's
- * last holder answers the team's match confirmations no more. A `past` season's seats and a departed team's
- * stay correctable, and such a link takes the person's Widerspruch alone.
- *
- * Where the Trainer holds a second seat, a write on either seat writes both, under one link. `trainer_is_also` is read
- * on the Trainer's seat alone: sent, it replaces the claim, and the seat it names takes this person; null ends the
- * claim, and the seat it named keeps its person. Left out, the claim stands.
- *
- * Refused `version_stale` on a row moved since the read, and `kontakt_email_taken` and `kontakt_phone_taken` where another
- * seat's person holds the address or the number. 404 for a team and season holding no row, and for a path naming no seat.
+ * The same person, address and name folded, keeps the seat's record and link, and where the Trainer holds a second seat
+ * a write on either seat writes both under one link.
  * @summary Write the person one contact seat holds
  */
 export const teamsPutKontaktSeat = async (
@@ -4778,15 +4612,10 @@ export const getTeamsInviteKontaktUrl = (teamId: string, saisonId: string, seat:
 };
 
 /**
- * Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
+ * Owe one contact seat a fresh confirmation link, and its pair where the Trainer holds both and has not confirmed it.
  *
- * It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
- * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
- * the address the mail is owed to, never the link.
- *
- * Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), and where the seat holds nobody or its
- * person has already confirmed it (`kontakt_seat_without_confirmation`).
- * 404 for a team and season holding no row, and for a path naming no seat.
+ * The previous link opens nothing from this write on, the deadline restarts from today, and the answer names the
+ * address the mail is owed to, never the link.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsInviteKontakt = async (
@@ -4806,11 +4635,9 @@ export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) =
 };
 
 /**
- * Hand this season's junction row, and every fixture on it, to another club.
+ * Hand this season's row, and every fixture on it, to another club, keeping the schedule.
  *
- * Its `team_id`, identity copy and every fixture side move, its `austritt`, colour, contacts and
- * their links are cleared, and the outgoing club's live squad rows are retired, in ONE transaction:
- * the schedule survives.
+ * The row's exit, colour, contacts and their links are cleared, and the outgoing club's live squad rows retired.
  * @summary Replace a club in a season, keeping its schedule
  */
 export const teamsReplaceSaisonTeam = async (
