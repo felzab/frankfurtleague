@@ -11,8 +11,8 @@ import type { FLSchiedsrichterConfirmationData } from "./generated/client/types"
 import type { MailLink } from "./mailKinds";
 
 /**
- * The one place the referee's confirmation link is spelled. `token` is the parameter name because the edge's
- * `$credential_free_uri` matches that name; a second spelling reaches the access line and the referer unredacted.
+ * The one place the referee's confirmation link is spelled. `token` is the parameter name because the
+ * confirmation page reads that name alone.
  */
 function schiedsrichterConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.schiedsrichterConfirmation.path()}?token=${encodeURIComponent(token)}`;

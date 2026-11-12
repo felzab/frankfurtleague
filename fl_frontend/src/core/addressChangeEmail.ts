@@ -19,7 +19,7 @@ import type { MailLink, MailOrigin } from "./mailKinds";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
- * `token`, because the edge's `$credential_free_uri` redacts that name alone.
+ * `token`, because the address page reads its link under that name alone.
  */
 function addressChangeLink(origin: string, token: string): string {
   return `${origin}${ROUTES.addressChangeConfirmation.path()}?token=${encodeURIComponent(token)}`;
