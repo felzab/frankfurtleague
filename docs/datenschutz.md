@@ -49,7 +49,7 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen) names.
 - **The interest is weighed against most participants being 16 or 17.** Of a pupil, only the
   nameless slot is published on this basis, in a squad, a line-up or beside a goal or card, keeping
-  team, season, shirt number and position. It is weighed as personal data, since teammates and
+  only its team and season. It is weighed as personal data, since teammates and
   classmates can very probably tell whose it is. It carries no name and no record id linking the
   pupil's seasons ([section 4](#4-what-is-published-and-on-what-basis)), and the notice says it
   stands whatever the name's consent. No birthdate reaches a public read, and anyone may object
@@ -247,8 +247,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   of a pupil decides by `fl_backend/app/api/spieler/services.py :: name_is_public`, or its
   expression at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. It asks that the
   record be present, its `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a
-  nameless slot keeping its number and position, and carries no record id that would link its
-  seasons. The gate fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on
+  nameless slot, „anonym“, served after the named rows. It carries no number, no position and no
+  record id, which would say whose it is or link its seasons
+  (`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`). The gate fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on
   the public squad and in a match's line-ups, and a nameless slot carries none. The mark is served
   only where the name is, so it publishes nothing about a pupil whose name is withheld.
 - **A referee's name stands on a fixture only on their own consent, and only once they agreed to
@@ -293,14 +294,14 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   nothing compares names; the registration form and the application's seats tell the person so. A
   mailbox shared anyway is one account, and an erasure keyed on it takes every record under it.
   Every erasure is keyed on a mailbox, so a hand edit emptying a row's address puts it out of reach.
-- **What an erasure deletes or repoints**, in one transaction:
+- **What an erasure deletes or leaves naming nobody**, in one transaction:
   - every record the address holds, outright rather than nulled;
-  - a referee's fixtures, repointed at the ghost
-    (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), which also ends their
-    engagement; a fixture played or called off keeps its booking and `payment`;
-  - a pupil's goals and cards, and their entries on line-ups locked before their match, repointed
-    at `:: GHOST_SPIELER_ID`; their entries on line-ups not yet locked are removed
-    (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+  - a referee's bookings of fixtures still to come, removed; a played fixture keeps its booking and
+    `payment`, naming nobody
+    (`fl_backend/app/api/schiedsrichter/crud.py :: erase_referee_in_session`);
+  - a pupil's goals and cards, and their entries on the line-ups of played fixtures, left naming
+    nobody; their entries on the line-ups of fixtures still to come are removed
+    (`fl_backend/app/api/spielberichte/crud.py :: empty_pupil_entries_in_session`,
     `fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`);
   - their address wherever the action log names it, replaced by the marker naming nobody
     (`fl_backend/app/api/action_log/crud.py :: reattribute_administrator_in_session`);
@@ -627,7 +628,7 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 13. **A delivery state with no bound**, on an invite entry and on a declined seat's link entry:
     whether it may stand, and whether a delivery record the provider can join to an address is still
     that person's data.
-14. **A nameless slot** keeping team, number and position: whether it is personal data, and so needs
+14. **A nameless slot** keeping only its team and season: whether it is personal data, and so needs
     a basis of its own, and whether section 2's weighing carries it for pupils of 16 and 17.
 15. **The notice's statements**:
     - one legitimate interest for every processing, against Art. 13(1)(d);
