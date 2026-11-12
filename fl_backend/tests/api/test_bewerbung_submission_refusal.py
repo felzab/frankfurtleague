@@ -278,11 +278,21 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert any(entry["type"] == "extra_forbidden" for entry in failure.value.errors())
 
-    def test_a_school_website_that_is_not_an_http_url_is_refused(self):
+    @pytest.mark.parametrize(
+        "website_url",
+        [
+            pytest.param("javascript:alert(1)", id="no http url"),
+            # The admin panel shows the string and follows the host, which userinfo makes two different domains.
+            pytest.param("https://frankfurtleague.de@evil.example", id="a host behind userinfo"),
+        ],
+    )
+    def test_a_school_website_that_is_not_an_http_url_is_refused(self, website_url: str):
         """Constrained on this payload where the read model leaves it bare: acceptance parses the block through `FLPostTeamPayload`."""
 
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
+        with pytest.raises(ValidationError) as failure:
+            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+
+        assert [(error["type"], error["loc"]) for error in failure.value.errors()] == [("url_not_accepted", ("schule", "website_url"))]
 
     def test_an_empty_website_box_is_stored_as_null(self):
         """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""
