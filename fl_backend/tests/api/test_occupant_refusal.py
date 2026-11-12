@@ -313,6 +313,14 @@ class TestApplyingThePayload:
             stored.saison_phase,
         )
 
+    def test_the_second_sides_quelle_and_the_note_reach_the_spiel(self, saison):
+        """Each dropped, the save would report success and keep what the fixture held before."""
+
+        patched = patched_spiel(saison, 30, team2_quelle=sieger(2), note="Anpfiff auf dem Nebenplatz")
+
+        assert patched.team2_quelle is not None
+        assert (patched.team2_quelle.model_dump(), patched.note) == (sieger(2), "Anpfiff auf dem Nebenplatz")
+
 
 class TestComposingAForfeit:
     """A no-show's goals come from the season's regulation, never from the client: a typed figure can disagree with the rule it states."""
