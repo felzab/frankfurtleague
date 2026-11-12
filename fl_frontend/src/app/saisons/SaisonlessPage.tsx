@@ -14,7 +14,6 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Saisonless = (typeof SAISONLESS_PAGES)[number];
 
-/** Such a page's metadata, from its row. */
 export function metadataOf(route: Saisonless["route"]) {
   return async (_: unknown, parent: ResolvingMetadata): Promise<Metadata> => pageMetadata(parent, ROUTES[route], ROUTES[route].path());
 }
