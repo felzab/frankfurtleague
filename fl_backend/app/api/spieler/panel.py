@@ -1,8 +1,8 @@
 """
-API · what a pupil's own page reads of one season
+What a pupil's own page reads of one season.
 
-Apart from `schemas.py`, which the season's models import: this read model is built from a club page's fixture, so it
-stands above both.
+Apart from the slice's schemas, which the season's models import: this read model is built from a club page's fixture,
+so it stands above both.
 """
 
 from app.api.saisons.schemas import FLTeamPageSpiel

@@ -67,7 +67,7 @@ from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, by_choice
 from app.shared.schemas.literals import FLSpielerStufe
 
-# The person lane's identifier IN PLACE of `bind_actor` and the grants check, which a seat holder holding
+# The person lane's identifier in place of `bind_actor` and the grants check, which a seat holder holding
 # no grant would fail.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler/kader",
@@ -168,13 +168,9 @@ async def get_kader(
     db: DBClient,
 ) -> FLKaderResponse:
     """
-    The squad of one team in one season, for a person holding any contact seat on it.
+    The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.
 
-    Every row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no
-    e-mail address or telephone number of anybody. `nummer_double` marks a live row whose number
-    another live row of the squad wears, compared as stored. `allowed_stufen` is what the season's
-    rules offer an edit. Refused `role_not_held` where the signed-in person holds no seat on this
-    team in this season, a seat on a `past` season holding none.
+    Each surname is whole, and no address or telephone number of anybody is served.
     """
 
     # A snapshot, so the squad served is the one the seat was judged against; never a transaction,
@@ -211,11 +207,7 @@ async def patch_kader_row(
     """
     Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
 
-    The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
-    row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
-    nothing is written. Refused `role_not_held` without a seat, `kader_stufe_not_allowed` for a `stufe` the
-    season's `allowed_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
-    for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
+    The team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.
     """
 
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
@@ -292,11 +284,9 @@ async def delete_kader_row(
     today: str = Depends(get_german_date_str),
 ) -> FLKaderRow:
     """
-    Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.
+    Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
 
-    Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
-    brings the row back. 404 where this team holds no live row for the player in this season,
-    another team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.
+    The person stays in the league, and only an administrator brings the row back.
     """
 
     async def take_the_row_out(session: AsyncClientSession) -> FLKaderRow:
@@ -361,19 +351,8 @@ async def patch_einwilligung(
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
-    Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
-    the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
-    PATCH moving neither choice writes nothing.
-
-    Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
-    other than the record's own, either choice having moved since the page was served (`choices_stale`); a choice
-    moving onto a grant under a label other than its
-    current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where
-    the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
-    refusal writes nothing.
-
-    **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
-    name is served, and nothing here can.
+    Each moved choice is written with its evidence, and the caller drops its cached squad lists after a success, since
+    the scope decides whether a name is served.
     """
 
     own_entry = build_self_pupil_filter(identifier)
@@ -416,9 +395,9 @@ async def patch_einwilligung(
 @spieler_router.get("/self/saisons", response_model=FLOwnSaisonsResponse, summary="The seasons a signed-in pupil holds a squad row in")
 async def get_self_saisons(identifier: PersonIdentifier, spieler_collection: SpielerReadCollection) -> FLOwnSaisonsResponse:
     """
-    Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.
+    Every season the signed-in pupil holds a squad row in, the newest first, each with its span.
 
-    A planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).
+    A deregistered row's season and a planned season are served as any other.
     """
 
     row = _own_pupil_row(await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_saisons_pipeline(identifier)))
@@ -435,14 +414,10 @@ async def get_self_saison(
     saison_id: str, identifier: PersonIdentifier, spieler_collection: SpielerReadCollection
 ) -> FLSpielerSaisonSelfResponse:
     """
-    What the signed-in pupil's own page shows of one season, in one read.
+    The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.
 
-    Their squad row of this season with the name its club plays the season under, null where they hold none; and
-    that club's fixtures in the order the draw numbered them, each with
-    whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
-    none is stored (null).
-
-    Refuses an address holding no confirmed pupil record (`role_not_held`).
+    Each fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null
+    where it does not name them or none is stored.
     """
 
     row = _own_pupil_row(
