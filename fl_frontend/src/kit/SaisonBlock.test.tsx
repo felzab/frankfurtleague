@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { DAY_MS } from "@/core/timeUnits";
 
-import { SaisonBlock } from "./SaisonBlock";
+import { SaisonBlock, SaisonBlockPlaceholder } from "./SaisonBlock";
 
 const TITLE = COPY.shared.saisonName("2027");
 const SPIEL = {
@@ -100,6 +100,18 @@ describe("the season's card while it runs", () => {
     expect(heads).toStrictEqual([SERVER_COPY.landing.saison.next]);
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(links).toStrictEqual(["/saisons/2027/spiele/2", "/saisons/2027/spiele/3"]);
+  });
+});
+
+describe("the season's card while it is read", () => {
+  // The harm: a wait drawn as one state's body stands at another height than the state that lands, and moves the page.
+  it("draws its head over one plain body, the same whichever state lands", () => {
+    const { container } = render(<SaisonBlockPlaceholder />);
+    const parts = Array.from(container.firstElementChild?.children ?? []);
+    expect(parts).toHaveLength(2);
+    const body = parts[1];
+    expect(body?.querySelectorAll(".skeleton-bar")).toHaveLength(1);
+    expect(body?.textContent).toBe("");
   });
 });
 
