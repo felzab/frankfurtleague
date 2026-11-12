@@ -1,9 +1,7 @@
-"""
-API · a line-up's screen read and saved, one way for a seat of the club and for an administrator
+"""A seat's route and an administrator's show the same line-up screen and save the same document.
 
-Both addresses show the same screen and save the same document, so a seat's route and an administrator's differ only in
-what they judge first: a seat holder is asked for the seat and refused from the lock, an administrator is asked
-neither (`app/api/aufstellungen/admin_router.py`).
+They differ only in what they judge first: a seat holder is asked for the seat and refused from the lock, an
+administrator is asked neither.
 """
 
 from collections.abc import Mapping, Sequence
@@ -231,7 +229,7 @@ async def read_aufstellung_screen(
     team_id: ObjectId,
     reads: AufstellungReads,
     now: datetime,
-    # REQUIRED: one snapshot, so the seat, the fixture, the squad and the stored line-up never straddle a commit.
+    # One snapshot, so the seat, the fixture, the squad and the stored line-up never straddle a commit.
     session: AsyncClientSession,
 ) -> FLAufstellungResponse:
     """One club's line-up screen for one fixture, as a seat of the club reads it, or an administrator where `seat` is None."""

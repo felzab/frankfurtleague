@@ -51,7 +51,8 @@ from app.core.security import PersonIdentifier, get_person_identifier, verify_ac
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# The referee's own router, binding the referee's Funktion at router level.
+# The referee's own router: the person's identifier is bound at router level, and each handler judges their referee
+# records in its own session.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielberichte",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
@@ -77,19 +78,9 @@ async def get_spielbericht_bericht(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielberichtSchiedsrichterResponse:
-    """
-    What the booked referee's report form reads.
+    """What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
 
-    The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
-    report, its remarks included, or null.
-
-    `reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it
-    holds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose
-    page says why it takes no report, with both squads empty: the pupils the stored report names are then all in
-    `named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads
-    empty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee
-    record, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a
-    fixture that does not exist.
+    Where `reportable` is false or `completed` true, both squads are empty and every pupil the report names is in `named`.
     """
 
     async with db.start_session(snapshot=True) as session:
@@ -148,32 +139,10 @@ async def put_spielbericht_bericht(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielberichtSchiedsrichterResponse:
-    """
-    Write the whole report of one fixture as its booked referee, replacing what stood.
+    """Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
 
-    The shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are
-    the entries credited to each side, an own goal crediting the other one, and no form sends them. The first write
-    creates it and answers 201; every write changing it clears its adoption in the same update, so a report the
-    administrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes
-    nothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side
-    under reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.
-
-    `version` is the report document's as the form was served it, null where the form showed no report: a write composed
-    on another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form
-    read before an adoption saves stale once.
-
-    Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
-    (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
-    (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
-    `version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose
-    kick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out
-    (`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil
-    the write newly names on a side outside that side's live squad of the season, a pupil the report already named on
-    that side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`
-    is asked again outside the transaction just before answering, the referee's records included, so a write landing on
-    what was judged before that second asking refuses the report rather than letting it stand, and one landing after it
-    stands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets
-    `version_stale`. Two first writes at once are two forms opened on no report: the later is refused.
+    A write changing the report clears its adoption, and `version` is the report document's as the form was served it,
+    null where the form showed no report.
     """
 
     payload = bericht_data.bericht

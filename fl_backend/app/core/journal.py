@@ -1,8 +1,8 @@
 """
-CORE · the journal: a line for each erasure, withdrawal and objection, the acts a restore undoes
+The journal: a line for each erasure, withdrawal and objection, the acts a restore undoes.
 
 A restore rolls the database and its action log back together, so what must be done again stands in the backend's
-stream instead (`docs/ops/runbooks.md` §13). A line names the act and where its person stands by id, a confirmed seat's
+stream instead. A line names the act and where its person stands by id, a confirmed seat's
 day beside it, never an address or a name, since it outlives the erasure it reports.
 
 Invariant: a line is written once its transaction committed or lost its answer, never by an attempt that rolled back.
@@ -22,8 +22,8 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 
 PrivacyAct = Literal["erasure", "withdrawal", "objection"]
 
-# Docker cuts a line at 16 KiB (moby's `daemon/logger/copier.go :: defaultBufSize`), and a `grep` for the message misses
-# everything past a cut. The longest entry, a seat's, is 67 bytes once quoted, so a part stays near 8 KiB.
+# Docker cuts a line at 16 KiB, and a `grep` for the message misses everything past a cut. The longest entry, a
+# seat's, is 67 bytes once quoted, so a part stays near 8 KiB.
 PART_ENTRIES_MAX: Final = 120
 
 

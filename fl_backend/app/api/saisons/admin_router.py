@@ -95,7 +95,6 @@ from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
     anchor_in_db,
-    build_sort,
     delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
@@ -263,7 +262,7 @@ async def get_saison_admin(
                 db_filter={"saison_id": saison_id},
                 what=f"season {saison_id}'s clubs",
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
-                sort_by=build_sort(sort_by="name", order="asc"),
+                sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
             ),
             pull_whole_from_db(
@@ -278,7 +277,7 @@ async def get_saison_admin(
                 db_filter={"inactive_since": None},
                 what="the league's clubs",
                 projection=["name", "shorthand"],
-                sort_by=build_sort(sort_by="name", order="asc"),
+                sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
             ),
             pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
@@ -1215,7 +1214,7 @@ async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: 
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
-        sort_by=build_sort(sort_by="name", order="asc"),
+        sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
 

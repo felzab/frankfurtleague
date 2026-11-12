@@ -8,16 +8,16 @@ from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, Text
 from app.shared.schemas.literals import FLEinwilligungScope, FLKontaktKenntnisnahmeScope
 from app.shared.schemas.responses import BaseReadModel
 
-# The label of each consent's CURRENT wording, the one a grant names: a page loaded before a deploy moved a label shows
+# The label of each consent's current wording, the one a grant names: a page loaded before a deploy moved a label shows
 # words a grant's record would then cite.
 type FLWhatsappTextVersion = Literal["2026-11-whatsapp-1"]
 type FLMediaTextVersion = Literal["2026-11-medien-1"]
 type FLNameKaderTextVersion = Literal["2026-11-name-kader-1"]
 type FLNameSpielplanTextVersion = Literal["2026-11-name-spielplan-1"]
 
-# Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one alone: each
-# label constant `fl_frontend/src/core/consentWordings.ts` sends on a grant is checked against them, so a rewording that
-# moves one here and leaves the page's label behind fails the frontend's type check rather than refusing every grant.
+# Published as schemas of their own by `with_mirrored_constants`, though no operation names one alone: each label
+# constant the frontend sends on a grant is checked against them, so a rewording that moves one here and leaves the
+# page's label behind fails the frontend's type check rather than refusing every grant.
 CURRENT_TEXT_VERSIONS: Final = (FLWhatsappTextVersion, FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion)
 
 # Every label a record of each kind may cite for each choice: the current one and each it replaced. A rewording moves the
@@ -29,8 +29,8 @@ type FLSchiedsrichterScopeTextVersion = FLNameSpielplanTextVersion
 # One for every kind, each showing the one media wording: three aliases of the one label would each be published
 # twice, Pydantic rendering an alias another references once as its `const` and one referenced more often as a `$ref`.
 type FLCitedMediaTextVersion = FLMediaTextVersion
-# Every label any record cites, as `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS` keys their words, which
-# that map is checked against through the published contract.
+# Every label any record cites: the frontend's `CONSENT_WORDINGS` keys their words by it, checked against it through the
+# published contract.
 type FLEinwilligungTextVersion = FLSeatScopeTextVersion | FLSpielerScopeTextVersion | FLSchiedsrichterScopeTextVersion | FLCitedMediaTextVersion
 
 
@@ -53,11 +53,10 @@ def _current(alias: TypeAliasType) -> str:
 class FLEinwilligungReceipt(BaseModel):
     """When a person set one consent choice, and under which wording."""
 
-    # An instant in UTC (`app/core/clock.py :: utc_stamp`), where the block carries a day: two
-    # acts on one day are ordered by it.
+    # An instant in UTC, where the block carries a day: two acts on one day are ordered by it.
     at: str
     # The words the person was shown for this choice. Any record's label on a read, and its own kind's and choice's on
-    # the record model `app/readback.py` judges (`cite_their_kind`).
+    # the record model the read-back judges (`cite_their_kind`).
     text_version: FLEinwilligungTextVersion
 
 
@@ -91,8 +90,8 @@ class FLEinwilligungStatePayload(FLEinwilligungState):
     model_config = ConfigDict(extra="forbid")
 
 
-# The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press,
-# for the payloads' reason below; one model per kind of record, whose scope wordings differ. Each admits every label
+# The labels a press was given under, one per choice, each recorded on that choice's evidence. Both on every press, so
+# neither choice is judged by nothing; one model per kind of record, whose scope wordings differ. Each admits every label
 # its kind's records may cite, and `stale_grants` holds a grant to the current one.
 class _TextVersions(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -156,7 +155,7 @@ def stale_grants(text_versions: PressTextVersions, set_fields: Mapping[FLEinwill
 def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[FLEinwilligungChoice, Any]) -> None:
     """A confirmation's refusal of a grant under a replaced label: every choice it sets is a first answer, so each grant moves.
 
-    The account presses judge it in their writer instead (`app/api/account/services.py :: find_grant_wording_refusal`).
+    The account presses judge it in their writer instead (`find_grant_wording_refusal`).
     """
 
     stale = stale_grants(text_versions, set_fields)
@@ -165,7 +164,7 @@ def refuse_a_stale_grant(text_versions: PressTextVersions, set_fields: Mapping[F
 
 
 def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVersions]) -> FLEinwilligungEvidenceSet:
-    """Refuse evidence citing a label its kind's record never shows for that choice, as `app/readback.py` judges a record."""
+    """Refuse evidence citing a label its kind's record never shows for that choice, as the read-back judges a record."""
 
     for choice in CHOICES:
         evidence = getattr(evidence_set, choice)
@@ -177,9 +176,8 @@ def cite_their_kind(evidence_set: FLEinwilligungEvidenceSet, kind: type[_TextVer
 
 
 # The account presses' payloads take any label their kind cites, a grant's included: only a choice the press moves onto
-# a grant must name its current one, and which choices move is the stored record's to say, which the writer reads
-# (`app/api/account/crud.py :: press_einwilligung`). A page loaded before a rewording still withdraws one choice while
-# leaving the other granted.
+# a grant must name its current one, and which choices move is the stored record's to say, which the writer reads. A
+# page loaded before a rewording still withdraws one choice while leaving the other granted.
 class _OwnEinwilligungPayload(BaseModel):
     # Both choices on every press, and no member defaulted: a default would let a page that forgot one
     # reset the person's other choice.

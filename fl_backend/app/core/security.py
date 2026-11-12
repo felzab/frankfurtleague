@@ -30,8 +30,8 @@ KeySelector = Callable[[BackendConfig], SecretStr]
 def verify_api_key(select_key: KeySelector, *, scheme_name: str) -> Callable:
     """Build a guard that compares the bearer token against one configured key.
 
-    The key is selected PER REQUEST: capturing its value here would read the environment at import
-    time, the side effect `app/asgi.py` exists to confine.
+    The key is selected per request: capturing its value here would read the environment at import
+    time.
     """
 
     # A scheme per tier, so each operation's published `security` names the key it takes.
@@ -57,7 +57,7 @@ verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admi
 
 
 def get_actor_email() -> str:
-    """The administrator this request is attributed to, for a field that STORES who acted.
+    """The administrator this request is attributed to, for a field that stores who acted.
 
     The variable the log reads, so a decision and its `action_log` row cannot name two people.
     """
@@ -76,7 +76,7 @@ ACTOR_HEADER: Final = "X-FL-Actor"
 AUTH_TIME_HEADER: Final = "X-FL-Auth-Time"
 AUTH_FACTOR_HEADER: Final = "X-FL-Auth-Factor"
 
-# The two factors the frontend's sessions are made by (`fl_frontend/src/core/auth/library.ts :: SESSION_FACTOR_BY_PATH`).
+# The two factors the frontend's sessions are made by.
 Factor = Literal["passkey", "code"]
 FACTORS: Final[tuple[Factor, ...]] = get_args(Factor)
 PASSKEY_FACTOR: Final = "passkey"
@@ -103,7 +103,7 @@ def actor_header_value(email: str) -> str:
     """The address as `X-FL-Actor` carries it: UTF-8, percent-encoded as `encodeURIComponent` spells it.
 
     A field value is ASCII (RFC 9110 §5.5), and the frontend's fetch takes only a ByteString, so an address beyond
-    ASCII travels encoded (`fl_frontend/src/core/api.ts :: sendToBackend`).
+    ASCII travels encoded.
     """
 
     return quote(email, safe=_URI_COMPONENT_SAFE)
@@ -144,10 +144,9 @@ def refused_session() -> APIError:
 def verify_admin_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
     """The administrator an admin-tier request is attributed to: a passkey session inside the administrator's window.
 
-    The frontend's admin guard asks both (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`); asked here
-    too because person and admin routes take the same key, so a person's session sent to an admin route
-    by mistake meets this rather than acting on the grant alone. One dependency `verify_actor_is_admin`
-    and `bind_actor` share, so FastAPI reads it once a request.
+    The frontend's admin guard asks both; asked here too because person and admin routes take the same
+    key, so a person's session sent to an admin route by mistake meets this rather than acting on the
+    grant alone.
     """
 
     if actor.factor != PASSKEY_FACTOR or session_age_s(actor) > ADMIN_WINDOW_HOURS * 3600:
@@ -183,8 +182,7 @@ async def bind_actor(actor: Annotated[SessionActor, Depends(verify_admin_actor)]
     try:
         yield
     finally:
-        # Reset, or the address bleeds onto whichever request the loop runs next, the hazard `TraceContextMiddleware`
-        # resets its own ids for.
+        # Reset, or the address bleeds onto whichever request the loop runs next.
         actor_var.reset(token)
 
 

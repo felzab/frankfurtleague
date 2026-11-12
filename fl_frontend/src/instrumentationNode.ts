@@ -5,9 +5,9 @@ import { runInBackground } from "./core/requestScope";
 import { HOUR_MS } from "./core/timeUnits";
 import { mintTraceId } from "./core/trace";
 
-// A refused configuration's exit, apart from a fault's 1, as the backend's (`fl_backend/app/main.py ::
-// BOOT_REFUSED`): `docker compose ps` shows it on the restarting container, `Restarting (3)`, which tells a
-// host's bad file from a crash before anyone opens the log.
+// A refused configuration's exit, apart from a fault's 1, as the backend's `BOOT_REFUSED`: `docker compose ps`
+// shows it on the restarting container, `Restarting (3)`, which tells a host's bad file from a crash before anyone
+// opens the log.
 const REFUSED = 3;
 
 export async function registerOnNode() {
@@ -22,7 +22,7 @@ export async function registerOnNode() {
     throw refusal;
   });
 
-  // The one line per start that says which build runs: the json-file driver records no image version of its own.
+  // The one line per start that says which build runs: the log driver records no image version of its own.
   logger.info("system.started", { version: frontend_config.APP_VERSION ?? null });
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
@@ -84,7 +84,7 @@ async function loadJobs(): Promise<{
 
 /**
  * Every job is idempotent and selects on a date or a lapse, so the hour decides only how late in the day a deadline is
- * acted on; every write drains the Postausgang behind its answer besides (`fl_frontend/src/core/api.ts :: sendToBackend`).
+ * acted on; every write drains the Postausgang behind its answer besides.
  */
 const PASS_INTERVAL_MS = HOUR_MS;
 
@@ -97,7 +97,7 @@ const FIRST_PASS_DELAY_MS = 60 * 1000;
 /**
  * The one scheduler, for the life of this process: production runs one frontend container, so one process holds the
  * timer and no cross-process lease is built. Armed and returned at once, the first pass never awaited: Next serves
- * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
+ * nothing until `register` returns.
  */
 function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
   let running = false;

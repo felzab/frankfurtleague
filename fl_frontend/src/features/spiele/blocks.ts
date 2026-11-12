@@ -25,11 +25,6 @@ import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 import type { Outcome } from "@/kit/Timeline";
 import type { Route } from "next";
 
-/**
- * A match as the kit's blocks show it, built once for every season page, the match page and the pop-up, the
- * landing's among them: its sides, its row, its head and its facts, from the public read's match.
- */
-
 /** A match's two sides, each a club or, while the draw has not settled it, where it comes from: the public read's and the admin read's alike. */
 type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_quelle">;
 
@@ -110,7 +105,6 @@ export const matchTitle = (team1: string | null, team2: string | null): PageTitl
   team2: sideName(team2),
 });
 
-/** The match's two sides, the first-listed side first. */
 export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
@@ -122,7 +116,6 @@ function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
 }
 
-/** When a match is played, as its row and its bracket card show it. */
 export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
 
 /**

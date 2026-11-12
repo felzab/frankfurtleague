@@ -4,6 +4,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  lastMailedCode,
   ORIGIN,
   overriding,
   registerAuthDoubles,
@@ -11,12 +12,11 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { ObjectId } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { MongoClient } from "mongodb";
-
-// A replica set, as the store the library's adapter writes in transactions is.
+// A replica set, as the store the library's adapter writes in transactions is. The file's own: the table-scan
+// refusal set on it below reaches no other file's store.
 const { mongod, closing } = await startJudgedReplicaSet();
 
 /** The client `fl_frontend/src/core/db.ts` builds, once the module has built it. */
@@ -53,7 +53,7 @@ let requestHeaders: Headers | undefined;
 // A seat for every address: the case below signs a person in, whose session the gate admits on a held seat.
 seatEveryAddress();
 
-registerAuthDoubles({
+const { sent } = registerAuthDoubles({
   core: {
     config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
@@ -70,6 +70,7 @@ registerAuthDoubles({
 const { auth } = await import("./auth/library.ts");
 const { endOtherSessions } = await import("./auth/accountSessions.ts");
 const { getAccountSession } = await import("./auth/guards.ts");
+const { passkeysOf } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
 const store = () => (storeClient as MongoClient).db("auth");
@@ -90,6 +91,71 @@ async function heldIndexes(): Promise<Record<string, Record<string, unknown>[]>>
 
 /** A person rather than an administrator, whose sessions by a mailed code the account page serves. */
 const PERSON = "person@example.org";
+
+/** The server's code for a query it refused to plan while table scans are disabled. */
+const NO_QUERY_EXECUTION_PLANS = 291;
+
+// The server parameter is outside the Stable API the production client is held to, so it is set over a
+// client of the suite's own.
+const operator = new MongoClient(replicaSetUrl(mongod));
+closing(() => operator.close());
+
+/** Runs `body` with table scans refused, and allowed again after it whatever it did. */
+async function refusingTableScans<T>(body: () => Promise<T>): Promise<T> {
+  await operator.db("admin").command({ setParameter: 1, notablescan: true });
+  try {
+    return await body();
+  } finally {
+    await operator.db("admin").command({ setParameter: 1, notablescan: false });
+  }
+}
+
+describe("the reads a visitor can multiply, with table scans refused", () => {
+  /* `verification` grows with every code anybody asks for, and a scan in each send and check would slow every
+     sign-in with it; an account's passkeys are read after every sign-in, to offer or ask one. Driven through the
+     library's own queries rather than an `explain` of a query shaped like them, which the next upgrade would leave behind. */
+  it("plans a code's send and check and an account's passkeys on an index", async () => {
+    await buildAuthIndexes();
+    expect(errors, "an index was left unbuilt, so the reads below ran without it").toStrictEqual([]);
+
+    await refusingTableScans(async () => {
+      // The control: without it a parameter the server ignored would pass everything below.
+      await expect(store().collection("session").find({ authFactor: "code" }).toArray()).rejects.toSatisfy(
+        (failed: { code?: unknown }) => failed.code === NO_QUERY_EXECUTION_PLANS,
+      );
+
+      const headers = new Headers(ORIGIN);
+      await auth.api.sendVerificationOTP({ body: { email: PERSON, type: "sign-in" }, headers });
+      const code = lastMailedCode(sent, PERSON);
+      assert.ok(code !== null, "the send mailed nothing, so no code was checked");
+      // A wrong guess, counted against the code, and then the code itself.
+      await expect(
+        auth.api.signInEmailOTP({ body: { email: PERSON, otp: code === "000000" ? "111111" : "000000" }, headers }),
+      ).rejects.toSatisfy((failed: { body?: { code?: unknown } }) => failed.body?.code === "INVALID_OTP");
+      await auth.api.signInEmailOTP({ body: { email: PERSON, otp: code }, headers });
+      const user = await store().collection("user").findOne({ email: PERSON });
+      assert.ok(user, "the code signed nobody in, so no account's passkeys are listed");
+      const userId = String(user._id);
+
+      // Written through the library's adapter, so the row is in the shape the plugin's own writes give it.
+      const { adapter } = await auth.$context;
+      await adapter.create({
+        model: "passkey",
+        data: {
+          userId,
+          credentialID: "fl-index-db-credential",
+          publicKey: "fabricated-public-key",
+          counter: 0,
+          deviceType: "singleDevice",
+          backedUp: false,
+          transports: "internal",
+          createdAt: new Date(),
+        },
+      });
+      expect((await passkeysOf(userId)).map(({ credentialID }) => credentialID)).toStrictEqual(["fl-index-db-credential"]);
+    });
+  });
+});
 
 describe("ending every other session on a real store", () => {
   /* Every other suite stands in for `endOtherSessions`: the adapter's conversion of both ids is met here alone. */

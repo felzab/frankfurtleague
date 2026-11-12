@@ -1,4 +1,4 @@
-"""SCRIPTS · every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
+"""Every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
 
 What it compares: every image both Dockerfiles, both compose files and the listed scripts name, against the pin form; both
 database test tiers' mongo against the local stack's; and each image's toolchain against the one the checkout and CI run,

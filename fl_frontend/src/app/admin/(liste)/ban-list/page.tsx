@@ -19,9 +19,8 @@ const WORDS = COPY.admin.banList;
 const ENTER = COPY.shared.withObject(WORDS.object, "enter");
 
 /**
- * How many seasons a ban runs, which the dialog states ahead of the act; checked against the bound
- * `fl_backend/app/shared/schemas/bounds.py :: BAN_DURATION_SAISONS` publishes, so the backend moving it fails the type
- * check here.
+ * How many seasons a ban runs, which the dialog states ahead of the act; checked against the bound the backend
+ * publishes as `BAN_DURATION_SAISONS`, so the backend moving it fails the type check here.
  */
 const BAN_SAISONS = 5 satisfies FLBanDurationSaisons;
 

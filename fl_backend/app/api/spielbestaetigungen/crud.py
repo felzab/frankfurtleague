@@ -99,9 +99,9 @@ async def pull_ansetzung_state(
     return AnsetzungState(spiel=spiel, vereine=vereine)
 
 
-# --- The ADMINISTRATOR's read.
+# --- The administrator's read.
 
-# What the list serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
+# What the match editor serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
 # no administrator reads, an old seat's address among them, never leaves the database.
 ADMIN_ROW_FIELDS: Final[list[str]] = [
     field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
@@ -120,10 +120,10 @@ async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_
     )
 
 
-# --- A REFEREE'S OWN ROWS.
+# --- A referee's own rows.
 
-# What a referee's answer and their own list read of a row (`app/api/schiedsrichter/services.py ::
-# build_self_spiele_pipeline`): no deadline, a referee answering signed in until the fixture's kick-off.
+# What a referee's answer and their own list read of a row: no deadline, a referee answering signed in until the
+# fixture's kick-off.
 OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
@@ -143,7 +143,7 @@ async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     saison_id: str,
-    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
+    # The season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
     """At the season's end, every reason left on the season's rows, answering how many rows that took.
@@ -180,7 +180,7 @@ async def anchor_the_mailboxes_told(
     *,
     saison_teams_collection: AsyncCollection,
     saison_team_ids: Sequence[Any],
-    # REQUIRED: committed on its own, the anchor conflicts with no seat write.
+    # Committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
     """Write the season rows a write read its mails' mailboxes off: a request's, a reminder's or a notice's.
@@ -195,7 +195,7 @@ async def anchor_the_referees_told(
     *,
     schiedsrichter_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[Any],
-    # REQUIRED: committed on its own, the anchor conflicts with no erasure.
+    # Committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
     """Write the referees a step tells: the mint's and the reminder's, the notice step's.
@@ -206,7 +206,7 @@ async def anchor_the_referees_told(
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)
 
 
-# --- An AUSTRITT's opponents.
+# --- An Austritt's opponents.
 
 # What `austritt_notices_of` judges and lists of a fixture, which holds no name: each club's comes off its season row.
 AUSTRITT_SPIEL_FIELDS: Final = ["team1", "team2", "date", "time", "ergebnis", "sonderereignis"]
@@ -221,7 +221,7 @@ async def owe_the_austritt_notices_in_session(
     team_id: Any,
     exit_day: str,
     now: datetime,
-    # REQUIRED: the exit and its notices commit or fail together.
+    # The exit and its notices commit or fail together.
     session: AsyncClientSession,
 ) -> None:
     """Owe each opponent of a club leaving the season its notice, at the exit's own write, which happens once."""

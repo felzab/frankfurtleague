@@ -13,7 +13,7 @@ import type { EndState } from "@/kit/MailedPage";
 
 const WORDS = SERVER_COPY.registrierung.end;
 
-/** The field the form's replay key posts under (`fl_frontend/src/kit/OneShot.tsx :: replayField`). */
+/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
 export const REPLAY_FIELD = "idempotency_key";
 
 /** The start page, every end's one way on. */

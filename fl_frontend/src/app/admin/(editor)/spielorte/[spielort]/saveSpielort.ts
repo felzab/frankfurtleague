@@ -18,7 +18,6 @@ const address = shape.address.shape;
 /** What the editor's boxes send, each held to the venue write's own published rule for it. */
 const SaveSpielort = z.object({
   id: SpielortePatchSpielortParams.shape.spielort_id,
-  // The venue's version as the editor read it.
   version: shape.version,
   changes: z
     .object({

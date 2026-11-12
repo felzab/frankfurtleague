@@ -44,7 +44,7 @@ export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId 
     origin: site,
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
-      [WORDS.confirmation.confirm, WORDS.confirmation.admission],
+      [WORDS.confirmation.admission],
       [WORDS.confirmation.deadlineIn(REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },

@@ -157,7 +157,7 @@ export function BerichtEditor({
       />
     ),
   };
-  /** A row's player, from its side's squad, the list opening on „Unbekannt“, a player nobody can name. */
+  /** A row's player, from its side's squad, the list opening on „Anonym“, a player nobody can name. */
   const playerCell = (isRequired: boolean): Cells["main"] => ({
     field: "spieler_id",
     label: COPY.shared.spieler,

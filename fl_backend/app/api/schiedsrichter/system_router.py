@@ -20,8 +20,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system)],
 )
 
-# One transaction's referees. Each erasure costs fewer commands than a pupil's, and ten pupils fit
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` (`app/api/identity/system_router.py :: ERASURES_PER_PASS`).
+# One transaction's referees: each erasure costs fewer commands than a pupil's, and the pupils' pass of the same size
+# fits the request's deadline.
 SCHIEDSRICHTER_ERASED_PER_PAGE: Final = 10
 
 
@@ -33,16 +33,10 @@ async def sweep_schiedsrichter(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSweepResponse:
-    """
-    Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
+    """Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
 
-    Erased as a person's own erasure erases a referee entry, as the privacy notice says of an unconfirmed or declined
-    one: the entry goes with its confirmation rows and its bookings of fixtures still to come, and a played fixture's
-    booking stands naming nobody. A confirmed entry holds no deletion date and is never due.
-
-    A page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an
-    entry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next
-    pass. No body: the clock takes no season.
+    Each goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and
+    stays due for the next pass.
     """
 
     async def erase_the_lapsed(session: AsyncClientSession, batch: Batch) -> tuple[int, int]:

@@ -68,16 +68,17 @@ class FLSpielEditorSchiedsrichter(BaseReadModel):
 class FLSpielEditorTeam(BaseReadModel):
     """A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
 
-    `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
-    off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
-    and occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.
+    `on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it
+    here as the fixture stands would pass.
     """
 
     id: CustomObjectId
     name: CustomNonEmptyString
     # The plaque a side picked and not yet saved shows, as a fielded side's joined block carries it.
     shorthand: CustomNonEmptyString
+    # A save fielding the club here either moves it off that fixture or is refused for it.
     on_spieltag: bool
+    # Judged by the write's own eligibility and occupancy rules, on the side the club already holds.
     fieldable: bool
 
 
@@ -104,13 +105,11 @@ class FLSpielEditorAufstellungen(BaseReadModel):
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
-    """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
-
-    `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
-    match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
-    """
+    """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
     spiel: FLSpielJoinedAdmin
+    # On the response rather than on the fixture: the editor alone asks it, to open a finished season's match read-only,
+    # which the save refuses, and a fixture carries no season-scoped state.
     saison_status: FLSaisonStatus
     # Every live venue and referee, and the fixture's own where it has retired, so a booking stays named.
     spielorte: list[FLSpielEditorSpielort]
@@ -119,7 +118,7 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     teams: list[FLSpielEditorTeam] | None
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
-    # The fixture's confirmation rows, newest first, as the confirmations' own read serves them.
+    # The fixture's confirmation rows, newest first, as an administrator reads them.
     spielbestaetigungen: list[FLSpielbestaetigung]
     aufstellungen: FLSpielEditorAufstellungen
 

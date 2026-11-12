@@ -39,11 +39,6 @@ dependencies = [
 dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.4",
-    # `fastapi dev app/asgi.py`, the source-with-reload run `docs/ops/spec.md` records as the dev
-    # environment's backend entry point. A developer command, never the container's: the
-    # Dockerfile's `uv sync --no-dev` leaves this group -- and the typer/rich console stack under
-    # it -- out of the image.
-    "fastapi-cli>=0.0.32",
     # `starlette.testclient` imports `httpx2` and reaches `httpx` only under
     # `StarletteDeprecationWarning`. The API tests import both that client and this package's own
     # `ASGITransport`, so they fail at collection without it. No module in app/ touches it.

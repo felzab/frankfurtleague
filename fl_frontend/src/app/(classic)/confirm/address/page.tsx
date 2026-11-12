@@ -40,7 +40,8 @@ const WORDS = SERVER_COPY.addressChange;
 const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
     addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {

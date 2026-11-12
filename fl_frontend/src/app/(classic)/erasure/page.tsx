@@ -49,7 +49,8 @@ export default function AccountErasurePage() {
   );
 }
 
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`, which would hand one person's list to another.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
@@ -99,7 +100,7 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
 
   for (const { first_name: firstName, last_name: lastName } of spieler)
     add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
-  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, name === null ? COPY.shared.notProvided : { record: name });
+  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }

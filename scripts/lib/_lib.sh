@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SCRIPTS · shared helpers — sourced, never run directly.
+# Sourced, never run directly.
 # Sourcing applies strict mode and installs the ERR, INT, TERM and HUP traps.
 
 # `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
@@ -166,7 +166,6 @@ _emit() {
   done <<< "$*"
 }
 
-# One verb per meaning, each defined in `docs/ops/spec.md` §1.7.
 info() { _emit "$C_BLUE"   "   ·" "$*"; }
 
 # An advisory, never a finding — use `fail` where the run must not stay green.
@@ -227,7 +226,7 @@ ok() {
   _STEP_MS0=""
 }
 
-# Six spaces, the continuation indent every verb's later lines take (`docs/ops/spec.md` §1.7).
+# Six spaces, the continuation indent every verb's later lines take.
 detail() {
   spinner_stop
   if (( $# )); then printf '      %s\n' "$@"
@@ -455,7 +454,7 @@ on_error() {
   # The open section failed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
   _escalate 4
-  # Outside the fold, for `refuse`'s reason.
+  # Outside the fold, so a reader told to look above is not sent into something collapsed.
   end_section
   _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
   printf '\n' >&2
@@ -541,8 +540,7 @@ require_platform() {
 See scripts/README.md for which script belongs to which environment."
 }
 
-# The venv layout differs by platform, and `scripts/gate/verify.sh` runs on both. Returns 1 rather than
-# dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
+# The venv layout differs by platform, and the gate runs on both. Returns 1 rather than dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
 # trap prints a stack block over the message.
 venv_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
@@ -553,8 +551,7 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`, for `nginx/edge_test.sh`, which needs an interpreter at the floor and no
-# package.
+# Wider than `venv_python`, for a caller needing an interpreter at the floor and no package.
 any_python() {
   if venv_python; then return 0
   elif command -v python3 >/dev/null 2>&1; then printf 'python3'
@@ -563,12 +560,11 @@ any_python() {
   fi
 }
 
-# In bash and nowhere else: a checker cannot report on the version that refuses to compile it
-# (`docs/ops/spec.md` §1.5).
+# In bash and nowhere else: a checker cannot report on the version that refuses to compile it.
 PYTHON_FLOOR="3.14"
 
-# Called bare in a condition, for `verbose`'s reason. `--version` rather than a `-c` snippet, whose
-# own syntax an interpreter this refuses would have to be trusted to parse.
+# Called bare in a condition, where a false answer is no status `set -e` acts on. `--version` rather
+# than a `-c` snippet, whose own syntax an interpreter this refuses would have to be trusted to parse.
 python_at_floor() { # $1 an interpreter
   local said major minor
   # A python 2 writes its version to stderr and a Windows Store stub prints nothing at all, so an
@@ -588,12 +584,12 @@ $2}"; }
 # --- The rendered compose models ----------------------------------------------------------------------
 
 # Every environment file the compose files name. Compose refuses to parse a stack whose file is
-# missing, and the real ones are never copied: each is replaced by a stand-in naming itself
-# (`scripts/checks/check_compose_model.py :: STAND_IN_READ`).
+# missing, and the real ones are never copied: each is replaced by a stand-in naming itself, which
+# the compose checker reads back.
 COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
 
-# One staging for the gate's ops scope and `nginx/edge_test.sh`, so a change to the files compose reads
-# reaches both. `$1` is an empty scratch directory.
+# One staging for every reader of the rendered models, so a change to the files compose reads reaches
+# each. `$1` is an empty scratch directory.
 stage_compose_models() {
   local directory="$1" env_file number=0
   mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
@@ -631,7 +627,7 @@ image_has_instrumentation() { # $1 the frontend image
     0) ;;
     # The test's own answer. Anything higher is docker's, and says nothing about the file.
     1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
-    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
+    # 130 travels: flattened to 3 it reads as a crash, and the caller cannot recover the interrupt.
     130) return 130 ;;
     *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
        return 3 ;;
@@ -644,7 +640,7 @@ image_runs_unprivileged() { # $1.. the images
   for image in "$@"; do
     rc=0
     uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
-    # For `image_has_instrumentation`'s reason.
+    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
     if (( rc == 130 )); then return 130; fi
     if (( rc )); then
       printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
@@ -660,8 +656,8 @@ image_runs_unprivileged() { # $1.. the images
 # The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
 # certificates of their own, and the check widens until it says nothing.
 
-# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
-# two lists together.
+# The shapes both `.dockerignore` files exclude; the image assertions' tests hold the two lists
+# together.
 IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
 # A context the dockerignore stopped covering still builds.
 image_context_clean() { # $1.. the images
@@ -669,7 +665,7 @@ image_context_clean() { # $1.. the images
   for image in "$@"; do
     rc=0
     found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # For `image_has_instrumentation`'s reason.
+    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
     if (( rc == 130 )); then return 130; fi
     if (( rc )); then
       printf '%s\n' "the ${image} image would not run, so its context was never read"

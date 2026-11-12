@@ -60,9 +60,8 @@ OutboxCollection = Annotated[AsyncCollection, Depends(collection_dependency(Coll
 
 MailboxAnchorsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.MAILBOX_ANCHORS))]
 
-# The same collections typed for reading alone (`app/core/readonly.py`), for an operation the contract marks as
-# writing nothing (`app/core/routing.py :: SAFE`). The same dependency as the writable alias, so an override and
-# FastAPI's per-request cache both still key on it.
+# The same collections typed for reading alone, for an operation the contract marks as writing nothing. The same
+# dependency as the writable alias, so an override and FastAPI's per-request cache both still key on it.
 SpieleReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELE))]
 
 SpielerReadCollection = Annotated[ReadCollection, Depends(collection_dependency(Collection.SPIELER))]

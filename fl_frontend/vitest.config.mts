@@ -42,9 +42,8 @@ export default defineConfig({
           name: "db",
           include: ["src/**/*.db.test.ts"],
           // A case here waits on a replica set in a container and on bounds of its own past Vitest's five
-          // seconds, a child process's load among them (`src/core/db.db.test.ts :: CHILD_LOAD_MS`). The
-          // replica set's start is bounded apart: each file awaits it at module level, where neither
-          // bound reaches (`src/test-support/expiredTransactions.ts :: STARTED_WITHIN_MS`).
+          // seconds. The replica set's start is bounded apart: each file awaits it at module level, where
+          // neither bound reaches (`src/test-support/expiredTransactions.ts :: STARTED_WITHIN_MS`).
           testTimeout: 120_000,
           hookTimeout: 120_000,
         },

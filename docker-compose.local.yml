@@ -1,8 +1,5 @@
-# OPS · local stack
-#
 # The production images, built from source, behind nginx, with a database of its own; started by
-# `./scripts/ops/local.sh` and served on http://localhost:3000. `docs/ops/spec.md` §1.5 states what
-# this stack covers that neither `pnpm dev` nor production does.
+# `./scripts/ops/local.sh` and served on http://localhost:3000.
 #
 # Invariants:
 # - An override of docker-compose.yml, never a stack on its own: `local.sh` runs
@@ -45,7 +42,7 @@ services:
       - AUTH_URL=http://localhost:3000
       # Cloudflare's published site key that always passes, which the published secret the frontend
       # reads where no file is handed over verifies; production refuses both at boot
-      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04).
+      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
       - TURNSTILE_SITE_KEY=1x00000000000000000000AA
     # Production's list without `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` and
     # `betterstack_heartbeat_url`: this stack mails nothing, is sent no provider event, verifies the bot
@@ -92,7 +89,7 @@ services:
   # Production declares no database service and must not gain one.
   mongo:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
-    # cluster runs. Pinned here by its digest too (`docs/ops/spec.md` §1.1).
+    # cluster runs. Pinned here by its digest too.
     image: mongo:8.3.13@sha256:e16e606f792ea89d2b4907b54e5e31eb86a7a23e27231dce3a982cc8f2d73cd2
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
@@ -121,7 +118,7 @@ services:
     healthcheck:
       # Initiates the set on the first probe and reports healthy only once the node has elected
       # itself: `replSetInitiate` returns before the election, and the first write then fails with
-      # `NotWritablePrimary` (`fl_backend/tests/conftest.py :: mongo_replica_set_url`).
+      # `NotWritablePrimary` (`mongo_replica_set_url`).
       test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate() } db.hello().isWritablePrimary || quit(1)'"]
       interval: 30s
       timeout: 10s
@@ -152,7 +149,7 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-# This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
+# This machine's own files, and none for the connector, which never
 # starts.
 secrets: !override
   auth_secret:

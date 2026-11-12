@@ -1,9 +1,8 @@
-"""SCRIPTS · the models Compose renders, against each stack's rules and the files that must agree.
+"""The models Compose renders, against each stack's rules and the files that must agree.
 
 `docker compose config` merges the files, applies the profiles, expands every short-syntax port and
 volume and resolves each service's environment, so this reads the model the engine is handed rather
-than parsing YAML again. Each rule states its invariant at its own function, beside the
-`docs/ops/spec.md` row it holds.
+than parsing YAML again. Each rule states its invariant at its own function.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ SERVICE_NETWORKS: Final = {
 
 # The checkout directory every credential file sits in, reached by nothing but a secret naming its file.
 SECRETS_PATH: Final = "secrets"
-# Where a service reads each file a secret or a config hands it (`fl_frontend/src/core/config.ts :: DEFAULT_SECRETS_DIR`).
+# Where a service reads each file a secret or a config hands it, the frontend's `DEFAULT_SECRETS_DIR`.
 RUN_SECRETS: Final = "/run/secrets"
 # The local stack's database service, the one host its logins may name.
 LOCAL_DATABASE_SERVICE: Final = "mongo"
@@ -116,7 +115,7 @@ MOVED_ENV_NAMES: Final = frozenset(
     }
 )
 
-# The header the visitor's address is taken from: Cloudflare's single-address header (`nginx/shared/http.conf`).
+# The header the edge takes the visitor's address from: Cloudflare's single-address header.
 REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP"}
 
 
@@ -183,7 +182,7 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 # What each service adds back after dropping every capability: nginx's master fails to start without
-# each of its three (`docker-compose.yml :: nginx`), and every other service runs as its own user.
+# each of its three, and every other service runs as its own user.
 CAPABILITIES_ADDED: Final = {EDGE_SERVICE: frozenset({"CHOWN", "SETUID", "SETGID"})}
 # The spellings Compose documents for the option, a boolean one taking either separator or none.
 NO_NEW_PRIVILEGES: Final = frozenset({"no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"})
@@ -512,7 +511,7 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
 
 
 # The frontend's deployment name on each stack, which decides whether it mails anyone and which files
-# its boot demands (`fl_frontend/src/core/config.ts`): booted under another, it refuses nothing.
+# its boot demands: booted under another, it refuses nothing.
 DEPLOYMENT_NAMES: Final = {"production": "production", "local": "local"}
 
 

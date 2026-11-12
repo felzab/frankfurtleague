@@ -89,7 +89,7 @@ describe("the report's save", () => {
 // The harm: a goal or a card credited to another side or another pupil than its row shows, which the write takes as
 // given and the administrator then adopts.
 describe("each row the save sends", () => {
-  it("carries its own side and player, „Unbekannt“ as the null player, and the rows it left as they stand", async () => {
+  it("carries its own side and player, „Anonym“ as the null player, and the rows it left as they stand", async () => {
     await saveBericht({
       id: SPIEL_ID,
       version: 3,
@@ -110,7 +110,7 @@ describe("each row the save sends", () => {
     expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team2", spieler_id: LENA, minute: "40", colour: "gelb" }]);
   });
 
-  it("sends a card's „Unbekannt“ as the null player, as a goal's", async () => {
+  it("sends a card's „Anonym“ as the null player, as a goal's", async () => {
     await saveBericht({
       id: SPIEL_ID,
       version: 3,

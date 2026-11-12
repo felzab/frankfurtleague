@@ -51,10 +51,9 @@ const moved = (error: unknown) => error instanceof APIBadStatusError && error.se
  *
  * Done, the page forgets the link, as the privacy notice says of a mailed link once it is used, and leads on to the
  * registration's done page, as a deletion leads on to its own: the form's page, rendered again on the forgotten link,
- * would title the tab and a reload as a link no longer valid. A refusal saying the link
- * has moved ends on the card the page opened again would show, read again here, since one code covers both a shut
- * window and a club out of the season; one whose link still opens the form, a Stufe the season stopped offering, says
- * the page is stale.
+ * would title the tab and a reload as a link no longer valid. A refusal saying the link has moved ends on the card
+ * the page opened again would show, read again here, since one code covers both a shut window and a club out of the
+ * season; one whose link still opens the form, a Stufe the season stopped offering, says the page is stale.
  */
 export const submitRegistrierung = action({
   lane: "public",

@@ -69,7 +69,7 @@ async function accountCleared(email: string): Promise<boolean> {
     await deleteAccountFor(email);
     return true;
   } catch (failed) {
-    // The NAME alone: a failure in the sign-in store routinely carries the address.
+    // The name alone: a failure in the sign-in store routinely carries the address.
     logger.error("erasure.account_not_deleted", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
     return false;
   }

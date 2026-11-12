@@ -17,11 +17,10 @@ const kontakt = shape.kontakt.shape;
 
 /**
  * What the editor's boxes send, each held to the referee write's own published rule for it: an empty box but the
- * name's is no value, as `fieldRules.ts` marks them.
+ * name's is no value.
  */
 const SaveSchiedsrichter = z.object({
   id: SchiedsrichterPatchSchiedsrichterParams.shape.schiedsrichter_id,
-  // The referee's version as the editor read it.
   version: shape.version,
   changes: z
     .object({

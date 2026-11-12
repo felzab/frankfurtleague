@@ -17,8 +17,8 @@ function choiceOf(target: RoleTarget): CardLinkProps {
 
 /**
  * The landing's read, off the session alone: a redirect to the one place the person holds, or to Konto's list where
- * they hold none, or the places they hold, listed. The sign-in's continue route asks the same rule
- * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), so both land alike.
+ * they hold none, or the places they hold, listed. The sign-in's continue route asks the same rule, so both land
+ * alike.
  */
 export async function readChoices(): Promise<{ choices: CardLinkProps[] }> {
   const subject = await requireSubjectSession(ROUTES.area.path());
