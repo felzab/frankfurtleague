@@ -9,7 +9,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Dialog } from "./Dialog";
+import { Dialog, RouteDialog, RouteDialogBody } from "./Dialog";
 import { EditorPage } from "./EditorPage";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
@@ -410,5 +410,51 @@ describe("a dialog's danger row", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { hidden: true })).toBeNull());
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(end).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * A page holding the control a match's route opens from, over which the route's dialog opens while that control holds
+ * focus, and which Back hides again: Next hides a departed route in an `Activity` rather than unmounting it.
+ */
+function PageUnderRoute({ route }: { route: "none" | "open" | "hidden" }) {
+  return (
+    <>
+      <Button
+        icon="search"
+        label={INPUT}
+      />
+      <Activity mode={route === "hidden" ? "hidden" : "visible"}>
+        {route !== "none" && (
+          <RouteDialog beneath="/saisons">
+            <RouteDialogBody
+              title={NAME}
+              act={
+                <Button
+                  variant="primary"
+                  label={COPY.shared.close}
+                />
+              }>
+              {NAME}
+            </RouteDialogBody>
+          </RouteDialog>
+        )}
+      </Activity>
+    </>
+  );
+}
+
+// The harm: a keyboard reader closing a match's pop-up loses their place in the Spielplan, focus fallen to the page.
+describe("a route's dialog", () => {
+  it("gives focus back to what opened it once its route is hidden", async () => {
+    const { rerender } = render(<PageUnderRoute route="none" />);
+    const opener = screen.getByRole("button", { name: INPUT });
+    act(() => opener.focus());
+    await act(async () => rerender(<PageUnderRoute route="open" />));
+    await waitFor(() => expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true));
+
+    await act(async () => rerender(<PageUnderRoute route="hidden" />));
+
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 });

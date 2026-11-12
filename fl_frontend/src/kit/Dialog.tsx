@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -80,6 +80,17 @@ export function RouteDialog({
 }) {
   const router = useRouter();
   const close = () => goBackOrPush(router, beneath);
+  const dialog = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const box = dialog.current;
+    return () => {
+      // Next hides a departed intercepted route rather than unmounting it, and the browser moves focus off a hidden
+      // element only later, so the focus is released here as an unmount releases it, and React Aria gives it back to
+      // the element that opened the dialog.
+      const focused = box?.ownerDocument.activeElement;
+      if (focused instanceof HTMLElement && box?.contains(focused)) focused.blur();
+    };
+  }, []);
   return (
     <DialogOverlay
       width="form"
@@ -89,6 +100,7 @@ export function RouteDialog({
         if (!open) close();
       }}>
       <AriaDialog
+        ref={dialog}
         data-kit-focus
         className="relative grid gap-6">
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
