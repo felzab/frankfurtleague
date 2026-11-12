@@ -28,7 +28,7 @@ from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSpielerStufe
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -616,6 +616,8 @@ class FLLandingOpeningSpiel(BaseReadModel):
     spieltag_position: int = Field(ge=1)
     team1: FLLandingSide | None
     team2: FLLandingSide | None
+    # What befell the match, so the line draws it as every match block does.
+    sonderereignis: FLSonderereignis | None
 
 
 def saison_start(start_date: str) -> datetime:

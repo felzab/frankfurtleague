@@ -47,6 +47,7 @@ doubleApiClient((): FLAufstellungResponse => ({
     spieltag_position: 2,
     count_spieltage_in_phase: 5,
     for_third_place: false,
+    sonderereignis: null,
   },
   team_id: TEAM,
   kader: [{ spieler_id: PUPIL, first_name: "Lea", last_name: "Bauer", nummer: "7", position: null, rolle: null, is_nachnominiert: false }],

@@ -2579,6 +2579,16 @@
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -2632,7 +2642,8 @@
           "date",
           "time",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLAufstellungSpiel",
         "type": "object"
@@ -6715,6 +6726,16 @@
             "title": "Date",
             "type": "string"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spieltag_position": {
             "minimum": 1.0,
             "title": "Spieltag Position",
@@ -6758,7 +6779,8 @@
           "time",
           "spieltag_position",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLLandingOpeningSpiel",
         "type": "object"
@@ -11310,6 +11332,16 @@
             "title": "Reportable",
             "type": "boolean"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -11410,6 +11442,7 @@
           "date",
           "time",
           "spielort",
+          "sonderereignis",
           "spielbestaetigung_id",
           "state",
           "reason",
@@ -11731,6 +11764,114 @@
           "named"
         ],
         "title": "FLSpielEditorBericht",
+        "type": "object"
+      },
+      "FLSpielEditorBestaetigung": {
+        "description": "A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.\n\n`expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed\nthat the party may still answer, or open that it may not.",
+        "properties": {
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "closed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungClosed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "party": {
+            "discriminator": {
+              "mapping": {
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+              }
+            ],
+            "title": "Party"
+          },
+          "reminded_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "spiel_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "saison_id",
+          "spiel_id",
+          "party",
+          "ansetzung",
+          "deadline",
+          "asked_at",
+          "reminded_at",
+          "answer",
+          "closed",
+          "expired"
+        ],
+        "title": "FLSpielEditorBestaetigung",
         "type": "object"
       },
       "FLSpielEditorSchiedsrichter": {
@@ -13962,109 +14103,6 @@
         "title": "FLSpielberichtVorschlagPayload",
         "type": "object"
       },
-      "FLSpielbestaetigung": {
-        "description": "One party's confirmation of one Ansetzung, as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying.",
-        "properties": {
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
-          },
-          "answer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAnswer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "asked_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Asked At"
-          },
-          "closed": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungClosed"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "party": {
-            "discriminator": {
-              "mapping": {
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
-                "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
-              }
-            ],
-            "title": "Party"
-          },
-          "reminded_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reminded At"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "saison_id",
-          "spiel_id",
-          "party",
-          "ansetzung",
-          "deadline",
-          "asked_at",
-          "reminded_at",
-          "answer",
-          "closed"
-        ],
-        "title": "FLSpielbestaetigung",
-        "type": "object"
-      },
       "FLSpielbestaetigungAnsetzung": {
         "description": "The Ansetzung a row answers about: every input of `digest`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `digest`.",
         "properties": {
@@ -14584,7 +14622,7 @@
           },
           "spielbestaetigungen": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigung"
+              "$ref": "#/components/schemas/FLSpielEditorBestaetigung"
             },
             "title": "Spielbestaetigungen",
             "type": "array"

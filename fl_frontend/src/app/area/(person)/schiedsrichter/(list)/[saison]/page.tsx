@@ -2,6 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -15,7 +16,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder } from "@/features/roles/resolvers";
 import { getOwnSpiele } from "@/features/schiedsrichter/queries";
-import { matchName } from "@/features/spiele/blocks";
+import { eventChipOf, matchName } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -51,13 +52,15 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 type Standing = { chip?: ChipProps; adds?: Words; open?: true };
 
 /**
- * The row's standing, the first that holds: a game called off and the referee's own decline end the booking; a
- * booking still to answer before its kick-off carries the two answers; then the report, stored or owed once the game
- * takes one; then an agreement, the league's marked as entered for them; then a booking that lapsed unanswered. A
- * booking the league is to ask again, or never asked, carries no chip.
+ * The row's standing, the first that holds: what befell the game is its chip, as every list of matches shows it, in
+ * the event's own word; a booking a call-off ended since reinstated carries none; the referee's own decline ends the
+ * booking; a booking still to answer before its kick-off carries the two answers; then the report, stored or owed once
+ * the game takes one; then an agreement, the league's marked as entered for them; then a booking that lapsed
+ * unanswered. A booking the league is to ask again, or never asked, carries no chip.
  */
 function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
-  if (spiel.state === "cancelled") return { chip: { tone: "danger", label: SPIEL.cancelled } };
+  if (spiel.sonderereignis !== null) return { chip: eventChipOf(spiel.sonderereignis, spiel.team1_name, spiel.team2_name) };
+  if (spiel.state === "cancelled") return {};
   if (spiel.state === "declined") {
     return { chip: { tone: "danger", label: SPIEL.declined }, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
   }
@@ -69,7 +72,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.state === "agreed") {
     return { chip: { tone: "success", label: SPIEL.agreed }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
   }
-  if (spiel.state === "expired") return { chip: { tone: "neutral", label: COPY.admin.expired } };
+  if (spiel.state === "expired") return { chip: EXPIRED_CHIP };
   return {};
 }
 

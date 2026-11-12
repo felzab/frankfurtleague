@@ -6,6 +6,7 @@ import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { SectionPlaceholder } from "@/kit/Section";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -33,9 +34,9 @@ import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
-  FLSpielbestaetigung,
   FLSpieleAdminSingleResponse,
   FLSpielEditorBericht,
+  FLSpielEditorBestaetigung,
   FLSpielJoinedAdmin,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
@@ -243,20 +244,21 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
 }
 
 /** The party's open row about the fixture's Ansetzung as it stands, closed ones being about one it left. */
-const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbestaetigung) => boolean) =>
+const openRowOf = (rows: readonly FLSpielEditorBestaetigung[], party: (row: FLSpielEditorBestaetigung) => boolean) =>
   rows.find((row) => row.closed === null && party(row));
 
 /**
  * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
+ * An answer that lapsed unanswered, which the party can no longer give, says so as the party's own page does.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielEditorBestaetigung | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
   const open = { tone: "warn", label: COPY.template.open } as const;
   if (row === undefined) return { ...shown, chip: open, line: WORDS.notAsked };
   const { answer } = row;
-  if (answer === null) return { ...shown, chip: open, line: WORDS.answerBy(dayOf(row.deadline)) };
+  if (answer === null) return { ...shown, chip: row.expired ? EXPIRED_CHIP : open, line: WORDS.answerBy(dayOf(row.deadline)) };
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   if (answer.kind === "agreed") return { ...shown, chip: { tone: "success", label: WORDS.agreed }, line: day };
   const { vorschlag, reason } = answer;

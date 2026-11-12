@@ -116,9 +116,10 @@ function DangerRow({ act }: { act: DangerAct }) {
  *
  * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
  * refuses: every field disabled, the reason under the first box's title, or under the lead in an editor of blocks
- * alone, the chip „Abgeschlossen“ after the
- * title, and neither the danger box nor the bar, since there is nothing to save. A danger box whose acts are about more
- * than the closed record stays (`outlivesClosed`), as a club is retired from the league and not from a finished season.
+ * alone, and neither the danger box nor the bar, since there is nothing to save. The chip after the title stays the
+ * record's own state, as its list and its card show it: the form says the lock, the chip never. A danger box whose
+ * acts are about more than the closed record stays (`outlivesClosed`), as a club is retired from the league and not
+ * from a finished season.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
@@ -131,7 +132,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   sections,
   danger,
   closed,
-  closedChip = { tone: "neutral", label: COPY.template.closed },
 }: {
   title: PageTitle;
   chip?: ChipProps;
@@ -147,8 +147,6 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   link?: { href: Route; label: Copy };
   /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
   closed?: Copy;
-  /** The chip of a closed record whose state says more than „Abgeschlossen“. */
-  closedChip?: ChipProps;
   editor: Editor<Values>;
   /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
   barText?: Copy;
@@ -163,7 +161,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
     <RailPage
       scope="area"
       title={title}
-      chip={closed === undefined ? chip : closedChip}
+      chip={chip}
       flag={flag}
       link={link}
       bar={

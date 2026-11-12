@@ -22,7 +22,7 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.einwilligung import FLSchiedsrichterTextVersions, cite_their_kind, refuse_a_stale_grant
 from app.shared.schemas.kontakt import CustomKontaktName, CustomStoredAddress, FLKontakt, FLKontaktPayload
-from app.shared.schemas.literals import FLEinwilligungScope
+from app.shared.schemas.literals import FLEinwilligungScope, FLSonderereignis
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # What a referee's link shows reopened. `declined` beside the states every link page shares: the referee objects
@@ -252,6 +252,8 @@ class FLSchiedsrichterSpiel(BaseModel):
     date: CustomOptionalDateString
     time: CustomTimeString | None
     spielort: FLSpielortFieldPublic | None
+    # What befell the fixture, which the list words by the event's own word, as every match block does.
+    sonderereignis: FLSonderereignis | None
     # The newest row asking them to confirm the fixture, which an answer names
     # (`POST /spielbestaetigungen/{spielbestaetigung_id}/answer`); null where none asks them.
     spielbestaetigung_id: CustomObjectId | None

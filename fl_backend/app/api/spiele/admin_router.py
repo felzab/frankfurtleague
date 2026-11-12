@@ -110,6 +110,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -130,6 +131,7 @@ async def get_spiel_admin(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
         aufstellungen_collection=aufstellungen_collection,
+        now=now,
     )
 
 

@@ -18,7 +18,6 @@ from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxRefe
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_COUNTED_AS_CANCELLED,
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
@@ -140,7 +139,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
 
 def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
-    """This team's called-off fixtures, counted in a stage of their own.
+    """This team's fixtures that ended with no result, called off or struck out, counted in a stage of their own.
 
     Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
     true, so a goalless cancellation would score as a draw.
@@ -154,9 +153,9 @@ def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) ->
                 {
                     "$match": {
                         **_spiele_of_this_team(saison_id, scope),
-                        # The flag is the whole rule: `ergebnis: None` beside it would drop the
-                        # forfeits, which are nearly every cancellation here.
-                        "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)},
+                        # The flag is the whole rule: a fixture with no result and no event is
+                        # one still to play, never one called off.
+                        "sonderereignis": {"$in": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
                     }
                 },
                 {"$count": CANCELLED_COUNT_NAME},
@@ -310,7 +309,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
         for team_id in sides:
             figures.setdefault(team_id, dict(ZERO_STATISTIK))
 
-        if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_CANCELLED:
+        if spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
             for team_id in sides:
                 figures[team_id]["count_cancelled_spiele"] += 1
 

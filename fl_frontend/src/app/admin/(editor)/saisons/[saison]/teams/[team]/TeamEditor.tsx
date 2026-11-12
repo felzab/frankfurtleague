@@ -77,7 +77,6 @@ export function TeamEditor({
   title,
   chip,
   closed,
-  closedChip,
   record,
   save,
   rules,
@@ -93,7 +92,6 @@ export function TeamEditor({
   chip?: ChipProps;
   /** The reason the page opens read-only. */
   closed?: Copy;
-  closedChip?: ChipProps;
   record: EditorRecord<TeamValues>;
   save: (change: EditorSave<TeamValues> & { saison_id: string }) => Promise<ActionAnswer<number>>;
   rules: TeamRules;
@@ -361,7 +359,6 @@ export function TeamEditor({
       chip={chip}
       editor={editor}
       {...(closed === undefined ? {} : { closed })}
-      {...(closedChip === undefined ? {} : { closedChip })}
       sections={[club, adresse, ...seasonBoxes]}
       danger={{
         title: WORDS.dangerBox(exitAct !== null, true),

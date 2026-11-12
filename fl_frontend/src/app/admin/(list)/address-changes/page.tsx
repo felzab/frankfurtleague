@@ -1,4 +1,5 @@
 import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
@@ -49,7 +50,7 @@ const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>>
 
 /** What the change waits on, or that the step it waited on lapsed, which the hourly pass ends. */
 const chipOf = ({ expired, waits_on }: FLAddressChangeAdminOpen): ChipProps =>
-  expired ? { tone: "neutral", label: COPY.admin.expired } : { tone: WAITS_ON_TONE[waits_on], label: WORDS.waitsOn[waits_on] };
+  expired ? EXPIRED_CHIP : { tone: WAITS_ON_TONE[waits_on], label: WORDS.waitsOn[waits_on] };
 
 /** The moment the row's step ends, where it has one: the wait's, once it runs, else the open link's. */
 function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdminOpen) {
