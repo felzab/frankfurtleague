@@ -85,8 +85,8 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 }
 
 /**
- * A team's registration link as its row states it: the season finished, which shuts every link whatever else stood, as
- * the editor's „Abgeschlossen“ says; the club gone; the press passing it over; or its link's state.
+ * A team's registration link as its row states it: the season finished, which shuts every link whatever else stood;
+ * the club gone; the press passing it over; or its link's state.
  */
 function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): Words {
   if (status === "past") return COPY.template.closed;
