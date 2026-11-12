@@ -228,9 +228,8 @@ start; after a match it would reopen what the start locks closed.
   took, and the club's own document is untouched by it. It takes effect on the season's start or later
   (`austritt_before_saison_start`): before the start a club out of the season is replaced, so the group swap,
   which the start locks, never fields a departed club. No rule reads which route it took: only a day
-  strictly before the record's date is still the club's, so a fixture fielding it from that date on is
-  reported, and a group placing decided from that date on falls to the club below, a podium place stands
-  vacant.
+  strictly before the record's date is still the club's. A fixture fielding the club from that date on is
+  reported, a group placing decided from then falls to the club below, and a podium place stands vacant.
 
 ---
 
