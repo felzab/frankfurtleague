@@ -120,7 +120,7 @@ class FLAccountErasureSpieler(BaseModel):
 
 
 class FLAccountErasureSchiedsrichter(BaseModel):
-    name: str | None
+    name: str
 
 
 class FLAccountErasureSeat(BaseModel):

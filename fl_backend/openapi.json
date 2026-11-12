@@ -761,15 +761,8 @@
       "FLAccountErasureSchiedsrichter": {
         "properties": {
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "title": "Name",
+            "type": "string"
           }
         },
         "required": [
@@ -6280,7 +6273,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
+        "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
         "properties": {
           "confirmed_at": {
             "anyOf": [

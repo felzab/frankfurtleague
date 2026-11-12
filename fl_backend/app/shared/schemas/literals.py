@@ -7,10 +7,6 @@ every field referencing it points at, where a plain alias is inlined into each. 
 
 from typing import Final, Literal, get_args
 
-# --- Sorting
-
-type FLSortOrder = Literal["asc", "desc"]
-
 # --- The season and its fixtures
 
 type FLSaisonStatus = Literal["past", "active", "future"]
