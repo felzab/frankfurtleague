@@ -349,7 +349,7 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
  * picks between as it picks the row's: the one line, when, the sides about the score and the chevron; or the card,
  * the date line over each side with its goals at the right.
  */
-function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; linked: boolean }) {
+function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
   const form = forms();
   return (
     <div className={spielSubgrid({ class: layout === "rows" ? stacked() : "" })}>
@@ -366,11 +366,9 @@ function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; lin
         <span className="col-start-4 row-span-2 row-start-1">
           <SidePlaceholder />
         </span>
-        {linked && (
-          <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
-            <RowEnd />
-          </span>
-        )}
+        <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
+          <RowEnd />
+        </span>
       </span>
       <span className={form.card()}>
         <span className={placeholderBar("h-3 w-32")} />
@@ -398,20 +396,18 @@ function rowsBox(bare: boolean, columns: "own" | "outer") {
 /**
  * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
  * cards two a row from 42 rem of the list where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body,
- * `columns` as the list's. `linked` is `false` for rows that will open nothing, which end in no chevron.
+ * `columns` as the list's.
  */
 export function SpielListPlaceholder({
   count,
   layout = "rows",
   bare = false,
   columns = "own",
-  linked = true,
 }: {
   count: number;
   layout?: "rows" | "cards";
   bare?: boolean;
   columns?: "own" | "outer";
-  linked?: boolean;
 }) {
   const rows = Array.from({ length: count }, (_, index) => index);
   if (layout === "cards") {
@@ -421,10 +417,7 @@ export function SpielListPlaceholder({
           <div
             key={index}
             className={spielPairs().box()}>
-            <SpielRowPlaceholder
-              layout="cards"
-              linked={linked}
-            />
+            <SpielRowPlaceholder layout="cards" />
           </div>
         ))}
       </SpielPairList>
@@ -436,7 +429,6 @@ export function SpielListPlaceholder({
         <SpielRowPlaceholder
           key={index}
           layout="rows"
-          linked={linked}
         />
       ))}
     </div>

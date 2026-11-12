@@ -28,7 +28,7 @@ async function press(act: (seat: string) => Promise<ActionAnswer>) {
     <>
       <ToastRegion frame="rail" />
       <PressAct
-        icon="email"
+        variant="primary"
         label={LABEL}
         act={act}
         payload="trainer"

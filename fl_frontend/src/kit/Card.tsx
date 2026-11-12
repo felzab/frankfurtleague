@@ -16,8 +16,6 @@ import type { ChipProps } from "./Chip";
 export type CardProps = {
   /** Catalogue text such as the kind of open work, or a record's own name, such as a club's. */
   title: Words;
-  /** The card's one button. */
-  action?: ReactElement;
   body?: "rows" | "fields";
   children?: ReactNode;
   /** The one line under the title: catalogue text such as a figure's meaning, or a record's own detail. */
@@ -40,7 +38,7 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, chip, action, body = "rows", children, line }: CardProps) {
+export function Card({ title, count, chip, body = "rows", children, line }: CardProps) {
   const s = card({ body });
   return (
     <section className={s.root()}>
@@ -57,7 +55,6 @@ export function Card({ title, count, chip, action, body = "rows", children, line
         {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </div>
       {children !== undefined && <div className={s.body()}>{children}</div>}
-      {action !== undefined && <div className={s.foot()}>{action}</div>}
     </section>
   );
 }

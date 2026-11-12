@@ -85,12 +85,11 @@ async function CardOnceRead({ card, scope }: { card: Promise<RailCard | RailChoi
  * answer instead the places it lists for a reader holding several, the landing's chooser, in the card's place and after
  * the same wait.
  */
-export function StatusPage(props: { card: Promise<RailCard | RailChoices> | RailCard } & RailPageHead) {
+export function StatusPage(props: { card: Promise<RailCard | RailChoices> | RailCard } & Omit<RailPageHead, "chip" | "action">) {
   return (
     <RailPage
       scope={props.scope}
-      title={props.title}
-      chip={props.chip}>
+      title={props.title}>
       {props.card instanceof Promise ? (
         <PageWait fallback={<RailCardPlaceholder />}>
           <CardOnceRead

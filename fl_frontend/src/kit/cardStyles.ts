@@ -153,7 +153,6 @@ export const card = tv({
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
     // allows.
     body: "min-w-0",
-    foot: "flex justify-end p-4",
     chevron: "",
   },
   variants: {
