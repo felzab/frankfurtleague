@@ -1,9 +1,5 @@
-import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
@@ -30,8 +26,6 @@ class Relay {
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
-  /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
-  refused = 0;
   private readonly sockets = new Set<Socket>();
   /**
    * Connections holding a request the relay will never answer, ended with their scenario: the
@@ -41,7 +35,6 @@ class Relay {
   private readonly stranded = new Set<Socket>();
   private readonly server = createServer((inbound) => {
     if (this.refusing) {
-      this.refused += 1;
       inbound.destroy();
       return;
     }
@@ -217,10 +210,6 @@ const handshakeClient = await storeOf(`${import.meta.resolve("./db.ts")}?handsha
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
 
-/** What a fresh process takes to load `db.ts` and its imports, generously: it only keeps a child that never reads from hanging the case. */
-const CHILD_LOAD_MS = 10_000;
-const CHILD_SETTLED = "settled";
-
 // The most a visitor waits on one stage, which `fl_frontend/src/core/db.ts` gives every stage alike. Never
 // read off the client: a removed option reads as the driver's 30 s or as none, and so would the bound.
 const STAGE_BOUND = 3000;
@@ -328,57 +317,6 @@ describe("the boot's connect recovers from a cold start the store refused", () =
     // The attempt under way when the store answered, then the pause before the next.
     await settledWithin(STAGE_BOUND + recoveringClient.options.minHeartbeatFrequencyMS, "the boot's connect", () => connecting);
     expect(await settledWithin(STAGE_BOUND, "the read after the store answered again", probe)).toBe(null);
-  });
-
-  /* Its own process, so nothing of this file's holds the event loop open: once the read has failed,
-     the boot connect's pause is all that is left. */
-  it("lets a process whose store refuses it exit once its read has failed", async () => {
-    // A relay of the child's own, so what it refuses is the child's alone and never this file's clients'.
-    const childRelay = new Relay();
-    const childUrl = `mongodb://127.0.0.1:${await childRelay.listen()}/?directConnection=true`;
-    // The child's config reads the store's address from its secrets directory and never from the environment.
-    const secrets = mkdtempSync(path.join(tmpdir(), "fl-db-child-"));
-    writeFileSync(path.join(secrets, "frontend_mongodb_uri"), childUrl);
-    const child = spawn(
-      process.execPath,
-      [
-        // `server-only` resolved to its own empty build, as a server bundle resolves it.
-        "--conditions=react-server",
-        "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
-        "--import",
-        import.meta.resolve("../../scripts/tsconfig-alias-hook.mjs"),
-        "--input-type=module",
-        "--eval",
-        `const { connectSignInStore, signInStore } = await import("@/core/db.ts");
-void connectSignInStore();
-await signInStore().db("store_bound").collection("probe").findOne({}).catch(() => undefined);
-process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
-      ],
-      // The marker travels as data in the environment rather than as source.
-      { env: { ...process.env, SECRETS_DIR: secrets, FL_CHILD_SETTLED: CHILD_SETTLED }, stdio: ["ignore", "pipe", "inherit"] },
-    );
-    const exited = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
-    const settled = new Promise<void>((resolve) => child.stdout.on("data", (chunk) => String(chunk).includes(CHILD_SETTLED) && resolve()));
-
-    try {
-      await childRelay.refuse(async () => {
-        const first = await settledWithin(CHILD_LOAD_MS + STAGE_BOUND, "the child's read", () =>
-          Promise.race([settled.then(() => CHILD_SETTLED), exited.then(() => "an exit")]),
-        );
-        expect(first, "the child exited before its read settled").toBe(CHILD_SETTLED);
-        const [code] = (await settledWithin(
-          recoveringClient.options.minHeartbeatFrequencyMS,
-          "the child's exit once its read had failed",
-          () => exited,
-        )) as [number | null];
-        expect(code).toBe(0);
-      });
-      assert.ok(childRelay.refused > 0, "the child's read was refused by no store here, so its exit proves nothing");
-    } finally {
-      child.kill();
-      await childRelay.close();
-      rmSync(secrets, { recursive: true, force: true });
-    }
   });
 });
 

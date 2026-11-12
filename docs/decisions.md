@@ -100,9 +100,9 @@ commit that makes the change.
   it was not pointed at._
 - **images** — Merge the two images into one package; make either package private. _The deploy
   pulls with no registry login, and one package would mix two services' tags._
-- **logging** — Let nginx honour a client's traceparent; log our own lines outside the envelope;
-  patch or rewrite a library's or Next's console output into it. _Only the edge's trace, in one
-  envelope, joins our lines, and rewriting Next's output doubled every crash line._
+- **logging** — Log our own lines outside the envelope; patch or rewrite a library's or Next's
+  console output into it. _One envelope joins our lines, and rewriting Next's output doubled every
+  crash line._
 - **nginx** — Precompress brotli at build time. _Stock nginx has no brotli module and proxies static
   files rather than serving them from disk._
 - **patches** — Patch a dependency without its upstream issue named beside the entry; key a patch

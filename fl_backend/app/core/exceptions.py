@@ -13,8 +13,7 @@ from app.core.codes import Code, Rule
 FieldPath = tuple[str | int, ...]
 
 # One bound a rule holds a refused value to, by the name the rule gives it: a JSON scalar, or a list of whole numbers
-# such as the fixtures a retirement waits on, which is all a failure body's `ctx` carries
-# (`app/shared/schemas/responses.py :: FLRefusedField`).
+# such as the fixtures a retirement waits on, which is all a failure body's `ctx` carries.
 type Bound = str | int | float | bool | list[int]
 
 # Where the field a refusal names arrived: the body, or the path a by-id write names its record in.
@@ -71,7 +70,7 @@ class APIError(Exception):
 class DocumentNotFoundError(APIError):
     """A read or a filtered write that matched nothing: `document_not_found` at 404.
 
-    A type of its own because ten callers take a miss as an answer, and catching it by type keeps
+    A type of its own because callers take a miss as an answer, and catching it by type keeps
     every other refusal their call raises -- a guard's, a rule's -- out of that `except`.
     """
 

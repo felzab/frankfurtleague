@@ -79,12 +79,12 @@ async def get_spieler_admin(
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpielerAdminListResponse:
     """
-    The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.
+    Every squad row of the season, live and ausgetragen alike, each named and with its club.
 
-    Read whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row
-    whose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.
+    `nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.
     """
 
+    # Read whole, as every list but the Protokoll is, the page narrowing what it holds.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
     rows, team_names = await asyncio.gather(
         aggregate_many_from_db(
@@ -112,14 +112,13 @@ async def get_spieler_saison(
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpielerSaisonAdminResponse:
     """
-    Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.
+    What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.
 
-    `version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role
-    another live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own
-    write. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands
-    under a season, and a person out of its squad is no row of that season's list.
+    `version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.
     """
 
+    # Outside a transaction: a write landing under this read is judged by its own write. A person out of the season's
+    # squad is no row of that season's list, so the missing row is a 404.
     person_raw, row_raw, saison_raw = await asyncio.gather(
         pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}),
         pull_one_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id, "saison_id": saison_id}),
@@ -160,13 +159,9 @@ async def patch_spieler_saison(
     db: DBClient,
 ) -> FLPatchSpielerSaisonResponse:
     """
-    Save the Spieler editor's one version: the person's own facts and their squad row of the season.
+    Save the person's own facts and their squad row of the season together, the team staying the stored row's.
 
-    The team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has
-    moved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not
-    offer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared
-    `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the
-    season. No fan-out: unlike a team or a venue, a person is embedded in no other document.
+    A shared `nummer` is permitted.
     """
 
     person_filter = {"_id": spieler_id}
@@ -248,10 +243,9 @@ async def delete_saison_spieler(
     today: str = Depends(get_german_date_str),
 ) -> None:
     """
-    Take a player out of a season's squad. SOFT: the row stays.
+    Take a player out of a season's squad, the row staying, marked by `inactive_since`.
 
-    The row records that this player wore this number in this squad, which stays true after they
-    leave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.
+    The row records that this player wore this number in this squad, which stays true after they leave.
     """
 
     async def take_the_player_out(session: AsyncClientSession) -> None:
@@ -283,12 +277,7 @@ async def reactivate_saison_spieler(
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> None:
-    """
-    Clear a squad row's `inactive_since`, with the number and position it had.
-
-    Refused where the squad has filled up, a nominee's row standing outside that cap, where its club
-    left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
-    """
+    """Clear a squad row's `inactive_since`, the row returning with the number, position and role it had."""
 
     async def bring_the_player_back(session: AsyncClientSession) -> None:
         """Judge, then revive the row. Everything judged is read in-session."""
@@ -303,9 +292,8 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-        # The STORED club, no payload naming one: `POST /teams/{team_id}/saisons/{saison_id}/replace`
-        # hands a junction row to another club and retires this one's squad, so the club this row
-        # returns to may stand outside that season by now.
+        # The stored club, no payload naming one: a replacement hands a junction row to another club and
+        # retires this one's squad, so the club this row returns to may stand outside that season by now.
         team_in_saison = (
             await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": stored_raw["team_id"]}, limit=1, session=session)
         ) > 0

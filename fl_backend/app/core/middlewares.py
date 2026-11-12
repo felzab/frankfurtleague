@@ -25,8 +25,8 @@ ZERO_PARENT_ID = "0" * 16
 # every request from outside. A failed answer is still logged: it marks when the probe began failing.
 PROBE_PATHS: Final = frozenset({f"/api/v{API_VERSION}/system/is_live", f"/api/v{API_VERSION}/system/is_ready"})
 
-# Under `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` by what the page's clock counts and
-# this one cannot: the hop in, the queue before this runs, the answer's way back.
+# Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
+# in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
 
@@ -34,7 +34,7 @@ REQUEST_DEADLINE_S: Final = 10.0
 class RequestDeadline:
     """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
 
-    The aborts' grace (`app/core/transactions.py :: ABORT_GRACE_S`) is the time the request's aborts may
+    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
     run past `at`, all of them together, charged after each abort: the first abort past the deadline
     gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
     the request reaches an abort only when its next database operation meets the deadline, however

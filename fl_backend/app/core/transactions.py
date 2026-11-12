@@ -22,8 +22,7 @@ from app.core.middlewares import request_deadline_var
 
 NO_DATA_TEXT: Final = "//- No Data -//"
 
-# Counted as `app/core/middlewares.py :: RequestDeadline` says; far above a round trip, and inside the
-# page's margin.
+# Counted as `RequestDeadline` says; far above a round trip, and inside the page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort

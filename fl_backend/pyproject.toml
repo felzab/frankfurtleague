@@ -84,7 +84,7 @@ select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
-    "I",  # isort (alphabetizes your imports!)
+    "I",  # isort
     "B",  # flake8-bugbear
     # Fixes with no judgment in them -- `re.I` spelled `re.IGNORECASE` is the motivating case.
     # Stable subset only: ruff holds part of FURB behind `preview`, and turning that on moves every
@@ -155,10 +155,6 @@ extend-immutable-calls = ["fastapi.Depends"]
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
 
 [tool.pytest.ini_options]
 # importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test

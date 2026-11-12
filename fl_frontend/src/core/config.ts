@@ -156,13 +156,8 @@ const environment = {
   // this value alone.
   APP_ENV: z.enum(APP_ENVIRONMENTS),
 
-  // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
-  // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
-  // call. Caught at boot: that shape reads as healthy.
-  API_URL: z.url().refine((raw) => {
-    const authUrl = process.env.AUTH_URL;
-    return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
-  }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
+  // Its origin is held apart from AUTH_URL's by `schemaBeside`, which reads both.
+  API_URL: z.url(),
 
   // A stray http:// here ships a session cookie in plaintext: the sign-in library reads this value's
   // scheme and gives the cookie the `__Host-` name prefix and the `secure` attribute together or
@@ -221,22 +216,68 @@ const fromFiles = {
   BETTERSTACK_HEARTBEAT_URL: z.url({ protocol: /^https$/ }).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
-// A rule reading two variables at once, which a per-variable schema cannot express. Each issue carries a
-// `path`, so the refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
-const schema = z.object({ ...environment, ...fromFiles }).superRefine((values, ctx) => {
-  if (values.APP_ENV !== "production") return;
+/**
+ * The whole schema, beside the AUTH_URL the environment holds as it was set. Each issue carries a `path`, so the
+ * refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
+ */
+const schemaBeside = (authUrl: string | undefined) =>
+  z
+    .object({
+      ...environment,
+      ...fromFiles,
+      // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
+      // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
+      // call. Caught at boot: that shape reads as healthy.
+      API_URL: environment.API_URL.refine(
+        (raw) => !authUrl || new URL(raw).origin !== new URL(authUrl).origin,
+        "API_URL must reach the backend directly, not through the public origin AUTH_URL names",
+      ),
+    })
+    // A rule reading two variables at once, which a per-variable schema cannot express.
+    .superRefine((values, ctx) => {
+      if (values.APP_ENV !== "production") return;
 
-  for (const name of PRODUCTION_ONLY_REQUIRED) {
-    if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
-  }
+      for (const name of PRODUCTION_ONLY_REQUIRED) {
+        if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
+      }
 
-  // A test key passes every visitor, so production on one would run with no bot check at all.
-  for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
-    if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
-      ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
-    }
-  }
-});
+      // A test key passes every visitor, so production on one would run with no bot check at all.
+      for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
+        if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
+          ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
+        }
+      }
+    });
+
+type Validated = z.output<ReturnType<typeof schemaBeside>>;
+
+/**
+ * The input the schema reads: each setting the environment names, and the secret files' values over them. An empty
+ * variable reads as unset, as the backend's `env_ignore_empty` reads it: an image built without an argument carries its
+ * `ENV` as the empty string, which Docker cannot leave unset. The files alone give a secret: a variable of the same
+ * name, standing in for a missing file, would hand a credential `docker inspect` prints to a boot that should refuse.
+ */
+function inputOf(variables: Readonly<Record<string, string | undefined>>, files: Readonly<Partial<Record<SecretKey, string>>>) {
+  return {
+    ...Object.fromEntries(Object.keys(environment).map((name) => [name, variables[name] === "" ? undefined : variables[name]])),
+    ...files,
+  };
+}
+
+/**
+ * The boot's judgement of its settings and its secret files' values, together: the production demand reads `APP_ENV`
+ * beside the files, and a boot refusing both kinds prints both lines before it throws `BootRefusal`. Handed the
+ * environment and the files' values, it reads nothing else.
+ */
+export function judgedSettings(
+  variables: Readonly<Record<string, string | undefined>>,
+  files: Readonly<Partial<Record<SecretKey, string>>>,
+): Validated {
+  const parsed = schemaBeside(variables.AUTH_URL).safeParse(inputOf(variables, files));
+  if (!parsed.success) refuseInvalidEnvironment(failingVariableNames(parsed.error.issues));
+
+  return parsed.data;
+}
 
 const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 
@@ -245,26 +286,8 @@ const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
 if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
 
-/** Skipped, the input itself, unvalidated and undefaulted: the image's builder and the test runner hold none of these values. */
-function validate(input: Record<string, string | undefined>): z.output<typeof schema> {
-  if (skipValidation) return input as unknown as z.output<typeof schema>;
-
-  const parsed = schema.safeParse(input);
-  if (!parsed.success) refuseInvalidEnvironment(failingVariableNames(parsed.error.issues));
-
-  return parsed.data;
-}
-
-// One validation over the settings and the secrets together: the production demand reads `APP_ENV`
-// beside the files, and a boot refusing both kinds prints both lines before it throws.
-const validated = validate({
-  // An empty variable reads as unset, as the backend's `env_ignore_empty` reads it: an image built without an
-  // argument carries its `ENV` as the empty string, which Docker cannot leave unset.
-  ...Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name] === "" ? undefined : process.env[name]])),
-  // Off the files alone: a variable of the same name, standing in for a missing file, would hand
-  // a credential `docker inspect` prints to a boot that should refuse.
-  ...secrets.values,
-});
+// Skipped, the input itself, unvalidated and undefaulted: the image's builder and the test runner hold none of these values.
+const validated = skipValidation ? (inputOf(process.env, secrets.values) as unknown as Validated) : judgedSettings(process.env, secrets.values);
 
 type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
 

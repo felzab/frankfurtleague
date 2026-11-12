@@ -16,8 +16,7 @@ class Collection(StrEnum):
     SAISON_TEAMS = "saison_teams"
     #: The season-to-player junction, carrying everything a squad list shows.
     SAISON_SPIELER = "saison_spieler"
-    #: Fixtures, one per match; the consistency boundary is the season
-    #: (`docs/domain.md`'s what is held true together).
+    #: Fixtures, one per match; the consistency boundary is the season.
     SPIELE = "spiele"
     #: Matchdays: named blocks of a season's fixtures, though the name itself is derived.
     SPIELTAGE = "spieltage"
@@ -31,7 +30,7 @@ class Collection(StrEnum):
     #: triage moves `status`, `decision` and `team_id`.
     BEWERBUNGEN = "bewerbungen"
     #: One row per recorded act, naming who acted and what they did. The one collection nothing here
-    #: references and nothing references back (`fl_backend/app/core/recording.py`).
+    #: references and nothing references back.
     ACTION_LOG = "action_log"
     #: One barred address per row, kept past the erasure of the person it bars, whom it goes on barring.
     BAN_LIST = "ban_list"
@@ -42,7 +41,7 @@ class Collection(StrEnum):
     #: the erasure of its address.
     REGISTRIERUNGEN = "registrierungen"
     #: Who may enter the Verwaltung: one row per folded address. The one stored role, the other
-    #: Funktionen being derived from league records (`docs/glossary.md`, `Berechtigung`).
+    #: Funktionen being derived from league records.
     GRANTS = "grants"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
@@ -66,9 +65,7 @@ class Collection(StrEnum):
 
 
 # The collections a person edits through a form, one member per line: every update of what a form of one shows and
-# saves raises its `version`, and a save carrying the version its form was read at matches only while no such write
-# has raised it (`app/core/crud.py :: patch_one_in_db`). A write to a field no form saves leaves the count standing
-# (`:: patch_past_the_version_in_db`).
+# saves raises its `version`.
 EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
     {
         Collection.SPIELE,

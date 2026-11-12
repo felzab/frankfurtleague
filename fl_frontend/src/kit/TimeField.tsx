@@ -22,20 +22,14 @@ const fromTimeOfDay = (time: TimeOfDay | null | undefined): Time | null | undefi
 /** Enter a time of day: segmented, on the 24-hour clock, „19:30“. The value is the stored `HH:MM:SS`. */
 export function TimeField({
   label,
-  description,
-  consequence,
   isRequired = false,
-  isDisabled = false,
   name,
   value,
   defaultValue,
   onChange,
 }: {
   label: Copy;
-  description?: Copy;
-  consequence?: Copy;
   isRequired?: boolean;
-  isDisabled?: boolean;
   name?: string;
   value?: TimeOfDay | null;
   defaultValue?: TimeOfDay | null;
@@ -51,16 +45,13 @@ export function TimeField({
       hourCycle={24}
       shouldForceLeadingZeros
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={useDisabled(false)}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
       />
       <Segments isField />
-      <MessageLine
-        description={description}
-        consequence={consequence}
-      />
+      <MessageLine />
     </AriaTimeField>
   );
 }

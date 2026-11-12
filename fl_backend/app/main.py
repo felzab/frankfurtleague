@@ -137,19 +137,16 @@ def with_failure_responses(document: Mapping[str, Any]) -> dict[str, Any]:
 
     components = document.get("components", {})
     bodies = models_json_schema([(FLFailureBody, "serialization")], ref_template=SCHEMA_REF)[1]["$defs"]
-    # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
+    # Sorted as FastAPI sorts what it generates, so a rewrite of the committed document moves no schema.
     schemas = dict(sorted({**components.get("schemas", {}), **bodies}.items()))
     responses = {str(int(status)): failure_response(status) for status in FAILURE_STATUSES}
 
     return {**document, "components": {**components, "schemas": schemas, "responses": responses}}
 
 
-# Every alias a frontend constant is checked against: each consent's current label, which a grant sends, the
-# address change's and the consents' bounds, which the pages state, a declined row's days, which a decline mail states,
-# the Protokoll's page, which its button states, the line-up's starters, which its screen caps the ticks at, the
-# Kürzel's length, which a control caps a code at, and the domain rules' kinds, which the catalogue's rule phrases are
-# keyed by. No model names `Rule`: a refused
-# field's `kind` is one of Pydantic's own error types as often.
+# Every alias a frontend constant is checked against: a value a page, a mail or a control states, and the domain
+# rules' kinds, which the catalogue's rule phrases are keyed by. No model names `Rule`: a refused field's `kind` is one
+# of Pydantic's own error types as often.
 MIRRORED_CONSTANTS: Final = (
     *CURRENT_TEXT_VERSIONS,
     *ADDRESS_CHANGE_BOUNDS,
@@ -218,12 +215,26 @@ def mount_api(app: FastAPI) -> None:
 BOOT_REFUSED: Final = 3
 
 
+def create_shell() -> FastAPI:
+    """The application every route is served inside: the trace layer, the failure handlers and the lifespan, with no route.
+
+    Apart from `create_app`, which mounts the routers into it, so the stack a request passes through
+    is assembled in one place.
+    """
+
+    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
+    # contract is the committed one, built from the routes alone, and no route here answers unguarded but the two probes.
+    app = TracedApp(lifespan=lifespan, openapi_url=None)
+    register_exception_handlers(app)
+
+    return app
+
+
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
-    A FUNCTION, so the composition root is a choice rather than an import side effect. `config` is
-    what every request reads (`app/core/config.py :: get_app_config`), the environment's and the
-    secret files' where none is passed.
+    A function, so the composition root is a choice rather than an import side effect. `config` is
+    what every request reads, the environment's and the secret files' where none is passed.
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.
@@ -240,12 +251,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
         raise SystemExit(BOOT_REFUSED) from None
 
-    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
-    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the two probes.
-    app = TracedApp(lifespan=lifespan, openapi_url=None)
+    app = create_shell()
     app.state.config = config
-
-    register_exception_handlers(app)
     mount_api(app)
 
     return app

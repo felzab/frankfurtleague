@@ -2287,8 +2287,8 @@ export interface FLDeletionNoticeData {
 /**
  * What this person agreed may be published about them.
  *
- * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
- * consented, and no surface can tell that from one somebody gave.
+ * Its keys stand together: a scope with no confirmation date claims somebody consented, and no surface can tell
+ * that from one somebody gave.
  */
 export interface FLEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -2686,10 +2686,7 @@ export interface FLInvitationWriteResponse {
 }
 
 /**
- * One squad row as its team's seat holder reads it (`READ-KADER-001`).
- *
- * Declared from nothing rather than a public model unmasked, so the whole surname reaches no
- * base-tier model, and no address or telephone number reaches this one.
+ * One squad row as its team's seat holder reads it, the surname whole and no address or telephone number.
  */
 export interface FLKaderRow {
   /** @minLength 1 */
@@ -3747,9 +3744,6 @@ export interface FLPatchSchiedsrichterResponse {
 
 /**
  * A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.
- *
- * Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
- * documents it reads.
  */
 export interface FLSpielElfmeterschiessenPayload {
   /** @minimum 0 */
@@ -3850,13 +3844,10 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * Every fixture the save moved beyond its own edit, each with the result it destroyed.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.
  *
- * `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
- * null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
- * it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
- * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
- * the set a save names in its body to delete them.
+ * `voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,
+ * every party the confirmation pass would mail of the change.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
@@ -3869,7 +3860,7 @@ export interface FLPatchSpielDataResponse {
 /**
  * The Spieler editor's one save: the person, and their squad row in the season the page stands under.
  *
- * Replaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.
+ * Replaced wholesale, with no consent and no address, each being the person's own to change.
  */
 export interface FLPatchSpielerSaisonPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4833,9 +4824,8 @@ export interface FLSpielEditorSpielort {
 /**
  * A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
  *
- * `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
- * off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
- * and occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.
+ * `on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it
+ * here as the fixture stands would pass.
  */
 export interface FLSpielEditorTeam {
   fieldable: boolean;
@@ -5243,9 +5233,6 @@ export interface FLSpielbestaetigungViewAnsetzung {
 
 /**
  * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
- *
- * `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
- * match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
  */
 export interface FLSpieleAdminSingleResponse {
   aufstellungen: FLSpielEditorAufstellungen;
@@ -5322,10 +5309,7 @@ export interface FLSpielerAdminListResponse {
 }
 
 /**
- * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
- *
- * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
- * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
+ * One squad row as an anonymous visitor may read it: the surname an initial, and no `stufe` or consent record.
  */
 export interface FLSpielerPublic {
   first_name: string | null;
@@ -5439,10 +5423,7 @@ export interface FLSpielerSaisonSelfResponse {
 }
 
 /**
- * One player as the BASE TIER serves them -- an allow-list of what this surface needs.
- *
- * Squad fields are season-scoped, and inventing a season would make the answer depend on a default
- * nobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).
+ * One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.
  */
 export interface FLSpielerSingleResponse {
   first_name: string | null;

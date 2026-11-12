@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
   // loads the new build whole on its next navigation rather than asking the new server for the old
   // build's chunks and actions. A build handed none, the gate's and the local stack's, sets no id.
   deploymentId: process.env.APP_VERSION || undefined,
+  // Next names itself on every response by default, which tells a scanner which framework's flaws to try.
+  poweredByHeader: false,
   async headers() {
     return [
       {

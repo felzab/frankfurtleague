@@ -209,7 +209,7 @@ and lockfile, or pnpm itself did not start (its own words are above). Fix with: 
 esac
 PY=""
 case "$SCOPE" in
-  scripts|docs|backend|ops|db)
+  scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
     # On a runner the job's own `uv sync --locked` has just run.
     if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
@@ -224,7 +224,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --checker --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -292,12 +292,6 @@ scope_docs() {
   step "docs · every link and fragment inside the repository resolves"
   check "lychee names each broken link or fragment above, with the file it stands in." check_links \
     && ok "every link inside the repository resolves"
-
-  # This scope because the check reads the App Router tree and `nginx/shared/site.conf` together.
-  step "docs · every route handler, link page and metadata convention is metered or accounted for"
-  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
-    "$PY" scripts/checks/check_public_routes.py \
-    && ok "every route handler is accounted for at the edge"
   return 0
 }
 
@@ -381,6 +375,18 @@ typecheck() {
   esac
 }
 
+# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
+# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
+audit_prod() {
+  local report rc=0
+  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
+  printf '%s\n' "$report"
+  case "$rc" in
+    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 scope_frontend() {
   section frontend
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
@@ -428,22 +434,18 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
     in_dir fl_frontend pnpm knip:prod \
     && ok "nothing only tests read"
 
-  # Advisory: something published upstream overnight must not block an unrelated merge.
-  step "frontend · dependency audit  (runtime advisories only)"
-  local rc=0
-  quietly in_dir fl_frontend pnpm audit:prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerabilities" ;;
-    1)   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit" ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod" ;;
-  esac
-
-  # Last: it writes `.next/`, which tsconfig.json's `include` covers. The builder's skipped
-  # environment validation, for `fl_frontend/Dockerfile`'s reason.
+  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. The
+  # builder's skipped environment validation, for `fl_frontend/Dockerfile`'s reason.
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
+
+  # The one place an advisory meets a change before it lands, Dependabot's alerts reading the default
+  # branch alone. Last, as a registry it could not read refuses the scope.
+  step "frontend · dependency audit  (runtime advisories, high and above)"
+  check --checker "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
+triage with:  cd fl_frontend && pnpm audit" audit_prod \
+    && ok "no known runtime vulnerability at high or above"
   return 0
 }
 
@@ -500,6 +502,11 @@ repository cannot act on belongs in zizmor.yml with its reason, never suppressed
 findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
+
+  step "ops · every route handler, link page and metadata convention is metered at the edge"
+  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
+    "$PY" scripts/checks/check_public_routes.py \
+    && ok "every route handler is accounted for at the edge"
 
   step "ops · nginx accepts prod.conf"
   # The image production's model names, so the nginx accepting prod.conf is the one that serves it.

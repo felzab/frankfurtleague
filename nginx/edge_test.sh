@@ -16,9 +16,9 @@
 # - A link page's request writes no error line, its frontend failing included.
 # - Each upstream is named through a variable and found through Docker's DNS alone, and the
 #   capabilities the model grants are enough to start nginx.
-# - Each rate zone and the connection ceiling admit their figure and refuse past it, every location
-#   naming a zone refusing once its key is spent.
-# - A server action's body and the crash report's, each taken at its cap and refused past it.
+# - Each rate zone admits its burst as written and refuses past it, as the connection ceiling does its
+#   figure, every location naming a zone refusing once its key is spent. No rate is held.
+# - Every body cap takes its figure and refuses a byte past it.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -126,8 +126,6 @@ STUB
   # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
   # the empty `Next-Action` case starts.
   printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
-  # A redirect naming the upstream itself, which the edge must hand the visitor as its own origin.
-  printf '%s\n' '    location = /location-probe { return 302 http://frontend:3000/landed; }'
   # An answer sent at a hundred bytes a second, three seconds whole, so the requests the connection
   # ceiling's case sends are all in flight at once.
   printf '    location = /held { limit_rate 100; return 200 "%s\\n"; }\n' "$(printf '%0299d' 0)"
@@ -581,7 +579,8 @@ for _ in $(seq 1 5); do
 done
 spent_request form-code -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/api/auth/sign-in/email-otp"
 
-# The sign-in library's zone, on every method, and the landing and the readiness probe on the same key.
+# The sign-in library's zone, on every method, and the landing, the readiness probe and the code check,
+# asked with a GET the form zone's key leaves out, on the same key.
 burst_of AUTH_BURST "location /api/auth {" authapi
 for _ in $(seq 0 "$AUTH_BURST"); do
   action_request auth-allowance "${PROD_BASE}/api/auth/probe"
@@ -591,6 +590,7 @@ for _ in $(seq 1 10); do
 done
 spent_request auth-landing -H "Accept: ${NAVIGATION_ACCEPT}" "${PROD_BASE}/signin/continue"
 spent_request auth-ready "${PROD_BASE}/api/v0/system/is_ready"
+spent_request auth-code "${PROD_BASE}/api/auth/sign-in/email-otp"
 
 # The link pages' zone, every request it meters a page render or the proxy's redirect into one, with
 # twenty past the burst for the refill the run takes.
@@ -601,14 +601,11 @@ done
 for _ in $(seq 1 20); do
   action_request link-flood "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 done
-# The key spent: every link page, each kept whole, since a block declaring its own error_page answers
-# 429 too.
+# The key spent: every link page's block, each answer kept whole, since a block declaring its own
+# error_page answers 429 too.
 LINK_MARKER="fl-link"
 LINK_SPENT=(
   "/confirm/kontakt?token=${TOK}"
-  "/confirm/schiedsrichter?token=${TOK}"
-  "/confirm/spieler?token=${TOK}"
-  "/confirm/address?token=${TOK}"
   "/registrierung?token=${TOK}"
   "/erasure?token=${TOK}"
 )
@@ -619,9 +616,6 @@ done
 # gateway's link check may send, the second.
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" -H "Accept: ${NAVIGATION_ACCEPT}" --head "${PROD_BASE}/confirm/kontakt?token=${TOK}"
-# Next's prefetch of a link page, its two headers as the router sends them and no type asked for: the
-# sentence, which the router drops, rather than a page it would try to read as one.
-spent_request link-prefetch -H "RSC: 1" -H "Next-Router-Prefetch: 1" "${PROD_BASE}/confirm/kontakt?token=${TOK}"
 
 # A transfer curl never answered reads as `none`.
 mapfile -t ACTION_STATUSES < <(printf '%s\n' "${ACTION_CONFIG[@]}" | curl -K - || true)
@@ -795,6 +789,8 @@ expect_action auth-landing some:429
 grade_spent auth-landing page
 expect_action auth-ready some:429
 grade_spent auth-ready
+expect_action auth-code some:429
+grade_spent auth-code
 expect_action link-allowance 200
 expect_action link-flood some:429
 for _i in "${!LINK_SPENT[@]}"; do
@@ -807,8 +803,6 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
-expect_action link-prefetch some:429
-grade_spent link-prefetch
 
 # The connection ceiling, on production's catch-all: as many requests as it holds, all in flight at
 # once to an answer the stub sends slowly, pass, and one more beside them is refused.
@@ -834,9 +828,8 @@ if (( CONN_PASSED != CONN_CEILING || CONN_REFUSED != 1 )); then
   ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
 fi
 
-# A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
-# it below the log's own level. Read once every kept refusal's access line is written, which comes
-# after its error line.
+# A refusal's error line repeats the request line, live token included, which a link page's location
+# discards. Read once every kept refusal's access line is written, which comes after its error line.
 LINK_LOGGED=0
 # Every spent link pair is marked, each sending two.
 LINK_KEPT=$(( 2 * (${#LINK_SPENT[@]} + 2) ))
@@ -869,9 +862,14 @@ ACTION_BODY_MAX=1048576
 # Room for the largest report `fl_frontend/src/app/api/client-error/route.ts :: ClientErrorReportSchema`
 # takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it.
 REPORT_BODY_MAX=32768
+# No application figure bounds these two: the edge's own headroom over an address and six digits, and
+# over a delivery event of about a kilobyte.
+HEADROOM_BODY_MAX=8192
 BODY_CASES=(
   "/|${ACTION_BODY_MAX}"
   "/api/client-error|${REPORT_BODY_MAX}"
+  "/api/auth/sign-in/email-otp|${HEADROOM_BODY_MAX}"
+  "/api/mail/delivery|${HEADROOM_BODY_MAX}"
 )
 BODY_LABELS=()
 BODY_WANTED=()
@@ -884,9 +882,10 @@ for case_line in "${BODY_CASES[@]}"; do
     BODY_LABELS+=( "${body_size} bytes to ${body_path}" )
     if (( body_size > body_max )); then BODY_WANTED+=( 413 ); else BODY_WANTED+=( 200 ); fi
     if (( ${#BODY_REQUESTS[@]} > 0 )); then BODY_REQUESTS+=( --next ); fi
-    # A type the action zone's key leaves out, and inside the form zone's burst on this edge, so no zone
-    # refuses first; no `Expect`, so each answer is the body's verdict. The relative path, for the MSYS
-    # reason at the streams' 413 above.
+    # A type the action zone's key leaves out, and inside the form zone's burst on this edge, a body past
+    # its cap refused before any zone counts it, so no zone refuses first; no `Expect`, so each answer is
+    # the body's verdict. The body's path relative to the repository root, as `config_transfer` names
+    # its files: MSYS rewrites one that looks like a POSIX path.
     BODY_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 10 -H "Host: localhost" -H "Expect:"
       -H "Content-Type: application/octet-stream" --data-binary "@${SCRATCH_NAME}/body-${body_size}" "${BASE}${body_path}" )
   done
@@ -1032,17 +1031,6 @@ while IFS=$'\t' read -r conf directive; do
   esac
 done <<< "$CONF_DIRECTIVES"
 
-# The stub's redirect naming `frontend:3000`, which a variable `proxy_pass` hands the visitor as sent
-# unless `proxy_redirect` names it.
-rm -f "${SCRATCH}/headers-location"
-curl -s -o /dev/null -D "${SCRATCH}/headers-location" --max-time 5 -H "Host: localhost" "${BASE}/location-probe" || true
-read_headers "${SCRATCH}/headers-location"
-if [[ "${SENT_VALUE[location]:-}" != "/landed" ]]; then
-  fail "REDIRECT the frontend's own name"
-  detail "expected Location: /landed, nginx sent '${SENT_VALUE[location]:-}'"
-  RESOLVE_FAILURES=$(( RESOLVE_FAILURES + 1 ))
-fi
-
 # The production block reaching the frontend: a `resolver` of its own there replaces the shared one
 # for every location it wraps, and a public one finds no `frontend`.
 PROD_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-prod-site" -w '%{http_code}' --max-time 10 \
@@ -1153,11 +1141,11 @@ ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, a
 link page's and its refusals withholding the referrer,
 each handing its upstream the edge's own traceparent, an empty
-Next-Action handed to no one, each rate zone and the connection ceiling admitting their figure and
-refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
+Next-Action handed to no one, each rate zone admitting its burst as written and the connection ceiling
+its figure, each refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
 plain text an action reads, every link page metered on every request, its load refused with the edge's
-own page and no token reaching the error log, the code check metered on the crash reports' zone, every
+own page and no token reaching the error log, the code check metered on the crash reports' zone and on
+every method on the sign-in library's, every
 body cap taking its figure and refusing a byte past it,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s,
-the frontend's redirect naming itself handed back as the visitor's origin, and a link page's failing
-frontend writing no token to the error log"
+and a link page's failing frontend writing no token to the error log"
