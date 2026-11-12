@@ -879,7 +879,7 @@ export const SERVER_COPY = catalogue({
        * „Noch keine Tore und Karten.“
        */
       officialToreAndCards: "offiziellen Tore und Karten",
-      tor: "Tor",
+      tor: COPY.area.schiedsrichter.spielbericht.goal,
       eigentor: "Eigentor",
       card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
       /** A checkpoint's title: what happened, and to whom. */
