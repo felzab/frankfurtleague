@@ -11,7 +11,7 @@ import { ADMINISTRATOR_STATE, test } from "../support/journey";
 
 test.use({ storageState: ADMINISTRATOR_STATE });
 
-test("Administratoren reads who holds access and what waits, and offers an administrator no act", async ({ page }) => {
+test("Administratoren reads who holds access and what waits, and shows an administrator the owner's acts locked", async ({ page }) => {
   await page.goto("/admin/administrators");
   const main = page.getByRole("main");
   await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Administratoren" })).toBeVisible();
@@ -22,9 +22,8 @@ test("Administratoren reads who holds access and what waits, and offers an admin
   await main.getByRole("button", { name: /^Angekündigt/ }).click();
   await expect(main.getByRole("row").filter({ hasText: "admin.wartet@example.com" }).filter({ hasText: "Neuer Administrator" })).toBeVisible();
 
-  // Over the whole page, the toolbar's acts drawn once the same read has answered.
-  await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Zurückziehen" })).toHaveCount(0);
+  // The owner's acts stand for every administrator, locked with their reason, so the page has one shape for every reader.
+  await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveAttribute("aria-disabled", "true");
 });
 
 test("Löschungen opens on its one form", async ({ page }) => {
