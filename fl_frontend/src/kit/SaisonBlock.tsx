@@ -6,6 +6,7 @@ import { Card, CardPlaceholder } from "./Card";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
+import { SAISON_CHIP } from "./saisonChip";
 import { placeholderBar } from "./Skeleton";
 import { SpielGroup } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
@@ -62,15 +63,14 @@ type SaisonState =
   | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
 /**
- * The chip naming the state in the card's head: a season still ahead, its application window included, in the
- * informing blue, a running one in the green of success, a decided one in the warning's amber, each apart from
- * the others by its hue.
+ * The chip naming the state in the card's head, from the season's one entry, so the card and the administration draw
+ * one chip for one state: a season still ahead, its application window included, as planned.
  */
 const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
-  countdown: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  window: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  running: { tone: "success", label: SERVER_COPY.saisonState.running },
-  decided: { tone: "warn", label: SERVER_COPY.saisonState.decided },
+  countdown: SAISON_CHIP.planned,
+  window: SAISON_CHIP.planned,
+  running: SAISON_CHIP.running,
+  decided: SAISON_CHIP.decided,
 };
 
 const block = tv({
