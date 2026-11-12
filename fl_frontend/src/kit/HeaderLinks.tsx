@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense, use } from "react";
+import { Fragment, Suspense } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,7 +13,6 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
-import { Placeholder, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -21,23 +20,7 @@ import type { Route } from "next";
 /** A link of the classic header: catalogue words and an address the layout gives. */
 export type HeaderLink = { label: Copy; href: Route };
 
-/** The season the site is on as the header's first entry, once its read lands; none while the league has none. */
-function SeasonEntry({ read, look }: { read: Promise<HeaderLink | null>; look: "band" | "sheet" }) {
-  const link = use(read);
-  if (link === null) return null;
-  return (
-    <NextLink
-      href={link.href}
-      data-kit-focus={look === "band" ? "ring" : "inset"}
-      className={look === "band" ? frameLink({ tone: "bandMuted" }) : menuEntry({ size: "phone" })}>
-      {link.label}
-    </NextLink>
-  );
-}
-
 type HeaderLinksProps = {
-  /** The season the site is on, read on a request, or null where the league has none. */
-  season?: Promise<HeaderLink | null>;
   links: ReadonlyArray<HeaderLink>;
   signIn: Route;
 };
@@ -46,7 +29,7 @@ type HeaderLinksProps = {
  * The links at the address `path`: its page's link marked, and a sheet that goes with the page it led from, since the
  * layout outlives the page. `null` while a page with a dynamic segment streams its address, where no link is marked.
  */
-function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path: string | null }) {
+function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string | null }) {
   const current =
     path === null
       ? null
@@ -59,23 +42,6 @@ function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path:
       <nav
         aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
-        {season !== undefined && (
-          // The entry's place held meanwhile at its own width, so the links beside it never move when it lands.
-          <Suspense
-            fallback={
-              <Placeholder layoutClass={frameLink({ tone: "bandMuted" })}>
-                <PlaceholderLine
-                  textClass="text-sm"
-                  words={SAISON_WORDS}
-                />
-              </Placeholder>
-            }>
-            <SeasonEntry
-              read={season}
-              look="band"
-            />
-          </Suspense>
-        )}
         {links.map((link) => (
           <NextLink
             key={link.href}
@@ -109,22 +75,6 @@ function PlacedLinks({ season, links, signIn, path }: HeaderLinksProps & { path:
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
-              {season !== undefined && (
-                <Suspense
-                  fallback={
-                    <Placeholder layoutClass={menuEntry({ size: "phone" })}>
-                      <PlaceholderLine
-                        textClass="text-base"
-                        words={SAISON_WORDS}
-                      />
-                    </Placeholder>
-                  }>
-                  <SeasonEntry
-                    read={season}
-                    look="sheet"
-                  />
-                </Suspense>
-              )}
               {[...links, { label: COPY.template.account, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
@@ -154,9 +104,9 @@ function LinksAtAddress(props: HeaderLinksProps) {
 
 /**
  * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. The season's entry leads them once its read lands; while it waits its placeholder
- * holds its width and the band its fixed height, so nothing beside it moves. Past a dynamic segment the prerendered shell
- * holds no address, so it holds the same links unmarked, which is why the boundary stands here and not in the page.
+ * one button opening them as a sheet. Every link is known before any read, so the band stands whole in the first frame.
+ * Past a dynamic segment the prerendered shell holds no address, so it holds the same links unmarked, which is why the
+ * boundary stands here and not in the page.
  */
 export function HeaderLinks(props: HeaderLinksProps) {
   return (
