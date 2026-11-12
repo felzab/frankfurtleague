@@ -18,14 +18,6 @@
     "!eslint-rules/**!",
     "!scripts/tsconfig-alias-hook.mjs!"
   ],
-  // Built ahead of their first page, each named with the session that first uses it, which deletes
-  // its line here and in `knip.json`.
-  "ignoreFiles": [],
-  // An export no production module reads yet but its own says so on itself, `@awaitsProduction` and the
-  // page it waits for, which exempts it here (`knip.json` has the other tag). A tagged export that gains
-  // its reader is a tag hint, which fails the run until the tag goes.
-  "tags": ["-awaitsProduction"],
-  "treatTagHintsAsErrors": true,
   // An export its tests import passes while its own module uses it, and fails once nothing in
   // production does. `@internal` would exempt it for good, after its module stops using it too.
   "ignoreExportsUsedInFile": true
