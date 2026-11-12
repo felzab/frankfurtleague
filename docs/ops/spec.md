@@ -108,9 +108,9 @@ Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sen
 a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included, and `next dev` arms nothing.
 **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the
-jobs may act on, as during a restore ([`runbooks.md`](runbooks.md) §13): read once at the boot, it arms no pass and makes a write's drain
-send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
-Postausgang.
+jobs may act on, as during a restore ([`runbooks.md`](runbooks.md) §13): read once at the boot,
+it arms no pass and makes a write's drain send nothing
+(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
 
 Production declares no replicas, so one process arms one timer, and an hour finding the previous
 pass still running is skipped with one line. Every job selects on dates, lapses or season statuses
@@ -321,7 +321,8 @@ the visitor's HTTPS from Cloudflare, so no certificate is held here (§1.8). An 
 answered `421`. `www.frankfurtleague.de` redirects to the apex with the security headers, since
 HSTS's `includeSubDomains` makes a returning browser ask for it over HTTPS, which Cloudflare answers
 and the connector hands here. The apex tells Next its visitor's protocol is `https`, this hop's own
-being plain HTTP.
+being plain HTTP. Both named blocks keep an idle connection 100 seconds, past the 90 the
+connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector writes a request onto it.
 
 **A rule at Cloudflare may challenge a top-level navigation and never a server action's POST.** A
 server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
@@ -483,7 +484,7 @@ and frontend scopes alone, none of which needs Docker.
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                                        | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                       | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                               | pnpm install                                                                                                                                   |
-| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, which a runtime advisory at high or above fails                              | pnpm install                                                                                                                                   |
+| `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, an advisory that never fails the scope                                       | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; nginx accepts `prod.conf`; `nginx/edge_test.sh` drives a running edge | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                         | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                             | Docker                                                                                                                                         |
