@@ -17,6 +17,11 @@ const plaqueLook = tv({
     muted: {
       true: "text-fg-muted",
     },
+    // The side that did not turn up, struck where its plaque stands for its club alone: below `lg`, where the bracket's
+    // card draws the plaque without its name, which bears the strike from `lg`.
+    struck: {
+      true: "max-lg:line-through",
+    },
   },
 });
 
@@ -27,9 +32,9 @@ const plaqueLook = tv({
 export type Plaque = RecordText | { quelle: Copy | null };
 
 /** The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. */
-export function TeamPlaque({ plaque: held, muted = false }: { plaque: Plaque; muted?: boolean }) {
+export function TeamPlaque({ plaque: held, muted = false, struck = false }: { plaque: Plaque; muted?: boolean; struck?: boolean }) {
   return "record" in held ? (
-    <span className={plaqueLook({ known: true, muted })}>{held.record}</span>
+    <span className={plaqueLook({ known: true, muted, struck })}>{held.record}</span>
   ) : (
     <span className={plaqueLook({ known: false })}>{held.quelle}</span>
   );

@@ -102,7 +102,8 @@ const forms = tv({
 /**
  * How a side's name and goals are marked wherever a match's two sides stand, in a row, a bracket card or the
  * pop-up's head: the winner's name semibold; goals bold, a shoot-out loser's regular, and no result yet
- * muted. Each block extends it with its own layout and takes its variants from `look`.
+ * muted; and where something befell the match, both names muted and the side that did not turn up struck. Each
+ * block extends it with its own layout and takes its variants from `look`.
  */
 export const sideMarks = tv({
   slots: {
@@ -118,6 +119,12 @@ export const sideMarks = tv({
       lost: { goals: "font-normal" },
       none: { goals: "font-normal text-fg-muted" },
     },
+    muted: {
+      true: { name: "text-fg-muted" },
+    },
+    struck: {
+      true: { name: "line-through" },
+    },
   },
 });
 
@@ -131,12 +138,6 @@ const row = tv({
     // The first side on desktop: the name before its plaque, so the plaque stands nearest the score.
     mirrored: {
       true: { side: "justify-end" },
-    },
-    muted: {
-      true: { name: "text-fg-muted" },
-    },
-    struck: {
-      true: { name: "line-through" },
     },
   },
 });
