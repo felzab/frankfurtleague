@@ -12,8 +12,8 @@ async function SignInBody({ view }: { view: Promise<ReactNode> }) {
 
 /**
  * The sign-in template's server half, around the client one, `SignInPage`, which holds a step's state and so
- * cannot wait on the server: the sign-in's one boundary. The view is a function of the request's session, so the
- * whole column waits for it; meanwhile the view's placeholders stand, with its title where the page knows it before
+ * cannot wait on the server: the sign-in's one boundary. The view is read per request, so the whole column waits for
+ * it; meanwhile the view's placeholders stand, with its title where the page knows it before
  * the read, and a bar where the read names it. The page hands it the view it reads, as a promise. The placeholder
  * and the view are each a whole classic page, whose own fade carries the swap.
  */
