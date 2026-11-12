@@ -113,16 +113,6 @@ The first command lists the tags on the host. `.env` still pins the newer build 
 
 **Some older builds must not serve again, so roll forward instead:**
 
-- **A build declaring no `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID`, once a later
-  build has erased a pupil or an administrator.** Each erasure writes a row such a build mishandles:
-  - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
-    name, so that build's player list in the administration answers 500, and its public
-    `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
-    name;
-  - an administrator's queues a grant notice withheld as `erased`, which that build's hourly grant
-    pass claims before reading anything, a write its validator refuses with code 121, so every pass
-    fails and no change of access is mailed again;
-  - that build's boot attaches its own validators again, which refuse any write over either row.
 - **A build published before `sha-3eebe79`**, the first requiring the records as the deletion of
   every pupil and referee row and the emptying of the action log left them. Such a build stamps
   consent labels the current wordings do not hold
@@ -1126,11 +1116,11 @@ took a sign-in account alone, which goes with the account sweep's first pass aft
 nothing. A restored row does not look erased,
 and each role's guard reads something the restore took away:
 
-- **A referee.** The whole row is back, with its name, school and contact members, and every fixture
-  the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
-  they are editable and bookable. The erasure does all of it again.
-- **A pupil.** The person and their squad rows are back and standing, and every report entry the
-  erasure had repointed names them again in place of the sentinel. The erasure takes them and repoints
+- **A referee.** The whole row is back, with its name, school and contact members, and every
+  booking the erasure had left naming nobody or taken off names them again, so nothing reads as
+  erased and they are editable and bookable. The erasure does all of it again.
+- **A pupil.** The person and their squad rows are back and standing, and every line-up entry, goal
+  and card the erasure had left naming nobody names them again. The erasure takes them and clears
   the entries again, asking no retirement first.
 - **A contact seat.** Every seat that address held is back and filled. The erasure is keyed on the
   address, so the matched address is the whole input — and its counts take in records written since
