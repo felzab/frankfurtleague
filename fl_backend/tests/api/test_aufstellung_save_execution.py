@@ -444,20 +444,25 @@ class TestAnErasedPupilsEntry:
     """Kept naming nobody where the match was played, removed where it is still to come."""
 
     def test_two_erased_after_kick_off_stand_naming_nobody_and_the_line_up_saves_as_served(self, mongo_replica_set_url: str):
-        """A played match keeps its shape: each entry stands in its place, and a save of the screen as served keeps both."""
+        """A played match keeps its shape: each entry stands in its place, and a save of the screen as served keeps both.
+
+        Each erasure raises the line-up's count, so a screen read before it is refused rather than writing the pupil back.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
+            saved, _ = await admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2))
             await erase(database, client, LINA, OLE, now=PLAYED)
+            stale = await refusal_of(admin_saves(database, client, _payload(LINA, OLE, MIA, starters=2, version=saved.version), now=PLAYED))
             served = await admin_reads(database, client, now=PLAYED)
             answer, _ = await admin_saves(database, client, FLAufstellungPayload(spieler=served.spieler, version=served.version), now=PLAYED)
             stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
             assert stored is not None
 
-            return served, answer, stored["spieler"]
+            return stale, served, answer, stored["spieler"]
 
-        served, answer, stored = on_a_season(mongo_replica_set_url, body)
+        stale, served, answer, stored = on_a_season(mongo_replica_set_url, body)
 
+        assert stale == (Code.VERSION_STALE, [])
         assert [(entry.spieler_id, entry.starts) for entry in served.spieler] == [(None, True), (None, True), (MIA, False)]
         assert (served.named, answer.spieler) == ([], served.spieler)
         assert stored == [

@@ -325,6 +325,8 @@ def test_a_spiel_still_to_come_does_not_stop_the_erasure_and_loses_the_booking(m
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] is None
     # The played one beside it, so this cannot pass on an erasure taking every booking off.
     assert spiele[PLAYED_SPIEL_OID]["schiedsrichter"] == NAMELESS_BOOKING
+    # Both counts raised, so an editor read before the erasure is refused rather than booking the referee back.
+    assert [spiele[spiel_id]["version"] for spiel_id in (MOVED_SPIEL_OID, PLAYED_SPIEL_OID)] == [1, 1]
 
 
 @pytest.mark.db
