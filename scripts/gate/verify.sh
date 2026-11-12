@@ -375,6 +375,18 @@ typecheck() {
   esac
 }
 
+# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
+# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
+audit_prod() {
+  local report rc=0
+  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
+  printf '%s\n' "$report"
+  case "$rc" in
+    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 scope_frontend() {
   section frontend
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
@@ -422,22 +434,18 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
     in_dir fl_frontend pnpm knip:prod \
     && ok "nothing only tests read"
 
-  # Advisory: something published upstream overnight must not block an unrelated merge.
-  step "frontend · dependency audit  (runtime advisories only)"
-  local rc=0
-  quietly in_dir fl_frontend pnpm audit:prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerabilities" ;;
-    1)   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit" ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod" ;;
-  esac
-
-  # Last: it writes `.next/`, which tsconfig.json's `include` covers. The builder's skipped
-  # environment validation, for `fl_frontend/Dockerfile`'s reason.
+  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. The
+  # builder's skipped environment validation, for `fl_frontend/Dockerfile`'s reason.
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
+
+  # The one place an advisory meets a change before it lands, Dependabot's alerts reading the default
+  # branch alone. Last, as a registry it could not read refuses the scope.
+  step "frontend · dependency audit  (runtime advisories, high and above)"
+  check --checker "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
+triage with:  cd fl_frontend && pnpm audit" audit_prod \
+    && ok "no known runtime vulnerability at high or above"
   return 0
 }
 
