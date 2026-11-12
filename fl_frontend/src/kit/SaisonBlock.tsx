@@ -3,6 +3,7 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import { Card, CardPlaceholder } from "./Card";
+import { Chip } from "./Chip";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
@@ -29,7 +30,14 @@ type OpeningSide = RecordText | null;
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: Copy; spieltag: Copy; team1: OpeningSide; team2: OpeningSide };
+type Opening = {
+  when: Copy;
+  spieltag: Copy;
+  team1: OpeningSide;
+  team2: OpeningSide;
+  /** What befell the match, drawn after its plaques as every match block draws it. */
+  event?: ChipProps;
+};
 
 /**
  * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
@@ -103,6 +111,7 @@ function Body({ state }: { state: SaisonState }) {
                 <OpeningPlaque side={state.opening.team1} />
                 <span aria-hidden>{COPY.shared.versus}</span>
                 <OpeningPlaque side={state.opening.team2} />
+                {state.opening.event !== undefined && <Chip {...state.opening.event} />}
               </p>
             </>
           )}

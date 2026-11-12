@@ -5,7 +5,7 @@ import { dayOf, timeOf } from "@/core/format";
 import { saisonsGetLanding } from "@/core/generated/client/sdk";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
-import { matchRowOf } from "@/features/spiele/blocks";
+import { eventChipOf, matchRowOf } from "@/features/spiele/blocks";
 
 import type { FLLandingResponse, FLLandingSide } from "@/core/generated/client/types";
 import type { Place } from "@/kit/Podium";
@@ -59,6 +59,9 @@ export function stateOf(saison: LandingSaison): SaisonState {
                 spieltag: SERVER_COPY.landing.saison.spieltag(spiel.spieltag_position),
                 team1: plaqueOf(spiel.team1),
                 team2: plaqueOf(spiel.team2),
+                ...(spiel.sonderereignis === null
+                  ? {}
+                  : { event: eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null) }),
               },
             }),
       };
