@@ -533,7 +533,7 @@ export const COPY = catalogue({
     website: "Website",
     gruppe: "Gruppe",
     trikotFarbe: "Trikotfarbe",
-    /** Each kit colour's name in the league's colour sheet, whose hexes stand in `fl_frontend/src/core/teamVocabulary.ts`. */
+    /** Each kit colour's name in the league's colour sheet, whose hexes stand in `TRIKOT_FARBEN`. */
     trikotFarbeName: {
       schwarz: "Schwarz",
       weiss: "Weiß",

@@ -13,7 +13,7 @@ import { TextField } from "@/kit/TextField";
 import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { COPY } from "@/core/copy";
-import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
+import { TRIKOT_FARBEN } from "@/core/trikotFarben";
 import { BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";

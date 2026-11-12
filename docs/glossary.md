@@ -369,7 +369,7 @@ of no kind.\
 administrator or null before one is. An application's `trikot.wunschfarbe` is the same set as a
 wish, and nothing copies it into the assignment.\
 **In code:** `fl_backend/app/api/teams/schemas.py :: FLTrikotFarbe`; names and hex
-`fl_frontend/src/core/teamVocabulary.ts :: TRIKOT_FARBEN`.
+`fl_frontend/src/core/trikotFarben.ts :: TRIKOT_FARBEN`.
 
 ### `kontakte` — the three people the league reaches a team through
 
