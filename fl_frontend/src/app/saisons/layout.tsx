@@ -45,7 +45,9 @@ export default function SaisonsLayout({ children }: { children: ReactNode }) {
         groups={GROUPS}
         bar={SAISON_PAGES}
         saison={{ saisons: readSeasons(), home: "spielplan" }}
-        foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
+        foot={{ kind: "signIn", href: ROUTES.signIn.path() }}
+        // Four pages, each read from caches every visitor shares, so a press lands on the page whole.
+        prefetch>
         {children}
       </RailFrame>
     </RailFrameBoundary>

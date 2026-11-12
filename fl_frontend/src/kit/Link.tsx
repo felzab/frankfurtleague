@@ -172,10 +172,12 @@ export function Link<T extends string>(
      */
     fullPage?: boolean;
     /**
-     * `false` for a link of a page of many, which prefetches nothing, in view or under the pointer, as Next's guide to
-     * prefetching says of a large list: with `optimisticRouting` off, each address in view costs a request of its own.
+     * Next's own `prefetch`. Unset, the target's shell. `false` for a link of a page of many, which prefetches nothing, in
+     * view or under the pointer, as Next's guide to prefetching says of a large list: with `optimisticRouting` off, each
+     * address in view costs a request of its own. `true` for the one likely next page whose content is cached reads every
+     * visitor shares, which then arrives whole, at a server render per link in view.
      */
-    prefetch?: false;
+    prefetch?: boolean;
   } & (({ placement: "text" | "standalone" | "struck" | "detail" } & Worded) | Row | Footer | Button | IconOnly | Card | Frame | Contents),
 ) {
   const { href, sponsored = false, fullPage = false, prefetch } = props;
