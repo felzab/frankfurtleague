@@ -149,7 +149,7 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
           <Waiting layoutClass="flex flex-col gap-4">
             <div className={slots.head()}>
               <PlaceholderLine
-                textClass={classicTitle()}
+                textClass={classicTitle({ place: "page" })}
                 words={COPY.signIn.passkey.offer.title}
               />
               <span className="grid w-full justify-items-center">
@@ -179,7 +179,10 @@ export function SignInPlaceholder({ title }: { title: Copy | null }) {
           </Waiting>
         ) : (
           <>
-            <ClassicTitle text={title} />
+            <ClassicTitle
+              text={title}
+              place="page"
+            />
             <Waiting layoutClass="flex flex-col gap-4">
               <div className={slots.form()}>
                 <FieldStack>
@@ -222,7 +225,10 @@ function Body(props: SignInView) {
       return (
         <>
           <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
+            <ClassicTitle
+              text={props.title}
+              place="page"
+            />
             <p className={slots.sentence()}>
               {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
             </p>
@@ -253,7 +259,10 @@ function Body(props: SignInView) {
       return (
         <>
           <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
+            <ClassicTitle
+              text={props.title}
+              place="page"
+            />
             <p className={slots.sentence()}>{props.sentence}</p>
             <p className={slots.sentence()}>
               <strong className={slots.marked()}>{props.address}</strong>
@@ -280,7 +289,10 @@ function Body(props: SignInView) {
       return (
         <>
           <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
+            <ClassicTitle
+              text={props.title}
+              place="page"
+            />
             <p className={slots.sentence()}>
               {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
             </p>
@@ -319,7 +331,10 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
   return (
     <>
       {/* The column's 16 px above the field. */}
-      <ClassicTitle text={title} />
+      <ClassicTitle
+        text={title}
+        place="page"
+      />
       <HeldForm
         ref={form}
         validationErrors={address.error}
