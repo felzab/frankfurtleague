@@ -35,7 +35,30 @@ renumbering would repoint every citation of a section, the scripts' own messages
 **The repository records no host and holds no credential**, so getting onto the server is outside
 it. `deploy.sh` runs on Linux alone, from the checkout of this repository on the server.
 
-**Put a merge live once its `verify` and `publish` jobs on `main` have concluded**, in the checkout:
+**Before a run, every file [`spec.md`](spec.md) §1.2's table names exists with that owner and
+mode.** A service missing one does not start, and a run with no build pinned has nothing to go back
+to. This lists them, without their contents:
+
+```bash
+sudo find secrets -maxdepth 1 -type f -printf '%u:%g %m %f\n'
+```
+
+Each line shows the file's owner, group and mode, which must match the table. §16 writes a missing
+one.
+
+**Before the first run on a server, two more things:**
+
+- **The journal's drop-in is in place** ([section 7](#7-the-journals-age-limit)), since every
+  service logs to the journal from that run on.
+- **The `.env` beside the compose file holds nothing but `TAG`.** The run replaces the file with
+  its pin alone. `sed 's/=.*//' .env` lists its names without their values. Where it lists any
+  other name, settle where that setting belongs before the run.
+
+**A change to a stored shape deploys in [section 2](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)'s
+order**, which holds the background jobs from before the new frontend boots until the read-back has
+passed.
+
+**Put a merge live once its `verify` and `publish` jobs on `main` have succeeded**, in the checkout:
 
 ```bash
 git pull
@@ -62,23 +85,38 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
 
 **A healthy verdict is container health and the reload, never a page.** The frontend answers a
 static file, the backend its liveness probe, the connector holds a tunnel connection, and nginx is
-running. A site whose every page errors can pass, so open the site once the run ends.
+running. A site whose every page errors can pass. So once the run ends:
+
+1. **Open the site.** Where it answers 502 or 1033 and the run said live, the tunnel routes
+   somewhere else (below).
+2. **Read the frontend's index builds**: `docker compose logs frontend | grep auth.index_unbuilt`
+   prints nothing, or each line is [section 14](#14-the-auth-databases-indexes)'s.
+
+**The tunnel's two routes name `nginx:80`.** In the Cloudflare dashboard, the tunnel's published
+application routes for `frankfurtleague.de` and `www.frankfurtleague.de` each have the service type
+HTTP and the URL `nginx:80` ([`spec.md`](spec.md) §1.8). A route naming anything else fails every
+visitor while the run says live: the connector's healthcheck reads its connection to Cloudflare,
+never one to nginx. `docker compose logs cloudflared` names the origin it dialled. Change a route
+only after the run has ended. Until then the edge serving is the one the run replaces, and an edge
+from before this stack answers plain HTTP with a redirect to HTTPS, which Cloudflare would send back
+through the same route.
 
 **The pin is the stack's own memory.** Compose reads `.env` for every command, so
 `docker compose ps`, `logs` and `exec` typed in the checkout reach the build that runs, and a later
-run that fails goes back to the build it names. Only the deploy writes it. A pinned value that is
-not a `sha-` tag is warned about and counts as no pin.
+run that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
+about and counts as no pin.
 
-| Ending                             | Exit | What stands afterwards                                                |
-| ---------------------------------- | ---- | --------------------------------------------------------------------- |
-| Deployed                           | 0    | The new build, pinned; the replaced build's images still on the host  |
-| Live, but the pin unwritable       | 1    | The new build; `.env` pinning the previous one, and the line to write |
-| Failed, and went back              | 1    | The previous build's images, pinned; nginx not reloaded               |
-| Failed, with no other build pinned | 1    | The stack as Compose left it; the pin unmoved                         |
-| Failed, and going back failed too  | 1    | The stack as Compose left it; `.env` pinning the previous build       |
-| Failed under `--no-rollback`       | 1    | The stack as it stands; `.env` pinning the new build                  |
-| Refused                            | 2    | The stack unchanged; unused images pruned where the run reached that  |
-| Interrupted                        | 130  | The stack as far as Compose took it; the pin unmoved                  |
+| Ending                             | Exit      | What stands afterwards                                                                                      |
+| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                        |
+| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                       |
+| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
+| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
+| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
+| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
+| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
+| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |
+| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started |
 
 **A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
 pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
@@ -93,41 +131,42 @@ configuration nginx takes and deploy it.
 migration has already changed the data. It pins the new build before starting it, so a failure
 leaves the stack as it stands and no later run goes back past it.
 
-**A first run finds no pin and goes back to nothing.** The build it replaces is then whatever ran
-before this script, which must never run again.
+**A first run finds no pin and goes back to nothing**, so a failed first run leaves the site down
+until a run ends 0. Write down the tag it pins once it does: no build published before that one
+serves again (below).
+
+### When a run fails
+
+1. **Read the run's last lines.** A failed start lists every service's state, then the last 60
+   lines of each service that is not running and healthy. A refused nginx configuration shows
+   nginx's own line, and a crash names the command and its exit status.
+2. **Find the line among [`spec.md`](spec.md) §3's symptoms and do its remedy.** A line naming a
+   secret file is [section 16](#16-the-secret-files)'s; one naming a variable is that package's
+   `.env`.
+3. **Run the deploy again with the same tag**, `./scripts/ops/deploy.sh sha-1a2b3c4`. A run that
+   went back left the previous build serving meanwhile. After `--no-rollback`, or on a first run,
+   the site stays down until a run ends 0.
+4. **Where the fault is in the build itself**, merge its fix and deploy the fix's tag. Going back
+   is the section below, never past its floor.
 
 ### Going back by hand
 
 **`./scripts/ops/deploy.sh <older tag>` needs the registry**: its prune removes the older build's
 images, which no container references, and its pull fetches them again. **Without the registry**,
-start the build the last deploy replaced, whose images are still on the host, by naming its tag in
-the shell:
+start the build the last deploy replaced, whose images are still on the host, then pin it:
 
 ```bash
 docker image ls ghcr.io/felzab/frankfurtleague-backend
 TAG=sha-1a2b3c4 docker compose up -d --wait
+printf 'TAG=%s\n' sha-1a2b3c4 > .env
 ```
 
-The first command lists the tags on the host. `.env` still pins the newer build afterwards, so name
-`TAG=` on every Compose command typed until a deploy pins another.
+The first command lists the tags on the host, and the second starts the one named. The third pins
+it once it is up, so every later Compose command, and a later deploy that fails, reach it.
 
-**Some older builds must not serve again, so roll forward instead:**
-
-- **A build published before `sha-3eebe79`**, the first requiring the records as the deletion of
-  every pupil and referee row and the emptying of the action log left them. Such a build stamps
-  consent labels the current wordings do not hold
-  (`fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`), so a record it confirms cites
-  words nobody can produce; `python -m app.readback` names each such record.
-
-**After serving a build older than the season-row confirmation links, re-send the link of every
-contact seat that build re-staffed, once the current build is back.** That build's contacts editor
-leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
-seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
-so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
-The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
-A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
-the contacts editor and save, then enter the person again and save, which voids the old link and
-mints the person a new one.
+**No build published before the first run on this server can serve again, so roll forward
+instead.** Each asks for secret files this compose file does not mount, and none can read a match
+report entry naming nobody, which an erasure leaves.
 
 ## 2. Before deploying a change to a stored shape or an index
 
@@ -323,10 +362,7 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
-  password and no code to fall back to. **Where nobody can get in at all, the way back is the
-  previous image** (§1's deploy by tag, never past the floors §1 sets on it), which authenticates
-  against the store that build carries —
-  so it works only while that store is still there, and dropping it is what closes this route.
+  password and no code to fall back to.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a session
@@ -767,14 +803,12 @@ no log above outlives its bound.
 edge's access lines, which name each visitor's address, the application logs and the backend's
 `journal.act` lines. **The published notice gives them nine days**
 (`fl_frontend/src/core/serverCopy.ts`), and journald ages nothing by default, so the limit is a
-drop-in on the host that no file in this repository can install. Write it as
-`/etc/systemd/journald.conf.d/frankfurtleague.conf`:
+drop-in on the host that no file in this repository can install. **It is in place before the first
+deploy on a server**, since every service logs to the journal from that deploy on. This writes it,
+creating its directory where the host has none:
 
-```ini
-[Journal]
-Storage=persistent
-MaxFileSec=12h
-MaxRetentionSec=204h
+```bash
+printf '%s\n' '[Journal]' 'Storage=persistent' 'MaxFileSec=12h' 'MaxRetentionSec=204h' | sudo install -D -m 644 /dev/stdin /etc/systemd/journald.conf.d/frankfurtleague.conf
 ```
 
 **Both age settings are needed.** journald deletes an archived file only once its first entry is
@@ -790,6 +824,9 @@ sudo systemctl restart systemd-journald
 systemd-analyze cat-config systemd/journald.conf
 sudo journalctl --output=short-iso | head -n 1
 ```
+
+`cat-config` prints the drop-in last, under its own path, with its four lines. Once the drop-in
+has stood nine days, the oldest line the last command prints is at most nine days old.
 
 **Two other bounds can take a line sooner, and neither can keep one longer.** journald deletes the
 oldest files once the journal fills its share of the disk, by default a tenth of the file system and
@@ -821,6 +858,21 @@ pass finished**: the frontend process holds the timer, so the container can be u
 inside it is not, and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating
 the frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses
 rather than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
+
+**The monitor is made by hand in Better Stack, and production's frontend refuses to boot without
+its address** (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`). So before the first
+deploy that reads it:
+
+1. In Better Stack, create a heartbeat monitor expecting a ping every hour, with a grace period of
+   15 minutes, which a slow pass stays inside.
+2. Set its alerts to the owner's personal address alone, as every monitor's are
+   ([`spec.md`](spec.md) §1.9).
+3. Copy its address, which begins `https://`.
+4. On the server, in the checkout, run
+   `sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/betterstack_heartbeat_url`, paste the
+   address, then press Ctrl-D.
+5. Where the stack runs already, recreate the frontend
+   ([section 16](#16-the-secret-files)).
 
 **Each hourly pass that did anything writes one line**, `scheduler.pass`, every job's counts in
 it:
@@ -1237,14 +1289,20 @@ above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in
 ## 14. The `auth` database's indexes
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
-built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An
-index the boot could not build is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that event after every deploy:
+built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
+is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again
+before the next boot. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)),
+read the frontend's log for that event:
+
+```bash
+docker compose logs frontend | grep auth.index_unbuilt
+```
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
 | `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
-| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
+| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
 | none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `auth.index_unbuilt` again for any still refused                                                |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
@@ -1252,8 +1310,13 @@ collection's unique `credentialID` and both expiry indexes — were made in the 
 the frontend built any, and a same-key index under another name is the code-85 line above.
 
 **For a release changing an index's key or options, drop the old one in the Atlas console as it
-deploys, then restart the frontend container**: `createIndex` refuses a name already held at other
-options and builds nothing in its place, so the old index would otherwise stand for good.
+deploys, then restart the frontend**: `createIndex` refuses a name already held at other options
+and builds nothing in its place, so the old index would otherwise stand for good. A restart boots
+the frontend again, which builds every index:
+
+```bash
+docker compose restart frontend
+```
 
 **The two expiry indexes are the retention.** The library writes an `expiresAt` on every
 `verification` row and every `session` row and deletes neither on a schedule: an expired
@@ -1359,14 +1422,19 @@ sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
 **Each service reads its files once, as it boots**, and Compose recreates a container for a
-changed definition or image, never for a file's new content. So a value replaced on a running stack,
-a wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then, takes
-effect only once both containers are recreated. Run this in the checkout, whose `.env` pins the
-build that runs; `--wait` reports their healthchecks:
+changed definition or image, never for a file's new content. So a value replaced on a running stack
+takes effect only once the services reading it are recreated, which [`spec.md`](spec.md) §1.2's
+table names. A wrong `secrets/turnstile_secret_key` fails every bot check until then. Run this in
+the checkout, naming those services; `--wait` reports their healthchecks:
 
 ```bash
 docker compose up -d --wait --force-recreate frontend backend
 ```
+
+- **The three internal keys** are read by both application services, so recreate `frontend backend`
+  together.
+- **A frontend file** recreates `frontend`, and **`backend_mongodb_uri`** recreates `backend`.
+- **`tunnel_token`** is read by the connector alone, so recreate `cloudflared`.
 
 **Where a service refuses to boot naming a file**, its last lines say which fault, and a failed
 deploy prints them: a missing file is written, an unreadable one is given the user and mode above,
