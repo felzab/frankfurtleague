@@ -160,8 +160,8 @@ _IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
     {"$match": {"public_saison": {"$ne": []}}},
 )
 
-# A club a season's Teams page lists, as `app/api/teams/services.py :: build_retirement_stages` keeps it: one that has
-# not left the league, or one that left it after a season now `past`, which keeps its place there.
+# A club a season's Teams page lists, as `build_retirement_stages` keeps it: one that has not left the league, or one
+# that left it after a season now `past`, which keeps its place there.
 _LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
     {
         "$lookup": {
@@ -301,12 +301,10 @@ async def get_landing(
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 
-    Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
-    the judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures
-    over every season the public reads, counted on every read. The windows and the figures are read beside the season's
-    two steps rather than after them, so they add no step to the read.
+    Beside it, the application windows and the league's figures over every season the public reads, counted on every read.
     """
 
+    # The windows and the figures beside the season's two steps rather than after them, so they add no step to the read.
     saison, windows, counts = await asyncio.gather(
         _landing_saison(
             saisons_collection=saisons_collection, spiele_collection=spiele_collection, teams_collection=teams_collection, today=today
@@ -381,7 +379,7 @@ async def get_spielplan(
 ) -> FLSpielplanResponse:
     """Every matchday of one season with its matches, in playing order, and the matchday to open on.
 
-    The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+    404 for a season this tier may not read.
     """
 
     saison, spieltage = await _spielplan_of(
@@ -483,8 +481,7 @@ async def get_team(
     404 for a season this tier may not read and for a club the season does not hold.
     """
 
-    # Beside the resolve, for `_spielplan_of`'s reason: each needs the path's id alone, and none is served before the
-    # resolve has passed.
+    # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
     saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
