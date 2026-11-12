@@ -750,7 +750,7 @@ export const COPY = catalogue({
       lapsed: "Die Änderung ist abgelaufen.",
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
-      /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
+      /** A holder's own change, which waits whole: the mails to either address. */
       holderWait: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
     },
     erasure: {

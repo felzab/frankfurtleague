@@ -216,7 +216,7 @@ export const getAccountGetAddressChangeUrl = () => {
 };
 
 /**
- * The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
+ * The change pending on the signed-in address, null where none is.
  *
  * The pending address is served whole only where the person typed it, and masked where an administrator started the change.
  * @summary The address change pending on a signed-in person
