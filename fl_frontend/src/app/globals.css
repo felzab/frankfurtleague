@@ -46,15 +46,16 @@
 }
 
 /* Anton's stand-in until the face arrives, tuned by hand because the site sets Anton in capitals alone, where
-   next/font's own stand-in, scaled to Anton's average lowercase letter, draws the league's name 49 px wider than
-   Anton and moves the header's links when the face lands. Here Arial is scaled so the league's name stands exactly
-   as wide as in Anton, and its line box takes Anton's ascent and descent, so neither the line nor its neighbours move. */
+   next/font's own stand-in, scaled to Anton's average lowercase letter, draws a title about 30 % wider than Anton,
+   moving what stands beside it and breaking it over a line more. Here Arial is scaled to Anton's average capital, by
+   the frequency of each letter in German, and its line box takes Anton's ascent and descent, so a title stands as
+   wide and as tall as it will within a few pixels. */
 @font-face {
   font-family: "Anton Fallback";
   src: local("Arial");
-  size-adjust: 67.13%;
-  ascent-override: 175.23%;
-  descent-override: 49.03%;
+  size-adjust: 68.19%;
+  ascent-override: 172.5%;
+  descent-override: 48.26%;
   line-gap-override: 0%;
 }
 
