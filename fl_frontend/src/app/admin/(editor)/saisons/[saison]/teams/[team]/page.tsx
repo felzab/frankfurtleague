@@ -176,7 +176,6 @@ async function readEditor(params: Props["params"]) {
       title={{ record: team.full_name }}
       {...(chip === undefined ? {} : { chip })}
       {...(closed === undefined ? {} : { closed })}
-      {...(retired ? { closedChip: { tone: "neutral", label: COPY.shared.retired } } : {})}
       record={{ id: team.id, version: read.version, values: valuesOf(team, membership) }}
       save={saveTeam}
       rules={TEAM_SAVE_RULES}

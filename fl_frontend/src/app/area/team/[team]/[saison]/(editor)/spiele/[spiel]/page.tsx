@@ -7,7 +7,7 @@ import { LineupPlaceholder } from "@/kit/Lineup";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
@@ -68,14 +68,14 @@ function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
 }
 
 /**
- * The chip after the title: what befell the match, as every match block draws it, else „Überfällig“ while nothing is
+ * The chip after the title, the line-up's own state: what befell the match, as every match block draws it; else
+ * „Gesperrt“ from the lock, the closed editor's reason saying who enters it now; else „Überfällig“ while nothing is
  * stored past the due mark.
  */
 function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined {
   if (spiel.sonderereignis !== null) return eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null);
-  return marks !== null && !marks.stored && marks.phase === "overdue"
-    ? { tone: "danger", label: COPY.area.team.aufstellung.overdue }
-    : undefined;
+  if (marks === null || (marks.stored && marks.phase !== "locked")) return undefined;
+  return AUFSTELLUNG_CHIP[marks.phase];
 }
 
 /**
