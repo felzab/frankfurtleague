@@ -29,11 +29,11 @@ const hero = tv({
   slots: {
     // Split from `lg`: the tagline and the words under it at the left, the season card at the right beside both,
     // 48 px between; one column below. The side card's width, 25 rem. The rows part by their items' padding. From `lg`
-    // the words' row takes what the card adds beyond the text, so the lead stays under the title and the slack falls
-    // under the acts.
+    // the words' row takes what the card adds beyond the text, and the words fill it with the lead at its top and the
+    // acts at its foot, so the lead stays under the title and the acts' foot meets the card's.
     root: "grid items-start gap-x-12 lg:grid-cols-[minmax(0,1fr)_25rem] lg:grid-rows-[auto_1fr]",
     title: "pb-6 font-heading text-3xl tracking-display uppercase lg:col-start-1 lg:row-start-1",
-    words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:pb-0",
+    words: "grid content-start gap-6 pb-8 lg:col-start-1 lg:row-start-2 lg:content-between lg:self-stretch lg:pb-0",
     // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
