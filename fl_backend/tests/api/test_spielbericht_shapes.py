@@ -110,8 +110,10 @@ CARD = {"side": "team1", "spieler_id": None, "minute": "10", "colour": "gelb"}
 def test_an_entry_carrying_a_key_it_does_not_declare_is_refused(body: dict[str, Any]):
     """Accepted, the key would be dropped in silence: a client still sending a card's reason would be told it was saved."""
 
-    with pytest.raises(ValidationError, match="type=extra_forbidden,"):
+    with pytest.raises(ValidationError) as raised:
         FLSpielberichtBerichtPayload.model_validate(body)
+
+    assert [error["type"] for error in raised.value.errors()] == ["extra_forbidden"]
 
 
 class TestTheProposalsCountsAreItsEntries:
@@ -124,20 +126,25 @@ class TestTheProposalsCountsAreItsEntries:
     def test_a_no_show_proposes_the_event_alone(self):
         assert proposed(payload([], sonderereignis="nichtantreten_team2")) == (None, None)
 
-        with pytest.raises(ValidationError, match="type=nichtantreten_with_elfmeterschiessen,"):
+        with pytest.raises(ValidationError) as with_a_shoot_out:
             FLSpielberichtBerichtPayload.model_validate(
                 payload([], sonderereignis="nichtantreten_team2", elfmeterschiessen={"team1": 4, "team2": 3})
             )
-        with pytest.raises(ValidationError, match="type=nichtantreten_with_scorers,"):
+        with pytest.raises(ValidationError) as with_a_scorer:
             FLSpielberichtBerichtPayload.model_validate(payload([tor("team1")], sonderereignis="nichtantreten_team2"))
+
+        assert [error["type"] for error in with_a_shoot_out.value.errors()] == ["nichtantreten_with_elfmeterschiessen"]
+        assert [error["type"] for error in with_a_scorer.value.errors()] == ["nichtantreten_with_scorers"]
 
     def test_a_shoot_out_follows_a_draw_alone(self):
         shoot_out = {"team1": 4, "team2": 3}
 
         assert FLSpielberichtBerichtPayload.model_validate(payload([tor("team1"), tor("team2")], elfmeterschiessen=shoot_out))
 
-        with pytest.raises(ValidationError, match="type=elfmeterschiessen_without_draw,"):
+        with pytest.raises(ValidationError) as raised:
             FLSpielberichtBerichtPayload.model_validate(payload([tor("team1"), tor("team1"), tor("team2")], elfmeterschiessen=shoot_out))
+
+        assert [error["type"] for error in raised.value.errors()] == ["elfmeterschiessen_without_draw"]
 
 
 # `spiel`'s kick-off, 18:00 in Berlin on a summer day.
