@@ -38,6 +38,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
           href={link.href}
           placement="footer"
           label={link.label}
+          prefetch={link.prefetch}
         />
       ))}
     </nav>

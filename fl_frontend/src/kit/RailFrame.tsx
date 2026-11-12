@@ -115,7 +115,7 @@ export function RailFrame({
   const extra =
     foot.kind === "signIn"
       ? [
-          { label: COPY.template.account, href: foot.href },
+          { label: COPY.template.account, href: foot.href, prefetch: false as const },
           { label: COPY.page.legalNotice, href: ROUTES.legalNotice.path() },
           { label: COPY.page.privacyNotice, href: ROUTES.privacyNotice.path() },
         ]
@@ -160,6 +160,8 @@ export function RailFrame({
                 <RailTooltip label={COPY.template.account}>
                   <NextLink
                     href={foot.href}
+                    // A prefetched sign-in would be drawn before the proxy sends a signed-in person on to their landing.
+                    prefetch={false}
                     data-kit-focus="ring"
                     className={frameLink({ tone: "rail", class: "gap-3 overflow-hidden" })}>
                     <span className={railGlyph()}>

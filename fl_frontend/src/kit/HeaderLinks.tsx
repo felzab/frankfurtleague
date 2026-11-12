@@ -17,8 +17,11 @@ import { Sheet } from "./Sheet";
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
-/** A link of the classic header: catalogue words and an address the layout gives. */
-export type HeaderLink = { label: Copy; href: Route };
+/**
+ * A link of the classic header: catalogue words and an address the layout gives. `prefetch: false` for „Konto“: a
+ * prefetched sign-in would be drawn before the proxy sends a signed-in person on to their landing.
+ */
+export type HeaderLink = { label: Copy; href: Route; prefetch?: false };
 
 type HeaderLinksProps = {
   links: ReadonlyArray<HeaderLink>;
@@ -55,6 +58,7 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
       </nav>
       <NextLink
         href={signIn}
+        prefetch={false}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
         {COPY.template.account}
@@ -75,10 +79,11 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
-              {[...links, { label: COPY.template.account, href: signIn }].map((link) => (
+              {[...links, { label: COPY.template.account, href: signIn, prefetch: false } satisfies HeaderLink].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}
+                  prefetch={link.prefetch}
                   aria-current={link.href === current ? "page" : undefined}
                   data-kit-focus="inset"
                   className={menuEntry({ size: "phone" })}>

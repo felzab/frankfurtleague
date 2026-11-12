@@ -83,8 +83,9 @@ describe("the menu's prefetch", () => {
     const entries = screen.getAllByRole("link", { name: COPY.page.tabelle });
     // The rail's entry and the bar's place.
     expect(entries.map((entry) => entry.getAttribute("data-prefetch"))).toEqual(["true", "true"]);
-    // The foot's „Konto“, which keeps Next's default.
-    expect(screen.getByRole("link", { name: COPY.template.account }).getAttribute("data-prefetch")).toBe("undefined");
+    // The foot's „Konto“, which prefetches nothing: a prefetched sign-in would be drawn before the proxy sends a
+    // signed-in person on to their landing.
+    expect(screen.getByRole("link", { name: COPY.template.account }).getAttribute("data-prefetch")).toBe("false");
   });
 
   it("leaves every entry at Next's default in a frame that does not say so", async () => {
