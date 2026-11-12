@@ -29,7 +29,7 @@ const podium = tv({
     fourthPlace: "shrink-0 text-fg-muted",
   },
   variants: {
-    // Board: the steps' heights, 104, 72 and 52 px, and the winner's on the band's green.
+    // The steps' heights, 104, 72 and 52 px, and the winner's on the band's green.
     platz: {
       1: { place: "col-start-2 row-start-1", step: "h-26 bg-brand-solid text-on-brand" },
       2: { place: "col-start-1 row-start-1", step: "h-18 bg-bg-muted text-fg" },

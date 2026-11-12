@@ -1,5 +1,5 @@
 /**
- * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
+ * The body of every 429 the edge answers itself (its `@edge_refusal` location), which Next hands
  * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
  * sent with no charset.
  */

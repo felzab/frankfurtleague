@@ -16,7 +16,7 @@ const WORDS = SERVER_COPY.mail.erasureLink;
 
 /**
  * The one place the deletion link is spelled, from the token alone and never the library's own `url`,
- * which deletes on a GET. `token` is the name the edge's `$credential_free_uri` redacts.
+ * which deletes on a GET. `token` is the name the proxy's matcher swaps for a cookie.
  */
 function erasureLink(origin: string, token: string): string {
   return `${origin}${ROUTES.accountErasure.path()}?token=${encodeURIComponent(token)}`;

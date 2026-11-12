@@ -7,6 +7,8 @@ import type { NextConfig } from "next";
 const localeOptimization = optimizeLocales.turbopack({ locales: ["de-DE"] });
 
 const nextConfig: NextConfig = {
+  // `compress` stays at its default, on: Cloudflare passes an origin's `Content-Encoding` through to
+  // the visitor, and its own zstd measured larger than Next's gzip, so the edge leaves compression here.
   // The image's version, from the image's build argument: a page opened before a deploy
   // loads the new build whole on its next navigation rather than asking the new server for the old
   // build's chunks and actions. A build handed none, the gate's and the local stack's, sets no id.

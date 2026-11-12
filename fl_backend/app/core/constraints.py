@@ -92,7 +92,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
-    # and what refuses a second grant a Playground paste adds for an address already holding one.
+    # and what refuses a second grant a hand-run `mongosh` file adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
     # Checked at each write rather than at the commit, so a handover demotes before it promotes
     # (`app/api/grants/crud.py :: complete_the_handover_in_session`).

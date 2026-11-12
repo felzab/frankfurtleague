@@ -20,16 +20,18 @@ its invalidation live here rather than in the backend.
 | `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                            |
 | `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`, and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, one
-module per act (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts` beside a team's Kader). A slice holds what
-several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for a
-write that shapes its arguments before the generated client sends them (a write passing them through
-calls the generated client itself), `actions.ts` or an act's own module for the server actions more than one page calls
-(`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in person's own pages
-call, `schemas.ts` for its Zod schemas.
+**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, in
+one module per act or per record's acts (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts`
+beside a team's Kader). Every administration and person read lives in a slice's `queries.ts`, even
+where one route alone calls it. A slice holds only the modules it needs: `queries.ts` for reads,
+`mutations.ts` for a write that shapes its arguments before the generated client sends them (a
+write passing them through calls the generated client itself), `actions.ts` or an act's own module
+for its server actions (`features/saisons/createSaison.ts`), `personActions.ts` for those a
+signed-in person's own pages call, `schemas.ts` for its Zod schemas.
 
-**Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`, and
-`src/shared/` does not import `src/features/`; ESLint refuses both (`fl_frontend/eslint.config.mjs`).
+**Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
+`src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
+`src/app/`; ESLint refuses all three (`fl_frontend/eslint.config.mjs`).
 Which of the two folders a module belongs in, that rule does not decide: `src/core/` is what the
 server process is and what every surface needs before a page exists, and `src/shared/` is what a
 rendered page is built from. A module some `src/core/` module imports belongs in `src/core/`, and one
@@ -101,8 +103,9 @@ has. Lists, tables and bordered boxes, match rows, card grids and folds among th
 (`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of block switch by the screen at `lg` instead:
 
 - **A block, or a use of one, standing in the classic frame alone**, such as the landing's rows of
-  cards, its hero and the classic footer. That frame has no rail, so its column widens with the
-  screen and both rules give one answer.
+  cards, its hero, the classic footer, and the tiles the landing and the sponsors page set with
+  `reads="screen"` (`fl_frontend/src/kit/TileGrid.tsx :: TilesReads`). On the landing every block
+  reads the screen, so the page switches as one.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking
   across the width, the filters folding into a sheet, a read page's acts, and a row's taller touch
   height. The screen tells the device, and a box does not.

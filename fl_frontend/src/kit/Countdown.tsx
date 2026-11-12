@@ -59,7 +59,7 @@ export function Countdown({ start, seed }: { start: string; seed: number }) {
         <span
           key={unit}
           className="grid justify-items-center gap-0.5 rounded-lg bg-bg px-2 py-3">
-          {/* Board: the figures' size, 32 px in Anton. */}
+          {/* The figures' size, 32 px in Anton. */}
           <span className="font-heading text-3xl tracking-display">{formatNumber(figure)}</span>
           <span className="text-xs text-fg-muted">{unit}</span>
         </span>

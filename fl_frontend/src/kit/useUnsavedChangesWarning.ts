@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * The browser's own question before a reload or a closed tab, while something unsaved stands. It covers a real unload
- * alone: `beforeunload` never fires for a client-side navigation, which `./LeaveGuard.tsx` holds where a page asks it to.
+ * alone: `beforeunload` never fires for a client-side navigation, which `LeaveGuard` holds where a page asks it to.
  */
 export function useUnsavedChangesWarning(isDirty: boolean) {
   useEffect(() => {

@@ -129,7 +129,7 @@ it("starts the sign-in store's connect at a production boot without waiting on i
   expect(storeConnects).toBe(1);
 });
 
-/* Docker's json-file driver records no image version, so this line is the one record of which build started. */
+/* The start line names the image's version, so the log of every boot says which build started. */
 it("logs one start line naming the image's version", async () => {
   await bootAndStep("production", []);
 
