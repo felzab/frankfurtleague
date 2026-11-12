@@ -15,37 +15,15 @@ inputs:
   save-cache:
     description: >-
       `true` in the one caller that writes the uv cache to the Actions cache when none was restored
-      under its key; `false`, the default, restores it and writes nothing.
+      under its key; `false`, the default, restores it and writes nothing. That caller passes
+      `application: true`: every caller restores under one key, so a cache written without the
+      application sends each caller installing it to the registry.
     required: false
     default: "false"
 
 runs:
   using: composite
   steps:
-    # setup-uv reads any value but `true` and `auto` as `false`, so a misspelt `true` would leave the cache
-    # unwritten with nothing failing.
-    - name: Refuse a save-cache that is not true or false, or true without the application
-      shell: bash
-      env:
-        SAVE_CACHE: ${{ inputs.save-cache }}
-        APPLICATION: ${{ inputs.application }}
-      run: |
-        case "$SAVE_CACHE" in
-          false) ;;
-          true)
-            # Every caller restores under one key, so a cache written without the application sends
-            # each caller installing it to the registry for the rest.
-            if [ "$APPLICATION" != true ]; then
-              echo "::error title=Backend toolchain::save-cache is true where application is '${APPLICATION}', and only a caller installing the application writes the cache."
-              exit 1
-            fi
-            ;;
-          *)
-            echo "::error title=Backend toolchain::save-cache is '${SAVE_CACHE}', and only true or false is read."
-            exit 1
-            ;;
-        esac
-
     - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         enable-cache: true
@@ -62,8 +40,7 @@ runs:
     # it; `--frozen` would accept it.
 
     # `--only-group dev` where no step imports the application, leaving its dependency graph
-    # uninstalled. Any other value is refused: read as `false`, a misspelt `true` would fail the job
-    # at its first import rather than here.
+    # uninstalled.
     - name: Create the backend virtualenv
       shell: bash
       working-directory: fl_backend
@@ -73,8 +50,4 @@ runs:
         case "$APPLICATION" in
           true) uv sync --locked --dev ;;
           false) uv sync --locked --only-group dev ;;
-          *)
-            echo "::error title=Backend toolchain::application is '${APPLICATION}', and only true or false is read."
-            exit 1
-            ;;
         esac
