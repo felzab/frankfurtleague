@@ -176,6 +176,14 @@ UNMETERED: Final[tuple[Unmetered, ...]] = (
         "the mail provider's webhook: a refusal starts its retry schedule and, sustained, disables the endpoint, and its "
         "signature check is the gate",
     ),
+    *(
+        Unmetered(
+            path,
+            "a GET answering with one redirect to the page in the season the site is on, off the cached season list every "
+            "visitor shares, as cheap as the page GETs `location /` leaves unmetered",
+        )
+        for path in ("/saisons", "/saisons/ko-runde", "/saisons/tabelle", "/saisons/teams", "/saisons/search")
+    ),
 )
 
 

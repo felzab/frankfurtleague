@@ -1310,8 +1310,9 @@ const eslintConfig = defineConfig([
   ...BAN_BLOCKS,
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
-  // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the
-  // sign-in's landing, a GET dispatcher no form posts to.
+  // route handlers no browser form posts to: three for callers that are not a browser, and the GET dispatchers, each
+  // answering an address with one redirect before anything renders: the sign-in's landing and the five addresses
+  // naming no season.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
@@ -1325,6 +1326,11 @@ const eslintConfig = defineConfig([
             "src/app/api/mail/delivery/route.ts",
             "src/app/api/client-error/route.ts",
             "src/app/(classic)/signin/continue/route.ts",
+            "src/app/saisons/route.ts",
+            "src/app/saisons/ko-runde/route.ts",
+            "src/app/saisons/search/route.ts",
+            "src/app/saisons/tabelle/route.ts",
+            "src/app/saisons/teams/route.ts",
           ],
         },
       ],

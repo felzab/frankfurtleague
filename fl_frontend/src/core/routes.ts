@@ -81,13 +81,16 @@ export const ADDRESS_WORDS = [
 export const ROUTES = {
   /** The landing, named by the line the footer carries; the title template adds the league's name. */
   home: { path: () => "/" as const, title: COPY.template.oberstufenliga, crawl: "index" },
-  /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
-  saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, crawl: "noindex" },
+  /**
+   * The season the site is on, for a link that cannot know which: a route handler sending the request on to that
+   * season's Spielplan.
+   */
+  saisons: { path: () => "/saisons" as const, title: null, crawl: "noindex" },
   // The same for the season's other pages, a fixed segment taking the address before `[saison]`.
-  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: COPY.shared.kORunde, crawl: "noindex" },
-  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: COPY.page.tabelle, crawl: "noindex" },
-  saisonsTeams: { path: () => "/saisons/teams" as const, title: COPY.page.teams, crawl: "noindex" },
-  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: COPY.page.spielSearch, crawl: "noindex" },
+  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: null, crawl: "noindex" },
+  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: null, crawl: "noindex" },
+  saisonsTeams: { path: () => "/saisons/teams" as const, title: null, crawl: "noindex" },
+  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: null, crawl: "noindex" },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,

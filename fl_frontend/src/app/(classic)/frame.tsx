@@ -13,8 +13,8 @@ const ABOUT = { label: COPY.page.about, href: ROUTES.about.path() };
 const CONTACT = { label: COPY.page.contact, href: ROUTES.contact.path() };
 
 /** The footer's „Saison“ group, at the addresses that read the season on arrival. */
-const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route }) => ({
-  label: ROUTES[route].title,
+const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, page }) => ({
+  label: ROUTES[page].title,
   href: ROUTES[route].path(),
 }));
 
