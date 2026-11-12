@@ -107,7 +107,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
     # unconfirmed seat's season too, so a seat whose season has no row stays loud whichever list counts it.
     saisons = seat_saisons(row for row, _ in seats_naming(live_seat_rows, identifier))
 
-    # The confirmation narrows HERE, through the predicates every reader shares, and never at a caller:
+    # The confirmation narrows here, through the predicates every reader shares, and never at a caller:
     # a caller-side check leaves the sign-in gate mailing, and a panel drawn for, a person nobody confirmed.
     return FLSubject(
         seats=[
@@ -148,8 +148,7 @@ def _judged(identifier: str, seat_rows: Rows, referee_rows: Rows, pupil_rows: Ro
 async def find_subject(identifier: str, records: RecordCollections) -> FLSubject:
     """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
 
-    Its reads gathered and outside any transaction, for `POST /identity/subject`; a caller inside one
-    reads through `find_subject_in_session`.
+    Its reads gathered and outside any transaction; a caller inside one reads through `find_subject_in_session`.
     """
 
     seat_rows, referee_rows, pupil_rows = await asyncio.gather(
@@ -196,7 +195,7 @@ async def find_subject_in_session(
     identifier: str,
     records: RecordCollections,
     *,
-    # REQUIRED: this is the lookup a transaction reaches, so no read of it can leave the session.
+    # This is the lookup a transaction reaches, so no read of it can leave the session.
     session: AsyncClientSession,
 ) -> FLSubject:
     """`find_subject`'s answer read inside a caller's session, one read at a time.
@@ -217,7 +216,7 @@ async def roles_of(
     identifier: str,
     records: RecordCollections,
     *,
-    # REQUIRED: a person endpoint judges this inside the session it reads or writes in, so a caller
+    # A person endpoint judges this inside the session it reads or writes in, so a caller
     # forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
 ) -> FLSubject:
@@ -266,10 +265,10 @@ async def refuse_without_a_seat(
     refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
 
 
-# --- The ERASURE: one registry of every step that reaches a person's data, run in one transaction.
+# --- The erasure: one registry of every step that reaches a person's data, run in one transaction.
 
 # The kinds of person a step's records belong to, „Personengruppe“ in the published notice: never a
-# `rolle` or a `Funktion`, each of which names something else here (`docs/glossary.md :: Funktion`).
+# `rolle` or a `Funktion`, each of which names something else here.
 PersonGroup = Literal["kontakt", "spieler", "schiedsrichter"]
 
 # The scope of a person's own request and an administrator's: everything the address holds.
@@ -379,7 +378,7 @@ async def resolve_subject(
     registrierungen_collection: ReadCollection,
     address_changes_collection: ReadCollection,
     grants_collection: ReadCollection,
-    # REQUIRED: the erasure reads it inside its transaction, so a retry re-reads it, and the preview in
+    # The erasure reads it inside its transaction, so a retry re-reads it, and the preview in
     # a snapshot, so it names the records of one moment.
     session: AsyncClientSession,
     # The previews' default: they name every record the full erasure takes.
@@ -561,12 +560,12 @@ async def erase_everything(
     outbox_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
-    # REQUIRED: the caller's transaction, every step committing together or none.
+    # The caller's transaction, every step committing together or none.
     session: AsyncClientSession,
 ) -> Erasure:
     """Erase every record of this folded address the scope reaches, in the caller's transaction.
 
-    The subject is read HERE, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
+    The subject is read here, so a retry after a conflict re-reads it. A request's route notes the answer's `records`,
     `seats` and `rows` in its `Journal`, which writes the erasure's lines once it commits.
     """
 
@@ -692,8 +691,8 @@ async def unreferenced_of(
 ) -> list[str]:
     """Which of these addresses no record references.
 
-    Each collection is read once for the whole batch rather than once per address, which is what
-    `app/shared/schemas/bounds.py :: REFERENCES_ADDRESSES_MAX` is measured against.
+    Each collection is read once for the whole batch rather than once per address, the shape
+    `REFERENCES_ADDRESSES_MAX` bounds.
     """
 
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
@@ -702,15 +701,14 @@ async def unreferenced_of(
     if not folded:
         return []
 
-    # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it
-    # (`docs/datenschutz.md :: 6`).
+    # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it.
     (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await asyncio.gather(
         aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.spieler_collection, pipeline=build_pupil_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_references_pipeline(folded)),
-        # Every row as stored, never `app/api/grants/crud.py :: read_admin_tier_of`: a waiting grant's account stands too.
+        # Every row as stored, never `read_admin_tier_of`: a waiting grant's account stands too.
         read_grants(grants_collection=grants_collection),
         aggregate_many_from_db(
             collection=address_changes_collection,
@@ -735,7 +733,7 @@ async def unreferenced_of(
     return unreferenced(identifiers, referenced=referenced)
 
 
-# --- The SEASON-AFTER RULE's two readers: one outside any transaction
+# --- The season-after rule's two readers: one outside any transaction
 # naming the population, one inside each person's re-judging it.
 
 # A pupil's own data alone: a seat, a referee row or a grant at the same address is another purpose's.
@@ -796,13 +794,15 @@ async def erase_if_still_due(
     outbox_collection: AsyncCollection,
     address_changes_collection: AsyncCollection,
     now: datetime,
-    # REQUIRED: the judgement and the erasure commit together, so a squad row or a registration
+    # The judgement and the erasure commit together, so a squad row or a registration
     # landing between the population read and this transaction keeps the person.
     session: AsyncClientSession,
 ) -> FLErasure | None:
     """Erase one pupil's own data where the rule holds in this transaction, or answer `None` where it does not.
 
-    The address is read off the row here and never handed in: an address change moves it between two reads.
+    The address is read off the row here and never handed in: an address change moves it between two reads. A squad
+    entry or a registration meeting this transaction's writes waits for it to end: the entry then finds nobody, and the
+    registration is stored for a pupil already gone.
     """
 
     statuses = statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}], session=session))

@@ -80,17 +80,9 @@ async def get_erasure_view(
     operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLErasureViewResponse:
-    """
-    Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
+    """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
-    ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
-    counts the fixtures not yet kicked off that a referee row is booked on, whose booking the erasure takes off.
-    `address_change` counts the address's own live change and each other address's change naming it, leaving out a grant
-    holder's for an administrator without an owner's power, since counting it would answer whether a typed address is its
-    new one. Stores nothing.
-
-    Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
-    administrator holds an owner's power (`admin_address`).
+    It is refused as that erasure is, and leaves out of `address_change` a grant holder's change this administrator may not see.
     """
 
     identifier = sign_in_identifier(view_data.email)
@@ -121,7 +113,8 @@ async def get_erasure_view(
         if subject.schiedsrichter
         else []
     )
-    # A grant holder's change is left out for whoever the tool refuses it.
+    # A grant holder's change is left out for whoever the tool refuses it: counting it would answer whether a typed
+    # address is its new one.
     withheld = [
         row
         for row in others_naming(subject.address_change, identifier)
@@ -167,20 +160,9 @@ async def post_erasure(
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Erase every record an address holds, on a request that person made by mail, at once and as one write.
+    """Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.
 
-    ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
-    state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
-    refusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,
-    or the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),
-    judged inside the write. An address another address's pending change would move to is refused, judged inside the write,
-    where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
-    change, a discard only the owner makes of it.
-
-    `reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the
-    409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
-    the caller's, once this has answered.
+    Nothing about the person's own state refuses it, and the sign-in account is the caller's to delete once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
