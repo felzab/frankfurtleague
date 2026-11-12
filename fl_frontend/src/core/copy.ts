@@ -633,6 +633,8 @@ export const COPY = catalogue({
     more: "Mehr",
     /** The same link once the folded text is open, naming the press that folds it again. */
     less: "Weniger",
+    /** Under a card of open work holding more rows than it shows at first, showing the rest in place. */
+    showAll: "Alle anzeigen",
     /** The name of a frame's menu, the rail's and the phone bar's. */
     navigation: "Navigation",
     /**

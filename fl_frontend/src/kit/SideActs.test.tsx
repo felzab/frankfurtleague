@@ -46,7 +46,7 @@ function Acts({ send }: { send: () => void }) {
   );
 }
 
-describe("a row's side acts", () => {
+describe("a row's side acts folded", () => {
   // The harm: the row shows an act beside its „⋯“, reachable twice; or the menu holds other acts than the row's, or in
   // another order, the destroying one first; or an entry's press runs no act. That the act starts inside the press,
   // which a passkey touch needs, only a browser shows.
@@ -121,14 +121,22 @@ const LISTS = {
   ),
 };
 
+/**
+ * The container class that leaves a form out of the list's box, on the form's own wrapper: jsdom evaluates no container
+ * query, so the switch at 42 rem is the browser's to show, and this reads which side of it each form stands on.
+ */
+const hiddenBelow = (button: HTMLElement) => button.closest("span.contents")?.className.includes("@max-2xl:hidden");
+const hiddenAbove = (button: HTMLElement) => button.closest("span.contents")?.className.includes("@2xl:hidden");
+
 describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, listOf) => {
-  // The harm: the rows of one list stand in two looks, a „⋯“ on one row and a button in the same place on the next, or
-  // a list of one act a row hides it behind a menu of one entry.
-  it("stand in one „⋯“ on every row where some row carries two, a row of one act included", () => {
+  // The harm: the rows of one list stand in two looks, a „⋯“ on one row and buttons in the same place on the next, or a
+  // row of three acts sets three buttons beside its words.
+  it("stand in one „⋯“ on every row at every width where some row carries three, a row of one act included", () => {
     render(
       listOf([
         [
           { label: SEND, onPress: () => undefined },
+          { label: COPY.shared.verb.edit, onPress: () => undefined },
           { label: DISCARD, tone: "danger", onPress: () => undefined },
         ],
         [{ label: DISCARD, tone: "danger", onPress: () => undefined }],
@@ -139,13 +147,59 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
     expect(screen.getAllByRole("button", { name: MORE })).toHaveLength(2);
   });
 
-  it("are each row's one act as its labelled button where no row carries two, its press running the act", async () => {
+  // The harm: a phone's row sets its acts as buttons on a line of their own, every row a line taller, or a desktop's
+  // row hides acts it has the room to show behind a menu; or a button's press runs nothing.
+  it("are labelled buttons in a wide box and one „⋯“ in a narrow one, a button's press running its act", async () => {
     const discard = vi.fn();
-    render(listOf([[{ label: DISCARD, tone: "danger", onPress: discard }], [{ label: DISCARD, tone: "danger", onPress: () => undefined }]]));
+    render(
+      listOf([
+        [
+          { label: SEND, onPress: () => undefined },
+          { label: DISCARD, tone: "danger", onPress: discard },
+        ],
+        [{ label: DISCARD, tone: "danger", onPress: () => undefined }],
+      ]),
+    );
 
-    expect(screen.queryByRole("button", { name: MORE })).toBeNull();
-    const [first] = screen.getAllByRole("button", { name: DISCARD });
-    await userEvent.click(first as HTMLElement);
+    const labelled = [...screen.getAllByRole("button", { name: SEND }), ...screen.getAllByRole("button", { name: DISCARD })];
+    expect(labelled).toHaveLength(3);
+    expect(labelled.map(hiddenBelow)).toStrictEqual([true, true, true]);
+    const folded = screen.getAllByRole("button", { name: MORE });
+    expect(folded).toHaveLength(2);
+    expect(folded.map(hiddenAbove)).toStrictEqual([true, true]);
+
+    await userEvent.click(screen.getAllByRole("button", { name: DISCARD })[0] as HTMLElement);
     expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  // The harm: a row leaves out an act its neighbours show, or shows it as if it could run, and nobody learns why it
+  // cannot.
+  it("list a locked act in both forms with its reason, its press running nothing", async () => {
+    const discard = vi.fn();
+    const reason = COPY.shared.failure.stale;
+    render(
+      listOf([
+        [
+          { label: SEND, onPress: () => undefined },
+          { label: DISCARD, tone: "danger", locked: reason, onPress: discard },
+        ],
+      ]),
+    );
+
+    const button = screen.getByRole("button", { name: DISCARD });
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(
+      button
+        .getAttribute("aria-describedby")
+        ?.split(" ")
+        .map((id) => document.getElementById(id)?.textContent),
+    ).toContain(reason);
+    await userEvent.click(button);
+
+    await userEvent.click(screen.getByRole("button", { name: MORE }));
+    const entry = within(screen.getByRole("menu")).getByRole("menuitem", { name: DISCARD });
+    expect(entry.textContent).toBe(`${DISCARD}${reason}`);
+    await userEvent.click(entry);
+    expect(discard).not.toHaveBeenCalled();
   });
 });
