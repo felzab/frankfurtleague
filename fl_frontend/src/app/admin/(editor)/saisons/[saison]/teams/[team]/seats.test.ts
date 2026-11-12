@@ -74,7 +74,7 @@ describe("where a team's seat stands", () => {
       (row) => row.id === "ansprechperson",
     );
 
-    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.saison.linkNotSent]);
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.delivery.abandoned]);
   });
 });
 

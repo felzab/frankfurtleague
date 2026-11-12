@@ -86,7 +86,7 @@ describe("where a seat stands", () => {
 
     expect(seat(read, "trainer")?.chips.map(({ label }) => label)).toStrictEqual([
       COPY.admin.schiedsrichter.unconfirmed,
-      COPY.admin.saison.linkNotSent,
+      COPY.admin.delivery.abandoned,
     ]);
   });
 });

@@ -1035,6 +1035,8 @@ export const COPY = catalogue({
       suppressed: "Zustellung blockiert",
       complaint: "Als Spam gemeldet",
       held: "Nur abgelegt",
+      /** The outbox gave the mail up after its tries, where „Nicht gesendet“ is a link no mail was ever owed. */
+      abandoned: "Versand gescheitert",
     },
 
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
