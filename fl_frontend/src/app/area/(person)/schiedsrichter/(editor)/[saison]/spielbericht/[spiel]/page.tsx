@@ -138,7 +138,7 @@ export default function SpielberichtPage({ params }: Props) {
 /** A pupil by number and name as the squad lists them; one an erasure took is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
   const name = spielerName({ first_name: first, last_name: last });
-  return { id, label: { record: SERVER_COPY.area.line([nummer === null ? null : { record: nummer }, name]) } };
+  return { id, label: { record: COPY.shared.line([nummer === null ? null : { record: nummer }, name]) } };
 }
 
 /**
@@ -204,7 +204,7 @@ async function readPage(params: Props["params"]) {
   return (
     <BerichtEditor
       title={title}
-      lead={SERVER_COPY.area.line([
+      lead={COPY.shared.line([
         COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
         spiel.spielort === null ? null : { record: spiel.spielort.name },
       ])}

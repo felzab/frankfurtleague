@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
   const club = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
   if (club === undefined || club === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
-  return SERVER_COPY.area.line([
+  return COPY.shared.line([
     COPY.area.team.aufstellung.ofTeam({ record: club.name }),
     matchdayOf(spiel, spiel),
     COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),

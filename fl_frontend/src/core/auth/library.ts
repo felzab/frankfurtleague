@@ -14,9 +14,9 @@ import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
 import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
+import { COPY } from "../copy";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
-import { BRAND_NAME } from "../emailShell";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
@@ -687,7 +687,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // before anything is written. Set to "preferred" and both halves relax together, which is what
       // WebAuthn Level 3 §7.2 conditions the check on.
       passkey({
-        rpName: BRAND_NAME,
+        rpName: COPY.brand.name,
         // Named rather than left to the plugin's own derivation, which answers this same host off
         // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
         rpID: origin.hostname,

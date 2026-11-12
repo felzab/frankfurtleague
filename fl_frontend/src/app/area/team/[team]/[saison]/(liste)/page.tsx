@@ -37,7 +37,7 @@ type Row = CardActRowProps & { id: string };
 
 const WORDS = SERVER_COPY.overview;
 const TEAM = COPY.area.team;
-const line = SERVER_COPY.area.line;
+const line = COPY.shared.line;
 
 const TITLES = {
   termine: WORDS.card.dates,

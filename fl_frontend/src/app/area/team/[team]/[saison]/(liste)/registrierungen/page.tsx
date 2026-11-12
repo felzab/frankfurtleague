@@ -55,7 +55,7 @@ function admissionOf(row: FLOpenRegistrierung): Admission {
 function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">): RegistrierungRow {
   const name = `${row.first_name} ${row.last_name}`;
   const notes = [...(row.person === null ? [] : [WORDS.returning]), ...(row.nummer_double ? [COPY.admin.spieler.nummerDouble] : [])];
-  const line = notes.length === 0 ? undefined : SERVER_COPY.area.line(notes);
+  const line = notes.length === 0 ? undefined : COPY.shared.line(notes);
   const received = { record: formatDate(dayOf(row.submitted_at)) };
   return {
     id: row.registrierung_id,
