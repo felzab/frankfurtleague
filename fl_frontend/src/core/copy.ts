@@ -396,8 +396,11 @@ export const COPY = catalogue({
     season: {
       /** A group by its letter, „Gruppe A“: the Tabelle's cards, a club's group, the season editor's pickers. */
       gruppe: GRUPPE,
-      /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
-      cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel abgesagt" : `${boundBy(formatNumber(count), "Spiele")} abgesagt`),
+      /**
+       * The name of the mark beside a club's figure: how many of its fixtures ended with no result, called off or struck
+       * out, in the words their events' consequence says them (\u201EDas Spiel wird nicht gewertet.\u201C).
+       */
+      cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel nicht gewertet" : `${boundBy(formatNumber(count), "Spiele")} nicht gewertet`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
       cancelledMark: (count: number) => `+${formatNumber(count)}`,
     },

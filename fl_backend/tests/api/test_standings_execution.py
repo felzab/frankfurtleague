@@ -115,7 +115,7 @@ def spiel_documents() -> list[dict[str, Any]]:
     return [
         spiel_document(1, "gruppenphase", ANNA, BODO, 3, 1, ergebnis="3:1"),
         spiel_document(2, "gruppenphase", ANNA, CARO, 2, 2, ergebnis="2:2"),
-        # A forfeit: the awarded result counts as played and as an absage both.
+        # A forfeit: the awarded result counts as played, and never as an absage.
         spiel_document(3, "gruppenphase", BODO, DIRK, 1, 0, ergebnis="1:0", sonderereignis="nichtantreten_team2"),
         spiel_document(4, "gruppenphase", CARO, DIRK, None, None, ergebnis=None),
         # An `ergebnis` with no goal counts behind it, which would group as a 0:0 draw uncaught.
@@ -169,12 +169,12 @@ def figures(played: int, won: int, drawn: int, lost: int, scored: int, conceded:
 GRUPPENPHASE: Mapping[ObjectId, FLTeamStatistik] = {
     # Fixtures 1, 2 and 9 counted, 5 not; 8 annulled.
     ANNA: figures(3, 2, 1, 0, 9, 4, 10, 1),
-    # Fixtures 1, 3, 9 and 13 counted, the forfeit an absage too; 13 once, though Bodo holds both sides.
-    BODO: figures(4, 1, 1, 2, 5, 9, 8, 1),
+    # Fixtures 1, 3, 9 and 13 counted, the forfeit among them; 13 once, though Bodo holds both sides.
+    BODO: figures(4, 1, 1, 2, 5, 9, 8, 0),
     # Fixtures 2 and 12 counted, 4 unplayed; 7 called off.
     CARO: figures(2, 1, 1, 0, 4, 2, 6, 1),
-    # Fixture 3's award counted against Dirk; 3, 7 and 8 absagen.
-    DIRK: figures(1, 0, 0, 1, 0, 1, 1, 3),
+    # Fixture 3's award counted against Dirk; 7 and 8 absagen.
+    DIRK: figures(1, 0, 0, 1, 0, 1, 1, 2),
     EMIL: figures(1, 0, 1, 0, 1, 1, 2, 0),
     # Held by no season row, so no table shows Extern: the derivation still counts its fixtures 12 and 14.
     EXTERN: figures(2, 0, 1, 1, 1, 3, 3, 0),
