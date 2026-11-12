@@ -23,7 +23,7 @@ import type { BrowserContext, Page } from "@playwright/test";
  */
 export const SIGNED_IN_BY_CODE = {
   // A captain of the running season who played the finished one too.
-  pupil: { address: "mia.ahornberg@schule.example", landing: /^\/area\/spieler\/2027$/ },
+  pupil: { address: "mia.ahornberg@schule.example", landing: /^\/area\/spieler$/ },
   // Booked in both seasons, an agreed booking today and a played match's report owed.
   referee: { address: "anna.ahrens@example.com", landing: /^\/area\/schiedsrichter$/ },
   // Kastanie's Ansprechperson: a stored line-up, a locked one, an agreed date and several registrations.
