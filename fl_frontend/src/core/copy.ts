@@ -754,6 +754,8 @@ export const COPY = catalogue({
       // What outlives an erasure is the privacy notice's to list, never this sentence's.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
+      /** The deletion's tooltip for the owner, whose status line says `refusalLine.owner_erasure`. */
+      ownerLocked: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
     },
     passkeys: {
       title: "Passkeys",
@@ -772,9 +774,14 @@ export const COPY = catalogue({
       endsThisDevice: "Auch dieses Gerät wird abgemeldet.",
       /** An administrator's last passkey, their only way into the administration. */
       lastKept: "Der letzte Passkey lässt sich nicht löschen.",
-      limit: (count: number) => `Mehr ${boundBy("als", formatNumber(count), "Passkeys")} sind nicht möglich.`,
+      /** The same, as the deletion's tooltip. */
+      lastKeptLocked: "Letzter Passkey bleibt",
+      /** The set-up's tooltip at the cap, which no refusal on a status line words. */
+      limit: (count: number) => `Höchstens ${boundBy(formatNumber(count), "Passkeys")}`,
       /** A first passkey set up past the sign-in library's `freshAge`. */
       signInTooOld: "Deine Anmeldung liegt zu lange zurück.",
+      /** The same, as the set-up's tooltip. */
+      signInTooOldLocked: "Erst nach neuer Anmeldung",
       /** A further passkey set up on an authenticator holding one of the person's already. */
       alreadyOnDevice: "Auf diesem Gerät hast du schon einen Passkey.",
     },
@@ -1142,11 +1149,15 @@ export const COPY = catalogue({
       /** When the Spielplan was drawn, beside its counts. */
       drawnOn: "Angelegt",
       noDraw: "Noch kein Spielplan.",
+      /** The same, as the activation's tooltip. */
+      noDrawLocked: "Erst mit Spielplan",
       /**
        * Why the draw cannot run: a group holds more or fewer teams than the rules give each, or a club stands in a
        * group the rules do not run. One repair reaches all three, entering the clubs as the rules say.
        */
       gruppenOffRules: "Die Gruppen passen nicht zu den Regeln.",
+      /** The same, as the draw's tooltip. */
+      gruppenOffRulesLocked: "Gruppen weichen von Regeln ab",
       recreateConsequence: "Alle Spieltage und Spiele werden gelöscht und neu angelegt.",
       deleteConsequence: "Alle Spieltage und Spiele werden gelöscht.",
 
@@ -1193,8 +1204,13 @@ export const COPY = catalogue({
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
       unfinished: "Die bisherige Saison hat noch Spiele ohne Ergebnis.",
       undated: "Diese Saison hat noch Spieltage ohne Datum.",
+      /** The same two, as the activation's tooltip. */
+      unfinishedLocked: "Erst mit allen Ergebnissen",
+      undatedLocked: "Noch Spieltage ohne Datum",
       /** Why the list's create cannot run: a planned season stands, and a league plans one season at a time. */
       futureStands: "Eine Saison ist schon geplant.",
+      /** The same, as the create's tooltip. */
+      futureStandsLocked: "Eine Saison ist schon geplant",
     },
 
     spiel: {
@@ -1369,7 +1385,7 @@ export const COPY = catalogue({
       retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
       reactivateConsequence: "Das Team steht wieder zur Auswahl.",
       /** The retiring's reason while locked. */
-      retireLocked: "Nur ohne laufende oder geplante Saison",
+      retireLocked: "Team spielt noch eine Saison",
     },
 
     /** The Spieler list and its editor. */
