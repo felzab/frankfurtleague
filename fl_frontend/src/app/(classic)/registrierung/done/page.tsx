@@ -1,4 +1,3 @@
-import { MAILED_PAGE_METADATA } from "@/kit/mailedLinkState";
 import { ClassicStatusPage } from "@/kit/StatusCard";
 
 import { ROUTES } from "@/core/routes";
@@ -12,7 +11,7 @@ import type { Metadata, ResolvingMetadata } from "next";
 /** A row no crawler fetches, as the registration link's page beside it. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   const row = ROUTES.registrierungDone;
-  return { ...(await pageMetadata(parent, row, row.path())), ...MAILED_PAGE_METADATA };
+  return pageMetadata(parent, row, row.path());
 }
 
 /**
