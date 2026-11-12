@@ -103,8 +103,8 @@ from before this stack answers plain HTTP with a redirect to HTTPS, which Cloudf
 through the same route.
 
 **The pin is the stack's own memory.** Compose reads `.env` for every command, so
-`docker compose ps`, `logs` and `exec` typed in the checkout reach the build that runs, and a later
-run that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
+`docker compose ps`, `logs` and `exec` typed in the checkout reach the build that runs. A later run
+that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
 about and counts as no pin.
 
 | Ending                             | Exit      | What stands afterwards                                                                                      |
@@ -166,8 +166,8 @@ The first command lists the tags on the host, and the second starts the one name
 it once it is up, so every later Compose command, and a later deploy that fails, reach it.
 
 **No build published before the first run on this server can serve again, so roll forward
-instead.** Each asks for secret files this compose file does not mount, and none can read a match
-report entry naming nobody, which an erasure leaves.
+instead.** Each asks for secret files this compose file does not mount. None can read a match report
+entry naming nobody, which an erasure leaves.
 
 ## 2. Before deploying a change to a stored shape or an index
 
@@ -446,13 +446,44 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour and its minute (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only query on those two fields finds, run with `mongosh --file`; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only query on that field finds, run with `mongosh --file`; plus the remarks, until the season-end strip, of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have written: a report names no writer and its page shows it to the referee booked now alone, so a read-only query on that field finds them whole, while a report they wrote on a fixture booked to somebody else since is found by no field   |
-| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only query on those fields finds, run with `mongosh --file`                                                                                                                                                                                                                                                                                                                |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+Where each role's data is read:
+
+- **Pupil.**
+  - `/admin/saisons/{saison}/spieler/{spieler}`, in each season the person holds a squad row.
+  - `/admin/saisons/{saison}/registrierungen`, for a registration still awaiting its team.
+  - Every match report entry naming them, a goal or a card with its colour and its minute
+    (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`). No page
+    lists these by person; a read-only query on those two fields finds them, run with
+    `mongosh --file`.
+  - Every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their
+    erasure does not reach and which stands until the season-end strip. Read it in the reports on
+    their team's fixtures of each season they played for it, against their number then.
+- **Referee.**
+  - `/admin/schiedsrichter/{schiedsrichter_id}`, and every past fixture that embeds the name.
+  - A fixture confirmation row for every fixture they were booked on and asked about
+    (`spielbestaetigungen.party.schiedsrichter_id`). No page renders it; a read-only query on that
+    field finds it, run with `mongosh --file`.
+  - The remarks, until the season-end strip, of every report on a fixture booked to them
+    (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have
+    written. A report names no writer, and its page shows it to the referee booked now alone, so a
+    read-only query on that field finds them whole. A report they wrote on a fixture booked to
+    somebody else since is found by no field.
+- **Contact person.**
+  - `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and
+    `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on.
+  - The fixture confirmations their seats were asked, which no page renders either (below).
+- **Administrator.**
+  - The sign-in store: the `auth` database, holding the address, the sessions, the sign-in codes
+    and the passkey.
+  - Their address on every log row they wrote (`action_log.by`, `/admin/log`), and on a grant's row
+    as the grantee (`action_log.label`).
+  - The grants: their own in `grants`, and each notice naming them still owed in `outbox`
+    (`data.address`). A read-only query on those fields finds them, run with `mongosh --file`.
+- **Anyone else.**
+  - The `auth` database's `verification` collection, which holds the address of whoever typed it
+    into the sign-in form until the retention index removes the row (§14).
+  - A pending address change someone typed it into as the new address (`address_changes.email`),
+    found as the holder of a pending new address below.
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
@@ -825,9 +856,9 @@ sudo journalctl --output=short-iso | head -n 1
 has stood nine days, the oldest line the last command prints is at most nine days old.
 
 **Two other bounds can take a line sooner, and neither can keep one longer.** journald deletes the
-oldest files once the journal fills its share of the disk, by default a tenth of the file system and
-at most 4 GB. It also drops lines one service writes past its rate limit, by default 10,000 in 30
-seconds, and every container logs through `docker.service`, so all four share that budget. A flood
+oldest files once the journal fills its share of the disk. That share is by default a tenth of the
+file system, and at most 4 GB. It also drops lines one service writes past its rate limit, by default 10,000 in 30
+seconds. Every container logs through `docker.service`, so all four share that budget. A flood
 of access lines can therefore cost `journal.act` lines, which is why a restore reads the mail
 threads beside them.
 
@@ -1118,7 +1149,7 @@ they are done, each explained below:
 back, and an act after the second is the restored site's own, which stands as its person made it.
 
 **A migration the snapshot predates is run again before anything reads the restored data.** The
-snapshot holds the shape from before that deploy, which the running release cannot read, so the
+snapshot holds the shape from before that deploy, which the running release cannot read. So the
 application services stay stopped until its files have run, as §2's order keeps them. Those files
 are the ones the owner kept for that deploy, each written to be run again.
 
@@ -1137,21 +1168,29 @@ which every administrator holds and which the owner's steps ask for anyway.
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
-own rows about it included. Every erasure a person or an administrator asked for left its lines in the
-backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
-seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no address or name, where its person stood:
-`records`, as `collection/id`, on an erasure's line each record one address alone holds, and on a
-withdrawal's or a Widerspruch's the record the act landed on, which on a seat's row or an application
-holds other people too; `seats`, a seat's withdrawal's or Widerspruch's slots by
-name, an erasure's as `collection/id/slot`, its row holding other people, and a confirmed slot's with
-that slot's `einwilligung.confirmed_at` as a fourth part; `rows`, an erasure's every
-other field that named the address, as `collection/id/path`, so a row naming two people says which
-of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
+own rows about it included. Every erasure a person or an administrator asked for left its lines in
+the backend's stream. So did every consent a person withdrew and every Widerspruch made through a
+seat's link or a referee's, whether its commit landed or lost its answer. A line names its act, and
+where its person stood by id, with no address or name:
+
+- **`records`**, as `collection/id`. On an erasure's line, each record one address alone holds. On a
+  withdrawal's or a Widerspruch's, the record the act landed on, which on a seat's row or an
+  application holds other people too.
+- **`seats`**: a withdrawal's or a Widerspruch's slots by name. An erasure's are
+  `collection/id/slot`, its row holding other people, and a confirmed slot's carries that slot's
+  `einwilligung.confirmed_at` as a fourth part.
+- **`rows`**: an erasure's every other field that named the address, as `collection/id/path`, so a
+  row naming two people says which of them this is.
+- **`choices`**: a withdrawal's.
+- **`act_id`, `part` and `parts`**: one act across the several lines a long one takes (below).
+
+The season rule's deletions write none, the rule deleting the same pupils again on its own.
 
 **List the lines between the two moments** from the host's journal (§7), each in the
-`journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
-an act naming more than a line holds, as a former owner's can, takes several: each carries the same
-`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one line.
+`journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so an act
+naming more than a line holds, as a former owner's can, takes several. Each carries the same
+`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one
+line.
 A part the command does not find leaves that act's list short, so read the mail thread for it. The
 times are UTC, and the name is every backend container's, across deploys:
 
@@ -1164,20 +1203,25 @@ beside the lines for every request that arrived by mail. A line whose commit los
 answer may name an act that never landed, and running it again wrongs nobody, the person having asked
 for it.
 
-**A withdrawal is set again on its record, on a seat's in the `einwilligung` of each slot its `seats`
-name and no other, a seat's Widerspruch's seats emptied again, and a referee's stamped again in
-`confirmation.declined_at` with the line's German day**, each by a file run with
-`mongosh --file`, from the fields of its line, the person's evidence having gone with the lost window.
-A line names the choice and no value, and each choice withholds by one value on each kind of record:
-`scope` is set to `internal` on a pupil, a referee or a registration and to `kontakt_data` on a seat,
-and `media` to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
+**Each withdrawal and Widerspruch is set again by a file run with `mongosh --file`**, from the
+fields of its line,
+the person's evidence having gone with the lost window:
+
+- **A withdrawal** is set again on its record; a seat's in the `einwilligung` of each slot its
+  `seats` name, and no other.
+- **A seat's Widerspruch** empties its seats again.
+- **A referee's** is stamped again in `confirmation.declined_at`, with the line's German day.
+
+A line names the choice and no value, and each choice withholds by one value on each kind of
+record. `scope` is set to `internal` on a pupil, a referee or a registration, and to `kontakt_data`
+on a seat. `media` is set to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
 and whose record the restore does not hold needs nothing.
 
 **Then run each erasure again on „Löschungen“, with the address its line shows**: keyed on the
 address, the erasure reaches every other record it names. Read it in the restored rows, in this order,
 never elsewhere on the row, since a seat's row and another person's change hold other people:
 
-- a `records` entry: the address on that record, as §5's table names it;
+- a `records` entry: the address on that record, as §5's list of roles names it;
 - a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row. A seat passes from one
   person to another, so the slot may hold someone else:
   - An entry with a fourth part, the slot's confirmation day, whose day the restored slot's
@@ -1195,9 +1239,9 @@ took a sign-in account alone, which goes with the account sweep's first pass aft
 nothing. A restored row does not look erased,
 and each role's guard reads something the restore took away:
 
-- **A referee.** The whole row is back, with its name, school and contact members, and every
-  booking the erasure had left naming nobody or taken off names them again, so nothing reads as
-  erased and they are editable and bookable. The erasure does all of it again.
+- **A referee.** The whole row is back, with its name, school and contact members. Every booking
+  the erasure had left naming nobody or taken off names them again, so nothing reads as erased and
+  they are editable and bookable. The erasure does all of it again.
 - **A pupil.** The person and their squad rows are back and standing, and every line-up entry, goal
   and card the erasure had left naming nobody names them again. The erasure takes them and clears
   the entries again, asking no retirement first.
@@ -1224,8 +1268,8 @@ and each role's guard reads something the restore took away:
   account sweep's first pass after the hold deletes each, a barred address's included (section 5).
 
 **Then re-enter the squad rows and registrations written since the snapshot**, from the clubs'
-mail threads: the pupils' deletion runs on the state the last steps leave, so a returning pupil
-whose row is back by then is no longer due.
+mail threads. The pupils' deletion runs on the state the last steps leave, so a returning pupil whose
+row is back by then is no longer due.
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1236,9 +1280,9 @@ undid the erasures, and which nothing re-runs:
   ([section 3](#3-granting-or-revoking-admin-access)). A grant added after the snapshot is gone and
   is added again, its wait starting anew. The record of each is the mail every change sent every holder.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
-  at `/admin/ban-list`, which owes the person its notice again, sent once the hold is
-  lifted, and lift the others there; the mail thread that asked for each is the record, the log
-  having rolled back with it.
+  at `/admin/ban-list`, which owes the person its notice again, sent once the hold is lifted. Lift
+  the others there. The mail thread that asked for each is the record, the log having rolled back
+  with it.
 
 **Then activate again each season whose activation the snapshot predates**, last of all: the first
 pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
@@ -1265,22 +1309,22 @@ drain sends what waited, so these follow:
     mails them a fresh Einteilung; until they agree again the fixture names no referee.
 
 **Write to each club mailed inside the window**, which the mail provider's list of sent messages
-names by subject, that an answer given on its Übersicht in those days is to be given again there. Write
-to each referee booked onto a fixture still to come, at the address their record holds, that an
-answer given on their Übersicht in those days is to be given again there, a decline included: no
-record the restore keeps says which of them answered.
+names by subject, that an answer given on its Übersicht in those days is to be given again there.
+Write the same to each referee booked onto a fixture still to come, at the address their record
+holds, a decline included. No record the restore keeps says which of them answered.
 
 **A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
-fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then. No
-record names whose report went, the log being rolled back too, and a report can be sent or
-corrected at any time from the match's kick-off until its season ends, so write to the referees booked on
+fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then.
+No record names whose report went, the log being rolled back too. A report can be sent or corrected
+at any time from the match's kick-off until its season ends. So write to the referees booked on
 every fixture played by the restore day in a season the restore leaves running, which the fixture
-list names, to look at their Übersicht and enter again what it lacks; an administrator's correction
-made inside the window is gone too.
+list names. Ask them to look at their Übersicht and enter again what it lacks. An administrator's
+correction made inside the window is gone too.
 
 **Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
-what they cached before it, the people erased again and the publication consents withdrawn again
-above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
+what they cached before it for at most the lifetime
+[section 20](#20-after-a-hand-edit-in-mongodb) states. That includes the people erased again and the
+publication consents withdrawn again above.
 
 ## 14. The `auth` database's indexes
 
@@ -1381,7 +1425,7 @@ trailing newline and surrounding blanks, and everything else in the file is part
 authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
-stack publishes on loopback, and the local stack itself hands its services an inline config naming
+stack publishes on loopback. The local stack itself hands its services an inline config naming
 its own database.
 
 On a development machine, in Git Bash at the checkout root, this writes every file both dev servers
@@ -1433,16 +1477,21 @@ docker compose up -d --wait --force-recreate frontend backend
 - **`tunnel_token`** is read by the connector alone, so recreate `cloudflared`.
 
 **Where a service refuses to boot naming a file**, its last lines say which fault, and a failed
-deploy prints them: a missing file is written, an unreadable one is given the user and mode above,
-and a blank one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a
-character outside the class** ([`spec.md`](spec.md) §1.2): generate all three again on the server,
-each with
+deploy prints them. A missing file is written, an unreadable one is given the user and mode above,
+and a blank one is written again.
+
+**Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside the class**
+([`spec.md`](spec.md) §1.2). Generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
 and update the password-manager entry. Both containers are recreated by the command above, so the
-new keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
-the same way: its holder, reaching the backend on the private network, can act as any administrator,
-so rotating is not finished until `action_log` has been read for every `grants` write since the
-leak, and every grant nobody can account for is removed on the „Administratoren“ page. **A new `auth_secret` signs everybody out.**
+new keys never meet the old.
+
+**After a suspected leak of `internal_api_key_admin`, generate all three the same way.** Its holder,
+reaching the backend on the private network, can act as any administrator. So rotating is not
+finished until `action_log` has been read for every `grants` write since the leak. Every grant
+nobody can account for is then removed on the „Administratoren“ page.
+
+**A new `auth_secret` signs everybody out.**
 
 ## 17. Clearing an address's code lock
 
