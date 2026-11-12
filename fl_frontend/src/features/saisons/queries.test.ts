@@ -16,7 +16,24 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 /** Every request the doubled client was asked for, cumulative across this file. */
 const reads = doubleApiClient(() => ({ saison: { id: "2627" } }));
 
-const { getAdminSaison } = await import("./queries.ts");
+const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
+
+describe("the admin season list's read", () => {
+  /* Kept past one request, the list would serve every administrator the first request's seasons, `next_saison_id`
+     and create refusal until the server restarts, and no journey creates a season to notice. */
+  it("is read on the admin tier every time, declaring no cache", async () => {
+    const before = reads.length;
+
+    await getAdminSaisons();
+    await getAdminSaisons();
+
+    expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
+      ["/saisons/list/admin", "admin"],
+      ["/saisons/list/admin", "admin"],
+    ]);
+    expect(declared, "the administrators' season list is declared into a cache every caller shares").toStrictEqual([]);
+  });
+});
 
 describe("the season editor's read", () => {
   /* Cached, the read would key on the season id alone: every administrator would share one slot, and a version from
