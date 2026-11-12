@@ -87,6 +87,11 @@ export const mailedCard = tv({
   },
 });
 
+/** Landing sections under a reading page's head, as far apart as the landing's: 48 px on a phone and 64 px from `lg`. */
+export function ClassicSections({ children }: { children: ReactNode }) {
+  return <div className="grid gap-12 lg:gap-16">{children}</div>;
+}
+
 const head = tv({
   slots: {
     // Over a hairline across the column, which parts the head from what the page says.
