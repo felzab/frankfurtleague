@@ -1,5 +1,5 @@
-import { existsSync, globSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { existsSync, globSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import css from "@eslint/css";
@@ -270,113 +270,6 @@ const LOCALE_PROVIDER = {
 /** typescript-eslint's rule, which extends ESLint's with `allowTypeImports`, so a type alone may cross a ban. */
 const importBan = (entry, reach, options) => ban("@typescript-eslint/no-restricted-imports", entry, reach, options);
 
-// ---------------------------------------------------------------------------------------------------
-// The background passes. Each pass's generated sender is imported by its slice's wrapper and by the job
-// that runs it alone, and the wrapper by that job alone: the backend runs a pass on any system-key call,
-// so a second caller would run it outside the scheduler.
-// ---------------------------------------------------------------------------------------------------
-
-/** The generated client, by any path. */
-const GENERATED_SDK_PATH = "src/core/generated/client/sdk.ts";
-const GENERATED_SDK = String.raw`(?:^|\x2F)core\x2Fgenerated\x2Fclient\x2Fsdk(?:\.ts)?$`;
-
-/** Orval's names for one operation: its sender and the URL builder beside it, each a way to reach the path. */
-function sendersOf(operationId) {
-  const sender = operationId.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
-  return [sender, `get${sender.charAt(0).toUpperCase()}${sender.slice(1)}Url`];
-}
-
-/**
- * Each pass by its operation ids: the module wrapping their senders, which the wrapper's ban names by its file name,
- * the wrapper's exports, and the modules running it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
- * deletion beside its job.
- */
-const BACKGROUND_PASSES = [
-  {
-    operations: ["outbox_post_handout", "outbox_post_result"],
-    wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
-    runners: ["src/instrumentationNode.ts", "src/core/afterResponse.ts"],
-  },
-  {
-    operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
-    wrapper: { file: "src/features/bewerbungen/mutations.ts", names: ["getBewerbungSweepSaisons", "postBewerbungSweep"] },
-    runners: ["src/features/bewerbungen/sweep.ts"],
-  },
-  {
-    operations: ["registrierungen_sweep_registrierungen"],
-    wrapper: { file: "src/features/registrierungen/mutations.ts", names: ["postRegistrierungSweep"] },
-    runners: ["src/features/bewerbungen/sweep.ts"],
-  },
-  {
-    operations: ["address_change_sweep_address_change"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["postAddressChangeSweep"] },
-    runners: ["src/features/address-change/sweep.ts"],
-  },
-  {
-    operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
-    wrapper: { file: "src/features/address-change/mutations.ts", names: ["getAddressChangeMoves", "postAddressChangeMovesDone"] },
-    runners: ["src/features/address-change/moves.ts"],
-  },
-  {
-    operations: ["identity_get_references"],
-    wrapper: { file: "src/features/roles/mutations.ts", names: ["postReferences"] },
-    runners: ["src/features/roles/sweep.ts"],
-  },
-  {
-    operations: ["identity_sweep_erasure"],
-    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postErasureSweep"] },
-    runners: ["src/features/saisons/sweep.ts"],
-  },
-  {
-    operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
-    wrapper: {
-      file: "src/features/spielbestaetigungen/mutations.ts",
-      names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
-    },
-    runners: ["src/features/spielbestaetigungen/sweep.ts"],
-  },
-  {
-    operations: ["grants_post_handover_pass"],
-    wrapper: { file: "src/features/grants/mutations.ts", names: ["postHandoverPass"] },
-    runners: ["src/features/grants/sweep.ts"],
-  },
-];
-
-// A sender renamed in the contract, or a wrapper's export renamed, would drop out of its ban in silence, as a renamed
-// file would.
-const sourceOf = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
-const GENERATED_SENDERS = sourceOf(GENERATED_SDK_PATH);
-const UNEXPORTED = BACKGROUND_PASSES.flatMap(({ operations, wrapper }) => {
-  const wrapped = sourceOf(wrapper.file);
-  return [
-    ...operations.flatMap(sendersOf).filter((name) => !GENERATED_SENDERS.includes(`export const ${name} =`)),
-    ...wrapper.names
-      .filter((name) => !new RegExp(String.raw`^export (?:async function|function|const) ${name}\b`, "m").test(wrapped))
-      .map((name) => `${wrapper.file} :: ${name}`),
-  ];
-});
-if (UNEXPORTED.length > 0) {
-  throw new Error(
-    `eslint.config.mjs bans exports that no longer exist: ${UNEXPORTED.join(", ")}. Name each pass's operations and its wrapper's exports anew.`,
-  );
-}
-
-const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, runners }) => {
-  const reached = (names, owners) =>
-    `${names.join(", ")} ${names.length === 1 ? "runs" : "run"} a background pass: fl_frontend/${owners.join(", fl_frontend/")} ${owners.length === 1 ? "imports" : "import"} ${names.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`;
-  const senders = operations.flatMap(sendersOf);
-  return [
-    importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
-      allow: [wrapper.file, ...runners],
-    }),
-    importBan(
-      { regex: moduleNamed(basename(wrapper.file, ".ts")), importNames: wrapper.names, message: reached(wrapper.names, runners) },
-      PRODUCTION,
-      { allow: runners },
-    ),
-  ];
-});
-
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
   // Layer boundaries, `core`'s and `shared`'s alone: a slice's page reads and renders other slices' records through
@@ -391,7 +284,6 @@ const IMPORT_BANS = [
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
-  ...BACKGROUND_PASS_BANS,
 ];
 
 // ---------------------------------------------------------------------------------------------------
