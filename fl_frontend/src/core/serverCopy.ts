@@ -512,7 +512,7 @@ export const SERVER_COPY = catalogue({
         lead: "Die Verwaltung hat diese E-Mail-Adresse für ein Konto eingetragen.",
         noticeSubject: "Deine E-Mail-Adresse soll sich ändern",
         noticeLead: "Die Verwaltung hat eine neue E-Mail-Adresse für dich eingetragen.",
-        noticeWait: (wait: Wait) => `Sie gilt ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
+        noticeWait: (wait: Wait) => `Sie gilt erst ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
         noticeStop: "Bis dahin kannst du die Änderung stoppen.",
       },
     },
@@ -637,7 +637,7 @@ export const SERVER_COPY = catalogue({
     new: {
       question: `Diese Adresse soll künftig für ein Konto ${boundBy("bei", "der", COPY.brand.name)} gelten.`,
       /** A change the administration started: the link's page and its mail alike. */
-      waits: (wait: Wait) => `Sie gilt ${waitWords(wait).span} nach deiner Bestätigung.`,
+      waits: (wait: Wait) => `Sie gilt erst ${waitWords(wait).span}, nachdem du sie bestätigt hast.`,
       confirmed: ADDRESS_CONFIRMED,
       /** The done page's title on a change that waits. */
       confirmedFrom: (day: CalendarDay) => `${ADDRESS_CONFIRMED}, gilt ${boundBy("ab", formatDateLong(day))}`,

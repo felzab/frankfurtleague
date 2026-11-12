@@ -194,7 +194,7 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
 export type Wait = { readonly hours: 24 } | { readonly days: 7 };
 
 /**
- * A wait's two German forms, digits always: `span` after „gilt“, and `after` taking the dative. Exported for the
+ * A wait's two German forms, digits always: `span` after „gilt erst“, and `after` taking the dative. Exported for the
  * server's own catalogue, `serverCopy.ts`, alone.
  */
 export const waitWords = (wait: Wait) =>
@@ -754,7 +754,7 @@ export const COPY = catalogue({
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
       /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
-      holderWait: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
+      holderWait: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
     },
     erasure: {
       // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
@@ -1503,7 +1503,7 @@ export const COPY = catalogue({
        * 15:12“, the new address between the two parts, the moment after it where the step has one (`until`, `from`).
        */
       newLine: { before: `${AFTER}: `, after: (until: string) => ` · ${until}` },
-      startConsequence: (wait: Wait) => `Die neue Adresse gilt ${waitWords(wait).span} nach ihrer Bestätigung.`,
+      startConsequence: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem sie bestätigt ist.`,
       /** A callout, the typed address matching a listed row. */
       replaces: "Eine laufende Änderung wird ersetzt.",
       /** A withdrawal's and a discard's sentence. */
