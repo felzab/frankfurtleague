@@ -42,7 +42,7 @@ const REPLY_TO = KONTAKT_EMAIL;
 
 // Bounds the whole call, as a backend call's bound does: a per-attempt budget would multiply by the
 // attempts below, and the backend's lease on a page of sends, its `LEASE_DURATION`, is counted from both.
-const MAIL_TIMEOUT_MS = 15000;
+export const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */
 const MAIL_ATTEMPTS = 3;

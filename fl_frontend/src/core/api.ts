@@ -14,7 +14,7 @@ import type { FLRefusedField } from "./generated/client/types";
  * Past the backend's own deadline on a request, its `REQUEST_DEADLINE_S`, which bounds every database call it makes:
  * an answer the backend gives at its deadline still arrives.
  */
-const FETCH_TIMEOUT_MS = 15000;
+export const FETCH_TIMEOUT_MS = 15000;
 
 /** The path every endpoint is spelled under, as the contract writes it into each of its paths. */
 export const BASE_FETCH_PATH = "/api/v0";
