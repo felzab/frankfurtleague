@@ -140,9 +140,18 @@ type FrameSaison = {
  * team's frame among the seasons of the team the address names; `null` where there is none.
  */
 export function useFrameSaison(): FrameSaison | null {
+  return useWorkingSaison(false) ?? null;
+}
+
+/**
+ * `useFrameSaison`, or, where `listless` and the address names the season, and in a team's frame the team too,
+ * `undefined` without waiting for the seasons' read: the address spells every page's address in that season.
+ */
+function useWorkingSaison(listless: boolean): FrameSaison | null | undefined {
   const frame = useContext(SaisonContext);
   const { saison, team } = useParams();
   if (frame === null) return null;
+  if (listless && typeof saison === "string" && (frame.teams === undefined || typeof team === "string")) return undefined;
 
   if (frame.teams !== undefined) {
     const held = use(frame.teams).find((each) => each.team === team);
@@ -214,10 +223,14 @@ export function counterpart({
  * there, and several led to one address are the place of none. A team the person does not hold keeps its pages in the
  * menu, each at the team and season the address spells and each answering with the same refusal, so the menu there is
  * the one every team's address shows.
+ *
+ * `listless`, the entries wait for no read where the address names the season, and a team's the team: each takes them
+ * as the address spells them, which `RailEntries` and `BarPlaces` stand until the read confirms or corrects them.
  */
-function useEntries(groups: ReadonlyArray<RailGroup>) {
+function useEntries(groups: ReadonlyArray<RailGroup>, listless = false) {
   const frame = useContext(SaisonContext);
-  const saison = useFrameSaison();
+  // `undefined` where the address spells what the entries need and they were asked not to wait.
+  const saison = useWorkingSaison(listless);
   const { team, saison: named } = useParams();
   const hrefOf = (entry: RailEntry): Route | undefined => {
     if (entry.href !== undefined) return entry.href;
@@ -226,6 +239,7 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
       const spelled = frame?.teams !== undefined && typeof team === "string" && typeof named === "string";
       return spelled ? ROUTES[entry.team].path(team, named) : undefined;
     }
+    if (saison === undefined) return typeof named === "string" ? ROUTES[entry.saison].path(named) : undefined;
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
   const led = groups.flatMap((group) => group.entries.map(hrefOf));
@@ -401,9 +415,28 @@ const railRule = tv({
   base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
 });
 
-/** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
-export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
-  const groups = useEntries(given);
+/**
+ * The rail's entries in their groups, the current one in the brand colour on the muted fill. Where the address names
+ * the season they stand at once as it spells them, and the seasons' read, landing, keeps them or, for a season the
+ * frame does not hold, leads them to its standard: the not-found page stands in the frame, and a menu following an
+ * unknown season would lead every entry to another not-found page.
+ */
+export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
+  return (
+    <Suspense
+      fallback={
+        <RailEntryList
+          {...props}
+          listless
+        />
+      }>
+      <RailEntryList {...props} />
+    </Suspense>
+  );
+}
+
+function RailEntryList({ groups: given, prefetch, listless }: { groups: ReadonlyArray<RailGroup>; prefetch?: true; listless?: true }) {
+  const groups = useEntries(given, listless);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
     // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
@@ -453,9 +486,10 @@ export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray
 }
 
 /**
- * The rail's entries while the season their addresses name is read: every group and entry as `RailEntries` draws it,
- * each heading's and name's words a bar as wide as they will stand and each glyph a bar of its size, so the entries
- * appear in their places. No entry is marked current, which the address decides once the read lands.
+ * The rail's entries while their addresses wait, in a prerendered shell for the address, on a page naming no season for
+ * the seasons' read: every group and entry as `RailEntries` draws it, each heading's and name's words a bar as wide as
+ * they will stand and each glyph a bar of its size, so the entries appear in their places. No entry is marked current,
+ * which the address decides once the wait ends.
  */
 export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
   return (
@@ -627,11 +661,22 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
-  return menu === null ? null : <Places {...menu} />;
+  // At once as the address spells them, as the rail's entries are (`RailEntries`).
+  return menu === null ? null : (
+    <Suspense
+      fallback={
+        <Places
+          {...menu}
+          listless
+        />
+      }>
+      <Places {...menu} />
+    </Suspense>
+  );
 }
 
-function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
-  const groups = useEntries(given);
+function Places({ groups: given, bar, extra, account, prefetch, listless }: FrameMenu & { listless?: true }) {
+  const groups = useEntries(given, listless);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
@@ -748,8 +793,8 @@ function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
 }
 
 /**
- * The phone's bottom bar while the season its addresses name is read: every place `BarPlaces` will draw, the pages,
- * „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
+ * The phone's bottom bar while its addresses wait, as the rail's entries do: every place `BarPlaces` will draw, the
+ * pages, „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
  */
 export function BarPlacesPlaceholder() {
   const menu = useContext(MenuContext);
