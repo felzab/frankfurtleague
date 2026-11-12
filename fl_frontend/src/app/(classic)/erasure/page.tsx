@@ -49,7 +49,8 @@ export default function AccountErasurePage() {
   );
 }
 
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`, which would hand one person's list to another.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.

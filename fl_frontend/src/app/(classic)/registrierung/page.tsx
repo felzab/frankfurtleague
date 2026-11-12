@@ -72,8 +72,8 @@ const LINES: { objection: Line; notice: Line } = {
 
 /**
  * `/registrierung`, the page a team's registration link opens, which the proxy hands its token in this page's cookie
- * (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent
- * once through the one-shot submit, its outcome replacing it. Where no form stands, the page is its status card: the
+ * (`MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent once through the one-shot submit, its
+ * outcome replacing it. Where no form stands, the page is its status card: the
  * window shut or the season over, the club out of the season, the squad full, and the link no longer valid. The link is
  * the team's, opened by every pupil, so it has no state of having been answered.
  *
@@ -111,7 +111,8 @@ export default function RegistrierungPage() {
   );
 }
 
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`: the token is never a key.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;

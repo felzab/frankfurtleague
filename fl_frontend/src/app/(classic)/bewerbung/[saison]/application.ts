@@ -2,7 +2,7 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { FLKontaktRolle } from "@/core/generated/client/types";
 
-/** The field the form's replay key posts under (`fl_frontend/src/kit/OneShot.tsx :: replayField`). */
+/** The field the one-shot form's replay key posts under, the kit's `replayField`. */
 export const REPLAY_FIELD = "idempotency_key";
 
 /** „Keine weitere Rolle“, the select's first entry: the wire's `trainer_is_also: null`, which no option's id can be. */
