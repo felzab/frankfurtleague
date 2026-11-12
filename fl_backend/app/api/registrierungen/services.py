@@ -15,7 +15,6 @@ from app.api.outbox.services import OwedMail
 from app.api.saisons.services import entry_is_a_nominee
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
@@ -262,7 +261,7 @@ def build_registrierungen_sort() -> list[tuple[str, int]]:
     list an outside form writes. The pair is that index's own key order, so the read walks it.
     """
 
-    return build_sort(sort_by="submitted_at", order="desc", chain=(("_id", -1),))
+    return [("submitted_at", -1), ("_id", -1)]
 
 
 # --- The CONFIRMATION. Every predicate below reads a missing `confirmation` block as "nothing to
