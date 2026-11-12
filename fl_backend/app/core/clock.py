@@ -1,9 +1,8 @@
 """
-CORE · the clock
+The one place the backend reads the wall clock and names the league's time zone.
 
-The one place the backend reads the wall clock and names the league's time zone; Ruff's `banned-api`
-refuses a read anywhere else. A request reads it through `app/core/dependencies.py :: get_germany_now`,
-which a test substitutes.
+Ruff's `banned-api` refuses a read anywhere else. A request reads it through `get_germany_now`, which
+a test substitutes.
 """
 
 from datetime import UTC, datetime
@@ -20,7 +19,7 @@ def now() -> datetime:
 
 
 def german_day(instant: datetime) -> str:
-    """The German day `instant` falls on, as every stored and served day is spelled: a link's send, an act's day."""
+    """The German day `instant` falls on, as every stored and served day is spelled."""
 
     return instant.astimezone(GERMANY).strftime("%Y-%m-%d")
 

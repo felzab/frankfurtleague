@@ -171,7 +171,7 @@ async def db_exception_handler(request: Request, exc: PyMongoError):
     # A write outside a transaction carries no label, so a deadline cutting any request but a safe one
     # is answered unknown: it may have sent a write that landed, and unknown never sends a person to
     # repeat one. The frontend judges its own lost answers the same way, by the method and the
-    # operation's `x-safe` or `x-safe-when` (`fl_frontend/src/core/transport.ts`).
+    # operation's `x-safe` or `x-safe-when`.
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and not writes_nothing(request))
     error_code = Code.UNKNOWN_OUTCOME if unknown else Code.DATABASE_FAILED
 

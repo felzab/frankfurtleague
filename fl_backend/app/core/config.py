@@ -11,18 +11,17 @@ from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationErro
 from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
-# A property of THIS CODE, never a deployment's: an environment able to set it could serve
+# A property of this code, never a deployment's: an environment able to set it could serve
 # `/api/v2/` from code implementing v0.
 API_VERSION = 0
 
-# The length `fl_frontend/src/core/config.ts` pins each internal key to (`length(64)`). An equality
-# rather than a floor: the pair only works when the two values are identical, so a key one side
-# alone would refuse is a deployment already broken.
+# The length the frontend pins each internal key to. An equality rather than a floor: the pair only
+# works when the two values are identical, so a key one side alone would refuse is a deployment
+# already broken.
 INTERNAL_API_KEY_LENGTH: Final = 64
 
-# RFC 9110's `VCHAR`, which a header carries as written: `security.py :: verify_api_key`'s
-# `secrets.compare_digest` RAISES on a non-ASCII `str`. Pinned
-# identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
+# RFC 9110's `VCHAR`, which a header carries as written: the guard's `secrets.compare_digest` raises
+# on a non-ASCII `str`. The frontend pins the same characters.
 INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
 # Where Compose mounts a file secret, which is where a container finds it with nothing set.
@@ -59,9 +58,8 @@ class EnvironmentValidationError(Exception):
 UNDECLARED: Final = "extra_forbidden"
 
 
-# Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
-# holds the compose files to these fields: a file named by any shape but a string or a module constant
-# refuses there.
+# Parsed rather than imported by the check holding the compose files to these fields: a file named by
+# any shape but a string or a module constant refuses there.
 class _SecretFields(BaseModel):
     """The credentials, each read from its own file under `SECRETS_DIR`."""
 
@@ -93,13 +91,13 @@ class BackendConfig(BaseSettings, _SecretFields):
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
 
-    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; unset in a run
-    # outside an image, and empty, so read as unset, in a build handed none.
+    # The image's version from its build argument, which the start-up line logs; unset in a run outside an image, and
+    # empty, so read as unset, in a build handed none.
     app_version: str | None = Field(default=None, min_length=1, description="The image's version")
 
     model_config = SettingsConfigDict(
-        # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
-        # compose hands the container. A container has no file: compose hands it the names as variables.
+        # The package's file, the one compose lists, so a run from `fl_backend/` reads what compose hands
+        # the container. A container has no file: compose hands it the names as variables.
         env_file=".env",
         env_file_encoding="utf-8",
         # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
@@ -137,8 +135,8 @@ def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValid
     A failing credential is named by its file. An issue's own message and its `input_value` each quote
     what was rejected, so neither is read. An undeclared name is the file's own text, which a pasted
     key's line keeping the dotenv shape would be, so it is counted and nothing names it. The first
-    sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so an
-    operator reading either service's refusal reads one wording.
+    sentence is the frontend gate's too, so an operator reading either service's refusal reads one
+    wording.
     """
     # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
     failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
@@ -192,7 +190,7 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
 def get_config() -> BackendConfig:
     """The settings, built once and reused, the credentials read from the directory `SECRETS_DIR` names.
 
-    A FUNCTION rather than a module-level instance, which would make importing any module touching
+    A function rather than a module-level instance, which would make importing any module touching
     configuration read the environment as a side effect.
     """
     # Read before the build, which takes the directory as an argument: the settings loader is the one
@@ -206,7 +204,7 @@ def get_config() -> BackendConfig:
     # Built even where a file is missing, so every present value is judged as well; a missing one is
     # refused whatever the library found to stand in for it.
     try:
-        # Raised rather than printed: the source only WARNS for a directory at a file's path, and a
+        # Raised rather than printed: the source only warns for a directory at a file's path, and a
         # warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
             config = BackendConfig(_secrets_dir=directory)
@@ -231,7 +229,7 @@ def get_config() -> BackendConfig:
 def get_app_config(request: Request) -> BackendConfig:
     """The settings the application was built with, read per request rather than from `get_config`.
 
-    Held on the application (`app/main.py :: create_app`), so one built with other settings answers
-    with them and no dependency is replaced to make it do so.
+    Held on the application, so one built with other settings answers with them and no dependency is
+    replaced to make it do so.
     """
     return request.app.state.config

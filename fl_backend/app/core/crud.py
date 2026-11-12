@@ -1,12 +1,12 @@
 """
-CORE · database access, the query one list read runs, and the conventions a write keeps
+Database access, the query one list read runs, and the conventions a write keeps.
 
 One contract across the module, so no caller needs a `None` branch to reach a 404: a `*_one_*`
 helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
 
 A write reaches the driver in this module alone. No helper here records anything: an act records itself, one line inside
-its own transaction (`app/core/recording.py :: record_act`).
+its own transaction.
 """
 
 import re
@@ -28,10 +28,10 @@ from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
-# Section 1, the driver. Keyword-only throughout, so no call site can bind `db_filter` to `update`
-# by position, and `db_filter` is the one name a filter has here and at every caller.
+# Keyword-only throughout, so no call site can bind `db_filter` to `update` by position, and
+# `db_filter` is the one name a filter has here and at every caller.
 
-# What orders a NAME: „Ö“ sits beside „O“ and a lower-case initial beside its capital, where Mongo's
+# What orders a name: „Ö“ sits beside „O“ and a lower-case initial beside its capital, where Mongo's
 # binary default puts each after „Z“. Per read rather than a default: a collated operation cannot
 # use a simple-collation index on a string bound.
 GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
@@ -89,7 +89,7 @@ async def pull_whole_from_db(
 ) -> list[Mapping[str, Any]]:
     """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
 
-    Read one over the cap, so a set past it is DETECTED rather than judged on the page that fits: a dropped fixture or
+    Read one over the cap, so a set past it is detected rather than judged on the page that fits: a dropped fixture or
     row would read as one that is not there, and a rule judged without it answers wrongly in silence.
     """
 
@@ -123,7 +123,7 @@ def composite_version(*documents: Mapping[str, Any]) -> int:
     """The one count an editor saving two documents reads and saves on: theirs added.
 
     Each only ever rises, so their sum stands exactly where none has moved, and a page holds one number for its one
-    save (`fl_frontend/src/kit/useEditor.ts :: EditorRecord`).
+    save.
     """
 
     return sum(int(document[VERSION_FIELD]) for document in documents)
@@ -246,7 +246,7 @@ async def is_held_elsewhere(
     value: Any,
     # The document the write saves, whose own value is no other's; `None` for a create.
     own_id: Any,
-    # REQUIRED: asked in the write's transaction, so a retry asks it again.
+    # Required: asked in the write's transaction, so a retry asks it again.
     session: AsyncClientSession,
 ) -> bool:
     """Whether another document holds `value` at `key`, a retired one included, as a unique index on it compares.
@@ -265,7 +265,7 @@ async def patch_past_the_version_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
-    # REQUIRED: the write's own transaction, in which its caller read what it judged, so two such writes to one
+    # Required: the write's own transaction, in which its caller read what it judged, so two such writes to one
     # document conflict and the later is judged again.
     session: AsyncClientSession,
 ) -> int:
@@ -289,7 +289,7 @@ async def anchor_in_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
-    # REQUIRED: committed on its own, an anchor conflicts with nobody.
+    # Required: committed on its own, an anchor conflicts with nobody.
     session: AsyncClientSession,
 ) -> None:
     """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts.
@@ -306,7 +306,7 @@ async def anchor_mailboxes_in_db(
     collection: AsyncCollection,
     ids: Sequence[str],
     at: datetime,
-    # REQUIRED, as `anchor_in_db`'s is.
+    # Required, as `anchor_in_db`'s is.
     session: AsyncClientSession,
 ) -> None:
     """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
@@ -343,7 +343,7 @@ async def post_many_to_db(
     try:
         return await collection.insert_many(documents=[_created(collection, document) for document in documents], session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ORDERED and not atomic: a refused document leaves every one before it written, which a
+        # `insert_many` is ordered and not atomic: a refused document leaves every one before it written, which a
         # 409 would deny. Inside a transaction its abort takes them back.
         landed = int((failure.details or {}).get("nInserted", 0))
         stands = landed > 0 and not (session is not None and session.in_transaction)
@@ -385,7 +385,7 @@ async def delete_many_from_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
-    # REQUIRED: a removal is one half of what the caller does in its transaction.
+    # Required: a removal is one half of what the caller does in its transaction.
     session: AsyncClientSession,
 ) -> DeleteResult:
     """The driver's result, unwrapped: a caller recording a pass's removal reads `deleted_count`."""
@@ -412,8 +412,8 @@ async def aggregate_many_from_db(
     return await cursor.to_list(length=limit)
 
 
-# Section 2, the query behind a read. One builder for every resource, because a term each resource
-# translated for itself is a term one of them translates differently.
+# One query builder for every resource, because a term each resource translated for itself is a
+# term one of them translates differently.
 
 
 def build_query(
@@ -460,10 +460,6 @@ def literal_pattern(value: str) -> str:
     """
 
     return re.escape(value).replace("\x00", r"\x00")
-
-
-# Section 3, what a write does beyond the driver call: a refusal becomes the status its check chose, and a
-# retirement is a date on `inactive_since` rather than a state of its own.
 
 
 def refuse(refusal: WriteRefusal | None) -> None:

@@ -30,7 +30,7 @@ class Refusal(NamedTuple):
     sentence: str
 
 
-# The secret file's NAME and the fact, in one sentence each, for the error. The three share their
+# The secret file's name and the fact, in one sentence each, for the error. The three share their
 # opening, so an operator who found one of them reads which by its continuation.
 UNREACHABLE = Refusal("db.unreachable", f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.")
 NO_SERVER = Refusal("db.no_server", f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.")
@@ -86,10 +86,10 @@ async def warn_about_the_grants(grants_collection: AsyncCollection) -> None:
         fl_logger.warning(NO_OWNER)
 
 
-# Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first request
-# waits on: here a request's shorter deadline governs, so only the boot waits this long. Kept well inside
-# the time a deploy waits for the stack's health, so a failed ping's reason is logged while the deploy
-# still waits, and the log lines it prints on a failure carry it.
+# Wider than the frontend's, which a visitor's first request waits on: here a request's shorter
+# deadline governs, so only the boot waits this long. Kept well inside the time a deploy waits for the
+# stack's health, so a failed ping's reason is logged while the deploy still waits, and the log lines
+# it prints on a failure carry it.
 SERVER_SELECTION_TIMEOUT_MS = 15_000
 
 # The stop's last step, which must end before the kill. Compose's `stop_grace_period` gives the backend
@@ -104,7 +104,7 @@ CLOSE_TIMEOUT_S: Final = 0.5
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
+    # The settings the application was built with, which its requests read too.
     config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
 
