@@ -28,10 +28,13 @@ const ADDED = "admin.neu@example.com";
 const waitingRow = (page: Page, kind: string, address: string): Locator =>
   page.getByRole("main").getByRole("row").filter({ hasText: address }).filter({ hasText: kind });
 
-/** „Zurückziehen“ on a waiting row, asked once and then touched. The open question hides the rows, so its close comes first. */
+/**
+ * „Zurückziehen“ on a waiting row, asked once and then touched. The open question hides the rows, so its close comes
+ * first. It is named: the toast the act answers in is an `alertdialog` too.
+ */
 async function stop(page: Page, row: Locator): Promise<void> {
   await row.getByRole("button", { name: "Zurückziehen" }).click();
-  const question = page.getByRole("alertdialog");
+  const question = page.getByRole("alertdialog", { name: "Änderung zurückziehen?" });
   await question.getByRole("button", { name: "Zurückziehen" }).click();
   await expect(question).toBeHidden();
   await expect(row).toHaveCount(0);

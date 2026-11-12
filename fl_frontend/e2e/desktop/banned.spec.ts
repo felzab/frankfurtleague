@@ -49,9 +49,9 @@ test("a banned person is told, loses their session and cannot sign in, by the se
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   await expect(page.getByRole("main").getByText("Mit dieser Adresse ist keine Anmeldung möglich.")).toBeVisible();
 
-  // Lifted from its row, behind a touch of its own.
+  // Lifted from its row, behind a touch of its own. The question is named: the ban's toast is an `alertdialog` too.
   await row.getByRole("button", { name: "Entfernen" }).click();
-  const question = desk.getByRole("alertdialog");
+  const question = desk.getByRole("alertdialog", { name: "Sperre entfernen?" });
   await question.getByRole("button", { name: "Entfernen" }).click();
   await expect(question).toBeHidden();
   await expect(row).toHaveCount(0);
