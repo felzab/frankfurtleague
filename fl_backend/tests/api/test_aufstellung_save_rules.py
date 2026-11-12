@@ -147,3 +147,14 @@ def test_a_save_keeps_the_entries_naming_nobody_and_adds_none(sent: int, refused
     assert (None if refusal is None else (refusal.error_code, refusal.fields)) == (
         (Code.SPIELER_NOT_IN_KADER, tuple(("spieler", index, "spieler_id") for index in refused)) if refused else None
     )
+
+
+def test_a_first_save_adds_no_entry_naming_nobody():
+    """No line-up is stored yet, so it holds no entry naming nobody for the save to keep."""
+
+    entries = [FLAufstellungEntry(spieler_id=None, starts=True)]
+
+    refusal = find_not_in_kader_refusal(entries=entries, new=set(), nameless=count_nameless(None), kader=[])
+
+    assert refusal is not None
+    assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 0, "spieler_id"),))
