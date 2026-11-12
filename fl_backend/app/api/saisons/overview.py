@@ -32,7 +32,7 @@ from app.api.spielbestaetigungen.services import (
     reason_to_end,
 )
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_COUNTED_AS_CANCELLED,
+    SONDEREREIGNIS_OWING_NOTHING,
     FLBracketFault,
     FLSpielbestaetigungParty,
     FLSpielJoinedAdmin,
@@ -266,7 +266,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
 def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind]:
     """What a fixture still lacks, each kind once; a fixture called off or struck out owes nothing."""
 
-    if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_CANCELLED:
+    if spiel.sonderereignis in SONDEREREIGNIS_OWING_NOTHING:
         return []
 
     open_side = spiel.saison_phase != "gruppenphase" and any(

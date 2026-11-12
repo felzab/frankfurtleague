@@ -23,17 +23,17 @@ type StepsBand = { open: boolean; sentence: Copy; act: { label: Copy; href: Rout
 
 const steps = tv({
   slots: {
-    // Four columns from `lg`, parted by hairlines; one under another below it, the number beside each. From `lg` the
-    // steps share three rows, the numbers', the titles' and the texts', each step a subgrid of them, as the stat
+    // Four columns from 42 rem of the list's own width, parted by hairlines; one under another below it, the number
+    // beside each. Across, the steps share three rows, the numbers', the titles' and the texts', each step a subgrid of them, as the stat
     // tiles share theirs, so a title running to two lines moves every step's text down alike.
-    list: "grid lg:grid-cols-4 lg:grid-rows-[auto_auto_1fr] lg:gap-4",
-    step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 lg:row-span-3 lg:grid-cols-1 lg:grid-rows-subgrid lg:border-t-0 lg:border-l lg:px-6 lg:py-0 lg:first:border-l-0 lg:first:pl-0`,
+    list: "grid @2xl:grid-cols-4 @2xl:grid-rows-[auto_auto_1fr] @2xl:gap-4",
+    step: `grid grid-cols-[2.5rem_minmax(0,1fr)] content-start gap-x-4 gap-y-2 ${stacked()} py-4 @2xl:row-span-3 @2xl:grid-cols-1 @2xl:grid-rows-subgrid @2xl:border-t-0 @2xl:border-l @2xl:px-6 @2xl:py-0 @2xl:first:border-l-0 @2xl:first:pl-0`,
     // The number's box, 40 px in the band's green.
     number:
-      "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand lg:row-span-1",
-    // Beside the number on a phone, centred on it; from `lg` at the top of the titles' row, under the number.
-    title: "self-center text-base font-semibold lg:self-start",
-    text: "col-start-2 text-sm text-fg-muted lg:col-start-1",
+      "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand @2xl:row-span-1",
+    // Beside the number down the list, centred on it; across, at the top of the titles' row, under the number.
+    title: "self-center text-base font-semibold @2xl:self-start",
+    text: "col-start-2 text-sm text-fg-muted @2xl:col-start-1",
     band: `flex flex-wrap items-center justify-between gap-4 ${cardSurface()} px-6 py-4`,
     sentence: "text-base",
   },
@@ -78,21 +78,25 @@ export function Steps({ items, band, closed }: { items: readonly Step[]; band: P
   const slots = steps();
   return (
     <>
-      <ol className={slots.list()}>
-        {items.map((item, index) => (
-          <li
-            key={item.title}
-            className={slots.step()}>
-            <span
-              aria-hidden
-              className={slots.number()}>
-              {formatNumber(index + 1)}
-            </span>
-            <h3 className={slots.title()}>{item.title}</h3>
-            <p className={slots.text()}>{item.text}</p>
-          </li>
-        ))}
-      </ol>
+      {/* The container the steps' columns read, since a query reads an ancestor; `w-full`, since a container's width
+          counts none of its content. */}
+      <div className="@container w-full">
+        <ol className={slots.list()}>
+          {items.map((item, index) => (
+            <li
+              key={item.title}
+              className={slots.step()}>
+              <span
+                aria-hidden
+                className={slots.number()}>
+                {formatNumber(index + 1)}
+              </span>
+              <h3 className={slots.title()}>{item.title}</h3>
+              <p className={slots.text()}>{item.text}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
       <PageWait fallback={<BandPlaceholder sentence={closed} />}>
         <Band band={band} />
       </PageWait>

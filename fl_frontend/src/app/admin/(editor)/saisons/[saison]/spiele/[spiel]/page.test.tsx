@@ -97,4 +97,27 @@ describe("the match editor's answers", () => {
 
     expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1", "team2"]);
   });
+
+  // The harm: a lapsed answer drawn as one still open, so the league waits on a club the backend no longer lets answer.
+  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Offen“ where it is still in time", async () => {
+    const row = (team_id: string, expired: boolean) => ({
+      id: `64b0000000000000000000${team_id === TEAM1 ? "a1" : "a2"}`,
+      saison_id: "2027",
+      spiel_id: SPIEL_ID,
+      party: { kind: "team" as const, team_id },
+      ansetzung: { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" },
+      deadline: "2026-11-10",
+      asked_at: "2026-11-03",
+      reminded_at: null,
+      answer: null,
+      closed: null,
+      expired,
+    });
+    const editor = await editorOver({ ...VIEW, spielbestaetigungen: [row(TEAM1, true), row(TEAM2, false)] });
+
+    expect(editor.props.answers.map(({ chip }) => chip)).toStrictEqual([
+      { tone: "neutral", label: COPY.admin.expired },
+      { tone: "warn", label: COPY.template.open },
+    ]);
+  });
 });

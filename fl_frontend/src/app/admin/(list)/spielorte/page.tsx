@@ -1,4 +1,5 @@
 import { ListPage } from "@/kit/ListPage";
+import { ACTIVE_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { formatEuro } from "@/core/format";
@@ -20,12 +21,14 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminSpielorte, ROUTES.adminSpielorte.path());
 }
 
-/** One venue's row, opening its editor: its name, „Stillgelegt“ and muted once retired, its street and its price. */
+/** One venue's row, opening its editor: its name, „Aktiv“, or „Stillgelegt“ and muted once retired, its street and its price. */
 const rowOf = (spielort: FLSpielort): TableRow => ({
   id: spielort.id,
   name: { record: spielort.name },
   href: ROUTES.adminSpielort.path(spielort.id),
-  ...(spielort.inactive_since === null ? {} : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
+  ...(spielort.inactive_since === null
+    ? { chip: ACTIVE_CHIP }
+    : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
   cells: {
     adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
     mietpreis: { record: formatEuro(spielort.default_mietpreis) },

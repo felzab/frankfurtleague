@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
+import { ACTIVE_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -43,12 +44,11 @@ const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label:
 
 /** One squad row, opening the player's editor in this season: the name with its chip, the club, the shirt and the Stufe. */
 function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
-  const chip = rowChip(row);
   return {
     id: row.spieler_id,
     name: { record: kaderName(row) },
     href: ROUTES.adminSpielerRecord.path(saison, row.spieler_id),
-    ...(chip === undefined ? {} : { chip }),
+    chip: rowChip(row) ?? ACTIVE_CHIP,
     muted: row.inactive_since !== null,
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },

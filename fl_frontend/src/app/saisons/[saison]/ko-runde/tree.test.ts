@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { COPY } from "@/core/copy";
+
 import { treeOf } from "./tree";
 
 import type { FLSaisonPhase, FLSpielplanSpieltag, FLSpielQuelle } from "@/core/generated/client/types";
@@ -63,5 +65,29 @@ describe("the K.-o.-Baum read from the knockout matchdays", () => {
 
   it("is none before the draw", () => {
     expect(treeOf([])).toBeNull();
+  });
+
+  // The harm: a no-show drawn as a played 3:0, so the bracket says a club won on the pitch that never played.
+  it("draws what befell a match as the Spielplan's row does: its chip, both sides muted and the absent one struck", () => {
+    const side = (team_id: string, name: string, tore: number) => ({ team_id, name, shorthand: name.slice(0, 3), tore, austritt_type: null });
+    const forfeit = {
+      ...spiel(1, "finale", null),
+      team1: side("0000000000000000000000b1", "Birke", 3),
+      team2: side("0000000000000000000000b2", "Esche", 0),
+      ergebnis: "3:0",
+      sonderereignis: "nichtantreten_team2" as const,
+    };
+
+    const [card] = treeOf([{ ...matchday("finale", []), count_spiele: 1, spiele: [forfeit] } as FLSpielplanSpieltag])?.rounds[0].matches ?? [];
+
+    expect([card?.chip, card?.muted, card?.absent]).toStrictEqual([
+      {
+        tone: "danger",
+        label: COPY.spielplan.sonderereignis.nichtantretenChip,
+        spoken: COPY.spielplan.sonderereignis.nichtantreten({ record: "Esche" }),
+      },
+      true,
+      "team2",
+    ]);
   });
 });

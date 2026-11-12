@@ -290,8 +290,9 @@ class FLTeamStatistik(BaseReadModel):
     tore_scored: int = Field(default=0, ge=0)
     tore_conceded: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
-    # Beside the scoring, never inside it: a forfeit is in this figure and in
-    # `count_played_spiele` both.
+    # Beside the scoring, never inside it: the fixtures that ended with no result,
+    # called off or struck out. A forfeit is in `count_played_spiele` alone, its
+    # awarded result being one the table counts.
     count_cancelled_spiele: int = Field(default=0, ge=0)
 
 

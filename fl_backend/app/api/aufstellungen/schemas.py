@@ -8,7 +8,7 @@ from app.core.crud import Anchored
 from app.core.exceptions import rule_refusal
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, FLUtcInstant
-from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSpielerPosition
+from app.shared.schemas.literals import FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerPosition
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # The most pupils one line-up names, far above any squad: the squad itself is the rule a save is judged by, and this
@@ -91,6 +91,8 @@ class FLAufstellungSpiel(BaseModel):
     time: CustomTimeString | None
     team1: FLSpielberichtTeam | None
     team2: FLSpielberichtTeam | None
+    # What befell the fixture, so the screen draws it as every match block does and asks for no line-up it needs no more.
+    sonderereignis: FLSonderereignis | None
 
 
 class FLAufstellungSpieler(BaseModel):

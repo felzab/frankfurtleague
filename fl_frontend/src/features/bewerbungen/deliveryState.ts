@@ -22,7 +22,7 @@ const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
   barred: { tone: "warn", label: COPY.admin.saison.addressBarred },
   // A stack that mails nothing filed it: no address is at fault, and nothing failed.
   held: { tone: "warn", label: DELIVERY.held },
-  abandoned: { tone: "danger", label: COPY.admin.saison.linkNotSent },
+  abandoned: { tone: "danger", label: DELIVERY.abandoned },
 };
 
 export function deliveryChip(status: FLOutboxStatus | null): ChipProps | null {

@@ -555,6 +555,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         spielort=None
         if not isinstance(spielort, Mapping)
         else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
+        sonderereignis=spiel.get("sonderereignis"),
         spielbestaetigung_id=None if row is None else row["_id"],
         state=None
         if row is None

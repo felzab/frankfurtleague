@@ -2,12 +2,14 @@ import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
+import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { matchName } from "@/features/spiele/blocks";
 import { getTeamOverview } from "@/features/teams/queries";
@@ -19,7 +21,6 @@ import { DeclineDialog } from "./DeclineDialog";
 import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type {
-  FLAufstellungPhase,
   FLSpielbestaetigungAppointment,
   FLSpielbestaetigungViewAnsetzung,
   FLTeamPanelAufstellung,
@@ -113,8 +114,8 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
     case "expired":
       return {
         ...base,
-        chip: { tone: "danger", label: TEAM.aufstellung.overdue },
-        line: line([when, venueOf(ansetzung), WORDS.answerOverdue(deadline), TEAM.leagueDecides]),
+        chip: EXPIRED_CHIP,
+        line: line([when, venueOf(ansetzung), COPY.admin.schiedsrichter.expiredOn(deadline), TEAM.leagueDecides]),
       };
     case "declined":
       return {
@@ -127,20 +128,13 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
   }
 }
 
-/** The chip of a line-up's phase: „Überfällig“ from its due mark, as an overdue date's, and „Gesperrt“ from the lock. */
-const AUFSTELLUNG_CHIPS = {
-  open: undefined,
-  overdue: { tone: "danger", label: TEAM.aufstellung.overdue },
-  locked: { tone: "neutral", label: TEAM.aufstellung.locked },
-} as const satisfies Record<FLAufstellungPhase, CardActRowProps["chip"]>;
-
 /**
  * A coming match the team has entered no line-up for, by the day it is due: until then, and overdue from then, which
  * its chip says as every other open row's does. From the lock on only the league enters it, which its chip says.
  */
 function aufstellungRow(row: FLTeamPanelAufstellung, team: string, saison: string): Row {
   const due = dayIn(new Date(row.marks.due_at));
-  const chip = AUFSTELLUNG_CHIPS[row.marks.phase];
+  const chip = AUFSTELLUNG_CHIP[row.marks.phase];
   return {
     id: row.spiel_id,
     href: ROUTES.teamAufstellung.path(team, saison, row.spiel_id),
@@ -163,7 +157,7 @@ function registrierungRow(row: FLTeamPanelRegistrierung, team: string, saison: s
     id: row.registrierung_id,
     href: ROUTES.teamRegistrierungen.path(team, saison),
     name: { record: `${row.first_name} ${row.last_name}` },
-    chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+    chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(plays === null ? {} : { line: plays }),
   };
 }
@@ -179,9 +173,7 @@ function seatRow(seat: FLTeamSeat) {
     : {
         id: seat.rollen.join(" "),
         name: { record: seat.name },
-        chips: [
-          seat.confirmed ? { tone: "success" as const, label: COPY.admin.confirmed } : { tone: "warn" as const, label: COPY.template.open },
-        ],
+        chips: [seat.confirmed ? CONFIRMED_CHIP : UNCONFIRMED_CHIP],
         line: held,
       };
 }

@@ -396,8 +396,11 @@ export const COPY = catalogue({
     season: {
       /** A group by its letter, „Gruppe A“: the Tabelle's cards, a club's group, the season editor's pickers. */
       gruppe: GRUPPE,
-      /** The name of the mark beside a club's figure: how many of its fixtures were called off. */
-      cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel abgesagt" : `${boundBy(formatNumber(count), "Spiele")} abgesagt`),
+      /**
+       * The name of the mark beside a club's figure: how many of its fixtures ended with no result, called off or struck
+       * out, in the words their events' consequence says them (\u201EDas Spiel wird nicht gewertet.\u201C).
+       */
+      cancelled: (count: number) => (count === 1 ? "1\u00A0Spiel nicht gewertet" : `${boundBy(formatNumber(count), "Spiele")} nicht gewertet`),
       /** The mark itself, drawn red on the corner of a club's figure and hidden from a screen reader, which hears `cancelled`. */
       cancelledMark: (count: number) => `+${formatNumber(count)}`,
     },
@@ -863,7 +866,7 @@ export const COPY = catalogue({
       accountLine: (shorthand: Words, rollen: readonly FLKontaktRolle[]) => `${textOf(shorthand)} · ${rollenText(rollen)}`,
       /**
        * What the league decides: the decline dialog's one sentence, a proposal moving nothing until the league saves a
-       * date; and the last part of an overdue date's line on the Übersicht, which takes no answer past its deadline. A
+       * date; and the last part of an expired date's line on the Übersicht, which takes no answer past its deadline. A
        * declined row's line ends on the team's proposal.
        */
       declineConsequence: "Über den Termin entscheidet die Liga.",
@@ -893,8 +896,8 @@ export const COPY = catalogue({
         dueBy: (day: CalendarDay) => `Aufstellung ${boundBy("bis", formatDate(day))}`,
         overdueSince: (day: CalendarDay) => `Aufstellung ${boundBy("seit", formatDate(day))} überfällig`,
         /**
-         * The chip of what is overdue, on its own page or its own row: a line-up's after its page's title, and a date's on the
-         * Übersicht whose answer is past its deadline; on a Spiele card the chip names what is overdue.
+         * The chip of a line-up overdue, after its page's title and on the Übersicht's row; on a Spiele card the chip names
+         * what is overdue.
          */
         overdue: "Überfällig",
         overdueOnCard: "Aufstellung überfällig",
@@ -1035,6 +1038,8 @@ export const COPY = catalogue({
       suppressed: "Zustellung blockiert",
       complaint: "Als Spam gemeldet",
       held: "Nur abgelegt",
+      /** The outbox gave the mail up after its tries, where „Nicht gesendet“ is a link no mail was ever owed. */
+      abandoned: "Versand gescheitert",
     },
 
     /** The rows of a question's facts: a move's two slots, the season the site leaves and takes, and whom its act mails. */
@@ -1061,17 +1066,22 @@ export const COPY = catalogue({
 
     schiedsrichter: {
       search: "Schiedsrichter suchen",
-      /** A referee who has not confirmed their entry: the chip after the name, and the note on the match editor's closed choice. */
+      /**
+       * An entry waiting on its person's confirmation, a referee's, a seat's or a registration's: the chip after the
+       * name, and the note on the match editor's closed choice.
+       */
       unconfirmed: "Unbestätigt",
       /** The editor's sections beyond the record's own name: how to reach the person, and what became of their link. */
       kontaktData: "Kontaktdaten",
       confirmation: "Bestätigung",
-      /** The fact saying where the referee's confirmation stands, one of the four lines below. */
+      /**
+       * The fact saying where the referee's confirmation stands, one of the three lines below or, while it is still
+       * awaited, `COPY.admin.spiel.answerBy`.
+       */
       state: "Stand",
       /** Beside the act that mailed a fresh link, and the save whose corrected address did: the address it went to. */
       sentTo: (address: string) => `${boundBy("An", address)} gesendet`,
       confirmedOn: (day: CalendarDay) => `Bestätigt ${boundBy("am", formatDate(day))}`,
-      openUntil: (day: CalendarDay) => `Offen ${boundBy("bis", formatDate(day))}`,
       expiredOn: (day: CalendarDay) => `Abgelaufen ${boundBy("am", formatDate(day))}`,
       objectedOn: (day: CalendarDay) => `Widersprochen ${boundBy("am", formatDate(day))}`,
       /** The example a phone box's message names, from the Federal Network Agency's range for media use. */
@@ -1281,11 +1291,11 @@ export const COPY = catalogue({
       /** What a declining club proposed, after its answer's date on the party's line. */
       proposed: (when: Copy) => `Vorschlag ${when}`,
       agreed: AGREED,
-      /** A club's decline and a referee's alike: „Abgesagt“ is a match called off. */
+      /** A club's decline and a referee's alike; a match called off reads as its event, „Ausgefallen“. */
       declined: "Abgelehnt",
-      cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
       reason: "Grund",
+      /** The day an awaited answer is due by: a party's about a date, and a seat's or a referee's about their entry. */
       answerBy: (day: CalendarDay) => `Antwort ${boundBy("bis", formatDate(day))}`,
       enteredByLeague: "Von der Verwaltung eingetragen",
       notAsked: "Noch nicht angefragt",
@@ -1348,7 +1358,7 @@ export const COPY = catalogue({
       gruppeFull: "Voll",
       /** „Team eintragen“'s reason while locked. */
       onlyPlanned: "Nur in einer geplanten Saison",
-      /** The state filter's option for a club playing on. */
+      /** A record in play: the state filter's option for a club playing on, and the chip of a list's default row. */
       active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */

@@ -6,7 +6,8 @@ const WORDS = COPY.admin.spieler;
 
 /**
  * The one chip after a player's name: „Ausgetragen“ once the row left the squad, else „Nachnominiert“, which holds for
- * the season; „Nummer doppelt“ asks for a look and stands only where neither does.
+ * the season; „Nummer doppelt“ asks for a look and stands only where neither does. A regular row has none here: a
+ * head or a tile names no default, and a list's „Stand“ column draws „Aktiv“ in its place.
  */
 export function rowChip(row: { inactive_since: string | null; is_nachnominiert: boolean; nummer_double?: boolean }): ChipProps | undefined {
   if (row.inactive_since !== null) return { tone: "neutral", label: WORDS.deregistered };

@@ -1,9 +1,9 @@
 import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
-import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
+import { refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { getSchiedsrichter } from "@/features/schiedsrichter/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
@@ -11,7 +11,6 @@ import { createSchiedsrichter } from "./createSchiedsrichter";
 import { SchiedsrichterFields } from "./SchiedsrichterFields";
 
 import type { FLSchiedsrichter } from "@/core/generated/client/types";
-import type { ChipProps } from "@/kit/Chip";
 import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -22,31 +21,13 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
   return pageMetadata(parent, ROUTES.adminSchiedsrichter, ROUTES.adminSchiedsrichter.path());
 }
 
-/**
- * The chip after a referee's name: „Stillgelegt“ once retired, else where their entry stands, a confirmed one
- * carrying none, since a confirmed entry is what the list expects.
- */
-function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
-  switch (confirmationStateOf(referee)) {
-    case "confirmed":
-      return undefined;
-    case "objected":
-      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
-    case "unanswered":
-    case "unasked":
-      return { tone: "warn", label: WORDS.unconfirmed };
-  }
-}
-
-/** One referee's row, opening their editor: the name with its chip, the address and the phone. */
+/** One referee's row, opening their editor: the name with where the entry stands, „Bestätigt“ once confirmed, the address and the phone. */
 function rowOf(referee: FLSchiedsrichter): TableRow {
-  const chip = chipOf(referee);
   return {
     id: referee.id,
     name: { record: referee.name },
     href: ROUTES.adminSchiedsrichterRecord.path(referee.id),
-    ...(chip === undefined ? {} : { chip }),
+    chip: refereeChip(referee) ?? CONFIRMED_CHIP,
     muted: referee.inactive_since !== null,
     cells: {
       email: referee.kontakt.email === null ? COPY.shared.noValue : { record: referee.kontakt.email },
