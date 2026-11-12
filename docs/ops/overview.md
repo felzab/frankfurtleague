@@ -17,7 +17,7 @@ graph TB
         connector["cloudflared<br/>dials out; the host publishes nothing"]
     end
 
-    nginx["nginx<br/>:80 and :443, on both networks and no host port"]
+    nginx["nginx<br/>:80, on both networks and no host port"]
 
     subgraph appnet["Docker network: frankfurtleague-app"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
@@ -29,8 +29,8 @@ graph TB
     internet --> cf
     cf --> connector
     connector --> nginx
-    nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"every path but the liveness probe"| fe
+    nginx -->|"the two probes, is_live and is_ready"| be
+    nginx -->|"every path but the two probes"| fe
     fe -->|"server-side fetch"| be
     fe -->|"auth database only"| mongo
     be --> mongo
@@ -56,12 +56,11 @@ user needs `readWrite` and nothing beyond it: the boot builds indexes, an action
 Nothing here manages the Cloudflare account, its DNS or its SSL mode, and none of what follows is
 visible from a configuration file in this repository.
 
-- **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
-  settings and OCSP stapling in `nginx/prod/prod.conf` govern the hop from the tunnel connector to
-  nginx inside the compose network, not what a browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
-  ([`spec.md`](spec.md) §1.3).
-- **The headers a visitor receives are whatever survives the proxy.** They matched `prod.conf` when
-  verified 2026-08-01, which makes them a property to re-verify rather than assume.
+- **A visitor's TLS session terminates at Cloudflare.** The connector hands each request to nginx
+  as plain HTTP over the stack's own network, so nginx holds no certificate, and an origin failure
+  can surface as a Cloudflare error code ([`spec.md`](spec.md) §1.8).
+- **The headers a visitor receives are whatever survives the proxy**, so they are a property to
+  re-verify against `nginx/shared/security_headers.conf` rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
   than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
   precompressed at build time (`docs/decisions.md`).
@@ -99,12 +98,13 @@ passes FastAPI's `openapi_url=None`, so the running app serves neither the docum
 
 ## Security posture
 
-**The origin is hardened even though a proxy sits above it** — TLS 1.2/1.3 only, the header set at
-[`spec.md`](spec.md) §1.4, and a `default_server` block rejecting an unknown `Host` at TLS time.
+**The origin is hardened even though a proxy sits above it**: the header set at
+[`spec.md`](spec.md) §1.4, and a default server answering an unknown `Host` with `421`.
 
-**The published unauthenticated writes are rate-limited at the edge**, the sign-in POST among them,
-whose action id ships in a client chunk, and so is every page a mailed or shared link opens. Which paths carry a zone, their pairing and what carries no
-zone at all are [`spec.md`](spec.md) §1.3.
+**The published unauthenticated writes are rate-limited at the edge**, and so is every page a mailed
+or shared link opens. A server action, the sign-in's among them, whose id ships in a client chunk, is
+metered at whatever path it is posted to. Which location carries which zone, and what carries none,
+is [`spec.md`](spec.md) §1.3.
 
 ## Images and deployment
 
@@ -112,9 +112,9 @@ zone at all are [`spec.md`](spec.md) §1.3.
 anything reaching the API or constructing a URL from `AUTH_URL` at module scope fails the image build
 rather than at runtime.
 
-A deploy pulls, recreates the two application containers in place and reloads nginx across the swap.
-What a failed health wait puts back, what it costs, and what to deploy afterwards are
-[`runbooks.md`](runbooks.md) §1.
+A deploy pulls the build's images, lets Compose recreate each service whose image or definition
+moved, and reloads nginx, which keeps serving across the swap. What each ending leaves running, and
+how to go back to an earlier build, are [`runbooks.md`](runbooks.md) §1.
 
 ## Read next
 
