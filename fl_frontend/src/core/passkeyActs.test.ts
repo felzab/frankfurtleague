@@ -37,12 +37,12 @@ doubleApiClient(({ endpoint }) => {
 });
 
 const seasonActs = await import("@/app/admin/(editor)/saisons/[saison]/settings/saisonActs");
-const banActs = await import("@/app/admin/(liste)/ban-list/banActs");
+const banActs = await import("@/app/admin/(list)/ban-list/banActs");
 const accountActs = await import("@/features/account/personActions");
-const erasureActs = await import("@/app/admin/(liste)/erasures/erasureActs");
+const erasureActs = await import("@/app/admin/(list)/erasures/erasureActs");
 const passkeyActs = await import("@/features/passkeys/actions");
 const grantActs = await import("@/features/grants/actions");
-const addressChangeActs = await import("@/app/admin/(liste)/address-changes/addressChangeActs");
+const addressChangeActs = await import("@/app/admin/(list)/address-changes/addressChangeActs");
 const changeActs = await import("@/features/address-change/actions");
 
 const HOLDER = "pia@example.org";

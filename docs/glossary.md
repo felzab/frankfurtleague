@@ -257,7 +257,7 @@ code alone, a referee's decline of a booking (`answer.kind` `declined`), which o
 „Ablehnen“ and reads „Abgelehnt“. „Abgesagt“ is neither: it is a fixture called off, `cancelled`.\
 **In code:** `fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungAbsageEmail`,
 `fl_frontend/src/core/registrierungEmail.ts :: buildRegistrierungAbsageEmail`;
-`fl_frontend/src/app/area/(person)/schiedsrichter/(liste)/[saison]/answerEinteilung.ts :: declineEinteilung`.
+`fl_frontend/src/app/area/(person)/schiedsrichter/(list)/[saison]/answerEinteilung.ts :: declineEinteilung`.
 
 ### `Quelle` — where a side of a fixture comes from
 
