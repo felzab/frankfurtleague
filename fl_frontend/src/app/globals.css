@@ -45,6 +45,19 @@
   --font-sans--font-feature-settings: "lnum";
 }
 
+/* Anton's stand-in until the face arrives, tuned by hand because the site sets Anton in capitals alone, where
+   next/font's own stand-in, scaled to Anton's average lowercase letter, draws the league's name 49 px wider than
+   Anton and moves the header's links when the face lands. Here Arial is scaled so the league's name stands exactly
+   as wide as in Anton, and its line box takes Anton's ascent and descent, so neither the line nor its neighbours move. */
+@font-face {
+  font-family: "Anton Fallback";
+  src: local("Arial");
+  size-adjust: 67.13%;
+  ascent-override: 175.23%;
+  descent-override: 49.03%;
+  line-gap-override: 0%;
+}
+
 /* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
    saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
    the selector lands on the wrong element and nothing corrects it once the content arrives. With no
