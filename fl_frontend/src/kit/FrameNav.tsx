@@ -205,8 +205,7 @@ export function counterpart({
   }
 
   segments[at] = to;
-  // An address built from the one the page answers at, which no literal can spell.
-  return segments.join("/") as Route;
+  return segments.join("/");
 }
 
 /**

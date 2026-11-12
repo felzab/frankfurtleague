@@ -55,7 +55,7 @@ type Kind =
   | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
-  | { kind: "tel" | "search"; autofill?: never; example?: never; pattern?: never }
+  | { kind: "tel"; autofill?: never; example?: never; pattern?: never }
   | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
   /**
    * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
@@ -100,7 +100,6 @@ const KINDS = {
   email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
   tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
   url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
-  search: { type: "search", inputMode: undefined, autoComplete: undefined, pattern: undefined },
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */

@@ -22,7 +22,7 @@ import type { Copy, Words } from "@/core/copy";
 import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
 /** A row no crawler fetches, under the mailed pages' referrer. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -64,7 +64,7 @@ const readState = cache(async (): Promise<MailedState> => {
       state: "end",
       tone: "info",
       title: COPY.page.accountErasure,
-      next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },
+      next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) },
     };
   }
 

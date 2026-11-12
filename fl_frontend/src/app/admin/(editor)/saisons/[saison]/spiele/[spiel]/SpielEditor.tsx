@@ -370,7 +370,7 @@ export function SpielEditor({
                   text={adoption.text}
                   onAdopt={() => {
                     for (const [key, value] of Object.entries(adoption.values)) {
-                      set(key as keyof SpielValues, value as SpielValues[keyof SpielValues]);
+                      set(key as keyof SpielValues, value);
                     }
                     setAdopted(true);
                   }}
