@@ -15,7 +15,11 @@
 #                                    league in scripts/ops/seed/seed.js; the sign-in store stays
 #   ./scripts/ops/local.sh --e2e         start the end-to-end stack instead (docker-compose.e2e.yml):
 #                                    its own volume, keys and made-up league, new on every start
-#   ./scripts/ops/local.sh --down        stop the stack; with --fresh, also delete the volumes; with
+#   ./scripts/ops/local.sh --e2e --landing=<state>
+#                                    load the made-up league again into the RUNNING end-to-end stack,
+#                                    the landing in <state> (seed.js's LANDING_STATES), and restart its
+#                                    frontend; nothing is built, and sessions and passkeys stay
+#   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes; with
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
 
@@ -30,13 +34,14 @@ export COMPOSE_FILE="docker-compose.yml;docker-compose.local.yml"
 export TAG=local
 
 # Parsed before any environmental check, so a typo fails instantly instead of demanding Docker.
-FRESH=0; DOWN=0; MADE_UP=0; E2E=0
+FRESH=0; DOWN=0; MADE_UP=0; E2E=0; RESEED=0; LANDING=""
 for arg in "$@"; do
   case "$arg" in
     --fresh) FRESH=1 ;;
     --down)  DOWN=1 ;;
     --seed-made-up) MADE_UP=1 ;;
     --e2e)   E2E=1 ;;
+    --landing=*) RESEED=1; LANDING="${arg#--landing=}" ;;
     --help|-h) usage ;;
     # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on the
     # stack, which the exit contract spells 2. 1 would say the stack is what needs fixing.
@@ -56,6 +61,18 @@ fi
 if (( E2E )) && (( FRESH || MADE_UP )); then
   refuse "--e2e starts from an empty database and loads the made-up league on every start, so it
 combines with neither --fresh nor --seed-made-up. Run --e2e alone, or with --down."
+fi
+
+# The states `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, which refuses any other name too, but only once
+# Docker has been asked.
+LANDING_STATES=(running running-two-one-side countdown countdown-with-opening decided window none)
+if (( RESEED )); then
+  if (( ! E2E || DOWN )); then
+    refuse "--landing re-seeds the running end-to-end stack: run it as --e2e --landing=<state>, without --down."
+  fi
+  if [[ " ${LANDING_STATES[*]} " != *" ${LANDING} "* ]]; then
+    refuse "--landing=${LANDING} names no state of the landing. One of: ${LANDING_STATES[*]}."
+  fi
 fi
 
 STOP_COMMAND="./scripts/ops/local.sh --down"
@@ -119,9 +136,12 @@ the index's key: correct scripts/ops/seed/seed.js."
   ok "seeded '${base}' with the made-up league"
 }
 
-# Its own function because MSYS rewrites the `/tmp` path.
+# Its own function because MSYS rewrites the `/tmp` path. `--landing` hands its state to the seed through mongosh's
+# environment; without it the seed reads none and writes itself as written.
 run_made_up_seed() {
-  MSYS_NO_PATHCONV=1 docker compose exec -T mongo \
+  local state=()
+  if (( RESEED )); then state=(--env "SEED_LANDING=${LANDING}"); fi
+  MSYS_NO_PATHCONV=1 docker compose exec -T "${state[@]}" mongo \
     mongosh --quiet "mongodb://127.0.0.1:27017/${1}?directConnection=true" --file "$SEED_TARGET"
 }
 
@@ -133,9 +153,9 @@ judge_made_up_seed() {
   case "$rc" in
     0) ok "every document the seed wrote reads back through its model" ;;
     1) die "the made-up seed holds a document its model refuses, and the lines above name it:
-correct scripts/ops/seed/seed.js. The frontend and nginx have not been started." ;;
+correct scripts/ops/seed/seed.js. The frontend and nginx have not been started or recreated." ;;
     *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
-The frontend and nginx have not been started." ;;
+The frontend and nginx have not been started or recreated." ;;
   esac
 }
 
@@ -167,6 +187,33 @@ if (( DOWN )); then
     ok "stopped — the withheld mail is gone"
   fi
   finish
+fi
+
+# The running stack's database emptied and seeded again, its keys, its sign-in store and every image as they are; the
+# frontend then recreated, since a reseed alone would leave the landing's read in Next's in-memory cache for minutes.
+if (( RESEED )); then
+  section "landing"
+
+  step "The running end-to-end stack"
+  services="$(docker compose ps --status running --services)" || die "compose could not list the stack's services; its own account is above."
+  for service in mongo backend frontend; do
+    grep -qx "$service" <<< "$services" || refuse "the end-to-end stack's ${service} is not running, so there is nothing to re-seed.
+Start the stack with ./scripts/ops/local.sh --e2e first."
+  done
+  ok "running"
+
+  step "The made-up league, the landing ${LANDING}"
+  load_made_up_seed
+
+  step "The backend's own check of what the seed wrote"
+  judge_made_up_seed
+
+  step "The frontend, recreated"
+  quietly docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend \
+    || die "the frontend did not come back healthy, and compose's own account is above.
+Its own lines:  ${BY_HAND} logs frontend"
+  ok "recreated — no read of the earlier seed is cached"
+  finish "The end-to-end stack serves the landing ${LANDING} at http://localhost:3000."
 fi
 
 section "preflight"
