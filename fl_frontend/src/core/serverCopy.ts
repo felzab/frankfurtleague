@@ -63,7 +63,7 @@ const OBJECTION_RIGHT = {
   after: " genügt.",
 };
 const MORE = { before: "Mehr unter\u00A0", after: "." };
-// What an objection does to an entry that stands alone: a contact's seat on a season row, and a referee's entry.
+// What an objection does to a contact's seat on a season row, which the objection empties in its own write.
 const OBJECTION_DELETES_ENTRY = "Widersprichst du, löschen wir deinen Eintrag.";
 // A referee's confirmation's opening, which its mail opens on too, and what the league stores of the entry.
 const REFEREE_OPENING = "Die Liga hat dich als Schiedsrichterin oder Schiedsrichter für ihre Spiele eingetragen.";
@@ -81,8 +81,8 @@ type RetentionBounds = {
   schiedsrichterDays: number;
   addressChangeLinkHours: number;
   code: { minutes: number; mailHours: 1; failureHours: number };
-  person: { idleDays: number; days: number };
-  admin: { idleHours: 1; hours: number };
+  /** The days a session's row stands past its last use, which the library's sliding expiry and the TTL index keep. */
+  sessionDays: number;
 };
 
 /**
@@ -928,13 +928,13 @@ export const SERVER_COPY = catalogue({
       kader: {
         heading: "Im Kader",
         text: (minAge: number, days: number) =>
-          `Für den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst, auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+          `Für den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst, auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht. Wer ein Spiel deines Teams pfeift, sieht für den Spielbericht beide Kader mit Vor- und Nachnamen und Trikotnummer.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
         // The referee's minimum age is the backend's alone, so the text writes it out.
         text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Widersprichst du, löschen wir deinen Eintrag nach Ablauf der ${boundBy(formatNumber(days), "Tage")} deines Links; bis dahin ist er bei uns als widersprochen vermerkt, damit dich niemand erneut fragt. Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
@@ -943,8 +943,13 @@ export const SERVER_COPY = catalogue({
       account: {
         heading: "Anmeldung und Konto",
         // An administrator's idle hour is typed as its one figure: a sentence reading „nach 1 Stunde“ is singular.
-        signIn: (code: { minutes: number }, person: { idleDays: number; days: number }, admin: { idleHours: 1; hours: number }) =>
-          `Du meldest dich mit einem Code an, den wir dir schicken und ${boundBy("nach", formatNumber(code.minutes), "Minuten")} löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet ${boundBy("nach", formatNumber(person.idleDays), "Tagen")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(person.days), "Tagen")}; mit Zugang zur Verwaltung ${boundBy("nach", formatNumber(admin.idleHours), "Stunde")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(admin.hours), "Stunden")}.`,
+        signIn: (
+          code: { minutes: number },
+          person: { idleDays: number; days: number },
+          admin: { idleHours: 1; hours: number },
+          sessionDays: number,
+        ) =>
+          `Du meldest dich mit einem Code an, den wir dir schicken und ${boundBy("nach", formatNumber(code.minutes), "Minuten")} löschen, oder mit einem Passkey, zu dem wir seinen öffentlichen Schlüssel mit Kennung und Zähler, den Anbieter, bei dem er liegt, ob er gesichert ist, wie dein Gerät ihn erreicht, seinen Namen und seine letzte Nutzung speichern, nie seinen privaten Schlüssel; mit Zugang zur Verwaltung nur mit einem Passkey. Eine Sitzung endet ${boundBy("nach", formatNumber(person.idleDays), "Tagen")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(person.days), "Tagen")}; für die Verwaltung endet sie schon ${boundBy("nach", formatNumber(admin.idleHours), "Stunde")} ohne Nutzung, spätestens ${boundBy("nach", formatNumber(admin.hours), "Stunden")}. Wir löschen eine Sitzung ${boundBy(formatNumber(sessionDays), "Tage")} nach ihrer letzten Nutzung.`,
         changes: (linkHours: number, stopDays: number, administratorWait: Wait, ownerWait: Wait) =>
           `Eine neue E-Mail-Adresse bestätigst du zuerst über einen Link an deine bisherige Adresse und danach über einen Link an die neue, jeder ${boundBy(formatNumber(linkHours), "Stunden")} gültig; sie gilt, sobald du beide bestätigt hast. Kommst du an deine bisherige Adresse nicht mehr heran, ändert die Liga sie auf deine Anfrage; die bisherige Adresse erfährt davon und kann die Änderung ${boundBy(formatNumber(stopDays), "Tage")} lang stoppen. Mit Zugang zur Verwaltung gilt eine neue Adresse erst ${waitWords(administratorWait).span}, nachdem du beide bestätigt hast, ${boundBy("für", "die", ownerTier)} und die Person, an die sie übergeben wird, erst ${waitWords(ownerWait).after}; bis dahin gilt die bisherige. Ein neuer Zugang gilt erst ${waitWords(administratorWait).after}, die Übergabe der ${ownerTier} erst ${waitWords(ownerWait).after}. Alle mit Zugang und die genannte Person erfahren sofort davon. Bis dahin kann die ${ownerTier} alles davon zurücknehmen; eine neue Adresse auch du selbst, im Konto oder über den Link an deine bisherige Adresse. Dein Konto löschst du selbst, bestätigt über einen Link an deine Adresse. ${boundBy("Mit", "der", ownerTier)} geht das erst nach ihrer Übergabe, weil die Liga immer eine ${ownerTier} braucht; deine Rechte unter „Deine Rechte“ bleiben davon unberührt. Sonst bleibt es, solange unter deiner Adresse ein Eintrag bei uns besteht.`,
         ban: "Stört eine Adresse den Spielbetrieb, kann die Verwaltung sie sperren. Mit ihr meldet sich dann niemand an, und sie bekommt keine E-Mails. Hat sie ein Konto, schreiben wir das dorthin.",
@@ -1012,7 +1017,8 @@ export const SERVER_COPY = catalogue({
           {
             name: "Registrierung",
             content: "Name, Adresse, Geburtsdatum, Trikotnummer, Position, Stufe, Antworten",
-            period: (bound: RetentionBounds) => `${boundBy(formatNumber(bound.registrierungDays), "Tage")}, wenn unbestätigt oder abgelehnt`,
+            period: (bound: RetentionBounds) =>
+              `${boundBy(formatNumber(bound.registrierungDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis zur Aufnahme, längstens bis zum Ende der Saison`,
           },
           {
             name: "Registrierungslinks",
@@ -1026,9 +1032,9 @@ export const SERVER_COPY = catalogue({
           },
           {
             name: "Schiedsrichter",
-            content: "Name, Kontaktdaten, Honorar, Antworten",
+            content: "Name, Kontaktdaten, Geburtsdatum, Schule, Honorar, Antworten",
             period: (bound: RetentionBounds) =>
-              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")}, wenn unbestätigt oder abgelehnt; sonst bis du oder die Liga den Eintrag beendet`,
+              `${boundBy(formatNumber(bound.schiedsrichterDays), "Tage")} ab dem letzten Link, wenn unbestätigt oder widersprochen; sonst bis du oder die Liga den Eintrag beendet`,
           },
           {
             name: "Teams und Spiele",
@@ -1056,8 +1062,7 @@ export const SERVER_COPY = catalogue({
           {
             name: "Sitzungen",
             content: "Beginn, letzte Nutzung, Art der Anmeldung",
-            period: (bound: RetentionBounds) =>
-              `${boundBy(formatNumber(bound.person.idleDays), "Tage")} ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${boundBy(formatNumber(bound.admin.idleHours), "Stunde")} ohne Nutzung, höchstens ${boundBy(formatNumber(bound.admin.hours), "Stunden")}`,
+            period: (bound: RetentionBounds) => `${boundBy(formatNumber(bound.sessionDays), "Tage")} nach der letzten Nutzung`,
           },
           // The ended change's 30 days are the backend's `ADDRESS_CHANGE_RETENTION_DAYS` alone, so they are written out.
           {
@@ -1090,7 +1095,7 @@ export const SERVER_COPY = catalogue({
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen und im Postfach des Mitglieds des Vorstands, an das wir sie weiterleiten, bis wir sie dort auf deine Anfrage löschen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, unsere Nachricht über die Löschung höchstens 2\u00A0Tage, deine Adresse pseudonymisiert 1\u00A0Stunde lang, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
         log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12\u00A0Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
       },
       rights: {
@@ -1230,9 +1235,12 @@ export const SERVER_COPY = catalogue({
     deadline: ENTRY_DEADLINE,
     /** Both answers that end the entry, an unanswered deadline and an objection, in one clause: either deletes it alike. */
     question: (until: CalendarDay) =>
-      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before}${formatDateLong(until)} oder widersprichst du${ENTRY_DEADLINE.after}`,
-    /** What an objection does, the objection's question's sentence: the page's own clause, said of the objection alone. */
-    objectionEffect: OBJECTION_DELETES_ENTRY,
+      `${REFEREE_OPENING} ${REFEREE_STORED} ${ENTRY_DEADLINE.before}${formatDateLong(until)} oder widersprichst du, löschen wir deinen Eintrag nach diesem Tag.`,
+    /**
+     * What an objection does, the objection's question's sentence: an objection writes its day alone, and the entry goes
+     * with the link's deadline, as an unanswered one does.
+     */
+    objectionEffect: "Wir löschen deinen Eintrag, wenn dein Link abläuft.",
   },
 
   /**

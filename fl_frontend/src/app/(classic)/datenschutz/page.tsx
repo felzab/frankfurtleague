@@ -9,7 +9,7 @@ import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS } from "@/core/sessionLifetimes";
+import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import { DAY_MS } from "@/core/timeUnits";
 import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
@@ -64,6 +64,7 @@ export default function PrivacyNoticePage() {
         { minutes: CODE_VALIDITY_MINUTES },
         { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
         { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+        SESSION_EXPIRES_IN_DAYS,
       ),
     ),
     paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
@@ -107,8 +108,7 @@ export default function PrivacyNoticePage() {
                       schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
                       addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
                       code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
-                      person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
-                      admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+                      sessionDays: SESSION_EXPIRES_IN_DAYS,
                     }),
             },
           }))}
