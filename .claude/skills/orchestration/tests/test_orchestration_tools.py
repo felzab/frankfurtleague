@@ -2662,3 +2662,16 @@ def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_
     brief.write_bytes(b"1  OWNERSHIP.   fl_backend/app/schema.txt, in prose alone\n")
     prose = _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root)
     assert prose.returncode == 2 and "carries no `Owns:` line" in prose.stderr
+
+
+def test_overlap_reads_a_route_folders_brackets_as_written(tmp_path: Path) -> None:
+    """`[saison]` was read as a character class, so a brief naming a route's file matched none and named no overlap."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    _agent_commit(root, "Frontend: A page", {"app/[saison]/page.tsx": "a\n"}, branch="worktree-agent-a1b2c3")
+    git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
+    register = _register(tmp_path)
+    named = ["app/[saison]/page.tsx  WORKER (worktree-agent-a1b2c3)"]
+    for pattern in ("app/[saison]/page.tsx", "app/[saison]", "app/[saison]/*.tsx", "app/**/page.tsx"):
+        shared = _run("reg", "overlap", str(register), pattern, cwd=root)
+        assert shared.returncode == 1 and shared.stdout.splitlines() == named, (pattern, shared)
+    assert _run("reg", "overlap", str(register), "app/s/page.tsx", cwd=root).returncode == 0
