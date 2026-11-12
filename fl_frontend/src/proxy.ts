@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { sessionCookieOf } from "./core/auth/library";
-import { withReturnAddress } from "./core/auth/returnAddress";
+import { RETURN_PARAMETER, withReturnAddress } from "./core/auth/returnAddress";
 import { slideSession } from "./core/auth/session";
 import { MAILED_LINK_PAGES, swapMailedLinkToken } from "./core/mailedLink";
 import { ROUTES } from "./core/routes";
@@ -24,17 +24,30 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
     return inArea(req.nextUrl.pathname) ? turnAway(req, ROUTES.signIn.path()) : NextResponse.next();
   }
 
+  let stored = false;
   try {
-    // Only here can a person who only reads slide their cookie with their row.
-    // Its answer decides nothing: the library expires a cookie whose row is gone or expired, and the
-    // page's guard refuses the rest.
-    await slideSession(req.headers);
+    // Only here can a person who only reads slide their cookie with their row. The library expires a cookie whose
+    // row is gone or expired, and the page's guard refuses the rest.
+    stored = await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
     // into its area's error boundary, which renders nothing it guards.
   }
 
+  // A session asking for the sign-in is sent to the landing before anything renders, as Next's authentication guide
+  // redirects a signed-in visitor in its proxy, the address it asked to return to carried where the allowlist holds
+  // it. The landing ends a session no lane serves, and the next request's slide then finds no row, so this cannot loop.
+  if (stored && isSignInPage(req)) {
+    const landing = withReturnAddress(ROUTES.signInLanding.path(), req.nextUrl.searchParams.get(RETURN_PARAMETER));
+    return NextResponse.redirect(new URL(landing, req.nextUrl));
+  }
+
   return NextResponse.next();
+}
+
+/** A page load of the sign-in itself, never its form's server action, which posts to the same address. */
+function isSignInPage(req: NextRequest): boolean {
+  return req.method === "GET" && spellings(req.nextUrl.pathname).includes(ROUTES.signIn.path());
 }
 
 function turnAway(req: NextRequest, destination: string): NextResponse {

@@ -72,10 +72,11 @@ export const readRequestSession = cache(async (): Promise<ServedSession | null> 
 
 /**
  * The proxy's read: the proxy runs ahead of the render and can still write a cookie, so the library's
- * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer.
+ * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer. Whether the cookie
+ * names a stored row, which judges nothing a guard judges: whether a lane serves it is the landing's to say.
  */
-export async function slideSession(requestHeaders: Headers): Promise<void> {
-  await readLibrarySession(requestHeaders, true);
+export async function slideSession(requestHeaders: Headers): Promise<boolean> {
+  return (await readLibrarySession(requestHeaders, true)) !== null;
 }
 
 /**

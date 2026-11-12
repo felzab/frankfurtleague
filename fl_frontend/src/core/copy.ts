@@ -697,9 +697,6 @@ export const COPY = catalogue({
     code: "Code aus der E-Mail",
     otherAddress: "Andere E-Mail-Adresse verwenden",
 
-    /** `/signin` for somebody already signed in, in the two parts around the address, as the code view's sentence. */
-    signedInAs: { before: "Du bist als", after: "angemeldet." },
-
     /** The passkey card: an administrator's two, setting one up or signing in with one held, and anyone else's offer. */
     passkey: {
       setUp: { ...SET_UP_PASSKEY, sentence: PASSKEY_REQUIRED },
