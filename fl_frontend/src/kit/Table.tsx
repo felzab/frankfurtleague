@@ -4,7 +4,7 @@ import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
@@ -14,6 +14,7 @@ import { RoleMark } from "./RoleMark";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
+import { SideActsPlaceholder } from "./SideActsPlaceholder";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
@@ -53,8 +54,9 @@ type TableColumn = {
   cut?: true;
 } &
   /**
-   * Left out on a phone: of a box narrower than 42 rem, a phone's on any screen, whose row keeps its name, its chips
-   * after it and at most a narrow column.
+   * A secondary column, such as the day an administrator's access began: left out on a phone, a box narrower than
+   * 42 rem on any screen, whose row keeps its name, its chips after it and at most a narrow column. Every secondary
+   * column leaves at that one width, so the room it frees is the name's and its chips' wherever the row stacks.
    */
   (
     | { hideOnPhone?: boolean; phoneOnly?: never; narrow?: never }
@@ -147,17 +149,18 @@ export type TableRow = {
       href?: never;
       onOpen?: never;
       /**
-       * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, or
-       * the row's one side act is one or two kit buttons, each the trigger of its dialog, as a card's act row holds
-       * them: on one line under the row's words where the list is stacked, at the row's end where it is a table. The
-       * side acts of a list some row of which carries two or more are `SideActs`' one „⋯“ on every row. A row the
-       * reader can do nothing to takes none, and a table none of whose rows takes any draws no act column.
+       * What can be done to a record that opens no page of its own. A decision, such as „Zusagen“ and „Ablehnen“, is
+       * one or two kit buttons, each the trigger of its dialog, as a card's act row holds them: on one line under the
+       * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`) are their
+       * labelled buttons at the row's end where the list is a table, and one „⋯“ at its end, across its lines, where
+       * it is stacked; a list some row of which carries three or more folds them at every width. A row the reader can
+       * do nothing to takes none, and a table none of whose rows takes any draws no act column.
        */
       acts?: ReactElement;
       /**
-       * How many side acts `acts` draws (`SideActs`), which the list reads to decide their form for all its rows: the
-       * acts reach it as an element, which says nothing of what it holds. Counted by the rule the acts' own module
-       * lists them by, such as `changeActKinds`, never a second condition beside it.
+       * How many side acts `acts` draws (`SideActs`, and `RowAct`'s one), which the list reads to decide their form for
+       * all its rows: the acts reach it as an element, which says nothing of what it holds. Counted by the rule the
+       * acts' own module lists them by, such as `changeActKinds`, never a second condition beside it.
        */
       sideActs?: number;
     }
@@ -239,10 +242,8 @@ export type TableHead = Pick<
     | {
         acts?: never;
         /**
-         * The lone act of a list of side acts (`SideActs`), whose rows open nothing. Whether they fold into a „⋯“ is the
-         * read's to tell, so its wait draws, on a stacked row, the lone act's button on a line of its own under the
-         * words, the taller form; a table's row is one height in either form, so there the „⋯“ the list folds into
-         * once some row carries two, and the columns stand where a folding list lands them.
+         * The act every row of a list of side acts (`SideActs`) carries, whose rows open nothing: its wait draws that
+         * act's button where the list is a table, and the „⋯“ where it is stacked, as the rows will stand (`SideActBar`).
          */
         sideAct: Copy;
       }
@@ -271,8 +272,8 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  * there and its rows subgrids, head and rows sharing one set of tracks (`stackedTracks`). The name cell gives way to
  * its parts, `contents`, and each part of the row takes a line of its own, in one order: the name's, its chips directly
  * after the name (`nameWithChips`), with the columns the phone keeps beside it, each in its own track
- * under its head; the muted line; a refusal; and the acts on one line. The chevron spans the lines, centred on the row,
- * and so does the „⋯“ of a list whose side acts fold. A line that holds nothing takes no height, and a head cell's words stand
+ * under its head; the muted line; a refusal; and a decision's acts on one line. The chevron spans the lines, centred on
+ * the row, and so does the „⋯“ side acts fold into there. A line that holds nothing takes no height, and a head cell's words stand
  * on a 40-px line, since a grid item's stand at its top where a table cell's stand in its middle.
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
@@ -444,8 +445,8 @@ const table = tv({
     lone: {
       true: {},
     },
-    // A list whose rows carry acts: on a line under a stacked row's words, or in one „⋯“ at its end, where its side
-    // acts fold (`SideActs`).
+    // A list whose rows carry acts: a decision's on a line under a stacked row's words, and side acts in the one „⋯“
+    // they fold into at a stacked row's end (`SideActs`).
     acts: {
       under: {},
       folded: {},
@@ -830,10 +831,11 @@ export function Table({
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack });
-  // The list decides its rows' side acts' form, once for all of them: one „⋯“ on every row where some row carries two.
-  const folds = rows.some((row) => (row.sideActs ?? 0) > 1);
-  // Where a stacked row's acts stand: under its words, or, one „⋯“, at its end.
-  const acts = !hasActs ? undefined : folds ? "folded" : "under";
+  // The list decides its rows' side acts' form, once for all of them: one „⋯“ at every width where some row carries
+  // three, more than a table's row holds as buttons beside its words.
+  const folds = rows.some((row) => (row.sideActs ?? 0) > 2);
+  // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
+  const acts = !hasActs ? undefined : rows.some((row) => (row.sideActs ?? 0) > 0) ? "folded" : "under";
   const parts = table({ stacks, acts });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
@@ -1027,23 +1029,6 @@ function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
   ));
 }
 
-/** The „⋯“'s bar, the size of `SideActs`' button, a glyph's alone. */
-const MORE_BAR_CLASSES = "w-8 px-0 pointer-coarse:w-10";
-
-/**
- * A row's side acts while the rows are read (`TableHead`'s `sideAct`): the lone act's button on a stacked row, the taller
- * form, and the „⋯“'s bar where the row is a table's, which stands one height in either form.
- */
-function SideActBar({ act, stacks }: { act: Copy; stacks: Stacks }) {
-  if (stacks === "none") return <span className={buttonLook({ look: "placeholder", class: MORE_BAR_CLASSES })} />;
-  return (
-    <>
-      <span className={buttonPlaceholder("@2xl:hidden")}>{act}</span>
-      <span className={buttonLook({ look: "placeholder", class: `${MORE_BAR_CLASSES} @max-2xl:hidden` })} />
-    </>
-  );
-}
-
 /**
  * A column's bar while its rows are read. A figure's is a glyph's width, centred, and sets nothing. In a column stating
  * its width (`TableColumn`'s `width`) the bar never widens the column past its head: a share of a width counts nothing
@@ -1061,7 +1046,8 @@ const barOf = (column: TableColumn) => (column.figures === true ? "mx-auto w-4" 
  * own container, so it takes the form the rows will at every width: a list's rows stacked where its box is narrow, the
  * chip's bar after the name's, the muted line's under it where the rows carry one, a phone's left-out columns left
  * out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons, which a stacked row sets on a line
- * under its words, a list of side acts its lone act's there and the „⋯“'s in a table (`SideActBar`). Each cell's bar
+ * under its words, a list of side acts its act's button in a table and the „⋯“'s at a stacked row's end
+ * (`SideActsPlaceholder`). Each cell's bar
  * stands in a line of the cell's own height, so a row holds its height wherever its lines stack.
  */
 export function TablePlaceholder({
@@ -1093,7 +1079,7 @@ export function TablePlaceholder({
   const linked = head.linked !== false && !hasActs;
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose: false, stack });
   const phoneEnd = { stack, stacks, chevronOnPhone: linked && chevronOnPhone };
-  const actsForm = hasActs ? "under" : undefined;
+  const actsForm = sideAct !== undefined ? "folded" : acts !== undefined ? "under" : undefined;
   const chipsOnLine = chipsOnLineOf(state, stacks);
   const lonePlaque = plaques && plaqueAlone;
   const parts = table({ stacks, acts: actsForm, chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine });
@@ -1194,12 +1180,7 @@ export function TablePlaceholder({
                 <td className={parts.acts()}>
                   <span className={parts.actsLine()}>
                     {acts !== undefined && <ActBars acts={acts} />}
-                    {sideAct !== undefined && (
-                      <SideActBar
-                        act={sideAct}
-                        stacks={stacks}
-                      />
-                    )}
+                    {sideAct !== undefined && <SideActsPlaceholder act={sideAct} />}
                   </span>
                 </td>
               )}
