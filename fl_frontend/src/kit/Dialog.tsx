@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useRef, useState } from "react";
+import { startTransition, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -17,8 +17,9 @@ import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
 import { statusLine } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
+import { toastAnswer } from "./Toast";
 import { tv } from "./tv";
-import { statusOf, useFormAction } from "./useFormAction";
+import { answering, statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
 
@@ -162,20 +163,21 @@ function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClose
 /**
  * The dialog and its form, mounted anew at each opening, so a refusal it showed goes with the dialog and never greets
  * the next opening. A done act closes the dialog, but one whose answer notes what else the write moved, which stays open
- * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one, a
- * refused passkey touch among them, stays with its input kept, each field's message under its field and the reason in
- * the status line beside the acts, as a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the
- * act runs, as a question's are, because its answer is the dialog's to show and nowhere else stands to show it. The act
- * ending the record, where the dialog has one, stands as its own part after the inputs and above the footer
- * (`DangerRow`), apart from „Zurück“ and the save, and before the sentence and the facts of the dialog's own act, which
- * stay directly over its two buttons.
+ * with that note in its status line, its act closed, so the person reads it before leaving by „Zurück“; a refused one
+ * stays with its input kept, each field's message under its field and the reason in the status line beside the acts, as
+ * a Konto box shows it. Escape, a press outside and „Zurück“ are all closed while the act runs, as a question's are,
+ * because its answer is the dialog's to show and nowhere else stands to show it. An act behind the passkey touch is
+ * sent past the dialog instead (`send`), which closes, its answer a toast (`Dialog`). The act ending the record, where
+ * the dialog has one, stands as its own part after the inputs and above the footer (`DangerRow`), apart from „Zurück“
+ * and the save, and before the sentence and the facts of the dialog's own act, which stay directly over its two
+ * buttons.
  */
 function ActDialog({
   title,
   label,
   action,
+  send,
   opened,
-  touched,
   carry = {},
   lead,
   consequence,
@@ -183,23 +185,21 @@ function ActDialog({
   tone = "primary",
   locked,
   danger,
-  isAside,
   children,
 }: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
-  touched: ReturnType<typeof usePasskeyTouch>;
-  /** The dialog stands aside while the passkey prompt does (`DialogOverlay`). */
-  isAside: boolean;
+  /** Sends the inputs past this dialog, which closes as it does: an act behind the passkey touch (`Dialog`). */
+  send: ((formData: FormData) => void) | null;
 }) {
   const close = () => opened.onOpenChange(false);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
-    touched(async (formData: FormData) => {
+    async (formData: FormData) => {
       const answered = await action(formData);
       // A form's action runs in a transition, and an update after its `await` commits outside it.
       if (answered.ok && answered.note === undefined) startTransition(close);
       return answered;
-    }),
+    },
     // The next opening draws this anew, which clears its answer.
     { resetOnLeave: false },
   );
@@ -211,7 +211,6 @@ function ActDialog({
   return (
     <DialogOverlay
       width="form"
-      isAside={isAside}
       isDismissable={!isPending}
       isKeyboardDismissDisabled={isPending}
       {...opened}>
@@ -229,7 +228,8 @@ function ActDialog({
               event.stopPropagation();
               const formData = new FormData(event.currentTarget);
               for (const [name, value] of Object.entries(carry)) formData.set(name, value);
-              submit(formData);
+              if (send === null) submit(formData);
+              else send(formData);
             }}>
             <Heading
               slot="title"
@@ -289,11 +289,38 @@ type Opening<T extends Tone> =
  * records. The verb sends the inputs to `action` through the one form wrapper: a done act closes the dialog, one
  * noting more than it was asked leaves it open on its note, in the warn tone where the answer marks it `warn`, and a
  * refused one leaves it open with the input kept and the refusal shown.
+ *
+ * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
+ * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
+ * closes the dialog for good, then asks the touch and runs the act, its answer a toast, the trigger busy until it
+ * lands. A refusal the server places on a field has no field left to stand on: the toast says what the form's line
+ * would, `checkFields` where the fields alone say it, and the inputs are typed anew. Past the browser's own checks, a
+ * press meets that only where the record changed under it, such as an address another press entered first.
  */
-export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, ...form }: DialogAct<T> & Opening<T>) {
+export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening<T>) {
+  const { act, trigger, open, touch, ...form } = props;
+  const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const [isAside, setAside] = useState(false);
-  const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
+  const [isRunning, startRun] = useTransition();
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
+  const done = props.touch === undefined ? null : COPY.shared.toast.done[props.act.verb];
+  const sent = answering(touched(form.action), router.refresh);
+  const send =
+    done === null
+      ? null
+      : (formData: FormData) => {
+          // Closed in the press, outside the transition, as a touched question closes (`ConfirmDialog`): committed with
+          // the lifting of the modal's `inert` before the touch's first `await` resumes, so before the browser asks.
+          setOpen(false);
+          startRun(async () => {
+            const answered = await sent(formData);
+            // A field's message has no field left to stand on: the toast says what the form's line would (`statusOf`).
+            toastAnswer(
+              answered.ok || answered.fieldErrors === undefined ? answered : { ...answered, reason: statusOf(answered, false, false)?.text },
+              done,
+            );
+          });
+        };
   const label = actLabel(act);
   // Counted while rendering, as React's guide adjusts state to a changed prop: the count keys `ActDialog`.
   const [opening, setOpening] = useState(0);
@@ -310,8 +337,7 @@ export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, 
       carry={touch === undefined ? form.carry : { ...form.carry, holder: touch.holder }}
       label={label}
       opened={{ isOpen, onOpenChange: setOpen }}
-      touched={touched}
-      isAside={isAside}
+      send={send}
     />
   );
   return trigger === undefined ? (
@@ -321,7 +347,8 @@ export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, 
       isOpen={isOpen}
       onOpenChange={setOpen}>
       <TriggerButton
-        trigger={trigger}
+        // A touched act runs after its dialog closed, so its trigger is where it shows busy.
+        trigger={isRunning ? { ...trigger, isBusy: true } : trigger}
         tone={form.tone ?? "primary"}
       />
       {overlay}

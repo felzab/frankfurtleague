@@ -12,6 +12,7 @@ import { askingLook } from "./buttonStyles";
 import { DialogOverlay } from "./DialogOverlay";
 import { Facts } from "./Facts";
 import { FormFooter } from "./FormFooter";
+import { toastAnswer } from "./Toast";
 import { answering } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -19,6 +20,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement } from "react";
+import type { TouchVerb } from "./dialogAct";
 import type { Fact } from "./Facts";
 import type { IconName } from "./Icon";
 import type { FormStatus } from "./useFormAction";
@@ -114,23 +116,31 @@ type Act = {
    * the acts, a throw worded and the page read again as every form's send is (`answering`).
    */
   onConfirm: () => void | Promise<void> | Promise<ActionAnswer<unknown>>;
-  /**
-   * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
-   * presses: the address the page was drawn for (`usePasskeyTouch`). The question stays open on a refused touch.
-   */
-  touch?: { holder: string };
 };
 
-/** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
-export type ConfirmQuestion = ConfirmWords & Act;
+/** The address the page was drawn for, the one account a passkey touch may answer for (`usePasskeyTouch`). */
+type Holder = { holder: string };
 
-type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Opening<T>;
+/**
+ * The passkey touch the act's button asks ahead of `onConfirm`, for an act on its fixed list a person holding a passkey
+ * presses. The press closes the question for good before the browser asks, and the act answers in a toast: done in its
+ * verb's word from the catalogue's (`TouchVerb`), or its refusal, the question's opening button standing again.
+ */
+type Touch = { touch?: never } | { verb: TouchVerb; touch: Holder };
+
+/** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
+export type ConfirmQuestion = ConfirmWords & Act & Touch;
+
+type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Touch & Opening<T>;
 
 /**
  * A held question its holder has not asked yet, such as the save bar's before any save was held back: mounted closed
- * from the first render, as a held dialog must be, it takes no words, having none to say.
+ * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
+ * sign-in client's chunk with it, ahead of the question it will ask.
  */
-type Unasked = Act & { open: HeldOpen; trigger?: never; control?: never } & { [Word in keyof ConfirmWords]?: never };
+type Unasked = Act & { touch?: Holder; open: HeldOpen; trigger?: never; control?: never } & {
+  [Word in keyof ConfirmWords]?: never;
+};
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -139,10 +149,15 @@ type Unasked = Act & { open: HeldOpen; trigger?: never; control?: never } & { [W
  * A refusal stands until the next press or until the dialog closes; the line is empty while the act runs, the last
  * refusal being none to the press still running. A refusal marked `warn` is an act that partly happened: its line reads in the warn
  * tone, and its button stays, since a second press finishes what the first left.
+ *
+ * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
+ * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
+ * question, then asks the touch and runs the act, its answer a toast, the trigger busy until it lands.
  */
 export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
   const { trigger, control, open, onConfirm, touch } = props;
   const words = props.verb === undefined ? null : props;
+  const done = props.touch !== undefined && props.verb !== undefined ? COPY.shared.toast.done[props.verb] : null;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
   const [isBusy, startAct] = useTransition();
@@ -155,18 +170,36 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
     setWasOpen(isOpen);
     setRefusal(null);
   }
-  const [isAside, setAside] = useState(false);
-  const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
   // An act answering nothing is done; one answering is judged by its answer.
   const act = answering(
     touched(async () => (await onConfirm()) ?? DONE),
     router.refresh,
   );
 
+  const confirm = () => {
+    if (done !== null) {
+      // Closed in the press, outside its transition, whose updates wait for the whole act: the close is a press's update,
+      // which React commits with its effects, React Aria's lifting of the modal's `inert` among them, in a microtask queued
+      // ahead of the touch's first `await`, so before the browser asks and within the press Safari asks of it.
+      setOpen(false);
+      startAct(async () => toastAnswer(await act(undefined), done));
+      return;
+    }
+    startAct(async () => {
+      setRefusal(null);
+      const answer = await act(undefined);
+      // An update after the `await` commits outside the transition unless it opens one of its own.
+      startAct(() => {
+        if (!answer.ok) setRefusal({ tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected });
+        else setOpen(false);
+      });
+    });
+  };
+
   const overlay = words !== null && (
     <DialogOverlay
       width="question"
-      isAside={isAside}
       isOpen={isOpen}
       isKeyboardDismissDisabled={isBusy}
       onOpenChange={setOpen}>
@@ -193,18 +226,7 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
             variant={words.tone}
             label={COPY.shared.verb[words.verb]}
             isBusy={isBusy}
-            onPress={() =>
-              startAct(async () => {
-                setRefusal(null);
-                const answer = await act(undefined);
-                // An update after the `await` commits outside the transition unless it opens one of its own.
-                startAct(() => {
-                  if (!answer.ok)
-                    setRefusal({ tone: answer.warn === true ? "warn" : "error", text: answer.reason ?? COPY.shared.failure.unexpected });
-                  else setOpen(false);
-                });
-              })
-            }
+            onPress={confirm}
           />
         </FormFooter>
       </AriaDialog>
@@ -217,7 +239,8 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
       onOpenChange={setOpen}>
       {trigger !== undefined && words !== null ? (
         <TriggerButton
-          trigger={trigger}
+          // A touched act runs after its question closed, so its trigger is where it shows busy.
+          trigger={done !== null && isBusy ? { ...trigger, isBusy } : trigger}
           tone={words.tone}
         />
       ) : (
