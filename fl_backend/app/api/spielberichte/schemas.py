@@ -43,8 +43,8 @@ type FLSpielberichtState = Literal["proposed", "adopted", "differing", "cancelle
 class FLSpielberichtVorschlag(BaseModel):
     """The referee's proposed result, which only the administrator's own save applies.
 
-    Each count is the entries credited to that side, written by the report's save and sent by no form. Both null on a
-    no-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.
+    Each count is the entries credited to that side, written by the report's save and sent by no form, and both are null
+    on a no-show alone, whose goals the save composes from the season's forfeit.
     """
 
     team1_tore: Annotated[int, Field(ge=0)] | None
