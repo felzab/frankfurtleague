@@ -62,8 +62,9 @@ visible from a configuration file in this repository.
 - **The headers a visitor receives are whatever survives the proxy**, so they are a property to
   re-verify against `nginx/shared/security_headers.conf` rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
-  than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
-  precompressed at build time (`docs/decisions.md`).
+  than the origin's on the same file (2026-08-01), so Next keeps compressing at the origin, nginx
+  passing its answers on as they are, and brotli is never precompressed at build time
+  (`docs/decisions.md`).
 - **The AI-crawler opt-out is an enforcement in one edge setting, and a request as well once a
   second is switched on.** Cloudflare's AI-bot controls block the AI-training crawlers. Once its
   managed `robots.txt` is switched on, it puts their list before the rules
