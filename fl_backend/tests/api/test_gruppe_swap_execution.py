@@ -221,6 +221,29 @@ class TestTheDrawnSpieleMoveWithTheClubs:
         assert sides == {1: (BETA, ALPHA_RIVAL), 2: (BETA_RIVAL, ALPHA)}
         assert rewritten == 2
 
+    def test_a_booked_venue_and_referee_hold_no_swap_back_and_stay_on_their_spiel(self, mongo_replica_set_url: str):
+        """Grounds and referees are booked before a season starts, and the start is the swap's one lock."""
+
+        spiele = [
+            {
+                **spiel,
+                "spielort": {"spielort_id": ObjectId(), "mietpreis": 80},
+                "schiedsrichter": {"schiedsrichter_id": ObjectId(), "payment": 20},
+            }
+            for spiel in DRAWN_ROUND_ROBIN
+        ]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await call_swap(database, client, ALPHA, BETA)
+            return await spiele_now(database)
+
+        after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
+
+        assert (after[1]["team1"], after[2]["team2"]) == (side(BETA), side(ALPHA))
+        assert [(after[spiel["spiel_nr"]]["spielort"], after[spiel["spiel_nr"]]["schiedsrichter"]) for spiel in spiele] == [
+            (spiel["spielort"], spiel["schiedsrichter"]) for spiel in spiele
+        ]
+
     def test_a_moved_side_holds_the_club_alone(self, mongo_replica_set_url: str):
         """A name copied onto a side is a shape the record model refuses at the read-back, which no read serves anyway."""
 
