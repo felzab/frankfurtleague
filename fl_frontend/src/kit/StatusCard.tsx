@@ -11,9 +11,11 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
+import type { RailPageHead } from "./RailFrame";
 
-// The status card and its classic page, apart from the rail form in `StatusPage.tsx`: what imports this module never
-// reaches the rail frame, and the root error and not-found boundaries, which every route loads, import it.
+// The status card in both frames and its classic page, apart from the rail page in `StatusPage.tsx`: what imports this
+// module never reaches the rail frame, and the root error and not-found boundaries, which every route loads, and a
+// client run that ends inside a rail page import it.
 
 /** What the end says at a glance, in the hues a chip names: done, a fact, a link or a page that is no more, a failure. */
 type StatusTone = Exclude<ChipProps["tone"], "neutral">;
@@ -59,7 +61,7 @@ export const statusCard = tv({
 });
 
 /** The card's parts: its hue, its ways on, and its title as the frame sets it, or none where the strip says it. */
-export function CardBody({ tone, next, quiet, title }: Omit<StatusCardProps, "title"> & { title?: ReactElement }) {
+function CardBody({ tone, next, quiet, title }: Omit<StatusCardProps, "title"> & { title?: ReactElement }) {
   const slots = statusCard({ tone });
   return (
     <div className={slots.root()}>
@@ -89,16 +91,20 @@ export function CardBody({ tone, next, quiet, title }: Omit<StatusCardProps, "ti
 }
 
 /**
- * The hairline card every end state shares, in the classic frame: its mark, its title, one way on; an error's too,
- * which offers no retry. It writes no landmark, so a page inside an old shell's `main` places it alone.
+ * A rail frame's card. A page with a name of its own keeps that name in the strip and its card carries the end's
+ * title, as `/saisons` says that the league has no season yet; a boundary with no page of its own, the not-found and
+ * the error page, has its title in the strip, and its card holds no second one.
  */
-export function StatusCard({ tone, title, next, quiet }: StatusCardProps) {
+export type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
+
+/** The card in a rail page, under the strip's title: the end's own title where the strip names the page instead. */
+export function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: RailCard; scope: RailPageHead["scope"] }) {
   return (
     <CardBody
       tone={tone}
       next={next}
       quiet={quiet}
-      title={<ClassicTitle text={title} />}
+      title={title === undefined ? undefined : <h2 className={statusCard({ tone, scope }).railTitle()}>{title}</h2>}
     />
   );
 }
@@ -133,11 +139,11 @@ export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy
 export function ClassicStatusPage({ tone, title, next, quiet }: StatusCardProps) {
   return (
     <ClassicPage width="card">
-      <StatusCard
+      <CardBody
         tone={tone}
-        title={title}
         next={next}
         quiet={quiet}
+        title={<ClassicTitle text={title} />}
       />
     </ClassicPage>
   );

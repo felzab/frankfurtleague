@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { getDefaultNormalizer, render, screen } from "@testing-library/react";
+import { getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
+import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
@@ -80,6 +81,29 @@ describe("walking a Sammel-Zusage's cards", () => {
     expect(
       screen.getByText(COPY.admin.bewerbung.cardOf(1, 2), { normalizer: getDefaultNormalizer({ collapseWhitespace: false }) }),
     ).toBeTruthy();
+  });
+});
+
+// The run stands in a rail page whose strip holds the page's `h1`: a second one would name the page twice in the outline
+// a screen reader walks.
+describe("a finished Sammel-Zusage", () => {
+  it("names its end a rung below the strip's title", async () => {
+    vi.mocked(acceptBewerbung).mockResolvedValue({ ok: true, value: undefined });
+    render(
+      <BulkAccept
+        saison="2027"
+        rows={[row("a", "Goethe-Gymnasium")]}
+        gruppen={[{ gruppe: "A", free: 4 }]}
+        taken={[]}
+        rules={{ required: { gruppe: false, trikot_farbe: false } }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(COPY.admin.bewerbung.count(1), "accept") }));
+    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.accept }));
+
+    expect((await screen.findByRole("heading", { name: COPY.admin.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
   });
 });
 

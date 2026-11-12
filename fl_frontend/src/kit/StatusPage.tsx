@@ -4,37 +4,17 @@ import { CardGrid } from "./CardGrid";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { placeholderBar, Waiting } from "./Skeleton";
-import { CardBody, statusCard } from "./StatusCard";
+import { RailCardBody, statusCard } from "./StatusCard";
 
-import type { Copy } from "@/core/copy";
 import type { CardLinkProps } from "./Card";
 import type { RailPageHead } from "./RailFrame";
-import type { StatusCardProps } from "./StatusCard";
-
-/**
- * A rail frame's card. A page with a name of its own keeps that name in the strip and its card carries the end's
- * title, as `/saisons` says that the league has no season yet; a boundary with no page of its own, the not-found and
- * the error page, has its title in the strip, and its card holds no second one.
- */
-type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
+import type { RailCard } from "./StatusCard";
 
 /**
  * What a page that sends its reader on lists where the reader holds several places it could send them to: the role
  * chooser's cards, each one link, standing where the card would.
  */
 type RailChoices = { choices: ReadonlyArray<CardLinkProps> };
-
-/** The card in a rail page, under the strip's title: the end's own title where the strip names the page instead. */
-function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: RailCard; scope: RailPageHead["scope"] }) {
-  return (
-    <CardBody
-      tone={tone}
-      next={next}
-      quiet={quiet}
-      title={title === undefined ? undefined : <h2 className={statusCard({ tone, scope }).railTitle()}>{title}</h2>}
-    />
-  );
-}
 
 /**
  * The rail card while the page's read says which end it is: its mark and its button, centred, as a boundary with no page
