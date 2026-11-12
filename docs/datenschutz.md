@@ -486,7 +486,8 @@ the host's, which rests on its signed agreement.
     2026-10-04).
   - Where: worldwide at the edge; the Data Privacy Framework, with standard clauses as its fallback.
 - **MongoDB Atlas.**
-  - What reaches it: both databases and their snapshots.
+  - What reaches it: the league's database and the `auth` database, and the cluster's daily
+    snapshots, each holding what the cluster held on its day for about 8 days.
   - Agreement: its standard addendum, accepted with the account.
   - Where: Frankfurt am Main.
 - **Resend (Plus Five Five, Inc.).**
