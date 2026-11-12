@@ -92,6 +92,7 @@ export function RailFrame({
   foot,
   back,
   columnInLayouts = false,
+  prefetch,
   children,
 }: {
   groups: ReadonlyArray<RailGroup>;
@@ -102,6 +103,11 @@ export function RailFrame({
   back?: Back;
   /** Whether the area's layouts place the band and the bar, each with `RailColumn`, rather than the frame. */
   columnInLayouts?: boolean;
+  /**
+   * Whether the menu's entries prefetch their pages whole, Next's `prefetch={true}`: for a frame of a few pages whose
+   * content is cached reads every visitor shares, since each entry in view costs a server render.
+   */
+  prefetch?: true;
   children: ReactNode;
 }) {
   const account = foot.kind === "account" ? foot.account : undefined;
@@ -119,7 +125,7 @@ export function RailFrame({
   // The menus read the address and the seasons, which no prerender knows: each streams in its own boundary,
   // so the frame around them is drawn without waiting.
   const frame = (
-    <MenuScope value={{ groups, bar, extra, account }}>
+    <MenuScope value={{ groups, bar, extra, account, prefetch }}>
       <LeaveGuardProvider>
         <RailRoot>
           {/* Clips its parts as its width changes: each keeps its words in flow, faded, so a screen reader
@@ -137,7 +143,10 @@ export function RailFrame({
               <SaisonButton placement="rail" />
             </Suspense>
             <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
-              <RailEntries groups={groups} />
+              <RailEntries
+                groups={groups}
+                prefetch={prefetch}
+              />
             </Suspense>
             <div
               className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "min-h-(--rail-foot)" : ""}`}>

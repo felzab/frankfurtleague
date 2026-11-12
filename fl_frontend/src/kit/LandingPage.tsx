@@ -46,11 +46,13 @@ async function Acts({ content }: { content: Promise<LandingContent> }) {
   const { primary, secondary } = await content;
   return (
     <div className={hero().acts()}>
+      {/* The Spielplan arrives whole: the hero's one likely next page, its reads cached for every visitor. */}
       <Link
         href={primary.href}
         placement="button"
         look="primary"
         label={primary.label}
+        prefetch
       />
       <Link
         href={secondary.href}

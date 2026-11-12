@@ -7,6 +7,7 @@ import { COPY } from "@/core/copy";
 
 import { RailFrame } from "./RailFrame";
 
+import type { ComponentProps } from "react";
 import type { Account } from "./FrameNav";
 
 vi.mock("next/navigation", () => ({
@@ -16,6 +17,17 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "system", setTheme: () => undefined }) }));
+
+// Next's link, standing in as an anchor saying what it was asked to prefetch.
+vi.mock("next/link", () => ({
+  default: ({ children, prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean | null }) => (
+    <a
+      data-prefetch={String(prefetch)}
+      {...props}>
+      {children}
+    </a>
+  ),
+}));
 
 const leave = vi.hoisted(() => ({ signOut: vi.fn(), leaveDocumentFor: vi.fn(), appToast: vi.fn() }));
 vi.mock("@/shared/utils/signOut", () => ({ signOut: leave.signOut }));
@@ -50,6 +62,39 @@ beforeEach(() => {
   // The rail's width, where a menu opens as a popover: jsdom has none of the observers the phone's sheet uses.
   vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
   vi.clearAllMocks();
+});
+
+// A frame's prefetch dropped between the frame and its menus costs a placeholder on every press of the season pages, and
+// one reaching an area's frame a server render per entry in view: neither shows in any page's look.
+describe("the menu's prefetch", () => {
+  it("asks every entry of the rail and of the phone bar for its page whole where the frame says so, and nothing else", async () => {
+    await act(async () =>
+      render(
+        <RailFrame
+          groups={[{ entries: [{ id: "tabelle", label: COPY.page.tabelle, href: "/saisons/2027/tabelle", icon: "tabelle" }] }]}
+          bar={["tabelle"]}
+          foot={{ kind: "signIn", href: "/signin" }}
+          prefetch>
+          <p>Seite</p>
+        </RailFrame>,
+      ),
+    );
+
+    const entries = screen.getAllByRole("link", { name: COPY.page.tabelle });
+    // The rail's entry and the bar's place.
+    expect(entries.map((entry) => entry.getAttribute("data-prefetch"))).toEqual(["true", "true"]);
+    // The foot's „Konto“, which keeps Next's default.
+    expect(screen.getByRole("link", { name: COPY.template.account }).getAttribute("data-prefetch")).toBe("undefined");
+  });
+
+  it("leaves every entry at Next's default in a frame that does not say so", async () => {
+    await renderFrame(Promise.resolve(ACCOUNT));
+
+    expect(screen.getAllByRole("link", { name: COPY.page.adminSpielorte }).map((entry) => entry.getAttribute("data-prefetch"))).toEqual([
+      "undefined",
+      "undefined",
+    ]);
+  });
 });
 
 describe("the account menu", () => {

@@ -402,7 +402,7 @@ const railRule = tv({
 });
 
 /** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
-export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
+export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
   const groups = useEntries(given);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
@@ -430,6 +430,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
                 label={entry.label}>
                 <NextLink
                   href={entry.href}
+                  prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
                   data-selected={entry === current || undefined}
                   data-kit-focus="inset"
@@ -609,6 +610,8 @@ export type FrameMenu = {
   /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: AccountRead;
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep Next's default. */
+  prefetch?: true;
 };
 
 const MenuContext = createContext<FrameMenu | null>(null);
@@ -627,7 +630,7 @@ export function BarPlaces() {
   return menu === null ? null : <Places {...menu} />;
 }
 
-function Places({ groups: given, bar, extra, account }: FrameMenu) {
+function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
   const groups = useEntries(given);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
@@ -645,6 +648,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
         <NextLink
           key={entry.id}
           href={entry.href}
+          prefetch={prefetch}
           aria-current={entry === current ? "page" : undefined}
           data-kit-focus="inset"
           className={barPlace({ current: entry === current, host: "link" })}>
@@ -682,6 +686,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                     <NextLink
                       key={entry.id}
                       href={entry.href}
+                      prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
