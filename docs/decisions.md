@@ -1,9 +1,9 @@
 # Decisions
 
-What this project never does, grouped by subject, each line closing on the harm it prevents in
-italics. Each clause after a line's key is a separate never, and a semicolon joins clauses that stand
-or fall together. A line changes only by a new decision of the owner, in the commit that makes the
-change.
+What this project never does, grouped by subject, a line closing on the harm it prevents in italics
+where one is recorded. Each clause after a line's key is a separate never, and a semicolon joins
+clauses that stand or fall together. A line changes only by a new decision of the owner, in the
+commit that makes the change.
 
 ## The league
 
