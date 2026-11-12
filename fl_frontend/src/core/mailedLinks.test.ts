@@ -181,3 +181,16 @@ describe("a mailed link's token", () => {
     expect(KINDS.filter((kind) => tokenLinksOf(kind).length > 0).length).toBeGreaterThan(0);
   });
 });
+
+/** A move's notice naming the day the fixture moved to, whose subject `FACTS`' row, naming none, never builds. */
+const MOVED_TO: OutboxData = { ...FACTS.spiel_moved, moved_to: APPOINTMENT };
+
+describe("a mail's subject", () => {
+  // A mail program shows and searches a subject as typed, and the journeys find a mail by its subject's start: a
+  // no-break space from the catalogue's `boundBy` fails both with every page still reading the same.
+  it.each([...KINDS.map((kind) => FACTS[kind]), MOVED_TO])("joins its words with plain spaces, in a $kind mail", (data) => {
+    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+    if (mail === undefined) throw new Error(`the kind ${data.kind} has no builder`);
+    expect(mail.subjectLine).not.toContain(" ");
+  });
+});

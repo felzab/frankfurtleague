@@ -318,8 +318,8 @@ export const SERVER_COPY = catalogue({
      */
     spiel: {
       /** The mail by the name the notices give it, „Anfrage“: a subject naming one answer would pass over the other. */
-      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin ${boundBy("am", formatDateLong(day))}`,
-      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin ${boundBy("am", formatDateLong(day))}`,
+      requestSubject: (day: CalendarDay) => `Anfrage: Spieltermin am ${formatDateLong(day)}`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Spieltermin am ${formatDateLong(day)}`,
       /** Both answers named before the press, as the page offers both. */
       confirmAsk: (team: Words) => `Sag den Termin ${boundBy("für", textOf(team))} zu oder schlag einen anderen vor.`,
       answerMissing: (team: Words) => `Die Antwort ${boundBy("von", textOf(team))} fehlt noch.`,
@@ -329,8 +329,8 @@ export const SERVER_COPY = catalogue({
       firstAnswerCounts: "Es gilt die erste Antwort aus deinem Team.",
 
       /** A move, by the day the fixture moved to, or by the day it left where it holds no new one yet. */
-      movedSubject: (day: CalendarDay) => `Spiel verlegt ${boundBy("auf", "den", formatDateLong(day))}`,
-      movedFromSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} verlegt`,
+      movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
+      movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
       /**
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
@@ -346,11 +346,11 @@ export const SERVER_COPY = catalogue({
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
       },
       /** A club taken off a fixture it was asked about, around the moment it was asked about. */
-      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
       void: { before: (spiel: Words) => `Die Anfrage ${boundBy("zu", textOf(spiel))} am\u00A0`, after: " gilt nicht mehr." },
 
       /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
-      cancelledSubject: (day: CalendarDay) => `Spiel ${boundBy("am", formatDateLong(day))} fällt aus`,
+      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
       cancelled: { before: (spiel: Words) => `${textOf(spiel)} am\u00A0`, after: " fällt aus." },
       reinstated: {
         team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
@@ -358,16 +358,16 @@ export const SERVER_COPY = catalogue({
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
-      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel ${boundBy("am", formatDateLong(day))}`,
+      bookedSubject: (day: CalendarDay) => `Einteilung: Spiel am ${formatDateLong(day)}`,
       booked: (spiel: Words) => `Du pfeifst ${textOf(spiel)}.`,
       /** The decline in the word its button and its chip carry, „Ablehnen“ and „Abgelehnt“. */
       sayYesOrNo: "Sag zu oder lehne ab.",
       /** A referee taken off a fixture, around the moment they were booked for. */
-      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      unbookedSubject: (day: CalendarDay) => `Nicht mehr eingeteilt: Spiel am ${formatDateLong(day)}`,
       unbooked: { before: (spiel: Words) => `Du pfeifst ${textOf(spiel)} am\u00A0`, after: " nicht mehr." },
 
       /** A club's proposal the league discarded, around the moment that stands. */
-      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel ${boundBy("am", formatDateLong(day))}`,
+      keptSubject: (day: CalendarDay) => `Termin bleibt: Spiel am ${formatDateLong(day)}`,
       kept: { before: (spiel: Words) => `${textOf(spiel)} bleibt am\u00A0`, after: "." },
       keptDiscarded: "Den Vorschlag deines Teams hat die Liga verworfen.",
     },
@@ -378,7 +378,7 @@ export const SERVER_COPY = catalogue({
      * (`COPY.shared.end.toOverview`).
      */
     aufstellung: {
-      reminderSubject: (day: CalendarDay) => `Erinnerung: Aufstellung ${boundBy("für", "den", formatDateLong(day))}`,
+      reminderSubject: (day: CalendarDay) => `Erinnerung: Aufstellung für den ${formatDateLong(day)}`,
       missing: (team: Words) => `Die Aufstellung ${boundBy("von", textOf(team))} fehlt noch.`,
       /** Around the moment the line-up is due. */
       dueUntil: { before: "Trag sie bis\u00A0zum\u00A0", after: " ein." },
