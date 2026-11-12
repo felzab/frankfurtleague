@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL, VEREIN_ADDRESS, VEREIN_NAME } from "./brand";
-import { COPY } from "./copy";
+import { COPY, LINE_SEPARATOR } from "./copy";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -296,7 +296,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
       html: p(
         legalLinks(mail.origin)
           .map(({ label, href }) => linkHtml(href, label))
-          .join(" · "),
+          .join(LINE_SEPARATOR),
         FOOTER_TEXT,
       ),
       gap: GAP.footer,

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ListTable } from "@/kit/ListTable";
 
-import { COPY, textOf } from "@/core/copy";
+import { COPY } from "@/core/copy";
 import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
 import { rowChip } from "@/features/spieler/rowChip";
 
@@ -23,14 +23,17 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
     const isLive = row.inactive_since === null;
     const chip = rowChip(row);
     const mark = roleMarkOf(row.rolle);
-    const facts = [row.position, row.stufe === null ? null : textOf(COPY.admin.saison.stufe[row.stufe])].filter((fact) => fact !== null);
+    const facts = [
+      row.position === null ? null : { record: row.position },
+      row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe],
+    ].filter((fact) => fact !== null);
     return {
       id: row.spieler_id,
       name: { record: kaderName(row) },
       // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
       ...(isLive && mark !== undefined ? { mark } : {}),
       ...(chip === undefined ? {} : { chip }),
-      ...(facts.length === 0 ? {} : { phoneLine: { record: facts.join(" · ") } }),
+      ...(facts.length === 0 ? {} : { phoneLine: COPY.shared.line(facts) }),
       muted: !isLive,
       ...(isLive ? { onOpen: () => open(row) } : {}),
       cells: {

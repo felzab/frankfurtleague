@@ -209,12 +209,19 @@ export const waitWords = (wait: Wait) =>
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 
+/** Between the parts of a row's one muted line, and between a mail's legal links, which are HTML. */
+export const LINE_SEPARATOR = " \u00B7 ";
+
+/** A row's one muted line: its parts in their order, a part the row lacks left out. */
+const lineOf = (parts: readonly (string | null)[]) => parts.filter((part) => part !== null).join(LINE_SEPARATOR);
+
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
     verb: VERB,
     /** „Team anlegen“: a button whose verb needs its object. */
     withObject: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}`,
+    line: (parts: readonly (Words | null)[]) => lineOf(parts.map((part) => (part === null ? null : textOf(part)))),
 
     /** The units a field's figure is counted in, set after the field. */
     unit: {
@@ -1011,8 +1018,7 @@ export const COPY = catalogue({
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
-    seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) =>
-      [rollenText(rollen), address, day].filter((part) => part !== null).join(" · "),
+    seatLine: (rollen: readonly FLKontaktRolle[], address: string | null, day: Copy | null) => lineOf([rollenText(rollen), address, day]),
     /** The name's place on an emptied seat. */
     seatEmpty: "Niemand",
     /** The description of a free text a mail hands to people it may not concern. */
@@ -1425,7 +1431,7 @@ export const COPY = catalogue({
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
       /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
       pendingLine: (kind: Copy, address: string | null, moment: string) =>
-        [kind, address, boundBy(EFFECTIVE_FROM, formatInstantShort(moment))].filter((part) => part !== null).join(" · "),
+        lineOf([kind, address, boundBy(EFFECTIVE_FROM, formatInstantShort(moment))]),
       additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
       removeConsequence: "Der Zugang endet sofort.",
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,

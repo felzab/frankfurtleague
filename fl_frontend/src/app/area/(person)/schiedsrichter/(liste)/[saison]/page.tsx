@@ -110,7 +110,7 @@ function rowOf(spiel: FLSchiedsrichterSpiel, saison: string): CardActRowProps & 
     name,
     words: wordsOf(spiel, name, when),
     ...(chip === undefined ? {} : { chip }),
-    line: SERVER_COPY.area.line([when, spiel.spielort === null ? null : { record: spiel.spielort.name }, adds ?? null]),
+    line: COPY.shared.line([when, spiel.spielort === null ? null : { record: spiel.spielort.name }, adds ?? null]),
     ...(open === true && id !== null
       ? {
           acts: (

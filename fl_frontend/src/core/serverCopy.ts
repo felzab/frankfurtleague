@@ -809,12 +809,6 @@ export const SERVER_COPY = catalogue({
       /** A pupil whose confirmed registration waits on the team. */
       notAdmitted: "Dein Team hat dich noch nicht aufgenommen.",
     },
-    /** A row's one muted line: its parts in their order, a part the row lacks left out, as `COPY.admin.seatLine` joins a seat's. */
-    line: (parts: readonly (Words | null)[]) =>
-      parts
-        .filter((part) => part !== null)
-        .map(textOf)
-        .join(" · "),
     /** The match report's status cards, each a title. */
     schiedsrichter: {
       /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
