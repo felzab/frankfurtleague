@@ -662,7 +662,10 @@ class FLLandingBeforeStart(_FLLandingSaisonFacts):
 
 
 class FLLandingRunning(_FLLandingSaisonFacts):
-    """From its start date: the latest result and the next match, at most one of each, empty where there is none."""
+    """From its start date: two matches where the season has two, each side nearest first.
+
+    A latest result and a next match where both exist, else two of the side that has them.
+    """
 
     state: Literal["running"]
     recent: list[FLSpielJoined]

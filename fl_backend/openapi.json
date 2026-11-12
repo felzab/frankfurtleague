@@ -6836,7 +6836,7 @@
         "type": "object"
       },
       "FLLandingRunning": {
-        "description": "From its start date: the latest result and the next match, at most one of each, empty where there is none.",
+        "description": "From its start date: two matches where the season has two, each side nearest first.\n\nA latest result and a next match where both exist, else two of the side that has them.",
         "properties": {
           "id": {
             "title": "Id",

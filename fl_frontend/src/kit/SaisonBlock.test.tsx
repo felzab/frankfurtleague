@@ -70,8 +70,8 @@ describe("the season's card while it runs", () => {
         title={TITLE}
         state={{
           kind: "running",
-          last: { ...SPIEL, id: "1", result: { tore: { team1: 2, team2: 1 } } },
-          next: { ...SPIEL, id: "2", href: "/saisons/2027/spiele/2" },
+          last: [{ ...SPIEL, id: "1", result: { tore: { team1: 2, team2: 1 } } }],
+          next: [{ ...SPIEL, id: "2", href: "/saisons/2027/spiele/2" }],
         }}
       />,
     );
@@ -79,6 +79,27 @@ describe("the season's card while it runs", () => {
     expect(heads).toStrictEqual([SERVER_COPY.landing.saison.last, SERVER_COPY.landing.saison.next]);
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(links).toStrictEqual(["/saisons/2027/spiele/1", "/saisons/2027/spiele/2"]);
+  });
+
+  // The harm: a season with nothing left to play, or nothing played yet, would show one match where it has two.
+  it("lists two matches under the one head of the side that has them", () => {
+    render(
+      <SaisonBlock
+        title={TITLE}
+        state={{
+          kind: "running",
+          last: [],
+          next: [
+            { ...SPIEL, id: "2", href: "/saisons/2027/spiele/2" },
+            { ...SPIEL, id: "3", href: "/saisons/2027/spiele/3" },
+          ],
+        }}
+      />,
+    );
+    const heads = screen.getAllByRole("heading", { level: 3 }).map((head) => head.textContent);
+    expect(heads).toStrictEqual([SERVER_COPY.landing.saison.next]);
+    const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(links).toStrictEqual(["/saisons/2027/spiele/2", "/saisons/2027/spiele/3"]);
   });
 });
 

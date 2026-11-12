@@ -132,7 +132,7 @@ function GroupBody({ group }: { group: GroupContent }) {
               className={spielPairs().box()}>
               <SpielGroup
                 head={head}
-                spiel={spiel}
+                spiele={[spiel]}
                 columns="outer"
               />
             </div>

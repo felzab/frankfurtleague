@@ -41,8 +41,8 @@ const clubOf = (side: FLLandingSide | null): Place =>
 
 /**
  * Where the season stands, as its card beside the hero shows it: before the start, the countdown to the season's
- * start, with its opening match once one is dated; while it runs, its last result once there is one and its next
- * match; once all four places are in, the podium.
+ * start, with its opening match once one is dated; while it runs, the two matches the read serves, a last result and
+ * a next match where both exist, else two of the side that has them; once all four places are in, the podium.
  */
 export function stateOf(saison: LandingSaison): SaisonState {
   switch (saison.state) {
@@ -63,15 +63,12 @@ export function stateOf(saison: LandingSaison): SaisonState {
             }),
       };
     }
-    case "running": {
-      const [last] = saison.recent;
-      const [next] = saison.upcoming;
+    case "running":
       return {
         kind: "running",
-        ...(last === undefined ? {} : { last: matchRowOf(last) }),
-        ...(next === undefined ? {} : { next: matchRowOf(next) }),
+        last: saison.recent.map((spiel) => matchRowOf(spiel)),
+        next: saison.upcoming.map((spiel) => matchRowOf(spiel)),
       };
-    }
     case "decided": {
       const [first, second, third, fourth] = saison.podium;
       return { kind: "decided", places: [clubOf(first), clubOf(second), clubOf(third), clubOf(fourth)] };
