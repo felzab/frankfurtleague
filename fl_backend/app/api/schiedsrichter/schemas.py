@@ -42,13 +42,13 @@ class _SchiedsrichterWritable(BaseModel):
 class _SchiedsrichterPayload(_SchiedsrichterWritable):
     model_config = ConfigDict(extra="forbid")
 
-    # Tightened on the WRITE side alone: a read model refusing a stored name would answer 500 for
+    # Tightened on the write side alone: a read model refusing a stored name would answer 500 for
     # the whole list over one row. The type every person's name
     # takes, one ceiling for them all.
     name: CustomKontaktName
     # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
     kontakt: FLKontaktPayload
-    # Ceilinged on the WRITE side alone, for `name`'s reason.
+    # Ceilinged on the write side alone, so a stored longer school still reads.
     schule: CustomOptionalString = Field(max_length=SCHIEDSRICHTER_SCHULE_MAX_LENGTH)
 
 
@@ -118,8 +118,7 @@ class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
 
     kontakt: FLSchiedsrichterKontaktRecord
     confirmation: FLSchiedsrichterConfirmationRecord | None = None
-    # Held while the entry is unanswered or declined, and absent once confirmed, which the hourly pass never erases
-    # (`app/api/schiedsrichter/services.py :: ERASE_AT_FIELD`).
+    # Held while the entry is unanswered or declined, and absent once confirmed, which the hourly pass never erases.
     erase_at: datetime | None = None
 
     @model_validator(mode="after")
@@ -150,7 +149,7 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
     # The referee's version after the save, which the editor's next save sends.
     version: int
-    # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
+    # Null unless the save moved an unconfirmed referee's address, which retires the link posted to
     # the mailbox nobody reads.
     confirmation: FLSchiedsrichterMint | None = None
 
@@ -176,14 +175,14 @@ class FLSchiedsrichterMintResponse(BaseAPIResponse):
 
 
 class FLSchiedsrichterConfirmationViewResponse(BaseAPIResponse):
-    """What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
+    """What one confirmation link opens, and nothing that says who its person is.
 
-    Never a name, the school, the contact details, the fee, the birthdate or the id.
+    The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
     """
 
     state: FLSchiedsrichterConfirmationState
     minimum_age: int
-    # Served for `minimum_age`'s reason: the page bounds the birthdate by the limits the write judges, never a copy.
+    # Served, so the page bounds the birthdate by the limits the write judges, never a copy.
     maximum_age: int = Field(gt=0)
     deadline: CustomDateString
     # The day of the person's own answer, so a reopened link says what they did and when; null on every state showing
@@ -211,10 +210,9 @@ class FLSchiedsrichterConfirmationPayload(BaseModel):
 
 
 class FLSchiedsrichterConfirmationResponse(BaseAPIResponse):
-    """What the person just recorded, read back off the updated document.
+    """What the person just recorded, as their press sent it.
 
-    Bounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a
-    caller holding a leaked token learns nothing it did not already post.
+    A caller holding a leaked token learns nothing it did not already post.
     """
 
     scope: FLEinwilligungScope
@@ -234,7 +232,7 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
 class FLSchiedsrichterSelfPerson(BaseReadModel):
     """One referee record's stored data as its own person reads it: contact details, never the link's bookkeeping.
 
-    Its consent is the account page's, whose entry `app/api/account/schemas.py :: FLAccountSchiedsrichterEinwilligung` extends this.
+    Its consent is the account page's, whose entry extends this.
     """
 
     schiedsrichter_id: CustomObjectId
