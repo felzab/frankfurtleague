@@ -1,10 +1,8 @@
-# FRONTEND · the site image
-
 # The OS layer the build and the runtime share, so anything added here ships in the image. Debian
 # rather than Alpine: Node's glibc builds are its Tier 1 platform, its musl builds experimental.
 
-# The tag names the Node `package.json :: devEngines` pins, and
-# Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
+# The tag names the Node `devEngines` pins in package.json, and Dependabot moves it together with
+# the digest.
 FROM node:26.13.0-trixie-slim@sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072 AS base
 
 # tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
@@ -20,7 +18,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
-# `package.json :: packageManager` names the same pnpm.
+# The release package.json's `packageManager` names: pnpm fetches and switches to that one itself
+# where they differ, so a mismatch costs every install a download.
 ARG PNPM_VERSION=11.28.9
 
 # npm's cache is a mount, so none of it is written into the layer.
@@ -61,7 +60,7 @@ ENV SKIP_ENV_VALIDATION=true
 # manifest, lockfile or patch written after it.
 COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* --exclude=patches . .
 
-# The build reads it as Next's `deploymentId` (`next.config.ts`). An `ARG` reaches only the stage that
+# The build reads it as Next's `deploymentId`. An `ARG` reaches only the stage that
 # declares it, so the runner declares it again.
 ARG APP_VERSION
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
@@ -76,7 +75,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
-# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+# giving a file secret no owner of its own.
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --no-log-init --uid 1001 --gid nodejs --no-create-home --shell /usr/sbin/nologin nextjs
 

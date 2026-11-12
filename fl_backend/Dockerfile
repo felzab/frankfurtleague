@@ -1,7 +1,5 @@
-# BACKEND · the API image
-
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
-# lines alone, so this puts the installer's tag and digest (`docs/ops/spec.md` §1.1) under the same
+# lines alone, so this puts the installer's tag and digest under the same
 # review as every other base image here.
 FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
@@ -44,7 +42,7 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 FROM base AS runner
 
 # Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
-# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+# giving a file secret no owner of its own.
 RUN groupadd --system --gid 1002 fl_api && \
     useradd --system --uid 1002 --gid fl_api --create-home --home-dir /usr/fl_backend --shell /usr/sbin/nologin fl_api_user
 

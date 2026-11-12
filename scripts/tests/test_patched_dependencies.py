@@ -1,4 +1,4 @@
-"""SCRIPTS · a dependency patch names its upstream issue and one exact version.
+"""A dependency patch names its upstream issue and one exact version.
 
 pnpm refuses a patch that applies to nothing, so a bump stops at the entry. What the reader then
 needs to find there, an issue to check and a version the patch was read against, is no concern of

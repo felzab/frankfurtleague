@@ -1,11 +1,11 @@
-"""SCRIPTS · every Next route handler and link page is metered at the edge as its harm asks.
+"""Every Next route handler and link page is metered at the edge as its harm asks.
 
 A route handler is a public URL from the moment the file exists, and nothing else compares the App
-Router tree to the edge's locations, which `nginx/shared/site.conf` holds for both entry files: a
+Router tree to the edge's locations, which the shared site body holds for both entry files: a
 handler no location names reaches Next through `location /`, whose one rate zone meters server
 actions alone. The accounting is total rather than aimed at the public handlers alone, because no
 predicate selects those: `REASONS` carries the prefixes covering a handler, `UNMETERED` the handlers
-the edge meters on no zone deliberately (`docs/ops/spec.md`).
+the edge meters on no zone deliberately.
 
 Each rule is a row of `RULES`, which `main` runs whole. A construct this reader cannot place refuses
 rather than answering, and so does a rule that found nothing to judge: either would read as a pass.
@@ -57,8 +57,8 @@ NGINX_CONF: Final = "nginx/shared/site.conf"
 # The whole App Router tree rather than `api/` alone: a handler filed outside that folder serves a
 # URL just the same, and a walk that cannot see it accounts for nothing.
 
-# Both extensions `fl_frontend/next.config.ts :: pageExtensions` gives Next: one filed as
-# `route.tsx` answers its URL exactly as `route.ts` does.
+# Both extensions the frontend's `pageExtensions` gives Next: one filed as `route.tsx` answers its
+# URL exactly as `route.ts` does.
 ROUTE_FILES: Final = ("route.ts", "route.tsx")
 
 # Derived rather than spelled again: Next reads one page-extension list for a handler and for a
@@ -69,15 +69,15 @@ CODE_EXTENSIONS: Final = tuple(Path(name).suffix for name in ROUTE_FILES)
 PAGE_FILES: Final = tuple(f"page{suffix}" for suffix in CODE_EXTENSIONS)
 
 # A link page's own module names `token` and its search parameters, the hook's spelling included, or
-# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into
-# (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or a module mints its link: the minter
-# finds a page reading the token elsewhere, the read a page whose link nothing here mints.
+# calls the proxy's mailed-link reader, which takes the token from the cookie the proxy moved it into,
+# or a module mints its link: the minter finds a page reading the token elsewhere, the read a page
+# whose link nothing here mints.
 LINK_TOKEN_RE: Final = re.compile(r"\btoken\b")
 LINK_QUERY_RE: Final = re.compile(r"searchParams", re.IGNORECASE)
 LINK_COOKIE_RE: Final = re.compile(r"\bmailedLinkToken\s*\(")
 
 # Every minted link carries its token in the query as `?token=`, which the edge's access line leaves
-# unwritten (`fl_frontend/src/core/mailedLinks.test.ts` holds every mail to it), after a template's
+# unwritten (the frontend's mailed-link tests hold every mail to it), after a template's
 # origin and a page path: its module spells the path, or names the page's row in `ROUTES_MODULE`,
 # read there. Any other `?token=` refuses rather than dropping a page.
 TOKEN_QUERY: Final = "?token="
@@ -88,7 +88,7 @@ MINT_RE: Final = re.compile(
     r"|(?P<path>/[^`$?\s]*))\?token="
 )
 
-# The pages' one table, under the source tree `minted` walks (`fl_frontend/src/core/routes.ts :: ROUTES`).
+# The pages' one table, `ROUTES`, under the source tree `minted` walks.
 ROUTES_MODULE: Final = "core/routes.ts"
 
 # A spread, a computed key or a value that is no literal matches nothing, so a record refuses whole: a
@@ -99,7 +99,7 @@ RECORD_ENTRY_RE: Final = re.compile(r'\s*(?:[A-Za-z_$][\w$]*|"[^"]*")\s*:\s*"(?P
 # fixtures read as minters.
 TEST_SUFFIXES: Final = tuple(f".test{suffix}" for suffix in CODE_EXTENSIONS)
 
-# The zone `nginx/shared/http.conf` declares for the link pages, metering every request and method,
+# The zone the edge declares for the link pages, metering every request and method,
 # which a link page's own location must name.
 LINK_ZONES: Final = frozenset({"linkpage"})
 
@@ -118,7 +118,7 @@ ANCHORED: Final = "~^"
 PLAIN_PATH_RE: Final = re.compile(r"^[A-Za-z0-9/_-]+$")
 
 # The link pages' own zone is sized for a season's largest squad, every pupil of it behind one school's address in one
-# break, passing within `SIZING_MINUTES` at the zone's own rate (`nginx/shared/site.conf :: location /confirm/`): per
+# break, passing within `SIZING_MINUTES` at the zone's own rate, as the `/confirm/` block reasons it: per
 # pupil, the requests every link page's block meters on `linkpage`. The squad is the largest `max_kader_size` the
 # backend publishes, read where it publishes it. The squad's sends ride the action zone at the catch-all's burst, which
 # `loosened` holds every page's block to.
@@ -490,7 +490,7 @@ def mapped(entries: tuple[tuple[str, str], ...], uri: str, source: str) -> str:
 def locations(tree: tuple[Directive, ...], source: str, maps: Mapping[str, frozenset[str]] | None = None) -> tuple[Location, ...]:
     """Every `location` of the one level that declares any.
 
-    That level is a server body: the top of `nginx/shared/site.conf`, which each entry file includes
+    That level is a server body: the top of the shared site body, which each entry file includes
     inside its own `server`, or one server block of a file carrying its own.
     """
     serving = [
@@ -736,8 +736,8 @@ def _link_paths(hit: re.Match[str], text: str, module: Path, source: Path) -> tu
 def linked_pages(paged: tuple[Handler, ...], mints: tuple[tuple[Path, str], ...]) -> tuple[Handler, ...]:
     """Every page a minted link opens or that reads a link's token itself, in path order.
 
-    A minted link no page answers opens Next's not-found page, which `fl_frontend/src/core/mailedLinks.test.ts` holds
-    every mail to; here it opens no page to meter.
+    A minted link no page answers opens Next's not-found page, which the frontend's mailed-link tests hold every mail
+    to; here it opens no page to meter.
     """
     answering = {page.url: page for page in paged if not page.dynamic}
     opened = {answering[path] for _, path in mints if path in answering}
@@ -745,7 +745,7 @@ def linked_pages(paged: tuple[Handler, ...], mints: tuple[tuple[Path, str], ...]
 
 
 def kader_size_max(openapi_path: Path) -> int:
-    """The largest `max_kader_size` a season may set, as `fl_backend/openapi.json` publishes it."""
+    """The largest `max_kader_size` a season may set, as the published contract states it."""
     document = json.loads(openapi_path.read_bytes().decode("utf-8"))
     return int(document["components"]["schemas"]["FLSaisonRules"]["properties"]["max_kader_size"]["maximum"])
 
