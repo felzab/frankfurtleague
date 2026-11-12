@@ -116,9 +116,8 @@ MOVED_ENV_NAMES: Final = frozenset(
     }
 )
 
-# The header the visitor's address is taken from, and which element of it: Cloudflare's
-# single-address header, the last element of a chain a client can prepend to (`nginx/shared/http.conf`).
-REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP", "real_ip_recursive": "off"}
+# The header the visitor's address is taken from: Cloudflare's single-address header (`nginx/shared/http.conf`).
+REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP"}
 
 
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:

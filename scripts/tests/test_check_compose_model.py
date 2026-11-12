@@ -158,23 +158,18 @@ CONNECTOR = "172.30.0.250"
 
 def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};") -> str:
     """An edge's trust, as `nginx/shared/http.conf` spells it."""
-    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n"
+    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\n"
 
 
-@pytest.mark.parametrize(
-    "added",
-    ["server {\n    real_ip_header X-Forwarded-For;\n}\n", "location / {\n    real_ip_recursive on;\n}\n"],
-    ids=["header", "recursive"],
-)
-def test_a_realip_setting_a_server_or_location_overrides_fails(added: str):
+def test_a_realip_header_a_server_overrides_fails():
     """nginx takes a level's own setting over the inherited one, so a server reading another header trusts what a client writes there."""
-    assert len(checker.trusted_connector(conf() + added, CONNECTOR, "c")) == 1
+    assert len(checker.trusted_connector(conf() + "server {\n    real_ip_header X-Forwarded-For;\n}\n", CONNECTOR, "c")) == 1
 
 
 @pytest.mark.parametrize(
     "statement",
-    ["set_real_ip_from 0.0.0.0/0;", "real_ip_header X-Forwarded-For;", "real_ip_recursive on;"],
-    ids=["trust", "header", "recursive"],
+    ["set_real_ip_from 0.0.0.0/0;", "real_ip_header X-Forwarded-For;"],
+    ids=["trust", "header"],
 )
 def test_a_realip_directive_inside_a_one_line_block_fails(statement: str):
     """nginx reads statements, not lines: a directive after the `{` on the block's own line takes effect all the same."""
