@@ -198,6 +198,7 @@ prefix; order in the file decides nothing.
 | `/_next/static/`                    | `frontend` | `action`                                        | 1m       |
 | `/confirm/`                         | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
 | `= /registrierung` and `= /erasure` | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
+| `= /confirm`                        | `frontend` | `action` and the connection ceiling             | 1m       |
 | `/`                                 | `frontend` | `action` and the connection ceiling             | 1m       |
 
 **The four zones each price one kind of work, per visitor network** (`nginx/shared/http.conf`):
@@ -272,8 +273,13 @@ shell has asked for its assets.
 **The mail provider's webhook is metered by no zone**: its events land at once from a handful of the
 provider's addresses, and a refusal starts a retry schedule that, sustained, disables the endpoint.
 Its signature check is the gate (`scripts/checks/check_public_routes.py :: UNMETERED`). **The
-liveness probe carries no zone either**, which would throttle the uptime monitor before anything
-else; the readiness probe, a database round trip each, spends `authapi`.
+liveness probe carries no zone either**: a GET with no body that touches no database costs the
+backend nothing a zone protects. The readiness probe, a database round trip each, spends `authapi`,
+which a monitor asking no oftener than every two seconds never reaches.
+
+**`= /confirm` sends the link pages' prefix without its slash to Next**, which answers it as the
+address of no page. Without it, nginx answers the bare path with its own redirect to `/confirm/`,
+which Next redirects back.
 
 **Every route handler is accounted for against these locations, public or not**
 (`scripts/checks/check_public_routes.py`): an exact match metering it, a prefix recorded at
@@ -614,6 +620,10 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `refused`     | 2         | A check declined to judge its input, so nothing here stands as a verdict on the change |
 | `crashed`     | 3 or more | The script itself failed, so nothing past that line ran                                |
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
+
+**A `pnpm` script the manifest does not declare ends its step as a crash, never a finding**: pnpm
+answers it 1, as a tool finding something does, but no tool ran (`scripts/gate/verify.sh ::
+verdict`).
 
 The checkers answer on the same scale: `scripts/lib/checker_kernel.py` fixes 0 for a pass, 1 for
 findings, 2 for a check that could not judge its input and 3 or more for a broken environment, in
