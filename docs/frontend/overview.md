@@ -92,6 +92,22 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
+**A block chooses its form by a container query on its own box, never by the screen's width**,
+because the rail opens and closes under one viewport, so only the box says how much room a block
+has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
+42 rem (`@2xl`) and spread from it. A card's act row, `Facts` and `LinkRows` switch at 32 rem
+(`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
+(`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of block switch by the screen at `lg` instead:
+
+- **A block, or a use of one, standing in the classic frame alone**, such as the landing's rows of
+  cards, its hero and the classic footer. That frame has no rail, so its column widens with the
+  screen and both rules give one answer.
+- **A part that answers a phone's touch rather than the room**: a form footer's acts stacking
+  across the width, the filters folding into a sheet, a read page's acts, and a row's taller touch
+  height. The screen tells the device, and a box does not.
+
+A new block takes the box's rule unless it is one of these.
+
 **Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
 into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is
 written.
