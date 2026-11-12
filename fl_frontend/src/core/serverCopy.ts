@@ -25,8 +25,6 @@ const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
-/** One sentence for a full squad, whichever write meets it. */
-const KADER_FULL = "Der Kader ist voll.";
 
 // A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
 // path it names, the adoption, which names none, by a code of its own per resource and side.
@@ -173,8 +171,7 @@ export const SERVER_COPY = catalogue({
     /** An application's club retired since the acceptance opened. */
     team_retired: "Das Team ist stillgelegt.",
     /** A reactivated squad row past the season's cap, and an admission into a squad that filled meanwhile. */
-    kader_full: KADER_FULL,
-    registrierung_kader_full: KADER_FULL,
+    kader_full: "Der Kader ist voll.",
     /** An admission of a pupil a squad of the season holds already. */
     registrierung_already_in_kader: "Die Person steht schon in einem Kader.",
     /** An admission whose registered Stufe the season stopped offering after the pupil registered. */
@@ -222,7 +219,6 @@ export const SERVER_COPY = catalogue({
    */
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
-    elfmeterschiessen_without_draw: "Das Ergebnis ist kein Unentschieden.",
   } satisfies Partial<Record<Rule, string>>,
 
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
