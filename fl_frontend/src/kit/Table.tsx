@@ -635,8 +635,10 @@ const nameLine = tv({
       name: "min-w-20",
       plaque: "min-w-32",
     },
-    // A phone's Tabelle, whose plaque stands for its club, the name read but not drawn: the plaque's own least.
-    lonePlaque: { true: "@max-2xl:min-w-0" },
+    // A phone's Tabelle, whose plaque stands for its club, the name read but not drawn: the plaque's own least. Its chip
+    // takes the next line where the column cannot hold it beside the plaque, as a name's chips do, so the column's least
+    // is the wider of the two and never their sum.
+    lonePlaque: { true: "@max-2xl:min-w-0 @max-2xl:flex-wrap" },
     // The first line of a stacked row, in the name's track (`table`'s `stacks`).
     stacks: {
       none: "",
