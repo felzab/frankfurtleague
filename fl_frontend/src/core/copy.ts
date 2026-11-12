@@ -60,7 +60,6 @@ export type RecordText = { readonly record: string };
 /** What a kit text slot shows: the catalogue's words, or a record's own data. */
 export type Words = Copy | RecordText;
 
-/** The text a slot shows. */
 export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
 
 type Catalogue<T> = T extends string
@@ -70,8 +69,8 @@ type Catalogue<T> = T extends string
     : { readonly [K in keyof T]: Catalogue<T[K]> };
 
 /**
- * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Exported for the
- * server's own catalogue, `serverCopy.ts`, alone.
+ * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Called anywhere but
+ * the two catalogues, it would brand a typed string as the catalogue's.
  */
 export const catalogue = <const T>(tree: T): Catalogue<T> => tree as Catalogue<T>;
 
@@ -193,10 +192,7 @@ const DELETED_BY_PASS = "Nach Frist gelöscht";
  */
 export type Wait = { readonly hours: 24 } | { readonly days: 7 };
 
-/**
- * A wait's two German forms, digits always: `span` after „gilt erst“, and `after` taking the dative. Exported for the
- * server's own catalogue, `serverCopy.ts`, alone.
- */
+/** A wait's two German forms, digits always: `span` after „gilt erst“, and `after` taking the dative. */
 export const waitWords = (wait: Wait) =>
   "hours" in wait
     ? { span: boundBy(formatNumber(wait.hours), "Stunden"), after: boundBy("nach", formatNumber(wait.hours), "Stunden") }
@@ -239,7 +235,7 @@ export const COPY = catalogue({
       format: (example: Copy) => `Format: ${example}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
       exampleAddress: "name@example.com",
-      // A name's examples, by the box: `fl_backend/app/shared/schemas/custom.py :: PERSON_NAME_PATTERN` takes letters, hyphens, apostrophes and spaces.
+      // A name's examples, by the box, each within the backend's name pattern: letters, hyphens, apostrophes and spaces.
       exampleName: "Anna Weber",
       exampleFirstName: "Anna",
       exampleLastName: "Weber",
@@ -256,7 +252,7 @@ export const COPY = catalogue({
       without: (thing: Copy) => boundBy("Ohne", thing),
       earliest: (day: CalendarDay) => `Frühestens ${formatDate(day)}`,
       latest: (day: CalendarDay) => `Spätestens ${formatDate(day)}`,
-      // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
+      // A unique index's refusal: a field's message, and the words its code is answered in.
       taken: "Schon vergeben",
     },
 
@@ -346,7 +342,7 @@ export const COPY = catalogue({
     loadMore: `Weitere ${50 satisfies FLActionLogPageSize} laden`,
     kORunde: K_O_RUNDE,
     kOBaum: "K.-o.-Baum",
-    /** The one German spelling of each phase, which `PHASE_LABELS` serves to every surface. */
+    /** The one German spelling of each phase. */
     phase: {
       gruppenphase: "Gruppenphase",
       achtelfinale: "Achtelfinale",
@@ -362,8 +358,7 @@ export const COPY = catalogue({
     afterElfmeterschiessen: AFTER_ELFMETERSCHIESSEN,
     /**
      * The two routes out of a season, each in its three wordings: `label` names the record, `state` the club's
-     * resulting state, `shorthand` the badge. `AUSTRITT_OPTIONS` serves them to every surface, so no two can name
-     * one record differently.
+     * resulting state, `shorthand` the badge.
      */
     austritt: {
       disqualifikation: { label: "Disqualifikation", state: "Disqualifiziert", shorthand: "DQ" },
@@ -480,7 +475,7 @@ export const COPY = catalogue({
     ownAddress: "Die eigene Adresse der Person",
     /** A covered seat's box, in place of its fields. */
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
-    /** Under the address: the promise `docs/datenschutz.md` section 4 records the form makes. */
+    /** Under the address: a promise the form makes, which the privacy record states. */
     addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
@@ -708,9 +703,8 @@ export const COPY = catalogue({
     },
 
     /**
-     * The code's and the passkey's refusals, which the page words off the library's own codes
-     * (`fl_frontend/src/features/auth/signInAnswers.ts`, `passkeyAnswers.ts`). A barred address and one holding
-     * no record meet one sentence, so nobody can probe the ban list.
+     * The code's and the passkey's refusals, which the page words off the sign-in library's own codes. A barred
+     * address and one holding no record meet one sentence, so nobody can probe the ban list.
      * The typed code's own refusal is a phrase under its boxes, a wrong code and one no longer valid alike; every other
      * is a sentence on the status line.
      */
@@ -757,8 +751,7 @@ export const COPY = catalogue({
       holderWait: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
     },
     erasure: {
-      // What outlives an erasure is the privacy notice's to list. Konto's deletion box and the deletion mail read this
-      // sentence; the done page leads to the notice.
+      // What outlives an erasure is the privacy notice's to list, never this sentence's.
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
     },
@@ -823,8 +816,8 @@ export const COPY = catalogue({
       /** A seat's or a registration's team season: „Birkenschule, Saison 2027“. */
       teamSeason,
       /**
-       * The labels the deletion's list names an address's records by (`fl_frontend/src/app/(classic)/erasure/page.tsx`),
-       * each the person's part in the record: one row per label, holding the records it names.
+       * The labels the deletion's list names an address's records by, each the person's part in the record: one row per
+       * label, holding the records it names.
        */
       spieler: "Als Spielerin oder Spieler",
       schiedsrichter: "Als Schiedsrichterin oder Schiedsrichter",
@@ -1085,8 +1078,7 @@ export const COPY = catalogue({
       bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
       /**
        * Under the season's start once a match of the season has taken place, which holds it: a match has taken place
-       * once it has a result, a recorded no-show or abandonment, or one side's goals
-       * (`fl_backend/app/api/teams/services.py :: has_taken_place`).
+       * once it has a result, a recorded no-show or abandonment, or one side's goals.
        */
       startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
 
@@ -1271,7 +1263,7 @@ export const COPY = catalogue({
       /** What a declining club proposed, after its answer's date on the party's line. */
       proposed: (when: Copy) => `Vorschlag ${when}`,
       zugesagt: ZUGESAGT,
-      /** A club's decline and a referee's alike, as the glossary's `Absage` entry rules: „Abgesagt“ is a match called off. */
+      /** A club's decline and a referee's alike: „Abgesagt“ is a match called off. */
       declined: "Abgelehnt",
       cancelled: "Abgesagt",
       /** A rejection's and a club's exit's stated reason: its box and its fact. */
@@ -1306,7 +1298,7 @@ export const COPY = catalogue({
       wish: (farbe: string) => `Wunsch: ${farbe}`,
       /** Over a list the read's cap cut, which a flooded season reaches. */
       cut: "Nicht alle Bewerbungen sind geladen.",
-      /** The acceptance of a new school, whose address the created team's page then shows (`docs/datenschutz.md` section 4). */
+      /** The acceptance of a new school, whose address the created team's page then shows. */
       addressPublic: "Die Adresse der Schule steht danach öffentlich auf der Teamseite.",
       /** „E-Mail an“'s value in the acceptance: it waits on every seat's answer, so every seat holds a person to mail. */
       allSeats: "Alle Kontaktpersonen",
@@ -1613,7 +1605,7 @@ export const COPY = catalogue({
 
   /** The landing's words a client component reads; the rest stand in `SERVER_COPY.landing`. */
   landing: {
-    /** The countdown's units, under its three figures. Board: their words. */
+    /** The countdown's units, under its three figures. */
     saison: { days: "Tage", hours: "Stunden", minutes: "Minuten" },
   },
 

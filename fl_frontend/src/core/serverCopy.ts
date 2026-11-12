@@ -25,11 +25,11 @@ const gruppeName = COPY.shared.season.gruppe;
 const placeName = (platz: number) => `${formatOrdinal(platz)} ${PLATZ}`;
 // Matches by their numbers, „Spiel 4, 7 und 9“, as the match editor's done line names the others it changed.
 const spieleNamed = (nrs: readonly number[]) => `Spiel ${formatList(nrs.map(formatNumber))}`;
-// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
-// path it names, the adoption, which names none, by a code of its own per resource and side.
 /** One sentence for a full squad, whichever write meets it. */
 const KADER_FULL = "Der Kader ist voll.";
 
+// A fixture's ground or referee booked at its time elsewhere, and a side out of the season: the save keys each by the
+// path it names, the adoption, which names none, by a code of its own per resource and side.
 const DOUBLE_BOOKED = {
   spielort: "Der Spielort ist zu dieser Zeit schon belegt.",
   schiedsrichter: "Die eingeteilte Person pfeift zu dieser Zeit schon.",
@@ -96,7 +96,7 @@ export const SERVER_COPY = catalogue({
   /**
    * A refusal's phrase under the field it is about, by the backend's code, for a code a person causes knowingly from
    * a screen: one of `COPY.shared.field`'s patterns, and nothing else. A code whose phrase names a bound its refusal
-   * carries is worded from it by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage` instead, and a code no pattern
+   * carries is worded from it by `ruleMessage` instead, and a code no pattern
    * words takes `refusalLine`'s sentence; every other code answers one of the shared failure lines
    * `COPY.shared.failure` holds.
    */
@@ -218,7 +218,7 @@ export const SERVER_COPY = catalogue({
   /**
    * A rule's sentence on the status line, by the kind the backend refuses a payload with (`fields[].kind`), for a
    * rule a person can break that no field pattern words: placed as `refusalLine` places a code. Every rule a pattern
-   * words is worded by `fl_frontend/src/core/ruleMessage.ts :: ruleMessage`.
+   * words is worded by `ruleMessage`.
    */
   ruleLine: {
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
@@ -295,7 +295,6 @@ export const SERVER_COPY = catalogue({
      * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
      * address, which the shell sets as a link between them.
      */
-    // The registration page's words, which the page sets around the address alike.
     objection: OBJECTION_RIGHT,
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     notYou: {
@@ -621,8 +620,8 @@ export const SERVER_COPY = catalogue({
   },
 
   /**
-   * The two pages a mail opens for the account, `/confirm/address` and `/erasure`, in the states of
-   * `fl_frontend/src/kit/MailedPage.tsx`. The address change's two mails open on these pages' questions.
+   * The two pages a mail opens for the account, the address change's and the deletion's. The address change's two
+   * mails open on these pages' questions.
    */
   addressChange: {
     /** The noun of the address on file's act, „Änderung bestätigen“: Konto's word for the pending change. */
@@ -816,10 +815,7 @@ export const SERVER_COPY = catalogue({
   /** One word for where a season stands, before its start, running or decided: a season card's chip, a list's. */
   saisonState: { planned: "Geplant", running: "Läuft", decided: "Entschieden" },
 
-  /**
-   * The public season pages and the kit's season blocks, drawn on the server alone. Every entry is a draft for
-   * the season board.
-   */
+  /** The public season pages and the kit's season blocks, drawn on the server alone. */
   season: {
     /** One group's card on the Tabelle, and a club's group on Teams and its page. */
     gruppe: gruppeName,
@@ -885,7 +881,7 @@ export const SERVER_COPY = catalogue({
   /**
    * The two legal pages' text, which their pages set as the kit's `Prose` blocks under their titles; the copy
    * standard's legal section governs it. A bound the frontend's code holds is a parameter, so the text states the one
-   * the code keeps; a provider's period, and a bound only the backend or a later build holds, is written out. A
+   * the code keeps; a provider's period, and a bound only the backend holds, is written out. A
    * paragraph with a link stands in parts around it, `before` and `after`, which the page sets the link between.
    */
   legal: {
@@ -912,7 +908,7 @@ export const SERVER_COPY = catalogue({
         requests:
           "Jede Anfrage an die Website läuft zuerst über Cloudflare, Inc.; Cloudflare sieht dabei deine IP-Adresse, die aufgerufene Adresse, die Angaben deines Browsers und jedes Formular, das du abschickst. Bei jedem Aufruf speichert unser Server deine IP-Adresse, den Zeitpunkt, die aufgerufene Seite, den Statuscode und die Kennung deines Browsers.",
         // The passkey cookie's 5 minutes are Better Auth's own, which the library sets and exports no name for; the mailed
-        // link's hour is `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_SECONDS`.
+        // link's hour is the proxy's `MAILED_LINK_SECONDS`.
         browser:
           "In deinem Browser legt die Website nur ab, was ihr Betrieb braucht: ein Sitzungs-Cookie, sobald du dich anmeldest, ein Cookie für die Anmeldung mit einem Passkey, das 5\u00A0Minuten gilt, ein Cookie, das einen Link aus einer E-Mail eine Stunde lang hält, bis du ihn benutzt, und im lokalen Speicher die Darstellung, hell oder dunkel, die du wählst. Auf der Anmeldeseite, im Bewerbungsformular und im Registrierungsformular prüft Cloudflare Turnstile, ob ein Mensch das Formular abschickt, und fragt dafür Merkmale deines Browsers und deiner Verbindung ab; Cloudflare nutzt sie auch in eigener Verantwortung, um seine Erkennung automatisierter Zugriffe zu verbessern. Beides ist nach\u00A0§\u00A025 Abs.\u00A02 Nr.\u00A02 TDDDG ohne Einwilligung zulässig.",
       },
@@ -929,7 +925,7 @@ export const SERVER_COPY = catalogue({
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
-        // The referee's minimum age is the backend's alone, `fl_backend/app/shared/schemas/bounds.py`.
+        // The referee's minimum age is the backend's alone, so the text writes it out.
         text: (days: number) =>
           `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
@@ -983,10 +979,9 @@ export const SERVER_COPY = catalogue({
       },
       /**
        * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
-       * parameter; the rest are the rulings' and the providers', several of which only the backend, a host script or a
-       * later session's build holds, so each is written out. A declined item's days are `declinedDays`; where one
-       * figure stands for an unconfirmed and a declined item, the confirmation link's days stand for both, which
-       * `fl_backend/app/shared/schemas/bounds.py` holds equal at import.
+       * parameter; the rest, which the backend, a host script or a provider holds, are written out. A declined item's
+       * days are `declinedDays`; where one figure stands for an unconfirmed and a declined item, the confirmation
+       * link's days stand for both, which the backend holds equal at import.
        */
       retention: {
         heading: "Speicherdauer",
@@ -1052,8 +1047,7 @@ export const SERVER_COPY = catalogue({
             period: (bound: RetentionBounds) =>
               `${boundBy(formatNumber(bound.person.idleDays), "Tage")} ohne Nutzung, höchstens ${formatNumber(bound.person.days)}; mit Zugang zur Verwaltung ${boundBy(formatNumber(bound.admin.idleHours), "Stunde")} ohne Nutzung, höchstens ${boundBy(formatNumber(bound.admin.hours), "Stunden")}`,
           },
-          // The ended change's 30 days are the backend's alone, `fl_backend/app/shared/schemas/bounds.py ::
-          // ADDRESS_CHANGE_RETENTION_DAYS`.
+          // The ended change's 30 days are the backend's `ADDRESS_CHANGE_RETENTION_DAYS` alone, so they are written out.
           {
             name: "Adressänderung",
             content: "Beide Adressen",
@@ -1061,8 +1055,7 @@ export const SERVER_COPY = catalogue({
               `jeder Link ${boundBy(formatNumber(bound.addressChangeLinkHours), "Stunden")}; Adressen bis zu ihrem Ende, der Rest 30\u00A0Tage danach`,
           },
           { name: "Protokoll der Liga", content: "Wer was wann geändert hat, ohne Inhalte; beim Zugang die Adresse", period: "12\u00A0Monate" },
-          // The end state's one store: the erasure journal is written as the server's own journald lines, kept nine days,
-          // so the host script that exports a day file today states nothing here.
+          // The erasure journal is written as the server's own journald lines, kept nine days.
           {
             name: "Protokolle des Servers",
             content:
@@ -1161,7 +1154,7 @@ export const SERVER_COPY = catalogue({
    * `COPY.page.entryConfirmation`: for whose application or team the person stands and as what, what is stored and until
    * when, what the birthdate is checked for, the deadline, what an objection does, and the privacy notice's link. The
    * Art. 21 objection with the league's address stands in the first-contact mail. The consents under it are
-   * `fl_frontend/src/core/consentWordings.ts`'s; nobody accepts the notice, which informs and asks no consent.
+   * `CONSENT_WORDINGS`'; nobody accepts the notice, which informs and asks no consent.
    */
   kontaktConfirmation: {
     /** The title of a closed row's page, a past season's or a departed club's, which confirms nothing. */
