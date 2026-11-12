@@ -6,6 +6,7 @@ import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
+import { CappedRows } from "./CappedRows";
 import { Card, CardActRow, CardPlaceholder, CardRowsPlaceholder } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
@@ -72,8 +73,10 @@ type GroupsContent = {
 };
 
 /**
- * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title
- * over its records, every card drawn every day, one with nothing waiting saying so.
+ * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title and
+ * count over its records, on a page no search narrows the first five of a longer card's and the rest a press away
+ * (`CappedRows`), every card drawn
+ * every day, one with nothing waiting saying so.
  */
 type CardsContent = {
   /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
@@ -564,12 +567,14 @@ async function ListBody({ list }: { list: ListContent }) {
                   {entry.rows.length === 0 ? (
                     <EmptyState kind="clear" />
                   ) : (
-                    entry.rows.map(({ id, words: _words, ...row }) => (
-                      <CardActRow
-                        key={id}
-                        {...row}
-                      />
-                    ))
+                    <CappedRows
+                      rows={entry.rows.map(({ id, words: _words, ...row }) => (
+                        <CardActRow
+                          key={id}
+                          {...row}
+                        />
+                      ))}
+                    />
                   )}
                 </Card>
               ),

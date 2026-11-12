@@ -251,6 +251,31 @@ describe("open work beside its record's seats", () => {
   });
 });
 
+describe("a card of open work holding more than five rows", () => {
+  // The harm: fifteen „Schiedsrichter fehlt“ rows on one card push every card after it a screen down, and the card's
+  // count stops saying how many are open once the rows are cut.
+  it("shows its first five under the count of all of them, the rest behind „Alle anzeigen“", async () => {
+    const TITLE = COPY.page.spiele;
+    const { landed } = await drawnCards(
+      { rows: 5, cards: [{ title: TITLE }] },
+      {
+        cards: [
+          {
+            id: "dates",
+            title: TITLE,
+            rows: Array.from({ length: 15 }, (_, index) => ({ id: String(index), href: "/", name: { record: `Spiel ${String(index + 1)}` } })),
+          },
+        ],
+      },
+    );
+
+    const card = within(landed).getByRole("heading", { name: TITLE }).closest("section") as HTMLElement;
+    expect(within(card).getByText("15")).toBeDefined();
+    expect(within(card).getAllByRole("link")).toHaveLength(5);
+    expect(within(card).getByRole("button", { name: COPY.template.showAll })).toBeDefined();
+  });
+});
+
 describe("a page of one card holding a list", () => {
   const TITLE = COPY.page.spiele;
   const drawn = (rows: Awaited<Cards["content"]>["cards"][number]["rows"]) =>
