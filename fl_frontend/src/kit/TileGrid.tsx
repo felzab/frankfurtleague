@@ -43,11 +43,11 @@ const grid = tv({
   },
   variants: {
     kind: {
-      // Board: a school's tile, 48 px on a phone and 44 from `lg`, the plaque before the name, which breaks
+      // A school's tile, 48 px on a phone and 44 from `lg`, the plaque before the name, which breaks
       // at its own hyphens rather than being cut.
       school: { content: "flex min-h-12 items-center gap-2 px-2.5 py-1 lg:min-h-11" },
       // The logo over the short name; the logo on a white plate in both themes, so it keeps its own colours
-      // on the dark one. Board: the plate's height, 64 px.
+      // on the dark one. The plate's height, 64 px.
       sponsor: { content: "grid content-start gap-2 p-2 text-center" },
     },
     reads: {

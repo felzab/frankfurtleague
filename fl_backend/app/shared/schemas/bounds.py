@@ -196,8 +196,7 @@ MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
 # dated inside it is due the day it is asked.
 SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7
 # Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS` and
-# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links: the edge's error log accepts a
-# link's token because it answers nothing past such a deadline.
+# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
 SPIEL_REMINDER_DAYS: Final = 3

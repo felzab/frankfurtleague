@@ -90,7 +90,7 @@ async function readSaison(params: Props["params"]): Promise<ReadContent> {
   };
 }
 
-/** The board's wait: the four tiles, none with a line under its value, and two match cards. */
+/** The wait: the four tiles, none with a line under its value, and two match cards. */
 const WAIT: ReadWait = {
   groups: [
     { kind: "tiles", layout: "four", line: false },

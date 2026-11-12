@@ -12,7 +12,7 @@ const pillars = tv({
   slots: {
     root: "grid gap-4 lg:grid-cols-3",
     card: `grid content-start gap-2 ${cardSurface()} p-6`,
-    // Board: the glyph's box, 40 px on the muted fill.
+    // The glyph's box, 40 px on the muted fill.
     mark: "mb-1 flex size-10 items-center justify-center rounded-lg bg-bg-muted text-fg",
     title: "text-base font-semibold",
     text: "text-base text-fg-muted",

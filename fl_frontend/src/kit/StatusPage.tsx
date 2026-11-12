@@ -58,7 +58,7 @@ async function CardOnceRead({ card, scope }: { card: Promise<RailCard | RailChoi
 /**
  * The status template in the rail frames: not found, an error, no access, and every other end a rail page reaches,
  * plainly said: a mark, a title and one way on, the strip carrying the page's title and the card the end's where the
- * two differ. The classic frame's form is `StatusCard.tsx :: ClassicStatusPage`. The card is read with the
+ * two differ. The classic frame's form is `ClassicStatusPage`. The card is read with the
  * page, as `/saisons` learns that the league has no season yet where it does not send the reader on, so it waits in a
  * boundary of its own under the strip, drawn meanwhile as its placeholder; a card known before any read, as an error
  * boundary's, which is a Client Component and awaits nothing, is drawn at once. A read that sends its reader on may

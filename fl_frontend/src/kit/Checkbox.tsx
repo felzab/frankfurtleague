@@ -73,7 +73,7 @@ function Box({ selected, invalid, alone = false }: { selected: boolean; invalid:
   );
 }
 
-// A box alone is its own press target, the kit's control size by the touch rule (`fieldStyles.ts`), the box centred in it.
+// A box alone is its own press target, the kit's control size by the touch rule, the box centred in it.
 const tick = tv({
   slots: {
     root: "flex justify-center",

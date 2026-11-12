@@ -134,7 +134,7 @@ export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy
 
 /**
  * The status template in the classic frame: not found, an error, and the end of every process a link or a form
- * finishes, plainly said, the card carrying the page's title. The rail frames' form is `StatusPage.tsx :: StatusPage`.
+ * finishes, plainly said, the card carrying the page's title. The rail frames' form is `StatusPage`.
  */
 export function ClassicStatusPage({ tone, title, next, quiet }: StatusCardProps) {
   return (

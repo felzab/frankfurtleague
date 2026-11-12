@@ -55,8 +55,8 @@ export function Select({
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={isRequired}
       isDisabled={useDisabled(isDisabled)}
-      // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder
-      // (`docs/frontend/copy.md`), and React Aria's own, „Element wählen“, is words outside the catalogue.
+      // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder,
+      // and React Aria's own, „Element wählen“, is words outside the catalogue.
       placeholder="">
       {!labelHidden && (
         <FieldLabel
