@@ -14,7 +14,6 @@ from app.api.spiele.services import (
     build_spiele_pipeline,
 )
 from app.core.collections import Collection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
@@ -501,11 +500,12 @@ class TestTheRefereesNameFollowsTheirConsent:
         assert served is not None and served.name == PUBLIC_REFEREE_NAME
 
     def test_a_booking_no_record_answers_is_withheld(self, mongo_replica_set_url: str):
-        """The ghost's case and a join that stopped matching alike: nothing found never publishes."""
+        """A join that stopped matching: nothing found never publishes."""
 
-        spiel = a_refereed_spiel(schiedsrichter_id=GHOST_SCHIEDSRICHTER_ID)
+        gone = ObjectId()
+        spiel = a_refereed_spiel(schiedsrichter_id=gone)
         # Agreed, so the consent gate is the one withholding the name.
-        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}, answer=zugesagt())]
+        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": gone}, answer=zugesagt())]
 
         document = on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel)
 

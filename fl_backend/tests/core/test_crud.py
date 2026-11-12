@@ -9,13 +9,11 @@ from pydantic import BaseModel
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError
-from pymongo.results import UpdateResult
 
 from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
     build_query,
-    ensure_one_in_db,
     literal_pattern,
     post_many_to_db,
 )
@@ -78,41 +76,8 @@ class _Session:
         self.in_transaction = in_transaction
 
 
-TRANSACTION = cast(AsyncClientSession, _Session(in_transaction=True))
 # A session holding no transaction, whose writes stand as a sessionless call's do.
 BARE_SESSION = cast(AsyncClientSession, _Session(in_transaction=False))
-
-FILTER: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID)}
-STORED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing"}
-
-
-class _UpsertCollection:
-    """Answers an upsert as the driver does: `upserted_id` set where it inserted, `None` where a document matched."""
-
-    def __init__(self, *, present: bool) -> None:
-        self.present = present
-        self.name = Collection.TEAMS
-        self.upserts: list[dict[str, Any]] = []
-
-    async def update_one(self, *, filter: Any, update: Any, upsert: bool, session: Any) -> UpdateResult:
-        self.upserts.append({"filter": filter, "update": update, "upsert": upsert})
-        raw = {"n": 1, "nModified": 0} if self.present else {"n": 1, "nModified": 0, "upserted": filter["_id"]}
-
-        return UpdateResult(raw, acknowledged=True)
-
-
-class TestEnsureOneInDb:
-    @pytest.mark.parametrize("present", [pytest.param(False, id="absent, inserted"), pytest.param(True, id="present, kept")])
-    def test_one_upsert_answers_whether_it_inserted(self, present: bool):
-        """A caller counting a created ghost would count one on every erasure that found it standing."""
-
-        stub = _UpsertCollection(present=present)
-
-        inserted = asyncio.run(ensure_one_in_db(collection=cast(AsyncCollection, stub), document=STORED, session=TRANSACTION))
-
-        assert inserted is not present
-        # The `_id` is the filter's alone, and the edited collection's version is stamped as a create stamps it.
-        assert stub.upserts == [{"filter": FILTER, "update": {"$setOnInsert": {"name": "Lessing", "version": 0}}, "upsert": True}]
 
 
 def refused_batch(error: Mapping[str, Any], *, landed: int) -> BulkWriteError:

@@ -6,10 +6,7 @@ import { action, PAGE_HOLDER } from "@/core/action";
 import { addressChangeDeleteAddressChange } from "@/core/generated/client/sdk";
 import { AddressChangeDeleteAddressChangeParams } from "@/core/generated/zod/inputs";
 
-/**
- * Ends the change the row shows and no later one, the address on file staying: Adressänderungen's „Verwerfen“ and
- * Administratoren's withdrawal of a holder's waiting change, which are one endpoint.
- */
+/** Ends the change the row shows and no later one; the address on file stays. */
 export const discardChange = action({
   lane: "admin",
   passkey: true,

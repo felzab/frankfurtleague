@@ -1,5 +1,3 @@
-"""API · the one write the action log takes after the fact, run inside the transaction of the act that owes it"""
-
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
@@ -12,10 +10,10 @@ async def reattribute_administrator_in_session(
 ) -> int:
     """Put `value` where this address stands in the log, as who acted or as a grant act's grantee, answering how many rows changed.
 
-    The erasure's marker, or the address a switch moved an administrator to: the one write the log takes after the fact.
+    The one write the log takes after the fact, inside the transaction of the act that owes it.
     """
 
-    # Folded, as `app/core/security.py :: bind_actor` binds an address and a grant's stored address is.
+    # Folded, as the log stores every address.
     address = sign_in_identifier(identifier)
 
     changed = 0

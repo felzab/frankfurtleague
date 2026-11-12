@@ -3,9 +3,8 @@ import { registrierungenPatchEinwilligung, registrierungenSweepRegistrierungen }
 import type { FLAccountEinwilligungPayload, FLRegistrierungSweepResponse } from "@/core/generated/client/types";
 
 /**
- * Runs one season's retention clocks. **One call and not three**: the registration gets no
- * pre-notice, so the application flow's mail-stamp-erase ordering has no counterpart, and what this
- * answers is what to mail about work already done.
+ * One call and not three: the registration gets no pre-notice, so the application flow's mail-stamp-erase ordering has
+ * no counterpart, and what this answers is what to mail about work already done.
  */
 export async function postRegistrierungSweep(saisonId: string): Promise<FLRegistrierungSweepResponse> {
   return registrierungenSweepRegistrierungen(saisonId);

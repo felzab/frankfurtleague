@@ -1,4 +1,4 @@
-"""SAISONS · the documents a season's draw inserts, composed and never written.
+"""The documents a season's draw inserts, composed and never written.
 
 Pure by construction: the caller owns the reads that supply the clubs and the writes that follow.
 Nothing here judges the draw against the season, because a half-written draw is all such a rule
@@ -22,7 +22,7 @@ from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 class EnteredTeam:
     """One club as its `saison_teams` row holds it.
 
-    `name` and `shorthand` come off the ROW, which is what the season is played under. `row_id` is
+    `name` and `shorthand` come off the row, which is what the season is played under. `row_id` is
     the entry order, and no edit to either name redraws it.
     """
 
@@ -44,7 +44,7 @@ class Spielplan:
 def circle_rounds(teams: int) -> tuple[tuple[tuple[int, int], ...], ...]:
     """Every round of one group's round robin, as index pairs into its ordered team list.
 
-    A pair's FIRST index is `team1`. Position 0 is pinned while the rest rotate, so its pair flips
+    A pair's first index is `team1`. Position 0 is pinned while the rest rotate, so its pair flips
     on odd rounds -- otherwise that club is listed first in every round.
     """
 
@@ -66,7 +66,7 @@ def circle_rounds(teams: int) -> tuple[tuple[tuple[int, int], ...], ...]:
                 continue
             pairs.append((other, one) if offset == 0 and index % 2 else (one, other))
         rounds.append(tuple(pairs))
-        # Position 0 stays put while the rest rotate: rotating the WHOLE list maps this pairing onto
+        # Position 0 stays put while the rest rotate: rotating the whole list maps this pairing onto
         # itself, so every round would repeat the first.
         field = [field[0], field[-1], *field[1:-1]]
 
@@ -173,7 +173,7 @@ def _spiel(
     team1_quelle: dict[str, Any] | None = None,
     team2_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """One fixture carrying every key `app/api/spiele/schemas.py :: FLSpiel` requires.
+    """One fixture carrying every key the fixture's record model requires.
 
     Nothing is scheduled and nothing has happened, so the rest is null: a date, a venue and a
     referee are the admin's, and a drawn season states none of them.

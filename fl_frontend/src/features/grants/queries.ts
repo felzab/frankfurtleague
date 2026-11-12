@@ -3,11 +3,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type { FLGrantsListResponse } from "@/core/generated/client/types";
 
-/**
- * Every grant, by address, a waiting addition among them.
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
- */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export async function getGrants(): Promise<FLGrantsListResponse> {
   return runAdminRead(() => grantsGetGrants());
 }

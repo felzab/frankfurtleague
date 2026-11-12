@@ -42,21 +42,10 @@ async def sweep_registrierungen(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungSweepResponse:
-    """
-    Run the three registration retention clocks over one season, as of today in Europe/Berlin.
+    """Erase one season's due registrations, as of today in Europe/Berlin.
 
-    A declined registration is erased 14 days after the decision. Once the season is `past`, every registration still awaiting a
-    decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the deadline
-    clock does not run for a `past` season, whose own end takes every row it reads.
-
-    Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
-    named that day. Every removal names this season alone and is made inside a transaction.
-
-    A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
-    its clock's page goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
-    nobody behind it. `failed` sums the rows each of the three clocks passed over.
-
-    404 where no season has the id. Idempotent: a run after every due row went writes nothing.
+    A declined one goes once its wait after the decision has run out, an unconfirmed one past its deadline, and every one
+    still undecided once the season is `past`; one whose erasure fails is counted in `failed` and met again next pass.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock, and a
@@ -89,8 +78,8 @@ async def sweep_registrierungen(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_undecided_filter(saison_id=saison_id)),
                 projection=["status"],
-                # One over the page, as `app/api/saisons/admin_router.py :: delete_spielplan` reads: a
-                # full page is a page that may be truncated, and a clock cannot see what it never read.
+                # One over the page: a full page is a page that may be truncated, and a clock cannot see
+                # what it never read.
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -166,7 +155,8 @@ async def sweep_registrierungen(
     failed = len(passed)
 
     undecided, unconfirmed = 0, 0
-    # The season's end takes every row the deadline clock reads.
+    # The season's end takes every row the deadline clock reads, whatever the pupil answered: no admission is taken for
+    # a season that is over.
     if season_has_ended(saison_status=saison_status):
         undecided, passed = await drain(
             db=db,

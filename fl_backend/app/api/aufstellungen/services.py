@@ -20,7 +20,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AUFSTELLUNG_DUE_DAYS, AUFSTELLUNG_LOCK_HOURS, AUFSTELLUNG_REMINDER_DAYS, AUFSTELLUNG_STARTERS_MAX
 from app.shared.schemas.literals import FLSpielSide
 
@@ -55,19 +54,6 @@ def aufstellung_marks(*, date: str | None, time: str | None, stored: bool, now: 
     phase: FLAufstellungPhase = "open" if now < due_at else "overdue" if now < locks_at else "locked"
 
     return FLAufstellungMarks(stored=stored, phase=phase, due_at=due_at)
-
-
-def keeps_erased(*, date: str | None, time: str | None, now: datetime) -> bool:
-    """Whether the fixture's line-up keeps an erased pupil's entry at `now`: from the lock, where it is the club's final record.
-
-    Judged against the fixture as it stands, by the erasure, the screen and the save alike: a fixture re-dated ahead of its
-    lock again is a line-up the club picks anew, so its next save drops the entry. Never for a fixture holding no day or
-    no hour, which nothing says was played.
-    """
-
-    marks = aufstellung_marks(date=date, time=time, stored=False, now=now)
-
-    return marks is not None and marks.phase == "locked"
 
 
 def aufstellung_reminder_owed(*, date: str | None, time: str | None, now: datetime) -> bool:
@@ -113,63 +99,48 @@ def judge_the_kickoff(marks: FLAufstellungMarks | None, *, locks: bool) -> None:
         refuse(find_locked_refusal(marks))
 
 
-def is_erased(entry: Mapping[str, Any]) -> bool:
-    """Whether a stored entry names a pupil erased from a locked line-up, whom no save names."""
-
-    return entry["spieler_id"] == GHOST_SPIELER_ID
-
-
-def aufstellung_stands(saved: Mapping[str, Any] | None, *, date: str | None, time: str | None, now: datetime) -> bool:
-    """Whether the club's stored line-up stands as one at `now`: it serves an entry, an erased pupil's only where `keeps_erased`.
+def aufstellung_stands(saved: Mapping[str, Any] | None) -> bool:
+    """Whether the club's stored line-up stands as one: it holds an entry.
 
     What every reader calls stored, the team's marks, the reminder and the public read alike: a line-up is owed for every
-    dated fixture, so one naming nobody, or only pupils erased from it ahead of the lock, names none and stays due.
+    dated fixture, so one emptied, by its club or by an erasure ahead of the match, stays due.
     """
 
-    if saved is None:
-        return False
-
-    kept = keeps_erased(date=date, time=time, now=now)
-
-    return any(kept or not is_erased(entry) for entry in saved["spieler"])
+    return saved is not None and bool(saved["spieler"])
 
 
-def erased_entries(saved: Mapping[str, Any] | None, *, spiel: Mapping[str, Any], now: datetime) -> list[Mapping[str, Any]]:
-    """The stored line-up's entries naming an erased pupil that it keeps (`keeps_erased`), in their stored order.
+def count_nameless(saved: Mapping[str, Any] | None) -> int:
+    """How many of the stored line-up's entries name nobody, the most a save may send."""
 
-    Several may stand, all naming the sentinel. None where the fixture stands ahead of its lock, so the screen shows none
-    and the save writes none.
-    """
-
-    if saved is None or not keeps_erased(date=spiel.get("date"), time=spiel.get("time"), now=now):
-        return []
-
-    return [entry for entry in saved["spieler"] if is_erased(entry)]
+    return 0 if saved is None else sum(entry["spieler_id"] is None for entry in saved["spieler"])
 
 
 def newly_named(entries: Sequence[FLAufstellungEntry], saved: Mapping[str, Any] | None) -> set[ObjectId]:
     """The pupils this save names that the stored line-up did not, the only ones judged against the squad.
 
-    So a line-up keeps a pupil ausgetragen since it named them. The sentinel is never stored as named, so a save naming
-    it names a pupil outside the squad.
+    So a line-up keeps a pupil ausgetragen since it named them.
     """
 
-    stored = set() if saved is None else {entry["spieler_id"] for entry in saved["spieler"] if not is_erased(entry)}
+    stored = set() if saved is None else {entry["spieler_id"] for entry in saved["spieler"] if entry["spieler_id"] is not None}
 
-    return {entry.spieler_id for entry in entries} - stored
+    return {entry.spieler_id for entry in entries if entry.spieler_id is not None} - stored
 
 
 def find_not_in_kader_refusal(
-    *, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], kader: Sequence[Mapping[str, Any]]
+    *, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]
 ) -> WriteRefusal | None:
-    """`spieler_not_in_kader`: a pupil newly named is in the club's live squad of the season.
+    """`spieler_not_in_kader`: a pupil newly named is in the club's live squad, and an entry naming nobody is one the line-up holds.
 
-    On each entry it refuses, by its path into the payload's `spieler`, so the screen marks the row it names rather
-    than reloading over the club's other picks.
+    `nameless` counts the stored entries naming nobody: a save keeps that many and adds none, since only an erasure
+    makes one. On each entry it refuses, by its path into the payload's `spieler`, so the screen marks the row it names
+    rather than reloading over the club's other picks.
     """
 
     live = {row["spieler_id"] for row in kader if row["inactive_since"] is None}
-    outside = tuple(("spieler", index, "spieler_id") for index, entry in enumerate(entries) if entry.spieler_id in new - live)
+    nobody = [index for index, entry in enumerate(entries) if entry.spieler_id is None]
+    outside = tuple(
+        ("spieler", index, "spieler_id") for index, entry in enumerate(entries) if entry.spieler_id in new - live or index in nobody[nameless:]
+    )
     if not outside:
         return None
 
@@ -179,8 +150,8 @@ def find_not_in_kader_refusal(
 def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`aufstellung_nominee_without_shortage`: a line-up names nominees only into the gap its regular players leave below eleven.
 
-    A pupil holding no squad row of the club, an erased one among them, counts as a regular player: only a row says
-    who was nominated late.
+    A pupil holding no squad row of the club, and an entry naming nobody, count as regular players: only a row says who
+    was nominated late.
     """
 
     nominees = {row["spieler_id"] for row in kader if row["is_nachnominiert"]}
@@ -198,34 +169,11 @@ def find_nominee_refusal(*, entries: Sequence[FLAufstellungEntry], kader: Sequen
     )
 
 
-def find_starters_refusal(entries: Sequence[FLAufstellungEntry]) -> WriteRefusal | None:
-    """`aufstellung_starters_exceed_eleven`: the line-up as written, its erased pupils' kept entries included, starts eleven at most.
+def judge_the_names(*, entries: Sequence[FLAufstellungEntry], new: set[ObjectId], nameless: int, kader: Sequence[Mapping[str, Any]]) -> None:
+    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it."""
 
-    The payload's own rule (`starters_exceed_eleven`) sees the entries it sends alone.
-    """
-
-    if sum(entry.starts for entry in entries) <= AUFSTELLUNG_STARTERS_MAX:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.AUFSTELLUNG_STARTERS_EXCEED_ELEVEN,
-        status=HTTPStatus.CONFLICT,
-        fields=(("spieler",),),
-        bounds={"max": AUFSTELLUNG_STARTERS_MAX},
-    )
-
-
-def judge_the_names(
-    *, entries: Sequence[FLAufstellungEntry], kept: Sequence[FLAufstellungEntry], new: set[ObjectId], kader: Sequence[Mapping[str, Any]]
-) -> None:
-    """Whom the line-up names, against the club's squad, as a save asks it inside its transaction and again outside it.
-
-    `entries` are the payload's, and `kept` the stored entries naming an erased pupil, which the save writes after them.
-    """
-
-    refuse(find_not_in_kader_refusal(entries=entries, new=new, kader=kader))
-    refuse(find_starters_refusal([*entries, *kept]))
-    refuse(find_nominee_refusal(entries=[*entries, *kept], kader=kader))
+    refuse(find_not_in_kader_refusal(entries=entries, new=new, nameless=nameless, kader=kader))
+    refuse(find_nominee_refusal(entries=entries, kader=kader))
 
 
 # --- The squad a line-up picks from.
@@ -329,42 +277,42 @@ def public_aufstellungen_lookup() -> Mapping[str, Any]:
     }
 
 
-def compose_public_aufstellungen(spiel_raw: Mapping[str, Any], *, now: datetime) -> FLAufstellungenPublic:
+def compose_public_aufstellungen(spiel_raw: Mapping[str, Any]) -> FLAufstellungenPublic:
     """Each side's line-up from `public_aufstellungen_lookup`'s rows, in the order the club entered it; null where none stands.
 
-    An erased pupil's entries only where the line-up keeps them (`keeps_erased`), as its screen shows them: a fixture
-    re-dated ahead of its lock still stores them until its club's next save, which drops them. A line-up serving no entry
-    stands as none (`aufstellung_stands`).
+    An entry naming nobody and one whose name is withheld are served alike, as a name and nothing else, after the named
+    ones. A line-up holding no entry stands as none (`aufstellung_stands`).
     """
 
     by_club = {row["team_id"]: row for row in spiel_raw[PUBLIC_AUFSTELLUNGEN_AS]}
-    date, time = spiel_raw.get("date"), spiel_raw.get("time")
-    kept = keeps_erased(date=date, time=time, now=now)
 
     def side_of(side: FLSpielSide) -> dict[str, Any] | None:
         row = by_club.get(team_id_of(spiel_raw, side))
-        if row is None or not aufstellung_stands(row, date=date, time=time, now=now):
+        if row is None or not aufstellung_stands(row):
             return None
 
         persons = {person["_id"]: person for person in row["persons"]}
         squad_rows = {squad_row["spieler_id"]: squad_row for squad_row in row["squad_rows"]}
 
         def entry(stored: Mapping[str, Any]) -> dict[str, Any]:
+            # A null forename is the mask's answer for a withheld name, and an entry naming nobody joins no person.
             person = persons.get(stored["spieler_id"], {})
+            if person.get("first_name") is None:
+                return {"first_name": None, "last_name": None, "nummer": None, "position": None, "rolle": None, "starts": stored["starts"]}
+
             squad_row = squad_rows.get(stored["spieler_id"], {})
-            # A null forename is the mask's answer for a withheld name and the sentinel's for an erased pupil alike.
-            named = person.get("first_name") is not None
             return {
-                "type": "named" if named else "anonymous",
-                "first_name": person.get("first_name") if named else None,
-                "last_name": person.get("last_name") if named else None,
+                "first_name": person["first_name"],
+                "last_name": person.get("last_name"),
                 "nummer": squad_row.get("nummer"),
                 "position": squad_row.get("position"),
-                # Beside a name alone: beside a withheld one the captaincy would say who the nameless pupil is.
-                "rolle": squad_row.get("rolle") if named else None,
+                "rolle": squad_row.get("rolle"),
                 "starts": stored["starts"],
             }
 
-        return {"spieler": [entry(stored) for stored in row["spieler"] if kept or not is_erased(stored)]}
+        entries = [entry(stored) for stored in row["spieler"]]
+        # Stable, so the named rows keep the club's order: the stored order is the shirt numbers', so a nameless row left in
+        # its place would say whose it is.
+        return {"spieler": sorted(entries, key=lambda served: served["first_name"] is None)}
 
     return FLAufstellungenPublic.model_validate({side: side_of(side) for side in SIDES})

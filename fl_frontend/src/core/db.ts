@@ -17,8 +17,8 @@ const options = {
   // session in the proxy's slide, its guard and the render after it, so a slow store costs it
   // several times these.
 
-  // An unreachable store. Tighter than `fl_backend/app/core/db.py :: SERVER_SELECTION_TIMEOUT_MS`,
-  // which only the backend's boot waits on, where no visitor does.
+  // An unreachable store. Tighter than the backend's `SERVER_SELECTION_TIMEOUT_MS`, which only its boot
+  // waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
   // A checkout from the pool, which waits out the opening of the connection it hands over: a store
   // that accepts and never answers a handshake.
@@ -28,7 +28,7 @@ const options = {
   // times its checks out on it too, so a store whose handshake takes longer reads as down.
   connectTimeoutMS: 3000,
   // Each send and receive on an open connection: a read or a commit the store never answers, and
-  // the index build (`fl_frontend/src/core/authIndexes.ts`).
+  // the index build.
   socketTimeoutMS: 3000,
   // Nothing bounds a transaction whole. The adapter runs one through the driver's `withTransaction`,
   // which retries a write conflict, and sends again a commit whose answer was lost, for up to 120 s:

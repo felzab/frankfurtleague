@@ -29,7 +29,7 @@ import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -172,12 +172,10 @@ export default function SpielEditorPage({ params }: Props) {
   );
 }
 
-/** A pupil a goal names, by the names their record holds; a goal nobody was named for, „unbekannt“. */
+/** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */
 function scorerOf(bericht: FLSpielEditorBericht, spielerId: string | null): Words {
-  const words = SERVER_COPY.season.spiel;
-  if (spielerId === null) return words.unknown;
-  const named = bericht.named.find((spieler) => spieler.spieler_id === spielerId);
-  return named === undefined ? words.anonymous : spielerName(named);
+  const named = spielerId === null ? undefined : bericht.named.find((spieler) => spieler.spieler_id === spielerId);
+  return named === undefined ? COPY.shared.anonymous : spielerName(named);
 }
 
 /** A minute as the report writes it, „45+2“, in the order it was played. */
@@ -371,17 +369,24 @@ async function readEditor(params: Props["params"]) {
             : { id: spielort.id, label: { record: spielort.name }, isDisabled: true, note: COPY.shared.retired },
         price: spielort.default_mietpreis,
       }))}
-      schiedsrichter={view.schiedsrichter.map((person) => ({
-        // A referee who has not confirmed their entry is listed, so they read as waiting and never as missing, and is
-        // not to be chosen; the match's own retired referee stays listed as its retired venue does.
-        option:
-          person.inactive_since !== null
-            ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
-            : person.confirmed
-              ? { id: person.id, label: { record: person.name } }
-              : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.schiedsrichter.unconfirmed },
-        price: person.default_payment,
-      }))}
+      schiedsrichter={[
+        // A booking naming nobody, offered only where the match holds one, so a save keeps it and its fee: the write makes
+        // none.
+        ...(saved.schiedsrichter !== null && saved.schiedsrichter.schiedsrichter_id === null
+          ? [{ option: { id: NOBODY, label: COPY.shared.nobody }, price: saved.schiedsrichter.payment }]
+          : []),
+        ...view.schiedsrichter.map((person): { option: Option; price: number } => ({
+          // A referee who has not confirmed their entry is listed, so they read as waiting and never as missing, and is
+          // not to be chosen; the match's own retired referee stays listed as its retired venue does.
+          option:
+            person.inactive_since !== null
+              ? { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.shared.retired }
+              : person.confirmed
+                ? { id: person.id, label: { record: person.name } }
+                : { id: person.id, label: { record: person.name }, isDisabled: true, note: COPY.admin.schiedsrichter.unconfirmed },
+          price: person.default_payment,
+        })),
+      ]}
       sonderereignisse={sonderereignisse}
       noteMax={spielePatchSpielBodyNoteOneMax}
       required={REQUIRED}

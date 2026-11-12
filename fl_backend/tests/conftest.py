@@ -446,10 +446,3 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
     with _replica_set_mongod() as url:
         yield url
-
-
-@pytest.fixture(scope="session")
-def mongo_url(mongo_replica_set_url: str) -> str:
-    """The replica set's url, under a second name."""
-
-    return mongo_replica_set_url

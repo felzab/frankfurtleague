@@ -15,8 +15,7 @@ async def state_of(
 ) -> FLOutboxStatus | None:
     """What became of the last mail about one record and seat, as an editor serves it; `None` where none was ever owed.
 
-    Equality on all three keys and the sort on the rest, the shape `outbox_reference` serves
-    (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    Equality on all three keys and the sort on the rest, the shape the `outbox_reference` index serves.
     """
 
     newest = await outbox_collection.find_one(

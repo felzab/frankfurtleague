@@ -39,7 +39,7 @@ class FLAddress(BaseModel):
         return _join_present((street, locality), ", ")
 
 
-# What every WRITE payload embeds. The ceilings are here and not on `FLAddress`, which a read model
+# What every write payload embeds. The ceilings are here and not on `FLAddress`, which a read model
 # embeds: refusing a stored value there would answer 500 for a whole list over one row.
 class FLAddressPayload(FLAddress):
     model_config = ConfigDict(extra="forbid")

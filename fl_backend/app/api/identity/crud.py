@@ -64,9 +64,8 @@ from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.outbox.services import ERASURE_SPARED_KINDS
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_own_registrierung_filter
-from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
-from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
-from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
+from app.api.schiedsrichter.crud import erase_referee_in_session
+from app.api.spieler.crud import erase_person_in_session
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
@@ -510,8 +509,11 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX}), person_group=None, run=end_the_address_changes_in_session),
-    ErasureStep(reaches=frozenset({Collection.SPIELBESTAETIGUNGEN}), person_group="schiedsrichter", run=erase_referee_confirmations_in_session),
-    ErasureStep(reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE}), person_group="schiedsrichter", run=erase_referee_in_session),
+    ErasureStep(
+        reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.SPIELBESTAETIGUNGEN}),
+        person_group="schiedsrichter",
+        run=erase_referee_in_session,
+    ),
     ErasureStep(reaches=frozenset({Collection.REGISTRIERUNGEN}), person_group="spieler", run=erase_registrierungen_in_session),
     ErasureStep(
         reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.AUFSTELLUNGEN}),
@@ -581,13 +583,6 @@ async def erase_everything(
         scope=scope,
     )
 
-    # Each sentinel ahead of the step erasing its kind. The referee's takes the fixtures that booked the
-    # person; the pupils' takes the scorer and card entries naming them.
-    if _runs(erase_referee_in_session, scope) and subject.schiedsrichter:
-        await ensure_ghost_schiedsrichter(schiedsrichter_collection=schiedsrichter_collection, session=session)
-    if _runs(erase_person_in_session, scope) and subject.spieler:
-        await ensure_ghost_spieler(spieler_collection=spieler_collection, session=session)
-
     if _runs(erase_kontaktperson_in_session, scope):
         await erase_kontaktperson_in_session(
             saison_teams_collection=saison_teams_collection,
@@ -610,19 +605,14 @@ async def erase_everything(
             session=session,
         )
 
-    if _runs(erase_referee_confirmations_in_session, scope):
-        await erase_referee_confirmations_in_session(
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            schiedsrichter_ids=[row["_id"] for row in subject.schiedsrichter],
-            session=session,
-        )
-
     if _runs(erase_referee_in_session, scope):
         for row in subject.schiedsrichter:
             await erase_referee_in_session(
                 schiedsrichter_collection=schiedsrichter_collection,
                 spiele_collection=spiele_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
                 schiedsrichter_id=row["_id"],
+                now=now,
                 session=session,
             )
 

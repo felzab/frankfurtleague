@@ -29,11 +29,10 @@ from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
 from app.core.recording import actor_var
 from app.main import create_app
-from tests import documents
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import address_change_document, spieler_document
+from tests.documents import address_change_document, spiel_document, spieler_document
 from tests.erasure import erasure_collections, what_the_erasure_took
 from tests.isolation import InterleavedCollection
 from tests.session_headers import StampedHeaders
@@ -48,9 +47,11 @@ from .test_identity_erasure_execution import (
     LAST_NAME,
     NOW,
     OTHER_REFEREE_CHANGE_OID,
+    PAYMENT,
     PUPIL_OID,
     REFEREE_OID,
     SAISON_ID,
+    SPIELTAG_OID,
     THEIR_GRANT_OID,
     THEIR_VALUES,
     TYPED,
@@ -76,8 +77,6 @@ GRANT_ID_OF = {row["address"]: row["_id"] for row in grants_for_the_suite()}
 
 REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
-# An address a hand edit gave the referees' sentinel, which no erasure may reach through it.
-SENTINEL_ADDRESS = "von.hand@example.com"
 
 # A grant typed in the person's capitals, which admits nobody and goes with their erasure.
 # Another such row, of an address nobody erases: no request matches it, so it stands.
@@ -214,7 +213,8 @@ class TestTheRegistryRunsWhole:
             "kontakt_seats": 1,
             "bewerbung_seats": 2,
             "registrierungen": 2,
-            "spiele": 1,
+            # The seed's booked fixture was played: its booking stands, naming nobody, and none is taken off.
+            "spiele": 0,
             "address_change": 2,
             "grants": 0,
         }
@@ -356,8 +356,19 @@ class TestTheCounts:
             await database[Collection.ADDRESS_CHANGES].insert_one(
                 address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
-            # Still to be played: the seed's own is played, and needs nobody afterwards.
-            await database[Collection.SPIELE].update_one({"schiedsrichter.schiedsrichter_id": REFEREE_OID}, {"$set": {"ergebnis": None}})
+            # One still to come beside the seed's own, which was played and keeps its booking naming nobody: a count of
+            # every booking would read two.
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=ObjectId(),
+                    saison_id=SAISON_ID,
+                    spiel_nr=5,
+                    spieltag_id=SPIELTAG_OID,
+                    date="2126-04-15",
+                    time="14:00:00",
+                    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": PAYMENT},
+                )
+            )
             before = await everything_in(database)
             view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(), by=OWNER)
             untouched = before == await everything_in(database)
@@ -370,7 +381,7 @@ class TestTheCounts:
 
         assert view.status_code == 200, counts
         assert (untouched, status) == (True, 204)
-        # The seed's one booked fixture is the one made unplayed above, so every fixture moved is one the preview counts.
+        # The fixture still to come is the one booking taken off, and the one the preview counts.
         assert counts == taken
         # The premise: an address holding nothing would agree on zeros.
         assert all(counts.values())
@@ -467,29 +478,6 @@ class TestAnotherAdministratorsAddress:
 
         assert (response.status_code, held, left) == (204, 1, 0)
         assert [notice["change"] for notice in notices] == ["revoked"]
-
-
-@pytest.mark.db
-class TestRowsNoMailboxNames:
-    """What no request may reach through this route: the referees' sentinel."""
-
-    def test_the_referees_sentinel_given_an_address_by_hand_is_reached_by_neither_request(self, mongo_replica_set_url: str):
-        """The referee step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ghost = documents.ghost_schiedsrichter_document()
-            await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
-            view = await posted(mongo_replica_set_url, VIEW_PATH, view_of(SENTINEL_ADDRESS))
-            before = await everything_in(database)
-            erasure = await posted(mongo_replica_set_url, PATH, erasure_of(SENTINEL_ADDRESS))
-
-            return view.json(), erasure.status_code, before[Collection.SCHIEDSRICHTER], await everything_in(database)
-
-        view, status, referees, after = on_a_league_of_its_own(mongo_replica_set_url, body)
-
-        assert view["schiedsrichter"] == 0
-        # The sentinel stands as it stood, its hand-given address included.
-        assert (status, after[Collection.SCHIEDSRICHTER]) == (204, referees)
 
 
 # --- Refused by the payload, which the route validates before any read.

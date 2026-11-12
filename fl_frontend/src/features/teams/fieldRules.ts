@@ -31,7 +31,7 @@ import {
 
 import type { AddressRules } from "@/kit/AddressFields";
 
-/** What a write of a club asks of each box, read on the server so its schema never reaches the browser. */
+/** Read on the server so its schema never reaches the browser. */
 export type TeamRules = {
   required: Readonly<Record<"name" | "shorthand" | "full_name", boolean>>;
   /** The season's row, which an editor of a retired club never sends. */
@@ -58,7 +58,6 @@ const addressRequiredOf = ({ address: { shape } }: TeamShape): AddressRules["req
 
 const ENTERED = TeamsPostTeamEntryBody.shape.club.options[1].shape.team.shape;
 
-/** The entry's rules, which „Team eintragen“ holds a new club's boxes to. */
 export const TEAM_ENTRY_RULES: TeamRules = {
   required: requiredOf(ENTERED),
   gruppeRequired: requires(TeamsPostTeamEntryBody.shape.gruppe, ""),
@@ -79,7 +78,6 @@ export const TEAM_ENTRY_RULES: TeamRules = {
   },
 };
 
-/** The save's rules, which the team editor holds its boxes to. */
 export const TEAM_SAVE_RULES: TeamRules = {
   required: requiredOf(TeamsPatchTeamSaisonBody.shape),
   gruppeRequired: requires(TeamsPatchTeamSaisonBody.shape.gruppe, ""),
@@ -106,7 +104,6 @@ export const TEAM_CLUB_REQUIRED = requires(TeamsPostTeamEntryBody.shape.club.opt
 /** The description's bound, the one box only the editor shows. */
 export const TEAM_DESCRIPTION_MAX = teamsPatchTeamSaisonBodyDescriptionMax;
 
-/** What „Sitz bearbeiten“ asks of each box. */
 export const SEAT_RULES = {
   required: {
     first_name: requires(TeamsPutKontaktSeatBody.shape.first_name, ""),
@@ -123,7 +120,6 @@ export const SEAT_RULES = {
 
 export type SeatRules = typeof SEAT_RULES;
 
-/** What the exit's dialog asks of each box. */
 export const AUSTRITT_RULES = {
   required: {
     type: requires(TeamsPutAustrittBody.shape.type, ""),

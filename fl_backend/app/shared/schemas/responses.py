@@ -30,12 +30,12 @@ class FLRefusedField(BaseModel):
     kind: str
     # The bounds the rule holds the refused value to, JSON scalars or a list of whole numbers, by the names the rule
     # gives them, one of which can be another field of the same payload: a domain rule's context, or an endpoint
-    # refusal's `app/core/exceptions.py :: APIError` bounds. Empty for Pydantic's own kinds and where the rule names none.
+    # refusal's bounds. Empty for Pydantic's own kinds and where the rule names none.
     ctx: dict[str, str | int | float | bool | list[int]]
 
 
-# The failure body as published, never as built: `app/core/exception_handlers.py :: error_response`
-# writes plain dicts, a model raising inside a handler leaving the caller with no answer at all.
+# The failure body as published, never as built: the handler writes plain dicts, since a model raising inside a
+# handler leaves the caller with no answer at all.
 class FLFailureBody(BaseModel):
     """Every refusal's one body, whatever its status, in the shape of RFC 9457's problem details.
 

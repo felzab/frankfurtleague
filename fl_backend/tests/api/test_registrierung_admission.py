@@ -31,7 +31,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import evidence_state_of
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload, FLSpielerTextVersions
@@ -788,29 +787,6 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document())
             before = await snapshot(database)
             code = await refused(admit(database, client, registrierung_id, spieler_id=named["_id"]))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.REGISTRIERUNG_PERSON_NOT_NAMED
-        assert after == before
-
-
-class TestTheSentinelIsNobodyToAdmit:
-    """A body can name the sentinel, which holds no address, so no admission resolves to it.
-
-    Admitted into, it would take that registration's name onto every erased pupil's surviving entry.
-    """
-
-    WHITESPACE: Mapping[str, Any] = {"first_name": "   ", "last_name": "   "}
-
-    def test_a_registration_naming_it_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one(documents.ghost_spieler_document())
-            registrierung_id = await seed(database, registrierung_document(**self.WHITESPACE))
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id, spieler_id=GHOST_SPIELER_ID))
 
             return code, before, await snapshot(database)
 

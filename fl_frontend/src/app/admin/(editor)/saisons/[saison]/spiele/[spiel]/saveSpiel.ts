@@ -10,7 +10,7 @@ import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/z
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { admitsShootOut, isNoShow } from "@/features/spiele/result";
 
-import { NO_SONDEREREIGNIS, takesNoResult, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { ActionAnswer, SaveQuestion } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -42,7 +42,8 @@ const SaveSpiel = z.object({
       time: shape.time,
       spielort: z.union([spielortShape.shape.spielort_id, z.null()]),
       mietpreis: figure(spielortShape.shape.mietpreis),
-      schiedsrichter: z.union([schiedsrichterShape.shape.schiedsrichter_id, z.null()]),
+      // A referee's id, `NOBODY` for a booking naming nobody, or none.
+      schiedsrichter: z.union([schiedsrichterShape.shape.schiedsrichter_id, z.literal(NOBODY)]),
       payment: figure(schiedsrichterShape.shape.payment),
       hasResult: z.boolean(),
       tore1: figure(z.int().min(0)),
@@ -109,7 +110,8 @@ function payloadOf(saved: FLSpielJoinedAdmin, changes: Changes): Omit<FLPatchSpi
     date: changes.date === undefined ? stored.date : changes.date,
     time: changes.time === undefined ? stored.time : changes.time,
     spielort: spielort === null || mietpreis === null ? null : { spielort_id: spielort, mietpreis },
-    schiedsrichter: schiedsrichter === null || payment === null ? null : { schiedsrichter_id: schiedsrichter, payment },
+    schiedsrichter:
+      schiedsrichter === null || payment === null ? null : { schiedsrichter_id: schiedsrichter === NOBODY ? null : schiedsrichter, payment },
     team1,
     team2,
     // A hand-picked club no longer follows the side's source: the resolution keeps a side with none as it stands.

@@ -57,18 +57,16 @@ async def get_spieltag_admin(
     spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltagAdminResponse:
-    """
-    Return one matchday by its id for the admin editor, a `future` season's included.
+    """One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
 
-    The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
-    matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
-    activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
-    exactly the season the write refuses (`saison_past`).
+    Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+    final.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
+    # Its own season, as the base read resolves it: `count_spiele` derives from that season's rules, and its `status` is
+    # the one the re-dating judges.
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["rules", "status"]
     )
@@ -93,7 +91,7 @@ async def _refuse_an_out_of_order_start(
     saisons_collection: AsyncCollection,
     stored_raw: Mapping[str, Any],
     start: str,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
@@ -148,13 +146,10 @@ async def patch_spieltag(
     spiele_collection: SpieleCollection,
     db: DBClient,
 ) -> FLSpieltagWriteResponse:
-    """
-    Move a matchday's span, answering the matchday's `version` after the save.
+    """Move a matchday's span, answering its `version` after the save.
 
-    No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
-    to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
-    `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
-    closed.
+    The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
+    dated in.
     """
 
     async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:

@@ -26,12 +26,12 @@ function gameRow(page: Page, game: string): Locator {
 
 /**
  * Picks a pupil from a row's player list, as a person opens it from the keyboard, and returns the pick's words, which the
- * field shows once chosen. `Unbekannt`, a goal's first entry, is no pupil.
+ * field shows once chosen. `Anonym`, a goal's first entry, is no pupil.
  */
 async function pickPupil(page: Page, row: Locator): Promise<string> {
   await row.getByRole("combobox", { name: "Spieler" }).click();
   await page.keyboard.press("ArrowDown");
-  const pupil = page.getByRole("option").filter({ hasNotText: "Unbekannt" }).first();
+  const pupil = page.getByRole("option").filter({ hasNotText: "Anonym" }).first();
   const words = (await pupil.innerText()).trim();
   await pupil.click();
   return words;

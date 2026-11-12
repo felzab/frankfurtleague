@@ -12,10 +12,9 @@ import {
   schiedsrichterPostSchiedsrichterBodySchuleOneMax,
 } from "@/core/generated/zod/inputs";
 
-/** A referee's fields, by the names the create dialog and the editor post. */
 type SchiedsrichterField = "name" | "email" | "phone" | "schule" | "default_payment";
 
-/** What a referee write asks of each field, read on the server so its schema never reaches the browser. */
+/** Read on the server so its schema never reaches the browser. */
 export type SchiedsrichterRules = {
   required: Readonly<Record<SchiedsrichterField, boolean>>;
   max: Readonly<Record<"name" | "email" | "schule", number>>;
@@ -35,7 +34,6 @@ const requiredOf = ({ shape }: Body): SchiedsrichterRules["required"] => ({
   default_payment: requires(shape.default_payment, null),
 });
 
-/** The create's rules, which the dialog over the list holds its boxes to. */
 export const CREATE_RULES: SchiedsrichterRules = {
   required: requiredOf(SchiedsrichterPostSchiedsrichterBody),
   max: {
@@ -45,7 +43,6 @@ export const CREATE_RULES: SchiedsrichterRules = {
   },
 };
 
-/** The save's rules, which the editor holds its boxes to. */
 export const SAVE_RULES: SchiedsrichterRules = {
   required: requiredOf(SchiedsrichterPatchSchiedsrichterBody),
   max: {

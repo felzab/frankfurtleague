@@ -44,7 +44,8 @@ type Landing = { readonly destination: SignInDestination; readonly served: Serve
  * again is ended, whatever missed ending it before.
  */
 async function landingOf(requestHeaders: Headers): Promise<Landing> {
-  // `readRequestSession`'s wait, for the sign-in pages' read past it.
+  // A wait for a real request before the sign-in store: the image's build reaches no store, and a prefetched
+  // shell must carry nothing a session decides.
   await connection();
   const read = await readLibrarySession(requestHeaders, false);
   if (read === null) return { destination: "/signin", served: null, subject: null };
@@ -59,7 +60,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   const records = await subjectOrNull(served.user.email);
   if (records === null) return { destination: "/area", served, subject: null };
 
-  // As the person guard builds it (`fl_frontend/src/core/subject.ts`), off this one lookup.
+  // As the person guard builds it, off this one lookup.
   const subject = { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records };
   return { destination: await destinationOf(served, records), served, subject };
 }
@@ -77,7 +78,7 @@ async function ended(read: ServedSession): Promise<Landing> {
 async function destinationOf(served: ServedSession, grant: Grant): Promise<SignInDestination> {
   if (grant.admin_tier !== null) {
     // The guard's own verdict rather than a second spelling of it: `/area` sends a granted session
-    // the guard refuses back here (`fl_frontend/src/app/area/(person)/(landing)/readChoices.ts`).
+    // the guard refuses back here.
     if (isAdminSession(served, grant)) return "/area";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
@@ -122,14 +123,13 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const served = await readRequestSession();
   if (!served) return null;
 
-  // An unread read offers no card, for the landing's reason.
   const subject = await subjectOrNull(served.user.email);
   if (subject === null) return null;
 
   const step = await passkeyStepOf(served, subject.admin_tier !== null);
   if (step === null) return null;
 
-  // Folded as `judgeAdminRequest` folds the actor it records: the stored row is the library's own
-  // spelling, and this is the one address of this slice a person reads.
+  // Folded: the stored row is the library's own spelling, and this is the one address of this slice a
+  // person reads.
   return { step, email: asSignInIdentifier(served.user.email) };
 }

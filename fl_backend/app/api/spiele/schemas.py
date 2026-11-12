@@ -220,7 +220,7 @@ def public_referee_name(name: str | None) -> str | None:
     `Ada van der B.`, publishing the particle.
     """
 
-    # The ghost stays nameless: an initial composed for a name nobody holds would read as a name.
+    # A booking naming nobody stays nameless: an initial composed for a name nobody holds would read as a name.
     if name is None:
         return None
 
@@ -236,16 +236,17 @@ def public_referee_name(name: str | None) -> str | None:
     return f"{first_name} {last_name[:1]}."
 
 
-# The venue booking's twin, and private for its reason.
+# The venue booking's twin, and private for its reason. A null id names nobody: a referee erased after the match was
+# played, whose fee for it stands.
 class _SpielSchiedsrichterBooking(BaseModel):
-    schiedsrichter_id: CustomObjectId
+    schiedsrichter_id: CustomObjectId | None
 
 
 # The name sits on a shared private base rather than on the public shape, so the admin shape below
 # can carry it without inheriting the reduction the public one applies.
 class _SpielSchiedsrichterNamed(BaseModel):
     # Joined from the referee's row, and nullable, unlike the venue's: a referee is a person, so an
-    # erasure repoints the booking at the nameless ghost. The word a reader is shown instead is the
+    # erasure leaves a played match's booking naming nobody. The word a reader is shown instead is the
     # frontend's.
     name: CustomNonEmptyString | None
 
@@ -432,12 +433,11 @@ class FLBracketFaultBooking(_BracketFault):
 
     reason: Literal["retired_booking"]
     booking: FLBookingResource
-    # The retired row itself, beside its name as an occupant fault carries `team_id` beside one: a
-    # reader tells the ghost from a referee by comparing this and never by the null below.
+    # The retired row itself, beside its name as an occupant fault carries `team_id` beside one.
     booking_id: CustomObjectId
 
-    # The row's name as the read joins it, null on the ghost.
-    name: str | None
+    # The row's name as the read joins it.
+    name: str
     inactive_since: CustomDateString
 
 
@@ -620,9 +620,11 @@ class FLSpiel(FLSpielCommon, Anchored):
 
 
 def _withheld_unless_agreed(block: Any) -> Any:
-    """The block where the booked referee agreed to the Ansetzung as it stands, else `None`, never asked included.
+    """The block where the booked referee agreed to the Ansetzung as it stands, or where it names nobody; else `None`, never asked included.
 
-    Never a decorator on `FLSpielJoined`: pydantic hands it to the admin subclasses, which serve the assignment as made.
+    A booking naming nobody is a played match's whose referee was erased since: it publishes no person, and reads as
+    nobody named rather than as no referee booked. Never a decorator on `FLSpielJoined`: pydantic hands it to the admin
+    subclasses, which serve the assignment as made.
     """
 
     if not isinstance(block, Mapping):
@@ -631,6 +633,9 @@ def _withheld_unless_agreed(block: Any) -> Any:
     # Required, as `ansetzung_confirmed` is: only the join composes it, and a block without it is a read that skipped the gate.
     if "einsatz_confirmed" not in block:
         raise ValueError("a served referee block carries the join's acceptance verdict")
+
+    if block.get("schiedsrichter_id") is None:
+        return block
 
     # `is True`, never `is not False`: a verdict of any other value publishes nobody.
     return block if block["einsatz_confirmed"] is True else None
@@ -641,7 +646,7 @@ def _withheld_unless_agreed(block: Any) -> Any:
 class FLSpielJoined(FLSpielCommon):
     """One fixture as the public reads serve it, each side with its club's standing in the season.
 
-    The referee is served only once they accepted the fixture as it stands.
+    The referee is served only once they accepted the fixture as it stands, or where the booking names nobody.
     """
 
     team1: FLSpielTeamFieldJoined | None

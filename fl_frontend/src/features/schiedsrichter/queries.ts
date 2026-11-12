@@ -10,23 +10,15 @@ import type {
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
 
-/**
- * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
- * (`READ-CONTACT-001`), and the fee is money (`READ-MONEY-001`).
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
- */
+/** Admin-tier: a referee is a pupil, and the fee is money. */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export async function getSchiedsrichter(filters: SchiedsrichterGetSchiedsrichterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
   return runAdminRead(() => schiedsrichterGetSchiedsrichter(filters));
 }
 
-/**
- * One referee by id, whatever state they are in — an erased one has no row for it to answer with,
- * and the list above is narrowed besides.
- *
- * **Uncached** for the reason the list is.
- */
+/** Whatever state the referee is in, where the list is narrowed; an erased one has no row to answer with. */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
 export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
   return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
@@ -35,11 +27,8 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
   );
 }
 
-/**
- * The signed-in referee's own fixtures of one season, open work first, as their Übersicht lists them.
- *
- * **Uncached** for the reason the list is: a person's read is keyed by who reads it.
- */
+/** Open work first. */
+// A person's read, never `"use cache"`, which keys on the arguments rather than the caller.
 export async function getOwnSpiele(saisonId: string): Promise<FLSchiedsrichterSpieleResponse> {
   return runPersonRead(() => schiedsrichterGetSelfSpiele(saisonId));
 }

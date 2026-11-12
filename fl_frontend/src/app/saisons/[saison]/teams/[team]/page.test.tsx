@@ -4,7 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
 import TeamPage, { generateMetadata } from "./page";
@@ -103,7 +102,7 @@ describe("the squad's role marks", () => {
   it("draws no mark beside a withheld name", async () => {
     await renderKader([player(null, "kapitaen")]);
 
-    expect(screen.getByText(SERVER_COPY.season.spiel.anonymous).parentElement?.textContent).toBe(SERVER_COPY.season.spiel.anonymous);
+    expect(screen.getByText(COPY.shared.anonymous).parentElement?.textContent).toBe(COPY.shared.anonymous);
     expect(screen.queryByText(rolleMark.kapitaen)).toBeNull();
   });
 });

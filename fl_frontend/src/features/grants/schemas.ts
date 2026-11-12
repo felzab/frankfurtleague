@@ -4,10 +4,9 @@ import { requires } from "@/core/action";
 import { grantsPostGrantBodyEmailMax, GrantsPostHandoverParams } from "@/core/generated/zod/inputs";
 import { SignInAddressSchema } from "@/features/auth/schemas";
 
-/** A grant an act names, a row's or the handover's select. */
 export const GRANT_ID = GrantsPostHandoverParams.shape.grant_id;
 
-/** What the owner's two dialogs ask of their boxes, read on the server so the schemas never reach the browser. */
+/** Read on the server so the schemas never reach the browser. */
 export const GRANT_RULES = {
   required: { email: requires(SignInAddressSchema, ""), grant_id: requires(GRANT_ID, "") },
   emailMax: grantsPostGrantBodyEmailMax,

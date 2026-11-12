@@ -106,16 +106,11 @@ async def get_open_registrierungen(
     records: SubjectLookup,
     db: DBClient,
 ) -> FLOpenRegistrierungenResponse:
-    """
-    Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
+    """Every pending registration of this team's season, newest first, each marked by whether its pupil confirmed it.
 
-    Each is marked `kader_full` where admitting it now would meet the squad's cap, by the verdict the admission refuses on.
-    A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
-    differs. An unconfirmed row names nobody: its address is unproven.
-    No address, telephone number, birthdate or consent record is served for anybody. Newest first, and no
-    more than `app/api/registrierungen/crud.py :: OPEN_REGISTRIERUNGEN_CAP` of them, the confirmed ones taken before
-    any unconfirmed one, so no flood of rows typed through the team's link and never confirmed hides a row a pupil
-    confirmed; `complete` is false where the cap cut some.
+    A confirmed row names the stored person its address resolves to, flagged where their name or birthdate differs,
+    `kader_full` marks a row whose admission would meet the squad's cap, and no address, telephone number, birthdate or
+    consent record is served for anybody.
     """
 
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the
@@ -249,29 +244,10 @@ async def admit(
     records: SubjectLookup,
     db: DBClient,
 ) -> FLRegistrierungAdmissionResponse:
-    """
-    Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
+    """Admit one confirmed registration: the person holding its address, or a new one, joins the team's squad.
 
-    The person survives the season, so the admission first looks for them: the stored person holding the
-    registration's address IS that person, and is updated with the registration's name, its birthdate and its freshly
-    confirmed consent record. Where that person's
-    name or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such
-    person, `spieler_id` is null for a new one. A pending address change of theirs stands, asked over the address
-    this admission proves again.
-
-    The squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker judged on
-    the day the registration was submitted, never today's and never lifted from a retired row; this person's retired
-    row of this season is rewritten rather than a second one written, whichever team it was on. The registration is
-    deleted in the same transaction, so a second press meets no row, and with it every other pending registration of
-    its address this season, whichever team it was for: each would be refused as already in a squad. Nobody is mailed
-    about any of them, and the admission's act counts them.
-
-    Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), one
-    the team has declined (404), a registration the pupil has not confirmed (`registrierung_unconfirmed`), a Stufe the season does not
-    offer (`registrierung_stufe_not_allowed`), a
-    `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
-    already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
-    written on any of them.
+    `spieler_id` names that person where their name or birthdate differs and is null where nobody holds the address;
+    the registration and every other pending one of its address this season are erased, and nobody is mailed.
     """
 
     async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
@@ -310,6 +286,7 @@ async def admit(
         )
         refuse(find_already_in_kader_refusal(kader_raw=kader_raw))
 
+        # Judged on the day the registration was submitted, never today's, and never lifted from a retired row.
         nominee = admits_a_nominee(
             kader_raw=kader_raw, registrierung=saison_raw.get("registrierung"), submitted_at=registrierung_raw["submitted_at"]
         )
@@ -332,9 +309,9 @@ async def admit(
                 session=session,
             )
         else:
-            # Read here, not by the address lookup, which serves no consent record:
-            # a choice the person moved after confirming the
-            # registration stands.
+            # Read here, not by the address lookup, which serves no consent record: a choice the person moved after
+            # confirming the registration stands. A pending address change of theirs stands too, asked over the address
+            # this admission proves again.
             saved = await spieler_collection.find_one({"_id": spieler_id}, projection={"einwilligung": 1}, session=session)
             await patch_one_in_db(
                 collection=spieler_collection,
@@ -368,6 +345,8 @@ async def admit(
                 return_document=ReturnDocument.BEFORE,
             )
 
+        # Every other pending row of the address this season goes too, whichever team it was for: each would be refused
+        # as already in a squad.
         erased = await delete_many_from_db(
             collection=registrierungen_collection,
             db_filter=build_admission_erasure_filter(registrierung_id=registrierung_id, saison_id=saison_id, address=address),
@@ -424,17 +403,10 @@ async def decline(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungDeclineResponse:
-    """
-    Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
+    """Decline one pending registration, confirmed or not, for a reason from a closed set or none.
 
-    The decision records a reason from a closed set, never free text:
-    `other_person` where the team answered that the registration is not the person its address belongs to. The
-    row stays until the retention sweep erases it 14 days later. The note is owed in the same transaction, and only
-    where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link. A
-    confirmation mail still owed is dropped in the same transaction, its link one the confirmation refuses on a declined row.
-
-    Refuses, in this order: no registration with this id or no seat on its team's season, alike (`role_not_held`), and
-    one the team has declined already (404).
+    A pupil who confirmed their address is mailed the decision; an unconfirmed address may be a stranger's, and is
+    mailed nothing.
     """
 
     async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungDeclineResponse:
@@ -451,7 +423,7 @@ async def decline(
         await patch_one_in_db(
             collection=registrierungen_collection,
             # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
-            # read finds nothing pending (`TestTheDecline`), so no status term is reached.
+            # read finds nothing pending, so no status term is reached.
             db_filter={"_id": registrierung_id},
             update=compose_decline_update(reason=decline_data.reason, today=today),
             session=session,
@@ -472,7 +444,8 @@ async def decline(
             session=session,
         )
 
-        # Equality on the three keys of `outbox_reference` (`app/core/constraints.py :: SUPPORT_INDEXES`).
+        # A confirmation mail still owed is dropped, its link one the confirmation refuses on a declined row. Equality on
+        # the three keys of the `outbox_reference` index.
         await patch_many_in_db(
             collection=outbox_collection,
             db_filter={
@@ -534,12 +507,11 @@ async def patch_einwilligung(
 ) -> None:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
-    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
-    `choices_stale` and `giving_not_allowed`.
+    A grant is refused, and a request moving neither choice writes nothing.
     """
 
     chosen: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
-    # One instant for every attempt, as `app/api/spieler/person_router.py :: patch_einwilligung` stamps its own.
+    # One instant for every attempt, as the pupil record's own consent press stamps it.
     at = utc_stamp(germany_now)
     journal = Journal()
 

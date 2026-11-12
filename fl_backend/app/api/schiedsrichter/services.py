@@ -17,7 +17,6 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
@@ -27,59 +26,10 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
-from app.shared.schemas.kontakt import FLKontakt
-
-
-def build_ghost_schiedsrichter() -> dict[str, Any]:
-    """The row an erased referee's fixtures are repointed to, as it is first written.
-
-    Retired, so `booking_unknown_resource` refuses it every new fixture under the rule a retired referee
-    already meets rather than under one written for the ghost.
-    """
-
-    return {
-        "_id": GHOST_SCHIEDSRICHTER_ID,
-        "name": None,
-        "schule": None,
-        # Zero rather than a rate: no fee was ever agreed with nobody, and each fixture keeps the
-        # `payment` it recorded.
-        "default_payment": 0,
-        # Read off the model, so a contact field added later arrives null here rather than missing.
-        "kontakt": dict.fromkeys(FLKontakt.model_fields),
-        "inactive_since": GHOST_INACTIVE_SINCE,
-    }
-
-
-# The one term excluding the ghost, spelled once for the list read and for the by-id filter below.
-_NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SCHIEDSRICHTER_ID}
-
-
-def build_real_referees_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    """The referees `terms` match, the ghost never among them; with none, every referee a person stands behind.
-
-    Composed as `app/api/spieler/services.py :: build_real_spieler_filter` composes, for its reason.
-    """
-
-    composed = dict(terms or {})
-
-    if "_id" in composed:
-        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
-
-    return {**composed, "_id": dict(_NOT_THE_GHOST)}
-
-
-def build_referee_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """One real referee by id, answering nothing for the ghost.
-
-    One spelling for the read, the edit, the retirement and the reactivation: reached by any, the
-    ghost takes a name onto every erased referee's fixtures or returns to the picker.
-    """
-
-    return {"_id": {"$eq": schiedsrichter_id, **_NOT_THE_GHOST}}
 
 
 def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """Every fixture naming this referee, played or not — the set the erasure repoints."""
+    """Every fixture naming this referee, played or not — the set the erasure partitions."""
 
     return {"schiedsrichter.schiedsrichter_id": schiedsrichter_id}
 
@@ -92,16 +42,6 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
     """
 
     return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
-
-
-def build_ghost_repoint() -> Mapping[str, Any]:
-    """What a fixture's booking becomes once the person behind it is deleted.
-
-    `payment` stays: it records what THIS match agreed. A fixture stores no name, and the ghost has none, so every
-    read joins a null one.
-    """
-
-    return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
 
 def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
@@ -157,14 +97,14 @@ ADDRESS_PATH: Final = "kontakt.email"
 EINWILLIGUNG_FIELD: Final = "einwilligung"
 
 # The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
-# sweep_schiedsrichter`), its fixtures repointed at the ghost, which a TTL index deleting the row could not do. On the
+# sweep_schiedsrichter`), its bookings and confirmation rows with it, which a TTL index deleting the row could not do. On the
 # record rather than inside the block: a retired referee's corrected address drops the block, and the entry its person
 # never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
 
 
 def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
-    """Every entry whose deletion date has passed: a confirmed entry and the ghost hold none, so neither is ever due."""
+    """Every entry whose deletion date has passed: a confirmed entry holds none, so it is never due."""
 
     return {ERASE_AT_FIELD: {"$lte": now}}
 
@@ -365,32 +305,27 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     )
 
 
-def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
-    """Why there is nobody to send to, or `None`.
+def find_missing_address_refusal(*, email: str) -> WriteRefusal | None:
+    """Why there is nobody to send to, or `None`: a stored address the fold cannot canonicalise, such as a placeholder.
 
     Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either.
-    if email is not None:
-        try:
-            league_address(str(email))
-        except ValueError:
-            pass
-        else:
-            return None
+    try:
+        league_address(email)
+    except ValueError:
+        return WriteRefusal(
+            error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
+            status=HTTPStatus.CONFLICT,
+        )
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
-        status=HTTPStatus.CONFLICT,
-    )
+    return None
 
 
 def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     # Both the fold every payload stores, so one string is one mailbox.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    return stored_email is None or payload_email != stored_email
+    return payload_email != stored["kontakt"]["email"]
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
@@ -448,7 +383,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     return (
         stored.get("inactive_since") is not None
         and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD))
-        and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
+        and find_missing_address_refusal(email=stored["kontakt"]["email"]) is None
     )
 
 
@@ -484,7 +419,7 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     return {
         # Folded here, the form every referee record stores.
         "kontakt.email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})},
-        **(build_real_referees_filter() if schiedsrichter_id is None else build_referee_filter(schiedsrichter_id)),
+        **({} if schiedsrichter_id is None else {"_id": schiedsrichter_id}),
     }
 
 

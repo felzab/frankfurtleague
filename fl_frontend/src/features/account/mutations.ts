@@ -7,22 +7,19 @@ import type {
 } from "@/core/generated/client/types";
 
 /**
- * Erases every league record of the person the request's actor names, the actor and nothing in the body
- * saying whom: the press reaches the library's account deletion only once this has answered.
+ * The request's actor, never the body, names whose records are erased. The press reaches the library's account
+ * deletion only once this has answered.
  */
 export async function eraseOwnRecords(): Promise<void> {
   await identityPostAccountErasure();
 }
 
-/**
- * The person's own start, under the person lane's actor: the signed-in address names the change, never
- * the body.
- */
+/** The signed-in address names the change, never the body. */
 export async function requestAccountAddressChange(payload: FLAccountAddressChangePayload): Promise<FLAccountAddressChangeMintResponse> {
   return accountPostAddressChange(payload);
 }
 
-/** The address on file's stop, which hands nothing over and so asks no fresh sign-in. */
+/** The stop hands nothing over, so it asks no fresh sign-in. */
 export async function stopAccountAddressChange(): Promise<FLAccountAddressChangeResponse> {
   return accountDeleteAddressChange();
 }

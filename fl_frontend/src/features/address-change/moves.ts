@@ -6,10 +6,8 @@ import { logger } from "@/core/logging";
 import { getAddressChangeMoves, postAddressChangeMovesDone } from "./mutations";
 
 /**
- * Carries every sign-in account an effect still owes to its new address, a page at a time, and takes each off its
- * change. Behind a confirmation's response, and in the hourly pass for an answer it lost. A
- * carry moves the account once, so a second run finds none to move; a failure rejects, the rest waiting for the
- * next run.
+ * A carry moves the account once, so a second run, the hourly pass's for an answer a confirmation lost, finds none to
+ * move; a failure rejects, the rest waiting for the next run.
  */
 export async function runAddressChangeMoves(): Promise<void> {
   for (;;) {

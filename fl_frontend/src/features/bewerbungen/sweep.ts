@@ -15,9 +15,8 @@ type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
 type PassedOver = { bewerbung: number; registrierung: number };
 
 /**
- * One pass over every season, then the two clocks no season holds (`docs/datenschutz.md :: 6`), the address changes'
- * and the unconfirmed referee entries', for the scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`),
- * which runs one pass at a time.
+ * One pass over every season, then the two clocks no season holds, the address changes' and the unconfirmed referee
+ * entries'. The scheduler runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
  * and what the address changes and the referee clock did, `open` the erasures passed over and the lapsed changes left,
@@ -59,8 +58,7 @@ async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unkn
   const error: unknown[] = [];
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass costs nothing.
   for (const saisonId of saisonIds) {
-    // Its own event per half: one line for both cannot say which stopped, and that is the question
-    // `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
+    // Its own event per half: one line for both cannot say which stopped, which is what an operator reads the logs for.
     await halfRun("bewerbung.sweep_failed", saisonId, error, async () => {
       passedOver.bewerbung += (await postBewerbungSweep(saisonId)).failed;
     });
@@ -74,7 +72,6 @@ async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unkn
   return { passedOver, error: new AggregateError(error, `${String(error.length)} of the seasons' sweep calls failed.`) };
 }
 
-/** One season's half, its failure filed under its own line and kept for the pass's answer. */
 async function halfRun(event: SweepFailure, saisonId: string, errors: unknown[], run: () => Promise<void>): Promise<void> {
   try {
     await run();

@@ -2,10 +2,7 @@ import { bewerbungenGetSweepSaisons, bewerbungenSweepSaison } from "@/core/gener
 
 import type { FLBewerbungSweepResponse, FLSweepSaisonsResponse } from "@/core/generated/client/types";
 
-/**
- * Every season the retention sweep walks. Here rather than in `queries.ts` beside the other reads
- * because every read there is cached for a render, and this one answers a timer.
- */
+/** Here rather than in `queries.ts` because every read there is cached for a render, and this one answers a timer. */
 export async function getBewerbungSweepSaisons(): Promise<FLSweepSaisonsResponse> {
   // No base-tier season read can serve this: each withholds a `future` season,
   // which is the status every season with an open application holds.

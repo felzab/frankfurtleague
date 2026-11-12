@@ -159,10 +159,8 @@ def _austritte(junctions: Mapping[Any, Mapping[str, Any]]) -> dict[Any, str]:
     }
 
 
-async def _referee_addresses(
-    *, schiedsrichter_collection: AsyncCollection, ids: Iterable[Any], session: AsyncClientSession
-) -> dict[Any, str | None]:
-    """The referees' addresses, an erased referee's absent."""
+async def _referee_addresses(*, schiedsrichter_collection: AsyncCollection, ids: Iterable[Any], session: AsyncClientSession) -> dict[Any, str]:
+    """The referees' addresses, by id: every record holds one, and an erasure takes a referee's rows with the record."""
 
     wanted = list(set(ids))
     if not wanted:
@@ -176,7 +174,7 @@ async def _referee_addresses(
         session=session,
     )
 
-    return {referee["_id"]: (referee.get("kontakt") or {}).get("email") or None for referee in referees}
+    return {referee["_id"]: referee["kontakt"]["email"] for referee in referees}
 
 
 def _request(
@@ -308,8 +306,7 @@ async def sweep_spielbestaetigungen(
     The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
     ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
     its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
-    decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
-    referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
+    decline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period
     (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
     A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
     link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
@@ -420,17 +417,15 @@ async def sweep_spielbestaetigungen(
             else:
                 data = notice_data_of(reason=reason, party_kind=party["kind"], appointment=appointment)
             if party["kind"] == "schiedsrichter":
-                address = addresses.get(party["schiedsrichter_id"])
-                if address is not None:
-                    told_referees.add(party["schiedsrichter_id"])
-                    mails.append(
-                        OwedMail(
-                            key=f"spielbestaetigung/{row['_id']}/{reason}",
-                            to=address,
-                            data=data,
-                            reference=reference_of(spielbestaetigung_id=row["_id"], seat=None),
-                        )
+                told_referees.add(party["schiedsrichter_id"])
+                mails.append(
+                    OwedMail(
+                        key=f"spielbestaetigung/{row['_id']}/{reason}",
+                        to=addresses[party["schiedsrichter_id"]],
+                        data=data,
+                        reference=reference_of(spielbestaetigung_id=row["_id"], seat=None),
                     )
+                )
                 continue
 
             # Read off the season row's seats as they stand now, a mailbox per message with no name in it. A replaced
@@ -554,10 +549,7 @@ async def sweep_spielbestaetigungen(
                 moved_to = spiel_mail_slot_of(spiel)
 
                 if party["kind"] == "schiedsrichter":
-                    address = referees.get(party["schiedsrichter_id"])
                     if existing is None:
-                        if address is None:
-                            raise ValueError(f"referee {party['schiedsrichter_id']} holds no address to tell of the booking")
                         row = compose_spielbestaetigung(
                             row_id=ObjectId(), saison_id=saison_id, spiel=spiel, party=party, today=today, asked=True
                         )
@@ -567,7 +559,7 @@ async def sweep_spielbestaetigungen(
                         plan.mails.append(
                             OwedMail(
                                 key=f"spielbestaetigung/{row['_id']}/einteilung",
-                                to=address,
+                                to=referees[party["schiedsrichter_id"]],
                                 data=FLSpielEinteilungData(
                                     kind="spiel_einteilung",
                                     ansetzung=spiel_mail_ansetzung_of(view_ansetzung_of(spiel)),
@@ -765,7 +757,7 @@ async def sweep_spielbestaetigungen(
                 limit=LIST_LIMIT_DEFAULT,
                 session=session,
             )
-            if aufstellung_stands(row, date=by_id[row["spiel_id"]]["date"], time=by_id[row["spiel_id"]]["time"], now=now)
+            if aufstellung_stands(row)
         }
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,

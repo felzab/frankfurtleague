@@ -13,7 +13,7 @@ import {
 
 const seat = BewerbungenPostKontaktSeatBody.shape;
 
-/** What the acceptance asks of its boxes; the Kürzel is the stored application's to require, a new school's alone. */
+/** The Kürzel is the stored application's to require, a new school's alone. */
 export const ACCEPT_RULES = {
   required: {
     gruppe: requires(BewerbungenAcceptBewerbungBody.shape.gruppe, ""),
@@ -21,13 +21,12 @@ export const ACCEPT_RULES = {
   },
 } as const;
 
-/** What the rejection asks of its box. */
 export const DECLINE_RULES = {
   required: requires(BewerbungenDeclineBewerbungBody.shape.reason, ""),
   max: bewerbungenDeclineBewerbungBodyReasonMax,
 } as const;
 
-/** What „Sitz bearbeiten“ asks of each box, read on the server so its schema never reaches the browser. */
+/** Read on the server so its schema never reaches the browser. */
 export const SEAT_RULES = {
   required: {
     first_name: requires(seat.first_name, ""),

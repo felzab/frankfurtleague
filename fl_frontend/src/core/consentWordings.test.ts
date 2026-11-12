@@ -8,7 +8,7 @@ import { CONSENT_WORDINGS } from "./consentWordings.ts";
 const DIGESTS: Readonly<Record<string, string>> = {
   "2026-11-whatsapp-1": "dc19926de23634f43af34e7f33af5431f186619f0b37f6883155ffd6a50eefbf",
   "2026-11-medien-1": "c662077965205756696bf0abef79e1e02a29400e1868f367daf9da723a6ec2e5",
-  "2026-11-name-kader-1": "72a47786b896610e9e188169f790e143914ab8d9c35f6af3c7347532ab6eb22f",
+  "2026-11-name-kader-1": "f46c89b901c5590e540102d13526d69f1d50b09f7a80721e610b4b4d7f7803d5",
   "2026-11-name-spielplan-1": "36ee61a73b1f53c77b1c2300d0002cfc76bde70fd559fd846608cb220aec1968",
 };
 

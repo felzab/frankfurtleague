@@ -4,8 +4,7 @@ import { sweepErasure } from "./erasure";
 import { postErasureSweep } from "./mutations";
 
 /**
- * One pass over the pupils the season-after rule makes due, for the scheduler
- * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time. The squad pages stop
+ * One pass over the pupils the season-after rule makes due. The scheduler runs one pass at a time. The squad pages stop
  * naming them within the `minutes` lifetime their cached read keeps.
  *
  * Without a deadline of its own: a timer has no request a long run would hold back. Answers the counts and the season

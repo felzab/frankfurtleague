@@ -98,8 +98,6 @@ class Code(StrEnum):
     AUFSTELLUNG_SPIEL_UNDATED = auto()
     # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
     AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
-    # More than eleven starters once the stored entries of erased pupils, which every save keeps, stand beside the payload's.
-    AUFSTELLUNG_STARTERS_EXCEED_ELEVEN = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()

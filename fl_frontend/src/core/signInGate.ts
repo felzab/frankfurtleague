@@ -19,7 +19,7 @@ const PAYLOAD_REFUSED = "payload_refused";
 /**
  * One folded mailbox's records and grant, every reader but the sign-in gate taking them through this
  * one call: the gate, a passkey enrolment's included, reads `lookUpSignIn`. Throws on every backend
- * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
+ * failure.
  */
 export const lookUpSubject = cache((email: string): Promise<SubjectSession["records"]> =>
   // Under the edge's trace: a render's first guard and the sign-in landing's handler reach here before anything
@@ -48,14 +48,15 @@ export const lookUpSubject = cache((email: string): Promise<SubjectSession["reco
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
 export type SignInRecords = FLSignInResponse;
 
-// React's `cache` for `lookUpSubject`'s reason. Its own read rather than the subject's: only a sign-in
-// pays for the two collections `account` reads beyond the subject's three.
+// React's `cache`, never `"use cache"`, which would hand one request's answer to another. Its own read
+// rather than the subject's: only a sign-in pays for the two collections `account` reads beyond the
+// subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpSignIn = cache(async (email: string): Promise<SignInRecords> => {
-  // In the body, for `lookUpSubject`'s reason.
+  // In the body: a URL carrying an address reaches the edge's access line.
   const answer = await identityGetSignIn({ email });
 
-  // Field by field, for `lookUpSubject`'s reason.
+  // Field by field: the generated call parses nothing, so the body would carry whatever else the backend answered.
   return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, admin_tier: answer.admin_tier };
 });
 
@@ -92,7 +93,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
 
 /**
  * The gate over an answer already read, for a caller that read it where no round trip may run: the
- * registration's transaction (`fl_frontend/src/core/auth/minting.ts :: refuseUnadmitted`).
+ * registration's transaction.
  */
 export function signInVerdictOf(signIn: SignInRecords): Exclude<SignInVerdict, "failed"> {
   // Ahead of every record and the grant: a barred address still holding a seat, awaiting a

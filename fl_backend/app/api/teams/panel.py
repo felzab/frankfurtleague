@@ -1,5 +1,4 @@
-"""
-API · what a team's own pages read: its Übersicht and its matches
+"""What a team's own pages read: its Übersicht and its matches.
 
 Apart from `schemas.py`, which the fixture's models import: these read models are built from a fixture's and a
 confirmation's, so they stand above both.
@@ -19,7 +18,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 class FLTeamPanelTermin(BaseModel):
     """One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
 
-    An agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or
+    An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
     discards it.
     """
 
@@ -55,7 +54,7 @@ class FLTeamPanelRegistrierung(BaseModel):
     # The registration's own answers, null where the pupil left one open.
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    # Whether the pupil answered their own link (`app/api/registrierungen/schemas.py :: FLOpenRegistrierung.admissible`).
+    # Whether the pupil answered their own link.
     admissible: bool
 
 

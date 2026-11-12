@@ -54,7 +54,7 @@ def build_spielplan(
 ) -> list[FLSpielplanSpieltag]:
     """A season's matchdays in the order they are played, each holding its matches by `spiel_nr`.
 
-    `spiele_raw` is what `app/api/spiele/services.py :: build_spiele_pipeline` yields for the same season.
+    `spiele_raw` is what `build_spiele_pipeline` yields for the same season.
     """
 
     return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
@@ -92,7 +92,7 @@ def find_spieltag_span_refusal(
 ) -> WriteRefusal | None:
     """Why this matchday's span must be refused, or `None`.
 
-    `spiel_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing.
     """
 
     if start < saison_start or end > saison_end:
@@ -122,8 +122,8 @@ class DatedNeighbour:
 def dated_start(spieltag_raw: Mapping[str, Any]) -> str | None:
     """One stored `start` as the rule takes it, or `None` for an undated row.
 
-    The record model reads the field string-or-null (`app/api/spieltage/schemas.py :: FLSpieltagRecord`), so
-    nothing converts it: a `str()` would turn an undated row into a day above every ISO date.
+    The record model reads the field string-or-null, so nothing converts it: a `str()` would turn an undated row into
+    a day above every ISO date.
     """
 
     return spieltag_raw["start"]
@@ -149,11 +149,11 @@ def find_spieltag_order_refusal(
 ) -> WriteRefusal | None:
     """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
-    `previous` and `following` are the nearest DATED matchday below and above this `position`; an
+    `previous` and `following` are the nearest dated matchday below and above this `position`; an
     undated one states no date to compare, so the caller passes neither.
     """
 
-    # The STEP, never the state: an `end`-only edit resubmits this
+    # The step, never the state: an `end`-only edit resubmits this
     # `start`. A first dating moves from no pair at all, so it is judged against both neighbours.
     moved_earlier = stored_start is None or start < stored_start
     moved_later = stored_start is None or start > stored_start

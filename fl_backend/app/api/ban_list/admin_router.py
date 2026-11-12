@@ -50,7 +50,7 @@ router = APIRouter(
 async def _pull_the_season_a_ban_counts_from(
     *,
     saisons_collection: AsyncCollection,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
@@ -77,11 +77,7 @@ async def _pull_the_season_a_ban_counts_from(
 
 @router.get("", response_model=FLBanListResponse, summary="List the banned addresses")
 async def get_ban_list_entries(ban_list_collection: BanListReadCollection) -> FLBanListResponse:
-    """
-    List every ban, newest first: the address, why, on which day and the last season covered.
-
-    Read whole: the list holds few rows, and a ban left out is one nobody can lift.
-    """
+    """Every ban, newest first, with the address, why, on which day and the last season it covers."""
 
     rows = await read_ban_list(ban_list_collection=ban_list_collection)
 
@@ -105,16 +101,9 @@ async def post_ban_list_entry(
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLPostBanListEntryResponse:
-    """
-    Ban an address: it cannot sign in and no mail leaves for it, the ban's own notice alone excepted.
+    """Ban an address: it cannot sign in, and no mail leaves for it but the ban's own notice, sent where `notify` is set.
 
-    Refused where the list already holds the address (`duplicate_key`, `uniq_ban_list_address` answering), while no season
-    is running, there being nothing to count the ban's five seasons from (`ban_list_no_saison`), and where the address has
-    a row in `grants`, in effect or waiting, or a holder's live change moves to it (`ban_list_admin`). The ban covers the
-    fifth season after the one running now, the last one it covers stored as `barred_until_saison_id`, and it survives
-    that person's erasure. Where `notify` is set the ban's own notice is owed to the address in the same transaction.
-
-    `ban_reason` is served, mailed to the address and kept past that person's erasure.
+    The ban runs a fixed number of seasons past the running one, and it and its reason outlive the person's erasure.
     """
 
     address = str(ban_list_data.email)
@@ -138,7 +127,7 @@ async def post_ban_list_entry(
             "address": address,
             "ban_reason": ban_list_data.ban_reason,
             "created_at": today,
-            # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
+            # Inclusive: the season named here is still barred, and „bis“ alone does not say so.
             "barred_until_saison_id": barred_until_saison_id,
         }
 
@@ -177,7 +166,7 @@ async def delete_ban_list_entry(
     ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLBanListWriteResponse:
-    """Lift a ban before it lapses, removing the row. HARD, and no copy of it stays. 404 where no row holds the id."""
+    """Lift a ban before it lapses, deleting its row for good."""
 
     async def lift_the_ban(session: AsyncClientSession) -> None:
         """Resolve the row, then remove it. Both in-session, so a retry re-resolves it."""

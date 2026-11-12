@@ -49,7 +49,7 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen) names.
 - **The interest is weighed against most participants being 16 or 17.** Of a pupil, only the
   nameless slot is published on this basis, in a squad, a line-up or beside a goal or card, keeping
-  team, season, shirt number and position. It is weighed as personal data, since teammates and
+  only its team and season. It is weighed as personal data, since teammates and
   classmates can very probably tell whose it is. It carries no name and no record id linking the
   pupil's seasons ([section 4](#4-what-is-published-and-on-what-basis)), and the notice says it
   stands whatever the name's consent. No birthdate reaches a public read, and anyone may object
@@ -203,12 +203,13 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
       line adds its choices, and a seat's withdrawal or objection the slots it took. No line holds
       an address or a name (`fl_backend/app/core/journal.py :: privacy_line`).
   - Recipients: administrators.
-- **Mail** (`outbox`; mail to the league; WhatsApp).
+- **Mail** (`outbox`; the league's mailbox; WhatsApp).
   - Purpose and basis: telling people what concerns them, and answering them; Art. 6(1)(f),
     WhatsApp on consent.
   - Data: each message's recipient, facts until it is sent, and its delivery state; what anyone
-    writes to a league address; a number and messages on WhatsApp.
-  - Recipients: Resend, Cloudflare, the organisers' private mailboxes and WhatsApp (section 7).
+    writes to a league address, which arrives in the league's mailbox; a number and messages on
+    WhatsApp.
+  - Recipients: Resend, Google, private mailboxes and WhatsApp (section 7).
 - **Delivering the website** (the server's journal, the browser).
   - Purpose and basis: serving and protecting the site; Art. 6(1)(f), and § 25(2) Nr. 2 TDDDG for
     what is stored in or read from the browser.
@@ -246,8 +247,9 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   of a pupil decides by `fl_backend/app/api/spieler/services.py :: name_is_public`, or its
   expression at a join, `fl_backend/app/shared/einwilligung.py :: NAME_IS_PUBLIC`. It asks that the
   record be present, its `scope` `kader_public` and its `confirmed_at` stamped. Every other row is a
-  nameless slot keeping its number and position, and carries no record id that would link its
-  seasons. The gate fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on
+  nameless slot, „anonym“, served after the named rows. It carries no number, no position and no
+  record id, which would say whose it is or link its seasons
+  (`fl_backend/app/api/spieler/services.py :: build_spieler_pipeline`). The gate fails closed. A squad's Kapitän and Co-Kapitän carry a mark after their name on
   the public squad and in a match's line-ups, and a nameless slot carries none. The mark is served
   only where the name is, so it publishes nothing about a pupil whose name is withheld.
 - **A referee's name stands on a fixture only on their own consent, and only once they agreed to
@@ -261,8 +263,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   store a pupil by record id alone, and the read joins the name from the pupil's row. A name
   therefore stands only while that row exists: the season rule or an erasure leaves the slot naming
   nobody, as [section 5](#5-erasure-reaches-everyone-who-asks) says. Whether a card may stand
-  beside a named pupil of 16 or 17 is open, and the deploy that first serves that read waits on the
-  answer ([section 11](#11-open-and-owed-a-decision)).
+  beside a named pupil of 16 or 17 is open ([section 11](#11-open-and-owed-a-decision)), and the
+  read is served while it is.
 - **A photograph, a video or an interview needs its own consent, from 18**, published on this site
   and the league's Instagram account. A withdrawal takes it down from both, which the notice
   promises. No code publishes media, so the takedown is the organisers' step by hand.
@@ -292,14 +294,14 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   nothing compares names; the registration form and the application's seats tell the person so. A
   mailbox shared anyway is one account, and an erasure keyed on it takes every record under it.
   Every erasure is keyed on a mailbox, so a hand edit emptying a row's address puts it out of reach.
-- **What an erasure deletes or repoints**, in one transaction:
+- **What an erasure deletes or leaves naming nobody**, in one transaction:
   - every record the address holds, outright rather than nulled;
-  - a referee's fixtures, repointed at the ghost
-    (`fl_backend/app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), which also ends their
-    engagement; a fixture played or called off keeps its booking and `payment`;
-  - a pupil's goals and cards, and their entries on line-ups locked before their match, repointed
-    at `:: GHOST_SPIELER_ID`; their entries on line-ups not yet locked are removed
-    (`fl_backend/app/api/spielberichte/crud.py :: repoint_pupil_entries_in_session`,
+  - a referee's bookings of fixtures still to come, removed; a played fixture keeps its booking and
+    `payment`, naming nobody
+    (`fl_backend/app/api/schiedsrichter/crud.py :: erase_referee_in_session`);
+  - a pupil's goals and cards, and their entries on the line-ups of played fixtures, left naming
+    nobody; their entries on the line-ups of fixtures still to come are removed
+    (`fl_backend/app/api/spielberichte/crud.py :: empty_pupil_entries_in_session`,
     `fl_backend/app/api/aufstellungen/crud.py :: erase_pupil_from_aufstellungen_in_session`);
   - their address wherever the action log names it, replaced by the marker naming nobody
     (`fl_backend/app/api/action_log/crud.py :: reattribute_administrator_in_session`);
@@ -319,10 +321,11 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   - the database's snapshots, about 8 days, taken daily (the provider's console, read 2026-09-01).
     A restore runs every erasure since its snapshot again, found by the ids its lines name
     ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot));
-  - Resend's copies of every message and Cloudflare's record of every message to the league, for
-    their own periods (section 7);
-  - the copies in the organisers' mailboxes, deleted on request, their providers' backups beyond
-    reach;
+  - Resend's copies of every message, for its own period (section 7);
+  - a message the person wrote to the league, deleted from the league's mailbox on request, for
+    Google's own period after a deletion (section 7);
+  - the copy of it passed on to a board member's mailbox, deleted on request, a private provider's
+    backups beyond reach;
   - the access notices already delivered to other holders' private mailboxes, each naming the
     address it concerns, beyond reach as section 7 says;
   - the privacy lines, which name a record's id and a seat's confirmation day and no address or
@@ -382,6 +385,7 @@ bound's conditions follow the table.
 | A session                                    | 30 days, or an administrator's 24 hours | `fl_frontend/src/core/sessionLifetimes.ts :: PERSON_LIFETIME`, `:: ADMIN_LIFETIME`                                                                                     |
 | A sign-in code; the code counts              | 10 minutes; a day or an hour            | `fl_frontend/src/core/authEmail.ts :: CODE_VALIDITY_MINUTES`, [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)                                       |
 | A Postausgang row                            | 30 days after it is sent or given up    | `fl_backend/app/api/outbox/services.py :: RETENTION`, `:: row_of`                                                                                                      |
+| Mail to the league                           | Six months after it arrives             | Gmail's auto-deletion, a setting of the league's Workspace                                                                                                             |
 | A mailbox's document                         | An hour after the last press            | `fl_backend/app/shared/schemas/bounds.py :: MAILBOX_ANCHOR_RETENTION_SECONDS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                     |
 | The action log                               | 12 months a row                         | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                        |
 | The server's journal                         | The journal's own age limit             | `docker-compose.yml :: x-logging`, [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                    |
@@ -422,6 +426,9 @@ bound's conditions follow the table.
   an hour, under a keyed hash.
 - **A Postausgang row** holds no facts once sent or given up, and goes 30 days after that. A row
   carrying a secret goes when the secret lapses.
+- **Mail to the league** is deleted from the league's mailbox six months after it arrives, by a
+  setting of the league's Workspace that no file in this repository holds. The copy passed on to a
+  board member's mailbox keeps that mailbox's own rule.
 - **A mailbox's document** holds a hash, never the address, and goes an hour after the last press
   with room to mail it.
 - **The server's journal** holds every service's lines, each tagged with its container's name: the
@@ -474,14 +481,14 @@ the host's, which rests on its signed agreement.
 - **Cloudflare.**
   - What reaches it: every request, in plaintext at the edge. Turnstile's signals on three forms,
     in analytics for 7 days: the window the Turnstile dashboard showed on 2026-11-04, rather than a
-    period Cloudflare states. Every message to a league address, forwarded and not stored; its
-    sender, recipient and subject stay in analytics for 31 days.
+    period Cloudflare states.
   - Agreement: its standard addendum, every service included (read 2026-10-25). For Turnstile it is
     a processor for the check and a controller of the same signals for its own bot detection (read
     2026-10-04).
   - Where: worldwide at the edge; the Data Privacy Framework, with standard clauses as its fallback.
 - **MongoDB Atlas.**
-  - What reaches it: both databases and their snapshots.
+  - What reaches it: the league's database and the `auth` database, and the cluster's daily
+    snapshots, each holding what the cluster held on its day for about 8 days.
   - Agreement: its standard addendum, accepted with the account.
   - Where: Frankfurt am Main.
 - **Resend (Plus Five Five, Inc.).**
@@ -490,9 +497,25 @@ the host's, which rests on its signed agreement.
   - Agreement: its standard addendum, in force on sign-up. Its executed copy with the standard
     clauses is on file, the owner holding it.
   - Where: the United States for stored data; the Data Privacy Framework and standard clauses.
-- **The organisers' private mailboxes.**
-  - What reaches them: every message to a league address, every reply, sent from the organiser's
-    own address, and every access notice to a holder.
+- **Google Cloud EMEA Limited, Dublin (Google Workspace for Nonprofits), the league's mailbox.**
+  - What reaches it: every message to a league address, its attachments included. A member of the
+    board reads the mailbox, which passes each message on to a board member. The board also keeps
+    the association's own papers there, such as its minutes, and none of the site's data.
+  - Agreement: Google's Cloud Data Processing Addendum, accepted in the Workspace admin console on
+    2026-11-11. Google names this entity for a Workspace customer in Europe outside France, Italy
+    and Poland (<https://cloud.google.com/terms/google-entity>, last modified 2026-06-30, read
+    2026-11-12).
+  - Where: no data region is chosen, which the Nonprofits edition does not offer. The data may be
+    processed in any country where Google or its subprocessors keep facilities (the addendum's
+    section 10.1, <https://cloud.google.com/terms/data-processing-addendum>, last modified
+    2026-10-30, read 2026-11-12). Data reaches the United States on Google LLC's certification under
+    the Data Privacy Framework, and any other third country on the processor-to-processor standard
+    clauses of the addendum's Appendix 3, section 4.1
+    (<https://cloud.google.com/terms/alternative-transfer-solution>, last modified 2026-09-29, read
+    2026-11-12).
+- **Private mailboxes.**
+  - What reaches them: every access notice to a holder, at the address the grant holds. Every
+    message to a league address too, where the board member it is passed on to reads it in one.
   - Agreement: **none**, and no safeguard for a transfer outside an adequacy decision: a gap
     accepted and disclosed (2026-10-25).
   - Where: not committed; Proton (Switzerland) and Gmail on 2026-10-25.
@@ -511,6 +534,11 @@ Beside the list:
   longer**, on its Free, Pro and Scale plans alike (<https://resend.com/security/gdpr>, read
   2026-10-16); which plan this account is on is recorded nowhere here. No erasure reaches those
   copies.
+- **Google keeps a message deleted from the league's mailbox restorable for 30 days, and for 25
+  more by an administrator**
+  (<https://knowledge.workspace.google.com/admin/support/troubleshooting/restore-a-users-permanently-deleted-email>,
+  read 2026-11-12). It deletes what nobody can restore any longer from its systems within 180 days
+  at most (the addendum's section 6.1).
 - **The agreements are on file**: Resend's executed addendum, Hetzner's Art. 28 agreement with its
   technical and organisational measures, and Cloudflare's and MongoDB's addenda, each saved and held
   by the owner (2026-11-04).
@@ -542,6 +570,7 @@ Every store of section 6 ends by one of four triggers, each with its mechanism:
 - **A clock from a stored day**: the database deletes the row by a TTL index
   (`fl_backend/app/core/constraints.py :: TTL_INDEXES`, the sign-in store's in
   [`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)), or an hourly pass judges it due.
+  Mail to the league goes by Gmail's auto-deletion.
 - **A condition on the league's calendar**: a season's `status`, judged by the hourly pass or at the
   activation, never a count of days, so a record lasts exactly as long as its purpose can.
 - **A person's request**: the erasure of section 5, run at once.
@@ -557,11 +586,9 @@ cannot reach is section 5's list, each bounded by its own period.
 
 ## 11. Open, and owed a decision
 
-Each question but the last goes to a Datenschutzexperte; the last is a fact this record owes. The
-questions on re-pointing stored consents (1) and on Art. 22 (7) are answered before the deploy that
-first serves the current notice. The one on a card beside a named minor (2) is answered before the
-deploy that first serves that read. The rest hold back no deploy. Until an answer, the notice and
-the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
+Each question but the last goes to a Datenschutzexperte; the last is a fact this record owes. No
+question holds back a deploy: the site serves what each concerns while it is open. Until an answer,
+the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
 
 1. **Re-pointing every stored consent's label to the current wording** (ruled 2026-11-04): whether a
    record then still proves, under Art. 7(1), a consent its person gave under words they were not
@@ -601,13 +628,13 @@ the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
 13. **A delivery state with no bound**, on an invite entry and on a declined seat's link entry:
     whether it may stand, and whether a delivery record the provider can join to an address is still
     that person's data.
-14. **A nameless slot** keeping team, number and position: whether it is personal data, and so needs
+14. **A nameless slot** keeping only its team and season: whether it is personal data, and so needs
     a basis of its own, and whether section 2's weighing carries it for pupils of 16 and 17.
 15. **The notice's statements**:
     - one legitimate interest for every processing, against Art. 13(1)(d);
     - „als Chronik der Liga“ as a criterion under Art. 13(2)(a);
     - Art. 13(2)(e)'s line on what is required, stated for the application alone;
-    - the transfer sentence covering Cloudflare and Resend together;
+    - the transfer sentence covering Cloudflare, Resend and Google together;
     - whether the sentence on the data protection officer can go (Art. 13(1)(b));
     - the supervisory authority's postal address, Postfach 3163, 65021 Wiesbaden, read on its own
       site 2026-11-04.
@@ -652,6 +679,8 @@ the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
     period of Art. 14(3)(a), its month being the outer limit.
-27. **Production's data on a development machine**: a rehearsal of a deploy restores a copy of
-    production's snapshot onto a development machine for some hours. How long that copy is kept and
-    how it is deleted is recorded here once the rehearsal has run.
+27. **Production's data on a development machine**: production's snapshot of 2026-11-11 is on a
+    development machine, as the downloaded file and as the local containers that restored it to
+    rehearse the migration, with their volumes. It holds every database of the cluster, the sign-in
+    store's among them. The owner deletes all three after the deploy it rehearses, and this record
+    then says how long the copy was kept and how it was deleted.

@@ -33,7 +33,7 @@ WITHHELD_FROM_BASE_TIER: FLSaisonStatus = "future"
 def base_tier_status_term() -> dict[str, Any]:
     """The `status` term every base-tier season read runs.
 
-    NARROWED, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
+    Narrowed, never fetched then hidden: a withheld season matches nothing, so `document_not_found`'s 404
     stays true and no 403 confirms the season exists.
     """
 
@@ -127,7 +127,7 @@ def decided_podium(finale: Sequence[FLSpielJoinedInternal]) -> DecidedPodium | N
     Every season ends in a knockout (`find_rules_refusal` refuses rules drawing none), so the Finale's matchday places
     it, and every bracket the rules admit plays a match for third place: it is decided once all four places are in, a
     played final beside an unplayed match for third place still running. A place decided once its club had left is
-    vacant, its side `None`, and still a place in (`app/api/spiele/services.py :: podium_of`).
+    vacant, its side `None`, and still a place in (`podium_of`).
     """
 
     match [side for _, side in podium_of(finale)]:
@@ -217,7 +217,7 @@ def find_saison_past_refusal(*, saison_status: str) -> WriteRefusal | None:
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "loss_points", "qualifiers_per_gruppe", "tiebreak_order")
 
-# The three the fixtures were drawn from. A RAISE is what nothing else refuses: `count_spiele` is
+# The three the fixtures were drawn from. A raise is what nothing else refuses: `count_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and
 # `rules_spieltag_over_its_phase` reads the narrowing direction alone.
 SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
@@ -272,16 +272,15 @@ def find_rules_refusal(
     occupancy_by_gruppe: dict[FLGruppenNames, int],
     highest_wired_platz: int,
     largest_squad: int = 0,
-    # The LARGEST count any single matchday of a phase holds, never the sum.
+    # The largest count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_spiele: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`."""
 
-    # Early for the freeze's reason: where a number cannot change at all, naming what it may not drop
-    # past sends an admin to the wrong repair. Compared by value, so a resubmission passes.
-
-    # ABSOLUTE, in every status and whatever is recorded: the shape and the fixtures drawn from it
+    # Early, as the freeze is: where a number cannot change at all, naming what it may not drop past
+    # sends an admin to the wrong repair. Compared by value, so a resubmission passes.
+    # Absolute, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
     # takes the three numbers on its own payload.
     if stored is not None and drawn_spiele > 0:
@@ -295,7 +294,7 @@ def find_rules_refusal(
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.
     excess = proposed.qualifiers_per_gruppe - proposed.teams_per_gruppe
-    # The EXCESS, against the stored one: `rules` is required on the patch, so a dates-only edit
+    # The excess, against the stored one: `rules` is required on the patch, so a dates-only edit
     # resubmits a stored violation unchanged, and shrinking an excess repairs it.
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_gruppe - stored.teams_per_gruppe):
         return WriteRefusal(
@@ -305,7 +304,7 @@ def find_rules_refusal(
             bounds={"max": proposed.teams_per_gruppe},
         )
 
-    # The EXCESS again, so a stored violation resubmitted unchanged passes and shrinking it repairs
+    # The excess again, so a stored violation resubmitted unchanged passes and shrinking it repairs
     # the season.
     draw_excess = proposed.draw_points - proposed.win_points
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
@@ -336,13 +335,12 @@ def find_rules_refusal(
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
-    # AFTER the bracket rule, which is narrower and answers first: a product with no bracket plays
+    # After the bracket rule, which is narrower and answers first: a product with no bracket plays
     # no knockout round, so a count taken over one measures a season the admin has not asked for.
     spiele = total_season_spiele(proposed)
     stored_spiele = None if stored is None else total_season_spiele(stored)
-    # The EXCESS, as `rules_qualifiers_above_gruppe` and `rules_unentschieden_outvalues_win` beside it: `rules` is required on the patch,
-    # so a dates-only edit resubmits a stored count unchanged and any step that shrinks one repairs
-    # the season.
+    # The excess, as the two rules above judge theirs: `rules` is required on the patch, so a dates-only edit
+    # resubmits a stored count unchanged and any step that shrinks one repairs the season.
     if spiele > LIST_LIMIT_DEFAULT and (stored_spiele is None or spiele > stored_spiele):
         return WriteRefusal(
             error_code=Code.RULES_SPIELE_OVER_ONE_READ,
@@ -350,7 +348,7 @@ def find_rules_refusal(
         )
 
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
-    # `app/api/spiele/services.py :: _outcome_of` advancing nobody. Only the step that pairs the two
+    # `_outcome_of` advancing nobody. Only the step that pairs the two
     # is refused.
     if _forfeit_unentschieden_in_a_knockout(proposed) and (stored is None or not _forfeit_unentschieden_in_a_knockout(stored)):
         return WriteRefusal(
@@ -386,7 +384,7 @@ def find_rules_refusal(
                 bounds={"min": fullest},
             )
 
-    # Only where the patch LOWERS it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
+    # Only where the patch lowers it, on `rules_capacity_below_use`'s shape: a cap left where it stands is not
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
     if proposed.max_kader_size < stored.max_kader_size and largest_squad > proposed.max_kader_size:
         return WriteRefusal(
@@ -396,7 +394,7 @@ def find_rules_refusal(
             bounds={"min": largest_squad},
         )
 
-    # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
+    # Only where the patch lowers it: `rules` is required, so a dates-only edit resubmits a count
     # already under the wiring, and refusing that would leave the season unpatchable.
     if proposed.qualifiers_per_gruppe < highest_wired_platz and proposed.qualifiers_per_gruppe < stored.qualifiers_per_gruppe:
         return WriteRefusal(
@@ -406,11 +404,11 @@ def find_rules_refusal(
             bounds={"min": highest_wired_platz},
         )
 
-    # Last, being the only check computing the whole schedule. EVERY phase: lowering the qualifier
+    # Last, being the only check computing the whole schedule. Every phase: lowering the qualifier
     # count shortens the ladder, so an unreached phase expects 0 while its matchdays keep fixtures.
     for phase, attached in sorted((attached_by_phase or {}).items()):
         expected = expected_matches(proposed, phase)
-        # Only where the step NARROWS the phase: a count nothing changed is not this edit's doing,
+        # Only where the step narrows the phase: a count nothing changed is not this edit's doing,
         # and refusing it would leave the season unpatchable.
         if attached > expected and expected < expected_matches(stored, phase):
             return WriteRefusal(
@@ -453,7 +451,7 @@ def find_saison_span_refusal(
 ) -> WriteRefusal | None:
     """Why this season's span must be refused, or `None`.
 
-    `spieltag_spans` is every DATED matchday of the season, as `(start, end)`: a span the season no
+    `spieltag_spans` is every dated matchday of the season, as `(start, end)`: a span the season no
     longer covers strands the matchday, and one still undated constrains nothing, so the caller filters.
     """
 
@@ -522,7 +520,7 @@ RECORDED_FACT_FIELDS: tuple[str, ...] = (
     "note",
 )
 
-# The one phase `app/api/saisons/spielplan.py :: draw_spielplan` fills the sides of. Every other it
+# The one phase `draw_spielplan` fills the sides of. Every other it
 # wires and leaves empty, and that difference is the whole of what `_a_side_is_off_the_draw` reads.
 DRAWN_HOLDING_ITS_SIDES: FLSaisonPhase = "gruppenphase"
 
@@ -539,7 +537,7 @@ def _a_side_is_off_the_draw(spiel: Mapping[str, Any]) -> bool:
     # widen the window it decides.
     is_bracket = spiel.get("saison_phase") != DRAWN_HOLDING_ITS_SIDES
 
-    # Both directions in ONE comparison against the phase: "holds a side" alone is true of every
+    # Both directions in one comparison against the phase: "holds a side" alone is true of every
     # group fixture the draw wrote, and would shut the window on every drawn season.
     as_drawn = (not is_bracket, is_bracket)
 
@@ -567,21 +565,21 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if _a_side_is_off_the_draw(spiel):
         return True
 
-    # STRIPPED, never compared to None: the draw writes no key, clearing a note stores null, and
+    # Stripped, never compared to None: the draw writes no key, clearing a note stores null, and
     # `FLPatchSpielDataPayload.empty_strings_to_none` keeps "" off that route -- a hand edit can
     # still leave one, and an empty note is not a record.
     if (spiel.get("note") or "").strip():
         return True
 
-    return (spiel.get("spielort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get(
-        "schiedsrichter_id"
-    ) is not None
+    # A referee's booking by its block, never its id: one naming nobody keeps a played match's fee once its referee was
+    # erased, and is a record all the same.
+    return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:
     """The fixture numbers of every match still waiting to be played, in order.
 
-    Unplayed means NO RESULT and NOT CANCELLED; one with no occupants counts too, an open bracket
+    Unplayed means no result and not cancelled; one with no occupants counts too, an open bracket
     slot being as unfinished as an unscored match.
     """
 
@@ -593,7 +591,7 @@ def find_activation_refusal(
 ) -> WriteRefusal | None:
     """Why this rollover must be refused, or `None`.
 
-    `undated_spieltage` counts the TARGET season's matchdays holding no `start`; `outgoing_unplayed`
+    `undated_spieltage` counts the target season's matchdays holding no `start`; `outgoing_unplayed`
     is the incumbent's alone, empty where there is none, and never the target's own fixtures.
     """
 
@@ -636,7 +634,7 @@ PLANNING_STATUS: FLSaisonStatus = "future"
 def _planning_window_is_open(*, saison_status: str, recorded_spiele: int) -> bool:
     """Whether this season's Spielplan may still be replaced or removed.
 
-    ONE predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
+    One predicate for every rule turning on it: a second copy is how a refusal comes to recommend a
     write the product then turns away.
     """
 
@@ -666,7 +664,7 @@ def find_spielplan_refusal(
     spieltage_held: int,
     rules: FLSaisonRules,
     occupancy_by_gruppe: Mapping[FLGruppenNames, int],
-    # NEITHER defaults: a caller that forgot `recorded_spiele` would replace a season already played.
+    # Neither defaults: a caller that forgot `recorded_spiele` would replace a season already played.
     replace: bool,
     recorded_spiele: int,
 ) -> WriteRefusal | None:
@@ -697,7 +695,7 @@ def find_spielplan_refusal(
 
     # `past` alone, never `future`-only: activation is one-way, so a season activated before its draw
     # would otherwise be unschedulable for good, and `activate_target_undrawn` keeps the state rare. A
-    # REPLACE is `future`-only, above.
+    # replace is `future`-only, above.
     if saison_status == "past":
         return WriteRefusal(
             error_code=Code.SAISON_PAST,
@@ -739,7 +737,7 @@ def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
 def find_undraw_refusal(*, saison_status: str, recorded_spiele: int) -> WriteRefusal | None:
     """Why removing this season's Spielplan must be refused, or `None`.
 
-    The replace's window, read off the OPERATION and not off what there is to remove: a season
+    The replace's window, read off the operation and not off what there is to remove: a season
     already undrawn is the state asked for, so it removes nothing rather than refusing.
     """
 

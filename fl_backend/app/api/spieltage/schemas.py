@@ -12,23 +12,22 @@ class FLSpieltagRecord(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
-    # NULLABLE where the payload's pair is not: a drawn matchday carries no span until somebody sets
+    # Nullable where the payload's pair is not: a drawn matchday carries no span until somebody sets
     # one. No span check here either -- a read refusing a stored reversal would hide the row from the
     # edit that repairs it.
     start: CustomDateString | None
     end: CustomDateString | None
 
-    # STORED, and unique within one phase of one season. `ge=1` because the reader renders this very
+    # Stored, and unique within one phase of one season. `ge=1` because the reader renders this very
     # number -- "1. Spieltag", "Viertelfinale (2)" -- so a zero would be a matchday nobody counts.
     position: int = Field(ge=1)
     saison_phase: FLSaisonPhase
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
-    # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
 
 class FLSpieltag(FLSpieltagRecord, BaseReadModel):
-    # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
+    # Derived, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
     # expects none.
     count_spiele: int = Field(ge=0)
 
@@ -36,7 +35,7 @@ class FLSpieltag(FLSpieltagRecord, BaseReadModel):
 class FLSpieltagAdmin(FLSpieltag):
     """A matchday as its editor reads it, with how many matchdays its phase holds, by which a page names a round's legs."""
 
-    # DERIVED, on no document: the phase's matchdays as the season stores them, this one included. Named as the public
+    # Derived, on no document: the phase's matchdays as the season stores them, this one included. Named as the public
     # schemas name the same count.
     count_spieltage_in_phase: int = Field(ge=1)
 
@@ -47,11 +46,10 @@ class FLPatchSpieltagPayload(BaseModel):
     # The span alone: `saison_id`, `saison_phase` and `position` are settled when the season's
     # schedule is generated, and the fixtures drawn against them are not rewritten here.
 
-    # Both REQUIRED, unlike the read model's pair: this payload exists to set them, so a null here
+    # Both required, unlike the read model's pair: this payload exists to set them, so a null here
     # would be a request to undate a matchday, which nothing asks for and nothing else expresses.
     start: CustomDateString
     end: CustomDateString
-    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
     version: CustomVersion
 
     # A field validator at the end it judges, reading the start off `info.data`: a model validator's refusal sits at the
@@ -89,8 +87,8 @@ FLSpielplanSpieltagAdminListAdapter = TypeAdapter(list[FLSpielplanSpieltagAdmin]
 class FLSpielplanResponse(BaseAPIResponse):
     """A season's matchdays in the order they are played, and the one the Spielplan opens on.
 
-    `current_spieltag_id` is the first matchday holding a match still to be played, else the last; in a finished
-    season, the last. Null for a season with no matchday.
+    `current_spieltag_id` is the first matchday holding a match still to be played, else the last, and the last in a
+    finished season; null for a season with no matchday.
     """
 
     spieltage: list[FLSpielplanSpieltag]
@@ -100,8 +98,8 @@ class FLSpielplanResponse(BaseAPIResponse):
 class FLSpieleSpielplanAdminResponse(BaseAPIResponse):
     """A season's matchdays and knockout rounds in playing order, matches in the admin shape, and the one to open on.
 
-    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last;
-    in a finished season, the last. Null for a season with no matchday.
+    `current_spieltag_id` is the Spielplan's own: the first matchday holding a match still to be played, else the last,
+    and the last in a finished season; null for a season with no matchday.
     """
 
     spieltage: list[FLSpielplanSpieltagAdmin]
@@ -121,12 +119,9 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
     spieltag: FLSpieltag
 
 
+# The status on the response rather than on the matchday: a matchday carries no season-scoped state.
 class FLSpieltagAdminResponse(BaseAPIResponse):
-    """One matchday for its editor, and its season's status, by which the editor opens a finished season's read-only.
-
-    On the response rather than on the matchday, as the match editor's read serves it: a matchday carries no
-    season-scoped state.
-    """
+    """One matchday and its season's `status`, which says whether the matchday can still be re-dated."""
 
     spieltag: FLSpieltagAdmin
     saison_status: FLSaisonStatus

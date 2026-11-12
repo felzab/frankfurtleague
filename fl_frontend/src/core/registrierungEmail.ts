@@ -16,8 +16,8 @@ const WORDS = SERVER_COPY.mail.registrierung;
  * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
  * `core` may not import a feature.
  *
- * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
- * a second spelling reaches the access line and the referer unredacted.
+ * `token` is the parameter name because the edge's `$credential_free_uri` matches that name; a second spelling
+ * reaches the access line and the referer unredacted.
  */
 function spielerConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;

@@ -16,7 +16,7 @@ import { DELETE_TOKEN_ROW_PREFIX, deleteSignInRowsOf, DUPLICATE_KEY, EVERY_ROW, 
 
 import type { DeletionPress } from "./library";
 
-/** The library's answer to a link it completed (`better-auth/api :: deleteUserCallback`), its one answer that deletes. */
+/** The library's answer to a link its `deleteUserCallback` completed, its one answer that deletes. */
 const ACCOUNT_DELETED = "User deleted";
 
 /** A deletion the library answered with something other than a deletion, which no caller may read as one. */
@@ -25,8 +25,8 @@ class DeletionNotAnswered extends Error {
 }
 
 /**
- * Whether an account signs in at `address`, which refuses an address change onto it as the library's own change of
- * address refuses one (`better-auth/api :: changeEmail`): joining it would hand one person's sign-in to another.
+ * Whether an account signs in at `address`, which refuses an address change onto it as the library's own
+ * `changeEmail` refuses one: joining it would hand one person's sign-in to another.
  */
 export async function accountStandsAt(address: string): Promise<boolean> {
   const { internalAdapter } = await auth.$context;
@@ -49,8 +49,7 @@ export type AccountCarry = "moved" | "none" | "taken";
 
 /**
  * Moves the replaced address's account, passkeys included, to the new address and ends its sessions: the confirmed
- * link is the verification the library's own change of address mails, so this is that change's completing write
- * (`better-auth/api :: verifyEmail`).
+ * link is the verification the library's own change of address mails, so this is that change's completing write.
  */
 export async function carryAccount(previous: string, next: string): Promise<AccountCarry> {
   const { adapter, internalAdapter } = await auth.$context;
@@ -153,7 +152,7 @@ export async function deleteOwnAccount(
  * the league holds nothing of the address, erased or unreferenced.
  */
 export async function deleteAccountFor(identifier: string): Promise<boolean> {
-  // Set once the callback has returned, for `removePasskey`'s reason: a throw after it came from the commit.
+  // Set once the callback has returned: a throw after it came from the commit, whose outcome may be unknown.
   let committing = false;
   let deleted: boolean;
 
@@ -164,7 +163,7 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
     const { adapter, secret } = await auth.$context;
 
     deleted = await adapter.transaction(async (held) => {
-      // Cleared on every run, for `removePasskey`'s reason: the adapter runs this again after a transient
+      // Cleared on every run: the adapter runs this again after a transient
       // commit failure, and a throw from that run rolled back like the first run's would.
       committing = false;
 
@@ -191,7 +190,7 @@ export async function deleteAccountFor(identifier: string): Promise<boolean> {
   return deleted;
 }
 
-/** Every account's folded address, for the account sweep: by `EVERY_ROW`, past the library's default page of 100. */
+/** Every account's folded address, past the library's default page of 100. */
 export async function listAccounts(): Promise<string[]> {
   const { internalAdapter } = await auth.$context;
   return (await internalAdapter.listUsers(EVERY_ROW)).map((account) => asSignInIdentifier(account.email));
