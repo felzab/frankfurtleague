@@ -20,7 +20,7 @@ from app.core.exceptions import APIError
 from app.shared.einwilligung_evidence import FLEinwilligungChoice, evidence_state_of
 from app.shared.schemas.einwilligung import FLSpielerTextVersions, PressTextVersions
 
-STALE: Final = "2026-10-ersetzt-1"
+STALE: Final = "2026-10-replaced-1"
 TODAY: Final = "2026-11-04"
 # Old enough for the media consent, so its age rule never decides a case here.
 ADULT: Final = "2000-01-01"

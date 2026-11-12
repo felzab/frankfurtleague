@@ -205,7 +205,7 @@ class TestTheSeasonsOwnEnd:
 
 
 class TestTheDeclineClock:
-    def test_it_loescht_a_declined_registration_past_its_fourteen_days(self, mongo_replica_set_url: str):
+    def test_it_erases_a_declined_registration_past_its_fourteen_days(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 

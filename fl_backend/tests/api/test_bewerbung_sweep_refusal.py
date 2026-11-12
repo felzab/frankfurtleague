@@ -410,7 +410,7 @@ class TestWhatTheNoticesNeed:
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=partly_answered, saison_id="2026")] == ["stellan@example.com"]
 
-    def test_a_widerspruchs_notice_spares_the_person_it_told_and_no_other_confirmed_seat(self):
+    def test_an_objection_notice_spares_the_person_it_told_and_no_other_confirmed_seat(self):
         confirmed = kontakte(
             ansprechperson=kontaktperson_document("Ansgar", confirmed_at=YESTERDAY),
             stellvertretung=kontaktperson_document("Stellan", confirmed_at=YESTERDAY),

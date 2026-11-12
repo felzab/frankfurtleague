@@ -389,7 +389,7 @@ class TestTheReSend:
         assert CONFIRMATION_FIELD not in row
 
     # No null: every referee record holds an address, which the record model and the read-back hold it to.
-    @pytest.mark.parametrize("email", ["keine-adresse"])
+    @pytest.mark.parametrize("email", ["no-address"])
     def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str):
         """A mint here records a message nobody composed and starts the deletion clock on a person nobody asked."""
 

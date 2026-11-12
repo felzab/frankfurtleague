@@ -269,7 +269,7 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
         assert not any(value in text for value in ("@", "+49", "2009-05-04", CONFIRMED_ON, OTHERS_REASON))
 
 
-class TestTheUebersicht:
+class TestTheOverview:
     def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
         status, served = read(mongo_replica_set_url, "overview")
 

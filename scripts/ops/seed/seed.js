@@ -1270,7 +1270,7 @@ const addressChange = (address, way, label, step) => ({
 });
 
 // Its wait outlasts any run, as a handover's does: the hourly pass switches an address whose date has passed.
-const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug", {
+const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "move", {
   released_at: IN_EFFECT,
   confirmed_at: IN_EFFECT,
   effective_from: WAITING,

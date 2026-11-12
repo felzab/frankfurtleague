@@ -1228,7 +1228,7 @@ def on_a_league_of_its_own(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-class TestAPersonHoldingNoFunktion:
+class TestAPersonHoldingNoRole:
     """A mailbox whose records grant no panel still signs in, and is erased like anyone else."""
 
     @pytest.mark.parametrize("only", ["an application seat", "a confirmed pending registration"])

@@ -474,7 +474,7 @@ def bewerbung_document(
             "team_id": team_id,
             "schule": None if schule is None else dict(schule),
             "kontakte": dict(kontakte),
-            "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
+            "trikot": {"existing_set": "none", "wunschfarbe": "rot"},
             "kader": {"expected_size": 14, "good_spieler": 3},
             "stufengroesse": 96,
             "wunschgegner": None,

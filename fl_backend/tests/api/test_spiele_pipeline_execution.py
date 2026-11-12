@@ -73,7 +73,7 @@ def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
     )
 
 
-def zugesagt() -> dict[str, Any]:
+def agreed() -> dict[str, Any]:
     return {"kind": "agreed", "at": "2026-04-20", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
 
 
@@ -84,7 +84,7 @@ def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[st
 def discarded(spiel: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
     """A club's decline proposing another date, closed by the administrator's discard."""
 
-    declined = {**zugesagt(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
+    declined = {**agreed(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
 
     return a_row(spiel, team_id, answer=declined, closed={"reason": "discarded"})
 
@@ -192,7 +192,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         """Without a ground the row stores a null the fixture's path lacks: drop an `$ifNull` from the `let` and no such fixture confirms."""
 
         spiel = a_spiel(with_ground=with_ground)
-        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY, answer=zugesagt())]
+        rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY, answer=agreed())]
 
         document = on_a_spiel(mongo_replica_set_url, spiel, rows, joined)
 
@@ -201,7 +201,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
     def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_replica_set_url: str):
         spiel = a_spiel()
-        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY)]
+        rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY)]
 
         assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is False
 
@@ -210,8 +210,8 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
         spiel = a_spiel()
         rows = [
-            a_row(spiel, VERDICT_HOME, answer=zugesagt()),
-            a_row(spiel, VERDICT_AWAY, answer=zugesagt(), closed={"reason": "cancelled"}),
+            a_row(spiel, VERDICT_HOME, answer=agreed()),
+            a_row(spiel, VERDICT_AWAY, answer=agreed(), closed={"reason": "cancelled"}),
         ]
 
         assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is False
@@ -225,7 +225,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
         spiel = a_spiel()
         rows = [
-            a_row(spiel, VERDICT_HOME, answer=zugesagt()) if home == "agreed" else discarded(spiel, VERDICT_HOME),
+            a_row(spiel, VERDICT_HOME, answer=agreed()) if home == "agreed" else discarded(spiel, VERDICT_HOME),
             discarded(spiel, VERDICT_AWAY),
         ]
 
@@ -251,7 +251,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         """
 
         spiel = a_spiel()
-        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_AWAY, answer=zugesagt())]
+        rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY, answer=agreed())]
 
         async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
             before = await verdict(database)
@@ -264,8 +264,8 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
     def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_replica_set_url: str):
         spiel = a_spiel()
         rows = [
-            a_row(spiel, VERDICT_HOME, answer=zugesagt()),
-            a_row(spiel, VERDICT_AWAY, answer=zugesagt()),
+            a_row(spiel, VERDICT_HOME, answer=agreed()),
+            a_row(spiel, VERDICT_AWAY, answer=agreed()),
             spielbestaetigung_document(spiel, party=REFEREE),
         ]
 
@@ -275,7 +275,7 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
 
         spiel = a_spiel()
-        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt()), a_row(spiel, VERDICT_HOME, answer=zugesagt())]
+        rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_HOME, answer=agreed())]
 
         assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is False
 
@@ -353,7 +353,7 @@ class TestTheRefereeIsServedOnceAgreed:
         """The base model's own gate, so a join answering a third value again cannot publish the referee it never judged."""
 
         spiel = a_refereed_spiel()
-        document = on_a_refereed_spiel(mongo_replica_set_url, [a_referee_row(spiel, answer=zugesagt())], joined, spiel=spiel)
+        document = on_a_refereed_spiel(mongo_replica_set_url, [a_referee_row(spiel, answer=agreed())], joined, spiel=spiel)
         document["schiedsrichter"][EINSATZ_CONFIRMED] = None
 
         assert FLSpielJoined.model_validate(document).schiedsrichter is None
@@ -394,7 +394,7 @@ class TestTheRefereeIsServedOnceAgreed:
         """No pass between: the agreement stays open about the old slot, which counts as asked and not agreed, as a club's does."""
 
         spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, answer=zugesagt())]
+        rows = [a_referee_row(spiel, answer=agreed())]
 
         async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
             before = await einsatz(database)
@@ -414,7 +414,7 @@ class TestTheRefereeIsServedOnceAgreed:
         """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
 
         spiel = a_refereed_spiel()
-        rows = [a_row(spiel, VERDICT_HOME, answer=zugesagt(), closed={"reason": "discarded"})]
+        rows = [a_row(spiel, VERDICT_HOME, answer=agreed(), closed={"reason": "discarded"})]
 
         assert on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
 
@@ -424,7 +424,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
         spiel = a_refereed_spiel()
         rows = [
-            a_referee_row(spiel, _id=EARLIER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=EARLIER_ROW, answer={**agreed(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
             a_referee_row(spiel, _id=LATER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
         ]
 
@@ -442,7 +442,7 @@ class TestTheRefereeIsServedOnceAgreed:
         spiel = a_refereed_spiel()
         rows = [
             a_referee_row(spiel, _id=EARLIER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
-            a_referee_row(spiel, _id=LATER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=LATER_ROW, answer={**agreed(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
         ]
         # The move the closing names, so the agreement is about a slot the fixture left.
         moved = {**spiel, "time": "19:30:00"}
@@ -458,7 +458,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
         spiel = a_refereed_spiel()
         rows = [
-            a_referee_row(spiel, _id=LATER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_THE_DAY),
+            a_referee_row(spiel, _id=LATER_ROW, answer={**agreed(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_THE_DAY),
             a_referee_row(spiel, _id=EARLIER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
         ]
 
@@ -469,7 +469,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
         spiel = a_refereed_spiel()
         rows = [
-            a_referee_row(spiel, _id=EARLIER_ROW, answer={**zugesagt(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
+            a_referee_row(spiel, _id=EARLIER_ROW, answer={**agreed(), "by": {"kind": "schiedsrichter"}}, closed=CLOSED_BY_A_MOVE),
             a_referee_row(spiel, _id=LATER_ROW),
         ]
 
@@ -481,7 +481,7 @@ class TestTheRefereesNameFollowsTheirConsent:
 
     def test_an_agreed_referee_publishing_internally_is_served_nameless_and_named_on_the_admin_tier(self, mongo_replica_set_url: str):
         spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, answer=zugesagt())]
+        rows = [a_referee_row(spiel, answer=agreed())]
         internal = {**published(), "scope": "internal"}
 
         document = on_a_refereed_spiel(mongo_replica_set_url, rows, joined, einwilligung=internal, spiel=spiel)
@@ -493,7 +493,7 @@ class TestTheRefereesNameFollowsTheirConsent:
 
     def test_a_published_name_is_served_reduced(self, mongo_replica_set_url: str):
         spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, answer=zugesagt())]
+        rows = [a_referee_row(spiel, answer=agreed())]
 
         served = FLSpielJoined.model_validate(on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel)).schiedsrichter
 
@@ -505,7 +505,7 @@ class TestTheRefereesNameFollowsTheirConsent:
         gone = ObjectId()
         spiel = a_refereed_spiel(schiedsrichter_id=gone)
         # Agreed, so the consent gate is the one withholding the name.
-        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": gone}, answer=zugesagt())]
+        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": gone}, answer=agreed())]
 
         document = on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel)
 

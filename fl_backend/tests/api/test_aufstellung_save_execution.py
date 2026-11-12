@@ -39,9 +39,9 @@ HOME, AWAY = ObjectId("6890a1b2c3d4e5f607470001"), ObjectId("6890a1b2c3d4e5f6074
 SPIELTAG, FIRST_SPIELTAG = ObjectId("6890a1b2c3d4e5f607470031"), ObjectId("6890a1b2c3d4e5f607470032")
 SPIEL, UNDATED = ObjectId("6890a1b2c3d4e5f607470021"), ObjectId("6890a1b2c3d4e5f607470022")
 # The home squad: numbers stored as strings, so `7` must come before `10`, and the unnumbered pupil last.
-LINA, OLE, MIA, NEU, WEG = (ObjectId(f"6890a1b2c3d4e5f6074700{n}") for n in (41, 42, 43, 44, 45))
+LINA, OLE, MIA, NEWCOMER, LEAVER = (ObjectId(f"6890a1b2c3d4e5f6074700{n}") for n in (41, 42, 43, 44, 45))
 # The away club's pupil, in no squad of the home club.
-FREMD = ObjectId("6890a1b2c3d4e5f607470051")
+AWAY_PUPIL = ObjectId("6890a1b2c3d4e5f607470051")
 
 HOME_SEAT, AWAY_SEAT = "ansprech.heim@schule.de", "ansprech.gast@schule.de"
 # The home club's seat for the next season alone.
@@ -92,7 +92,7 @@ def on_a_season(url: str, body: Body) -> Any:
             await database[Collection.SPIELER].insert_many(
                 [
                     documents.spieler_document(pupil, name, "Muster")
-                    for pupil, name in ((LINA, "Lina"), (OLE, "Ole"), (MIA, "Mia"), (NEU, "Neu"), (WEG, "Weg"), (FREMD, "Fremd"))
+                    for pupil, name in ((LINA, "Lina"), (OLE, "Ole"), (MIA, "Mia"), (NEWCOMER, "Neu"), (LEAVER, "Weg"), (AWAY_PUPIL, "Fremd"))
                 ]
             )
             await database[Collection.SAISON_SPIELER].insert_many(
@@ -100,9 +100,9 @@ def on_a_season(url: str, body: Body) -> Any:
                     documents.saison_spieler_document(LINA, SAISON_ID, HOME, nummer="10", rolle="kapitaen"),
                     documents.saison_spieler_document(OLE, SAISON_ID, HOME, nummer="7"),
                     documents.saison_spieler_document(MIA, SAISON_ID, HOME),
-                    documents.saison_spieler_document(NEU, SAISON_ID, HOME, nummer="3", is_nachnominiert=True),
-                    documents.saison_spieler_document(WEG, SAISON_ID, HOME, nummer="5", inactive_since="2026-10-01"),
-                    documents.saison_spieler_document(FREMD, SAISON_ID, AWAY, nummer="9"),
+                    documents.saison_spieler_document(NEWCOMER, SAISON_ID, HOME, nummer="3", is_nachnominiert=True),
+                    documents.saison_spieler_document(LEAVER, SAISON_ID, HOME, nummer="5", inactive_since="2026-10-01"),
+                    documents.saison_spieler_document(AWAY_PUPIL, SAISON_ID, AWAY, nummer="9"),
                 ]
             )
             return await body(database, client)
@@ -332,7 +332,7 @@ def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_their_re
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
         await database[Collection.AUFSTELLUNGEN].insert_one(
-            documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[FREMD])
+            documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[AWAY_PUPIL])
         )
         read = await admin_reads(database, client)
         saved, _ = await admin_saves(database, client, FLAufstellungPayload(spieler=read.spieler, version=read.version))
@@ -340,7 +340,7 @@ def test_a_pupil_the_line_up_names_outside_the_clubs_squad_is_named_off_their_re
         return read.named, saved.named
 
     named = FLAufstellungSpieler(
-        spieler_id=FREMD, first_name="Fremd", last_name="Muster", nummer=None, position=None, rolle=None, is_nachnominiert=False
+        spieler_id=AWAY_PUPIL, first_name="Fremd", last_name="Muster", nummer=None, position=None, rolle=None, is_nachnominiert=False
     )
 
     assert on_a_season(mongo_replica_set_url, body) == ([named], [named])
@@ -353,11 +353,11 @@ def test_a_save_judges_its_names_against_the_squad_and_the_stored_line_up(mongo_
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-        refused, _ = await refusal_of(seat_saves(database, client, _payload(OLE, WEG)))
+        refused, _ = await refusal_of(seat_saves(database, client, _payload(OLE, LEAVER)))
         await database[Collection.AUFSTELLUNGEN].insert_one(
-            documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[WEG])
+            documents.aufstellung_document({"_id": SPIEL, "saison_id": SAISON_ID}, HOME, starters=[LEAVER])
         )
-        kept, _ = await seat_saves(database, client, _payload(WEG, OLE, version=0))
+        kept, _ = await seat_saves(database, client, _payload(LEAVER, OLE, version=0))
         return refused, [row.first_name for row in kept.named]
 
     assert on_a_season(mongo_replica_set_url, body) == (Code.SPIELER_NOT_IN_KADER, ["Weg"])
@@ -413,14 +413,14 @@ class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
         return await self._collection.find_one(*args, **kwargs)
 
 
-def test_a_pupil_ausgetragen_inside_the_save_refuses_it(mongo_replica_set_url: str):
+def test_a_pupil_withdrawn_inside_the_save_refuses_it(mongo_replica_set_url: str):
     """The squad row is read and never written, so its change conflicts with nothing: the judgement asked after the write refuses it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, Any]:
-        async def ole_is_ausgetragen() -> None:
+        async def ole_is_withdrawn() -> None:
             await database[Collection.SAISON_SPIELER].update_one({"spieler_id": OLE}, {"$set": {"inactive_since": "2026-11-10"}})
 
-        aufstellungen = LineUpsRunningARivalAtTheirRead(database[Collection.AUFSTELLUNGEN], ole_is_ausgetragen)
+        aufstellungen = LineUpsRunningARivalAtTheirRead(database[Collection.AUFSTELLUNGEN], ole_is_withdrawn)
         outcome = await outcome_of(seat_saves(database, client, _payload(LINA, OLE), aufstellungen=aufstellungen))
         # Committed before it, the rival is met at the squad's read, and the save is refused at its first read of the
         # line-up, before the write reads it again.
@@ -558,9 +558,9 @@ def test_the_other_clubs_first_save_for_the_same_fixture_stands_beside_it(mongo_
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await seat_saves(database, client, _payload(LINA))
-        answer, _ = await seat_saves(database, client, _payload(FREMD), seat=AWAY_SEAT, team_id=AWAY)
+        answer, _ = await seat_saves(database, client, _payload(AWAY_PUPIL), seat=AWAY_SEAT, team_id=AWAY)
         read = await seat_reads(database, client, seat=AWAY_SEAT, team_id=AWAY)
 
         return [entry.spieler_id for entry in answer.spieler], [entry.spieler_id for entry in read.spieler], await stored_line_ups(database)
 
-    assert on_a_season(mongo_replica_set_url, body) == ([FREMD], [FREMD], [(HOME, [LINA], 0), (AWAY, [FREMD], 0)])
+    assert on_a_season(mongo_replica_set_url, body) == ([AWAY_PUPIL], [AWAY_PUPIL], [(HOME, [LINA], 0), (AWAY, [AWAY_PUPIL], 0)])

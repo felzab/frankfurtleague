@@ -69,8 +69,8 @@ ANNA = "anna.admin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
 
 # An address the league adds in the cases below, in a spelling the fold changes.
-NEU_TYPED = "Nora.Neu@Beispielschule.de"
-NEU = "nora.neu@beispielschule.de"
+NORA_TYPED = "Nora.Neu@Beispielschule.de"
+NORA = "nora.neu@beispielschule.de"
 
 BAN_REASON = "Wiederholt gemeldet"
 
@@ -102,7 +102,7 @@ def grant_document(grant_id: ObjectId, address: str, admin_tier: str, *, effecti
 
 
 # Nora's addition still waiting beside the three in effect.
-WAITING = grant_document(NORA_ID, NEU, "administration", effective_from=NOW + timedelta(hours=1))
+WAITING = grant_document(NORA_ID, NORA, "administration", effective_from=NOW + timedelta(hours=1))
 
 
 def the_three_grants() -> list[dict[str, Any]]:
@@ -128,10 +128,10 @@ def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = N
     return on_the_seed_loop(_run())
 
 
-async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
+async def administering(acting_as: str, call: Callable[[], Awaitable[Any]]) -> Any:
     """`call` as one request of the administrator: the actor `bind_actor` binds."""
 
-    token = actor_var.set(als)
+    token = actor_var.set(acting_as)
     try:
         return await call()
     finally:
@@ -141,9 +141,9 @@ async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
 async def add(
     database: AsyncDatabase,
     client: AsyncMongoClient,
-    email: str = NEU_TYPED,
+    email: str = NORA_TYPED,
     *,
-    als: str = OWNER,
+    acting_as: str = OWNER,
     grants: Any = None,
     outbox: Any = None,
     now: datetime = NOW,
@@ -156,15 +156,15 @@ async def add(
             address_changes_collection=database[Collection.ADDRESS_CHANGES],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
-            operator=als,
+            operator=acting_as,
             now=now,
         )
 
-    return (await administering(als, call)).grant_id
+    return (await administering(acting_as, call)).grant_id
 
 
 async def remove(
-    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, als: str = OWNER, grants: Any = None, outbox: Any = None
+    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, *, acting_as: str = OWNER, grants: Any = None, outbox: Any = None
 ) -> None:
     async def call() -> Any:
         return await delete_grant(
@@ -172,11 +172,11 @@ async def remove(
             grants_collection=grants if grants is not None else database[Collection.GRANTS],
             outbox_collection=outbox if outbox is not None else database[Collection.OUTBOX],
             db=client,
-            operator=als,
+            operator=acting_as,
             now=NOW,
         )
 
-    await administering(als, call)
+    await administering(acting_as, call)
 
 
 async def hand_over(
@@ -184,7 +184,7 @@ async def hand_over(
     client: AsyncMongoClient,
     grant_id: ObjectId = ANNA_ID,
     *,
-    als: str = OWNER,
+    acting_as: str = OWNER,
     grants: Any = None,
     now: datetime = NOW,
 ) -> None:
@@ -195,25 +195,25 @@ async def hand_over(
             ban_list_collection=database[Collection.BAN_LIST],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            operator=als,
+            operator=acting_as,
             now=now,
         )
 
-    await administering(als, call)
+    await administering(acting_as, call)
 
 
-async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, als: str = OWNER) -> None:
+async def stop(database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId = ANNA_ID, *, acting_as: str = OWNER) -> None:
     async def call() -> Any:
         return await delete_handover(
             grant_id=grant_id,
             grants_collection=database[Collection.GRANTS],
             outbox_collection=database[Collection.OUTBOX],
             db=client,
-            operator=als,
+            operator=acting_as,
             now=NOW,
         )
 
-    await administering(als, call)
+    await administering(acting_as, call)
 
 
 async def pass_at(
@@ -312,12 +312,12 @@ class TestAnAddition:
         row, notices = on_a_league(mongo_replica_set_url, body)
 
         assert row == {
-            "address": NEU,
+            "address": NORA,
             "admin_tier": "administration",
             "effective_from": stored(NOW + timedelta(hours=GRANT_WAIT_HOURS)),
         }
         # The date is the mail's one sentence on when it lands.
-        assert notices == [("granted", "started", NEU, sorted([*EVERY_HOLDER, NEU]), "2126-04-02T10:30:00Z")]
+        assert notices == [("granted", "started", NORA, sorted([*EVERY_HOLDER, NORA]), "2126-04-02T10:30:00Z")]
 
     def test_a_waiting_holder_is_told_of_nothing_but_their_own_row(self, mongo_replica_set_url: str):
         """The holder list is who is in effect: a row still waiting may yet be withdrawn, and hears only of itself."""
@@ -341,14 +341,14 @@ class TestAnAddition:
         refused, held = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
         # Named on no box, the refusal reaches a shared failure line that sends the owner to a retry refused alike.
-        assert (refused.error_code, refused.fields, held) == (Code.GRANT_EXISTS, (("email",),), sorted([*EVERY_HOLDER, NEU]))
+        assert (refused.error_code, refused.fields, held) == (Code.GRANT_EXISTS, (("email",),), sorted([*EVERY_HOLDER, NORA]))
 
     def test_a_live_change_at_the_address_ends(self, mongo_replica_set_url: str):
         """Left standing, its switch would carry the waiting row to an address the owner never named."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             change = await database[Collection.ADDRESS_CHANGES].insert_one(
-                address_change_document(address=NEU, email="woanders@beispielschule.de", token_hash=None, day=TODAY)
+                address_change_document(address=NORA, email="woanders@beispielschule.de", token_hash=None, day=TODAY)
             )
             await add(database, client)
 
@@ -388,7 +388,7 @@ class TestAnAddition:
             with pytest.raises(RuntimeError):
                 await add(database, client, outbox=cast(AsyncCollection, Aborting(database[Collection.OUTBOX], "insert_many")))
 
-            return await database[Collection.GRANTS].count_documents({"address": NEU}), await database[Collection.OUTBOX].count_documents({})
+            return await database[Collection.GRANTS].count_documents({"address": NORA}), await database[Collection.OUTBOX].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body) == (0, 0)
 
@@ -414,11 +414,11 @@ class TestOnlyTheOwnerActs:
     @pytest.mark.parametrize(
         "act",
         [
-            pytest.param(lambda database, client: add(database, client, als=ANNA), id="an addition"),
-            pytest.param(lambda database, client: remove(database, client, BERND_ID, als=ANNA), id="a removal"),
-            pytest.param(lambda database, client: hand_over(database, client, BERND_ID, als=ANNA), id="a handover"),
-            pytest.param(lambda database, client: stop(database, client, BERND_ID, als=ANNA), id="a stop"),
-            pytest.param(lambda database, client: remove(database, client, ObjectId(), als=ANNA), id="before the target is answered"),
+            pytest.param(lambda database, client: add(database, client, acting_as=ANNA), id="an addition"),
+            pytest.param(lambda database, client: remove(database, client, BERND_ID, acting_as=ANNA), id="a removal"),
+            pytest.param(lambda database, client: hand_over(database, client, BERND_ID, acting_as=ANNA), id="a handover"),
+            pytest.param(lambda database, client: stop(database, client, BERND_ID, acting_as=ANNA), id="a stop"),
+            pytest.param(lambda database, client: remove(database, client, ObjectId(), acting_as=ANNA), id="before the target is answered"),
         ],
     )
     def test_an_administrator_is_refused_and_nothing_moves(self, mongo_replica_set_url: str, act: Body):
@@ -448,12 +448,12 @@ class TestARemoval:
             await remove(database, client, NORA_ID)
 
             return await owed(database), await database[Collection.ACTION_LOG].count_documents(
-                {"action": "grant.addition_withdrawn", "label": NEU}
+                {"action": "grant.addition_withdrawn", "label": NORA}
             )
 
         notices, logged = on_a_league(mongo_replica_set_url, body, grants=[WAITING])
 
-        assert notices == [("granted", "withdrawn", NEU, sorted([*EVERY_HOLDER, NEU]), None)]
+        assert notices == [("granted", "withdrawn", NORA, sorted([*EVERY_HOLDER, NORA]), None)]
         assert logged == 1
 
     def test_a_handover_waiting_on_the_row_is_withdrawn_in_words(self, mongo_replica_set_url: str):
@@ -629,7 +629,7 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
         return cursor
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, grants: Any = None) -> Any:
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NORA_TYPED, *, grants: Any = None) -> Any:
     async def call() -> Any:
         return await ban_through_the_route(database, client, email=email, ban_reason=BAN_REASON, by=ANNA, today=TODAY, grants=grants)
 
@@ -743,9 +743,11 @@ class TestTheMountedRouteReadsTheGrants:
         """A passkey session a minute old: a waiting row must admit nobody, or the wait stops nothing it was written to stop."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
-            await database[Collection.GRANTS].insert_one(grant_document(NORA_ID, NEU, "administration", effective_from=at_most(effective_in_s)))
+            await database[Collection.GRANTS].insert_one(
+                grant_document(NORA_ID, NORA, "administration", effective_from=at_most(effective_in_s))
+            )
             async with app_client(mongo_replica_set_url, app=_served()) as http:
-                response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NEU, int(time.time()) - 60))
+                response = await http.get(f"/api/v{API_VERSION}/grants", headers=signed_in_at(NORA, int(time.time()) - 60))
 
             return response.status_code, response.json().get("error_code")
 
@@ -796,12 +798,12 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
                 response = await http.post(
-                    f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
+                    f"/api/v{API_VERSION}/grants", headers=StampedHeaders(OWNER.upper(), ADMIN_KEY), json={"email": NORA_TYPED}
                 )
 
-            row = await database[Collection.GRANTS].find_one({"address": NEU})
+            row = await database[Collection.GRANTS].find_one({"address": NORA})
             assert row is not None
 
             return response.status_code, await acts_on(database, row["_id"])
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, [("grant.added", OWNER, NEU)])
+        assert on_a_league(mongo_replica_set_url, body) == (201, [("grant.added", OWNER, NORA)])

@@ -108,7 +108,7 @@ def _einwilligung(**fields: Any) -> dict[str, Any]:
 
 
 # What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
-MEDIEN_GRANTED_STAND = evidence_state_of(blocks=[_einwilligung(media=True)])
+MEDIA_GRANTED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
 # What a page served that record echoes.
@@ -448,7 +448,7 @@ class TestTheMediaAge:
 
         response, _, after, _ = served(
             mongo_replica_set_url,
-            _press(YOUNG, _payload(scope="internal", media=True, stand=MEDIEN_GRANTED_STAND), before=granted_under_an_earlier_label),
+            _press(YOUNG, _payload(scope="internal", media=True, stand=MEDIA_GRANTED_STATE), before=granted_under_an_earlier_label),
         )
 
         assert response.status_code == 204, response.text
