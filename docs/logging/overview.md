@@ -86,6 +86,12 @@ only the log carries names its event by its key alone, such as `db.unreachable`.
 Reading production's logs is `ssh` and then `docker compose logs <service>` in the checkout, or
 `journalctl` on the host; nothing aggregates or indexes them.
 
+- **No alert reads a log line, and no hosted service receives one.** The monitors are the alerts
+  ([`../ops/spec.md`](../ops/spec.md#19-the-monitors)).
+- **A request a Cloudflare rule refused never reached nginx**, so no line here records it.
+  Cloudflare's Security Events shows it, sampled, for up to the last 31 days on every plan
+  (<https://developers.cloudflare.com/waf/analytics/security-events/>, read 2026-11-12).
+
 ## A crash in the browser
 
 A client component cannot reach the server's logger. Every error boundary therefore posts its crash

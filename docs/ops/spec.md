@@ -12,6 +12,7 @@
 | [1.6 The verification gate](#16-the-verification-gate)        | Which scopes exist, what each runs, and the CI jobs that run them       |
 | [1.7 Script conventions](#17-script-conventions)              | What a path says, what every script shares, and what its exit code says |
 | [1.8 The edge's declared state](#18-the-edges-declared-state) | What is set at Cloudflare, which no file here can hold to it            |
+| [1.9 The monitors](#19-the-monitors)                          | What watches the site from outside, and whom it alerts                  |
 | [2. Invariants](#2-invariants)                                | The rules that must hold, and what holds each                           |
 | [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                           |
 | [4. Known-open](#4-known-open)                                | The accepted gaps                                                       |
@@ -668,6 +669,13 @@ deliberately off.
   (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
   `fl_frontend/src/app/robots.ts` writes one rule for every crawler alike, so while the setting is
   off the block above enforces the opt-out and nothing declares it.
+- **No cache rule caches an HTML page or an RSC response.** A save clears Next's own cache through
+  its one tag, which reaches no copy held at the edge, so an edge copy would serve the page as it
+  was before the save until its own lifetime ran out (Next's installed guide,
+  `fl_frontend/node_modules/next/dist/docs/01-app/02-guides/cdn-caching.md`). The files under
+  `/_next/static/` need no rule: Next names each by its content and sends it
+  `public, max-age=31536000, immutable`. The check is the zone's list of cache rules, which holds
+  none matching a page's path.
 - **A Turnstile widget serves the bot check**, in Managed mode, on the hostname
   `frankfurtleague.de` alone, `www` redirecting before any form renders. Its site key is the
   server's `TURNSTILE_SITE_KEY` and its secret `./secrets/turnstile_secret_key` (§1.2); that the
@@ -677,6 +685,26 @@ deliberately off.
   dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
   signing key (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), so an endpoint aimed
   anywhere else has every event refused unverified.
+
+### 1.9 The monitors
+
+Every monitor is made in Better Stack's dashboard, which no file here can read, so this is what must
+be true there, a check the owner makes in its list of monitors:
+
+- **Four monitors watch production.**
+  - **The landing page**, `https://frankfurtleague.de/`, fails where the edge, the connector or the
+    frontend does. A page whose league read failed still answers 200, so it never sees a database
+    outage.
+  - **The liveness probe**, `GET https://frankfurtleague.de/api/v0/system/is_live`, fails where the
+    backend does. It names the apex host and no trailing slash, and asks with `GET` (§3).
+  - **The readiness probe**, `GET https://frankfurtleague.de/api/v0/system/is_ready`, answers 503
+    where the backend reaches no database. It asks no oftener than every two seconds, its location's
+    zone allowing no more (§1.3).
+  - **The heartbeat** fails where an hourly pass fails or none runs
+    ([`runbooks.md`](runbooks.md) §9).
+- **Every monitor alerts the owner's personal address, and nobody else.**
+- **No alert reads a log line**, and no hosted service receives one: the logs stay in the host's
+  journal ([`../logging/overview.md`](../logging/overview.md#where-the-logs-are-and-how-long-they-stay)).
 
 ## 2. Invariants
 

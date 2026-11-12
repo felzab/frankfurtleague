@@ -27,6 +27,7 @@ renumbering would repoint every citation of a section, the scripts' own messages
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                  | What `pnpm install` fetches, and how a new release lands         |
 | [19. The database's storage alert](#19-the-databases-storage-alert)                                                           | What fills the tier unseen, and the two alerts that show it      |
 | [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                          | What a hand edit leaves cached, and for how long                 |
+| [21. The repository's settings](#21-the-repositorys-settings)                                                                 | What must be true in GitHub's settings, and why                  |
 
 ---
 
@@ -1510,3 +1511,18 @@ cached league read keeps that lifetime: the first visit a minute or more after a
 still gets the entry and refills it behind its answer, and an entry nobody visits for an hour
 expires, so the next visit waits for a fresh read. A save made on the site clears every
 cached entry at once; a hand edit, a restore and the hourly passes clear none.
+
+## 21. The repository's settings
+
+**GitHub holds them and no file here can read them**, so this is a check the owner makes in the
+repository's settings, after any change there:
+
+- **Rules, Rulesets: one ruleset targets the default branch, its enforcement Active.**
+  - It requires a pull request, with zero approvals: a sole maintainer cannot approve his own.
+  - It requires one status check, `verify`, which fails on any other job's failure
+    ([`spec.md`](spec.md) §1.6). A required check no job reports blocks every merge.
+  - It blocks force pushes and restricts deletions: every published `sha-` tag names a commit of
+    `main`, which a rewrite would leave behind.
+  - Its bypass list is empty, since an exemption would exempt the force push it refuses.
+- **General, Pull Requests: merge commits alone, squash and rebase off.** A merge keeps each commit
+  and its body, which carries what the diff cannot ([`../writing.md`](../writing.md#commit-messages)).
