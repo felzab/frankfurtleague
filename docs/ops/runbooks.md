@@ -679,11 +679,6 @@ by mail instead has two answers, and which one you give is the person's to choos
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
 
-**A person whose pupil or referee row went in the deletion
-[section 13](#13-after-a-restore-from-a-snapshot)'s cutoff marks has nothing held in that role, and
-their fixtures name nobody**; only a snapshot taken before that cutoff still holds them, until the
-snapshot window passes it.
-
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
@@ -1086,57 +1081,54 @@ Then the read-back (§2): exit 0.
 ## 13. After a restore from a snapshot
 
 **The published notice promises that nothing comes back from a backup without the person's erasure
-being run again** (`/datenschutz`), and this is
-how that promise is kept ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
-Two things a restore is contemplated for: a hand-run migration that succeeded against a mistyped path
-(§2), and a mistaken erasure, for which the snapshot window is the only route back. Write down the
-moment the restored snapshot was taken, and once the restore has completed, that moment too: the
-lines below between the two are what the restore undid, and an act after the second is the restored
-site's own, which stands as its person made it.
+being run again** (`/datenschutz`), and this section is how that promise is kept
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). A restore is
+contemplated for two things: a hand-run migration that succeeded against a mistyped path (§2), and
+a mistaken erasure, for which the snapshot window is the only route back. The steps, in the order
+they are done, each explained below:
 
-**Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
-every pupil and referee row had been deleted and the action log emptied. It brings back those rows
-and that log, holding addresses nobody asked to keep, and records citing consent labels the
-registry does not hold, which §2's read-back passes, a record model taking any label. The rule lapses once the hosting holds no
-snapshot taken before that moment, its snapshot window being about eight days
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
+1. **Write down the moment the snapshot to restore was taken.**
+2. **Hold the frontend**: add the line `RESTORE_HOLD=on` to the server's `fl_frontend/.env`, then
+   run `docker compose up -d --wait --force-recreate frontend` in the checkout.
+   `docker compose logs frontend | grep scheduler.held` prints one line once the hold has taken.
+3. **Where the snapshot predates a deploy whose migration files changed stored data, stop the
+   application services too**: `docker compose stop frontend backend`.
+4. **Restore the snapshot in the Atlas console**, onto the cluster it was taken from, and write
+   down the moment the restore completed. Atlas deletes the cluster's data before it restores, and
+   the cluster answers nothing meanwhile.
+5. **Where step 3 stopped them**, run the migration files of every deploy the snapshot predates, in
+   their order, as §2 runs them. Then start the services with `docker compose up -d --wait`, and run
+   §2's read-back: exit 0.
+6. **List the `journal.act` lines between the two moments.**
+7. **Set each withdrawal again, then run each erasure again**, a former owner's only after §3's
+   recovery.
+8. **Re-enter the squad rows and registrations written since the snapshot.**
+9. **Re-run every grant and ban change made inside the window.**
+10. **Activate again each season whose activation the snapshot predates.**
+11. **Lift the hold**: delete the line from `fl_frontend/.env`, then run
+    `docker compose up -d --wait --force-recreate frontend`.
+12. **Write to the clubs and referees the window reached.**
 
-**A snapshot taken before the deploy of the current consent wordings brings back the labels that
-deploy's paste re-pointed: once the restore has completed, run that paste again, before the steps
-below.** It is the paste the owner's checklist holds for that deploy, moving every stored label, a
-withdrawal's `given_before` among them, to its consent's current wording. Skipped, every read of a record citing an older label is refused, the read models
-admitting the current labels alone (`fl_backend/app/shared/schemas/einwilligung.py ::
-FLEinwilligungTextVersion`) while §2's read-back passes them. This lapses with the rule above, once
-the hosting holds no snapshot taken before that deploy; delete it then.
+**The two moments bound what the restore undid.** The lines between them are acts the restore took
+back, and an act after the second is the restored site's own, which stands as its person made it.
 
-**A snapshot taken before the deploy of the current stored names brings back the names that deploy's
-paste moved: once the restore has completed, run that paste again before the steps below.** Here the
-backend stands up with the frontend held, unlike the paste's head, and `uniq_spielbestaetigung_open`
-stands dropped until a boot rebuilds it. This lapses once the hosting holds no snapshot taken before
-that deploy; delete it then.
+**A migration the snapshot predates is run again before anything reads the restored data.** The
+snapshot holds the shape from before that deploy, which the running release cannot read, so the
+application services stay stopped until its files have run, as §2's order keeps them. Those files
+are the ones the owner kept for that deploy, each written to be run again.
 
-**Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
-`fl_frontend/.env` and recreate the frontend, and take the line out again only at the last step
-below.** The frontend reads the file as it boots, so the recreate is what applies it, in the
-checkout:
+**The hold keeps every hourly pass off the restored state until the steps are done.** The steps run
+on the admin pages, so the frontend serves throughout, and what the hold stops is §2's
+([What the hold stops](#what-the-hold-stops)). Unheld, a pass would do harm nothing undoes:
 
-```bash
-docker compose up -d --wait --force-recreate frontend
-```
+- **The pupils' deletion** would delete each pupil the season-after rule makes due, a returning
+  pupil whose squad row the snapshot predates among them, and nothing brings one back.
+- **The fixture confirmations** would mail seat holders and referees whose erasure has not run
+  again, and the retention sweep would remind the seats of erased people.
+- **The drain** would send what the snapshot held unsent.
 
-The
-steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
-would act on the restored state before they are done. The pupils' deletion would delete each pupil
-the season-after rule makes due under it, a returning pupil whose squad row the snapshot predates
-among them, and nothing brings one back. The fixture confirmations would mail seat holders and
-referees whose erasure has not run again, and the retention sweep would remind the seats of erased
-people. The drain would send what the snapshot held unsent. Held, the frontend reads the line once
-as it boots: it arms no pass, logging `scheduler.held`, and no write's drain sends, each mail it owes
-waiting in the Postausgang for the first drain after the hold. So, while it holds:
-
-- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
-- **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
-  owner's steps below ask for anyway.
+The heartbeat alerts until step 11, and no sign-in code is mailed meanwhile: sign in by passkey,
+which every administrator holds and which the owner's steps ask for anyway.
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
@@ -1247,8 +1239,7 @@ undid the erasures, and which nothing re-runs:
 pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
 deletions are re-derived: it writes no line.
 
-**Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
-and recreate the frontend with the command above.** The first pass runs a minute after the boot and pings the heartbeat, and the
+**Once the hold lifts, the first pass runs a minute after the boot**, pinging the heartbeat, and the
 drain sends what waited, so these follow:
 
 - **The Postausgang came back with the snapshot**, so every mail open in it then goes out with the
@@ -1268,8 +1259,8 @@ drain sends what waited, so these follow:
     them off the fixture, so the restore books them onto it again with no row, and the first pass
     mails them a fresh Einteilung; until they agree again the fixture names no referee.
 
-Write to each club mailed inside the window, which the mail provider's list of sent messages names
-by subject, that an answer given on its Übersicht in those days is to be given again there. Write
+**Write to each club mailed inside the window**, which the mail provider's list of sent messages
+names by subject, that an answer given on its Übersicht in those days is to be given again there. Write
 to each referee booked onto a fixture still to come, at the address their record holds, that an
 answer given on their Übersicht in those days is to be given again there, a decline included: no
 record the restore keeps says which of them answered.
