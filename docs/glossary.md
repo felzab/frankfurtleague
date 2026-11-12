@@ -71,7 +71,8 @@ other senses `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungKader` and
 ### `Schiedsrichter` — referee
 
 **Is:** a referee, referenced on a match as `{schiedsrichter_id, payment}`, the referee's current
-`name` joined beside it at read.\
+`name` joined beside it at read; a null `schiedsrichter_id` names nobody, a played match's referee
+erased since.\
 **In code:** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter`; on a match
 `fl_backend/app/api/spiele/schemas.py :: FLSpielSchiedsrichterFieldRecord`.
 
@@ -124,7 +125,8 @@ administrator in the match editor.\
 
 **Is:** the pupils one club fields in one fixture and which of them start, one document per club
 per fixture in `aufstellungen`, entered by the club's contact seats until it locks one hour before
-kick-off. It is no part of the `Spielbericht`, and not the `Kader` it picks from.\
+kick-off; an entry with a null `spieler_id` names nobody, a played match's pupil erased since. It is
+no part of the `Spielbericht`, and not the `Kader` it picks from.\
 **In code:** `fl_backend/app/api/aufstellungen/schemas.py :: FLAufstellung`, its clocks
 `fl_backend/app/api/aufstellungen/services.py :: aufstellung_marks`.
 
