@@ -140,17 +140,32 @@ const LOGGING_DOUBLE = {
 };
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  // The admin key the person lane's erasure is sent under, beside the store's address.
+  core: {
+    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    db: DB_DOUBLE,
+    logging: LOGGING_DOUBLE,
+  },
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
 let gateAnswer: Pick<LookupFixture, "seats" | "barred" | "account"> = { seats: [], barred: false, account: false };
+
+/** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
+const ERASURE_PATH = "/api/v0/identity/account/erasure";
+
+/** How many erasures the backend has been asked for. */
+let erasuresAsked = 0;
 
 // The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
+  if (new URL(url).pathname === ERASURE_PATH) {
+    erasuresAsked += 1;
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }
 
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
@@ -685,21 +700,17 @@ describe("an account deleted, against a real database", () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
-    let erasedCount = 0;
+    const erasuresBefore = erasuresAsked;
 
     const answer = await runWithRequestScope(
       {
         traceId: `${"0".repeat(31)}4`,
         actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
       },
-      () =>
-        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erasedCount += 1;
-          return Promise.resolve({});
-        }),
+      () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
     );
 
-    expect([answer, erasedCount]).toStrictEqual(["deleted", 1]);
+    expect([answer, erasuresAsked - erasuresBefore]).toStrictEqual(["deleted", 1]);
     expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(await heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -717,7 +728,7 @@ describe("an account deleted, against a real database", () => {
           traceId: `${"0".repeat(31)}5`,
           actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
         },
-        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
+        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
       ),
       // Past the library's spend of the link, so of an outcome the press cannot name, the planted failure its cause.
     ).rejects.toSatisfy(
