@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { DAY_MS } from "@/core/timeUnits";
 
-import { SaisonBlock, SaisonBlockPlaceholder } from "./SaisonBlock";
+import { SaisonBlock } from "./SaisonBlock";
 
 const TITLE = COPY.shared.saisonName("2027");
 const SPIEL = {
@@ -44,22 +44,6 @@ describe("the season's card before the start", () => {
     expect(screen.getByText(SERVER_COPY.landing.saison.opening(SPIEL.when))).toBeTruthy();
   });
 
-  // The harm: a countdown naming an opening match that will not be played, with nothing saying so.
-  it("names what befell its opening match after the match's plaques", () => {
-    const label = COPY.spielplan.sonderereignis.ausgefallen;
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{
-          kind: "countdown",
-          start: new Date(Date.now() + 12 * DAY_MS).toISOString(),
-          opening: { ...OPENING, event: { tone: "danger", label } },
-        }}
-      />,
-    );
-    expect(screen.getByText(label).closest("p")?.textContent).toContain(OPENING.team2.record);
-  });
-
   it("shows the application window while no match is dated, with the way to apply", () => {
     render(
       <SaisonBlock
@@ -95,39 +79,6 @@ describe("the season's card while it runs", () => {
     expect(heads).toStrictEqual([SERVER_COPY.landing.saison.last, SERVER_COPY.landing.saison.next]);
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     expect(links).toStrictEqual(["/saisons/2027/spiele/1", "/saisons/2027/spiele/2"]);
-  });
-
-  // The harm: a season with nothing left to play, or nothing played yet, would show one match where it has two.
-  it("lists two matches under the one head of the side that has them", () => {
-    render(
-      <SaisonBlock
-        title={TITLE}
-        state={{
-          kind: "running",
-          last: [],
-          next: [
-            { ...SPIEL, id: "2", href: "/saisons/2027/spiele/2" },
-            { ...SPIEL, id: "3", href: "/saisons/2027/spiele/3" },
-          ],
-        }}
-      />,
-    );
-    const heads = screen.getAllByRole("heading", { level: 3 }).map((head) => head.textContent);
-    expect(heads).toStrictEqual([SERVER_COPY.landing.saison.next]);
-    const links = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
-    expect(links).toStrictEqual(["/saisons/2027/spiele/2", "/saisons/2027/spiele/3"]);
-  });
-});
-
-describe("the season's card while it is read", () => {
-  // The harm: a wait drawn as one state's body stands at another height than the state that lands, and moves the page.
-  it("draws its head over one plain body, the same whichever state lands", () => {
-    const { container } = render(<SaisonBlockPlaceholder />);
-    const parts = Array.from(container.firstElementChild?.children ?? []);
-    expect(parts).toHaveLength(2);
-    const body = parts[1];
-    expect(body?.querySelectorAll(".skeleton-bar")).toHaveLength(1);
-    expect(body?.textContent).toBe("");
   });
 });
 

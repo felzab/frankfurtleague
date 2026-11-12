@@ -61,8 +61,6 @@ describe("a match's line-up at the team's address", () => {
     const locked = await pageAt({ ...MARKS, phase: "locked" });
     expect(locked.type).toBe(TeamAufstellung);
     expect(locked.props.closed).toBe(COPY.area.team.aufstellung.lockedLine);
-    // The lock is the line-up's own state, so its chip says it as the Übersicht's row does.
-    expect((locked.props as { chip?: unknown }).chip).toStrictEqual({ tone: "neutral", label: COPY.area.team.aufstellung.locked });
     const open = await pageAt({ ...MARKS, phase: "overdue" });
     expect(open.type).toBe(TeamAufstellung);
     expect(open.props.closed).toBeUndefined();

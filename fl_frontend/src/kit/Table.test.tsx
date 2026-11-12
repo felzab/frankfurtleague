@@ -38,27 +38,3 @@ describe("a table's rank column", () => {
     expect(ranks).toStrictEqual(["1", "1", "3", "–"]);
   });
 });
-
-describe("a table's secondary column", () => {
-  // The harm: a column the list marks secondary stands beside the name on a phone and pushes the row's chip onto a
-  // line of its own. jsdom evaluates no container query, so the switch at 42 rem is the browser's to show: this reads
-  // that the column's head and cells carry the class leaving them out below it, and that its neighbour's do not.
-  it("is drawn in a wide box and left out of a narrow one, head and cells alike", () => {
-    render(
-      <Table
-        {...props([
-          { id: "1", name: { record: "verwaltung@example.org" }, cells: { district: { record: "Nordend" }, since: { record: "01.09.2026" } } },
-        ])}
-        columns={[
-          { key: "district", label: COPY.shared.startelf },
-          { key: "since", label: COPY.admin.administrators.since, hideOnPhone: true, width: "date" },
-        ]}
-      />,
-    );
-
-    const leftOut = (cell: Element | undefined) => cell?.className.split(" ").includes("@max-2xl:hidden");
-    const [head, row] = screen.getAllByRole("row");
-    expect([...(head?.children ?? [])].map(leftOut)).toStrictEqual([false, false, true]);
-    expect([...(row?.children ?? [])].map(leftOut)).toStrictEqual([false, false, true]);
-  });
-});

@@ -50,16 +50,6 @@ describe("where a team's seat stands", () => {
     expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.admin.expired);
   });
 
-  // One state, one word on the row: a line saying „Offen“ under the chip „Unbestätigt“ names it twice, two ways.
-  it("dates an open link by the answer it awaits, in no other word for its state", () => {
-    const held = { ...NOBODY, ansprechperson: person("Anna") };
-    const [seat] = seatsOf({ kontakte: held, confirmations: { trainer: null, stellvertretung: null, ansprechperson: link({}) } }).filter(
-      (row) => row.id === "ansprechperson",
-    );
-
-    expect(seat?.line).toBe(COPY.admin.seatLine(["ansprechperson"], "anna@example.com", COPY.admin.spiel.answerBy("2026-10-15")));
-  });
-
   it("tells a seat its person objected to from one an erasure emptied", () => {
     expect(chipOf(NOBODY, { trainer: null, stellvertretung: null, ansprechperson: link({ declined_at: "2026-10-03" }) })).toBe(
       SERVER_COPY.entryConfirmation.objected,

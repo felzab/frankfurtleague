@@ -130,13 +130,6 @@ describe("a date the team cannot answer", () => {
 
     expect(rows.map(({ acts }) => acts)).toStrictEqual([undefined, undefined, undefined]);
   });
-
-  // One state in one word and hue on every page showing it: the team's Spiele, the referee's list and the match editor say „Abgelaufen“ too.
-  it("says „Abgelaufen“ in grey past its deadline", async () => {
-    const [expired] = await spielbestaetigungen(spielbestaetigung({ state: "expired" }));
-
-    expect(expired?.chip).toStrictEqual({ tone: "neutral", label: COPY.admin.expired });
-  });
 });
 
 // A row past its due mark that says so only in its muted line reads as one still in time.

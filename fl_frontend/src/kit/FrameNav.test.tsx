@@ -91,8 +91,8 @@ const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute(
 // The address alone spells every season page's address, so a menu that waits on the seasons' read draws placeholders a
 // load need not show, and nothing but a recording of a slow read shows it.
 describe("the entries on a page whose address names the season", () => {
-  it("lead to that season's pages while the seasons are still read", async () => {
-    address.path = ROUTES.adminSpiele.path("2026");
+  it("lead to that season's pages, and an editor's way back to its list, while the seasons are still read", async () => {
+    address.path = ROUTES.adminSpiel.path("2026", "6890a1b2c3d4e5f607190001");
     address.saison = "2026";
     await act(async () =>
       render(
@@ -101,6 +101,7 @@ describe("the entries on a page whose address names the season", () => {
             <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
               <RailEntries groups={GROUPS} />
               <BarPlaces />
+              <EditorBack />
             </MenuScope>
           </SaisonScope>
         </Suspense>,
@@ -113,26 +114,8 @@ describe("the entries on a page whose address names the season", () => {
       ROUTES.adminSpiele.path("2026"),
       ROUTES.adminTeams.path("2026"),
     ];
-    // The rail's four, the bar's two places, and the sheet's two the bar leaves out.
-    expect(hrefs()).toEqual([...rail, ...rail.slice(0, 2), ...rail.slice(2)]);
-  });
-
-  it("lead an editor's way back to its list while the seasons are still read", async () => {
-    address.path = ROUTES.adminSpiel.path("2026", "6890a1b2c3d4e5f607190001");
-    address.saison = "2026";
-    await act(async () =>
-      render(
-        <Suspense fallback={null}>
-          <SaisonScope value={{ saisons: PENDING, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
-            <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
-              <EditorBack />
-            </MenuScope>
-          </SaisonScope>
-        </Suspense>,
-      ),
-    );
-
-    expect(hrefs()).toEqual([ROUTES.adminSpiele.path("2026")]);
+    // The rail's four, the bar's two places, the sheet's two the bar leaves out, and the editor's way back.
+    expect(hrefs()).toEqual([...rail, ...rail.slice(0, 2), ...rail.slice(2), ROUTES.adminSpiele.path("2026")]);
   });
 
   it("lead to the team's pages in that season in a team's frame while the seats are still read", async () => {

@@ -22,8 +22,14 @@ const body = (count: number) => (
 
 describe("a card's capped rows", () => {
   // The harm: the press shows the rest and leaves the focus on the button it removed, so a keyboard or a screen reader
-  // starts over from the page's top; or rows stay hidden after it.
+  // starts over from the page's top; or rows stay hidden after it; or a card at its cap ends in a button that shows
+  // nothing.
   it("show the rest in place on „Alle anzeigen“, the focus on the first row it showed", async () => {
+    const atCap = render(body(5));
+    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.queryByRole("button")).toBeNull();
+    atCap.unmount();
+
     render(body(15));
     expect(screen.getAllByRole("link")).toHaveLength(5);
 
@@ -32,13 +38,5 @@ describe("a card's capped rows", () => {
     expect(screen.getAllByRole("link")).toHaveLength(15);
     expect(screen.queryByRole("button")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("link", { name: "Spiel 6" }));
-  });
-
-  // The harm: a card at its cap ends in a button that shows nothing.
-  it("show every row of a card holding five, with no button", () => {
-    render(body(5));
-
-    expect(screen.getAllByRole("link")).toHaveLength(5);
-    expect(screen.queryByRole("button")).toBeNull();
   });
 });
