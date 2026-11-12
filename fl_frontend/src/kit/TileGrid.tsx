@@ -103,9 +103,10 @@ export function SchoolTiles({ schools, reads = "box" }: { schools: readonly Scho
 
 /**
  * The schools while they are read: `count` of the grid's tiles, each its plaque, its name's line and the line under
- * it as bars, at a tile's height.
+ * it as bars, at a tile's height. 24 by default, six rows of four on a wide screen, for every grid of
+ * schools: how many clubs a season holds is what the read tells, so no page states it.
  */
-export function SchoolTilesPlaceholder({ count, reads = "box" }: { count: number; reads?: TilesReads }) {
+export function SchoolTilesPlaceholder({ count = 24, reads = "box" }: { count?: number; reads?: TilesReads }) {
   const slots = grid({ kind: "school", reads });
   return (
     <TilesBox reads={reads}>

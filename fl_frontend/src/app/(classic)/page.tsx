@@ -260,10 +260,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         block={schoolsOf(read)}
         fallback={
           <LandingSectionPlaceholder more={COPY.page.teams}>
-            <SchoolTilesPlaceholder
-              count={24}
-              reads="screen"
-            />
+            <SchoolTilesPlaceholder reads="screen" />
           </LandingSectionPlaceholder>
         }
       />
