@@ -330,6 +330,19 @@ def test_a_spiel_still_to_come_does_not_stop_the_erasure_and_loses_the_booking(m
 
 
 @pytest.mark.db
+def test_a_spiel_later_on_the_erasures_day_loses_the_booking(mongo_replica_set_url: str):
+    """Kills judging by the day alone: the seeded kick-off is 14:00 and `NOW` 12:30, so this match is still to come.
+
+    Read by its hour, which the erasure must project and hand on: without it the match counts as played and keeps a
+    booking naming nobody, with its fee, for a match nobody is booked to referee.
+    """
+
+    spiele, _ = after_moving_one_spiel(mongo_replica_set_url, date=TODAY)
+
+    assert spiele[MOVED_SPIEL_OID]["schiedsrichter"] is None
+
+
+@pytest.mark.db
 def test_a_spiel_kicked_off_with_no_result_yet_keeps_the_booking_naming_nobody(mongo_replica_set_url: str):
     """Kills a partition reading the result: the match took place, and its record says somebody officiated it and what it cost."""
 

@@ -357,15 +357,15 @@ class TestTheCounts:
                 address_change_document(address="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="account")
             )
             # One still to come beside the seed's own, which was played and keeps its booking naming nobody: a count of
-            # every booking would read two.
+            # every booking would read two. Later on `NOW`'s own day, so a count judging by the day alone reads none.
             await database[Collection.SPIELE].insert_one(
                 spiel_document(
                     spiel_id=ObjectId(),
                     saison_id=SAISON_ID,
                     spiel_nr=5,
                     spieltag_id=SPIELTAG_OID,
-                    date="2126-04-15",
-                    time="14:00:00",
+                    date="2126-04-01",
+                    time="18:00:00",
                     schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": PAYMENT},
                 )
             )
