@@ -1,3 +1,4 @@
+import { cardSurface } from "./cardStyles";
 import { PageFade } from "./PageFade";
 import { tv } from "./tv";
 
@@ -71,6 +72,20 @@ export const classicTitle = tv({
 export function ClassicTitle({ text, place = "card" }: { text: Copy; place?: "page" | "card" }) {
   return <h1 className={classicTitle({ place })}>{text}</h1>;
 }
+
+/**
+ * A mailed page's question as one card, as a Konto box stands: its title, facts, sentences and fields inside the box's
+ * 16-px inset, and its acts in the footer's strip across the box's foot. A card holds one topic with its actions, as
+ * Material's card guidelines put it, and the page's end, the status card, is a card too.
+ */
+export const mailedCard = tv({
+  slots: {
+    root: cardSurface({ class: "grid overflow-hidden" }),
+    body: "grid gap-6 p-4",
+    // The bot check, where Cloudflare asks the visitor to act, over the strip at the body's inset.
+    check: "px-4",
+  },
+});
 
 const head = tv({
   slots: {
