@@ -253,7 +253,8 @@ their own record.\
 
 **Is:** the league's or a team's refusal of an application or a registration and its mail; and, in
 code alone, a referee's decline of a booking (`answer.kind` `declined`), which on screen is
-„Ablehnen“ and reads „Abgelehnt“. „Abgesagt“ is neither: it is a fixture called off, `cancelled`.\
+„Ablehnen“ and reads „Abgelehnt“. A fixture called off is neither: a page names it by its
+`sonderereignis`'s own word, such as „Ausgefallen“, where the confirmation rows read `cancelled`.\
 **In code:** `fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungAbsageEmail`,
 `fl_frontend/src/core/registrierungEmail.ts :: buildRegistrierungAbsageEmail`;
 `fl_frontend/src/app/area/(person)/schiedsrichter/(list)/[saison]/answerEinteilung.ts :: declineEinteilung`.
