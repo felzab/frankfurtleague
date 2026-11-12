@@ -677,6 +677,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
     period of Art. 14(3)(a), its month being the outer limit.
-27. **Production's data on a development machine**: a rehearsal of a deploy restores a copy of
-    production's snapshot onto a development machine for some hours. How long that copy is kept and
-    how it is deleted is recorded here once the rehearsal has run.
+27. **Production's data on a development machine**: production's snapshot of 2026-11-11 is on a
+    development machine, as the downloaded file and as the local containers that restored it to
+    rehearse the migration, with their volumes. It holds every database of the cluster, the sign-in
+    store's among them. The owner deletes all three after the deploy it rehearses, and this record
+    then says how long the copy was kept and how it was deleted.
