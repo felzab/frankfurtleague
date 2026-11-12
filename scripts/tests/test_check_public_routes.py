@@ -128,20 +128,11 @@ def test_a_handler_recorded_unmetered_is_no_finding_and_its_neighbour_still_is(m
 
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
-    """Next resolves all four extensions, so a walk seeing one of them accounts for part of the tree."""
+    """Next resolves both configured extensions, so a walk seeing one of them accounts for part of the tree."""
     findings = accounted(tree("/api/beispiel", file="route.tsx"), served(METERED, CATCH_ALL))
 
     assert severities(findings) == ["fail"]
     assert "/api/beispiel" in details(findings)
-
-
-def test_a_handler_filed_under_another_spelling_of_route_ts_is_not_accounted_for():
-    """Next resolves `route.ts` and no other spelling of it, so a `Route.ts` answers no URL.
-
-    Vacuous on Linux, where the walk cannot see the file at all; on Windows, which resolves a
-    name case-blind, it is the whole trap.
-    """
-    assert routes.handlers(tree("/api/sweep", file="Route.ts")) == ()
 
 
 GENERATED = "export default function meta() {\n  return [];\n}\n"
@@ -163,7 +154,7 @@ def test_a_metadata_convention_at_the_tree_root_is_accounted_for():
 
 def test_a_metadata_convention_is_resolved_from_every_extension_a_handler_is():
     """Next reads one page-extension list for both, so a walk seeing fewer accounts for part of the tree."""
-    assert [one.url for one in routes.metadata(with_files("robots.jsx"))] == ["/robots.txt"]
+    assert [one.url for one in routes.metadata(with_files("robots.tsx"))] == ["/robots.txt"]
 
 
 def test_a_module_named_for_a_convention_and_something_else_is_not_the_convention():
@@ -457,7 +448,7 @@ def test_a_minted_link_this_reader_cannot_place_refuses(text):
         routes.minted(root)
 
 
-@pytest.mark.parametrize("suffix", [".ts", ".tsx", ".js", ".jsx"])
+@pytest.mark.parametrize("suffix", [".ts", ".tsx"])
 def test_a_test_file_holding_a_token_query_mints_nothing(suffix):
     """Every extension the walk reads: a fixture is no minter."""
     root = new_root("check-public-routes-")

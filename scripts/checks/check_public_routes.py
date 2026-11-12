@@ -57,9 +57,9 @@ NGINX_CONF: Final = "nginx/shared/site.conf"
 # The whole App Router tree rather than `api/` alone: a handler filed outside that folder serves a
 # URL just the same, and a walk that cannot see it accounts for nothing.
 
-# All four extensions, because Next resolves a handler from any of them (`pageExtensions`): one
-# filed as `route.tsx` answers its URL exactly as `route.ts` does.
-ROUTE_FILES: Final = ("route.ts", "route.tsx", "route.js", "route.jsx")
+# Both extensions `fl_frontend/next.config.ts :: pageExtensions` gives Next: one filed as
+# `route.tsx` answers its URL exactly as `route.ts` does.
+ROUTE_FILES: Final = ("route.ts", "route.tsx")
 
 # Derived rather than spelled again: Next reads one page-extension list for a handler and for a
 # metadata convention, and two lists here would drift a metadata file out of the walk in silence.
