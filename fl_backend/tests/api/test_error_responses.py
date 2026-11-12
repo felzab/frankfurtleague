@@ -216,7 +216,7 @@ class TestAServerFaultsLineWithholdsTheValue:
 
     def test_a_refused_stored_document_names_its_field_and_never_its_value(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
-            asyncio.run(pydantic_validation_exception_handler(None, rejected_name_error()))  # type: ignore[arg-type]
+            asyncio.run(pydantic_validation_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), rejected_name_error()))
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document

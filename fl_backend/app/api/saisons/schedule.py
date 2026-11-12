@@ -36,18 +36,6 @@ def group_matches_per_matchday(number_of_gruppen: int, teams_per_gruppe: int) ->
     return number_of_gruppen * (teams_per_gruppe // 2)
 
 
-def total_group_matches(number_of_gruppen: int, teams_per_gruppe: int) -> int:
-    """Every group-phase match: `C(n, 2)` per group.
-
-    From the combination, not matchdays x matches-per-matchday: the two agree by a cancellation,
-    where the combination says the number outright.
-    """
-
-    if teams_per_gruppe < 2:
-        return 0
-    return number_of_gruppen * (teams_per_gruppe * (teams_per_gruppe - 1) // 2)
-
-
 def qualifier_count(rules: FLSaisonRules) -> int:
     return rules.number_of_gruppen * rules.qualifiers_per_gruppe
 

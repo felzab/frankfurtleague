@@ -3,13 +3,13 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpielJoinedAdmin,
-    FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
@@ -36,6 +36,8 @@ from tests.documents import joined_spiel_document, rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
+# A list of fixtures as an administrator's read validates each of them.
+JOINED_ADMIN_LIST = TypeAdapter(list[FLSpielJoinedAdmin])
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -214,9 +216,7 @@ class TestARetiredBookingOnAReopenedSpiel:
     """That a rewrite voiding a played result keeps a retired booking and reports it, while a save newly booking the row stays refused."""
 
     def test_the_reopened_spiel_is_reported_and_the_played_one_is_not(self, a_semi_final_played_at_a_retired_ground):
-        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
-            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
-        )
+        (played,) = JOINED_ADMIN_LIST.validate_python([joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground])
         # What `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` writes over a slot whose occupant changed.
         reopened = played.model_copy(update={"team1": played.team2, "team2": None, "ergebnis": None})
         retired = {ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}
@@ -267,7 +267,7 @@ LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
 def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpielJoinedAdmin]:
     """Two fixtures of one day at one ground, 18:00 and 19:00: the first's no-show has just been lifted by a rewrite."""
 
-    return FLSpielJoinedAdminListAdapter.validate_python(
+    return JOINED_ADMIN_LIST.validate_python(
         [
             joined_spiel_document(
                 spiel(
@@ -345,7 +345,7 @@ class TestARefereeDoubleBookedAtTwoGrounds:
     def test_the_referee_clash_is_reported_beside_a_free_ground(self, spiel: PayloadFactory):
         """A fixture's ground is judged before its referee, so a walk stopping at a free ground would never report the referee."""
 
-        spiele = FLSpielJoinedAdminListAdapter.validate_python(
+        spiele = JOINED_ADMIN_LIST.validate_python(
             [
                 joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
                 for nr, booking in (

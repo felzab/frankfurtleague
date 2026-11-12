@@ -1,7 +1,7 @@
 import asyncio
 import atexit
 import io
-from collections.abc import AsyncIterator, Coroutine, Iterable, Iterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Coroutine, Generator, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager, contextmanager, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -301,7 +301,7 @@ async def a_clean_database(
     constraints: bool = True,
     mutates_schema: bool = False,
     stores_a_refused_shape: str | None = None,
-) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
+) -> AsyncGenerator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
@@ -347,7 +347,7 @@ async def a_clean_database(
 @contextmanager
 def a_clean_database_sync(
     client: MongoClient, url: str, name: str, *, constraints: bool = True, stores_a_refused_shape: str | None = None
-) -> Iterator[Database]:
+) -> Generator[Database]:
     """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
 
     A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.

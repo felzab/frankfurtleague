@@ -28,6 +28,7 @@ from app.core.dependencies import (
     SaisonTeamsReadCollection,
     SchiedsrichterCollection,
     SchiedsrichterReadCollection,
+    SnapshotSession,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -127,7 +128,7 @@ async def get_account_erasure_view(
     registrierungen_collection: RegistrierungenReadCollection,
     address_changes_collection: AddressChangeReadCollection,
     grants_collection: GrantsReadCollection,
-    db: DBClient,
+    session: SnapshotSession,
 ) -> FLAccountErasureViewResponse:
     """What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
 
@@ -137,29 +138,28 @@ async def get_account_erasure_view(
 
     # A snapshot, so the preview names the records of one moment; never a transaction, a read
     # writing nothing having no conflict to retry for.
-    async with db.start_session(snapshot=True) as session:
-        subject = await resolve_subject(
-            identifier,
-            saison_teams_collection=saison_teams_collection,
-            bewerbungen_collection=bewerbungen_collection,
-            schiedsrichter_collection=schiedsrichter_collection,
-            spieler_collection=spieler_collection,
-            registrierungen_collection=registrierungen_collection,
-            address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
-            session=session,
+    subject = await resolve_subject(
+        identifier,
+        saison_teams_collection=saison_teams_collection,
+        bewerbungen_collection=bewerbungen_collection,
+        schiedsrichter_collection=schiedsrichter_collection,
+        spieler_collection=spieler_collection,
+        registrierungen_collection=registrierungen_collection,
+        address_changes_collection=address_changes_collection,
+        grants_collection=grants_collection,
+        session=session,
+    )
+    # A registration holds its team's id alone, and the season row is what names the club that season.
+    team_rows = (
+        await aggregate_many_from_db(
+            collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
         )
-        # A registration holds its team's id alone, and the season row is what names the club that season.
-        team_rows = (
-            await aggregate_many_from_db(
-                collection=saison_teams_collection, pipeline=build_season_team_pipeline(subject.registrierungen), session=session
-            )
-            if subject.registrierungen
-            else []
-        )
-        grants = await read_grants(grants_collection=grants_collection, session=session)
-        # A live row is its own fold, so equality is the fold's judgement.
-        own = next((grant for grant in grants if grant["address"] == identifier), None)
+        if subject.registrierungen
+        else []
+    )
+    grants = await read_grants(grants_collection=grants_collection, session=session)
+    # A live row is its own fold, so equality is the fold's judgement.
+    own = next((grant for grant in grants if grant["address"] == identifier), None)
 
     view = compose_account_erasure_view(
         identifier,
