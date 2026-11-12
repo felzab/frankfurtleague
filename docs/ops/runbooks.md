@@ -299,7 +299,7 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
   case below. The enrolment asks for a discoverable credential and for the person to be verified
-  (`fl_frontend/src/core/auth/library.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  (`authenticatorSelection` in `fl_frontend/src/core/auth/library.ts`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
