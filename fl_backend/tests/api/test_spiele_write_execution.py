@@ -904,6 +904,26 @@ class TestTheProtokollTellsAResultFromARedating:
         ]
 
 
+class TestAShootOutIsStoredAsItsCounts:
+    def test_a_level_knockout_spiel_saved_with_a_shoot_out_stores_the_two_counts_alone(self, mongo_replica_set_url: str):
+        """The winner is read off the counts on every read: one stored beside them could contradict them."""
+
+        quarter, semi = bracket_season()
+        unplayed = {**semi, "team1": side(BETA), "team2": side(GAMMA), "ergebnis": None, "elfmeterschiessen": None}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            spiel_data = await payload_for(
+                database, HALBFINALE, team1=side(BETA, 2), team2=side(GAMMA, 2), elfmeterschiessen={"team1": 4, "team2": 3}
+            )
+            await call_patch(database, client, HALBFINALE, spiel_data)
+
+            return await spiele_now(database)
+
+        stored = on_a_seeded_season(mongo_replica_set_url, body, spiele=[quarter, unplayed])[HALBFINALE_NR]
+
+        assert (stored["ergebnis"], stored["elfmeterschiessen"]) == ("2:2", {"team1": 4, "team2": 3})
+
+
 class TestASavedResultCarriesThroughTheBracket:
     def test_the_refilled_slot_loses_its_result_and_its_shoot_out(self, mongo_replica_set_url: str):
         """Alpha replaces Beta in the semi-final, and the rule says both halves of the old result go."""
