@@ -630,31 +630,27 @@ cannot give back afterwards; `verify.sh` and `nginx/edge_test.sh` take it.
 Every setting below is made in the Cloudflare dashboard or the mail provider's, and no gate check,
 deploy step or test here can read one: a change made there is invisible until something breaks (§4).
 [`overview.md`](overview.md#the-cloudflare-proxy) carries the performance settings that are
-deliberately off, and what terminating TLS at Cloudflare costs the origin.
+deliberately off.
 
 - **A remotely managed tunnel is the only route to the origin**, its public hostnames
-  `frankfurtleague.de` and `www.frankfurtleague.de`. Each routes to nginx over
-  `frankfurtleague-net` with TLS kept, its `Origin Server Name` set to the name the mounted
-  certificate carries (§1.2) and `No TLS Verify` off, so the certificates `nginx/prod/prod.conf`
-  names and the header set `nginx/shared/security_headers.conf` holds are what a visitor's request
-  still meets. **The dashboard is where its token is issued**, and the server holds the issued
-  value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
-  when the hostname was added, so the zone holds no record naming the origin's address.
+  `frankfurtleague.de` and `www.frankfurtleague.de`. Each routes to `http://nginx:80` over
+  `frankfurtleague-net`, plain HTTP, since nginx holds no certificate and listens on port 80 alone
+  (`nginx/prod/prod.conf`). **The dashboard is where its token is issued**, and the server holds the
+  issued value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own,
+  so the zone holds no record naming the origin's address.
 - **Cloudflare answers every plain-HTTP request itself** with a `301` to `https://` on the same host
   (observed 2026-10-20 as `Server: cloudflare` on that answer for both hostnames). Which setting
   answers is inferred rather than read: Always Use HTTPS fits, and a redirect rule would answer the
   same. A browser ignores HSTS sent over plain HTTP, so this redirect is what moves a first visit
-  typed as `http://` onto TLS; `nginx/prod/prod.conf`'s port-80 block plays no part, the tunnel above
-  dialling the origin over TLS whatever Cloudflare does with plain HTTP.
+  typed as `http://` onto HTTPS.
 - **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
   records name Cloudflare's routing servers, and each league address forwards to the personal
   mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
-  notice at `/datenschutz` says exactly that, so a route
-  aimed at a hosted mailbox changes that notice in the same step.
+  notice at `/datenschutz` says exactly that, so a route aimed at a hosted mailbox changes that notice
+  in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling
-  a training set is not, and the distinction is the whole reason the three are set apart rather
-  than by one toggle.
+  a training set is not.
 - **The managed `robots.txt` declares the training opt-out, and it is off until the owner switches
   it on.** Cloudflare prepends its list of AI-training crawlers to the origin's `/robots.txt`
   (<https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/>), and
