@@ -388,7 +388,7 @@ bound's conditions follow the table.
 | Mail to the league                           | Six months after it arrives             | Gmail's auto-deletion, a setting of the league's Workspace                                                                                                             |
 | A mailbox's document                         | An hour after the last press            | `fl_backend/app/shared/schemas/bounds.py :: MAILBOX_ANCHOR_RETENTION_SECONDS`, `fl_backend/app/core/constraints.py :: TTL_INDEXES`                                     |
 | The action log                               | 12 months a row                         | `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS`                                                                                        |
-| The server's journal                         | The journal's own age limit             | `docker-compose.yml :: x-logging`, [`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)                                    |
+| The server's journal                         | The journal's own age limit             | `docker-compose.yml :: x-logging`, [`ops/runbooks.md`](ops/runbooks.md#7-the-journals-age-limit)                                                                       |
 
 - **An application not every seat confirmed** goes once an unconfirmed seat's own 14 days end,
   whether or not the Ansprechperson's mail arrived. Each person who confirmed a seat is owed the
@@ -645,7 +645,7 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 17. **Cloudflare's own record of each request**, bounded by Cloudflare's plan rather than any
     setting here, and the server journal's age limit, a setting on the server that no deploy
     verifies
-    ([`ops/runbooks.md`](ops/runbooks.md#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)).
+    ([`ops/runbooks.md`](ops/runbooks.md#7-the-journals-age-limit)).
 18. **Instagram**: whether the league shares control of anything Meta records about the account's
     audience (C-210/16 held a Facebook page's operator a joint controller for its statistics), and
     what publishing there counts as under Chapter V.
