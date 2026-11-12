@@ -2009,9 +2009,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
                 team1: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam1Min),
                 team2: zod.int().min(spielberichtePutSpielberichtBerichtBodyBerichtErgebnisVorschlagElfmeterschiessenOneTeam2Min),
               })
-              .describe(
-                "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
-              ),
+              .describe("A shoot-out as a save sends it: a key beside the two counts is refused, never dropped."),
             zod.null(),
           ]),
           sonderereignis: zod.union([zod.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"]), zod.null()]),
@@ -2269,11 +2267,9 @@ export const SpielbestaetigungenEnterSpielbestaetigungBody = zod
   );
 
 /**
- * Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+ * Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.
  *
- * Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
- * is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
- * last. `document_not_found` for a season id naming no season. Writes nothing.
+ * `current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.
  * @summary One Saison's Spiele by matchday, for the admin Spiele list
  */
 export const SpieleGetSpieleSpielplanQueryParams = zod.object({
@@ -2293,16 +2289,8 @@ export const SpieleGetSpielParams = zod.object({
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
- * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
- * `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
- * would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
- * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
- * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
- * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
- * a result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a
- * played fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a
- * save putting the fixture back among those to come drops it and its line-ups' entries naming nobody.
+ * A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+ * later results the save would delete, which the save's `voided_results` must name back.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2375,9 +2363,7 @@ export const SpielePatchSpielBody = zod.object({
         team1: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam1Min),
         team2: zod.int().min(spielePatchSpielBodyElfmeterschiessenOneTeam2Min),
       })
-      .describe(
-        "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
-      ),
+      .describe("A shoot-out as a save sends it: a key beside the two counts is refused, never dropped."),
     zod.null(),
   ]),
   note: zod.union([zod.string().max(spielePatchSpielBodyNoteOneMax), zod.null()]),
@@ -2493,13 +2479,8 @@ export const SpielePatchSpielBody = zod.object({
 /**
  * The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
  *
- * Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
- * they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
- * another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
- * group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
- * reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
- * side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
- * club has stored none. `document_not_found` for an id no fixture holds.
+ * Beside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,
+ * confirmation rows and line-up counts.
  * @summary One Spiel and all the match editor offers and shows beside it
  */
 export const spieleGetSpielAdminPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2511,19 +2492,8 @@ export const SpieleGetSpielAdminParams = zod.object({
 /**
  * Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
  *
- * Writes those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:
- * the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
- * PATCH moving neither choice writes nothing.
- *
- * Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`
- * other than the record's own, either choice having moved since the page was served (`choices_stale`); a choice
- * moving onto a grant under a label other than its
- * current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where
- * the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
- * refusal writes nothing.
- *
- * **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
- * name is served, and nothing here can.
+ * Each moved choice is written with its evidence, and the caller drops its cached squad lists after a success, since
+ * the scope decides whether a name is served.
  * @summary Change a signed-in pupil's own publication and media consent
  */
 export const SpielerPatchEinwilligungBody = zod
@@ -2544,13 +2514,9 @@ export const SpielerPatchEinwilligungBody = zod
   .describe("A pupil's or a registration's own two choices on their record.");
 
 /**
- * The squad of one team in one season, for a person holding any contact seat on it.
+ * The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.
  *
- * Every row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no
- * e-mail address or telephone number of anybody. `nummer_double` marks a live row whose number
- * another live row of the squad wears, compared as stored. `allowed_stufen` is what the season's
- * rules offer an edit. Refused `role_not_held` where the signed-in person holds no seat on this
- * team in this season, a seat on a `past` season holding none.
+ * Each surname is whole, and no address or telephone number of anybody is served.
  * @summary Read a team's squad as its seat holder
  */
 export const spielerGetKaderPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2561,11 +2527,9 @@ export const SpielerGetKaderParams = zod.object({
 });
 
 /**
- * Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.
+ * Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.
  *
- * Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
- * brings the row back. 404 where this team holds no live row for the player in this season,
- * another team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.
+ * The person stays in the league, and only an administrator brings the row back.
  * @summary Take a Spieler out of the squad as its team's seat holder (retire)
  */
 export const spielerDeleteKaderRowPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2580,11 +2544,7 @@ export const SpielerDeleteKaderRowParams = zod.object({
 /**
  * Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
  *
- * The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
- * row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
- * nothing is written. Refused `role_not_held` without a seat, `kader_stufe_not_allowed` for a `stufe` the
- * season's `allowed_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
- * for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
+ * The team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.
  * @summary Update a squad entry as its team's seat holder
  */
 export const spielerPatchKaderRowPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2610,10 +2570,9 @@ export const SpielerPatchKaderRowBody = zod
   .describe("A seat holder's edit of a squad row.");
 
 /**
- * The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.
+ * Every squad row of the season, live and ausgetragen alike, each named and with its club.
  *
- * Read whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row
- * whose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.
+ * `nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.
  * @summary One Saison's squad rows for its list
  */
 export const SpielerGetSpielerAdminQueryParams = zod.object({
@@ -2621,14 +2580,10 @@ export const SpielerGetSpielerAdminQueryParams = zod.object({
 });
 
 /**
- * What the signed-in pupil's own page shows of one season, in one read.
+ * The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.
  *
- * Their squad row of this season with the name its club plays the season under, null where they hold none; and
- * that club's fixtures in the order the draw numbered them, each with
- * whether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or
- * none is stored (null).
- *
- * Refuses an address holding no confirmed pupil record (`role_not_held`).
+ * Each fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null
+ * where it does not name them or none is stored.
  * @summary A signed-in pupil's own season: their squad row and their team's fixtures
  */
 export const SpielerGetSelfSaisonParams = zod.object({
@@ -2646,10 +2601,9 @@ export const SpielerGetSpielerByIdParams = zod.object({
 });
 
 /**
- * Take a player out of a season's squad. SOFT: the row stays.
+ * Take a player out of a season's squad, the row staying, marked by `inactive_since`.
  *
- * The row records that this player wore this number in this squad, which stays true after they
- * leave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.
+ * The row records that this player wore this number in this squad, which stays true after they leave.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2660,12 +2614,9 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
 });
 
 /**
- * Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.
+ * What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.
  *
- * `version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role
- * another live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own
- * write. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands
- * under a season, and a person out of its squad is no row of that season's list.
+ * `version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.
  * @summary What the Spieler editor shows, in one read
  */
 export const spielerGetSpielerSaisonPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2676,13 +2627,9 @@ export const SpielerGetSpielerSaisonParams = zod.object({
 });
 
 /**
- * Save the Spieler editor's one version: the person's own facts and their squad row of the season.
+ * Save the person's own facts and their squad row of the season together, the team staying the stored row's.
  *
- * The team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has
- * moved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not
- * offer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared
- * `nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the
- * season. No fan-out: unlike a team or a venue, a person is embedded in no other document.
+ * A shared `nummer` is permitted.
  * @summary Save the Spieler editor: the person and their squad row of the season, in one transaction
  */
 export const spielerPatchSpielerSaisonPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2717,14 +2664,11 @@ export const SpielerPatchSpielerSaisonBody = zod
     version: zod.int().min(spielerPatchSpielerSaisonBodyVersionMin),
   })
   .describe(
-    "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.",
+    "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, with no consent and no address, each being the person's own to change.",
   );
 
 /**
- * Clear a squad row's `inactive_since`, with the number and position it had.
- *
- * Refused where the squad has filled up, a nominee's row standing outside that cap, where its club
- * left, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
+ * Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

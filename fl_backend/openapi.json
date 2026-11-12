@@ -5034,7 +5034,7 @@
         "type": "object"
       },
       "FLEinwilligung": {
-        "description": "What this person agreed may be published about them.\n\nIts keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody\nconsented, and no surface can tell that from one somebody gave.",
+        "description": "What this person agreed may be published about them.\n\nIts keys stand together: a scope with no confirmation date claims somebody consented, and no surface can tell\nthat from one somebody gave.",
         "properties": {
           "confirmed_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6100,7 +6100,7 @@
         "type": "object"
       },
       "FLKaderRow": {
-        "description": "One squad row as its team's seat holder reads it (`READ-KADER-001`).\n\nDeclared from nothing rather than a public model unmasked, so the whole surname reaches no\nbase-tier model, and no address or telephone number reaches this one.",
+        "description": "One squad row as its team's seat holder reads it, the surname whole and no address or telephone number.",
         "properties": {
           "first_name": {
             "minLength": 1,
@@ -8313,7 +8313,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed.\n\n`version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and\nnull on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as\nit stands: told of the move, of the referee taken off it, or of its call-off, each by its name.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.\n\n`voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,\nevery party the confirmation pass would mail of the change.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -8381,7 +8381,7 @@
       },
       "FLPatchSpielerSaisonPayload": {
         "additionalProperties": false,
-        "description": "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.",
+        "description": "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, with no consent and no address, each being the person's own to change.",
         "properties": {
           "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11842,7 +11842,7 @@
         "type": "object"
       },
       "FLSpielEditorTeam": {
-        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
+        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it\nhere as the fixture stands would pass.",
         "properties": {
           "fieldable": {
             "title": "Fieldable",
@@ -11950,7 +11950,7 @@
       },
       "FLSpielElfmeterschiessenPayload": {
         "additionalProperties": false,
-        "description": "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+        "description": "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.",
         "properties": {
           "team1": {
             "minimum": 0.0,
@@ -14572,7 +14572,7 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.\n\n`saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's\nmatch read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
+        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.",
         "properties": {
           "aufstellungen": {
             "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
@@ -14808,7 +14808,7 @@
         "type": "string"
       },
       "FLSpielerPublic": {
-        "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it.",
+        "description": "One squad row as an anonymous visitor may read it: the surname an initial, and no `stufe` or consent record.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -15397,7 +15397,7 @@
         "type": "object"
       },
       "FLSpielerSingleResponse": {
-        "description": "One player as the BASE TIER serves them -- an allow-list of what this surface needs.\n\nSquad fields are season-scoped, and inventing a season would make the answer depend on a default\nnobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).",
+        "description": "One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -26396,7 +26396,7 @@
     },
     "/api/v0/spiele/spielplan": {
       "get": {
-        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.\n\nEach round holds its matches by number, and the rounds come in the order they are played. The matchday to open on\nis the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its\nlast. `document_not_found` for a season id naming no season. Writes nothing.",
+        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.\n\n`current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.",
         "operationId": "spiele_get_spiele_spielplan",
         "parameters": [
           {
@@ -26553,7 +26553,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save\ndeletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,\nand is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:\na result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a\nplayed fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a\nsave putting the fixture back among those to come drops it and its line-ups' entries naming nobody.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -26674,7 +26674,7 @@
     },
     "/api/v0/spiele/{spiel_id}/admin": {
       "get": {
-        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per\nside how many pupils the stored line-up of the club fielded there names and how many of them start, null where that\nclub has stored none. `document_not_found` for an id no fixture holds.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,\nconfirmation rows and line-up counts.",
         "operationId": "spiele_get_spiel_admin",
         "parameters": [
           {
@@ -26753,7 +26753,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a choice\nmoving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nEach moved choice is written with its evidence, and the caller drops its cached squad lists after a success, since\nthe scope decides whether a name is served.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -26823,7 +26823,7 @@
     },
     "/api/v0/spieler/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "The squad of one team in one season, for a person holding any contact seat on it.\n\nEvery row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no\ne-mail address or telephone number of anybody. `nummer_double` marks a live row whose number\nanother live row of the squad wears, compared as stored. `allowed_stufen` is what the season's\nrules offer an edit. Refused `role_not_held` where the signed-in person holds no seat on this\nteam in this season, a seat on a `past` season holding none.",
+        "description": "The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.\n\nEach surname is whole, and no address or telephone number of anybody is served.",
         "operationId": "spieler_get_kader",
         "parameters": [
           {
@@ -26911,7 +26911,7 @@
     },
     "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
       "delete": {
-        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.",
+        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.\n\nThe person stays in the league, and only an administrator brings the row back.",
         "operationId": "spieler_delete_kader_row",
         "parameters": [
           {
@@ -27007,7 +27007,7 @@
         ]
       },
       "patch": {
-        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `role_not_held` without a seat, `kader_stufe_not_allowed` for a `stufe` the\nseason's `allowed_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
+        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.",
         "operationId": "spieler_patch_kader_row",
         "parameters": [
           {
@@ -27115,7 +27115,7 @@
     },
     "/api/v0/spieler/list/admin": {
       "get": {
-        "description": "The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row\nwhose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.",
+        "description": "Every squad row of the season, live and ausgetragen alike, each named and with its club.\n\n`nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.",
         "operationId": "spieler_get_spieler_admin",
         "parameters": [
           {
@@ -27193,7 +27193,7 @@
     },
     "/api/v0/spieler/self/saisons": {
       "get": {
-        "description": "Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.\n\nA planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "Every season the signed-in pupil holds a squad row in, the newest first, each with its span.\n\nA deregistered row's season and a planned season are served as any other.",
         "operationId": "spieler_get_self_saisons",
         "responses": {
           "200": {
@@ -27260,7 +27260,7 @@
     },
     "/api/v0/spieler/self/{saison_id}": {
       "get": {
-        "description": "What the signed-in pupil's own page shows of one season, in one read.\n\nTheir squad row of this season with the name its club plays the season under, null where they hold none; and\nthat club's fixtures in the order the draw numbered them, each with\nwhether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or\nnone is stored (null).\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.\n\nEach fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null\nwhere it does not name them or none is stored.",
         "operationId": "spieler_get_self_saison",
         "parameters": [
           {
@@ -27417,7 +27417,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "delete": {
-        "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.",
+        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave.",
         "operationId": "spieler_delete_saison_spieler",
         "parameters": [
           {
@@ -27498,7 +27498,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.\n\n`version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role\nanother live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own\nwrite. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands\nunder a season, and a person out of its squad is no row of that season's list.",
+        "description": "What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.\n\n`version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.",
         "operationId": "spieler_get_spieler_saison",
         "parameters": [
           {
@@ -27584,7 +27584,7 @@
         ]
       },
       "patch": {
-        "description": "Save the Spieler editor's one version: the person's own facts and their squad row of the season.\n\nThe team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has\nmoved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not\noffer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared\n`nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the\nseason. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
+        "description": "Save the person's own facts and their squad row of the season together, the team staying the stored row's.\n\nA shared `nummer` is permitted.",
         "operationId": "spieler_patch_spieler_saison",
         "parameters": [
           {
@@ -27682,7 +27682,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nRefused where the squad has filled up, a nominee's row standing outside that cap, where its club\nleft, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).",
+        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.",
         "operationId": "spieler_reactivate_saison_spieler",
         "parameters": [
           {

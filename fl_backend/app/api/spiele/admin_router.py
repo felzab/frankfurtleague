@@ -73,11 +73,9 @@ async def get_spiele_spielplan(
     spiele_collection: SpieleReadCollection,
 ) -> FLSpieleSpielplanAdminResponse:
     """
-    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.
 
-    Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
-    is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
-    last. `document_not_found` for a season id naming no season. Writes nothing.
+    `current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.
     """
 
     saison_raw, spieltage_raw, spiele_raw = await asyncio.gather(
@@ -116,13 +114,8 @@ async def get_spiel_admin(
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
 
-    Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
-    they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
-    another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
-    group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
-    reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
-    side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
-    club has stored none. `document_not_found` for an id no fixture holds.
+    Beside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,
+    confirmation rows and line-up counts.
     """
 
     return await read_spiel_editor(
@@ -177,16 +170,8 @@ async def patch_spiel(
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
-    adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
-    `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
-    would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
-    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
-    deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
-    and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
-    a result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a
-    played fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a
-    save putting the fixture back among those to come drops it and its line-ups' entries naming nobody.
+    A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+    later results the save would delete, which the save's `voided_results` must name back.
     """
 
     collections = SpielSaveCollections(

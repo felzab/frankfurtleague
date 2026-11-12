@@ -16,8 +16,8 @@ from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "person"
 
-# `READ-PUPIL-001`: the surname must not reach the base tier at all, so the initial is composed here
-# rather than by a serialiser a later reader could go around. The dot belongs to the value, so the
+# The surname must not reach the base tier at all, so the initial is composed here rather than by a
+# serialiser a later reader could go around. The dot belongs to the value, so the
 # one page rendering it joins the two names unchanged.
 PUBLIC_LAST_NAME: Mapping[str, Any] = {
     "$cond": {
@@ -32,13 +32,13 @@ PUBLIC_LAST_NAME: Mapping[str, Any] = {
 
 
 def public_initial(last_name: str | None) -> str | None:
-    """`READ-PUPIL-001` where a `find` serves the read and no aggregation runs.
+    """The surname's initial where a `find` serves the read and no aggregation runs.
 
     `PUBLIC_LAST_NAME` above is the same rule as a Mongo expression. Slicing is by code point, as
     `$substrCP` is.
     """
 
-    # By TYPE, as `PUBLIC_LAST_NAME`'s `$type` test is, and not by `is None`: the two are stated as one
+    # By type, as `PUBLIC_LAST_NAME`'s `$type` test is, and not by `is None`: the two are stated as one
     # rule, so anything the aggregation answers `None` for has to answer `None` here rather than raise.
     if not isinstance(last_name, str):
         return None
@@ -47,9 +47,9 @@ def public_initial(last_name: str | None) -> str | None:
 
 
 def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
-    """`READ-PUPIL-003`: whether a base-tier read may serve this person's name at all.
+    """Whether a base-tier read may serve this person's name at all.
 
-    Fails CLOSED, so an absent record, a scope no enum holds and an unconfirmed one each withhold.
+    Fails closed, so an absent record, a scope no enum holds and an unconfirmed one each withhold.
     """
 
     if einwilligung is None:
@@ -60,7 +60,7 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     return einwilligung.get("scope") == "kader_public" and is_confirmed(einwilligung)
 
 
-# The two NAME fields alone: what a read serves beside a withheld name is that read's to withhold. The
+# The two name fields alone: what a read serves beside a withheld name is that read's to withhold. The
 # record is read here and projected nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
     "first_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$first_name", "else": None}},
@@ -92,9 +92,9 @@ def public_person(*, first_name: str | None, last_name: str | None, einwilligung
 _NAMELESS = "nameless"
 
 # The squad table's own order: the named rows by position and then the forename served, the nameless ones after them.
-# Fixed rather than asked for: ordering by a key reads it out whether or not the response carries it (`READ-PUPIL-001`,
-# `READ-PUPIL-002`), so no caller names one, and the chain stops at the forename, a surname this tier will not serve
-# ordering nothing. The position is null on a nameless row, so its place says nothing of it.
+# Fixed rather than asked for: ordering by a key reads it out whether or not the response carries it, so no caller
+# names one, and the chain stops at the forename, a surname this tier will not serve ordering nothing. The position is
+# null on a nameless row, so its place says nothing of it.
 SQUAD_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
 
 
@@ -107,7 +107,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
 
     The caller resolves the season, which no default here can. Both terms are required, since a squad is one club's in
     one season and a term left out would serve that club's rows from every season; and they are the whole of what the
-    read narrows on, since a term on a field the response withholds rebuilds it from squads of one (`READ-PUPIL-002`).
+    read narrows on, since a term on a field the response withholds rebuilds it from squads of one.
     """
 
     # First, so the read examines the one club's rows in the one season, through
@@ -115,8 +115,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
     squad_match: dict[str, Any] = {
         "team_id": team_id,
         "saison_id": saison_id,
-        # The SQUAD ROW's retirement (`READ-SQUAD-001`). No switch: this tier marks no row it would
-        # un-hide (`READ-SQUAD-002`).
+        # The squad row's retirement. No switch: this tier marks no row it would un-hide.
         "inactive_since": None,
     }
 
@@ -127,7 +126,7 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
                 "from": Collection.SPIELER,
                 "localField": "spieler_id",
                 "foreignField": "_id",
-                # The mask applied INSIDE the join, so the consent record it reads and every other
+                # The mask applied inside the join, so the consent record it reads and every other
                 # field of the person never leave the sub-pipeline.
                 "pipeline": [{"$project": {"_id": 0, **PUBLIC_PERSON}}],
                 "as": AS_NAME,
@@ -135,14 +134,14 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
         },
         # Strict: a squad row naming nobody is a hand edit, and serves no slot.
         {"$unwind": f"${AS_NAME}"},
-        # An ALLOW-LIST: every key here is one the squad table renders. What is projected reaches the
-        # page's payload whether rendered or not, so the `stufe` (`READ-PUPIL-002`), the squad flags
-        # and the joined ids are not projected.
+        # An allow-list: every key here is one the squad table renders. What is projected reaches the
+        # page's payload whether rendered or not, so the `stufe`, the squad flags and the joined ids are
+        # not projected.
         {
             "$project": {
                 # Named to drop the squad row's id, which `$project` keeps otherwise. `spieler_id`
                 # goes unnamed: the person's id would tie every row of a pupil whose name is withheld
-                # together (`READ-PUPIL-005`).
+                # together.
                 "_id": 0,
                 "first_name": f"${AS_NAME}.first_name",
                 "last_name": f"${AS_NAME}.last_name",
@@ -183,8 +182,7 @@ def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excludin
 def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
     """Why this squad row must be refused, or `None`.
 
-    A shared shirt number is refused on no write path and is declared permitted in
-    `docs/domain.md`'s what the model permits on purpose.
+    A shared shirt number is refused on no write path: the model permits it on purpose.
     """
 
     if not team_in_saison:
@@ -197,7 +195,7 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
 
 
 class SquadRoom(NamedTuple):
-    """One squad's capped rows and its season's `max_kader_size`, as `app/api/spieler/crud.py :: pull_squad_room` reads them."""
+    """One squad's capped rows and its season's `max_kader_size`."""
 
     size: int
     cap: int
@@ -206,9 +204,8 @@ class SquadRoom(NamedTuple):
 def find_full_squad_refusal(*, room: SquadRoom, nominee: bool) -> WriteRefusal | None:
     """`kader_full` where the squad takes no further entry, or `None`.
 
-    A nominee stands outside the cap. The one verdict `refuse_a_full_squad` raises, and every read or form refusal
-    asking whether a squad takes an entry answers by. Its own function rather than a clause in `find_squad_refusal`,
-    which answers the club question alone.
+    A nominee stands outside the cap. The one verdict on whether a squad takes an entry, so a write and a read cannot
+    disagree. Its own function rather than a clause in `find_squad_refusal`, which answers the club question alone.
     """
 
     if nominee or room.size < room.cap:
@@ -256,7 +253,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
 def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> list[Mapping[str, Any]]:
     """Every squad row of one season, of one team or of all, live and ausgetragen alike, with its person's two names.
 
-    The person tier's read (`READ-KADER-001`), and the Spieler list's: the surname whole, and no e-mail address, telephone
+    The person tier's read, and the Spieler list's: the surname whole, and no e-mail address, telephone
     number, birthdate or consent record at any depth.
     """
 
@@ -298,9 +295,9 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId | None) -> l
 
 
 def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
-    """Each `nummer` two or more LIVE rows of one squad wear, an ausgetragen row wearing none.
+    """Each `nummer` two or more live rows of one squad wear, an ausgetragen row wearing none.
 
-    Compared as stored, never as a number: `07` is a printed shirt and not `7` (`docs/domain.md`'s what the model permits on purpose).
+    Compared as stored, never as a number: `07` is a printed shirt and not `7`.
     """
 
     worn = Counter(row["nummer"] for row in rows if row.get("inactive_since") is None and row.get("nummer") is not None)
@@ -348,8 +345,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, all
     )
 
 
-# --- The pupil's OWN record. What its consent PATCH shares with the referee's and a seat's is
-# `app/api/account/services.py`'s.
+# --- The pupil's own record.
 
 
 def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
