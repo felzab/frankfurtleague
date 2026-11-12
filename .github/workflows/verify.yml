@@ -22,7 +22,7 @@ defaults:
 
 env:
   # How long a cache restore waits on a stuck download before the job goes on without the cache, in
-  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 6, which a stuck
+  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 8, which a stuck
   # restore would cancel instead; every job's `timeout-minutes` stays above it. A warm restore takes
   # seconds.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
@@ -33,12 +33,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each job's `timeout-minutes` bounds a hang rather than predicting a duration: four times the job's
-# slowest time in the 30 runs of this workflow on record when it was set, room for a runner four times
+# slowest time in the green runs of this workflow on record when it was set, room for a runner four times
 # slower, rounded up to whole minutes and never under 5.
 jobs:
   scripts:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -69,7 +69,7 @@ jobs:
   # though what it reads is mostly outside it.
   format:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -80,7 +80,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -107,7 +107,7 @@ jobs:
     # this job restores none of the backend job's uv cache, whose key carries the runner's OS release,
     # and installs from the registry on every run.
     runs-on: ubuntu-22.04
-    timeout-minutes: 21
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -122,7 +122,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 10
     # Every `next` command a step runs, the build's own variables set on its command alone.
     env:
       NEXT_TELEMETRY_DISABLED: "1"
@@ -152,7 +152,7 @@ jobs:
 
   frontend-units:
     runs-on: ubuntu-latest
-    timeout-minutes: 11
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -182,7 +182,7 @@ jobs:
   # here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 16
     # What the publish job holds the artifact to. A job's outputs are written by that job alone, where
     # any job of the run holding its runtime token can delete the artifact and upload another under
     # its name, as upload-artifact's `overwrite` does.
@@ -302,7 +302,7 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 19
+    timeout-minutes: 16
     # Two legs, each on a runner and a stack of its own, by Playwright project
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
     # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
