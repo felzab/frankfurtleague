@@ -33,7 +33,7 @@ export type SeatRow = {
 };
 
 // The list is the container its rows read, a card's act row in every part but the chevron: a seat opens no page of its
-// own (`cardStyles.ts :: actRow`).
+// own (`actRow`).
 const seatRows = tv({
   slots: {
     root: "@container w-full overflow-hidden text-sm",

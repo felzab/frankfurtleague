@@ -112,7 +112,7 @@ const look = tv({
 });
 
 /**
- * The sign-in template, centred as the prototype drew it: the heading, the sentences, the address and the code
+ * The sign-in template: the heading, the sentences, the address and the code
  * boxes centred, every button full width in the 352-px column. Each view is one step of a sign-in; the page
  * holding its state passes the view it is on. A refusal stands in the one line under the acts, the address's
  * and the typed code's in their field's own line.
@@ -318,7 +318,7 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
 
   return (
     <>
-      {/* The column's 16 px above the field, as the board drew the view. */}
+      {/* The column's 16 px above the field. */}
       <ClassicTitle text={title} />
       <HeldForm
         ref={form}

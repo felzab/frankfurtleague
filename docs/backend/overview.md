@@ -3,10 +3,10 @@
 **Scope:** `fl_backend/`
 
 A FastAPI application over MongoDB. **No browser reaches a route here that reads or writes application
-data**: the edge forwards one path to this service, the liveness probe, which takes no key and touches
-no database. Every other caller is the Next.js container over the Docker network, which is why
-authentication is shared API keys plus headers naming the person acting, rather than user
-sessions, and why this service sets no cache headers of its own.
+data**: the edge forwards two paths to this service, the liveness and the readiness probe, which take
+no key; the readiness probe alone pings the database. Every other caller is the Next.js container
+over the Docker network, which is why authentication is shared API keys plus headers naming the
+person acting, rather than user sessions, and why this service sets no cache headers of its own.
 
 ## How it is organised
 
@@ -28,7 +28,7 @@ for that tier**:
 - `system_router.py`: the frontend process's own calls, such as a retention pass
 
 Two files are named otherwise: `saisons/overview_router.py`, an administrator's router of its
-own for a season's overview, and `system/router.py`, the unguarded liveness probe's (under
+own for a season's overview, and `system/router.py`, the unguarded probes' (under
 Authorization). A person's file serving two Funktionen holds one `APIRouter` per prefix
 (`spieler/person_router.py`). `app/main.py` mounts them all, each under its slice's tag, which with
 the handler's name makes the operation's id in `openapi.json`.

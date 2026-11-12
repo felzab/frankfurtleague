@@ -94,7 +94,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await expect(team).toHaveURL((url) => url.pathname.endsWith("/registrierungen"));
   const row = team.getByRole("main").getByRole("row").filter({ hasText: name });
   await expect(chip(row, "Bestätigt")).toBeVisible();
-  // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“ (D747).
+  // The row opens its dialog, titled by the pupil's name, which holds „Aufnehmen“.
   await row.getByRole("button", { name, exact: true }).click();
   await team.getByRole("dialog", { name }).getByRole("button", { name: "Aufnehmen", exact: true }).click();
   // The admission's end: the registration leaves the open list for the squad.

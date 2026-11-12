@@ -36,6 +36,7 @@ Software stays with the holder named above.
      fl_frontend/src/app/apple-icon.png
      fl_frontend/src/app/share-image.png
      fl_frontend/public/icons/manifest/
+     fl_frontend/public/mail/logo.png
      fl_frontend/src/kit/FLLogo.tsx
 
    The GitHub, Instagram and Threads logos in fl_frontend/public/icons/footer/

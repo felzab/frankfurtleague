@@ -7,6 +7,10 @@ is German and load-bearing: **open a term's entry in [`docs/glossary.md`](../doc
 before you first write that term** — in a
 name, a schema field, a commit message or a sentence.
 
+This folder holds only what exists because AI agents write this repository: the quality bar, how a
+change ships and the writer's traps. `docs/` describes the system, and nothing outside `.claude/`
+names this folder or addresses an agent, save what `docs/README.md` lists.
+
 **Precedence, highest first:** §1 · §2 · the owner, whose instruction given this session outranks
 any written earlier · §7 · the rest of this file. The owner's instruction is the owner's own words,
 typed to this session or quoted and dated in the decisions table of the programme register the
@@ -91,8 +95,9 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   things stop the work rather than get weighed:**
   - **workaround** — one needing a paragraph to justify
   - **suppression** — a lint rule turned off to make something fit
-  - **test seam** — a testing-only API in production code: `dependency_overrides`, monkeypatching,
-    env mutation
+  - **test seam** — a testing-only API in production code, or production code patched from a
+    test: monkeypatching, env mutation. Overriding a dependency the application declares for its
+    own reasons, through FastAPI's `dependency_overrides`, is not one
   - **symptom** — a fix that makes a failure stop without removing its cause: one applied where
     the failure surfaced rather than where it originates, or a raised timeout, limit, retry or
     ignore entry that stops it without explaining it

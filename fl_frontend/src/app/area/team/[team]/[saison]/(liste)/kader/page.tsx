@@ -73,7 +73,7 @@ export default function KaderPage({ params }: Props) {
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        // A squad of about twenty, as the board's wait drew it.
+        // A squad of about twenty.
         wait: 20,
         content: read(params),
       }}
