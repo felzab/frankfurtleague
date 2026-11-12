@@ -86,6 +86,12 @@ only the log carries names its event by its key alone, such as `db.unreachable`.
 Reading production's logs is `ssh` and then `docker compose logs <service>` in the checkout, or
 `journalctl` on the host; nothing aggregates or indexes them.
 
+- **No alert reads a log line, and no hosted service receives one.** The monitors are the alerts
+  ([`../ops/spec.md`](../ops/spec.md#19-the-monitors)).
+- **A request a Cloudflare rule refused never reached nginx**, so no line here records it.
+  Cloudflare's Security Events shows it, sampled, for up to the last 31 days on every plan
+  (<https://developers.cloudflare.com/waf/analytics/security-events/>, read 2026-11-12).
+
 ## A crash in the browser
 
 A client component cannot reach the server's logger. Every error boundary therefore posts its crash
@@ -98,9 +104,8 @@ nginx rate-limits it and the route caps every field. A failure rendered on the s
 
 `next dev` writes the frontend's line as `LEVEL message {fields as JSON}`, with a stack on the lines
 after it (`fl_frontend/src/core/logging.ts`). The backend writes
-`LEVEL timestamp module:line - message key=value…` to a terminal, as under `fastapi dev`, with no
-colour and the stack below it. With no nginx in front, whichever service receives the request mints
-the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
+`LEVEL timestamp module:line - message key=value…` to a terminal, with no colour and the stack
+below it. With no nginx in front, whichever service receives the request mints the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
 
 ## Read next
 

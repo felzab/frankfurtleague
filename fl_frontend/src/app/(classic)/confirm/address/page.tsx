@@ -6,11 +6,11 @@ import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
 import { dayOf, formatInstantShort } from "@/core/format";
+import { addressChangeGetAddressChangeView } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
-import { postAddressChangeView } from "@/features/address-change/mutations";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
@@ -44,7 +44,7 @@ const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 // arguments rather than the caller.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
-    postAddressChangeView({ token }).catch((error: unknown) => {
+    addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {
       if (!readsAsDeadLink(error)) throw error;
       return null;
     }),

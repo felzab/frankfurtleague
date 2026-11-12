@@ -16,9 +16,9 @@ import type { StatusCardProps } from "./StatusCard";
 /**
  * A page a mail opens carries its link's token in its address, the first request of one in
  * `MAILED_LINK_PAGES` included: no outbound request may send that address on
- * as its referrer. Each such page spreads this into the metadata it answers, or sets the same referrer itself.
+ * as its referrer. `mailedMetadata` spreads it into each such page's metadata.
  */
-export const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
+const MAILED_PAGE_METADATA = { referrer: "no-referrer" } as const satisfies Metadata;
 
 /**
  * The link no longer valid, one message for an expired, mistyped or tampered link alike, as the page opens on it

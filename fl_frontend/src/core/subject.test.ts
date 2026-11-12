@@ -430,7 +430,9 @@ describe("the request the seam makes", () => {
     nextTimesOut = true;
 
     const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
-      await expect((() => getSubjectSession())()).rejects.toSatisfy((error: unknown) => error instanceof APINetworkError && error.isTimeout);
+      await expect((() => getSubjectSession())()).rejects.toSatisfy(
+        (error: unknown) => error instanceof APINetworkError && error.cause instanceof DOMException && error.cause.name === "TimeoutError",
+      );
       return requestWriteMayStand();
     });
 

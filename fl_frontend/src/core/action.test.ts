@@ -91,11 +91,9 @@ const Venue = z.object({ name: z.string().min(1).max(10), postcode: z.string().r
 const failure = (statusCode: number, code: Code | undefined, refusedFields: readonly FLRefusedField[] = []) =>
   new APIBadStatusError({
     message: "refused",
-    url: "http://backend/api/v0/spielorte",
     statusCode,
     serverErrorCode: code,
     refusedFields,
-    endpoint: "/spielorte",
     traceId: "0",
   });
 

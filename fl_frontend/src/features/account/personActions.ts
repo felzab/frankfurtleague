@@ -14,6 +14,16 @@ import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
 import {
+  accountDeleteAddressChange,
+  accountPostAddressChange,
+  bewerbungenPatchEinwilligung,
+  identityPostAccountErasure,
+  registrierungenPatchEinwilligung,
+  schiedsrichterPatchEinwilligung,
+  spielerPatchEinwilligung,
+  teamsPatchEinwilligung,
+} from "@/core/generated/client/sdk";
+import {
   BewerbungenPatchEinwilligungBody,
   BewerbungenPatchEinwilligungParams,
   RegistrierungenPatchEinwilligungBody,
@@ -29,12 +39,6 @@ import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
-import { patchBewerbungEinwilligung, patchSeatEinwilligung } from "@/features/kontakte/mutations";
-import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
-import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichter/mutations";
-import { patchSpielerAccountEinwilligung } from "@/features/spieler/mutations";
-
-import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EndState } from "@/kit/MailedPage";
@@ -66,7 +70,7 @@ export const eraseAccount = action({
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => eraseOwnRecords());
+      outcome = await deleteOwnAccount(token, await headers(), () => identityPostAccountErasure());
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
       logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
@@ -96,7 +100,7 @@ export const startAddressChange = action({
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
-    await requestAccountAddressChange({ email });
+    await accountPostAddressChange({ email });
     return { ok: true, value: undefined };
   },
 });
@@ -108,7 +112,7 @@ export const withdrawAddressChange = action({
   name: "withdrawAddressChange",
   input: HOLDER_ALONE,
   run: async () => {
-    await stopAccountAddressChange();
+    await accountDeleteAddressChange();
     return { ok: true, value: undefined };
   },
 });
@@ -167,7 +171,7 @@ export const saveSpielerConsent = action({
   claim: "account",
   name: "saveSpielerConsent",
   input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
-  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerAccountEinwilligung(choices)),
+  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => spielerPatchEinwilligung(choices)),
 });
 
 /** One address may hold several referee rows. */
@@ -177,7 +181,7 @@ export const saveSchiedsrichterConsent = action({
   name: "saveSchiedsrichterConsent",
   input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
-    savedUnlessAgedOut(() => patchSchiedsrichterAccountEinwilligung(schiedsrichter_id, choices)),
+    savedUnlessAgedOut(() => schiedsrichterPatchEinwilligung(schiedsrichter_id, choices)),
 });
 
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
@@ -187,7 +191,7 @@ export const saveRegistrierungConsent = action({
   name: "saveRegistrierungConsent",
   input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: async ({ registrierung_id, holder: _holder, ...choices }) => {
-    await patchRegistrierungEinwilligung(registrierung_id, choices);
+    await registrierungenPatchEinwilligung(registrierung_id, choices);
     return { ok: true, value: undefined };
   },
 });
@@ -198,7 +202,7 @@ export const saveSeatConsent = action({
   claim: "account",
   name: "saveSeatConsent",
   input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSeatEinwilligung(team_id, saison_id, choices)),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => teamsPatchEinwilligung(team_id, saison_id, choices)),
 });
 
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
@@ -208,7 +212,7 @@ export const saveBewerbungConsent = action({
   name: "saveBewerbungConsent",
   input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: async ({ bewerbung_id, holder: _holder, ...choices }) => {
-    await patchBewerbungEinwilligung(bewerbung_id, choices);
+    await bewerbungenPatchEinwilligung(bewerbung_id, choices);
     return { ok: true, value: undefined };
   },
 });

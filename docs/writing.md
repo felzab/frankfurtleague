@@ -41,9 +41,12 @@ the folder.
   `/datenschutz`, the words German law and a visitor look for
   (`fl_frontend/src/core/routes.ts :: ADDRESS_WORDS`, which `routes.test.ts` holds each address to).
 - **A stored or served name** follows it too: `saison_phase`, but `first_name`, never `vorname`. A
-  rename is a paste the owner runs before the deploy reading the new name, and the paste drops an
-  index naming it, so the boot builds it anew. The record model
-  (`fl_backend/app/readback.py :: RECORD_MODELS`) and the read-back change in the same commit.
+  stored name is renamed by a migration file the owner runs with `mongosh --file` in an outage,
+  after the old release stops and before the new one boots, and the file drops an index naming it,
+  so the boot builds it anew
+  ([the order](ops/runbooks.md#2-before-deploying-a-change-to-a-stored-shape-or-an-index)). The
+  record model (`fl_backend/app/readback.py :: RECORD_MODELS`) and the read-back change in the same
+  commit.
 - **A name the production host or a deploy holds**, such as a secret or a header, follows it too,
   and its rename is an owner step. A Docker volume keeps its name: renamed, it is a new, empty one.
 - **A copy catalogue key is a name, never the copy it keys.** A page title's key is its route key,
