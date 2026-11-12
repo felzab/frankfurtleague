@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.aufstellungen.schemas import FLAufstellungPublic
 from app.api.aufstellungen.services import PUBLIC_AUFSTELLUNGEN_AS, compose_public_aufstellungen
 from app.api.saisons.public_router import get_spiel
-from app.api.spielberichte.services import compose_public_bericht
+from app.api.spielberichte.services import PUBLIC_PERSONS_AS, compose_public_bericht
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -77,6 +77,55 @@ def test_only_an_adopted_report_publishes_its_scorers_and_cards(adoption: dict[s
     assert (served.scorers is not None, served.cards is not None) == (public, public)
 
 
+def test_a_card_names_the_pupil_it_was_shown_to():
+    """The seeded report's cards name nobody the public may read, so a card serving nobody would pass every case below."""
+
+    spiel = adopted_match()
+    report = report_of(spiel)
+    to_named = {"side": "team2", "spieler_id": NAMED, "minute": "60", "colour": "gelb"}
+    joined = {
+        **report,
+        "bericht": {**report["bericht"], "cards": [to_named]},
+        PUBLIC_PERSONS_AS: [{"_id": NAMED, "first_name": "Maxim", "last_name": "M."}],
+    }
+
+    served = compose_public_bericht(joined, spiel)
+
+    assert served.cards is not None
+    assert [card.spieler.model_dump() for card in served.cards] == [{"first_name": "Maxim", "last_name": "M."}]
+
+
+def named_only_match() -> dict[str, Any]:
+    """A 1:0 the report proposed and the administrator adopted, beside `adopted_match` in the same season."""
+
+    return documents.spiel_document(
+        spiel_id=ObjectId("6890a1b2c3d4e5f607430022"),
+        saison_id=SAISON,
+        spiel_nr=2,
+        spieltag_id=adopted_match()["spieltag_id"],
+        team1={"team_id": HOME, "tore": 1},
+        team2={"team_id": AWAY, "tore": 0},
+        ergebnis="1:0",
+        date="2026-05-09",
+        time="18:00:00",
+    )
+
+
+def named_only_report(spiel: dict[str, Any]) -> dict[str, Any]:
+    """One goal by the named pupil and no card: no entry naming nobody, whose null would join every pupil to the report."""
+
+    return documents.spielbericht_document(
+        spiel,
+        bericht=documents.bericht_document(
+            ergebnis_vorschlag={"team1_tore": 1, "team2_tore": 0, "elfmeterschiessen": None, "sonderereignis": None},
+            scorers=[{"side": "team1", "spieler_id": NAMED, "minute": "12", "eigentor": False}],
+            cards=[],
+            sides=documents.spielbericht_sides(spiel),
+            adopted=True,
+        ),
+    )
+
+
 @pytest.fixture(scope="module")
 def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     spiel = adopted_match()
@@ -99,8 +148,8 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
             await database[Collection.SAISON_TEAMS].insert_many(
                 [documents.saison_team_document(SAISON, HOME, "Alpha", "ALP"), documents.saison_team_document(SAISON, AWAY, "Beta", "BET")]
             )
-            await database[Collection.SPIELE].insert_one(spiel)
-            await database[Collection.SPIELBERICHTE].insert_one(report_of(spiel))
+            await database[Collection.SPIELE].insert_many([spiel, named_only_match()])
+            await database[Collection.SPIELBERICHTE].insert_many([report_of(spiel), named_only_report(named_only_match())])
             await database[Collection.SPIELER].insert_many(
                 [
                     documents.spieler_document(NAMED, "Maxim", "Müller"),
@@ -134,12 +183,12 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
         yield mongo_replica_set_url
 
 
-def the_page(url: str) -> Any:
+def the_page(url: str, spiel_id: ObjectId | None = None) -> Any:
     async def body() -> Any:
         database: AsyncDatabase = shared_client(url)[DATABASE_NAME]
         return await get_spiel(
             saison_id=SAISON,
-            spiel_id=adopted_match()["_id"],
+            spiel_id=spiel_id or adopted_match()["_id"],
             saisons_collection=database[Collection.SAISONS],
             spiele_collection=database[Collection.SPIELE],
             teams_collection=database[Collection.TEAMS],
@@ -185,6 +234,16 @@ def test_each_entry_reads_as_a_name_or_as_nobody(seeded_url: str):
     nobody = {"first_name": None, "last_name": None}
     assert served == [("45+2", {"first_name": "Maxim", "last_name": "M."}), ("80", nobody), ("60", nobody), ("70", nobody)]
     assert not {"Gerber", "Nadja", "Müller", "reason", "foulspiel"} & set(json.dumps(bericht.model_dump(mode="json")).replace('"', " ").split())
+
+
+@pytest.mark.db
+def test_a_report_naming_only_pupils_joins_each_by_their_id(seeded_url: str):
+    """The case above holds a null entry, which a broken join matches against every pupil and so still names the scorer."""
+
+    scorers = the_page(seeded_url, named_only_match()["_id"]).bericht.scorers
+
+    assert scorers is not None
+    assert [scorer.spieler.model_dump() for scorer in scorers] == [{"first_name": "Maxim", "last_name": "M."}]
 
 
 @pytest.mark.db
