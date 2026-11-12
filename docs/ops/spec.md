@@ -579,120 +579,85 @@ digest, so deleting one corrupts the tag it belongs to.
 
 ### 1.6 The verification gate
 
-`./scripts/gate/verify.sh --help` lists the scopes and their flags; a bare run starts every scope side by
-side and replays each one's output in the order below.
-
-**knip runs twice and refuses what nothing reads, then what only tests read**, so what a change
-leaves unused is removed in that change rather than found by a later sweep. The default run
-(`fl_frontend/knip.json`) refuses a file, an export or a dependency nothing imports, a test
-included. The production run (`fl_frontend/knip.production.json`) drops the tests and refuses a
-file or an export no production code reads. An export its own module still uses passes there, a
-`*Schema` whose inferred type names it among them (§4), and a value a test compares on purpose
-carries `@internal`. Each file names, beside each ignore, the reader knip cannot see, and a
-configuration hint fails either step as a finding does.
-
-**An editor formats earlier still**: `.vscode/settings.json`
-names the module, the configuration and the ignore file the gate itself reads, and a developer
-without the extension is held by the format scope and CI alone. `.editorconfig` carries the same
-conventions to the files prettier never opens and stays clear of every setting `.prettierrc.json`
-decides.
-
-**Every untracked file a run leaves is gitignored where it lands**, the two caches this repository
-opts into — `tsc`'s and prettier's — among them, so none of it is a tracked file the gate wrote.
-eslint runs uncached: its typed rules read other files' types, which its per-file cache never keys
-on. **Outside
-CI the two Next commands install as well as write**: handed a missing `typescript` or `@types/*`
-package, `next typegen` and `next build` add it to `node_modules` rather than failing, where a
-runner takes the refusing branch, keyed off Next's own `isCI`.
-
-**One tracked file a gate run writes is not a formatter's doing**: `next typegen` and `next build`
-each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
-`writeConfigurationDefaults`), so every reader after typegen measures a config the committed file
-does not hold; the frontend job in `.github/workflows/verify.yml` diffs that one path after the
-scope and fails on it.
-
-**CI runs every scope on every event**, one parallel job per scope in `.github/workflows/verify.yml`.
-**The aggregate `verify` job fails on a failed, cancelled or skipped job**, and on a job missing from
-its `needs:`.
-
-**Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
-alone where nothing imports the application, on the uv the backend image copies in (§1.1); each
-flag's argument is in `.github/actions/backend-toolchain/action.yml`, which every such job calls.
+`./scripts/gate/verify.sh --help` lists the scopes and their flags; a bare run starts every scope
+side by side and replays each one's output in the order below. `--quick` runs the scripts, backend
+and frontend scopes alone, none of which needs Docker.
 
 | Scope              | Runs                                                                                                                                                                                       | Needs                                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                        | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                          |
-| `--docs`           | no conflict marker or whitespace error in any tracked file (`git diff --check`); lychee, offline, over every link and fragment inside the repository; and `check_public_routes.py`         | the backend venv, and Docker for lychee                                                                                                        |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the Python in `scripts/`, and the pytest suite in `scripts/tests/`                                                                               | the backend venv, `pytest` included; shellcheck and actionlint at their pinned releases from PATH, else Docker                                 |
+| `--docs`           | no conflict marker, whitespace error or invisible character in any tracked file; lychee, offline, over every link and fragment inside the repository; and `check_public_routes.py`         | the backend venv, and Docker for lychee                                                                                                        |
 | `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `deptry` over `app/`                                                                                | the backend venv, and for the lockfile check a uv inside `fl_backend/pyproject.toml`'s `required-version` range; any other refuses at start-up |
-| `--format`         | prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                               | pnpm install                                                                                                                                   |
+| `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                               | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                       | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and the dependency audit, then `next build`                                                       | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once       | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; `nginx/edge_test.sh` drives a running edge                            | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts` | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                     | Docker                                                                                                                                         |
 
-**The images scope's context probe and both
-`.dockerignore` files** hold the same list of credential shapes, and
-`scripts/tests/test_image_assertions.py` holds the two to each other.
+**CI runs every scope on every event**, one job per scope in `.github/workflows/verify.yml`, each
+running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
-**A manifest is compared against its lockfile before anything reads the installed tree** — the
+- **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
+  the `images` job built, in two legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, and `phone`.
+- **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
+  a job missing from its `needs:`.
+- **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
+  built and checked under their `sha-` tags, building nothing again.
+
+**Every CI job that needs the backend virtualenv creates it through
+`.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).
+
+**knip runs twice and refuses what nothing reads, then what only tests read**, so what a change
+leaves unused is removed in that change. The default run (`fl_frontend/knip.json`) refuses a file,
+an export or a dependency nothing imports, a test included. The production run
+(`fl_frontend/knip.production.json`) drops the tests and refuses a file or an export no production
+code reads; a value a test compares on purpose carries `@internal`. Each file names, beside each
+ignore, the reader knip cannot see, and a configuration hint fails either step as a finding does.
+
+**An editor formats earlier still**: `.vscode/settings.json` names the module, the configuration and
+the ignore file the gate itself reads. `.editorconfig` carries the same conventions to the files
+Prettier never opens, and stays clear of every setting `.prettierrc.json` decides.
+
+**Every untracked file a run leaves is gitignored where it lands**, the caches of `tsc` and Prettier
+among them. eslint runs uncached: its typed rules read other files' types, which its per-file cache
+never keys on. **Outside CI the two Next commands install as well as write**: handed a missing
+`typescript` or `@types/*` package, `next typegen` and `next build` add it to `node_modules` rather
+than failing, where a runner takes the refusing branch, keyed off Next's own `isCI`.
+
+**One tracked file a gate run writes is not a formatter's doing**: `next typegen` and `next build`
+each rewrite `fl_frontend/tsconfig.json` where a `compilerOptions` key is absent (Next's
+`writeConfigurationDefaults`), so the frontend job diffs that one path after the scope and fails on
+it.
+
+**A manifest is compared against its lockfile before anything reads the installed tree**: the
 frontend scope resolves the lockfile against `package.json` and the backend scope runs
-`uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
-expensive.
+`uv lock --check`, both cheap.
 
-**Nothing reads the diff to choose a scope**, so only the bare run is sure to cover a change, and it is the run a
-pull request is called ready to merge on.
+**Nothing reads the diff to choose a scope**, so only the bare run is sure to cover a change, and it
+is the run a pull request is called ready to merge on.
 
-**The scripts scope lints and type-checks its own python**, through configs that sit at the top of
-`scripts/` rather than at the repository root or inside one of its five directories: a root config
-would become the nearest one for `fl_backend/` too, moving isort's idea of the source root and
-overriding the backend's pyright block, while a copy inside `gate/`, `checks/`, `lib/`, `ops/` or
-`tests/` would reach that directory alone. `scripts/ruff.toml` `extend`s the backend's configuration
-and adds nothing, so the selection stays in one file; `scripts/pyrightconfig.json` pins the python
-version rather than letting pyright infer one, which would answer differently per machine.
+**The scripts scope lints and type-checks its own Python through configurations at the top of
+`scripts/`**: a root configuration would become the nearest one for `fl_backend/` too, and a copy
+inside one of the five directories would reach that directory alone. `scripts/ruff.toml` `extend`s
+the backend's configuration and adds nothing; `scripts/pyrightconfig.json` pins the Python version
+rather than letting pyright infer one per machine. **A checker resolves `scripts/lib/` for itself**,
+each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraPaths` is the second
+listing of that fact.
 
-**A checker resolves `scripts/lib/` for itself**, each entry point inserting it at its own top, and
-`pyrightconfig.json`'s `extraPaths` is the second listing of that fact. A `PYTHONPATH` set by the
-caller would be the alternative, and it would have to be spelled again in every workflow `run:`
-line, every hook and every test.
+**The ops scope exists because the compose files and the nginx configuration have no compiler.**
+`nginx -t` parses and sees no response, so `nginx/edge_test.sh` starts the checkout's own edge as
+`docker-compose.yml` starts it and grades what it wrote, sent and answered: no mailed link's query
+in an access line, a visitor's `traceparent` replaced, each security header sent once, a link page
+writing no error line, every zone and the ceiling refusing past their figure, and both body caps.
+`scripts/checks/check_compose_model.py` reads the models `docker compose config` renders,
+production's alone and the merged local pair, and holds each to §2's rows. A model it cannot read is
+a refusal rather than a verdict (§1.7).
 
-The **ops** scope exists because the compose files have no compiler and no test suite, and the
-nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
-time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real request
-through a real edge started as `docker-compose.yml` starts it, reads the access line back,
-asks every location and the www redirect for its security headers,
-each compared with `nginx/shared/security_headers.conf`, fails a frontend location handing
-Next a visitor's `traceparent`, and drives
-the Control API the deploy reloads through: an applied reload, a refused one, the dump, and a
-worker user it refuses.
-
-**The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what
-the override writes differs, and each difference is argued at its key. What no merge can hold is
-exposure, so `scripts/checks/check_compose_model.py` reads the two models
-`docker compose config` renders, production's alone and the merged pair: production publishes no
-port and declares exactly `:: PRODUCTION_SERVICES`, and locally every published port, nginx's included, binds loopback. It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
-production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares, and the
-edge's Control API socket and tmpfs to the deploy's. Over every file either edge mounts, the shared
-`nginx/shared/http.conf` among them, it holds both edges to trusting the connector's rendered
-address alone and to declaring the real-address header and recursion once. It holds each
-application service to reading its package's `.env` and no other, judged off the environment
-Compose resolves from the stand-ins the gate writes in place of the two files, and each to
-the secret files its own schema reads, so a schema and a compose file that drifted apart fail here
-rather than at a host's preflight,
-and every service to exactly its networks, so only nginx shares one with the connector or with the
-application pair. It holds every secret to exactly the services
-`scripts/checks/check_compose_model.py :: SECRET_HOLDERS` names, read from its own file, with no bind mount or
-config reaching `secrets/` beside them and no service handed a moved credential's name in its
-environment; and every service to dropping every capability and gaining no
-privilege, nginx adding back its master's four. A model it
-cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
-(§1.7).
-
-**The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`;
-`pyright` is separate from `ruff` because ruff checks no types. **Both test tiers run**: the
-`db`-marked tests need a real `mongod`, so they are their own scope, one of the four scopes `require_docker` guards; `--quick` runs the
-scripts, backend and frontend scopes alone. **The image scope** exists because code that compiles can still fail to build inside the image, or
-be omitted from the standalone output entirely.
+**The images scope exists because code that compiles can still fail to build inside the image**, or
+be left out of the standalone output. **Both test tiers run**: the `db`-marked tests need a real
+`mongod`, so they are a scope of their own.
 
 ### 1.7 Script conventions
 
