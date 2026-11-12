@@ -107,8 +107,8 @@ runSpielSweep`);
 Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed;
 a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included, and `next dev` arms nothing.
-**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
-([`runbooks.md`](runbooks.md) §13): read once at the boot, it arms no pass and makes a write's drain
+**`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the
+jobs may act on, as during a restore ([`runbooks.md`](runbooks.md) §13): read once at the boot, it arms no pass and makes a write's drain
 send nothing (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the
 Postausgang.
 
