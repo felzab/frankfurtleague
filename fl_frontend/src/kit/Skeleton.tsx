@@ -22,13 +22,10 @@ import type { ReactNode } from "react";
  */
 const placeholder = tv({
   slots: {
-    // Drawn invisible and shown once the wait passes `--loading-delay`, Next's way of keeping a fast load from
-    // flashing a placeholder. The longhands, never the `animation` shorthand: under reduced motion
-    // `--motion-in` is unset, which would invalidate the whole shorthand and leave the box invisible, where it
-    // invalidates the duration alone, which falls back to 0s, so the box appears at once. Nothing in it can be pressed,
-    // so nothing in it answers the pointer: a placeholder drawn with a control's or a row's recipe borrows its box, never
-    // its hover or its hand, and `pointer-events` is inherited, so this holds for every part inside.
-    root: "pointer-events-none opacity-0 [animation-delay:var(--loading-delay)] [animation-duration:var(--motion-in)] [animation-fill-mode:forwards] [animation-name:kit-appear]",
+    // Nothing in it can be pressed, so nothing in it answers the pointer: a placeholder drawn with a control's or a row's
+    // recipe borrows its box, never its hover or its hand, and `pointer-events` is inherited, so this holds for every
+    // part inside.
+    root: "pointer-events-none",
     // The one recipe on every ground (`tokens.css`). Its pulse runs under reduced motion too: a loading indicator that
     // stops reads as stuck.
     bar: "skeleton-bar",
@@ -107,7 +104,7 @@ export function PlaceholderSentence({
 
 /**
  * A part of the frame while it waits, such as the rail's entries or the season button: its placeholder, hidden from
- * assistive technology and shown only once the wait outlasts `--loading-delay`. It says nothing itself: the page's
+ * assistive technology. It says nothing itself: the page's
  * own wait carries the status. `layoutClass` is the box the part stands in, as the part's own root lays out its children.
  */
 export function Placeholder({ layoutClass = "", children }: { layoutClass?: string; children: ReactNode }) {
@@ -121,8 +118,8 @@ export function Placeholder({ layoutClass = "", children }: { layoutClass?: stri
 }
 
 /**
- * Waiting for a template's content: its blocks' placeholders, shown only once the wait outlasts `--loading-delay`
- * (`tokens.css`). The box standing in the content's place is busy. A template places it as its one boundary's fallback;
+ * Waiting for a template's content: its blocks' placeholders. The box standing in the content's place is busy. A
+ * template places it as its one boundary's fallback;
  * `layoutClass` is the box the content will stand in, such as a column's gaps.
  */
 export function Waiting({ layoutClass = "", children }: { layoutClass?: string; children: ReactNode }) {
