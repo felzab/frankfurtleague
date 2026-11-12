@@ -964,6 +964,7 @@ the one that stops the frontend booting.
 3. Copy the signing secret into the server's `secrets/resend_webhook_secret`, owned as §16 says. **It begins
    `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
    the boot check does not, deliberately — refusing at start beats answering 400 to every event.
+   The frontend reads it once it is recreated (§16).
 4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
    step 2.
 
@@ -1043,7 +1044,15 @@ stands dropped until a boot rebuilds it. This lapses once the hosting holds no s
 that deploy; delete it then.
 
 **Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
-`fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
+`fl_frontend/.env` and recreate the frontend, and take the line out again only at the last step
+below.** The frontend reads the file as it boots, so the recreate is what applies it, in the
+checkout:
+
+```bash
+docker compose up -d --wait --force-recreate frontend
+```
+
+The
 steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
 would act on the restored state before they are done. The pupils' deletion would delete each pupil
 the season-after rule makes due under it, a returning pupil whose squad row the snapshot predates
