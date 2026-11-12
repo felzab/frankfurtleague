@@ -336,55 +336,52 @@ answer the caller can read.
 
 Every response carries four, each sent with `always`, from `nginx/shared/security_headers.conf`:
 
-- `Strict-Transport-Security`
-- `X-Frame-Options`
+- `Strict-Transport-Security`, two years with `includeSubDomains` and no `preload`
 - `X-Content-Type-Options`
-- `Referrer-Policy`
+- `Referrer-Policy`, by the page asked for (§1.3)
 - `Content-Security-Policy`
+
+**The policy is written once.** `nginx/shared/site.conf` includes the file at server level and again
+in each location adding a header of its own, because `add_header` in a location replaces the
+inherited set, and `nginx/prod/prod.conf`'s www redirect includes it too. The file also drops an
+upstream's copy of each header, so a response carries the edge's alone and never a second enforcing
+policy. `nginx/edge_test.sh` asks every location and the www redirect for each header, and compares
+its value with the file's.
+
+**`frame-ancestors 'none'` is the one framing rule.** CSP3 has it override `X-Frame-Options`, which
+a browser enforcing the policy ignores, so the edge sends no `X-Frame-Options`.
 
 **The one enforced policy keeps `'unsafe-inline'` on `script-src`, because Next cannot put a nonce
 or a hash on the inline hydration scripts of a prerendered shell**, and every page here is one
 (`cacheComponents` in `fl_frontend/next.config.ts`). Next's guide calls Partial Prerendering, which
 `cacheComponents` turns on, "incompatible" with a nonce-based CSP, and its experimental SRI puts
-`integrity` on script files alone — the installed release's copy,
+`integrity` on script files alone: the installed release's copy,
 `fl_frontend/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`, and a Next
 maintainer's open correction to it, <https://github.com/vercel/next.js/pull/96281>, both read
-2026-09-25 and moving without us. A nonce for the stream beside build-time hashes for the shell and
-`'self'` for its chunks would cover every script, and is refused: three mechanisms is a patchwork
-rather than a rule. The compensating control is the `react/no-danger` rule in
-`fl_frontend/eslint.config.mjs`, which keeps every HTML sink out of the
-application. **Revisit when the application renders user-supplied markup, or when Next ships
-inline-script hashing that covers prerendered shells** — and at the first, reconsider the policy,
-never the lint rule.
+2026-09-25. A nonce for the stream beside build-time hashes for the shell and `'self'` for its chunks
+would cover every script, and is refused: three mechanisms is a patchwork rather than a rule. The
+compensating control is the `react/no-danger` rule in `fl_frontend/eslint.config.mjs`, which keeps
+every HTML sink out of the application. **Revisit when the application renders user-supplied markup,
+or when Next ships inline-script hashing that covers prerendered shells**, and at the first,
+reconsider the policy, never the lint rule.
 
 **`style-src` keeps `'unsafe-inline'` too, because two libraries every page loads inject a
-`<style>` element at runtime**: React Aria's `usePress` adds its touch rule
-(`touch-action: pan-x pan-y pinch-zoom` on every pressable element, which spares a tap the
-browser's double-tap-zoom delay), and `next-themes` adds the rule that suspends transitions while it
-applies the theme. Several components also set a runtime-computed inline `style` **attribute**, for
-which CSP offers no nonce or hash. A strict `style-src 'self'`, and `'self'` beside
-`style-src-attr 'unsafe-inline'` alike, drops both elements with nothing visibly broken and logs a
-violation on every page — a directive on attributes does not reach an element — and Next's own
-`_global-error` fallback, which carries an inline `<style>` too, would render unstyled. A nonce is
-refused (2026-10-28): both libraries take it from a per-request value, React Aria from a
-`csp-nonce` meta and `next-themes` from a prop, which a prerendered shell cannot carry. So is a hash
-of their style text, which changes with each library's release.
-
-**The policy is written once**, in `nginx/shared/security_headers.conf`, which
-`nginx/shared/site.conf` includes at server level and again in each location adding a header of
-its own, because `add_header` in a location replaces the inherited set, and which
-`nginx/prod/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location and the
-www redirect for it, and compares each header's value with that file's. A
-restated copy would be a second enforcing policy, which the **csp** clause of
-`docs/decisions.md` forbids.
+`<style>` element at runtime**: React Aria's `usePress` adds its touch rule, which spares a tap the
+browser's double-tap-zoom delay, and `next-themes` adds the rule that suspends transitions while it
+applies the theme. Several components also set a runtime-computed inline `style` attribute, for
+which CSP offers no nonce or hash. A strict `style-src 'self'` drops both elements with nothing
+visibly broken and logs a violation on every page, and Next's own `_global-error` fallback would
+render unstyled. A nonce is refused (2026-10-28): both libraries take it from a per-request value,
+which a prerendered shell cannot carry. So is a hash of their style text, which changes with each
+library's release.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
-there and renders its widget in a frame of that origin, so a policy losing it from either breaks all
-three while every location still sends the file's value. `nginx/edge_test.sh` fails a response
-whose policy does. Cloudflare's own list for the check adds `connect-src 'self'` for pre-clearance
-alone, which the widget does not use (<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>,
-read 2026-10-04).
+there and renders its widget in a frame of that origin. `nginx/edge_test.sh` fails a response whose
+policy loses it from either. Cloudflare's own list for the check adds `connect-src 'self'` for
+pre-clearance alone, which the widget does not use
+(<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read
+2026-10-04).
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
