@@ -305,32 +305,27 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     )
 
 
-def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
-    """Why there is nobody to send to, or `None`.
+def find_missing_address_refusal(*, email: str) -> WriteRefusal | None:
+    """Why there is nobody to send to, or `None`: a stored address the fold cannot canonicalise, such as a placeholder.
 
     Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either.
-    if email is not None:
-        try:
-            league_address(str(email))
-        except ValueError:
-            pass
-        else:
-            return None
+    try:
+        league_address(email)
+    except ValueError:
+        return WriteRefusal(
+            error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
+            status=HTTPStatus.CONFLICT,
+        )
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
-        status=HTTPStatus.CONFLICT,
-    )
+    return None
 
 
 def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     # Both the fold every payload stores, so one string is one mailbox.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    return stored_email is None or payload_email != stored_email
+    return payload_email != stored["kontakt"]["email"]
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
@@ -388,7 +383,7 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     return (
         stored.get("inactive_since") is not None
         and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD))
-        and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
+        and find_missing_address_refusal(email=stored["kontakt"]["email"]) is None
     )
 
 

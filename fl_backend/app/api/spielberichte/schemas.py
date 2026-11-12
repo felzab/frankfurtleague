@@ -219,10 +219,10 @@ class FLSpielberichtSpiel(BaseModel):
 
 
 class FLSpielberichtSpieler(BaseModel):
-    """A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."""
+    """A pupil a report may name or names, with the names their record holds."""
 
     spieler_id: CustomObjectId
-    first_name: str | None
+    first_name: str
     last_name: str | None
     nummer: str | None
 

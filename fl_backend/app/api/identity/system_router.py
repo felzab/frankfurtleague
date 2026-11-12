@@ -152,9 +152,9 @@ async def get_references(
 
 # The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
 # it, and neither the hourly pass nor an activation's press holds a person's session here.
-# At most seventeen commands for a pupil a report and a locked line-up name, each the round trip plus at most 1.36 ms,
-# timed locally 2026-11-11: this share, about 6.7 s with the call's own four, fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
-# round trip.
+# At most sixteen commands for a pupil a report and a played match's line-up name, each the round trip plus at most
+# 1.36 ms, timed locally 2026-11-11: this share, about 6.3 s with the call's own four, fits
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 ERASURES_PER_PASS: Final = 10
 
 

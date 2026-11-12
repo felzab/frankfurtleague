@@ -282,11 +282,7 @@ def build_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def folded(stored: Any) -> str | None:
-    """One stored address on the fold both ends of a join share, or `None` where nothing is stored.
-
-    The null arm carries an empty seat slot and a referee whose `kontakt.email` is null, each
-    declared so in `app/core/constraints.py`.
-    """
+    """One stored address on the fold both ends of a join share, or `None` where nothing is stored: an empty seat slot."""
 
     return None if stored is None else sign_in_identifier(str(stored))
 

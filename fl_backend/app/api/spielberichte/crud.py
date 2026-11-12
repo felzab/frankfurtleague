@@ -113,10 +113,11 @@ async def pull_named(
     return [
         *(FLSpielberichtSpieler.model_validate(row) for row in rows.values()),
         *(
+            # Every pupil an entry names stands in `spieler`: an erasure empties the entry with the record.
             FLSpielberichtSpieler(
                 spieler_id=spieler_id,
-                first_name=named.get(spieler_id, {}).get("first_name"),
-                last_name=named.get(spieler_id, {}).get("last_name"),
+                first_name=named[spieler_id]["first_name"],
+                last_name=named[spieler_id].get("last_name"),
                 nummer=None,
             )
             for spieler_id in sorted(rest)

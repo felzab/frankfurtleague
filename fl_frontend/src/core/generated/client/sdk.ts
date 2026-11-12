@@ -1527,9 +1527,8 @@ export const getIdentityPostAccountErasureUrl = () => {
  * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
  * and its other seats standing.
  * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
- * standing. Every match report stands, its remarks and entries included, and names no referee. Every record the
- * person made as an administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a
- * registration's decision -- and every log row naming their address name a fixed marker in their place.
+ * standing. Every match report stands, its remarks and entries included, and names no referee. Every log row naming
+ * their address names a fixed marker in their place.
  *
  * An address holding nothing is no refusal. The 404 is published for the steps' reads by
  * id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
@@ -1558,8 +1557,8 @@ export const getIdentityGetAccountErasureViewUrl = () => {
  * confirmations their referee record was asked for, which go; the goals, cards and played matches' line-up entries of
  * their pupil record, which name nobody, and its entries on line-ups of matches still to come, which go; every reason they typed
  * answering a match confirmation, from any
- * seat they held, which goes from its row, the answer standing; what the person made or decided for others, which names a
- * marker in their place; and the log rows naming their address. Written besides: the notice that their grant ended, which
+ * seat they held, which goes from its row, the answer standing; and the log rows naming their address, which name a
+ * marker in their place. Written besides: the notice that their grant ended, which
  * every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the
  * address, which admits nobody, goes with the erasure unnamed.
  * @summary Show what an erasure of the signed-in address would remove
