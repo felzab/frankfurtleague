@@ -106,7 +106,9 @@ export function Contents({ entries }: { entries: readonly ContentsEntry[] }) {
         aria-label={COPY.template.contents}
         className={slots.fold()}>
         <details className={slots.details()}>
-          <summary className={slots.summary()}>
+          <summary
+            data-kit-focus="inset"
+            className={slots.summary()}>
             {COPY.template.contents}
             <span className={slots.chevron()}>
               <Icon

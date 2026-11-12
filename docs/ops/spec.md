@@ -510,8 +510,10 @@ its pinned release.
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
-  the `images` job built, in two legs, each on a runner and a stack of its own: `desktop` with
-  `first-pass`, and `phone`.
+  the `images` job built, in four legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, `phone`, and the layout-shift guard's two, `layout-public`, which re-seeds its
+  database under each state of the landing (`scripts/ops/seed/seed.js :: LANDING_STATES`) and runs
+  the landing's cases again, and `layout-signed-in`.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
 - **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job

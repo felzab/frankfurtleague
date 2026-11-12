@@ -11,7 +11,7 @@ const LINK_WORDS = COPY.admin.saison;
 
 /**
  * Where the link stands, by the season's press and the live link: a finished season, which shuts every link whatever
- * else stood, as the editor's „Abgeschlossen“ says; a club the press passes over, none yet, a link that opens nothing
+ * else stood; a club the press passes over, none yet, a link that opens nothing
  * for now, or its mail. A planned season's link opens nothing either until its activation, which is the state it is
  * minted and mailed in, so only a running season's shut link is said.
  */
