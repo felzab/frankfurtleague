@@ -83,7 +83,7 @@ async def erase_kontaktperson_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
-    # `confirmations`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
+    # `confirmations`, read unbounded in the caller's transaction before any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
     # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
