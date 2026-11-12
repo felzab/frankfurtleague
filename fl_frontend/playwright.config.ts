@@ -111,5 +111,19 @@ export default defineConfig<JourneyOptions>({
       testMatch: "first-pass/**/*.spec.ts",
       use: devices["Desktop Chrome"],
     },
+    // The sessions the layout guard reads a pupil's, a referee's and a team contact's pages under, each signed in once a run.
+    {
+      name: "layout-sessions",
+      testMatch: "layout/sessions.setup.ts",
+      use: devices["Desktop Chrome"],
+    },
+    // The layout-shift guard: Chromium at both of its widths, since WebKit reports no layout shift. CI runs it on stacks
+    // of its own, since its landing's cases run again under each state the database is re-seeded in.
+    {
+      name: "layout",
+      dependencies: ["administrator", "layout-sessions"],
+      testMatch: "layout/**/*.spec.ts",
+      use: devices["Desktop Chrome"],
+    },
   ],
 });

@@ -38,12 +38,14 @@
 // journey's as a Trainer of Kastanie or Eiche, and its booked referee's journey as Selma Seidel or Tobias Thiel
 // (`JourneyOptions`).
 //
-// Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
-// mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
+// `SEED_LANDING` in mongosh's environment sets the landing's state, the seed as written by default (`LANDING_STATES`).
+//
+// Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI
+// job, with mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
 // with `directConnection=true`: no other server is reachable by that address, so this script cannot
 // write anywhere but the stack it is handed to. The backend has booted first, so every index is in
-// place, and `python -m app.readback` judges every document afterwards; the frontend starts
-// only once it has passed.
+// place, and `python -m app.readback` judges every document afterwards; the frontend starts, or with
+// `--landing` restarts, only once it has passed.
 //
 // Invariants:
 // - Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.
@@ -54,7 +56,7 @@
 // - Every link a seat, a registration or an invitation holds opens at `?token=made-up-<label>`, `linkHash`'s label,
 //   so a drive reads each state of a link page. The token is no secret: its hash stands in this made-up stack alone.
 
-/* global db, ObjectId, print, require */
+/* global db, ObjectId, print, process, require */
 
 const GERMANY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit" });
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1299,6 +1301,99 @@ const ACTION_LOG = [
   logged(20, "kontakt", "spielbestaetigung.answered", { team: "Birke", label: "2026" }),
   logged(10, "inhaber@example.com", "grant.added", { label: "admin.wartet@example.com" }),
 ];
+
+// --- The landing's state -------------------------------------------------------------------------
+
+/** `iso` moved by `days`, a stored day or `null` as it stands. */
+function moved(iso, days) {
+  return iso === null ? null : new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** The running season's start, its matchdays and its fixtures moved by `days`, its end as it stands. */
+function moveRunning(days) {
+  running.saison.start_date = moved(running.saison.start_date, days);
+  for (const row of running.spieltage) Object.assign(row, { start: moved(row.start, days), end: moved(row.end, days) });
+  for (const row of running.spiele) row.date = moved(row.date, days);
+}
+
+/** A fixture as the draw leaves it: no goals, no shoot-out and no event, and undated where `undated`. */
+function unplayed(row, { undated = false } = {}) {
+  for (const side of [row.team1, row.team2]) if (side !== null) side.tore = null;
+  Object.assign(row, { ergebnis: null, elfmeterschiessen: null, sonderereignis: null });
+  if (undated) Object.assign(row, { date: null, time: null });
+}
+
+/** `row` played as `tore` says, its sides named where the knockout has none yet. */
+function played(row, [tore1, tore2], { sides = null, elfmeterschiessen = null } = {}) {
+  if (sides !== null) [row.team1, row.team2] = [side(sides[0], tore1), side(sides[1], tore2)];
+  else [row.team1.tore, row.team2.tore] = [tore1, tore2];
+  Object.assign(row, { ergebnis: `${tore1}:${tore2}`, elfmeterschiessen });
+}
+
+/** The running season's fixture of number `nr`. */
+const runningSpiel = (nr) => running.spiele.find((row) => row.spiel_nr === nr);
+
+/**
+ * The state of the season card and the join band on the landing, by `SEED_LANDING` in mongosh's environment, which the
+ * guard against layout shift (`fl_frontend/e2e/layout/shift.spec.ts`) loads `/` under one by one: each changes the
+ * running season's dates and results, and its status where the site is on no season, and the planned season's window
+ * where none is open. Applied as the documents are written, after every request has copied the fixture it is about, so
+ * a request about a moved fixture is one about a slot the fixture left, which neither act takes.
+ * - `running`, the seed as written: a last result and a next match.
+ * - `running-two-one-side`: every fixture dated in the past, so the card shows two last results and no next match.
+ * - `countdown`: the season starts in two weeks, no fixture dated or played.
+ * - `countdown-with-opening`: the same, its fixtures dated, the first of them the opening match.
+ * - `decided`: every group fixture and the knockout played three weeks back, the final on penalties.
+ * - `window`: no season running, the planned one's application window open, so the card is the window's.
+ * - `none`: no season running and no window open, so the card is the empty box.
+ */
+const LANDING_STATES = {
+  running: () => {},
+  "running-two-one-side": () => moveRunning(-10),
+  countdown: () => {
+    moveRunning(49);
+    for (const row of running.spiele) unplayed(row, { undated: true });
+  },
+  "countdown-with-opening": () => {
+    moveRunning(49);
+    for (const row of running.spiele) unplayed(row);
+  },
+  decided: () => {
+    moveRunning(-30);
+    // The group fixtures not yet played, but the one called off, and both knockout days, all before today.
+    for (const nr of [6, 7, 9, 10, 11, 12]) played(runningSpiel(nr), [1, 0]);
+    for (const [phase, offset] of [
+      ["halbfinale", -7],
+      ["finale", -3],
+    ]) {
+      Object.assign(
+        running.spieltage.find((row) => row.saison_phase === phase),
+        { start: day(offset), end: day(offset) },
+      );
+    }
+    for (const nr of [13, 14]) Object.assign(runningSpiel(nr), { date: day(-7), time: "15:00:00" });
+    Object.assign(runningSpiel(15), { date: day(-3), time: "13:00:00" });
+    Object.assign(runningSpiel(16), { date: day(-3), time: "15:00:00" });
+    played(runningSpiel(13), [2, 0], { sides: ["Ahorn", "Linde"] });
+    played(runningSpiel(14), [1, 2], { sides: ["Birke", "Eiche"] });
+    played(runningSpiel(15), [3, 1], { sides: ["Linde", "Birke"] });
+    played(runningSpiel(16), [1, 1], { sides: ["Ahorn", "Eiche"], elfmeterschiessen: { team1: 4, team2: 3 } });
+  },
+  window: () => {
+    running.saison.status = "past";
+  },
+  none: () => {
+    running.saison.status = "past";
+    PLANNED_SAISON.bewerbung.open = false;
+  },
+};
+
+// Read from the environment mongosh runs in, which `docker compose exec --env` sets; unset, the seed as written.
+const LANDING = process.env.SEED_LANDING ?? "running";
+if (!Object.hasOwn(LANDING_STATES, LANDING)) {
+  throw new Error(`SEED_LANDING names no state of the landing: ${LANDING}. One of: ${Object.keys(LANDING_STATES).join(", ")}.`);
+}
+LANDING_STATES[LANDING]();
 
 // --- Writing it ----------------------------------------------------------------------------------
 

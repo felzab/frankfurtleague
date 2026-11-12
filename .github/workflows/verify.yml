@@ -312,6 +312,13 @@ jobs:
             projects: --project=desktop --project=first-pass
           - leg: phone
             projects: --project=phone
+          # The layout-shift guard (`fl_frontend/e2e/layout/shift.spec.ts`), on stacks of its own: the public leg
+          # re-seeds its database for each state of the landing, and the signed-in leg's setup enrols the
+          # administrator's passkey, which `--no-deps` spares the public one.
+          - leg: layout-public
+            projects: --project=layout --no-deps --grep-invert @signed-in
+          - leg: layout-signed-in
+            projects: --project=layout --grep @signed-in
     name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
@@ -411,6 +418,34 @@ jobs:
             --env CI --env GITHUB_WORKSPACE \
             "$PLAYWRIGHT_IMAGE" \
             node_modules/.bin/playwright test "${projects[@]}"
+      # The landing's cases again under each other state `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, as
+      # `local.sh --e2e --landing=<state>` does: the seed in mongosh's environment, its read-back, then the frontend
+      # recreated, since Next keeps the landing's read in memory for minutes. Every state runs, and each failed one is
+      # named before the step fails.
+      - name: Run the landing's cases under each of its states
+        if: matrix.leg == 'layout-public'
+        run: |
+          base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
+          failed=()
+          for state in running-two-one-side countdown countdown-with-opening decided window none; do
+            echo "::group::The landing ${state}"
+            docker compose exec -T --env "SEED_LANDING=${state}" mongo \
+              mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
+            docker compose exec -T backend python -m app.readback
+            docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend
+            docker run --rm --init --ipc=host --network=host \
+              --user "$(id -u):$(id -g)" \
+              --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+              --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
+              --env CI --env GITHUB_WORKSPACE \
+              "$PLAYWRIGHT_IMAGE" \
+              node_modules/.bin/playwright test --project=layout --no-deps --grep @landing || failed+=("$state")
+            echo "::endgroup::"
+          done
+          if (( ${#failed[@]} )); then
+            echo "::error::The landing moved while it loaded under: ${failed[*]}"
+            exit 1
+          fi
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
