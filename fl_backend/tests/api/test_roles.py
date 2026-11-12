@@ -10,7 +10,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
@@ -69,7 +68,6 @@ RETIREMENT_SCHIEDSRICHTER = "ruhestand.pfeife@schule.de"
 RETIREMENT_OPEN = "ruhestand.offen@schule.de"
 SCHIEDSRICHTER_WITHOUT_RECORD = "pfeife.ohne@schule.de"
 SCHIEDSRICHTER_NULL_RECORD = "pfeife.null@schule.de"
-GHOST = "geist@schule.de"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 PAST_AND_OPEN = "vergangen.und.offen@schule.de"
@@ -226,9 +224,6 @@ async def _seed(database: AsyncDatabase) -> None:
             _schiedsrichter(
                 SCHIEDSRICHTER_RETIREMENT_OPEN_OID, RETIREMENT_OPEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"
             ),
-            # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
-            # the one thing left keeping it out of every answer.
-            _schiedsrichter(GHOST_SCHIEDSRICHTER_ID, GHOST, None, einwilligung=CONFIRMED),
         ]
     )
 
@@ -241,7 +236,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         async with a_clean_database(
             mongo_replica_set_url,
             DATABASE_NAME,
-            stores_a_refused_shape="an unconfirmed pupil and a ghost holding an address and a stamp, which every read answers as nobody",
+            stores_a_refused_shape="an unconfirmed pupil, which every read answers as nobody",
         ) as (_, database):
             await _seed(database)
 
@@ -378,11 +373,6 @@ class TestTheRetirementNarrowing:
 
         assert is_empty(answer)
         assert answer.unconfirmed is False
-
-    def test_the_ghost_grants_nothing_whatever_its_row_holds(self, seeded_league: str):
-        """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""
-
-        assert answered(seeded_league, GHOST).schiedsrichter == []
 
 
 @pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])

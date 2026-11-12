@@ -2,8 +2,8 @@
 API · a referee's own consent record, read and changed by its own person on the account page
 
 The pupil's twin is `tests/api/test_spieler_self.py`, which also pins that the two PATCHes take one
-payload shape; this file holds what differs on a referee row: the ghost, and a record the
-confirmation has not yet written.
+payload shape; this file holds what differs on a referee row: a record the confirmation has not
+yet written.
 """
 
 import functools
@@ -25,7 +25,6 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.recording import actor_var
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung_evidence import EVIDENCE, TextVersions, evidence_state_of
 from tests.app_client import app_client
@@ -274,8 +273,6 @@ async def _seed(database: AsyncDatabase) -> None:
             # Confirmed, at the asked address's local part: every read narrowed by that local part reaches it, and the fold
             # after the read alone keeps it from the asker's page, list and press.
             _referee(ELSEWHERE_OID, ELSEWHERE, "Ortrud Anderswo"),
-            # The ghost carries the asked address too, so a read reaching it would serve a row nobody stands behind.
-            _referee(GHOST_SCHIEDSRICHTER_ID, IDENTIFIER, "Niemand", inactive_since="2000-01-01"),
         ]
     )
 
@@ -405,8 +402,8 @@ class TestTheTwoChoices:
 class TestARecordNotHeld:
     @pytest.mark.parametrize(
         ("email", "schiedsrichter_id"),
-        [(IDENTIFIER, BYSTANDER_OID), (IDENTIFIER, ELSEWHERE_OID), (IDENTIFIER, GHOST_SCHIEDSRICHTER_ID), (UNCONFIRMED, UNCONFIRMED_OID)],
-        ids=["another-persons-row", "another-mailbox-at-the-local-part", "the-ghost", "unconfirmed"],
+        [(IDENTIFIER, BYSTANDER_OID), (IDENTIFIER, ELSEWHERE_OID), (UNCONFIRMED, UNCONFIRMED_OID)],
+        ids=["another-persons-row", "another-mailbox-at-the-local-part", "unconfirmed"],
     )
     def test_a_row_that_is_not_the_addresss_own_is_refused_and_unwritten(
         self, mongo_replica_set_url: str, email: str, schiedsrichter_id: ObjectId

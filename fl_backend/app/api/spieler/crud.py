@@ -8,22 +8,19 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import erase_pupil_from_aufstellungen_in_session
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spielberichte.crud import repoint_pupil_entries_in_session
+from app.api.spielberichte.crud import empty_pupil_entries_in_session
 from app.api.spieler.schemas import FLSpielerRolle
 from app.api.spieler.services import (
     SquadRoom,
-    build_ghost_spieler,
     build_live_rolle_filter,
     build_live_squad_filter,
     build_self_pupil_filter,
-    build_spieler_filter,
     find_full_squad_refusal,
     find_squad_rolle_refusal,
 )
 from app.core.crud import (
     anchor_in_db,
     delete_many_from_db,
-    ensure_one_in_db,
     pull_one_from_db,
     refuse,
 )
@@ -158,22 +155,6 @@ async def another_pupil_holds(
     return holder is not None and holder["_id"] != spieler_id
 
 
-async def ensure_ghost_spieler(
-    *,
-    spieler_collection: AsyncCollection,
-    # REQUIRED: written outside the erasure's transaction, the sentinel would stand where the erasure
-    # it was written for rolled back.
-    session: AsyncClientSession,
-) -> None:
-    """Write the sentinel where none stands, so no reference to an erased pupil is ever repointed at a row nothing holds.
-
-    One upsert inside the erasure's transaction, on a collection the boot's index build has already made
-    (`app/core/db.py`); an upsert creating one there is a write a sharded transaction would refuse.
-    """
-
-    await ensure_one_in_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
-
-
 class PersonErased(NamedTuple):
     spieler: int
     saison_spieler: int
@@ -190,19 +171,17 @@ async def erase_person_in_session(
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
-    """Repoint their report and locked line-up entries at the sentinel, drop their other line-up entries, remove them and their squad rows.
+    """Empty their report entries and their played matches' line-up entries, drop their other ones, remove them and their squad rows.
 
-    Whether they may be erased is the caller's to judge; the sentinel must stand already
-    (`ensure_ghost_spieler`).
+    Whether they may be erased is the caller's to judge.
     """
 
-    # Through the by-id filter, before any write: the removals below key on the bare id, so the
-    # sentinel handed in by any caller would go, and every reference repointed at it would dangle.
-    await pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id), projection={"_id": 1}, session=session)
+    # Before any write, so an id no person holds is a 404 rather than an erasure of nothing.
+    await pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, projection={"_id": 1}, session=session)
 
     # Before the removal, as the erasure reaches every reference to a person before the person: an
     # entry left naming the id names a row nothing holds.
-    await repoint_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
+    await empty_pupil_entries_in_session(spielberichte_collection=spielberichte_collection, spieler_id=spieler_id, session=session)
     await erase_pupil_from_aufstellungen_in_session(
         aufstellungen_collection=aufstellungen_collection, spieler_id=spieler_id, now=now, session=session
     )

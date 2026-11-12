@@ -585,8 +585,8 @@ class TestASpielSaveRefusedAtItsCommit:
 
 @pytest.mark.db
 class TestAPupilsErasureRefusedAtItsCommit:
-    def test_takes_the_repointed_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
-        """Catches a repoint written off the erasure's session: the report would name the sentinel of a pupil who stands.
+    def test_takes_the_emptied_report_entries_back_with_the_pupil(self, mongo_replica_set_url: str):
+        """Catches an entry emptied off the erasure's session: the report would name nobody for a pupil who stands.
 
         Refused without the transient label, so nothing reruns the erasure and the state read after it is the rollback's.
         """

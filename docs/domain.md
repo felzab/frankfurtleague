@@ -130,8 +130,10 @@ leaves a season by an `austritt` record, or by a replacement repointing that row
 survives both.
 
 **Retirement everywhere else is a date and never a delete, and it never cascades.** `inactive_since` retires
-a row and clearing it revives one; a played fixture keeps the team name it recorded at the time. What a
-retired row loses is NEW work. A retired club is entered into no season (`team_retired`). A retired venue or
+a row and clearing it revives one; a played fixture keeps the team name it recorded at the time. A new
+club, venue or referee whose shorthand or name a retired row holds is refused `duplicate_key`, while a
+registration's admission rewrites its person's retired squad row of that season. What a retired row
+loses is NEW work. A retired club is entered into no season (`team_retired`). A retired venue or
 referee is assigned to no fixture that does not already hold it, nor kept on one a save makes unplayed again
 (`booking_unknown_resource`). Both judge the reference being made rather than one merely stored, and
 reopening a fixture makes its references again. That is what lets a venue retire while played or called-off
@@ -215,7 +217,9 @@ start; after a match it would reopen what the start locks closed.
   (`fl_backend/app/api/saisons/spielplan.py :: draw_spielplan`).
 - **A bracket fixture is drawn naming its sources rather than its teams.** A side is fed by a group placing,
   or by which side came out of an earlier fixture — so the whole season is drawn end to end before anybody has
-  qualified for anything, and entering a result is what fills the slots downstream.
+  qualified for anything, and entering a result is what fills the slots downstream. A group's placings
+  are decided on its last fixture's day, never while any of its fixtures is undated, and a podium place
+  on its own match's day.
 - **A level knockout fixture is settled by a shoot-out**, whose own scoreline is stored beside the result and
   never inside it. A no-show is awarded a scoreline the season configures. A season that plays a knockout
   round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`), since a drawn
@@ -223,7 +227,9 @@ start; after a match it would reopen what the start locks closed.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
   took, and the club's own document is untouched by it. It takes effect on the season's start or later
   (`austritt_before_saison_start`): before the start a club out of the season is replaced, so the group swap,
-  which the start locks, never fields a departed club.
+  which the start locks, never fields a departed club. No rule reads which route it took: only a day
+  strictly before the record's date is still the club's. A fixture fielding the club from that date on is
+  reported, a group placing decided from then falls to the club below, and a podium place stands vacant.
 
 ---
 

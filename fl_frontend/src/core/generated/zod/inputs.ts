@@ -328,13 +328,12 @@ export const AufstellungenGetAufstellungParams = zod.object({
  * (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
  * holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
- * such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
- * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee past the shortage
+ * squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
+ * (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past the shortage
  * (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
- * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. The
- * stored entries of pupils erased from the locked line-up, which the screen serves as `erased`, are written back after
- * the payload's as they stand while the line-up is locked, and dropped once the fixture is re-dated ahead of its lock.
+ * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. An entry
+ * naming nobody stands for a pupil erased after the match was played: the screen serves it in `spieler`, and a save
+ * keeps it by sending it back.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellungPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -345,7 +344,7 @@ export const AufstellungenPutAufstellungParams = zod.object({
   team_id: zod.string().regex(aufstellungenPutAufstellungPathTeamIdRegExp),
 });
 
-export const aufstellungenPutAufstellungBodySpielerItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungBodySpielerItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const aufstellungenPutAufstellungBodySpielerMax = 60;
 
 export const aufstellungenPutAufstellungBodyVersionOneMin = 0;
@@ -356,10 +355,12 @@ export const AufstellungenPutAufstellungBody = zod
       .array(
         zod
           .object({
-            spieler_id: zod.string().regex(aufstellungenPutAufstellungBodySpielerItemSpielerIdRegExp),
+            spieler_id: zod.union([zod.string().regex(aufstellungenPutAufstellungBodySpielerItemSpielerIdOneRegExp), zod.null()]),
             starts: zod.boolean(),
           })
-          .describe("One pupil a club fields in one match: on the pitch from the start, or on the bench."),
+          .describe(
+            "One pupil a club fields in one match: on the pitch from the start, or on the bench.\n\nA null `spieler_id` names nobody: a pupil erased after the match was played, whose place in it stands.",
+          ),
       )
       .max(aufstellungenPutAufstellungBodySpielerMax),
     version: zod.union([zod.int().min(aufstellungenPutAufstellungBodyVersionOneMin), zod.null()]),
@@ -398,14 +399,11 @@ export const AufstellungenGetAufstellungSelfParams = zod.object({
  * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
  * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
  * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold, the placeholder of an erased pupil among them (`spieler_not_in_kader`, on each
- * such entry's `spieler_id`); more than eleven starters with the erased pupils' kept entries
- * (`aufstellung_starters_exceed_eleven`, bounded by `max`); and a nominee named beside eleven regular players, or
+ * squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
+ * (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named beside eleven regular players, or
  * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
  * `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
- * refused as the payload's own rules. A line-up being due or overdue refuses nothing. The stored entries of pupils
- * erased from the line-up once it locked, which a seat meets only on a fixture re-dated ahead of its lock since, are
- * dropped by the save, and the screen serves none of them.
+ * refused as the payload's own rules. A line-up being due or overdue refuses nothing.
  * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
  * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
  * @summary Save one club's line-up for one fixture as its seat holder
@@ -418,7 +416,7 @@ export const AufstellungenPutAufstellungSelfParams = zod.object({
   team_id: zod.string().regex(aufstellungenPutAufstellungSelfPathTeamIdRegExp),
 });
 
-export const aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const aufstellungenPutAufstellungSelfBodySpielerMax = 60;
 
 export const aufstellungenPutAufstellungSelfBodyVersionOneMin = 0;
@@ -429,10 +427,12 @@ export const AufstellungenPutAufstellungSelfBody = zod
       .array(
         zod
           .object({
-            spieler_id: zod.string().regex(aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdRegExp),
+            spieler_id: zod.union([zod.string().regex(aufstellungenPutAufstellungSelfBodySpielerItemSpielerIdOneRegExp), zod.null()]),
             starts: zod.boolean(),
           })
-          .describe("One pupil a club fields in one match: on the pitch from the start, or on the bench."),
+          .describe(
+            "One pupil a club fields in one match: on the pitch from the start, or on the bench.\n\nA null `spieler_id` names nobody: a pupil erased after the match was played, whose place in it stands.",
+          ),
       )
       .max(aufstellungenPutAufstellungSelfBodySpielerMax),
     version: zod.union([zod.int().min(aufstellungenPutAufstellungSelfBodyVersionOneMin), zod.null()]),
@@ -1097,9 +1097,6 @@ export const IdentityPostErasureBody = zod
  * what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
  * call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
  * limit.
- *
- * The 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no
- * handler; this call counts that failure as any other and never answers it.
  * @summary Delete one share of the pupils the season-after rule makes due
  */
 export const identitySweepErasureQueryAfterOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1112,9 +1109,10 @@ export const IdentitySweepErasureQueryParams = zod.object({
  * Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
  *
  * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
- * counts the fixtures still to be played that a referee row is booked on. `address_change` counts the address's own live
- * change and each other address's change naming it, leaving out a grant holder's for an administrator without an owner's
- * power, since counting it would answer whether a typed address is its new one. Stores nothing.
+ * counts the fixtures not yet kicked off that a referee row is booked on, whose booking the erasure takes off.
+ * `address_change` counts the address's own live change and each other address's change naming it, leaving out a grant
+ * holder's for an administrator without an owner's power, since counting it would answer whether a typed address is its
+ * new one. Stores nothing.
  *
  * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
  * administrator holds an owner's power (`admin_address`).
@@ -1890,10 +1888,6 @@ export const SaisonsGetTeamParams = zod.object({
  *
  * The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
  * stay retrievable for a historical match.
- *
- * The ghost is OFF this list whatever the query string asks for: no person stands behind it, so
- * there is nothing an administrator could book it for, edit on it or reactivate it into
- * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
  * @summary List Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterQueryIncludeInactiveDefault = false;
@@ -2092,9 +2086,8 @@ export const SchiedsrichterDeleteSchiedsrichterParams = zod.object({
 /**
  * Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
  *
- * Deactivated ones included -- a historical match references them by id. The ghost answers 404, as
- * does an id whose referee has been erased: the document is gone
- * (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+ * Deactivated ones included -- a historical match references them by id. An id whose referee has been erased
+ * answers 404: the document is gone.
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
  * lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
@@ -2126,9 +2119,6 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * reactivation mints the fresh one.
  *
  * Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
- *
- * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
- * fixtures of every referee already erased.
  * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2172,8 +2162,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  *
  * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
  * answered, consenting or objecting (`confirmation_exists`), and where they carry no email address
- * (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them, and
- * for the ghost, which every by-id route filters out.
+ * (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
  * confirmation refuses every such press, so minting one would replace a live block with a
@@ -2193,9 +2182,6 @@ export const SchiedsrichterInviteSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered.
- *
- * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
- * person behind it.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichterPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2354,8 +2340,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
  * its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
- * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
- * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
+ * decline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period
  * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
  * A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
  * link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
@@ -2593,7 +2578,9 @@ export const SpieleGetSpielParams = zod.object({
  * by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
  * deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
  * and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
- * a result entered or changed after the question was asked is never deleted unasked.
+ * a result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a
+ * played fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a
+ * save putting the fixture back among those to come drops it and its line-ups' entries naming nobody.
  * @summary Update a Spiel
  */
 export const spielePatchSpielPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2627,7 +2614,7 @@ export const spielePatchSpielBodyNoteOneMax = 4096;
 
 export const spielePatchSpielBodySchiedsrichterOnePaymentMin = 0;
 
-export const spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const spielePatchSpielBodySpielortOneMietpreisMin = 0;
 
 export const spielePatchSpielBodySpielortOneSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2676,7 +2663,7 @@ export const SpielePatchSpielBody = zod.object({
     zod
       .object({
         payment: zod.int().min(spielePatchSpielBodySchiedsrichterOnePaymentMin),
-        schiedsrichter_id: zod.string().regex(spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdRegExp),
+        schiedsrichter_id: zod.union([zod.string().regex(spielePatchSpielBodySchiedsrichterOneSchiedsrichterIdOneRegExp), zod.null()]),
       })
       .describe("The referee as the save sends it: who, and what this fixture pays them."),
     zod.null(),

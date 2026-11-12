@@ -7,6 +7,12 @@ import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/clie
 export const NO_SONDEREREIGNIS = "none";
 
 /**
+ * The referee field's entry for a booking naming nobody, which a played match keeps with its fee once its referee was
+ * erased: a combo box's choice is a string, and the write takes this one as a null referee.
+ */
+export const NOBODY = "nobody";
+
+/**
  * What the match editor's fields hold: a knockout match's two clubs, picked by hand; the Ansetzung's day, time, venue
  * and its price, referee and their fee; whether a result is entered, its goals and a shoot-out's; the Sonderereignis'
  * choice; the note. A figure is the text typed, read as one by the save.
@@ -63,7 +69,7 @@ export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
     time: spiel.time as SpielValues["time"],
     spielort: spiel.spielort?.spielort_id ?? null,
     mietpreis: figure(spiel.spielort?.mietpreis),
-    schiedsrichter: spiel.schiedsrichter?.schiedsrichter_id ?? null,
+    schiedsrichter: spiel.schiedsrichter === null ? null : (spiel.schiedsrichter.schiedsrichter_id ?? NOBODY),
     payment: figure(spiel.schiedsrichter?.payment),
     hasResult,
     tore1: hasResult ? figure(spiel.team1?.tore) : "",

@@ -31,19 +31,21 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
 
 ## A string lives in the catalogue and nowhere else
 
-- **One typed catalogue, German only, keyed by area.** Its `shared` section comes first and every
-  area draws from it; an area adds a key of its own only for a string `shared` lacks. No test hunts
-  duplicate text, so review is what keeps a second „Gespeichert“ out. A string only the server
-  reads, a mail, a refusal's sentence or a page's description among them, lives in its second
-  object, `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
+- **One typed catalogue in two modules, German only, keyed by area**, with the frozen consent
+  wordings beside it and the association's fixed facts in `fl_frontend/src/core/brand.ts`. Its
+  `shared` section comes first and every area draws from it; an area adds a key of its own only for
+  a string `shared` lacks. No test hunts duplicate text, so review is what keeps a second
+  „Gespeichert“ out. A string only the server reads, a mail, a refusal's sentence or a page's
+  description among them, lives in its second object,
+  `fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`, so no client bundle carries it.
 - **A component's text prop takes `fl_frontend/src/core/copy.ts :: Copy`, or a record's own data as
   `{ record }` (`Words`)**, so a string typed into a page does not compile, and lint refuses a
   literal inside a `{ record }`. A prop holding a block, such as a door's act, takes a
   `ReactElement`, which a bare string is not. An `as Copy` assertion outside the catalogue defeats
   that and is never written.
 - **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
-  string to pass through: the plural of an empty state is the list's own entry, a date is a
-  stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
+  string to pass through. The plural of an empty state is the list's own entry, a date is a stored
+  `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
   every season's name through `COPY.shared.saisonName`**, and the current time is read through
@@ -60,9 +62,9 @@ other. The owner flags what they dislike on the screen it sits on.
 
 **If the sentence were deleted, would the reader do something wrong?** If not, delete it. Copy says
 what is so or what to expect, never why it is so, how to repair it or how the system works. A shared
-string replaces a detailed one wherever it can: a reason stands on its own only where the reader
-would not think of it and can act on it, in as few words as say it, and one sentence serves every
-place that means the same thing.
+string replaces a detailed one wherever it can, and one sentence serves every place that means the
+same thing. A reason stands on its own only where the reader would not think of it and can act on
+it, in as few words as say it.
 
 ## The voice is plain and says du
 
@@ -84,28 +86,28 @@ place that means the same thing.
 A message is written short enough for the narrowest place it appears: one longer than its field wraps
 and takes a second line, which moves what stands below it.
 
-| Kind                    | Ceiling                                                  | Shape                                                                                         |
-| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Navigation label        | 1 to 2 words                                             | a noun                                                                                        |
-| Page or section heading | 4 words                                                  | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence    |
-| Field label             | 3 words                                                  | a noun, no colon                                                                              |
-| Button                  | 3 words                                                  | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
-| Field description       | 1 sentence, 90 characters                                | says what the thing is; none where the label suffices; no field has a placeholder             |
-| Box description         | 1 sentence, 90 characters, one visible line              | says what a Konto box holds, under its title                                                  |
-| Tooltip                 | 5 words                                                  | names an icon-only control, or says why a locked act cannot run                               |
-| Section info tip (ⓘ)    | 2 sentences, about 200 characters                        | one per section, after its title, only where a named question needs it                        |
-| Field error             | one phrase, 80 characters                                | a fixed pattern                                                                               |
-| Form refusal            | 1 short sentence, the status line's two lines on a phone | a plain fact about the whole form, or about a field no pattern words, naming that field       |
-| Failure line            | 1 short sentence, the status line's two lines on a phone | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
-| Empty state             | 1 sentence plus at most one button                       | which narrowing emptied it                                                                    |
-| Toast                   | a title of 1 to 3 words, no body                         | a past participle; a failure, the one line `failure.unexpected`                               |
-| Page or section intro   | none                                                     | a page's title is its explanation                                                             |
-| List-truncation banner  | none                                                     | the load-more control instead                                                                 |
-| Page title              | the page's catalogue title                               | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
-| Callout                 | a title plus at most 1 sentence                          | a state or a consequence                                                                      |
-| Team description        | three lines                                              | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
-| Mail subject            | 50 characters                                            | what it is about first, no league name                                                        |
-| Mail body               | about 90 words                                           | more only where the law requires it on a first contact                                        |
+| Kind                    | Ceiling                                                   | Shape                                                                                         |
+| ----------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Navigation label        | 1 to 2 words                                              | a noun                                                                                        |
+| Page or section heading | 4 words                                                   | a noun phrase, no full stop; a sentence standing as a heading is a status or a consequence    |
+| Field label             | 3 words                                                   | a noun, no colon                                                                              |
+| Button                  | 3 words                                                   | a verb from the catalogue's closed set, with an object where needed („Team anlegen“)          |
+| Field description       | 1 sentence, 90 characters                                 | says what the thing is; none where the label suffices; no field has a placeholder             |
+| Box description         | 1 sentence, 90 characters, one visible line               | says what a Konto box holds, under its title                                                  |
+| Tooltip                 | 5 words                                                   | names an icon-only control, or says why a locked act cannot run                               |
+| Section info tip (ⓘ)    | 2 sentences, about 200 characters                         | one per section, after its title, only where a named question needs it                        |
+| Field error             | one phrase, 80 characters                                 | a fixed pattern                                                                               |
+| Form refusal            | 1 short sentence, the status line's two lines on a phone  | a plain fact about the whole form, or about a field no pattern words, naming that field       |
+| Failure line            | 1 short sentence, the status line's two lines on a phone  | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
+| Empty state             | 1 sentence, and a muted line where a list has nothing yet | which narrowing emptied it                                                                    |
+| Toast                   | a title of 1 to 3 words, no body                          | a past participle; a failure, the one line `failure.unexpected`                               |
+| Page or section intro   | none                                                      | a page's title is its explanation                                                             |
+| List-truncation banner  | none                                                      | the load-more control instead                                                                 |
+| Page title              | the page's catalogue title                                | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
+| Callout                 | a title plus at most 1 sentence                           | a state or a consequence                                                                      |
+| Team description        | three lines                                               | „Mehr“ inside the text at the third line's end, no „…“ before it, opening the rest            |
+| Mail subject            | 50 characters                                             | what it is about first, no league name                                                        |
+| Mail body               | about 90 words                                            | more only where the law requires it on a first contact                                        |
 
 Help text is a field description, a box description, one ⓘ per section or a callout, and text the
 reader needs is never hidden behind an ⓘ. A Konto box is the one section carrying a sentence under
@@ -120,9 +122,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
   box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
 - **A refusal a person can cause knowingly from the screen** that one of `field`'s patterns words
-  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such refusal, about
-  the whole form or about a field no pattern can word, takes the status line in one short sentence
-  that fits its two lines on a phone and names its field itself where it has one; a field phrase
+  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such
+  refusal, about the whole form or a field no pattern words, takes the status line: one short
+  sentence that fits its two lines on a phone, naming its field where it has one. A field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
   `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
   when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on
@@ -155,7 +157,7 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
 a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
-score; a season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
+score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
 needs no formatting. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
@@ -197,5 +199,5 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
   lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
   where new words are a new label beside it. The one exception is the paste the deploy of the
   current wordings owes, which re-points every stored record's label to its consent's current
-  wording, so a record stamped before that deploy cites words its person was not shown
+  wording. A record stamped before that deploy therefore cites words its person was not shown
   ([the `Fassung` entry](../glossary.md#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label)).

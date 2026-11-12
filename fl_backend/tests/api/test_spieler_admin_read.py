@@ -8,7 +8,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.spieler.admin_router import get_spieler_admin, get_spieler_saison
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
-from app.core.sentinels import GHOST_SPIELER_ID
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
@@ -114,10 +113,9 @@ class TestTheEditor:
 
         assert (current.kader.nummer, former.kader.nummer) == ("7", "9")
 
-    @pytest.mark.parametrize("spieler_id", [DORA_OID, GHOST_SPIELER_ID], ids=["no row of that season", "the sentinel"])
-    def test_a_person_out_of_the_season_is_not_found(self, mongo_replica_set_url: str, spieler_id: ObjectId):
+    def test_a_person_out_of_the_season_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await the_editor(database, spieler_id, OTHER_SAISON_ID)
+            return await the_editor(database, DORA_OID, OTHER_SAISON_ID)
 
         with pytest.raises(DocumentNotFoundError):
             on_a_league(mongo_replica_set_url, body)

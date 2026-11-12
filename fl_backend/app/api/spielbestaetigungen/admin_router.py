@@ -39,6 +39,7 @@ from app.api.spiele.schemas import FLSpiel
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
+    AufstellungenCollection,
     DBClient,
     OutboxCollection,
     SaisonsCollection,
@@ -245,6 +246,7 @@ async def adopt_spielbestaetigung(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -276,6 +278,7 @@ async def adopt_spielbestaetigung(
         spielorte=spielorte_collection,
         schiedsrichter=schiedsrichter_collection,
         spielberichte=spielberichte_collection,
+        aufstellungen=aufstellungen_collection,
     )
 
     async def adopt_the_proposal(session: AsyncClientSession) -> None:
@@ -300,6 +303,7 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
+                now=now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

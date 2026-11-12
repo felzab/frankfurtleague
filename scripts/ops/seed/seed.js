@@ -773,15 +773,6 @@ const STATED_REQUESTS = [
   { ...request(TODAYS_SIXTH, schiedsrichterOf(TODAYS_SIXTH), -20), answer: agreed(-15, { kind: "schiedsrichter" }) },
 ];
 
-// The erased pupils' sentinel, as `fl_backend/app/api/spieler/services.py :: build_ghost_spieler` writes it.
-const GHOST_SPIELER = {
-  _id: ObjectId("000000000000000000000001"),
-  first_name: null,
-  last_name: null,
-  einwilligung: null,
-  birth_date: null,
-};
-
 // Each pupil's consent, publishing the name and no media, under the labels above `REFEREES`. Sixteen and a half, so
 // sixteen on the day of a confirmation two months back too, which refuses a younger pupil
 // (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`), and under the media's eighteen.
@@ -954,7 +945,7 @@ const REGISTRATIONS = [
 ];
 
 // Match 1, Ahorn 2:1 Kastanie two weeks ago, reported by its referee and adopted since: a named scorer, a scorer
-// nobody named, an erased pupil's goal under the sentinel, a caution and a red card.
+// nobody named, an erased pupil's goal, naming nobody as well, a caution and a red card.
 const REPORTED = running.spiele.find((row) => row.spiel_nr === 1);
 const SENT = new Date(`${day(-14)}T17:00:00Z`);
 const REPORTS = [
@@ -966,7 +957,7 @@ const REPORTS = [
       ergebnis_vorschlag: { team1_tore: 2, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null },
       scorers: [
         { side: "team1", spieler_id: PUPILS.mia._id, minute: "12", eigentor: false },
-        { side: "team2", spieler_id: GHOST_SPIELER._id, minute: "40", eigentor: false },
+        { side: "team2", spieler_id: null, minute: "40", eigentor: false },
         { side: "team1", spieler_id: null, minute: "45+2", eigentor: false },
       ],
       cards: [
@@ -1320,16 +1311,7 @@ const DOCUMENTS = {
   saison_teams: [...finished.saisonTeams, ...running.saisonTeams, ...PLANNED_ROWS],
   spieltage: [...finished.spieltage, ...running.spieltage],
   spiele: [...finished.spiele, ...running.spiele],
-  spieler: [
-    GHOST_SPIELER,
-    ...Object.values(PUPILS),
-    ...AHORN_SQUAD,
-    NOMINEE,
-    RETIRED_NOMINEE,
-    SEASON_AFTER_PUPIL,
-    ...KASTANIE_SQUAD,
-    ...ULME_SQUAD,
-  ],
+  spieler: [...Object.values(PUPILS), ...AHORN_SQUAD, NOMINEE, RETIRED_NOMINEE, SEASON_AFTER_PUPIL, ...KASTANIE_SQUAD, ...ULME_SQUAD],
   saison_spieler: SQUADS,
   spielberichte: REPORTS,
   aufstellungen: LINEUPS,

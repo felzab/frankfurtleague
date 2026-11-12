@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -180,9 +179,7 @@ async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
     await database[Collection.AUFSTELLUNGEN].insert_many(
         [
-            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY)),
-            # Past its lock, naming only a pupil erased since: the club's final record, which still stands as a line-up.
-            documents.aufstellung_document(EXPIRED, TEAM, starters=[GHOST_SPIELER_ID]),
+            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY, EXPIRED)),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(

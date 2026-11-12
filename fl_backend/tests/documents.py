@@ -28,9 +28,7 @@ from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, row_of
 from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spielbestaetigungen.services import compose_ansetzung
-from app.api.spieler.services import build_ghost_spieler
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.clock import utc_stamp
 from app.core.collections import EDITED_COLLECTIONS, Collection
@@ -340,18 +338,6 @@ def outbox_document(key: str, *, to: str, now: datetime, **fields: Any) -> dict[
 
     owed = OwedMail(key=key, to=to, data=FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127"))
     return _read_back(Collection.OUTBOX, {"_id": ObjectId(), **row_of(owed, now=now, secret=None, valid_until=None), **fields})
-
-
-def ghost_spieler_document() -> dict[str, Any]:
-    """The pupils' sentinel as the erasure's insert stores it."""
-
-    return _read_back(Collection.SPIELER, {**build_ghost_spieler(), "version": 0})
-
-
-def ghost_schiedsrichter_document() -> dict[str, Any]:
-    """The referees' sentinel as the erasure's insert stores it."""
-
-    return _read_back(Collection.SCHIEDSRICHTER, {**build_ghost_schiedsrichter(), "version": 0})
 
 
 def invitation_document(
