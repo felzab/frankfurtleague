@@ -1,6 +1,8 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { APINetworkError } from "@/core/errors.ts";
+
 /** One backend call, in the order it ran, or the address changes' half, which is its own suite's. */
 type SweepEvent = { kind: "api"; endpoint: string; method: string } | { kind: "address_change" };
 
@@ -66,14 +68,23 @@ const registrierungPass = (saisonId: string, failed = 0) => ({
   failed,
 });
 
+/** The trace a failed half's call was sent under, which its failure line carries to join the backend's. */
+const TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736";
+
 /**
  * Every season answered, each half's passed-over rows as `passedOver` names them, and a half `fails` names
- * thrown.
+ * unanswered.
  */
 function seasons(saisonIds: string[], { passedOver = {}, fails = [] }: { passedOver?: Record<string, number>; fails?: string[] } = {}): void {
   apiAnswer = ({ endpoint, method }) => {
     if (method === "GET") return { saison_ids: saisonIds };
-    if (fails.includes(endpoint)) throw new Error(`the backend refused ${endpoint}`);
+    if (fails.includes(endpoint))
+      throw new APINetworkError({
+        message: "The backend did not answer.",
+        url: `http://backend${endpoint}`,
+        traceId: TRACE_ID,
+        isTimeout: true,
+      });
     if (endpoint === "/schiedsrichter/sweep") return { erased: 0, failed: passedOver[endpoint] ?? 0 };
     const saisonId = saisonOf(endpoint);
     return endpoint.startsWith("/registrierungen/")
@@ -158,8 +169,8 @@ describe("a half that fails", () => {
       "/schiedsrichter/sweep",
     ]);
     expect(failures()).toStrictEqual([
-      { event: "bewerbung.sweep_failed", fields: { name: "Error", saison_id: "2526" } },
-      { event: "registrierung.sweep_failed", fields: { name: "Error", saison_id: "2627" } },
+      { event: "bewerbung.sweep_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, saison_id: "2526" } },
+      { event: "registrierung.sweep_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, saison_id: "2627" } },
     ]);
   });
 
