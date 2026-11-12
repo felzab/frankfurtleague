@@ -232,6 +232,9 @@ export const waitWords = (wait: Wait) =>
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 
+// An act the owner's own grant holds back until the handover: the owner's removal and the owner's deletion alike.
+const AFTER_HANDOVER = `Erst nach \u00DCbergabe ${boundBy("der", OWNER_TIER)}`;
+
 /** Between the parts of a row's one muted line, and between a mail's legal links, which are HTML. */
 export const LINE_SEPARATOR = " \u00B7 ";
 
@@ -794,7 +797,7 @@ export const COPY = catalogue({
       description: `Dein Konto und deine Angaben werden gelöscht, bis auf das, was unter „${PRIVACY_NOTICE}“ steht.`,
       consequence: "Den Link zum Löschen bekommst du per E-Mail.",
       /** The deletion's tooltip for the owner, whose status line says `refusalLine.owner_erasure`. */
-      ownerLocked: `Erst nach Übergabe ${boundBy("der", OWNER_TIER)}`,
+      ownerLocked: AFTER_HANDOVER,
     },
     passkeys: {
       title: "Passkeys",
@@ -1486,6 +1489,10 @@ export const COPY = catalogue({
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
       /** Why the handover is locked. */
       handoverRunning: "Übergabe läuft schon",
+      /** Why the owner's acts are locked for an administrator, who reads the page. */
+      ownerOnly: `Nur für die ${OWNER_TIER}`,
+      /** Why the owner's own row cannot be removed: the owner leaves the role by the handover. */
+      afterHandover: AFTER_HANDOVER,
       /** A withdrawal's sentence, by what waited; an address change's is `addressChange.previousStays`. */
       withdrawConsequence: {
         addition: "Die Adresse bekommt keinen Zugang.",

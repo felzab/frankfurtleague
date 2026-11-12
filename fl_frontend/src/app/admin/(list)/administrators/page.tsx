@@ -44,9 +44,11 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /** A holder's address change in its wait, its date read. */
 type WaitingChange = FLAddressChangeAdminOpen & { effective_from: string };
 
-/** The grants as this reader sees them; `actor` is the address the owner's acts post, `null` for an administrator. */
+/** The grants as this reader sees them, and whether the reader holds the owner's grant, whose acts are the owner's alone. */
 type Access = {
-  actor: string | null;
+  /** The address the page was drawn for, which an act posts with its touch. */
+  reader: string;
+  readerIsOwner: boolean;
   /** Who holds access now, the owner first. */
   active: readonly FLGrantRow[];
   additions: readonly FLGrantRow[];
@@ -64,12 +66,13 @@ const isWaitingChange = (change: FLAddressChangeAdminOpen): change is WaitingCha
 async function readAccess(): Promise<Access> {
   const [{ grants }, { changes }, session] = await Promise.all([getGrants(), getAddressChanges(), getAdminSession()]);
   // The page's read turned a refused session away to the sign-in before this line.
-  const holder = session?.user.email;
+  const reader = session?.user.email ?? "";
   const moment = now().getTime();
   const inEffect = grants.filter((grant) => new Date(grant.effective_from).getTime() <= moment);
   const owner = inEffect.filter((grant) => grant.admin_tier === "owner");
   return {
-    actor: holder !== undefined && owner.some((grant) => grant.address === asSignInIdentifier(holder)) ? holder : null,
+    reader,
+    readerIsOwner: owner.some((grant) => grant.address === asSignInIdentifier(reader)),
     active: [...owner, ...inEffect.filter((grant) => grant.admin_tier !== "owner")],
     additions: grants.filter((grant) => !inEffect.includes(grant)),
     handover: grants.find((grant) => grant.owner_from !== null),
@@ -83,51 +86,50 @@ const instantOf = (moment: string) => ({ record: formatInstantShort(moment) });
 
 /**
  * One grant in effect: its tier's chip, the owner's „Leitung“ setting its row apart from every administrator's
- * „Verwaltung“, and only an administrator's row can be removed.
+ * „Verwaltung“, and its removal, which the owner alone runs, on an administrator's row alone.
  */
-function activeRow(grant: FLGrantRow, actor: string | null): TableRow {
+function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "reader" | "readerIsOwner">): TableRow {
   const isOwner = grant.admin_tier === "owner";
+  const locked = !readerIsOwner ? WORDS.ownerOnly : isOwner ? WORDS.afterHandover : undefined;
   return {
     id: grant.id,
     name: { record: grant.address, address: true },
     chip: isOwner ? { tone: "neutral", label: WORDS.owner } : { tone: "success", label: COPY.admin.role },
     cells: { since: dayOf(grant.effective_from) },
-    ...(actor === null || isOwner
-      ? {}
-      : {
-          acts: (
-            <RowAct
-              verb="remove"
-              subject={WORDS.object}
-              consequence={WORDS.removeConsequence}
-              facts={[
-                { label: ADDRESS, value: { record: grant.address, address: true } },
-                { label: WORDS.since, value: dayOf(grant.effective_from) },
-                { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
-              ]}
-              act={removeAdministrator}
-              id={grant.id}
-              holder={actor}
-            />
-          ),
-        }),
+    sideActs: 1,
+    acts: (
+      <RowAct
+        verb="remove"
+        subject={WORDS.object}
+        consequence={WORDS.removeConsequence}
+        facts={[
+          { label: ADDRESS, value: { record: grant.address, address: true } },
+          { label: WORDS.since, value: dayOf(grant.effective_from) },
+          { label: FACTS.mailTo, value: MAIL_TO.holdersAndPerson },
+        ]}
+        act={removeAdministrator}
+        id={grant.id}
+        holder={reader}
+        {...(locked === undefined ? {} : { locked })}
+      />
+    ),
   };
 }
 
-/** One waiting row: what waits and from when, and for the owner its withdrawal. */
+/** One waiting row: what waits and from when, and its withdrawal, which the owner alone runs. */
 function waitingRow({
   id,
   address,
   line,
-  actor,
+  reader,
+  readerIsOwner,
   consequence,
   facts,
   act,
-}: {
+}: Pick<Access, "reader" | "readerIsOwner"> & {
   id: string;
   address: string;
   line: Copy;
-  actor: string | null;
   consequence: Copy;
   facts: ReadonlyArray<Fact>;
   act: (input: { id: string; holder: string }) => Promise<ActionAnswer>;
@@ -137,32 +139,31 @@ function waitingRow({
     name: { record: address, address: true },
     line,
     cells: {},
-    ...(actor === null
-      ? {}
-      : {
-          acts: (
-            <RowAct
-              verb="withdraw"
-              subject={COPY.account.address.change}
-              consequence={consequence}
-              facts={facts}
-              act={act}
-              id={id}
-              holder={actor}
-            />
-          ),
-        }),
+    sideActs: 1,
+    acts: (
+      <RowAct
+        verb="withdraw"
+        subject={COPY.account.address.change}
+        consequence={consequence}
+        facts={facts}
+        act={act}
+        id={id}
+        holder={reader}
+        {...(readerIsOwner ? {} : { locked: WORDS.ownerOnly })}
+      />
+    ),
   };
 }
 
-function waitingRows({ actor, additions, handover, changes }: Access): TableRow[] {
+function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Access): TableRow[] {
   return [
     ...additions.map((grant) =>
       waitingRow({
         id: grant.id,
         address: grant.address,
         line: WORDS.pendingLine(WORDS.pendingKind.addition, null, grant.effective_from),
-        actor,
+        reader,
+        readerIsOwner,
         consequence: WORDS.withdrawConsequence.addition,
         facts: [
           { label: ADDRESS, value: { record: grant.address, address: true } },
@@ -179,7 +180,8 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
             id: handover.id,
             address: handover.address,
             line: WORDS.pendingLine(WORDS.pendingKind.handover, null, handover.owner_from),
-            actor,
+            reader,
+            readerIsOwner,
             consequence: WORDS.withdrawConsequence.handover,
             facts: [
               { label: FACTS.after, value: { record: handover.address, address: true } },
@@ -194,7 +196,8 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
         id: change.id,
         address: change.address,
         line: WORDS.pendingLine(COPY.account.address.new, change.email, change.effective_from),
-        actor,
+        reader,
+        readerIsOwner,
         consequence: COPY.admin.addressChange.previousStays,
         facts: [
           { label: FACTS.before, value: { record: change.address, address: true } },
@@ -208,12 +211,13 @@ function waitingRows({ actor, additions, handover, changes }: Access): TableRow[
   ];
 }
 
-/** The head of the list of who holds access, as every role's wait draws it: rows to read, no act on any, opening nothing. */
+/** The head of the list of who holds access, as every role's wait draws it: rows each carrying its one act, opening nothing. */
 const HEAD = {
   nameLabel: ADDRESS,
   state: { label: COPY.admin.schiedsrichter.state },
   linked: false,
-  columns: [{ key: "since", label: WORDS.since, narrow: true, width: "date" }],
+  columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
+  sideAct: COPY.shared.verb.remove,
 } as const satisfies TableHead;
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
@@ -243,7 +247,7 @@ async function foldsOf(access: Promise<Access>) {
             tableOf(
               ROUTES.adminAdministrators.title,
               { columns: HEAD.columns, state: HEAD.state },
-              read.active.map((grant) => activeRow(grant, read.actor)),
+              read.active.map((grant) => activeRow(grant, read)),
             ),
           ],
         },
@@ -256,13 +260,13 @@ async function foldsOf(access: Promise<Access>) {
 }
 
 /** The add dialog, for the owner alone. */
-function addOf({ actor }: Access): ListCreate | null {
-  if (actor === null) return null;
+function addOf({ reader, readerIsOwner }: Access): ListCreate | null {
+  if (!readerIsOwner) return null;
   return {
     title: actLabel(ADD),
     act: ADD,
     action: addAdministrator,
-    touch: { holder: actor },
+    touch: { holder: reader },
     consequence: WORDS.additionConsequence(GRANT_WAIT),
     children: (
       <TextField
@@ -279,14 +283,14 @@ function addOf({ actor }: Access): ListCreate | null {
 }
 
 /** The handover's dialog, for the owner alone while an administrator stands to take over, and locked while one waits. */
-function handoverOf({ actor, active, handover }: Access): ListCreate | null {
+function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCreate | null {
   const [owner, ...administrators] = active;
-  if (actor === null || owner === undefined || administrators.length === 0) return null;
+  if (!readerIsOwner || owner === undefined || administrators.length === 0) return null;
   return {
     title: actLabel(HAND_OVER),
     act: HAND_OVER,
     action: startHandover,
-    touch: { holder: actor },
+    touch: { holder: reader },
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
     consequence: WORDS.handoverConsequence(OWNER_WAIT),
     facts: [

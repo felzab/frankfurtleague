@@ -68,6 +68,10 @@ async function read(reader: string, grants: readonly FLGrantRow[], changes: read
 
 const addresses = (rows: ReadonlyArray<{ name: unknown }>) => rows.map(({ name }) => (name as { record: string }).record);
 
+/** Each row's one act as the reader gets it: its reason where it is locked, `"runs"` where a press runs it. */
+const actsOf = (rows: ReadonlyArray<{ acts?: unknown }>) =>
+  rows.map(({ acts }) => (acts as ReactElement<{ locked?: string }> | undefined)?.props.locked ?? (acts === undefined ? "none" : "runs"));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -92,22 +96,24 @@ describe("who holds access and what waits", () => {
 });
 
 describe("the owner's acts", () => {
-  it("leave an administrator the list to read, what waits included", async () => {
+  /* An act left off a row tells an administrator nothing of who may run it, nor the owner why their own row holds none. */
+  it("show an administrator every row's act, locked as the owner's alone, what waits included", async () => {
     const handover = grant("anna@example.org", { owner_from: FUTURE });
 
     const { create, side, active, waiting } = await read("anna@example.org", [THE_OWNER, handover]);
 
     expect([create, side]).toStrictEqual([null, null]);
-    expect([...active, ...waiting].filter((row) => row.acts !== undefined)).toStrictEqual([]);
+    const ownerOnly = COPY.admin.administrators.ownerOnly;
+    expect(actsOf([...active, ...waiting])).toStrictEqual([ownerOnly, ownerOnly, ownerOnly]);
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
 
   /* The owner's address is folded on the grant and spelled as signed in on the session. */
-  it("reach the owner whatever the session's spelling, the owner's own row left alone", async () => {
+  it("reach the owner whatever the session's spelling, the owner's own row locked until the handover", async () => {
     const { create, active } = await read("Owner@Example.org", [THE_OWNER, grant("anna@example.org")]);
 
     expect(create).not.toBeNull();
-    expect(active.map((row) => row.acts !== undefined)).toStrictEqual([false, true]);
+    expect(actsOf(active)).toStrictEqual([COPY.admin.administrators.afterHandover, "runs"]);
   });
 
   it("offer the handover from the administrators in effect, and lock it while one waits", async () => {
