@@ -10,7 +10,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { registrierungenPostRegistrierung } from "@/core/generated/client/sdk";
 import { RegistrierungenPostRegistrierungBody } from "@/core/generated/zod/inputs";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { forgetMailedLink } from "@/core/mailedLink";
+import { forgetMailedLink, mailedLinkToken } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 
 import { endOf, LINK_INVALID, readInvitation, REPLAY_FIELD } from "./invitation";
@@ -20,9 +20,12 @@ import type { Code } from "@/core/generated/client/types";
 const { shape } = RegistrierungenPostRegistrierungBody;
 const { exampleDigits, exampleFirstName, exampleLastName } = COPY.shared.field;
 
-/** What the form posts, each box held to the write's own rule for it: an optional box left empty is no answer. */
+/**
+ * What the form posts, each box held to the write's own rule for it: an optional box left empty is no answer. The link's
+ * token is no box: it stands in the page's cookie, where the proxy moved it out of the address, so the page's markup
+ * never carries it.
+ */
 const Registration = z.object({
-  token: shape.token,
   first_name: shape.first_name,
   last_name: shape.last_name,
   email: shape.email,
@@ -63,12 +66,15 @@ export const submitRegistrierung = action({
   ownWords: ["email_not_accepted"],
   paths: { email: "email" },
   examples: { first_name: exampleFirstName, last_name: exampleLastName, nummer: exampleDigits },
-  run: async ({ [REPLAY_FIELD]: key, ...registration }) => {
+  run: async ({ [REPLAY_FIELD]: key, ...boxes }) => {
+    const token = await mailedLinkToken();
+    // No cookie, forgotten by a registration sent from another tab or never set, is the link the page calls invalid.
+    if (token === null) return { ok: true, value: LINK_INVALID };
     try {
-      await registrierungenPostRegistrierung(registration, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
+      await registrierungenPostRegistrierung({ token, ...boxes }, { headers: { [IDEMPOTENCY_KEY_HEADER]: key } });
     } catch (error) {
       if (!moved(error)) throw error;
-      const view = await readInvitation(registration.token);
+      const view = await readInvitation(token);
       const end = view === null ? LINK_INVALID : endOf(view);
       return end === null ? { ok: false, reason: COPY.shared.failure.stale } : { ok: true, value: end };
     }

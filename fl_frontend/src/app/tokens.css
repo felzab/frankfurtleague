@@ -372,7 +372,7 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-measure: 64ch; /* a line of running text on a legal or consent page */
+  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: 64 of the body face's figures, in rem so its fallback face draws the same box */
   --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
 }
 

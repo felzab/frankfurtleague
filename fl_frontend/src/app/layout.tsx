@@ -15,11 +15,14 @@ import shareImage from "./share-image.png";
 
 import type { Metadata } from "next";
 
+// Its stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
   display: "swap",
   variable: "--font-anton",
+  adjustFontFallback: false,
+  fallback: ["Anton Fallback"],
 });
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the

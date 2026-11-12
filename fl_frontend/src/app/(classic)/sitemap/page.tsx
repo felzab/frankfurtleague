@@ -35,8 +35,10 @@ async function SaisonGroups() {
 }
 
 /**
- * Every public page in the footer's groups, for a person looking for one. The season's pages wait for the read naming
- * the seasons, the groups below them standing at once, the column's gap the one the headings keep inside `Prose`.
+ * Every public page in the footer's groups, for a person looking for one. The page waits for the read naming the
+ * seasons, the groups below them landing with them in one reveal: the seasons are as many as the league has played, so
+ * no wait can stand at their height, and groups standing below the wait would drop when more than its one arrive. The
+ * column's gap is the one the headings keep inside `Prose`.
  */
 export default function SitemapPage() {
   return (
@@ -50,15 +52,15 @@ export default function SitemapPage() {
           />
         }>
         <SaisonGroups />
+        <Prose
+          blocks={[
+            { kind: "heading", text: COPY.template.liga },
+            { kind: "links", links: LIGA_LINKS },
+            { kind: "heading", text: COPY.template.legal },
+            { kind: "links", links: LEGAL_LINKS },
+          ]}
+        />
       </PageWait>
-      <Prose
-        blocks={[
-          { kind: "heading", text: COPY.template.liga },
-          { kind: "links", links: LIGA_LINKS },
-          { kind: "heading", text: COPY.template.legal },
-          { kind: "links", links: LEGAL_LINKS },
-        ]}
-      />
     </ClassicPage>
   );
 }

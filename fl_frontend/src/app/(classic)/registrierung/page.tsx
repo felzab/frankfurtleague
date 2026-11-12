@@ -135,7 +135,8 @@ const readState = cache(async (): Promise<MailedState> => {
     ...(view.nachnominierung ? { sentence: WORDS.nominee } : {}),
     action: submitRegistrierung,
     acts: { primary: SUBMIT },
-    carry: { token },
+    // Nothing: the action reads the link's token from the page's cookie, so the markup never carries it.
+    carry: {},
     replayField: REPLAY_FIELD,
     // Off the request's settings, past the read above: a prerendered shell would carry the build's, which is none.
     botCheck: { siteKey: frontend_config.TURNSTILE_SITE_KEY },
