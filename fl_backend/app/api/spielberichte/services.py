@@ -188,7 +188,7 @@ def newly_named(
 
 
 def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
-    """`bericht_not_officiated`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
+    """`bericht_not_officiated`: the report is the booked referee's, and an empty slot or one naming nobody books nobody to write it."""
 
     booked = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
     if booked is not None and booked in set(schiedsrichter_ids):
@@ -319,8 +319,7 @@ def vorschlag_matches(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str
     if tore != (vorschlag.team1_tore, vorschlag.team2_tore) or spiel_raw.get("sonderereignis") != vorschlag.sonderereignis:
         return False
 
-    # `app/api/spiele/services.py :: apply_payload_to_spiel`'s rule: a level knockout keeps its shoot-out, so one saved
-    # without the proposed shoot-out is not the proposal.
+    # A level knockout keeps its shoot-out, so one saved without the proposed shoot-out is not the proposal.
     saved = spiel_raw.get("elfmeterschiessen")
 
     return (None if saved is None else FLSpielElfmeterschiessen.model_validate(saved)) == vorschlag.elfmeterschiessen
@@ -439,7 +438,7 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, sides: Mapp
     }
 
 
-# --- The STRIP once the season after the match ends: the remarks; the scorers, the cards and the proposed result stand
+# --- The strip once the season after the match ends: the remarks; the scorers, the cards and the proposed result stand
 # as the league's record of the match.
 
 
@@ -451,14 +450,13 @@ def build_season_report_texts_filter(saison_id: str) -> Mapping[str, Any]:
 
 _NAMED_IDS_AS = "named_ids"
 PUBLIC_PERSONS_AS = "persons"
-PUBLIC_SQUAD_ROWS_AS = "squad_rows"
 
 
 def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]:
-    """One match's report with every pupil it names, masked as the base tier serves them, and their squad rows.
+    """One match's report with every pupil it names, masked as the base tier serves them.
 
     In one aggregation, the persons projected through `PUBLIC_PERSON` at the join, so no consent record and no
-    withheld name leaves the database; the squad rows of the match's season alone.
+    withheld name leaves the database.
     """
 
     named = ["$bericht.scorers.spieler_id", "$bericht.cards.spieler_id"]
@@ -467,7 +465,7 @@ def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]
         {"$match": {"spiel_id": spiel_id}},
         # The whole block, which the adoption is judged on; `FLSpielberichtPublic` is the allow-list, and serves no
         # remarks.
-        {"$project": {"saison_id": 1, "bericht": 1, _NAMED_IDS_AS: {"$setUnion": named}}},
+        {"$project": {"bericht": 1, _NAMED_IDS_AS: {"$setUnion": named}}},
         {
             "$lookup": {
                 "from": Collection.SPIELER,
@@ -475,19 +473,6 @@ def build_public_bericht_pipeline(spiel_id: ObjectId) -> list[Mapping[str, Any]]
                 "foreignField": "_id",
                 "pipeline": [{"$project": {"_id": 1, **PUBLIC_PERSON}}],
                 "as": PUBLIC_PERSONS_AS,
-            }
-        },
-        {
-            "$lookup": {
-                "from": Collection.SAISON_SPIELER,
-                "localField": _NAMED_IDS_AS,
-                "foreignField": "spieler_id",
-                "let": {"saison_id": "$saison_id"},
-                "pipeline": [
-                    {"$match": {"$expr": {"$eq": ["$saison_id", "$$saison_id"]}}},
-                    {"$project": {"_id": 0, "spieler_id": 1, "team_id": 1, "nummer": 1, "position": 1}},
-                ],
-                "as": PUBLIC_SQUAD_ROWS_AS,
             }
         },
     ]
@@ -509,24 +494,13 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
     """
 
     persons = {person["_id"]: person for person in document.get(PUBLIC_PERSONS_AS, [])}
-    squad_rows = {(row["spieler_id"], row["team_id"]): row for row in document.get(PUBLIC_SQUAD_ROWS_AS, [])}
 
-    def spieler(spieler_id: ObjectId | None, side: FLSpielSide) -> dict[str, Any]:
-        if spieler_id is None:
-            return {"type": "unknown", "first_name": None, "last_name": None, "nummer": None, "position": None}
-
+    def spieler(spieler_id: ObjectId | None) -> dict[str, Any]:
+        # A null forename is the mask's answer for a withheld name, and an entry naming nobody joins no person.
         person = persons.get(spieler_id, {})
-        row = squad_rows.get((spieler_id, team_id_of(spiel_raw, side)), {})
-        # A null forename is the mask's answer for a withheld name and the placeholder's for an erased pupil alike.
         named = person.get("first_name") is not None
 
-        return {
-            "type": "named" if named else "anonymous",
-            "first_name": person.get("first_name") if named else None,
-            "last_name": person.get("last_name") if named else None,
-            "nummer": row.get("nummer"),
-            "position": row.get("position"),
-        }
+        return {"first_name": person["first_name"] if named else None, "last_name": person.get("last_name") if named else None}
 
     bericht_raw = document["bericht"]
     adopted = bericht_state_of(FLSpielberichtBericht.model_validate(bericht_raw), spiel_raw) == "adopted"
@@ -541,7 +515,7 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
                     "side": tor["side"],
                     "minute": tor["minute"],
                     "eigentor": tor["eigentor"],
-                    "spieler": spieler(tor["spieler_id"], tor["side"]),
+                    "spieler": spieler(tor["spieler_id"]),
                 }
                 for tor in sorted(gated["scorers"], key=lambda tor: _minute_order(tor["minute"]))
             ],
@@ -552,7 +526,7 @@ def compose_public_bericht(document: Mapping[str, Any], spiel_raw: Mapping[str, 
                     "side": card["side"],
                     "minute": card["minute"],
                     "colour": card["colour"],
-                    "spieler": spieler(card["spieler_id"], card["side"]),
+                    "spieler": spieler(card["spieler_id"]),
                 }
                 for card in sorted(gated["cards"], key=lambda card: _minute_order(card["minute"]))
             ],

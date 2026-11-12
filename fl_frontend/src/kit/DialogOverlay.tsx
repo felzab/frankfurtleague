@@ -2,15 +2,13 @@
 
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
-import { RowName } from "./RowActs";
 import { tv } from "./tv";
 
 import type { ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
 
 /*
- * What a dialog (`Dialog.tsx`) and a question (`ConfirmDialog.tsx`) both stand on, in a module of its own, so each
- * reads it from here and neither imports the other for it.
+ * What a dialog and a question both stand on, in a module of its own, so neither imports the other for it.
  */
 
 /**
@@ -63,8 +61,7 @@ export function DialogOverlay({
         <Modal
           data-kit-focus
           className={dialogBox({ width })}>
-          {/* A dialog opened from a row's acts names its record in its own words, so its buttons take no row's name. */}
-          <RowName value={undefined}>{children}</RowName>
+          {children}
         </Modal>
       </div>
     </ModalOverlay>

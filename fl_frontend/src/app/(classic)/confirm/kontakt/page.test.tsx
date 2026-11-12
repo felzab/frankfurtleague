@@ -36,7 +36,6 @@ async function stateFor(view: Partial<FLBewerbungEinwilligungViewResponse>): Pro
     maximum_age: 99,
     deadline: "2026-11-18",
     answered_at: null,
-    media_minimum_age: 18,
     ...view,
   };
   const page = KontaktConfirmationPage({

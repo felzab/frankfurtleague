@@ -6,26 +6,19 @@
  */
 import { expect } from "@playwright/test";
 
+import { typeInto } from "./controls";
 import { filedMessages, mailedCode } from "./mailSink";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-/** The step a send that mailed a code, or would have, shows in the address step's place. */
-export const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("status").filter({ hasText: "Prüfe dein Postfach" });
-
-/** The sign-in's one line under its acts, where a send that did not go through says why: a polite status. */
-export const failureLine = (page: Page): Locator => page.getByRole("main").getByRole("status");
+/** The step a send that mailed a code, or would have, shows in the address step's place, by its heading. */
+const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("heading", { name: "Prüfe dein Postfach" });
 
 /** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
 export async function askForCode(page: Page, address: string): Promise<void> {
-  await pressSend(page, address);
-  await expect(codeStep(page)).toBeVisible();
-}
-
-/** Presses „Code senden“ for `address` on a fresh `/signin`, whatever the send then answers. */
-export async function pressSend(page: Page, address: string): Promise<void> {
   await page.goto("/signin");
   await sendFromHere(page, address);
+  await expect(codeStep(page)).toBeVisible();
 }
 
 /** Signs in with the code the stack mails `address`, on the sign-in page the browser stands on, its return address kept. */
@@ -34,31 +27,20 @@ export async function signInWithCodeHere(page: Page, address: string): Promise<v
   await sendFromHere(page, address);
   await expect(codeStep(page)).toBeVisible();
   const code = await mailedCode(address, before);
+  // Typed into the code's one input, a digit at a time as a person's typing is; the sixth sends the code by itself.
   await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
 }
 
 /** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
 async function sendFromHere(page: Page, address: string): Promise<void> {
-  const field = page.getByLabel("E-Mail-Adresse");
-  // Tapped first, as a person reaches the field: once the page's code runs, React hydrates what a
-  // press lands on during the press itself (https://github.com/reactwg/react-18/discussions/37).
-  // Before that, text in the field is the browser's until the field replays it on hydrating
-  // (`fl_frontend/src/kit/useEarlyEdit.ts`), and React replays a press held with it
-  // (`fl_frontend/src/kit/HeldForm.tsx`).
-  await field.click();
-  await field.fill(address);
-
+  await typeInto(page.getByLabel("E-Mail-Adresse"), address);
   await page.getByRole("button", { name: "Code senden" }).click();
 }
 
 /** Signs in on `/signin` with the code the stack mails `address`. */
 export async function signInWithCode(page: Page, address: string): Promise<void> {
-  const before = await filedMessages();
-  await askForCode(page, address);
-  const code = await mailedCode(address, before);
-  // Typed into the code's one input, a digit at a time as a person's typing is; the sixth sends the code by
-  // itself.
-  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
+  await page.goto("/signin");
+  await signInWithCodeHere(page, address);
 }
 
 /**
@@ -71,7 +53,7 @@ export const PERSON_LANDING = "/area/schiedsrichter";
 /**
  * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place
  * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` sends the browser on in-stream to the
- * Übersicht of the season it works in, the seed's running one (`fl_frontend/src/app/admin/(liste)/page.tsx`).
+ * Übersicht of the season it works in, the seed's running one (`fl_frontend/src/app/admin/(list)/page.tsx`).
  */
 export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
 

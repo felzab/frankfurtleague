@@ -1,7 +1,4 @@
-# OPS · end-to-end stack
-#
-# The local stack again, as a stack of its own for the Playwright journeys
-# (`fl_frontend/playwright.config.ts`): its own compose project, database volume, sign-in store,
+# The local stack again, as a stack of its own for the Playwright journeys: its own compose project, database volume, sign-in store,
 # keys, settings and made-up data, sharing nothing with the developer's local stack but the two host
 # ports, 3000 and 27017, which is why only one of the two runs at a time. Started by
 # `./scripts/ops/local.sh --e2e` on a development machine and by the journeys' CI job on Linux.
@@ -30,7 +27,7 @@ services:
     volumes: !override
       - ./.tmp-e2e/mail:/app/.tmp-mail
     # Cloudflare's address refuses at once inside this container, so a journey's bot check contacts no
-    # third party and passes as `fl_frontend/src/core/turnstile.ts :: turnstileRefusal` passes a
+    # third party and passes as `turnstileRefusal` passes a
     # submission while Cloudflare is unreachable.
     extra_hosts:
       - challenges.cloudflare.com=127.0.0.1
@@ -41,39 +38,16 @@ services:
     # The developer's `fl_backend/.env` stays the local stack's: every setting this stack takes is below.
     env_file: !reset null
     environment:
-      # The made-up seed's database (`scripts/ops/seed/seed.js`), on this stack's own server.
+      # The made-up seed's database, on this stack's own server.
       - DB_BASE_NAME=fl_e2e
-
-  mongo:
-    # The local stack's volumes without its copy of production: that copy never enters this stack.
-    volumes: !override
-      - mongo-data:/data/db
 
   nginx:
     # nginx/e2e in nginx/local's place, which it includes from the path beside it: the local edge,
-    # taking each journey's own address from the host's side (`nginx/e2e/e2e.conf`).
+    # its limits counting and refusing nothing (`nginx/e2e/e2e.conf`).
     volumes: !override
       - ./nginx/e2e:/etc/nginx/conf.d:ro
       - ./nginx/local:/etc/nginx/local:ro
       - ./nginx/shared:/etc/nginx/shared:ro
-      - ./.tmp-e2e/nginx-log:/var/log/frankfurtleague/nginx
-
-# nginx stands on both networks, and the published port reaches it through either one's gateway:
-# Docker does not say which, and two starts of this stack have taken each. So each gateway is pinned
-# rather than the daemon's pick, and `nginx/e2e/e2e.conf` trusts the two by address and nothing wider.
-# The application pair's network takes a subnet of its own; the connector's keeps the 172.30.0.0/24
-# docker-compose.yml gives it, its whole list restated, since a merge would append a second entry.
-networks:
-  frankfurtleague-app:
-    ipam:
-      config:
-        - subnet: 172.30.1.0/24
-          gateway: 172.30.1.1
-  frankfurtleague-net:
-    ipam:
-      config: !override
-        - subnet: 172.30.0.0/24
-          gateway: 172.30.0.1
 
 # The local stack's four files, each one this stack's start generated.
 secrets: !override

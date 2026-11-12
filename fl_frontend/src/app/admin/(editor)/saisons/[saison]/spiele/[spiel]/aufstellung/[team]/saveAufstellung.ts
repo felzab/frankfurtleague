@@ -12,12 +12,12 @@ import { getAufstellung } from "@/features/aufstellungen/queries";
 
 import type { ActionAnswer } from "@/core/action";
 
-const ids = AufstellungenPutAufstellungBody.shape.spieler.element.shape.spieler_id;
+// A pupil's id: the editor names pupils alone, and the stored entries naming nobody go back as stored.
+const ids = AufstellungenPutAufstellungBody.shape.spieler.element.shape.spieler_id.options[0];
 
 /** What the line-up's editor sends: the club whose line-up it is, the fixture, and the half it changed. */
 const SaveAufstellung = z.object({
   team_id: AufstellungenPutAufstellungParams.shape.team_id,
-  // The fixture, the editor's record.
   id: AufstellungenPutAufstellungParams.shape.spiel_id,
   version: AufstellungenPutAufstellungBody.shape.version,
   changes: z.object({ picked: z.array(ids).readonly(), starters: z.array(ids).readonly() }).partial(),

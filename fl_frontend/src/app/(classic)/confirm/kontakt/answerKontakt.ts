@@ -19,7 +19,7 @@ const [given, declined] = BewerbungenPostEinwilligungBody.options;
 const ticked = z.preprocess((value) => value === "on", z.boolean());
 
 /**
- * What the two acts post, `kit/OneShot.tsx`'s `act` naming the one pressed: the main act the answer's fields, the
+ * What the two acts post, the one-shot form's `act` naming the one pressed: the main act the answer's fields, the
  * objection the token alone, whatever the fields hold, as an objection hands nothing over.
  */
 const Answer = z.discriminatedUnion("act", [

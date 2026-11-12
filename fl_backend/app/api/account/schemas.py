@@ -17,37 +17,32 @@ from app.shared.schemas.responses import BaseAPIResponse
 
 
 class FLAccountEinwilligung(BaseModel):
-    """A person's own record's two choices as its box shows them.
-
-    The choices alone: the box names no day and no label, and `evidence_state` stands for each choice's evidence in the
-    precondition a press echoes.
-    """
+    """A person's own record's two consent choices."""
 
     scope: FLEinwilligungScope
     media: bool
 
 
 class FLAccountSpielerEinwilligung(FLSpielerSelfPerson):
-    """The pupil's record on the account page: its stored data and the consent the page moves."""
+    """The signed-in pupil's own record: its stored data and its consent."""
 
     # Required: only a confirmed record is served, so the block is always there.
     einwilligung: FLAccountEinwilligung
     # What the consent PATCH echoes back, computed by the function its precondition compares with.
     evidence_state: FLEinwilligungState
+    # Whether the media consent may be switched on, by the person's age today.
     media_offered: bool
-    # The media floor, which the page names where the record is short of it.
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSchiedsrichterEinwilligung(FLSchiedsrichterSelfPerson):
-    """One referee record on the account page: the stored data its box shows, its fee and the consent the page moves."""
+    """One of the signed-in person's referee records: its stored data, its fee and its consent."""
 
     default_payment: int
     einwilligung: FLAccountEinwilligung
     evidence_state: FLEinwilligungState
+    # Whether the record admits a grant.
     givable: bool
     media_offered: bool
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountSeatEinwilligung(BaseModel):
@@ -65,12 +60,10 @@ class FLAccountSeatEinwilligung(BaseModel):
     # Each on where any held slot's is, so a withdrawal stays offered.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
-    # Over every held slot, for `FLAccountSpielerEinwilligung.evidence_state`'s reason.
+    # Over every held slot.
     evidence_state: FLEinwilligungState
     media_offered: bool
     givable: bool
-    # One per entry: the control's own words name the media floor every held seat shares.
-    media_minimum_age: int = Field(gt=0)
 
 
 class FLAccountBewerbungSeatEinwilligung(BaseModel):
@@ -83,9 +76,7 @@ class FLAccountBewerbungSeatEinwilligung(BaseModel):
     # The school as the application names it, or the picked club's own name today.
     schule: str
     saison_id: str
-    # For `FLAccountSeatEinwilligung.rollen`'s reason.
     rollen: list[FLKontaktRolle] = Field(min_length=1)
-    # For `FLAccountSeatEinwilligung`'s reasons.
     scope: FLKontaktKenntnisnahmeScope
     media: bool
     evidence_state: FLEinwilligungState
@@ -108,11 +99,11 @@ class FLAccountRegistrierungEinwilligung(BaseModel):
 
 
 class FLAccountAddressChangeOpen(BaseModel):
-    """The address's live change as its own account page reads it."""
+    """The signed-in address's live change."""
 
     id: CustomObjectId
     # Whole where the person typed it on this page; masked where an administrator started the change, which may be a
-    # pretext whose target the holder of the address on file must not learn (`app/api/address_change/services.py :: masked_address`).
+    # pretext whose target the holder of the address on file must not learn.
     email: str
     way: FLAddressChangeWay
     waits_on: FLAddressChangeWaitsOn
@@ -127,7 +118,7 @@ class FLAccountAddressChangeResponse(BaseAPIResponse):
 
     open: FLAccountAddressChangeOpen | None
     # The tier whose wait a change of this address serves, `None` for an address holding no grant. Never the stored
-    # `admin_tier`, which the erasure lock reads: a row a handover names waits the owner's (`app/api/address_change/services.py :: wait_tier`).
+    # `admin_tier`, which the erasure lock reads: a row a handover names waits the owner's.
     wait_tier: FLAdminTier | None
 
 
@@ -138,7 +129,7 @@ class FLAccountAddressChangePayload(BaseModel):
 
 
 class FLAccountAddressChangeMintResponse(BaseAPIResponse):
-    """The change a start wrote: no link is answered, the one owed the address on file waiting in the Postausgang."""
+    """The change started, whose link reaches the address on file by mail alone."""
 
     id: CustomObjectId
     valid_until: FLUtcInstant
@@ -147,7 +138,7 @@ class FLAccountAddressChangeMintResponse(BaseAPIResponse):
 
 
 class FLAccountEinwilligungenResponse(BaseAPIResponse):
-    """Every confirmed consent record the signed-in address holds, for the account page; empty where it holds none.
+    """Every confirmed consent record the signed-in address holds, empty where it holds none.
 
     The referees a list where the pupil is one: `spieler.email` is unique, a referee's typed address is not.
     """

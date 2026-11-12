@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.outbox.schemas import FLOutboxStatus
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -13,13 +13,12 @@ class FLInvitation(BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
-    created_at: CustomDateString
-    # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
+    # Required as a key and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     revoked_at: CustomOptionalDateString
     # The German day the link's mails were last owed to the team's confirmed seats, by the season's press or the team's own;
     # null where none ever was, a link minted for copying. Stored rather than read off `outbox`, whose rows are erased a
-    # retention after their final state (`app/api/outbox/services.py :: RETENTION`).
+    # retention after their final state.
     sent_at: CustomOptionalDateString
 
 
@@ -37,20 +36,16 @@ class FLInvitationRow(FLInvitation):
 
 
 class FLInvitationMintResponse(BaseAPIResponse):
-    """A freshly minted registration link, and the only answer that ever carries its raw value.
-
-    Shown once for copying and mailed on a separate press; no later read recovers it from the hash.
-    """
+    """A freshly minted registration link, and the only answer that ever carries its raw value: no later read recovers it."""
 
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
     invitation_id: CustomObjectId
     token: CustomNonEmptyString
-    created_at: CustomDateString
 
 
 class FLInvitationWriteResponse(BaseAPIResponse):
-    """The revoked row. Revoking keeps it, so a delivery event about its link still lands somewhere."""
+    """The revoked link, which stays stored so a delivery event about it still lands."""
 
     saison_id: CustomNonEmptyString
     team_id: CustomObjectId
@@ -66,10 +61,7 @@ type FLInvitationSkipReason = Literal[
 
 
 class FLInvitationLinkRow(BaseModel):
-    """One team as the season editor's registration links list it: today's preview of the press, and the link the team holds.
-
-    The preview is the press's own plan with `resend` left false, as the editor's press sends it.
-    """
+    """One team's registration link, and what the season's press would do for the team today."""
 
     team_id: CustomObjectId
     # The junction row's own copy of the club's name, so the list reads as the season's teams do
@@ -83,12 +75,11 @@ class FLInvitationLinkRow(BaseModel):
 
 
 class FLTeamLinkState(BaseModel):
-    """The team editor's registration link box: the live link, whether it opens anything, and what a press would do for the team."""
+    """A team's registration link: the live link, whether it opens anything, and what the season's press would do for the team."""
 
     invitation: FLInvitationRow | None
-    # Composed here rather than derived by the reader, as `app/api/bewerbungen/schemas.py :: FLBewerbungFormWindow` composes its
-    # own: a link is live and opens nothing while the season takes no registration (`app/api/registrierungen/services.py ::
-    # saison_takes_registrierungen`), the window's end shutting nothing.
+    # Composed here rather than derived by the reader, as the application form's window is: a link is live and opens
+    # nothing while the season takes no registration, the window's end shutting nothing.
     running: bool
     # Whether the season stands paused: the window can read closed for its dates alone.
     paused: bool
@@ -96,16 +87,8 @@ class FLTeamLinkState(BaseModel):
     skipped: FLInvitationSkipReason | None
 
 
-class FLInvitationDispatchPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # False by default, so pressing twice mails nobody twice: a team whose live link already has a mail owed or sent is
-    # skipped unless this says otherwise.
-    resend: bool = False
-
-
 class FLInvitationMailPayload(BaseModel):
-    """The one live link a team's panel shows, to be mailed to the team's confirmed seats."""
+    """The team's live link, to be mailed to its confirmed seats."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -120,7 +103,7 @@ class FLInvitationMailResponse(BaseAPIResponse):
 
 
 class FLInvitationDispatchResponse(BaseAPIResponse):
-    """How the press's teams came out: the season editor's rows then read what each team holds."""
+    """How the season's press came out, counted in teams."""
 
     saison_id: CustomNonEmptyString
     mailed: int = Field(ge=0)

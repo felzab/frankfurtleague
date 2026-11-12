@@ -28,9 +28,7 @@ from app.api.invitations.services import compose_invitation
 from app.api.outbox.schemas import FLBanData
 from app.api.outbox.services import OwedMail, row_of
 from app.api.registrierungen.services import compose_confirmation, compose_confirmation_update, compose_registrierung
-from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spielbestaetigungen.services import compose_ansetzung
-from app.api.spieler.services import build_ghost_spieler
 from app.api.teams.services import compose_kontakt_confirmation
 from app.core.clock import utc_stamp
 from app.core.collections import EDITED_COLLECTIONS, Collection
@@ -39,7 +37,7 @@ from app.readback import RECORD_MODELS
 from app.shared.einwilligung_evidence import CHOICES, EVIDENCE, TextVersions, compose_initial, compose_receipt
 from app.shared.folding import league_address
 from app.shared.schemas.einwilligung import FLMediaTextVersion, FLNameKaderTextVersion, FLNameSpielplanTextVersion, FLWhatsappTextVersion
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay
 from app.shared.tokens import hash_token
 
 ADDRESS: Final[Mapping[str, str]] = {
@@ -342,20 +340,8 @@ def outbox_document(key: str, *, to: str, now: datetime, **fields: Any) -> dict[
     return _read_back(Collection.OUTBOX, {"_id": ObjectId(), **row_of(owed, now=now, secret=None, valid_until=None), **fields})
 
 
-def ghost_spieler_document() -> dict[str, Any]:
-    """The pupils' sentinel as the erasure's insert stores it."""
-
-    return _read_back(Collection.SPIELER, {**build_ghost_spieler(), "version": 0})
-
-
-def ghost_schiedsrichter_document() -> dict[str, Any]:
-    """The referees' sentinel as the erasure's insert stores it."""
-
-    return _read_back(Collection.SCHIEDSRICHTER, {**build_ghost_schiedsrichter(), "version": 0})
-
-
 def invitation_document(
-    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, created_at: str, sent_at: str | None = None, **fields: Any
+    invitation_id: Any, *, saison_id: str, team_id: Any, token: str, sent_at: str | None = None, **fields: Any
 ) -> dict[str, Any]:
     """One registration link as its mint stores it, live and minted for copying unless `sent_at` says it was mailed."""
 
@@ -363,7 +349,7 @@ def invitation_document(
         Collection.INVITATIONS,
         {
             "_id": invitation_id,
-            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], today=created_at, sent_at=sent_at),
+            **compose_invitation(saison_id=saison_id, team_id=team_id, token_hashes=[hash_token(token)], sent_at=sent_at),
             **fields,
         },
     )
@@ -488,7 +474,7 @@ def bewerbung_document(
             "team_id": team_id,
             "schule": None if schule is None else dict(schule),
             "kontakte": dict(kontakte),
-            "trikot": {"existing_set": "keiner", "wunschfarbe": "rot"},
+            "trikot": {"existing_set": "none", "wunschfarbe": "rot"},
             "kader": {"expected_size": 14, "good_spieler": 3},
             "stufengroesse": 96,
             "wunschgegner": None,
@@ -556,7 +542,6 @@ def kontaktperson_document(
     confirmed_at: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
     at: str | None = None,
-    entered_by: FLKontaktEnteredBy = "bewerbung",
     **fields: Any,
 ) -> dict[str, Any]:
     """One contact seat as its seating stores it, or, given `confirmed_at`, as its own person's confirmation left it.
@@ -564,7 +549,7 @@ def kontaktperson_document(
     `einwilligung` holds the record's keys a case sets itself, its choices among them, laid over the seat's own.
     """
 
-    seated = compose_einwilligung(today="2026-03-20", entered_by=entered_by)
+    seated = compose_einwilligung(today="2026-03-20")
     if confirmed_at is None:
         block = {**seated, **(einwilligung or {})}
     elif not confirmed_at:

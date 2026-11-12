@@ -1,7 +1,6 @@
 /**
- * E2E · an administrator's passkey, set up after the mailed code and then signed in with alone on a browser holding no
- * session, each sign-in proven by a page that renders only for a session. Desktop alone, for the reason
- * `fl_frontend/playwright.config.ts` gives at its projects.
+ * E2E · an administrator's passkey, where no lower tier sees a passkey set up after the mailed code fail to sign in
+ * alone. Desktop alone, for the reason `fl_frontend/playwright.config.ts` gives at its projects.
  */
 import { expect } from "@playwright/test";
 

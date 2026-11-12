@@ -12,11 +12,11 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.registrierungen.services import SWEEP_PAGE
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundError
+from app.core.transactions import SWEEP_PAGE
 from app.main import create_app
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
@@ -205,7 +205,7 @@ class TestTheSeasonsOwnEnd:
 
 
 class TestTheDeclineClock:
-    def test_it_loescht_a_declined_registration_past_its_fourteen_days(self, mongo_replica_set_url: str):
+    def test_it_erases_a_declined_registration_past_its_fourteen_days(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 

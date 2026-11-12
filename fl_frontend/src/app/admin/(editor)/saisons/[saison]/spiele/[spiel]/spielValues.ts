@@ -1,10 +1,16 @@
 import { isNoShow } from "@/features/spiele/result";
 
 import type { CalendarDay, TimeOfDay } from "@/core/format";
-import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
 export const NO_SONDEREREIGNIS = "none";
+
+/**
+ * The referee field's entry for a booking naming nobody, which a played match keeps with its fee once its referee was
+ * erased: a combo box's choice is a string, and the write takes this one as a null referee.
+ */
+export const NOBODY = "nobody";
 
 /**
  * What the match editor's fields hold: a knockout match's two clubs, picked by hand; the Ansetzung's day, time, venue
@@ -30,8 +36,7 @@ export type SpielValues = {
 };
 
 /** An event after which the match carries no result at all, which the write refuses goals beside. */
-export const takesNoResult = (sonderereignis: FLSonderereignis | string | null) =>
-  sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
+export const takesNoResult = (sonderereignis: string | null) => sonderereignis === "ausgefallen" || sonderereignis === "annulliert";
 
 /** The referee's proposal as „Übernehmen“ carries it into the result's fields, and the report's version it stamps. */
 export type Proposal = { version: number; values: Partial<SpielValues> };
@@ -50,8 +55,8 @@ export const adoptsBerichtOf = (proposal: Proposal | null, pressed: boolean, sav
 const figure = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
 
 /**
- * The editor's values as a stored fixture gives them. A no-show's goals are the award the write composed, never a
- * result anyone entered, so its result control rests unticked.
+ * A no-show's goals are the award the write composed, never a result anyone entered, so its result control rests
+ * unticked.
  */
 export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
   const hasResult = spiel.ergebnis !== null && !isNoShow(spiel.sonderereignis);
@@ -63,7 +68,7 @@ export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
     time: spiel.time as SpielValues["time"],
     spielort: spiel.spielort?.spielort_id ?? null,
     mietpreis: figure(spiel.spielort?.mietpreis),
-    schiedsrichter: spiel.schiedsrichter?.schiedsrichter_id ?? null,
+    schiedsrichter: spiel.schiedsrichter === null ? null : (spiel.schiedsrichter.schiedsrichter_id ?? NOBODY),
     payment: figure(spiel.schiedsrichter?.payment),
     hasResult,
     tore1: hasResult ? figure(spiel.team1?.tore) : "",

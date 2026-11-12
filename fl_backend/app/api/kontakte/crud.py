@@ -22,18 +22,14 @@ from app.shared.folding import sign_in_identifier
 async def clear_seats(
     collection: AsyncCollection,
     rows: Sequence[Mapping[str, Any]],
-    # Folded (`app/shared/folding.py :: sign_in_identifier`): each seat's address is compared on the fold.
+    # Folded: each seat's address is compared on the fold.
     identifiers: Set[str],
     session: AsyncClientSession,
     *,
     names: Set[PersonName] = frozenset(),
-) -> int:
-    """Null these people's slots, one patch per row holding any, and answer how many slots.
+) -> None:
+    """Null these people's slots, one patch per row holding any and never one over many: which slots a row gives up is that row's own."""
 
-    One patch per row and never `patch_many_in_db`: which slots a row gives up is that row's own.
-    """
-
-    cleared = 0
     for row in rows:
         slots = departing_slots(row, identifiers, names)
         if not slots:
@@ -54,9 +50,6 @@ async def clear_seats(
             expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
-        cleared += len(slots)
-
-    return cleared
 
 
 async def remove_the_seats_reasons(
@@ -90,20 +83,20 @@ async def erase_kontaktperson_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     identifier: str,
     # The rows naming the address in a seat, of every status, each carrying its seats' addresses and its
-    # `confirmations`, read unbounded in the caller's transaction BEFORE any clearing: a cleared row stops matching.
+    # `confirmations`, read unbounded in the caller's transaction before any clearing: a cleared row stops matching.
     saison_team_rows: Sequence[Mapping[str, Any]],
     bewerbung_rows: Sequence[Mapping[str, Any]],
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> int:
-    """Clear the seats of the rows the caller read in-session, so a retry re-reads them, and answer how many."""
+) -> None:
+    """Clear the seats of the rows the caller read in-session, so a retry re-reads them."""
 
     # Folded again, the fold being idempotent: every match below compares the fold, so an unfolded
     # spelling would match no seat and the erasure would commit having removed nothing.
     identifier = sign_in_identifier(identifier)
 
-    cleared_slots = await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
-    cleared_slots += await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
+    await clear_seats(saison_teams_collection, saison_team_rows, {identifier}, session)
+    await clear_seats(bewerbungen_collection, bewerbung_rows, {identifier}, session)
 
     # Off the rows read in this transaction, as `clear_seats` judged them, once for the whole erasure.
     held = [(row, slots) for row in saison_team_rows if (slots := departing_slots(row, {identifier}))]
@@ -113,5 +106,3 @@ async def erase_kontaktperson_in_session(
         held=[HeldSeats(saison_id=row["saison_id"], team_id=row["team_id"], seats=slots) for row, slots in held],
         session=session,
     )
-
-    return cleared_slots

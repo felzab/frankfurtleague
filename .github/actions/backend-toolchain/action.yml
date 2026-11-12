@@ -4,7 +4,8 @@ description: >-
   Several jobs of the verify workflow want exactly this block, and a copy per job is a copy that can
   drift.
 
-# The caller checks out first, for the reason `.github/actions/frontend-toolchain/action.yml` gives.
+# The caller checks out first: a `./` action is read from the workspace, so the runner cannot find
+# this file until actions/checkout has run.
 
 inputs:
   application:
@@ -15,55 +16,32 @@ inputs:
   save-cache:
     description: >-
       `true` in the one caller that writes the uv cache to the Actions cache when none was restored
-      under its key; `false`, the default, restores it and writes nothing.
+      under its key; `false`, the default, restores it and writes nothing. That caller passes
+      `application: true`: every caller restores under one key, so a cache written without the
+      application sends each caller installing it to the registry.
     required: false
     default: "false"
 
 runs:
   using: composite
   steps:
-    # setup-uv reads any value but `true` and `auto` as `false`, so a misspelt `true` would leave the cache
-    # unwritten with nothing failing.
-    - name: Refuse a save-cache that is not true or false, or true without the application
-      shell: bash
-      env:
-        SAVE_CACHE: ${{ inputs.save-cache }}
-        APPLICATION: ${{ inputs.application }}
-      run: |
-        case "$SAVE_CACHE" in
-          false) ;;
-          true)
-            # Every caller restores under one key, so a cache written without the application sends
-            # each caller installing it to the registry for the rest.
-            if [ "$APPLICATION" != true ]; then
-              echo "::error title=Backend toolchain::save-cache is true where application is '${APPLICATION}', and only a caller installing the application writes the cache."
-              exit 1
-            fi
-            ;;
-          *)
-            echo "::error title=Backend toolchain::save-cache is '${SAVE_CACHE}', and only true or false is read."
-            exit 1
-            ;;
-        esac
-
-    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         enable-cache: true
         # One writer: on a miss every saving job archives the whole cache at job end and all but the
         # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
         save-cache: ${{ inputs.save-cache }}
-        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names
-        # (`scripts/tests/test_image_pins.py :: test_ci_installs_the_uv_the_backend_image_copies_in`).
+        # The release the backend image's `FROM ghcr.io/astral-sh/uv:` tag names, which the image pin
+        # tests hold.
         # Neither unset nor `version-file` serves: each installs that day's newest uv, fl_backend's
         # `required-version` being a range.
-        version: "0.13.1"
+        version: "0.13.7"
     # `--locked`: a bare sync REWRITES uv.lock in the working tree, so a branch with a stale
     # committed lockfile passes every later check against the rewritten file. `--locked` refuses
     # it; `--frozen` would accept it.
 
     # `--only-group dev` where no step imports the application, leaving its dependency graph
-    # uninstalled. Any other value is refused: read as `false`, a misspelt `true` would fail the job
-    # at its first import rather than here.
+    # uninstalled.
     - name: Create the backend virtualenv
       shell: bash
       working-directory: fl_backend
@@ -73,8 +51,4 @@ runs:
         case "$APPLICATION" in
           true) uv sync --locked --dev ;;
           false) uv sync --locked --only-group dev ;;
-          *)
-            echo "::error title=Backend toolchain::application is '${APPLICATION}', and only true or false is read."
-            exit 1
-            ;;
         esac

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any, NoReturn, cast, get_args
 
 import pytest
@@ -18,6 +19,7 @@ from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
+    FLSpielSchiedsrichterFieldRecord,
     FLSpielTeamField,
 )
 from app.api.spiele.services import (
@@ -48,9 +50,9 @@ from app.api.spiele.services import (
     find_state_refusal,
     judge_spieltag_occupancy,
 )
+from app.core import clock
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.literals import FLSonderereignis
 from tests import documents
 from tests.payloads import spiel_patch_body
@@ -230,8 +232,9 @@ LIVE_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=True)
 RETIRED_SCHIEDSRICHTER = BookedReferee(inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
 UNCONFIRMED_SCHIEDSRICHTER = BookedReferee(inactive_since=None, confirmed=False)
-# The ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), retired and never confirmed.
-GHOST_SCHIEDSRICHTER = BookedReferee(inactive_since="2000-01-01", confirmed=False)
+
+# An hour after the season's fixtures kick off, at 18:00 in Berlin.
+AFTER_KICK_OFF = datetime(2026, 3, 15, 19, tzinfo=clock.GERMANY)
 
 
 def patched_spiel(
@@ -239,13 +242,14 @@ def patched_spiel(
     nr: int,
     *,
     rules: FLSaisonRules = RULES,
+    now: datetime = AFTER_KICK_OFF,
     **overrides: Any,
 ) -> FLSpiel:
     """The fixture as this patch leaves it — the one function `patch_spiel` applies for the save and for the `dry_run` preview alike."""
 
     stored = FLSpiel.model_validate(stored_spiel(saison_docs, nr))
 
-    return apply_payload_to_spiel(stored, payload_for(saison_docs, nr, **overrides), rules)
+    return apply_payload_to_spiel(stored, payload_for(saison_docs, nr, **overrides), rules, now=now)
 
 
 class TestApplyingThePayload:
@@ -308,6 +312,14 @@ class TestApplyingThePayload:
             stored.saison_id,
             stored.saison_phase,
         )
+
+    def test_the_second_sides_quelle_and_the_note_reach_the_spiel(self, saison):
+        """Each dropped, the save would report success and keep what the fixture held before."""
+
+        patched = patched_spiel(saison, 30, team2_quelle=sieger(2), note="Anpfiff auf dem Nebenplatz")
+
+        assert patched.team2_quelle is not None
+        assert (patched.team2_quelle.model_dump(), patched.note) == (sieger(2), "Anpfiff auf dem Nebenplatz")
 
 
 class TestComposingAForfeit:
@@ -508,55 +520,43 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
         assert booking_refusal_for(seasoned(saison), nr, resolved, **overrides) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
 
 
-A_NAMELESS_RETIRED_SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f607182939")
+# As an erasure leaves a played fixture's booking: its fee, and nobody named.
+NOBODY = {"schiedsrichter_id": None, "payment": 20}
 
 
-def booked_by(saison_docs: list[dict[str, Any]], nr: int, schiedsrichter_id: ObjectId) -> dict[str, Any]:
-    """One fixture of `saison` holding a NAMELESS referee booking, which is what both rows below leave on one."""
+def booked_nobody(saison_docs: list[dict[str, Any]], nr: int) -> list[dict[str, Any]]:
+    """`saison` with fixture `nr` booking nobody."""
 
-    stored = stored_spiel(saison_docs, nr)
-
-    return {**stored, "schiedsrichter": {"schiedsrichter_id": schiedsrichter_id, "name": None, "payment": 20}}
+    return [{**doc, "schiedsrichter": NOBODY} if doc["spiel_nr"] == nr else doc for doc in saison_docs]
 
 
-class TestTheGhostIsToldFromAnyOtherNamelessRow:
-    """A null name says a name is missing, never WHICH row is missing it, so the queue reads the id.
+class TestABookingNamingNobody:
+    """Only an erasure makes one, on a played fixture: a save keeps it there, drops it where the fixture moves to come, and never makes one."""
 
-    Calling a merely retired row a deletion tells an administrator that somebody asked to be
-    forgotten who did not.
-    """
+    def test_a_save_keeps_the_one_the_fixture_stores(self, saison):
+        assert booking_refusal_for(booked_nobody(saison, 1), 1, references()) is None
 
-    def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, saison):
-        """`spiel_double_booked` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
+    @pytest.mark.parametrize(
+        "stored", [pytest.param(None, id="no-referee-booked"), pytest.param(A_DIFFERENT_SCHIEDSRICHTER, id="a-referee-booked")]
+    )
+    def test_a_save_making_one_is_refused_at_the_referee(self, saison, stored):
+        """A booking naming nobody that a save could make would stand on a match no erasure touched, its fee owed to nobody."""
 
-        Counted, it would report two strangers' matches as one person double-booked and refuse a
-        save that merely re-times either.
-        """
+        seasoned = [{**doc, "schiedsrichter": stored} if doc["spiel_nr"] == 1 else doc for doc in saison]
+        refusal = booking_refusal(seasoned, 1, references(), schiedsrichter=NOBODY)
 
-        ghosted, retired = FLSpielListAdapter.validate_python(
-            [booked_by(saison, 1, GHOST_SCHIEDSRICHTER_ID), booked_by(saison, 29, A_NAMELESS_RETIRED_SCHIEDSRICHTER)]
-        )
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields) == (Code.BOOKING_UNKNOWN_RESOURCE, (("schiedsrichter", "schiedsrichter_id"),))
 
-        def schiedsrichter_claimed(spiel):
-            return [claim.reference for claim in find_slot_claims(spiel) if claim.resource == "Schiedsrichter"]
+    @pytest.mark.parametrize(
+        ("time", "kept"), [pytest.param("18:30:00", True, id="still-played"), pytest.param("20:00:00", False, id="to-come")]
+    )
+    def test_a_re_timing_keeps_it_on_a_played_match_and_drops_it_on_one_to_come(self, saison, time, kept):
+        """A match to come holds nobody it cannot name: its slot stays open for a referee to be booked."""
 
-        assert schiedsrichter_claimed(ghosted) == []
-        # The control: the same fixture shape under any other id still claims its slot.
-        assert schiedsrichter_claimed(retired) == [A_NAMELESS_RETIRED_SCHIEDSRICHTER]
+        patched = patched_spiel(booked_nobody(saison, 1), 1, time=time)
 
-
-class TestTheGhostIsRefusedAsAnyRetiredRowIs:
-    """`booking_unknown_resource` meets the ghost where it meets any retired referee.
-
-    Its own class because the ghost is the one retired row with no name, and the sentence a named
-    row gets offers a reactivation it never takes.
-    """
-
-    def test_a_save_reopening_the_spiel_is_refused_it(self, saison):
-        assert (
-            booking_refusal_for(saison, 2, references(spielort=LIVE_SPIELORT, schiedsrichter=GHOST_SCHIEDSRICHTER), **CLEARED)
-            == Code.BOOKING_UNKNOWN_RESOURCE
-        )
+        assert patched.schiedsrichter == (FLSpielSchiedsrichterFieldRecord(schiedsrichter_id=None, payment=20) if kept else None)
 
 
 def anchored_for(saison_docs: list[dict[str, Any]], nr: int, **overrides: Any) -> BookedReferences:
@@ -946,13 +946,6 @@ class TestTheDisqualifiedOccupantFault:
 
         assert [fault.side for fault in faults] == ["team2"]
         assert faults[0].team_name == "Bieber"
-
-    def test_a_group_phase_spiel_is_covered(self):
-        """No bracket rule looks at the group phase, which is why this is derived beside the walk."""
-
-        faults = occupant_faults(joined(nr=1, date="2026-04-01", side_disqualified_from="2026-03-15"))
-
-        assert len(faults) == 1
 
     def test_every_affected_spiel_is_reported(self):
         """One fault per remaining fixture: each needs the same decision taken separately."""

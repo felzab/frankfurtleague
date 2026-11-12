@@ -23,7 +23,7 @@ vi.mock("@/features/roles/queries", () => ({
 }));
 
 // The public frame's read, cached for every visitor, which a unit render has no cache for.
-vi.mock("@/features/saisons/queries", () => ({ isPublicSaison: async () => true }));
+vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => ({ saisons: [{ id: "2027" }] }) }));
 
 const own = vi.hoisted(() => ({ read: null as FLSpielerSaisonSelfResponse | null }));
 vi.mock("@/features/spieler/queries", () => ({ getSpielerSaisonSelf: async () => own.read }));
@@ -108,11 +108,5 @@ describe("a pupil's own season", () => {
     );
 
     expect(metadata.title).toBe(SERVER_COPY.notFound);
-  });
-
-  // The match's head names it, and a date line naming it again reads as a second match.
-  it("names the third-place match once", async () => {
-    const page = await landed(null, { ...SPIEL, saison_phase: "finale", for_third_place: true });
-    expect(page.split(SERVER_COPY.season.thirdPlace)).toHaveLength(2);
   });
 });

@@ -20,8 +20,6 @@ from app.api.spielorte.services import build_unplayed_booking_filter, find_venue
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    build_query,
-    build_sort,
     insert_live,
     is_held_elsewhere,
     patch_one_in_db,
@@ -39,9 +37,9 @@ from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
-# Admin-guarded, not base. `default_mietpreis` is money (`READ-MONEY-001`) and the only field
-# withheld: `address` moves with it because no public page reads the parts, not to hide them --
-# `maps_link` publishes the address whole (`READ-ADDRESS-001`).
+# Admin-guarded, not base. `default_mietpreis` is money, which only an administrator reads, and the only field
+# withheld: `address` moves with it because no public page reads the parts, not to hide them -- `maps_link` publishes
+# the address whole.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
@@ -53,21 +51,15 @@ async def get_spielorte(
     spielorte_collection: SpielorteReadCollection,
     filters: FLSpielorteFilterParams = Depends(),
 ) -> FLSpielorteListResponse:
-    """An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+    """Every venue in name order, the retired ones too where `include_inactive` asks for them.
 
-    Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+    `maps_link` is a Maps search string, not a URL.
     """
-
-    # Empty `terms`: nothing here is matched by value -- `include_inactive` is translated, and
-    # the rest is paging and ordering.
-    db_filter = build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive)
-    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
 
     spielorte_raw = await pull_many_from_db(
         collection=spielorte_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
+        db_filter={} if filters.include_inactive else {"inactive_since": None},
+        sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
     spielorte = FLSpielortListAdapter.validate_python(spielorte_raw)
@@ -77,11 +69,7 @@ async def get_spielorte(
 
 @router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteReadCollection) -> FLSpielorteSingleResponse:
-    """The venue editor's one read: the record, its `version` with it, which the editor's save sends back.
-
-    Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`). Retired venues included:
-    the editor reactivates one, and a historical match's venue is the case worth answering.
-    """
+    """One venue, a retired one included, with the `version` its save sends back."""
 
     spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
 
@@ -89,7 +77,7 @@ async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: S
 
 
 def _maps_link(name: str, address: FLAddress) -> str:
-    """The Google Maps SEARCH STRING, not a URL. Derived here so a client can never supply one."""
+    """The Google Maps search string, not a URL. Derived here so a client can never supply one."""
     return f"{name}, {address.to_string}, Deutschland"
 
 
@@ -99,9 +87,9 @@ async def post_spielort(
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLCreatedResponse:
-    """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted.
+    """Create a venue, its `maps_link` derived from the name and the address.
 
-    Refused where another venue holds the name (`duplicate_key`, naming `name`).
+    A name another venue holds, a retired one included, is refused.
     """
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
@@ -140,12 +128,9 @@ async def patch_spielort(
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> FLPatchSpielortResponse:
-    """
-    Update a venue on the `version` the editor was served, answering the version stored, which its next save sends.
+    """Save a venue on the `version` it was read at, answering the version stored.
 
-    A fixture names the venue by id and reads its name and `maps_link` at its own read, so nothing else is written; each
-    fixture keeps the `mietpreis` agreed for it. Refused where another venue holds the name (`duplicate_key`, naming
-    `name`).
+    Every fixture at the venue shows its new name and `maps_link`, and keeps the `mietpreis` agreed for it.
     """
 
     maps_link = _maps_link(spielort_data.name, spielort_data.address)
@@ -185,11 +170,9 @@ async def delete_spielort(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """
-    Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
+    """Retire a venue, which stays readable for every match played there.
 
-    A played match names the venue by id, so a hard delete would orphan every historical match that used it. Refused
-    while an unplayed fixture is still booked here (`spielort_still_booked`).
+    Refused while an unplayed fixture is booked at it.
     """
 
     async def retire_the_venue(session: AsyncClientSession) -> None:
@@ -209,9 +192,8 @@ async def delete_spielort(
                 collection=spielorte_collection, action="spielort.retired", record_id=spielort_id, label=str(retired["name"]), session=session
             )
 
-    # The stamp inside the judgement's transaction, so a booking committing after the read above
-    # conflicts on the venue it anchors rather than landing unseen
-    # (`app/api/spiele/crud.py :: anchor_a_booked_venue`).
+    # Soft, since a played match names the venue by id. The stamp inside the judgement's transaction, so a booking
+    # committing after the read above conflicts on the venue it anchors rather than landing unseen.
     async with transaction_session(db) as session:
         await session.with_transaction(retire_the_venue)
 
@@ -226,7 +208,7 @@ async def reactivate_spielort(
     spielorte_collection: SpielorteCollection,
     db: DBClient,
 ) -> None:
-    """Clear `inactive_since`, putting the venue back into the picker and every default read."""
+    """Return a retired venue to every default read."""
 
     async def bring_the_venue_back(session: AsyncClientSession) -> None:
         revived = await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)

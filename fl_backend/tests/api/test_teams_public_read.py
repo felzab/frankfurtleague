@@ -90,19 +90,19 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """A running season and a live club, its junction row carrying three people's contact records."""
 
     async def _seed() -> None:
-        async with a_clean_database(mongo_url, DATABASE_NAME) as (_, database):
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
             await database[Collection.SAISONS].insert_one(saison_document())
             await database[Collection.TEAMS].insert_one(team_document("Helmholtz", "HGX", inactive_since=None))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row("Helmholtz", "HGX"))
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -218,6 +218,46 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
                 return keys.get((finale.get("team1") or {}).get("team_id")), keys.get((finale.get("team2") or {}).get("team_id"))
 
         assert on_the_seed_loop(body()) == seeded
+
+
+@pytest.mark.db
+class TestTheTeamReadCountsTheLeagueAlone:
+    def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
+        """The site sends no scope, so a default counting the knockout would put a cup result into the club's league figures."""
+
+        async def body() -> dict[str, Any]:
+            async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (_, database):
+                await database[Collection.SAISONS].insert_one(saison_document())
+                await database[Collection.TEAMS].insert_many(
+                    [team_document(key, shorthand, inactive_since=None) for key, shorthand in SHORTHANDS.items()]
+                )
+                await database[Collection.SAISON_TEAMS].insert_many([junction_row(key, shorthand) for key, shorthand in SHORTHANDS.items()])
+                group, finale = played_group(SAISON)[:3], played_group(SAISON)[3]
+                # Helmholtz wins the Finale, a result the group phase must not count.
+                played_finale = {**finale, "team1": side("Helmholtz", 3), "team2": side("Goethe", 0), "ergebnis": "3:0"}
+                await database[Collection.SPIELE].insert_many([*group, played_finale])
+
+                async def figures(**scope: Any) -> Any:
+                    filters = FLTeamSingleFilterParams(saison_id=SAISON, **scope)
+                    answered = await get_team(
+                        team_id=TEAM_OIDS["Helmholtz"],
+                        teams_collection=database[Collection.TEAMS],
+                        saisons_collection=database[Collection.SAISONS],
+                        filters=filters,
+                    )
+                    return answered.team.statistik
+
+                return {
+                    "named by no caller": await figures(),
+                    "gruppenphase": await figures(statistik_scope="gruppenphase"),
+                    "total": await figures(statistik_scope="total"),
+                }
+
+        figures = on_the_seed_loop(body())
+
+        # The premise: the Finale counts in the total, or the default could not be told from it.
+        assert figures["total"] != figures["gruppenphase"]
+        assert figures["named by no caller"] == figures["gruppenphase"]
 
 
 @pytest.mark.db

@@ -56,8 +56,8 @@ const head = tv({
   },
   variants: {
     placement: {
-      /// The band: the card head's fill run edge to edge across the dialog's top, the padding the box declares
-      // taken back around it, so the pairing is framed as the old pop-up framed the teams, on a surface of
+      // The band: the card head's fill run edge to edge across the dialog's top, the padding the box declares
+      // taken back around it, so the pairing stands on a surface of
       // its own. Its top corners are the box's: a box whose overflow is not visible clips its content to its
       // rounded padding edge (CSS Backgrounds 3, corner clipping).
       dialog: { root: "-mx-(--dialog-padding) -mt-(--dialog-padding)" },
@@ -234,10 +234,7 @@ function PopupPlaceholder() {
           <span className={buttonPlaceholder("w-full")} />
         </Placeholder>
       }>
-      {/* The dialog's name says the wait, so its status would say it twice. */}
-      <Waiting
-        layoutClass="grid gap-6"
-        status={false}>
+      <Waiting layoutClass="grid gap-6">
         <SpielHeadPlaceholder placement="dialog" />
         <FactsPlaceholder
           look="free"

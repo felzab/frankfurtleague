@@ -353,34 +353,6 @@ class TestAnAcceptanceEntersTheSchool:
         # Against the seed as well as against the application, so a copy of an emptied block cannot pass.
         assert submitted == entered == KONTAKTE
 
-    def test_who_seated_each_person_reaches_the_junction_row_unchanged(self, mongo_replica_set_url: str):
-        """It decides which page a seat's link opens once the application is gone, so a stamped seat and an unstamped one carry it alike.
-
-        Lost here, an applicant-named seat would open the league's page after the application is erased.
-        """
-
-        seated = {"trainer": "bewerbung", "ansprechperson": "liga", "stellvertretung": "bewerbung"}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].update_one(
-                {"_id": PICKED_BEWERBUNG},
-                {
-                    "$set": {
-                        **{f"kontakte.{slot}.einwilligung.entered_by": by for slot, by in seated.items()},
-                        # The Trainer confirmed: entry carries a stamped seat whole, an unstamped one recomposed.
-                        "kontakte.trainer.einwilligung.confirmed_at": TODAY,
-                    }
-                },
-            )
-            await accept(database, client, PICKED_BEWERBUNG)
-
-            return (await junction_rows(database))[0]["kontakte"]
-
-        entered = on_a_league(mongo_replica_set_url, body)
-
-        assert {slot: entered[slot]["einwilligung"]["entered_by"] for slot in seated} == seated
-        assert entered["trainer"]["einwilligung"]["confirmed_at"] == TODAY, "the Trainer's seat entered unstamped, so this case proves nothing"
-
     def test_the_assigned_kit_colour_is_the_administrators_and_not_the_wish(self, mongo_replica_set_url: str):
         """A wish is not an assignment: two schools may wish for one colour, and the junction records what was given."""
 
@@ -958,14 +930,6 @@ class TestADecisionIsNotTakenTwice:
 OTHER_DECISION_REASON = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
-class ApplicationsRunningARivalBeforeTheirWrite(InterleavedCollection):
-    """The applications a decline reaches, a rival run once ahead of its write: after the attempt's judged read, before the write."""
-
-    async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.find_one_and_update(*args, **kwargs)
-
-
 @pytest.mark.db
 class TestTwoDeclinesAtOnce:
     """The loser of the race mails the applicants nothing, and the winner's `reason` and name stand.
@@ -987,7 +951,7 @@ class TestTwoDeclinesAtOnce:
                 await decline(database, PICKED_BEWERBUNG)
                 first.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
-            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_first_decline)
+            racing = InterleavedCollection(database[Collection.BEWERBUNGEN], the_first_decline, before="find_one_and_update")
             with pytest.raises(APIError) as conflict:
                 await decline_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
@@ -1078,7 +1042,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 # A school whose own URL carries the three characters `validate_external_url` strips. Storable as
 # submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
-DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
+DIRTY_URL = "https://wirbelknoten\t.example.de/\rpath"
 DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WKX"
 
 
@@ -1127,7 +1091,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         # Every key either insert wrote, `inactive_since` included: both paths owe it.
         assert without_the_id(created) == without_the_id(through_the_entry)
         # The floor: two paths that both stored the block as submitted would compare equal above.
-        assert created["website_url"] == "https://wirbelknoten.example.de/pfad"
+        assert created["website_url"] == "https://wirbelknoten.example.de/path"
 
 
 @pytest.mark.db
@@ -1147,7 +1111,7 @@ class TestADeclineLandingInsideAnAcceptance:
                 await decline(database, PICKED_BEWERBUNG)
                 declined.append(await stored_bewerbung(database, PICKED_BEWERBUNG))
 
-            racing = ApplicationsRunningARivalBeforeTheirWrite(database[Collection.BEWERBUNGEN], the_decline)
+            racing = InterleavedCollection(database[Collection.BEWERBUNGEN], the_decline, before="find_one_and_update")
             with pytest.raises(APIError) as refused:
                 await accept_bewerbung(
                     bewerbung_id=PICKED_BEWERBUNG,
@@ -1760,14 +1724,13 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert stored["kontakte"]["ansprechperson"] == {
             **RESEAT_PERSON,
             "birth_date": None,
-            # Born afresh, the league named as who seated them: nothing of the person who stepped out
-            # of the seat travels to the one seated, their evidence included.
+            # Born afresh: nothing of the person who stepped out of the seat travels to the one seated,
+            # their evidence included.
             "einwilligung": {
                 "scope": "kontakt_data",
                 "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
-                "entered_by": "liga",
             },
         }
         # The link is the mail's alone, minted at its hand-out to the person now seated.

@@ -8,20 +8,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.spielberichte.schemas import (
-    FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtSpieler,
-    FLSpielberichtStateEntry,
 )
 from app.api.spielberichte.services import (
     SIDES,
     SPIEL_FIELDS,
     BerichtContext,
-    bericht_state_of,
     bericht_unchanged,
     build_bericht_kader_pipeline,
     build_season_report_texts_filter,
-    build_state_pipeline,
     build_submitted_pipeline,
     compose_bericht_update,
     compose_new_bericht,
@@ -45,7 +41,6 @@ from app.core.crud import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSpielSide
 
@@ -97,7 +92,7 @@ async def pull_named(
 ) -> list[FLSpielberichtSpieler]:
     """Every pupil the block names outside the squads served, so a stored entry keeps its name; every one where none is served.
 
-    An erased pupil's entries name the sentinel, which comes nameless and reads „anonym“.
+    An entry naming nobody, a scorer the referee did not name or a pupil erased since, names no id and asks for none.
     """
 
     live = {row["spieler_id"] for side in SIDES for row in live_kader(context, side)} if kader_open else set()
@@ -152,8 +147,8 @@ async def write_bericht(
     saved: Mapping[str, Any] | None,
     payload: FLSpielberichtBerichtPayload,
     now: datetime,
-    # REQUIRED with no default: the `version` the form was served, null where it showed no report, which the caller
-    # has judged against `saved` (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # Required with no default: the `version` the form was served, null where it showed no report, which the caller
+    # has judged against `saved`.
     version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
@@ -206,28 +201,11 @@ async def count_submitted_berichte(*, spielberichte_collection: ReadCollection, 
     return counted[0]["berichte"] if counted else 0
 
 
-async def pull_states(*, spielberichte_collection: ReadCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
-    """Every report of one season, each with its state against its fixture as stored now."""
-
-    rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_state_pipeline(saison_id=saison_id))
-
-    entries = []
-    for row in rows:
-        bericht = FLSpielberichtBericht.model_validate(row["bericht"])
-        entries.append(
-            FLSpielberichtStateEntry(
-                spiel_id=row["spiel_id"], state=bericht_state_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
-            )
-        )
-
-    return entries
-
-
 async def strip_the_seasons_reports(
     *,
     spielberichte_collection: AsyncCollection,
     saison_id: str,
-    # REQUIRED: the following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
+    # The following season's end judged in the same snapshot, so an activation since the caller's read keeps them.
     session: AsyncClientSession,
 ) -> int:
     """Once the season after `saison_id` has ended, every report's remarks, answering how many reports it stripped."""
@@ -259,7 +237,7 @@ async def stamp_the_adoption(
     version: int,
     # The clubs the save leaves on the fixture: a report written about others credits neither.
     sides: Mapping[FLSpielSide, ObjectId | None],
-    # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
+    # The fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
 ) -> None:
     """Stamp the report adopted, matching it only while its document still stands at `version`.
@@ -276,14 +254,14 @@ async def stamp_the_adoption(
     )
 
 
-async def repoint_pupil_entries_in_session(
+async def empty_pupil_entries_in_session(
     *,
     spielberichte_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # REQUIRED: the erasure's own, so a report never names the sentinel of an erasure that rolled back.
+    # The erasure's own, so no report loses a name to an erasure that rolled back.
     session: AsyncClientSession,
 ) -> None:
-    """Repoint every scorer and card entry naming this pupil at the sentinel.
+    """Make every scorer and card entry naming this pupil name nobody.
 
     The report stands as the league's record of the match, its adoption with it: this write raises the document's
     `version` and leaves `bericht.adopted` as it stands.
@@ -295,7 +273,7 @@ async def repoint_pupil_entries_in_session(
     await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"$or": [{"bericht.scorers.spieler_id": spieler_id}, {"bericht.cards.spieler_id": spieler_id}]},
-        update={"$set": {"bericht.scorers.$[goal].spieler_id": GHOST_SPIELER_ID, "bericht.cards.$[card].spieler_id": GHOST_SPIELER_ID}},
+        update={"$set": {"bericht.scorers.$[goal].spieler_id": None, "bericht.cards.$[card].spieler_id": None}},
         array_filters=[{"goal.spieler_id": spieler_id}, {"card.spieler_id": spieler_id}],
         session=session,
     )

@@ -9,7 +9,6 @@ import { HOLDER_WAIT } from "@/core/addressChange";
 import { passkeysOf } from "@/core/auth/passkeys";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { requireAccountSession } from "@/features/account/account";
 import { getAccountAddressChange } from "@/features/account/queries";
@@ -53,7 +52,7 @@ async function SignInContent() {
       pending={change.open === null ? null : pendingOf(change.open)}
       held={held}
       holderWait={change.wait_tier === null ? undefined : COPY.account.address.holderWait(HOLDER_WAIT[change.wait_tier])}
-      lastOwner={subject.records.admin_tier === "owner" ? SERVER_COPY.refusalLine.owner_erasure : undefined}
+      lastOwner={subject.records.admin_tier === "owner" ? COPY.account.erasure.ownerLocked : undefined}
       addressRequired={requires(SignInPayloadSchema.shape.email, "")}
     />
   );

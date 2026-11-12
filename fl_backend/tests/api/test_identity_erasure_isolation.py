@@ -52,7 +52,7 @@ IDENTIFIER = sign_in_identifier(TYPED)
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607e10001")
 INVITATION_OID = ObjectId("6890a1b2c3d4e5f607e10002")
-INVITATION_TOKEN = "einladung-erasure-isolation"
+INVITATION_TOKEN = "invitation-erasure-isolation"
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
 PUPIL_EMAIL = "wraxlington@example.com"
@@ -95,7 +95,6 @@ async def a_league(database: AsyncDatabase) -> None:
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": [hash_token(INVITATION_TOKEN)],
-            "created_at": "2026-03-15",
             "revoked_at": None,
             "sent_at": None,
         }

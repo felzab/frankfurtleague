@@ -1,5 +1,4 @@
-"""
-API · the Postausgang: every mail the league owes, one row per recipient, written in the transaction of the write owing it
+"""Every mail the league owes, one row per recipient, written in the transaction of the write owing it.
 
 The transactional outbox, its rows drained by polling: the write and its mail commit or fail together, and a drain the
 frontend runs hands each row out under a lease of its own, so two drains never hold one row and a drain that dies leaves
@@ -33,9 +32,8 @@ PAGE: Final = 10
 
 # How long one claim holds its rows: past a page at its worst, so a drain still sending is never overtaken. The frontend's
 # drain runs under no deadline but each call's own bound, so the worst is the claim's answer, then each of `PAGE` sends
-# and its report, at `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` a call and `fl_frontend/src/core/mail.ts ::
-# MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s (`tests/api/test_outbox_lease.py`). A drain a stopping
-# container cuts leaves its rows to the next once this lapses.
+# and its report, at the frontend's `FETCH_TIMEOUT_MS` a call and `MAIL_TIMEOUT_MS` a send: (1 + 2 x 10) x 15 s, 315 s.
+# A drain a stopping container cuts leaves its rows to the next once this lapses.
 LEASE_DURATION: Final = timedelta(minutes=10)
 
 # How long a send that failed waits before a drain may hand it out again: a provider refusing for its own reasons (its
@@ -85,7 +83,7 @@ FOLLOWS: Final[Mapping[FLOutboxDeliveryState, tuple[FLOutboxDeliveryState | None
 class OwedMail:
     """One mail a league write owes one recipient.
 
-    `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `kind` is the row's.
+    `data` is the kind's member of `FLOutboxData`, whose `kind` is the row's.
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
     the hand-out on the record `reference` names. `valid_until` ends the row where its link dies before `DELIVERY_DEADLINE`:
@@ -137,7 +135,7 @@ async def enqueue_mails(
         session=session,
     )
 
-    # Equality on the three keys of `outbox_reference` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    # Equality on the three keys of the `outbox_reference` index for each record and seat.
     replaced = [
         {"reference.collection": str(mail.reference.collection), "reference.id": mail.reference.id, "reference.seat": mail.reference.seat}
         for mail in new
@@ -178,7 +176,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
-        # Field by field, for `reference`'s reason.
+        # Field by field, so `team_id` is stored as an id rather than its hex string.
         "club": None if mail.club is None else {"saison_id": mail.club.saison_id, "team_id": mail.club.team_id},
         "state": "open",
         "recorded_at": now,
@@ -208,9 +206,9 @@ def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | No
     }
 
 
-# What a settled row keeps once the address it went to is replaced (`app/api/address_change/crud.py :: _carry_the_mail`):
-# its key, kind, state and dates, so a pass or a replay deciding by the key owes nothing again, and nothing naming the
-# mailbox it went to, what that mailbox reported, or the record and seat a delivery is read by.
+# What a settled row keeps once an address change replaces the address it went to: its key, kind, state and dates, so a
+# pass or a replay deciding by the key owes nothing again, and nothing naming the mailbox it went to, what that mailbox
+# reported, or the record and seat a delivery is read by.
 TOMBSTONE_UPDATE: Final[Mapping[str, Any]] = {
     "$set": {"to": None, "reference": None, "link": None, "club": None, "message_id": None, "delivery_reason": None, "delivery": None}
 }

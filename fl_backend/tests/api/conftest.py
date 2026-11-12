@@ -1,49 +1,11 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Any
 
-import pytest
-from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.database import Database
 
 from app.core.config import BackendConfig
 from tests.config import build_test_config
-from tests.documents import saison_team_document, team_document
-
-SAISON = "2026"
-PRIOR_SAISON = "2025"
-
-# Fixed rather than generated, so a failure names the same team. Each row is deliberate; several are
-# impossible in production and none may be cleaned up.
-TEAM_OIDS = {
-    # The scope: the only team whose two tables differ; its junction row carries a stale `statistik`,
-    # and its club document a name the club took AFTER this season, so only the row can say what the
-    # season was played under.
-    "Helmholtz": ObjectId("6890a1b2c3d4e5f607190001"),
-    # The forfeit rule: a no-show carrying the result it was awarded, plus a match with no `ergebnis`.
-    "Bock": ObjectId("6890a1b2c3d4e5f607190002"),
-    # The hand-edited shape — `ergebnis` set while `tore` is null — and the only team out of the season.
-    "Lessing": ObjectId("6890a1b2c3d4e5f607190003"),
-    # The zeroed fallback: a junction row, no counting match, and an absage from a called-off fixture and an annulled one both.
-    "Ohne": ObjectId("6890a1b2c3d4e5f607190004"),
-    # Komplett's and Ohne's opponent in group B, whose three fixtures carry the abandonment and the annulment.
-    "Fremd": ObjectId("6890a1b2c3d4e5f607190005"),
-    # The abandonment, which counts as played and never as an absage, so the two figures part company here.
-    "Komplett": ObjectId("6890a1b2c3d4e5f607190006"),
-}
-
-# The spelling a season row copies in at entry. Helmholtz's differs from its club document's, which is what proves
-# every read takes the row's.
-SAISON_SHORTHANDS = {
-    "Helmholtz": "HEX",
-    "Bock": "BOX",
-    "Lessing": "LEX",
-    "Ohne": "OHX",
-    "Fremd": "FRX",
-    "Komplett": "KOX",
-}
 
 # A dict rather than a model: Pydantic could not express a row its record model rejects.
 AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
@@ -80,7 +42,7 @@ def _documents(database: Database) -> Corpus:
 
 
 @contextmanager
-def unwritten(url: str, database_name: str) -> Iterator[None]:
+def unwritten(url: str, database_name: str) -> Generator[None]:
     """Fails a module that WROTE to the corpus seeded once for it, naming the collections it moved.
 
     `tests/database.py :: _schema` compares the schema instead, which a write never touches.
@@ -99,150 +61,3 @@ def unwritten(url: str, database_name: str) -> Iterator[None]:
         assert not moved, _WROTE.format(database=database_name, moved=", ".join(moved))
     finally:
         client.close()
-
-
-@dataclass(frozen=True)
-class SeededLeague:
-    database: Database
-    team_oids: dict[str, ObjectId]
-
-
-def _team(key: str, shorthand: str, name: str | None = None) -> dict[str, Any]:
-    """`name` defaults to the key; passing one is how a club comes to disagree with its own junction row."""
-
-    name = name or key
-
-    return team_document(TEAM_OIDS[key], name, shorthand)
-
-
-def _junction(key: str, gruppe: str, *, saison_id: str = SAISON, name: str | None = None, **overrides: Any) -> dict[str, Any]:
-    """The row `enter_a_club` writes: the club's identity COPIED in at entry, which every fixture read joins."""
-
-    return saison_team_document(saison_id, TEAM_OIDS[key], name or key, SAISON_SHORTHANDS[key], gruppe=gruppe, **overrides)
-
-
-def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
-    """A fixture side as stored: the club and its goals, its name joined at read from the season's row."""
-
-    if key is None:
-        return None
-
-    return {"team_id": TEAM_OIDS[key], "tore": tore}
-
-
-def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
-    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `spieltag_occupied` refuses.
-
-    No `spieltage` row is seeded and nothing joins on the key, but `spieltag_id` is not nullable.
-    """
-
-    return ObjectId(f"6890a1b2c3d4e5f6{saison_id}{nr:04d}")
-
-
-def _spiel(
-    nr: int,
-    phase: str,
-    team1: str | None,
-    team2: str | None,
-    tore1: int | None,
-    tore2: int | None,
-    *,
-    ergebnis: str | None,
-    sonderereignis: str | None = None,
-    saison_id: str = SAISON,
-) -> dict[str, Any]:
-    """Goals and `ergebnis` are supplied separately — production derives one from the other — which is what builds the hand-edited shape."""
-    return {
-        "spiel_nr": nr,
-        "saison_id": saison_id,
-        "saison_phase": phase,
-        "spieltag_id": _spieltag_oid(saison_id, nr),
-        # Written null rather than left out: each is a nullable key the collection still REQUIRES,
-        # and a `quelle` is its side's independent sibling rather than a value the side implies.
-        "date": None,
-        "time": None,
-        "spielort": None,
-        "schiedsrichter": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": sonderereignis,
-        "ergebnis": ergebnis,
-        "team1": _side(team1, tore1),
-        "team2": _side(team2, tore2),
-    }
-
-
-TEAMS = [
-    _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
-    _team("Bock", "BOX"),
-    _team("Lessing", "LEX"),
-    _team("Ohne", "OHX"),
-    _team("Fremd", "FRX"),
-    _team("Komplett", "KOX"),
-]
-
-SAISON_TEAMS = [
-    # A stored copy no record holds, of figures matching nothing the matches below produce, so any read of one fails.
-    {
-        **_junction("Helmholtz", "A"),
-        "statistik": {
-            "count_played_spiele": 99,
-            "siege": 99,
-            "niederlagen": 99,
-            "unentschieden": 99,
-            "tore_scored": 99,
-            "tore_conceded": 99,
-            "punkte": 99,
-        },
-    },
-    _junction("Bock", "A"),
-    _junction("Lessing", "A", austritt=dict(AUSTRITT)),
-    _junction("Ohne", "B"),
-    _junction("Komplett", "B"),
-    _junction("Fremd", "B"),
-    # Last season's rows, Lessing's under the name it played that season under, and without the 2026 withdrawal.
-    _junction("Helmholtz", "A", saison_id=PRIOR_SAISON),
-    _junction("Lessing", "A", saison_id=PRIOR_SAISON, name="Lessing 2025"),
-]
-
-SPIELE = [
-    _spiel(1, "gruppenphase", "Helmholtz", "Bock", 3, 1, ergebnis="3:1"),
-    _spiel(2, "gruppenphase", "Lessing", "Helmholtz", 2, 2, ergebnis="2:2"),
-    _spiel(3, "gruppenphase", "Helmholtz", "Lessing", 0, 4, ergebnis="0:4"),
-    # A forfeit: Lessing stayed away, so the awarded result counts as played and as an absage both.
-    _spiel(4, "gruppenphase", "Bock", "Lessing", 1, 0, ergebnis="1:0", sonderereignis="nichtantreten_team2"),
-    # Not yet played.
-    _spiel(5, "gruppenphase", "Bock", "Helmholtz", None, None, ergebnis=None),
-    # The playoff match, and the whole difference between the two scopes.
-    _spiel(6, "viertelfinale", "Helmholtz", "Bock", 5, 0, ergebnis="5:0"),
-    # An `ergebnis` with no goal counts behind it -- excluded, or it would group as a 0:0 draw.
-    _spiel(7, "gruppenphase", "Lessing", "Ohne", None, None, ergebnis="3:0"),
-    # Last season: both sides hold 2026 junction rows a 2025 fixture must not pick up, beside their 2025 ones.
-    _spiel(8, "gruppenphase", "Helmholtz", "Lessing", 7, 0, ergebnis="7:0", saison_id=PRIOR_SAISON),
-    # An unfilled bracket slot carrying no result, so the spiele join is proved against a null side.
-    _spiel(9, "viertelfinale", None, "Bock", None, None, ergebnis=None),
-    # Called off and never played: one row proves the count on both sides of the `$group`/fallback split.
-    _spiel(10, "gruppenphase", "Helmholtz", "Ohne", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-    # The same, one phase later, so the absage count can be shown to obey the scope.
-    _spiel(11, "halbfinale", "Helmholtz", "Bock", None, None, ergebnis=None, sonderereignis="ausgefallen"),
-    # Komplett's counting match against the group's last club.
-    _spiel(12, "gruppenphase", "Komplett", "Fremd", 2, 0, ergebnis="2:0"),
-    # Struck from the record, so Ohne stays on zero played and takes a second absage beside its Spiel 10.
-    _spiel(13, "gruppenphase", "Ohne", "Fremd", None, None, ergebnis=None, sonderereignis="annulliert"),
-    # Abandoned with the score that stood: Komplett's second counting match, and still no absage.
-    _spiel(14, "gruppenphase", "Komplett", "Fremd", 4, 1, ergebnis="4:1", sonderereignis="abgebrochen"),
-]
-
-
-@pytest.fixture(scope="session")
-def league(mongo_database: Database) -> SeededLeague:
-    for collection in ("teams", "saison_teams", "spiele"):
-        mongo_database.drop_collection(collection)
-
-    # Copies: `insert_many` writes `_id` into each mapping it is handed, and the module-level rows are shared.
-    mongo_database.teams.insert_many([dict(row) for row in TEAMS])
-    mongo_database.saison_teams.insert_many([dict(row) for row in SAISON_TEAMS])
-    mongo_database.spiele.insert_many([dict(row) for row in SPIELE])
-
-    return SeededLeague(database=mongo_database, team_oids=dict(TEAM_OIDS))

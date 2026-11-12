@@ -136,7 +136,7 @@ async def seed(database: AsyncDatabase, *, saison_status: str) -> None:
     moved = {**row(TO_ANSWER)["ansetzung"], "date": "2027-05-19", "digest": "alt"}
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
         [
-            row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50050"), ansetzung=moved, closed={"at": TODAY, "reason": "ansetzung_changed"}),
+            row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50050"), ansetzung=moved, closed={"reason": "ansetzung_changed"}),
             row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50051")),
             row(TO_ANSWER, _id=ObjectId("6890a1b2c3d4e5f607e50052"), schiedsrichter_id=UTE_ID),
             row(REPORT_OWED, answer=AGREED),
@@ -157,24 +157,26 @@ def on_the_league(url: str, body: Any, *, saison_status: str = "active") -> Any:
 
 
 def own_spiele(identifier: str = OTTO) -> Any:
-    def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return get_self_spiele(
-            saison_id=SAISON_ID,
-            identifier=identifier,
-            spiele_collection=database[Collection.SPIELE],
-            records=record_collections(database),
-            db=client,
-            now=NOW,
-        )
+    async def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async with client.start_session(snapshot=True) as session:
+            return await get_self_spiele(
+                saison_id=SAISON_ID,
+                identifier=identifier,
+                spiele_collection=database[Collection.SPIELE],
+                records=record_collections(database),
+                session=session,
+                now=NOW,
+            )
 
     return call
 
 
 def own_saisons(identifier: str) -> Any:
-    def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return get_self_saisons(
-            identifier=identifier, spiele_collection=database[Collection.SPIELE], records=record_collections(database), db=client
-        )
+    async def call(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        async with client.start_session(snapshot=True) as session:
+            return await get_self_saisons(
+                identifier=identifier, spiele_collection=database[Collection.SPIELE], records=record_collections(database), session=session
+            )
 
     return call
 
@@ -269,7 +271,7 @@ class TestTheSeasonsFixtures:
                 [
                     *(documents.spielbestaetigung_document(stored, party=party, _id=open_rows[stored["_id"]]) for stored in added[:2]),
                     documents.spielbestaetigung_document(
-                        added[2], party=party, answer=OWN_DECLINE, closed={"at": "2027-05-05", "reason": "schiedsrichter_declined"}
+                        added[2], party=party, answer=OWN_DECLINE, closed={"reason": "schiedsrichter_declined"}
                     ),
                 ]
             )
@@ -323,7 +325,7 @@ class TestTheSeasonsFixtures:
                 documents.spielbestaetigung_document(
                     moved_back,
                     party={"kind": "schiedsrichter", "schiedsrichter_id": OTTO_ID},
-                    closed={"at": TODAY, "reason": "ansetzung_changed"},
+                    closed={"reason": "ansetzung_changed"},
                 )
             )
             return await own_spiele()(database, client)

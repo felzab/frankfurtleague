@@ -12,18 +12,20 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(s
   return saisons.find((saison) => saison.status === "active") ?? saisons[0];
 }
 
+/** Judged against the season pages' frame: a planned season the public may not read. */
+export async function isPublicSaison(saisonId: string): Promise<boolean> {
+  return (await getSaisonFrame()).saisons.some((saison) => saison.id === saisonId);
+}
+
 /**
  * A public season page's `[saison]` segment: a season the public may read, or `null`. Judged against the frame's list,
- * which filters on the same withheld status as every season read
- * (`fl_backend/app/api/saisons/visibility.py :: resolve_public_saison`), so a page's metadata carries the not-found
- * title for an unknown, malformed or withheld season (`fl_frontend/src/shared/utils/notFoundMetadata.ts ::
- * metadataFor`), and no such segment reaches the backend or keys a cache entry of its own: the frame is one read,
- * which the season layout already makes.
+ * which filters on the same withheld status as every season read, so a page's metadata carries the not-found title for
+ * an unknown, malformed or withheld season, and no such segment reaches the backend or keys a cache entry of its own:
+ * the frame is one read, which the season layout already makes.
  */
 export async function publicSaisonOf(paramsPromise: Promise<{ saison: string }>): Promise<string | null> {
   const { saison } = await paramsPromise;
-  const { saisons } = await getSaisonFrame();
-  return saisons.some((entry) => entry.id === saison) ? saison : null;
+  return (await isPublicSaison(saison)) ? saison : null;
 }
 
 /** A public season page's `[saison]` segment, or not-found, for the page's body. */

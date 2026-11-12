@@ -68,7 +68,7 @@ def build_test_config() -> BackendConfig:
 def grants_for_the_suite() -> list[dict[str, Any]]:
     """`ADMINISTRATORS` as the `grants` rows a suite seeds before an admin-tier request, the first as an `owner`.
 
-    Written straight to the collection, as the Playground writes a grant: no route writes a first owner.
+    Written straight to the collection, as the first owner's grant is written by hand: no route writes one.
     """
 
     pasted = datetime(2026, 1, 1, tzinfo=UTC)

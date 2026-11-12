@@ -1,12 +1,11 @@
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
 
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELORT_NAME_MAX_LENGTH
+from app.shared.schemas.bounds import SPIELORT_NAME_MAX_LENGTH
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomVersion
-from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -26,14 +25,13 @@ class _SpielortPayload(_SpielortWritable):
     model_config = ConfigDict(extra="forbid")
 
     address: FLAddressPayload
-    # Stripped on the WRITE side alone: the name is embedded onto every fixture at this ground and composed into
+    # Stripped on the write side alone: the name is shown on every fixture at this ground and composed into
     # `maps_link`, so spaces alone reach both. The ceiling counts what arrives, so the published `maxLength` is what the
     # write accepts.
     name: Annotated[str, StringConstraints(max_length=SPIELORT_NAME_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
 
 class FLPatchSpielortPayload(_SpielortPayload):
-    # The `version` the editor was served, required: a save checked against nothing overwrites a rival's unseen.
     version: CustomVersion
 
 
@@ -43,9 +41,8 @@ class FLPostSpielortPayload(_SpielortPayload):
 
 class FLSpielort(_SpielortWritable, BaseReadModel, Anchored):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a
-    # fixture embeds is the public address surface, which is why `address` here need not be
-    # (`READ-ADDRESS-001`).
+    # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a fixture's
+    # read joins is the public address surface, which is why `address` here need not be.
     maps_link: CustomNonEmptyString
     # On no payload: deactivation goes through the delete endpoint, which stamps the date itself.
     inactive_since: CustomOptionalDateString
@@ -57,13 +54,9 @@ FLSpielortListAdapter = TypeAdapter(list[FLSpielort])
 
 
 class FLSpielorteFilterParams(BaseModel):
-    # A switch, not a value to match on: a caller wanting the retired venues wants them ALONGSIDE
+    # A switch, not a value to match on: a caller wanting the retired venues wants them alongside
     # the live ones.
     include_inactive: bool = False
-
-    limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    sort_by: Literal["name",] = Field(default="name")
-    order: FLSortOrder = Field(default="asc")
 
 
 class FLSpielorteListResponse(BaseAPIResponse):

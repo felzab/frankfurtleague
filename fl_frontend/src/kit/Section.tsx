@@ -36,15 +36,9 @@ export function SectionTitle({ text, level = 2, tone }: { text: Words; level?: 2
 /**
  * The edge of a box holding acts that destroy or retire, an editor's danger box and Konto's deletion box: the danger
  * hue in place of the hairline, as GitHub's danger zone marks its box, its buttons outlined with words in the same hue
- * (`buttonStyles.ts :: askingLook`), the red fill kept for the question's press that destroys.
+ * (`askingLook`), the red fill kept for the question's press that destroys.
  */
 export const dangerEdge = tv({ base: "border-danger" });
-
-/**
- * The rung a few entries are named on, 12 px medium muted, a step under a section's title: the rail's
- * groups and the phone sheet's. Each place adds its own spacing.
- */
-export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
 /**
  * The head of a box of a form, an editor's section and a Konto box alike: its title and the line under it on the box's
@@ -149,11 +143,11 @@ export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
  * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. `note`
  * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
  * one. An editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge
- * `list`, the list's own placeholder.
+ * `list`, the list's own placeholder, over `rows` where the section holds fields or acts under its list.
  */
 export function SectionPlaceholder(
   props:
-    | { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never; list?: never }
+    | { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never; list?: ReactElement }
     | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never; list?: never }
     | { list: ReactElement; rows?: never; note?: never; danger?: never },
 ) {
@@ -172,9 +166,8 @@ export function SectionPlaceholder(
           />
         )}
       </div>
-      {props.list !== undefined ? (
-        <div className="grid">{props.list}</div>
-      ) : props.danger === undefined ? (
+      {props.list !== undefined && <div className="grid">{props.list}</div>}
+      {props.rows !== undefined && (
         <div className={slots.content()}>
           <FieldStack>
             {props.rows.map((row, index) => (
@@ -185,7 +178,8 @@ export function SectionPlaceholder(
             ))}
           </FieldStack>
         </div>
-      ) : (
+      )}
+      {props.danger !== undefined && (
         <div className="grid">
           {props.danger.map(({ name, consequence, act }) => (
             <div
@@ -234,7 +228,8 @@ export function Section({
   danger?: ReactNode;
   /**
    * A list whose own hairlines reach the box's edges, such as a list of records (`RecordRows`): it fills the box's
-   * width under the rule and brings its own insets, where `children` stand in the box's padding.
+   * width under the rule and brings its own insets, where `children` stand in the box's padding, under the list where a
+   * section holds both, such as a table over the strip of its acts (`SectionAct`).
    */
   list?: ReactNode;
   children?: ReactNode;
@@ -265,12 +260,12 @@ export function Section({
         </div>
         {note !== undefined && <p className="text-sm text-warn">{note}</p>}
       </div>
+      {list !== undefined && <div className="grid">{list}</div>}
       {children !== undefined && (
         <div className={slots.content()}>
           <FieldStack>{children}</FieldStack>
         </div>
       )}
-      {list !== undefined && <div className="grid">{list}</div>}
       {danger !== undefined && <div className="grid">{danger}</div>}
     </section>
   );

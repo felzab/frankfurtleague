@@ -2,20 +2,22 @@ import { cache } from "react";
 
 import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FieldPlaceholder } from "@/kit/FieldPair";
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
+import { MEDIA_MIN_AGE } from "@/core/bounds";
 import { now } from "@/core/clock";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
-import { bornAfter, bornBy, dayIn, dayOf, formatDate } from "@/core/format";
+import { bornAfter, bornBy } from "@/core/dayArithmetic";
+import { dayIn, dayOf, formatDate } from "@/core/format";
 import { registrierungenGetConfirmationView } from "@/core/generated/client/sdk";
 import { RegistrierungenPostConfirmationBody } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { ConfirmationFields } from "../ConfirmationFields";
 import { linkViewOf } from "../linkView";
@@ -28,11 +30,9 @@ import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/confirm/spieler">;
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token, which stays in this address. */
+/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierungConfirmation;
-  const title = mailedTitle(await readState(searchParams));
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.registrierungConfirmation, readState(searchParams));
 }
 
 const WORDS = SERVER_COPY.registrierungConfirmation;
@@ -86,7 +86,8 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
 }
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readView = cache(async (token: string): Promise<FLRegistrierungConfirmationViewResponse | null> =>
   runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))),
 );
@@ -119,7 +120,7 @@ function question(view: FLRegistrierungConfirmationViewResponse, token: string):
         // The range the write judges, as the link's view serves it.
         earliestBirth={bornAfter(today, view.maximum_age)}
         latestBirth={bornBy(today, view.minimum_age)}
-        mediaLatestBirth={bornBy(today, view.media_minimum_age)}
+        mediaLatestBirth={bornBy(today, MEDIA_MIN_AGE)}
         isBirthDateRequired={REQUIRED.birth_date}
       />
     ),

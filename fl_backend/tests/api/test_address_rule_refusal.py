@@ -31,10 +31,6 @@ BEYOND_ASCII = [
     pytest.param(f"{HALF_WIDTH_VOICED_MARK}anna@schule.de", id="a half-width voiced mark"),
 ]
 
-# Refused as well: the rule takes no domain above ASCII rather than converting one, so the stored form is the fold of
-# what was typed.
-UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
-
 # The control each refusal is read against, so a rule refusing every address fails here rather than passing the cases
 # above.
 PLAIN = "Anna@Schule.DE"
@@ -123,15 +119,11 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert KNOWN_ADDRESS_FIELDS <= set(ADDRESS_FIELDS)
 
     @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
-    @pytest.mark.parametrize("email", BEYOND_ASCII)
-    def test_the_field_refuses_a_local_part_beyond_ascii(self, field: str, email: str):
-        with pytest.raises(ValidationError):
-            ADDRESS_FIELDS[field].validate_python(email)
+    def test_the_field_refuses_a_local_part_beyond_ascii(self, field: str):
+        """One address per field: the fold case below passes a validator that folds without refusing, so this one is its pair."""
 
-    @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
-    def test_the_field_refuses_a_unicode_domain(self, field: str):
         with pytest.raises(ValidationError):
-            ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN)
+            ADDRESS_FIELDS[field].validate_python("jürgen@schule.de")
 
     @pytest.mark.parametrize("field", sorted(ADDRESS_FIELDS))
     def test_the_field_stores_an_ascii_address_folded(self, field: str):
@@ -149,6 +141,14 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert local_part not in raised.value.errors()[0]["msg"]
 
 
+@pytest.mark.parametrize("email", BEYOND_ASCII)
+def test_the_rule_refuses_each_local_part_beyond_ascii(email: str):
+    """Once, on the rule every address field runs: `tests/shared/email_addresses.json` names none of these spellings."""
+
+    with pytest.raises(ValueError):
+        league_address(email)
+
+
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
 ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
     "the lookup": lambda email: FLErasureAddressPayload(email=email),
@@ -160,6 +160,13 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
     """GDPR Art. 17: a seat stored before today's rules may hold an address they refuse, and refusing it here leaves that person unerasable."""
 
     @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
-    @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
+    # One address the league's rule refuses and one the installed `EmailStr` does: the field runs neither.
+    @pytest.mark.parametrize(
+        "email",
+        [
+            pytest.param("jürgen@schule.de", id="an address the league's rule refuses"),
+            pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses"),
+        ],
+    )
     def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
         assert payload(email).email == email

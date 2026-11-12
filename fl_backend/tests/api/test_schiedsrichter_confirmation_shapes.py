@@ -14,16 +14,15 @@ from app.api.schiedsrichter.services import answered_at_of, state_of
 
 
 class TestWhatALeakedLinkLearns:
-    """`READ-REFEREE-002`: no name, and no field the admin tier holds."""
+    """No name, and no field the admin tier holds: a link is a stranger's to forward."""
 
-    def test_the_view_declares_exactly_the_six_names_it_may_answer(self):
+    def test_the_view_declares_exactly_the_five_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""
 
         assert set(FLSchiedsrichterConfirmationViewResponse.model_fields) == {
             "state",
             "minimum_age",
             "maximum_age",
-            "media_minimum_age",
             "deadline",
             "answered_at",
         }

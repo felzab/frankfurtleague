@@ -1,31 +1,14 @@
 import "server-only";
 
+import { DECLINED_RETENTION_DAYS, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "./bounds";
 import { COPY } from "./copy";
 import { mailOrigin } from "./emailShell";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
 import type { Mail, Paragraph } from "./emailShell";
-import type {
-  FLDeclinedRetentionDays,
-  FLRegistrierungAbsageData,
-  FLRegistrierungConfirmationDeadlineDays,
-  FLRegistrierungLinkData,
-} from "./generated/client/types";
+import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrigin } from "./mailKinds";
-
-/**
- * The window the mail states, checked against `fl_backend/app/shared/schemas/bounds.py ::
- * REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`: the backend moving it fails the type check here. Its own copy beside the
- * slice's, since `core` may not import a feature.
- */
-const DEADLINE_DAYS = 14 satisfies FLRegistrierungConfirmationDeadlineDays;
-
-/**
- * The days a declined registration stands before the sweep deletes it, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS` as `DEADLINE_DAYS` is.
- */
-const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 const WORDS = SERVER_COPY.mail.registrierung;
 
@@ -33,8 +16,7 @@ const WORDS = SERVER_COPY.mail.registrierung;
  * The one place a pupil's confirmation link is spelled, beside the builder that spends it rather than in the slice:
  * `core` may not import a feature.
  *
- * `token` is the parameter name because `nginx/shared/http.conf :: $credential_free_uri` matches that name;
- * a second spelling reaches the access line and the referer unredacted.
+ * `token` is the parameter name because the confirmation page reads that name alone.
  */
 function spielerConfirmationLink(origin: string, token: string): string {
   return `${origin}${ROUTES.registrierungConfirmation.path()}?token=${encodeURIComponent(token)}`;
@@ -49,8 +31,7 @@ function spielerConfirmationLink(origin: string, token: string): string {
  */
 export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId }: FLRegistrierungLinkData, { origin, token }: MailLink): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
-  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail,
-  // which the edge's noindex prefix does not match.
+  // trailing slash would otherwise put `//confirm/spieler` in every registering pupil's mail.
   const site = mailOrigin(origin);
 
   return {
@@ -61,8 +42,8 @@ export function buildRegistrierungConfirmationEmail({ team, saison_id: saisonId 
     origin: site,
     paragraphs: [
       [SERVER_COPY.registrierungConfirmation.opening({ record: team }, saisonId)],
-      [WORDS.confirmation.confirm, WORDS.confirmation.admission],
-      [WORDS.confirmation.deadlineIn(DEADLINE_DAYS)],
+      [WORDS.confirmation.admission],
+      [WORDS.confirmation.deadlineIn(REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)],
     ],
     button: { label: COPY.page.registrierungConfirmation, href: spielerConfirmationLink(site, token) },
   };

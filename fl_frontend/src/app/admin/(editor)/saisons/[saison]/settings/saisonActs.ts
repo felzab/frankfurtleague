@@ -21,7 +21,6 @@ import {
 
 const SAISON = { saison_id: SaisonsSwapGruppenParams.shape.saison_id };
 
-/** An act naming its season alone. */
 const OfSaison = z.object(SAISON);
 
 /** An act on the passkey touch's list, naming its season and the address its page was drawn for. */
@@ -121,13 +120,13 @@ export const replaceTeam = action({
  * Mails every admitted team of the season a fresh registration link, passing over each team the editor's link rows
  * mark as skipped: one gone, one no confirmed address reaches, and one whose live link was already sent.
  */
-export const sendRegistrierungslinks = action({
+export const sendInvitations = action({
   lane: "admin",
-  name: "sendRegistrierungslinks",
+  name: "sendInvitations",
   input: OfSaison,
   ownWords: ["saison_past"],
   run: async ({ saison_id }) => {
-    const { mailed } = await saisonsPostInvitationsDispatch(saison_id, { resend: false });
+    const { mailed } = await saisonsPostInvitationsDispatch(saison_id);
     // The teams the press owed a mail to, which the rows then show as sent.
     return { ok: true, value: undefined, note: COPY.admin.saison.sentTo(mailed) };
   },

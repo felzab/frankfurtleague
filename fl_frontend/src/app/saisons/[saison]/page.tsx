@@ -40,7 +40,7 @@ async function SearchLink({ params }: Pick<Props, "params">) {
 }
 
 /**
- * The Spielplan: the season's matchdays as tabs, one at a time, each match a card, two a row on desktop,
+ * The Spielplan: the season's matchdays as tabs, one at a time, each match a card, two a row from 42 rem of the list,
  * opening on the matchday the address names (`?tab=<phase>-<position>`, such as `gruppenphase-3`), else on the
  * one the backend names current.
  */

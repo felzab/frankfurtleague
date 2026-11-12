@@ -10,9 +10,7 @@ export const cardSurface = tv({ base: "rounded-lg border border-border bg-bg-car
 
 /**
  * A row or a link covering a box of the card's surface, under the pointer and pressed: the one hover layer (`bg-layer`)
- * over the card, so a button standing in the row lays its own over it, a step of its own. A card's rows, a table's
- * linked rows, `LinkRows` and a card link (`Link`'s card placement, which `SpielRow`, `BracketCard` and the tiles place)
- * read it.
+ * over the card, so a button standing in the row lays its own over it, a step of its own.
  */
 export const cardHover = tv({ base: hoverLook({ host: "link" }) });
 
@@ -20,15 +18,13 @@ export const cardHover = tv({ base: hoverLook({ host: "link" }) });
 export const headGround = tv({ base: "bg-bg-card-head" });
 
 /**
- * The hairline parting parts stacked one under another inside one box, drawn above every part but the first: a
- * card's rows, a table's, a match list's, the facts' pairs, the steps and the folded line-up's groups.
+ * The hairline parting parts stacked one under another inside one box, drawn above every part but the first.
  */
 export const stacked = tv({ base: "border-t border-border first:border-t-0" });
 
 /**
- * The kit's label rung: small muted capitals, set apart by their tracking. A table's column head and a card's
- * subhead wear it through `columnHead`, and so do a landing section's eyebrow, a fact card's label and the
- * classic footer's group headings, so one ruling on the rung reaches each of them from here.
+ * The kit's label rung: small muted capitals, set apart by their tracking. Every label on the rung wears it, so one
+ * ruling on the rung reaches each of them from here.
  */
 export const smallCaps = tv({ base: "text-xs font-medium tracking-caps text-fg-muted uppercase" });
 
@@ -62,15 +58,15 @@ export const columnHead = tv({
  * and grows to its words and no further, so the chips follow a short name where its words end, a long name is cut with
  * „…“ beside them, and chips the line cannot hold beside the name's least width take the next line. An address is
  * never cut (`AddressWords`), so its least is a line of an address, the 20 characters an address column takes at the
- * least (`Table.tsx`'s `line` width without its padding): beside chips that leave it less, it would break over three
+ * least (`Table`'s `line` width without its padding): beside chips that leave it less, it would break over three
  * lines.
  *
  * The chips stand side by side, 8 px apart, and move as one: they part only on a line of their own too narrow for both.
  * The name's words stand in a track that may shrink to nothing, so they count nothing towards the least width of what
- * holds the line, which a table cell reads (`Table.tsx :: nameLine`). A plaque stands before the line, never in it: it
+ * holds the line, which a table cell reads (`nameLine`). A plaque stands before the line, never in it: it
  * is taller than a line of words, and beside the line it stands centred on the name over its chips, where in the line
  * it would raise the name's line under them. A list from 42 rem is a table and holds its chips in a column of their own
- * instead (`Table.tsx :: table`).
+ * instead (`table`).
  */
 export const nameWithChips = tv({
   slots: {
@@ -153,7 +149,6 @@ export const card = tv({
     // edge; the body shrinks to the card instead, where the table truncates its names or scrolls as its page
     // allows.
     body: "min-w-0",
-    foot: "flex justify-end p-4",
     chevron: "",
   },
   variants: {

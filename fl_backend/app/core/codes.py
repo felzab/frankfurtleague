@@ -2,10 +2,8 @@
 
 A code's value is its member's own name in lower snake case, which `StrEnum`'s `auto()` derives. The
 published document lists them once, as the failure body's `error_code`. A 4xx answer promises that
-the request wrote nothing, and the frontend clears the site's cache by that promise
-(`fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`); a write that may stand answers
-`unknown_outcome` with a 500, which promises nothing (`app/core/exception_handlers.py ::
-db_exception_handler`).
+the request wrote nothing, and the frontend clears the site's cache by that promise; a write that
+may stand answers `unknown_outcome` with a 500, which promises nothing.
 """
 
 from enum import StrEnum, auto
@@ -28,12 +26,10 @@ class Code(StrEnum):
     # A season created while a `future` one stands: the next season is the one a create makes, so a league holds at
     # most one planned season, and the planned one is where its next season is set up.
     CREATE_SAISON_FUTURE_STANDS = auto()
-    # A write a `past` season refuses: its activation, the draw, the group swap, the replacement, a fixture's save, a
-    # matchday's re-dating, a club's season row, a link's mint and a referee's report. Not every write: a club's
-    # contacts and an invitation's revocation stay open on purpose, and the
-    # season's own edit refuses by the rules' freeze and the fixed start. No escape, and no demotion endpoint beside it:
-    # both keep the state reachable, and activating is the one operation that can reopen a finished season's points,
-    # groups and table. A season closed by mistake is repaired at the database.
+    # A write a `past` season refuses, though not every write: a club's contacts and an invitation's revocation stay open
+    # on purpose, and the season's own edit refuses by the rules' freeze and the fixed start. No escape, and no demotion
+    # endpoint beside it: both keep the state reachable, and activating is the one operation that can reopen a finished
+    # season's points, groups and table. A season closed by mistake is repaired at the database.
     SAISON_PAST = auto()
     # The pair to `saison_past` on the draw: that one lets a running season still be drawn, and this one
     # keeps a season from going live undrawn in the first place.
@@ -52,8 +48,7 @@ class Code(StrEnum):
     # A re-send's: its page holds no box for `address_change_taken` or `address_change_occupied` to mark.
     ADDRESS_CHANGE_NEW_TAKEN = auto()
     ADDRESS_CHANGE_UNCHANGED = auto()
-    # A 429: a person's own start pressed again inside the interval its mail stands for, which the edge's pair cannot
-    # hold, a server action reaching the start from any page.
+    # A 429: a person's own start pressed again inside the interval its last mail stands for.
     ADDRESS_CHANGE_STARTED_RECENTLY = auto()
     ADDRESS_CHANGE_NOTHING = auto()
     ADDRESS_CHANGE_NEW_GRANTED = auto()
@@ -63,7 +58,7 @@ class Code(StrEnum):
     ANSETZUNG_CHANGED = auto()
     ANSETZUNG_DECIDED = auto()
     ANSETZUNG_VORSCHLAG_PAST = auto()
-    # The adoption's twin: it judges the STORED proposal, the request carrying no body, so a day gone by is a 409.
+    # The adoption's twin: it judges the stored proposal, the request carrying no body, so a day gone by is a 409.
     ANSETZUNG_VORSCHLAG_PAST_AS_STORED = auto()
     # A decline proposing the slot the fixture already holds: adopted, it would save nothing and leave the proposal open.
     ANSETZUNG_VORSCHLAG_UNCHANGED = auto()
@@ -98,8 +93,6 @@ class Code(StrEnum):
     AUFSTELLUNG_SPIEL_UNDATED = auto()
     # A nominee named beside eleven regular players, or more nominees than the regular players leave open of eleven.
     AUFSTELLUNG_NOMINEE_WITHOUT_SHORTAGE = auto()
-    # More than eleven starters once the stored entries of erased pupils, which every save keeps, stand beside the payload's.
-    AUFSTELLUNG_STARTERS_EXCEED_ELEVEN = auto()
     BEWERBUNG_ALREADY_DECIDED = auto()
     BEWERBUNG_SUBJECT_UNRESOLVED = auto()
     BEWERBUNG_SCHULE_UNUSABLE = auto()
@@ -122,7 +115,7 @@ class Code(StrEnum):
     BOOKING_UNCONFIRMED_SCHIEDSRICHTER = auto()
 
     SPIEL_DOUBLE_BOOKED = auto()
-    # The adoption's twins, one per resource: it judges the fixture's STORED ground and referee, so no path names which.
+    # The adoption's twins, one per resource: it judges the fixture's stored ground and referee, so no path names which.
     SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED = auto()
     SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED = auto()
     SPIEL_OUTSIDE_SPIELTAG = auto()
@@ -130,7 +123,7 @@ class Code(StrEnum):
     # `spiel_outside_spieltag`'s mirror: shrinking the span is the other way to break the same containment.
     SPIELTAG_SPAN_BELOW_SPIELE = auto()
     SAISON_SPAN_BELOW_SPIELTAGE = auto()
-    # DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
+    # Derived, never an arbitrary floor: no two matchdays share a day. A one-day matchday stays legal.
     SAISON_SPAN_BELOW_SPIELPLAN = auto()
     # `position` and `start` order a phase independently, so nothing else stops a season from showing
     # its matchdays in one order and dating them in another. `end` is left free: it is the escape a
@@ -155,7 +148,7 @@ class Code(StrEnum):
     MEDIA_AGE = auto()
     GIVING_NOT_ALLOWED = auto()
     ELIGIBILITY_DISQUALIFIED = auto()
-    # The adoption's twins, one per side: it judges the fixture's STORED sides, so no path names which.
+    # The adoption's twins, one per side: it judges the fixture's stored sides, so no path names which.
     ELIGIBILITY_DISQUALIFIED_TEAM1_AS_STORED = auto()
     ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED = auto()
     ELIGIBILITY_TEAM_NOT_IN_SAISON = auto()
@@ -195,7 +188,7 @@ class Code(StrEnum):
     REGISTRIERUNG_UNCONFIRMED = auto()
     REGISTRIERUNG_PERSON_NOT_NAMED = auto()
     REGISTRIERUNG_ALREADY_IN_KADER = auto()
-    # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
+    # A replacement is neither an entry nor a swap: one junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
     REPLACE_SAISON_STARTED = auto()
     REPLACE_INCOMING_ALREADY_ENTERED = auto()
@@ -209,11 +202,9 @@ class Code(StrEnum):
     REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     RETIRE_BLOCKED = auto()
-    # A played fixture never blocks: its `spielort` is an embedded record. Its bounds name the fixtures that do, `spiel_nrs`
-    # and `count`, on the path's `spielort_id`.
+    # A played fixture never blocks: its `spielort` is a record of where it was played.
     SPIELORT_STILL_BOOKED = auto()
-    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated. Bounded as the venue's is, on
-    # the path's `schiedsrichter_id`.
+    # A played fixture never blocks: its `schiedsrichter` is a record of who officiated.
     SCHIEDSRICHTER_STILL_ASSIGNED = auto()
     # The routing layer's own refusals, raised before any handler runs.
     NO_ROUTE = auto()
@@ -232,7 +223,7 @@ class Code(StrEnum):
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT = auto()
     RULES_SHAPE_AFTER_SPIELPLAN = auto()
     RULES_SPIELE_OVER_ONE_READ = auto()
-    # The draw's twin of a code it shares with a season write: the draw judges the STORED rules beneath
+    # The draw's twin of a code it shares with a season write: the draw judges the stored rules beneath
     # its shape, so a refusal reading a stored value is a conflict with state, a 409.
     RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
@@ -245,7 +236,7 @@ class Code(StrEnum):
     # One code, because one repair reaches all three: every offered group holding exactly
     # `teams_per_gruppe`, short or over, and no club standing outside them.
     SPIELPLAN_GRUPPEN_OFF_RULES = auto()
-    # ONE code for both halves of the window -- `future`, and nothing recorded.
+    # One code for both halves of the window -- `future`, and nothing recorded.
     SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = auto()
     SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = auto()
     # A code of its own beside the window's: a report is no field of a fixture.
@@ -298,8 +289,7 @@ class Code(StrEnum):
 
 # Every domain rule's kind: a refused payload's field carries one where a `PydanticCustomError` broke it. Published as
 # the API's `Rule`, so the frontend's rule phrases are keyed by it as its code phrases are by `Code`. A `Literal`, not a
-# `StrEnum`: pydantic takes the error's kind as a `LiteralString`, which no enum member is. Raised through
-# `app/core/exceptions.py :: rule_refusal`, whose parameter takes nothing else.
+# `StrEnum`: pydantic takes the error's kind as a `LiteralString`, which no enum member is.
 type Rule = Literal[
     "acceptance_with_proposal",
     "acceptance_with_reason",

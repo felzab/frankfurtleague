@@ -17,7 +17,6 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.age import whole_years_between
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_initial
@@ -27,59 +26,10 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
-from app.shared.schemas.kontakt import FLKontakt
-
-
-def build_ghost_schiedsrichter() -> dict[str, Any]:
-    """The row an erased referee's fixtures are repointed to, as it is first written.
-
-    Retired, so `booking_unknown_resource` refuses it every new fixture under the rule a retired referee
-    already meets rather than under one written for the ghost.
-    """
-
-    return {
-        "_id": GHOST_SCHIEDSRICHTER_ID,
-        "name": None,
-        "schule": None,
-        # Zero rather than a rate: no fee was ever agreed with nobody, and each fixture keeps the
-        # `payment` it recorded.
-        "default_payment": 0,
-        # Read off the model, so a contact field added later arrives null here rather than missing.
-        "kontakt": dict.fromkeys(FLKontakt.model_fields),
-        "inactive_since": GHOST_INACTIVE_SINCE,
-    }
-
-
-# The one term excluding the ghost, spelled once for the list read and for the by-id filter below.
-_NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SCHIEDSRICHTER_ID}
-
-
-def build_real_referees_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    """The referees `terms` match, the ghost never among them; with none, every referee a person stands behind.
-
-    Composed as `app/api/spieler/services.py :: build_real_spieler_filter` composes, for its reason.
-    """
-
-    composed = dict(terms or {})
-
-    if "_id" in composed:
-        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
-
-    return {**composed, "_id": dict(_NOT_THE_GHOST)}
-
-
-def build_referee_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """One real referee by id, answering nothing for the ghost.
-
-    One spelling for the read, the edit, the retirement and the reactivation: reached by any, the
-    ghost takes a name onto every erased referee's fixtures or returns to the picker.
-    """
-
-    return {"_id": {"$eq": schiedsrichter_id, **_NOT_THE_GHOST}}
 
 
 def build_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any]:
-    """Every fixture naming this referee, played or not — the set the erasure repoints."""
+    """Every fixture naming this referee, played or not — the set the erasure partitions."""
 
     return {"schiedsrichter.schiedsrichter_id": schiedsrichter_id}
 
@@ -92,16 +42,6 @@ def build_unplayed_assignment_filter(schiedsrichter_id: Any) -> Mapping[str, Any
     """
 
     return {**build_assignment_filter(schiedsrichter_id), **unplayed_filter()}
-
-
-def build_ghost_repoint() -> Mapping[str, Any]:
-    """What a fixture's booking becomes once the person behind it is deleted.
-
-    `payment` stays: it records what THIS match agreed. A fixture stores no name, and the ghost has none, so every
-    read joins a null one.
-    """
-
-    return {"$set": {"schiedsrichter.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}}
 
 
 def find_referee_name_refusal(*, taken: bool) -> WriteRefusal | None:
@@ -140,7 +80,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
     )
 
 
-# --- The CONFIRMATION LINK. Every predicate below reads a missing `confirmation` block as "nothing
+# --- The confirmation link. Every predicate below reads a missing `confirmation` block as "nothing
 # was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
 
 
@@ -156,15 +96,14 @@ ADDRESS_PATH: Final = "kontakt.email"
 
 EINWILLIGUNG_FIELD: Final = "einwilligung"
 
-# The instant the hourly pass erases an unanswered or declined entry (`app/api/schiedsrichter/system_router.py ::
-# sweep_schiedsrichter`), its fixtures repointed at the ghost, which a TTL index deleting the row could not do. On the
-# record rather than inside the block: a retired referee's corrected address drops the block, and the entry its person
-# never confirmed still goes on the clock its last link started.
+# The instant the hourly pass erases an unanswered or declined entry, its bookings and confirmation rows with it, which a
+# TTL index deleting the row could not do. On the record rather than inside the block: a retired referee's corrected
+# address drops the block, and the entry its person never confirmed still goes on the clock its last link started.
 ERASE_AT_FIELD: Final = "erase_at"
 
 
 def build_erasure_due_filter(*, now: datetime) -> Mapping[str, Any]:
-    """Every entry whose deletion date has passed: a confirmed entry and the ghost hold none, so neither is ever due."""
+    """Every entry whose deletion date has passed: a confirmed entry holds none, so it is never due."""
 
     return {ERASE_AT_FIELD: {"$lte": now}}
 
@@ -188,7 +127,7 @@ def compose_confirmation(*, today: str) -> dict[str, Any]:
 
 
 def compose_mint_update(*, today: str) -> dict[str, Any]:
-    """The WHOLE block, so every link the referee was sent before stops working at this write, and the clock it restarts."""
+    """The whole block, so every link the referee was sent before stops working at this write, and the clock it restarts."""
 
     return {
         CONFIRMATION_FIELD: compose_confirmation(today=today),
@@ -214,7 +153,7 @@ def compose_einwilligung(*, scope: str, media: bool, today: str) -> dict[str, An
 def compose_confirmation_update(
     *, birth_date: str, scope: str, media: bool, text_versions: TextVersions, today: str, at: str
 ) -> Mapping[str, Any]:
-    """The ONE `$set` a confirmation is.
+    """The one `$set` a confirmation is.
 
     Never two writes: between them the row would hold a birthdate nobody had yet consented to the
     league keeping.
@@ -294,7 +233,7 @@ def answered_at_of(*, state: FLSchiedsrichterConfirmationState, einwilligung: An
 def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     """Why this token opens nothing, or `None`.
 
-    ONE answer for unknown, replaced by a later mint, and deleted with the referee: nothing
+    One answer for unknown, replaced by a later mint, and deleted with the referee: nothing
     distinguishes them from a stranger's guess, and naming which would say more than the guess knew.
     """
 
@@ -333,7 +272,7 @@ def find_already_answered_refusal(*, einwilligung: Any, confirmation: Any) -> Wr
 
 
 def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
-    """Why the typed date is refused, or `None`. Judged BEFORE any write, so a mistyped year spends nothing.
+    """Why the typed date is refused, or `None`. Judged before any write, so a mistyped year spends nothing.
 
     The bounds go with the refusal, so the field's message names the range the write judges.
     """
@@ -352,7 +291,7 @@ def find_age_refusal(*, birth_date: str, today: str) -> WriteRefusal | None:
 def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     """Why a retired referee takes no fresh link, or `None`.
 
-    A refusal to COLLECT and never a retire-first gate: a row taking no new booking would be asked
+    A refusal to collect and never a retire-first gate: a row taking no new booking would be asked
     to consent to a role nobody can give them.
     """
 
@@ -365,38 +304,33 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
     )
 
 
-def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
-    """Why there is nobody to send to, or `None`.
+def find_missing_address_refusal(*, email: str) -> WriteRefusal | None:
+    """Why there is nobody to send to, or `None`: a stored address the fold cannot canonicalise, such as a placeholder.
 
     Refused here and not at the calling surface alone: a mint that wrote `sent_at` for a row
     with no address would record a message that was never composed.
     """
 
-    # A stored value the fold cannot canonicalise is no address either.
-    if email is not None:
-        try:
-            league_address(str(email))
-        except ValueError:
-            pass
-        else:
-            return None
+    try:
+        league_address(email)
+    except ValueError:
+        return WriteRefusal(
+            error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
+            status=HTTPStatus.CONFLICT,
+        )
 
-    return WriteRefusal(
-        error_code=Code.SCHIEDSRICHTER_NO_ADDRESS,
-        status=HTTPStatus.CONFLICT,
-    )
+    return None
 
 
 def _address_moves(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     # Both the fold every payload stores, so one string is one mailbox.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    return stored_email is None or payload_email != stored_email
+    return payload_email != stored["kontakt"]["email"]
 
 
 def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
     """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox."""
 
-    # A CONFIRMED referee's address is never the save's (`find_confirmed_address_refusal`).
+    # A confirmed referee's address is never the save's (`find_confirmed_address_refusal`).
     if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FIELD)):
         return False
 
@@ -404,7 +338,7 @@ def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> boo
 
 
 def find_confirmed_address_refusal(*, stored: Mapping[str, Any], payload_email: str) -> WriteRefusal | None:
-    """`schiedsrichter_address_only_per_change`: a save moving a CONFIRMED referee's address, which keys their sign-in.
+    """`schiedsrichter_address_only_per_change`: a save moving a confirmed referee's address, which keys their sign-in.
 
     Only an address change moves it. Refused whole: landing the rest, an editor stale on the address would lose its other fields unseen.
     """
@@ -423,7 +357,7 @@ def compose_correction_update(
 ) -> tuple[dict[str, Any], bool]:
     """The save's update, and whether it owes a fresh consent link.
 
-    A RETIRED unconfirmed referee's new address is stored and mailed nothing, and their old link
+    A retired unconfirmed referee's new address is stored and mailed nothing, and their old link
     goes, its mailbox replaced; the reactivation is what asks them.
     """
 
@@ -433,7 +367,7 @@ def compose_correction_update(
     if stored.get("inactive_since") is not None:
         return {"$set": dict(payload), "$unset": {CONFIRMATION_FIELD: ""}}, False
 
-    # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
+    # An unconfirmed referee's old link went to a mailbox nobody reads, and leaving it live is a
     # credential in the wrong inbox.
     return {"$set": {**payload, **compose_mint_update(today=today)}}, True
 
@@ -448,11 +382,11 @@ def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:
     return (
         stored.get("inactive_since") is not None
         and not has_answered(einwilligung=stored.get(EINWILLIGUNG_FIELD), confirmation=stored.get(CONFIRMATION_FIELD))
-        and find_missing_address_refusal(email=(stored.get("kontakt") or {}).get("email")) is None
+        and find_missing_address_refusal(email=stored["kontakt"]["email"]) is None
     )
 
 
-# An INCLUSION and never an exclusion: a base-tier caller holds the whole credential, so the rest
+# An inclusion and never an exclusion: a base-tier caller holds the whole credential, so the rest
 # of the row is what must not reach them.
 CONFIRMATION_VIEW_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FIELD}.confirmed_at": 1,
@@ -484,7 +418,7 @@ def build_self_referee_filter(*identifiers: str, schiedsrichter_id: Any = None) 
     return {
         # Folded here, the form every referee record stores.
         "kontakt.email": {"$in": sorted({sign_in_identifier(identifier) for identifier in identifiers})},
-        **(build_real_referees_filter() if schiedsrichter_id is None else build_referee_filter(schiedsrichter_id)),
+        **({} if schiedsrichter_id is None else {"_id": schiedsrichter_id}),
     }
 
 
@@ -522,8 +456,7 @@ BERICHT_AS: Final = "spielbericht"
 def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[Any]) -> list[Mapping[str, Any]]:
     """Run on `spiele`: the season's fixtures booked to one of these referees, each with what the referee's list judges it by.
 
-    Each fixture through the name join with the fields a confirmation row is judged against
-    (`app/api/spielbestaetigungen/crud.py :: JUDGED_SPIEL_FIELDS`); the newest row asking the booked referee about it,
+    Each fixture through the name join with the fields a confirmation row is judged against; the newest row asking the booked referee about it,
     with both clubs' season rows its Ansetzung names; when its report was first sent; and its season's status.
     """
 
@@ -586,7 +519,7 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
 def entered_of(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
     """Whether an administrator recorded this row's answer.
 
-    `app/api/spielbestaetigungen/services.py :: compose_enter_update` stores theirs as `by: {kind: "admin"}`.
+    An administrator's entry stores `by: {kind: "admin"}`.
     """
 
     return bool(((spielbestaetigung_raw.get("answer") or {}).get("by") or {}).get("kind") == "admin")
@@ -615,7 +548,6 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
 
     return FLSchiedsrichterSpiel(
         spiel_id=spiel["_id"],
-        schiedsrichter_id=spiel["schiedsrichter"]["schiedsrichter_id"],
         team1_name=team_name("team1"),
         team2_name=team_name("team2"),
         date=spiel.get("date"),
@@ -632,7 +564,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
-        # As the report's own read judges its form open (`app/api/spielberichte/services.py :: kader_is_open`).
+        # As the report's own read judges its form open, in `kader_is_open`.
         reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
         submitted_at=None if bericht is None else bericht.get("submitted_at"),
     )

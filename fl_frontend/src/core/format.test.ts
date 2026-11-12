@@ -7,6 +7,7 @@ import {
   formatErgebnis,
   formatInstant,
   formatInstantShort,
+  formatSigned,
   formatTime,
 } from "./format.ts";
 
@@ -62,5 +63,12 @@ describe("formatInstantShort", () => {
 describe("formatErgebnis", () => {
   it("adds each side's shoot-out goals to its goals", () => {
     expect(formatErgebnis({ team1: 2, team2: 2 }, { team1: 4, team2: 3 })).toBe("6:5");
+  });
+});
+
+describe("formatSigned", () => {
+  /* The locale's own sign is the hyphen-minus, which nothing but this function turns into the minus sign. */
+  it("writes a negative difference with the minus sign, a level one bare", () => {
+    expect([formatSigned(-1234), formatSigned(0), formatSigned(3)]).toStrictEqual(["−1.234", "0", "+3"]);
   });
 });

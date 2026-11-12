@@ -224,6 +224,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, now: datet
     return await sweep_schiedsrichter(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         germany_now=now,
     )
@@ -387,8 +388,9 @@ class TestTheReSend:
         assert refused.error_code == Code.SCHIEDSRICHTER_RETIRED
         assert CONFIRMATION_FIELD not in row
 
-    @pytest.mark.parametrize("email", [None, "keine-adresse"])
-    def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str | None):
+    # No null: every referee record holds an address, which the record model and the read-back hold it to.
+    @pytest.mark.parametrize("email", ["no-address"])
+    def test_a_referee_holding_no_address_a_link_can_go_to_is_refused(self, mongo_replica_set_url: str, email: str):
         """A mint here records a message nobody composed and starts the deletion clock on a person nobody asked."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

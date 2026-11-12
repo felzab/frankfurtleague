@@ -20,10 +20,10 @@ const Application = z.preprocess(applicationOf, BewerbungenPostBewerbungBody.ext
 /**
  * One school's application, sent by a visitor with no session. Public by necessity, so the bot check answers before
  * anything is read: this write mails three addresses its sender names. It runs as a server action, so the edge meters
- * it by the action pair alone (`nginx/shared/site.conf`), whatever page it is posted at.
+ * it as it meters every server action, whatever page it is posted at.
  *
- * The replay key is the form's, one for each version of what it posts (`fl_frontend/src/kit/OneShot.tsx :: replayField`):
- * a press whose answer was lost, sent again unchanged, finds its application rather than making a second.
+ * The replay key is the form's, one for each version of what it posts: a press whose answer was lost, sent again
+ * unchanged, finds its application rather than making a second.
  */
 export const submitBewerbung = action({
   lane: "public",

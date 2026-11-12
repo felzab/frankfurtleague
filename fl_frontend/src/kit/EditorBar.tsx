@@ -33,17 +33,17 @@ const pageLine = tv({
  * start: the page's text, then the count of unsaved changes after a dot, on one line. The text keeps its place: where
  * both do not fit, as on a phone, the count gives way whole, and a text wider than the line alone is cut with „…“. A
  * save with something to say, a refusal or „Gespeichert“, takes the whole line, wrapping as every status line does,
- * and the page's text returns with the next edit. Its live region stands from the first render and after the two
- * parts, so an outcome is announced and the region, empty beside them, never takes the line's first place.
+ * and the page's text returns with the next edit.
  */
 function PageLine({ text, status }: { text: Copy; status: FormStatus }) {
   const look = pageLine();
-  const outcome = status !== null && status.tone !== "changes" ? status : null;
+  if (status !== null && status.tone !== "changes") {
+    return <p className={statusLine({ placement: "row", tone: status.tone })}>{status.text}</p>;
+  }
   return (
-    <p className={outcome === null ? look.line() : statusLine({ placement: "row", tone: outcome.tone })}>
-      {outcome === null && <span className={look.text()}>{text}</span>}
-      {outcome === null && status !== null && <span className={look.count()}>{status.text}</span>}
-      <span role="status">{outcome?.text}</span>
+    <p className={look.line()}>
+      <span className={look.text()}>{text}</span>
+      {status !== null && <span className={look.count()}>{status.text}</span>}
     </p>
   );
 }

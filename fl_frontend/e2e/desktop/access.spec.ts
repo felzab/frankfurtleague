@@ -8,7 +8,7 @@
 import { expect } from "@playwright/test";
 
 import { chooseWho } from "../support/actionLog";
-import { pressRowAct, typeInto } from "../support/application";
+import { chip, pressRowAct, typeInto } from "../support/controls";
 import { test } from "../support/journey";
 import { filedMessages, mailedMessage } from "../support/mailSink";
 import { assertionsSigned, enrolPasskey, signInWithCode } from "../support/signIn";
@@ -42,11 +42,10 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await dialog.getByRole("button", { name: "Änderung eintragen" }).click();
   await expect(dialog).toBeHidden();
 
-  // The row waits on the new mailbox, which its link reached. Its chip is drawn after its name and in the „Stand“
-  // column, and the list's width shows one.
+  // The row waits on the new mailbox, which its link reached.
   const row = page.getByRole("main").getByRole("row").filter({ hasText: MOVER });
-  await expect(row.getByText("Neue offen", { exact: true }).filter({ visible: true })).toBeVisible();
-  await mailedMessage(newAddress, "Neue E-Mail-Adresse bestätigen", before);
+  await expect(chip(row, "Neue offen")).toBeVisible();
+  await mailedMessage(newAddress, "E-Mail-Adresse bestätigen", before);
 
   await pressRowAct(row, "Verwerfen");
   const discard = page.getByRole("alertdialog");
@@ -67,7 +66,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();
-  await expect(main.getByRole("status").filter({ hasText: "Gelöscht" })).toBeVisible();
+  await expect(main.getByText("Gelöscht", { exact: true })).toBeVisible();
   expect(await assertionsSigned(context), "an act of this area ran with no touch of its own").toBe(touches + 3);
 
   // --- Protokoll ---------------------------------------------------------------------------------

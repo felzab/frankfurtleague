@@ -118,7 +118,7 @@
     }
   }
 
-  /* Every view transition is the kit's cross-fade (`kit/PageFade.tsx`), of opacity alone: each part's old
+  /* Every view transition is the kit's cross-fade, `PageFade`, of opacity alone: each part's old
      picture fades out as its new one fades in. A part present on both sides takes its new place and size at
      once, since the browser's default would glide it there. The pictures inherit the group's duration, so
      under reduced motion, where the token is unset, both fall back to 0s and the swap is immediate. */
@@ -200,12 +200,11 @@
   }
 }
 
-/* A placeholder's bar (`kit/Skeleton.tsx`): 12 % of its ground's text colour, the hover layer's figure, so a bar shows
-   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. Applied here
-   rather than set as a class, so it stands outside `globals.css`'s reduced-motion stop for `.animate-pulse`: a loading
-   indicator that stops reads as stuck. One utility, so a page waiting in hundreds of bars carries one class for all of
-   this rather than its every class on each bar. Its properties sort it ahead of the single-property utilities on the
-   same property, so a bar's own display, size or corners, set beside it, win. */
+/* A placeholder's bar, the kit's `Skeleton`: 12 % of its ground's text colour, the hover layer's figure, so a bar shows
+   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. One utility, so
+   a page waiting in hundreds of bars carries one class for all of this rather than its every class on each bar. Its
+   properties sort it ahead of the single-property utilities on the same property, so a bar's own display, size or
+   corners, set beside it, win. */
 @utility skeleton-bar {
   @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }
@@ -305,7 +304,7 @@
 
 /* The steps below are the only ones the kit may use. The type sizes and the corners are reset as the colours are, so a
    size or a corner off this block does not compile. Spacing keeps Tailwind's steps, on which its widths and heights
-   are drawn too, so the lint holds a spacing class to these (`fl_frontend/eslint.config.mjs`). */
+   are drawn too, so the lint holds a spacing class to these. */
 @theme {
   /* Each size with its line height, which the reset removes with Tailwind's own: a size without one sets none, and its
      text takes whatever line height it inherits. Each ratio is Tailwind's own for the size; the 32-px size keeps the one of
@@ -373,12 +372,12 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-measure: 64ch; /* a line of running text on a legal or consent page */
+  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: 64 of the body face's figures, in rem so its fallback face draws the same box */
   --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a
-   variable: the kit's script asks the same question as `lg:` (`useDesktop.ts`). */
+   variable: the kit's script, `useDesktop`, asks the same question as `lg:`. */
 @theme static {
   --breakpoint-lg: 64rem;
 }

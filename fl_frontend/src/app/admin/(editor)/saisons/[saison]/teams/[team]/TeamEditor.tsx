@@ -15,6 +15,7 @@ import { useEditor } from "@/kit/useEditor";
 import { COPY } from "@/core/copy";
 import { FLAustrittType } from "@/core/generated/client/types";
 import { SHORTHAND_LENGTH } from "@/features/bewerbungen/constants";
+import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
 
@@ -236,8 +237,7 @@ export function TeamEditor({
                     : null;
                   return {
                     ...seat,
-                    // The fresh link beside the edit, as `SeatActs` draws them, both from `link`.
-                    sideActs: link === null ? 1 : 2,
+                    sideActs: seatActKinds(link).length,
                     acts: (
                       <SeatActs
                         rollen={target.rollen}

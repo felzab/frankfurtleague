@@ -7,7 +7,6 @@ import { LineupPlaceholder } from "@/kit/Lineup";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
@@ -63,7 +62,7 @@ function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const words = COPY.area.team.aufstellung;
   const due = marks === null || marks.stored || marks.phase === "locked" ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
-  return SERVER_COPY.area.line([matchdayOf(spiel, spiel), when, owed]);
+  return COPY.shared.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
 /** The chip after the title while nothing is stored past the due mark. */
@@ -92,7 +91,7 @@ async function readEditor(params: Props["params"]) {
       title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       {...(chip === undefined ? {} : { chip })}
       lead={leadOf(found)}
-      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler, erased: found.erased }}
+      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
       {...(locked === undefined ? {} : { locked })}
@@ -107,7 +106,7 @@ export default function AufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
+        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (

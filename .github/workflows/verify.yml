@@ -22,9 +22,9 @@ defaults:
 
 env:
   # How long a cache restore waits on a stuck download before the job goes on without the cache, in
-  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 6, which a stuck
-  # restore would cancel instead; every job's `timeout-minutes` stays above it
-  # (`scripts/tests/test_ci_timeouts.py`). A warm restore takes seconds.
+  # minutes (actions/cache's README). Its default, 10, outlasts the jobs given 5 or 8, which a stuck
+  # restore would cancel instead; every job's `timeout-minutes` stays above it. A warm restore takes
+  # seconds.
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
 
 concurrency:
@@ -33,23 +33,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each job's `timeout-minutes` bounds a hang rather than predicting a duration: four times the job's
-# slowest time in the 30 runs of this workflow on record when it was set, room for a runner four times
+# slowest time in the green runs of this workflow on record when it was set, room for a runner four times
 # slower, rounded up to whole minutes and never under 5.
 jobs:
   scripts:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-      # The application too: the deploy's preflight snippets run for real in
-      # `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: true
+          application: false
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 
@@ -60,10 +58,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The route checker's interpreter.
-      - uses: ./.github/actions/backend-toolchain
-        with:
-          application: false
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
 
@@ -71,7 +65,7 @@ jobs:
   # though what it reads is mostly outside it.
   format:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,7 +76,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -103,11 +97,13 @@ jobs:
   # both toolchains.
   db:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
-    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix. Until
-    # then this job restores none of the backend job's uv cache, whose key carries the runner's OS
-    # release, and installs from the registry on every run.
+    # SERVER-131779, a kernel exemption for Ubuntu, lists 8.3.16, 9.0.4 and 8.0.37 as its fix
+    # versions, and Docker Hub publishes no mongo:8.3.16, so 8.3.17 is the first 8.3 image to carry it.
+    # Back to ubuntu-latest once the image pins move there and a run shows mongod starting. Until then
+    # this job restores none of the backend job's uv cache, whose key carries the runner's OS release,
+    # and installs from the registry on every run.
     runs-on: ubuntu-22.04
-    timeout-minutes: 21
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -122,7 +118,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 10
     # Every `next` command a step runs, the build's own variables set on its command alone.
     env:
       NEXT_TELEMETRY_DISABLED: "1"
@@ -133,18 +129,11 @@ jobs:
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
         with:
-          # The pnpm store's one writer, so a lockfile change uploads one store rather than one per job.
-          save-cache: true
-      # Next's CI cache (https://nextjs.org/docs/app/guides/ci-build-caching). The source trees are in
-      # the key, not the lockfile alone: actions/cache writes nothing on an exact hit.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: fl_frontend/.next/cache
-          key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
-          # A prefix restore is safe for both things the path holds: the Next cache is
-          # content-addressed, and tsc's build info re-checks a file whose text hash moved.
-          restore-keys: |
-            nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
+          # The pnpm store's one writer, and on a push to main alone: every install rewrites the patched
+          # dependency's record in the store, so pnpm/setup's check for an unchanged store never holds
+          # and every save is a new entry of about 225 MB. A pull request restores main's store, which
+          # GitHub lets it read, and fetches what its own lockfile adds on each of its runs.
+          save-cache: ${{ github.event_name == 'push' }}
       - name: Run the frontend scope
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
@@ -159,7 +148,7 @@ jobs:
 
   frontend-units:
     runs-on: ubuntu-latest
-    timeout-minutes: 11
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -189,7 +178,7 @@ jobs:
   # here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
-    timeout-minutes: 17
+    timeout-minutes: 16
     # What the publish job holds the artifact to. A job's outputs are written by that job alone, where
     # any job of the run holding its runtime token can delete the artifact and upload another under
     # its name, as upload-artifact's `overwrite` does.
@@ -212,8 +201,9 @@ jobs:
       # by hand.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
-          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
-      # `sha-<commit>` beside the scope's own tag, and the OCI labels `scripts/ops/deploy.sh` reads.
+          driver-opts: image=moby/buildkit:v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe
+      # `sha-<commit>` beside the scope's own tag, the tag a deploy pins, and the version the build
+      # stamps into each image.
       - id: meta-frontend
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -308,29 +298,49 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 19
+    timeout-minutes: 16
+    # Two legs, each on a runner and a stack of its own, by Playwright project
+    # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
+    # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
+    # project across two databases. `fail-fast: false`, or a red leg cancels the other and its
+    # verdict is lost. `first-pass` depends on `administrator` alone, so it rides the desktop leg.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: desktop
+            projects: --project=desktop --project=first-pass
+          - leg: phone
+            projects: --project=phone
+    name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
       COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+      # The tag docker-compose.yml's two images read, which Compose demands before it merges the files
+      # that replace both with this stack's own; no image here is pulled by it.
+      TAG: e2e
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
-      # no other release finds (`scripts/tests/test_image_pins.py`), and no Dependabot ecosystem reads
-      # this string, so a bump is by hand.
-      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
+      PLAYWRIGHT_IMAGE: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Left running, so the pull of 26 to 41 s overlaps the install, the images and the stack's start
+      # rather than waiting alone; a step's background process lives until the job ends. Its output
+      # is dropped, since the step's own streams would otherwise stay open: where it failed, the
+      # journeys' `docker run` pulls the image itself and says why it cannot.
+      - name: Start pulling the image holding the browsers
+        run: docker pull "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1 &
       # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Pull the image holding the browsers
-        run: docker pull "$PLAYWRIGHT_IMAGE"
       - name: Generate the stack's throwaway keys
-        # `scripts/ops/local.sh :: write_e2e_keys`, each file readable by the containers' own users,
-        # which the runner's user is not. Nothing is printed.
+        # As `local.sh`'s `write_e2e_keys` generates them, each file readable by the containers' own
+        # users, which the runner's user is not. Nothing is printed.
         run: |
-          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
-          chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
+          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail
+          chmod 777 .tmp-e2e/mail
           for name in auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done
@@ -366,8 +376,11 @@ jobs:
           docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
           docker compose exec -T backend python -m app.readback
+      # The database and the backend stay as started above, the seed in them, and only the services not
+      # yet running are created: without `--force-recreate`, `up` recreates a container only for a
+      # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the stack
-        run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
+        run: docker compose up -d --no-build --wait --wait-timeout 240
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
       - name: Judge that no veth holds an IPv6 address
@@ -382,31 +395,31 @@ jobs:
       # One step in the image, never a job-level `container:`: that job's steps would hold no docker to
       # raise the stack with, and its `options` refuse `--network`. The runner's network, because the
       # journeys' origin is `localhost`, the passkeys' relying party. The runner's user, so the mail
-      # sink and the edge log read as they read on the runner, and the report steps read what the run
-      # writes. The checkout's own path, because the install's links are absolute and the `github`
+      # sink reads as it reads on the runner, and the report steps read what the run writes. The checkout's own path, because the install's links are absolute and the `github`
       # reporter's annotations name files relative to it. The install's own launcher, because the
       # image holds no pnpm; it runs under the Node `devEngines` pins rather than the image's.
       - name: Run the journeys
+        env:
+          PROJECTS: ${{ matrix.projects }}
         run: |
+          # The leg's flags, one word each.
+          read -r -a projects <<< "$PROJECTS"
           docker run --rm --init --ipc=host --network=host \
             --user "$(id -u):$(id -g)" \
             --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
             --env CI --env GITHUB_WORKSPACE \
             "$PLAYWRIGHT_IMAGE" \
-            node_modules/.bin/playwright test
+            node_modules/.bin/playwright test "${projects[@]}"
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: journeys-report
-          # The report and the e2e edge's own logs, the only record of the address it judged each
-          # request by (`nginx/e2e/e2e.conf`).
-          path: |
-            .tmp-playwright/
-            .tmp-e2e/nginx-log/
-          # Both directories are dot directories, which the action leaves out by default: without
-          # this a failed run uploads nothing and says so in a warning alone.
+          # One name per leg: upload-artifact refuses a second artifact under a name the run holds.
+          name: journeys-report-${{ matrix.leg }}
+          path: .tmp-playwright/
+          # A dot directory, which the action leaves out by default: without this a failed run
+          # uploads nothing and says so in a warning alone.
           include-hidden-files: true
           retention-days: 7
       - name: The stack's logs, on a failure
@@ -488,13 +501,13 @@ jobs:
             "$FRONTEND_SHA256" "${RUNNER_TEMP}/images/frontend.tar" \
             "$BACKEND_SHA256" "${RUNNER_TEMP}/images/backend.tar" \
             | sha256sum --strict --check -
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
-      # any tag, `:latest` included, which a bare `scripts/ops/deploy.sh` pulls.
+      # any tag, and only the one the images job checked is published.
       - name: Push both images
         env:
           FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}

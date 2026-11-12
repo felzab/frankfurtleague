@@ -10,7 +10,6 @@ import { Card, CardActRow } from "./Card";
 import { isEdgeRefusal } from "./edgeRefusal";
 import { EmptyBox, EmptyState } from "./EmptyState";
 import { StatusLine } from "./FieldParts";
-import { RowActs } from "./RowActs";
 import { SearchField } from "./SearchField";
 import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
@@ -40,7 +39,7 @@ export type ListMore = {
   cursor: string | null;
   /** The page's filter values, sent beside every `load`'s request under these names, so a read stays inside them. */
   carry?: Readonly<Record<string, string>>;
-  /** A server action, so it answers what the builder does (`fl_frontend/src/core/action.ts :: action`). */
+  /** A server action, so it answers what the builder does (`action`). */
   load: (request: ListRequest) => Promise<ActionAnswer<ListPageOfRows>>;
 };
 
@@ -52,7 +51,7 @@ const SEARCH_PAUSE_MS = 300;
 
 /**
  * A page of the list, or why it is not there. A read writes nothing, so a throw leaves the page as it stands, where a
- * form's reads it again (`fl_frontend/src/kit/useFormAction.ts :: answering`): that new render would take the rows drawn
+ * form's reads it again (`answering`): that new render would take the rows drawn
  * so far away.
  */
 async function pageOf({ carry, load }: ListMore, request: ListRequest): Promise<ActionAnswer<ListPageOfRows>> {
@@ -227,7 +226,7 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
     if (more === undefined) return;
     latest.current += 1;
     const asked = latest.current;
-    // Emptied first, as `statusOf` has it: the live region announces the same refusal twice only after an empty line.
+    // Emptied first, as `statusOf` has it: the last refusal is none to the read still running.
     setShown((state) => ({ ...state, failure: null }));
     startLoading(async () => {
       const answer = await pageOf(more, request);
@@ -274,19 +273,14 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
         empty={isSearching ? { ...table.empty, kind: "search" } : table.empty}
       />
       {more !== undefined && (
-        // What stands where the button stood once the last page took it: past the rows it brought, where the keys go on.
-        <div
-          data-kit-focus="home"
-          className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {current.cursor !== null && (
-            <RowActs className="contents">
-              <Button
-                variant="secondary"
-                label={COPY.shared.loadMore}
-                isBusy={isLoading}
-                onPress={loadMore}
-              />
-            </RowActs>
+            <Button
+              variant="secondary"
+              label={COPY.shared.loadMore}
+              isBusy={isLoading}
+              onPress={loadMore}
+            />
           )}
           {/* Standing with no button too: a search over the last page fails as any read does. */}
           <StatusLine

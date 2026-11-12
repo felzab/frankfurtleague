@@ -19,8 +19,8 @@ const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 /** What every drain since the last pass settled, which a case sets and the pass takes. */
 let drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
 
-/** The restore's hold the boot reads, off unless a case sets it. */
-const settings = { APP_ENV: "production", APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
+/** The hold on the background jobs the boot reads, off unless a case sets it. */
+const settings = { APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
 
 /** Each ping, as the monitor received it. */
 const pings: { url: string; method: string; body: string | undefined }[] = [];
@@ -32,11 +32,6 @@ const job = (name: string) => () => {
 };
 
 vi.doMock("@/core/config.ts", () => ({
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
   frontend_config: settings,
   heartbeatUrl: () => heartbeat,
 }));
@@ -134,7 +129,7 @@ it("starts the sign-in store's connect at a production boot without waiting on i
   expect(storeConnects).toBe(1);
 });
 
-/* Docker's json-file driver records no image version, so this line is the one record of which build started. */
+/* The start line names the image's version, so the log of every boot says which build started. */
 it("logs one start line naming the image's version", async () => {
   await bootAndStep("production", []);
 
@@ -159,7 +154,7 @@ describe("the one scheduler", () => {
 
   /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
      pupils' deletion, mail to people not yet erased again. */
-  it("arms nothing under a restore's hold, and says so", async () => {
+  it("arms nothing under the hold, and says so", async () => {
     settings.RESTORE_HOLD = "on";
 
     expect(await bootAndStep("production", [MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);

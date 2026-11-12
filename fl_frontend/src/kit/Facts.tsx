@@ -2,8 +2,6 @@ import { textOf } from "@/core/copy";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardSurface, stacked } from "./cardStyles";
-import { Chip } from "./Chip";
-import { CutText } from "./CutText";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
@@ -12,7 +10,6 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
 import type { AddressText } from "./AddressWords";
-import type { ChipProps } from "./Chip";
 import type { IconName } from "./Icon";
 
 /**
@@ -58,7 +55,7 @@ const facts = tv({
         // included, takes the row's whole width, so no empty cell stands beside it.
         row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the old pop-up's facts under its teams. A lone pair
+      // No box and no hairlines, two pairs a row at every width: the match pop-up's facts under its teams. A lone pair
       // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",
@@ -135,34 +132,16 @@ export function FactsPlaceholder({
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
  * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
  * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box as the
- * match pop-up sets them under the pairing. The one block that pairs a label with a value. A subject line above it
- * names the record, with its chip.
+ * match pop-up sets them under the pairing. The one block that pairs a label with a value.
  */
-export function Facts({
-  subject,
-  facts: rows,
-  look = "boxed",
-}: {
-  subject?: { name: Words; chip?: ChipProps };
-  facts: ReadonlyArray<Fact>;
-  look?: "boxed" | "free";
-}) {
+export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fact>; look?: "boxed" | "free" }) {
   const { list } = facts({ look });
   // A row's key is its label and how many rows above it hold that label: keys are unique among siblings, and a caller
   // may list two records under one label, so the label alone would collide.
   const above = new Map<Copy, number>();
   return (
     // `w-full`: a Section's or an AccountBox's grid starts its children, which would shrink the block to its content.
-    <div className="@container grid w-full gap-2 text-sm">
-      {subject !== undefined && (
-        <p className="flex min-w-0 items-center gap-2 text-base font-semibold">
-          <CutText
-            text={textOf(subject.name)}
-            className="min-w-0 truncate"
-          />
-          {subject.chip !== undefined && <Chip {...subject.chip} />}
-        </p>
-      )}
+    <div className="@container grid w-full text-sm">
       <dl className={list()}>
         {rows.map((fact) => {
           const address = fact.value !== undefined && isAddress(fact.value);

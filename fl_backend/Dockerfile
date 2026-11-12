@@ -1,16 +1,13 @@
-# BACKEND · the API image
-
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
-# lines alone, so this puts the installer's tag and digest (`docs/ops/spec.md` §1.1) under the same
+# lines alone, so this puts the installer's tag and digest under the same
 # review as every other base image here.
-FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
 # The OS layer the build and the runtime share, so anything added here ships in the image.
-FROM python:3.14.8-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS base
+FROM python:3.14.10-slim@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS base
 
 # tini for PID 1 signal routing -> the container shuts down gracefully.
 RUN apt-get update && \
-    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends tini && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -45,7 +42,7 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 FROM base AS runner
 
 # Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
-# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+# giving a file secret no owner of its own.
 RUN groupadd --system --gid 1002 fl_api && \
     useradd --system --uid 1002 --gid fl_api --create-home --home-dir /usr/fl_backend --shell /usr/sbin/nologin fl_api_user
 

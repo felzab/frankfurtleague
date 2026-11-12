@@ -32,7 +32,6 @@ from app.api.bewerbungen.services import (
     build_form_pipeline,
     build_key_filter,
     build_open_links_filter,
-    build_saison_token_filter,
     build_token_filter,
     compose_confirmation_update,
     compose_confirmations,
@@ -52,7 +51,6 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
-    first_name_of,
     form_window_state,
     leaving_moves_the_deletion_day,
     mailbox_anchor_ids,
@@ -74,7 +72,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_self_media_refusal
 from app.api.kontakte.crud import remove_the_seats_reasons
-from app.api.outbox.schemas import FLBewerbungObjectionData, FLBewerbungPerson
+from app.api.outbox.schemas import FLBewerbungObjectionData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielbestaetigungen.services import HeldSeats
 from app.api.teams.services import kontakt_row_of
@@ -113,25 +111,23 @@ from app.core.journal import Journal
 from app.core.routing import SAFE
 from app.core.security import verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS, MEDIA_MIN_AGE_YEARS
+from app.shared.schemas.bounds import BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import by_choice
 from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
 
-# Base-tier at the prefix the admin and person routers share: a member of the public applies here,
-# and nothing served below reaches a stored application (`READ-BEWERBUNG-001`). The confirmation
-# link's two endpoints are base-tier too: its token is the whole credential, as a sign-in code is.
+# Base-tier at the prefix the admin and person routers share: a member of the public applies here, and nothing served
+# below carries a person's details. The confirmation link's two endpoints are base-tier too: its token is the whole
+# credential, as a sign-in code is.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/bewerbungen", dependencies=[Depends(verify_access_base)])
 
 
-# The state a submission arrives in, and the only one it may arrive in: the other two are the
-# triage's (`app/api/bewerbungen/admin_router.py`).
+# The state a submission arrives in, and the only one it may arrive in: the other two are the triage's.
 SUBMITTED = "submitted"
 
-# What a season read takes on this tier: the window, and the status judging it, served only as
-# whether it ended. The rule withholds a `future` season, as one taking
-# applications is; its carve-out is this much.
+# What a season read takes on this tier: the window, and the status judging it, served only as whether it ended. A
+# `future` season is otherwise withheld from this tier, one taking applications included; its carve-out is this much.
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
@@ -139,12 +135,9 @@ WINDOW_PROJECTION = ["bewerbung", "status"]
 async def get_form(
     saison_id: str, saisons_collection: SaisonsReadCollection, today: str = Depends(get_german_date_str)
 ) -> FLBewerbungFormResponse:
-    """
-    One read for the form's page: the window, and while it runs the clubs a school may apply as and the colours taken.
+    """A season's application window, and while it runs the clubs a school may apply as and the colours taken.
 
-    404 only where no season carries the id. A closed or paused window and a season recording none are served, for the
-    page to say so; the clubs and the colours are served on a running window alone, each as a name or a colour and
-    nothing more (`READ-BEWERBUNG-001`).
+    A closed or paused window and a season recording none are served too, and each club is served as its name alone.
     """
 
     # The whole read under the league's collation, its one name-ordered list being the clubs of the `$lookup`.
@@ -213,25 +206,9 @@ async def post_bewerbung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLCreatedResponse:
-    """
-    Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
+    """Store one school's application to play one season, and mail each contact person their confirmation link, one per person.
 
-    Everything the league decides -- `status`, `submitted_at`, `decision` and each consent's
-    scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
-    same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
-    who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
-    is answered.
-
-    The `Idempotency-Key` header makes a second press safe. A key already stored answers with the
-    application it holds, stores none and owes nothing again, whatever its body says: a form whose details changed
-    since its last press sends a new key.
-
-    Two people sharing an address or a number are refused on the later box (`bewerbung_kontakt_repeated`), the seat the
-    Trainer also holds being that one person.
-
-    A mailbox already holding `OPEN_LINKS_PER_MAILBOX` unanswered links of the season is owed nothing and nothing refuses the
-    press: its seat stands unmailed, with a null `sent_at`, for an administrator to send the link. The answer is the same
-    either way, so it tells a stranger nothing about the address.
+    A second press with an `Idempotency-Key` already stored answers the application that key holds and stores nothing.
     """
 
     refuse(find_repeated_contact_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
@@ -245,7 +222,8 @@ async def post_bewerbung(
     async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
-        # Before every judgement: a replay answers what the first request did, whatever has closed since.
+        # Before every judgement: a replay answers what the first request did, whatever has closed since and whatever its
+        # body says, as a form whose details changed since its last press sends a new key.
         # The id alone, and nothing about a person: the application its first press stored, whose mails that press owed.
         stored = await bewerbungen_collection.find_one(build_key_filter(key=key), ["_id"], session=session)
         if stored is not None:
@@ -282,6 +260,8 @@ async def post_bewerbung(
         open_links = await _open_links_by_mailbox(
             bewerbungen_collection=bewerbungen_collection, saison_id=bewerbung_data.saison_id, addresses=addresses, session=session
         )
+        # A mailbox past the bound is owed nothing and nothing refuses the press, its seat standing unmailed for an
+        # administrator to send; the answer is the same either way, so it tells a stranger nothing about the address.
         unmailed = seats_past_the_bound(kontakte=stored_kontakte, open_links=open_links)
         # A mailbox this press may still mail: a rival's commit since this snapshot, the count's own, is then a write conflict and
         # the retry reads its row. One found full is mailed nothing and left alone, so a flood contends only until the bound.
@@ -299,7 +279,7 @@ async def post_bewerbung(
                 "saison_id": bewerbung_data.saison_id,
                 "submitted_at": today,
                 "status": SUBMITTED,
-                # Written EXPLICITLY, both of them: the record model requires each key, so an omitted
+                # Written explicitly, both of them: the record model requires each key, so an omitted
                 # one is a document the read-back refuses rather than a stored null.
                 "team_id": bewerbung_data.team_id,
                 "schule": None if schule is None else schule.model_dump(mode="json"),
@@ -308,7 +288,7 @@ async def post_bewerbung(
                 "kader": bewerbung_data.kader.model_dump(mode="json"),
                 # Written explicitly, as `team_id` is: the record model requires the key.
                 "stufengroesse": bewerbung_data.stufengroesse,
-                # Written even where the applicant named nobody, for `stufengroesse`'s reason.
+                # Written even where the applicant named nobody: the record model requires the key.
                 "wunschgegner": bewerbung_data.wunschgegner,
                 # Null until the triage decides, which is what `status == "submitted"` claims.
                 "decision": None,
@@ -364,7 +344,7 @@ async def _saison_view(
 ) -> FLBewerbungEinwilligungViewResponse:
     """The view of a link no application holds, read off the season row holding it, or the unknown-token refusal."""
 
-    row = await saison_teams_collection.find_one(build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_FIELDS)
+    row = await saison_teams_collection.find_one(build_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_FIELDS)
     seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
     refuse(find_unknown_token_refusal(seat=seat))
     assert row is not None and seat is not None
@@ -393,10 +373,10 @@ async def _saison_view(
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=row.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=row.get("kontakte"), confirmations=row.get("confirmations"), seat=seat),
-        media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
 
+# A POST that reads, so the token travels in the body.
 @router.post(
     "/einwilligung/view",
     response_model=FLBewerbungEinwilligungViewResponse,
@@ -413,8 +393,7 @@ async def get_einwilligung_view(
 ) -> FLBewerbungEinwilligungViewResponse:
     """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
-    A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state; only a token
-    no seat holds is refused (`link_invalid`).
+    A confirmed, declined or expired link is served in that state; only a token no seat holds is refused.
     """
 
     token_hash = hash_token(view_data.token)
@@ -456,7 +435,6 @@ async def get_einwilligung_view(
         maximum_age=BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
         deadline=seat_deadline_of(confirmations=bewerbung_raw.get("confirmations"), seat=seat),
         answered_at=seat_answered_at(kontakte=bewerbung_raw.get("kontakte"), confirmations=bewerbung_raw.get("confirmations"), seat=seat),
-        media_minimum_age=MEDIA_MIN_AGE_YEARS,
     )
 
 
@@ -476,12 +454,10 @@ async def post_einwilligung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAnswerResponse | FLSaisonTeamEinwilligungAnswerResponse:
-    """Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
+    """Record one person's consent or Widerspruch for the seat their link opens, and for a second seat they hold.
 
-    A decline empties the slot; on an application it owes the Ansprechperson who still stands and was mailed the notice
-    naming who refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
-    `link_invalid`, `link_expired`, `bewerbung_seat_already_answered`, `confirmation_age`, `media_age`, and on a team's
-    season row `link_expired` and `kontakt_saison_past`.
+    A Widerspruch empties the slot, and on an application it tells the Ansprechperson who still stands, in a notice that
+    is the deletion notice too.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -493,7 +469,7 @@ async def post_einwilligung(
         """The application's judgement in its order, on the season row holding the token; a miss there is the unknown-token refusal."""
 
         row = await saison_teams_collection.find_one(
-            build_saison_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANSWER_FIELDS, session=session
+            build_token_filter(token_hash=token_hash), projection=SAISON_EINWILLIGUNG_ANSWER_FIELDS, session=session
         )
         seat = None if row is None else seat_holding(bewerbung_raw=row, token_hash=token_hash)
         refuse(find_unknown_token_refusal(seat=seat))
@@ -522,7 +498,7 @@ async def post_einwilligung(
             refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
             # The person's own press, judged on the read above: an administrator's save read before it still lands, and
-            # „Sitz bearbeiten“ keeps a kept seat's record from its own in-session read.
+            # the seat write keeps a kept seat's record from its own in-session read.
             await patch_past_the_version_in_db(
                 collection=saison_teams_collection,
                 db_filter={"_id": row["_id"]},
@@ -596,20 +572,17 @@ async def post_einwilligung(
         other = paired_seat(kontakte=kontakte, confirmations=confirmations, seat=seat)
         seats = (seat,) if other is None else (seat, other)
 
-        # Read before either branch writes: a decline empties this slot, and the message reporting
-        # it is the one thing that has to name the person who refused.
-        first_name = first_name_of(kontakte=kontakte, seat=seat)
         saison_id = str(bewerbung_raw["saison_id"])
 
         if answer_data.answer == "given":
             birth_date = answer_data.birth_date
 
-            # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the
+            # Over both seats, so a Trainer who also sits in one of the other two is judged as the
             # person they are rather than as the link they pressed.
             refuse(find_age_refusal(birth_date=birth_date, today=today, minimum_age=minimum_age_for(seats)))
             refuse(find_self_media_refusal(saved=None, media=answer_data.media, birth_date=birth_date, today=today))
 
-            # The season row's way past the count, for its reason: a decision read before the press still lands.
+            # Past the count, as on the season row: a decision read before the press still lands.
             await patch_past_the_version_in_db(
                 collection=bewerbungen_collection,
                 db_filter={"_id": bewerbung_raw["_id"]},
@@ -648,7 +621,7 @@ async def post_einwilligung(
 
         journal.note("objection", [f"{Collection.BEWERBUNGEN}/{bewerbung_raw['_id']}"], seats=seats)
 
-        # Off the UPDATED document, so an Ansprechperson who has just declined leaves this null and
+        # Off the updated document, so an Ansprechperson who has just declined leaves this null and
         # the message their decline would have gone to is owed to nobody.
         declined_email, declined_rollen = ansprechperson_mailbox(
             kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations")
@@ -667,8 +640,7 @@ async def post_einwilligung(
                             kind="bewerbung_objection",
                             saison_id=saison_id,
                             rollen=declined_rollen,
-                            # Named off the read before the decline: nothing left in the record can say whose entry was refused.
-                            declined=FLBewerbungPerson(first_name=first_name, rollen=list(seats)),
+                            declined=list(seats),
                             # The declining seat is outstanding now, so a day is there to name.
                             deadline=str(deletion_day(kontakte=updated_raw.get("kontakte"), confirmations=updated_raw.get("confirmations"))),
                         ),

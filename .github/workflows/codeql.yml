@@ -22,11 +22,9 @@ on:
     - cron: "37 4 * * 1"
 
 # Least privilege, as in verify.yml. What every job here needs, and what a job added later
-# inherits: `contents: read` for the checkout, and `actions: read`, the starter workflow's,
-# required for a private repository only.
+# inherits: `contents: read` for the checkout.
 permissions:
   contents: read
-  actions: read
 
 # Same shell as verify.yml, for the reason written there, so a `run:` step added later inherits it.
 defaults:
@@ -35,7 +33,7 @@ defaults:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  # Same rule as `.github/workflows/verify.yml`: supersede an in-flight PR run, never a run on main.
+  # Supersede an in-flight run on a pull request, never a run on main.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -49,19 +47,18 @@ jobs:
     timeout-minutes: 10
     # `security-events: write` uploads the results to the Security tab; without it the findings
     # vanish, and only an analysis job uploads. A job block replaces the workflow's rather than
-    # extending it, so both of its lines are restated here.
+    # extending it, so its line is restated here.
     permissions:
       contents: read
-      actions: read
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Same reasoning as `.github/workflows/verify.yml`: the token is not needed after checkout, and leaving it in
-          # .git/config exposes it to every later step.
+          # The token is not needed after checkout, and leaving it in .git/config exposes it to every
+          # later step.
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: javascript-typescript
           # CodeQL reads source, so this is the whole build and an install step ahead of it buys
@@ -71,7 +68,7 @@ jobs:
           # roughly equal measure, so start quiet and escalate on evidence. To escalate, add
           # `queries: security-extended` here.
       - name: Analyse
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
 
   analyze-python:
     runs-on: ubuntu-latest
@@ -80,17 +77,16 @@ jobs:
     # Same grants as the JavaScript job, for the same reasons.
     permissions:
       contents: read
-      actions: read
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Initialise CodeQL
-        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: python
           build-mode: none
           # Same reasoning as the JavaScript job: default suite, escalate on evidence.
       - name: Analyse
-        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3

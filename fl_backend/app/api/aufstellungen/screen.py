@@ -1,9 +1,7 @@
-"""
-API · a line-up's screen read and saved, one way for a seat of the club and for an administrator
+"""A seat's route and an administrator's show the same line-up screen and save the same document.
 
-Both addresses show the same screen and save the same document, so a seat's route and an administrator's differ only in
-what they judge first: a seat holder is asked for the seat and refused from the lock, an administrator is asked
-neither (`app/api/aufstellungen/admin_router.py`).
+They differ only in what they judge first: a seat holder is asked for the seat and refused from the lock, an
+administrator is asked neither.
 """
 
 from collections.abc import Mapping, Sequence
@@ -20,7 +18,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aufstellungen.crud import write_aufstellung
 from app.api.aufstellungen.schemas import (
     FLAufstellungEntry,
-    FLAufstellungErased,
     FLAufstellungPayload,
     FLAufstellungResponse,
     FLAufstellungSpiel,
@@ -30,8 +27,7 @@ from app.api.aufstellungen.services import (
     aufstellung_marks,
     aufstellung_stands,
     build_aufstellung_kader_pipeline,
-    erased_entries,
-    is_erased,
+    count_nameless,
     judge_the_kickoff,
     judge_the_names,
     newly_named,
@@ -175,8 +171,8 @@ async def _pull_people(
     """The names of every pupil the stored line-up names who holds no squad row of the club in the season, by id."""
 
     rows = {row["spieler_id"] for row in state.kader}
-    named = [] if saved is None else [entry for entry in saved["spieler"] if not is_erased(entry)]
-    rest = sorted({entry["spieler_id"] for entry in named} - rows)
+    named = set() if saved is None else {entry["spieler_id"] for entry in saved["spieler"] if entry["spieler_id"] is not None}
+    rest = sorted(named - rows)
     if not rest:
         return {}
 
@@ -190,17 +186,12 @@ async def _pull_people(
 def _compose(
     *, state: _State, team_id: ObjectId, saved: Mapping[str, Any] | None, people: Mapping[ObjectId, Mapping[str, Any]], now: datetime
 ) -> FLAufstellungResponse:
-    """The screen: the live squad, every pupil the stored line-up names outside it, and the stored line-up with its marks.
-
-    An erased pupil's entries stand apart in `erased`: they all name the one sentinel, so a list keyed by the pupil
-    could hold none of them twice.
-    """
+    """The screen: the live squad, every pupil the stored line-up names outside it, and the stored line-up with its marks."""
 
     live = [row for row in state.kader if row["inactive_since"] is None]
     live_ids = {row["spieler_id"] for row in live}
     rows = {row["spieler_id"]: row for row in state.kader}
-    stored = [] if saved is None else saved["spieler"]
-    entries = [entry for entry in stored if not is_erased(entry)]
+    entries = [] if saved is None else saved["spieler"]
 
     def outside(spieler_id: ObjectId) -> FLAufstellungSpieler:
         row = rows.get(spieler_id)
@@ -224,16 +215,10 @@ def _compose(
         saison_status=state.saison_status,
         team_id=team_id,
         kader=[FLAufstellungSpieler.model_validate(row) for row in live],
-        named=[outside(entry["spieler_id"]) for entry in entries if entry["spieler_id"] not in live_ids],
+        named=[outside(entry["spieler_id"]) for entry in entries if entry["spieler_id"] is not None and entry["spieler_id"] not in live_ids],
         spieler=[FLAufstellungEntry.model_validate(entry) for entry in entries],
-        erased=[FLAufstellungErased(starts=entry["starts"]) for entry in erased_entries(saved, spiel=spiel, now=now)],
         version=None if saved is None else saved[VERSION_FIELD],
-        marks=aufstellung_marks(
-            date=spiel.get("date"),
-            time=spiel.get("time"),
-            stored=aufstellung_stands(saved, date=spiel.get("date"), time=spiel.get("time"), now=now),
-            now=now,
-        ),
+        marks=aufstellung_marks(date=spiel.get("date"), time=spiel.get("time"), stored=aufstellung_stands(saved), now=now),
     )
 
 
@@ -244,7 +229,7 @@ async def read_aufstellung_screen(
     team_id: ObjectId,
     reads: AufstellungReads,
     now: datetime,
-    # REQUIRED: one snapshot, so the seat, the fixture, the squad and the stored line-up never straddle a commit.
+    # One snapshot, so the seat, the fixture, the squad and the stored line-up never straddle a commit.
     session: AsyncClientSession,
 ) -> FLAufstellungResponse:
     """One club's line-up screen for one fixture, as a seat of the club reads it, or an administrator where `seat` is None."""
@@ -284,13 +269,11 @@ async def save_aufstellung_screen(
         _judge_the_fixture(state, locks=seat is not None, now=now)
         saved = await aufstellungen_collection.find_one({"spiel_id": spiel_id, "team_id": team_id}, session=session)
         refuse(find_stale_first_save_refusal(saved, version=payload.version))
-        # Written after the payload's entries as stored: no form names an erased pupil, and a locked line-up keeps whom the
-        # club fielded.
-        kept = [FLAufstellungEntry.model_validate(entry) for entry in erased_entries(saved, spiel=spiel, now=now)]
         new = newly_named(entries, saved)
-        judge_the_names(entries=entries, kept=kept, new=new, kader=state.kader)
+        nameless = count_nameless(saved)
+        judge_the_names(entries=entries, new=new, nameless=nameless, kader=state.kader)
 
-        # So an erasure of a pupil this save names conflicts with it rather than leaving the line-up naming nobody.
+        # So an erasure of a pupil this save names conflicts with it rather than leaving the line-up naming a pupil no record holds.
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=new, session=session)
         written = await write_aufstellung(
             aufstellungen_collection=aufstellungen_collection,
@@ -298,7 +281,7 @@ async def save_aufstellung_screen(
             saison_id=spiel["saison_id"],
             spiel_id=spiel_id,
             team_id=team_id,
-            spieler=[*entries, *kept],
+            spieler=entries,
             saved=saved,
             version=payload.version,
             by=None if seat is None else ACT_BY_KONTAKT,
@@ -318,7 +301,7 @@ async def save_aufstellung_screen(
         async with db.start_session(snapshot=True) as outside:
             current = await _read_state(seat=seat, spiel_id=spiel_id, team_id=team_id, reads=reads, session=outside)
         _judge_the_fixture(current, locks=seat is not None, now=now)
-        judge_the_names(entries=entries, kept=kept, new=new, kader=current.kader)
+        judge_the_names(entries=entries, new=new, nameless=nameless, kader=current.kader)
 
         return _compose(state=state, team_id=team_id, saved=written, people=people, now=now), saved is None
 

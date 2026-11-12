@@ -1,7 +1,7 @@
 import asyncio
 import atexit
 import io
-from collections.abc import AsyncIterator, Coroutine, Iterable, Iterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Coroutine, Generator, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager, contextmanager, redirect_stdout
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -66,6 +66,18 @@ def _release() -> None:
     _LOOP.close()
 
 
+# Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
+# MongoDB aborts the transaction at its 60 s lifetime limit, and the retry that follows passes the case. Under that limit,
+# the case fails under its own name; above the slowest seeds of the tier, which wait out a whole request deadline, no
+# seed that would finish is cut.
+SEED_BOUND_S = 30.0
+
+_UNFINISHED = (
+    "this seed ran past {bound:.0f} s and was cancelled. A rival run inside a write that waits on that write's own transaction"
+    " deadlocks until MongoDB aborts it at its lifetime limit: run the rival before the write it contends with."
+)
+
+
 def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
     """A client's connections belong to the loop that opened them, so ONE lasting loop is what lets every seed share one client.
 
@@ -78,7 +90,21 @@ def on_the_seed_loop(seed: Coroutine[Any, Any, Any]) -> Any:
         _LOOP = asyncio.new_event_loop()
         atexit.register(_release)
 
-    return _LOOP.run_until_complete(seed)
+    return _LOOP.run_until_complete(_bounded(seed))
+
+
+async def _bounded(seed: Coroutine[Any, Any, Any]) -> Any:
+    """Past the bound the seed is cancelled and unwound before this raises, so its sessions abort their transactions here."""
+
+    bound = asyncio.timeout(SEED_BOUND_S)
+    try:
+        async with bound:
+            return await seed
+    except TimeoutError as timeout:
+        # A `TimeoutError` the body raised itself passes as it was.
+        if bound.expired():
+            raise TimeoutError(_UNFINISHED.format(bound=SEED_BOUND_S)) from timeout
+        raise
 
 
 def shared_client(url: str) -> AsyncMongoClient:
@@ -140,16 +166,6 @@ async def _expired_rows(database: AsyncDatabase) -> list[str]:
         return _expired_message(database.name, collection, key, found)
 
     return [message for message in await asyncio.gather(*(expired(ttl.collection, ttl.key, ttl.seconds) for ttl in TTL_INDEXES)) if message]
-
-
-def _expired_rows_sync(database: Database) -> list[str]:
-    found = (
-        _expired_message(
-            database.name, ttl.collection, ttl.key, list(database[ttl.collection].aggregate(_expired_pipeline(ttl.key, ttl.seconds)))
-        )
-        for ttl in TTL_INDEXES
-    )
-    return [message for message in found if message]
 
 
 async def _refused_records(client: AsyncMongoClient, name: str) -> str | None:
@@ -219,12 +235,6 @@ async def _schema(database: AsyncDatabase) -> tuple[Schema, list[str]]:
     return {info["name"]: _enforcement(info, found) for info, found in zip(infos, specs, strict=True)}, _foreign(listed)
 
 
-def _schema_sync(database: Database) -> tuple[Schema, list[str]]:
-    listed = list(database.list_collections())
-
-    return {info["name"]: _enforcement(info, database[info["name"]].list_indexes()) for info in _data(listed)}, _foreign(listed)
-
-
 def _enforces(enforcement: Enforcement) -> bool:
     """Whether a collection carries more than an ordinary insert creates, which is itself and an `_id_` index."""
 
@@ -291,7 +301,7 @@ async def a_clean_database(
     constraints: bool = True,
     mutates_schema: bool = False,
     stores_a_refused_shape: str | None = None,
-) -> AsyncIterator[tuple[AsyncMongoClient, AsyncDatabase]]:
+) -> AsyncGenerator[tuple[AsyncMongoClient, AsyncDatabase]]:
     """The tier's client for this url, and a database emptied for this test on a schema built once.
 
     `mutates_schema=True` is the opt-out for a body that installs a validator or moves an index: what
@@ -337,36 +347,19 @@ async def a_clean_database(
 @contextmanager
 def a_clean_database_sync(
     client: MongoClient, url: str, name: str, *, constraints: bool = True, stores_a_refused_shape: str | None = None
-) -> Iterator[Database]:
+) -> Generator[Database]:
     """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
 
     A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
+    Entered and left on the seed loop, a step at a time, so both share one judgement of a clean database.
     """
 
-    key = _key(url, name)
-    database = client[name]
-    built = _BUILT.get(key)
-    _BUILT.pop(key, None)
-
-    if built is None or built[0] != constraints:
-        client.drop_database(name)
-        if constraints:
-            # Through the tier's own loop and its async client rather than a synchronous rebuild of
-            # the same work: `apply_constraints` is the one declaration of what a constrained
-            # database carries, and a second copy of it here could disagree with production.
-            on_the_seed_loop(apply_constraints(shared_client(url)[name]))
-        baseline, _ = _schema_sync(database)
-    else:
-        baseline = built[1]
-        for collection in baseline:
-            database[collection].delete_many({})
-
-    yield database
-
-    present, foreign = _schema_sync(database)
-    _guard(_DRIFT, name, baseline, present, foreign)
-    _BUILT[key] = (constraints, present)
-    if stores_a_refused_shape is None and (refused := on_the_seed_loop(_refused_records(shared_client(url), name))):
-        raise AssertionError(_REFUSED.format(database=name, lines=refused))
-    if constraints and (expired := _expired_rows_sync(database)):
-        raise AssertionError("\n".join(expired))
+    entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
+    on_the_seed_loop(entered.__aenter__())
+    try:
+        yield client[name]
+    except BaseException as failure:
+        # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
+        on_the_seed_loop(entered.__aexit__(type(failure), failure, failure.__traceback__))
+        raise
+    on_the_seed_loop(entered.__aexit__(None, None, None))

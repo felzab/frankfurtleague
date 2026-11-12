@@ -4,7 +4,7 @@ from typing import Any, get_args
 
 from app.api.action_log.schemas import FLActionLogFilterPayload
 from app.core import clock
-from app.core.crud import build_query, literal_pattern
+from app.core.crud import literal_pattern
 from app.core.recording import FLAction, FLActionType
 
 
@@ -23,16 +23,16 @@ def _german_midnight(day: date) -> datetime:
 def build_action_log_query(filters: FLActionLogFilterPayload) -> dict[str, Any]:
     """The read's whole filter: `by` an equality, and each other term compiled, as none is stored as it is asked."""
 
-    compiled: dict[str, Any] = {}
+    query: dict[str, Any] = {} if filters.by is None else {"by": filters.by}
     if filters.cursor is not None:
-        compiled["_id"] = {"$lt": filters.cursor}
+        query["_id"] = {"$lt": filters.cursor}
     if filters.type is not None:
-        compiled["action"] = {"$in": _actions_of(filters.type)}
+        query["action"] = {"$in": _actions_of(filters.type)}
     if filters.from_day is not None:
-        compiled["at"] = {"$gte": _german_midnight(filters.from_day)}
+        query["at"] = {"$gte": _german_midnight(filters.from_day)}
     # A blank search is none: an empty pattern would keep only the rows holding a team or a label.
     if filters.q is not None and filters.q.strip():
         pattern = {"$regex": literal_pattern(filters.q.strip()), "$options": "i"}
-        compiled["$or"] = [{"team": pattern}, {"label": pattern}]
+        query["$or"] = [{"team": pattern}, {"label": pattern}]
 
-    return build_query(filters, terms={"by"}, compiled=compiled)
+    return query

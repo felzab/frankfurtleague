@@ -2,7 +2,7 @@ import asyncio
 import contextvars
 import time
 import traceback
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from typing import Any, Final
 
@@ -19,11 +19,11 @@ from app.core.exception_handlers import rejected_fields_of
 from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 NO_DATA_TEXT: Final = "//- No Data -//"
 
-# Counted as `app/core/middlewares.py :: RequestDeadline` says; far above a round trip, and inside the
-# page's margin.
+# Counted as `RequestDeadline` says; far above a round trip, and inside the page's margin.
 ABORT_GRACE_S: Final = 1.0
 
 # NoSuchTransaction and TransactionCommitted: the server holds nothing open, the driver's own abort
@@ -108,7 +108,7 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
 
 
 @asynccontextmanager
-async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[AsyncClientSession]:
+async def transaction_session(client: AsyncMongoClient) -> AsyncGenerator[AsyncClientSession]:
     """The session every transaction runs on: work failing inside it leaves the server no transaction."""
 
     async with client.start_session() as session:
@@ -121,6 +121,10 @@ async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[AsyncCl
             # whose work this abort would then reach.
             await _abort_on_the_server(session)
             raise
+
+
+# A pass's page: one read's ceiling, and one past it tells a full page from a truncated one.
+SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
 
 
 class StalledPage(ValueError):
@@ -453,7 +457,7 @@ async def drain(
 def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:
     """Raise where a full page moved nothing: the same rows come back for ever.
 
-    Beside `drain`, which takes the page the same way: each slice keeps its own `SWEEP_PAGE`.
+    Beside `drain`, which takes the page the same way; every pass calling this one pages by `SWEEP_PAGE`.
     """
 
     if read > page and moved == 0:

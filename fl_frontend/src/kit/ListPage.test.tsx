@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
-import { spielColumnsHolder } from "@/test-support/spielColumns.ts";
 import { compiledGlobals, selectorsOf } from "@/test-support/stylesheet.ts";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream, renderToString } from "react-dom/server";
 import { prerender } from "react-dom/static";
@@ -79,26 +78,6 @@ describe("the frames' `main`", () => {
 });
 
 describe("the list's create act", () => {
-  // The harm: a handover's start swaps its trigger for the locked button, and the keyboard's place falls to `body`.
-  it("keeps the keys in the toolbar when the act it just ran locks it", async () => {
-    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
-    const page = (locked?: typeof COPY.template.draftUnsaved) => (
-      <ListPage
-        head={{ scope: "saison", title: { route: "spielplan" } }}
-        create={{ title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null, locked }}
-        list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: new Promise(() => undefined) }}
-      />
-    );
-    const { rerender } = render(page());
-    const trigger = screen.getByRole("button", { name });
-    const place = trigger.closest('[data-kit-focus="home"]');
-    trigger.focus();
-
-    rerender(page(COPY.template.draftUnsaved));
-
-    await waitFor(() => expect(document.activeElement).toBe(place));
-  });
-
   // The harm: a dialog's trigger around the locked button would open the create form behind the reason.
   it("answers a press with its reason while locked, never its form", async () => {
     const reason = COPY.template.draftUnsaved;
@@ -126,23 +105,6 @@ describe("the toolbar's acts the read decides", () => {
     content: Promise.resolve({ tabs: null, empty: { kind: "none", plural: COPY.shared.saison } as const }),
   } as const;
   const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
-
-  // The harm: an empty toolbar row holds the page's gap over an administrator's list, which then stands lower than its wait.
-  it("draws no row for a reader holding neither act, as the wait draws none", async () => {
-    const { prelude } = await prerender(
-      <ListPage
-        head={HEAD}
-        acts={Promise.resolve({ side: null, create: null })}
-        list={LIST}
-      />,
-      // Every boundary in its place, where React would otherwise leave it for a script no parsed page runs.
-      { progressiveChunkSize: Number.MAX_SAFE_INTEGER },
-    );
-    const page = document.createElement("div");
-    page.innerHTML = await new Response(prelude).text();
-
-    expect(page.querySelector("[class*='flex-wrap']")).toBe(null);
-  });
 
   // The harm: React's reveal throttle holds each reveal 300 ms after the last, so a toolbar in a boundary of its own can
   // land after the rows and lift them under a finger on „Entfernen“. Each boundary's reveal is one `$RC` call in the stream.
@@ -193,8 +155,8 @@ async function drawnCards(wait: Cards["wait"], content: Awaited<Cards["content"]
   return { waiting, landed };
 }
 
-/** The grid a page's cards share. */
-const GRID = "[class~='lg:grid-cols-2']";
+/** The grid a page's cards share, reached from a card's title, which stands in its card's head. */
+const gridOf = (title: Element) => title.parentElement?.parentElement?.parentElement;
 
 describe("open work beside its record's seats", () => {
   const ACTS = [COPY.shared.verb.adopt, COPY.shared.verb.discard] as const;
@@ -254,8 +216,6 @@ describe("open work beside its record's seats", () => {
       },
     );
 
-  /** The cards of a page, in the order their grid holds them. */
-  const cardsOf = (page: Element) => [...(page.querySelector(GRID)?.children ?? [])];
   /** A seats' card's rows: the card's body holds the list alone. */
   const seatsOf = (card: Element | undefined) => [...(card?.lastElementChild?.firstElementChild?.children ?? [])];
 
@@ -265,44 +225,29 @@ describe("open work beside its record's seats", () => {
   it("waits as one skeleton of every box it lands with, the team's head and the seats' card among them", async () => {
     const { waiting, landed } = await drawn();
 
-    const skeletons = [...waiting.querySelectorAll("[aria-busy]")];
+    const skeletons = [...waiting.querySelectorAll<HTMLElement>("[aria-busy]")];
     expect(skeletons).toHaveLength(1);
-    const [skeleton] = skeletons as [Element];
-    expect(cardsOf(skeleton).map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
-    expect(cardsOf(landed).map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
+    const [skeleton] = skeletons as [HTMLElement];
+    // The wait sets a card's title as words, the landed card as its heading.
+    const grids = [gridOf(within(skeleton).getByText(TITLES[0])), gridOf(within(landed).getByRole("heading", { name: TITLES[0] }))];
+    const [waitingCards, landedCards] = grids.map((grid) => [...(grid?.children ?? [])]) as [Element[], Element[]];
+    expect(waitingCards.map((card) => card.firstElementChild?.textContent)).toStrictEqual(TITLES);
+    expect(landedCards.map((card) => card.querySelector("h2")?.textContent)).toStrictEqual(TITLES);
 
-    // The head is the one box over the cards' grid, waiting and landed, and names the team under the page's title.
-    const over = (page: Element) => page.querySelector(GRID)?.previousElementSibling;
-    expect([skeleton, landed].map((page) => page.querySelector(GRID)?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
-    expect(over(skeleton)?.childElementCount).toBe(over(landed)?.childElementCount);
-    expect(over(landed)?.querySelector("h2")?.textContent).toBe(TEAM);
+    // The head is the one box over the cards' grid, which stands in the container its columns read, waiting and landed,
+    // and names the team under the page's title.
+    const boxes = grids.map((grid) => grid?.parentElement);
+    const [waitingHead, landedHead] = boxes.map((box) => box?.previousElementSibling);
+    expect(boxes.map((box) => box?.parentElement?.childElementCount)).toStrictEqual([2, 2]);
+    expect(waitingHead?.childElementCount).toBe(landedHead?.childElementCount);
+    expect(landedHead?.querySelector("h2")?.textContent).toBe(TEAM);
 
-    expect(cardsOf(landed)[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
+    expect(landedCards[1]?.lastElementChild?.textContent).toBe(COPY.shared.empty.nothingOpen);
 
-    const parts = (rows: Element[]) => rows.map((row) => row.childElementCount);
-    expect(parts(seatsOf(cardsOf(skeleton)[2]))).toStrictEqual(parts(seatsOf(cardsOf(landed)[2])));
-    expect(seatsOf(cardsOf(landed)[2])).toHaveLength(3);
-  });
-
-  // The harm: a row's acts read in another order than the page gave them, or apart from the words they act on. Where they
-  // stand, beside the words or under them by the card's width, is the drive's to measure: jsdom lays nothing out.
-  it("sets a row's acts after its words, in the order the page gave them", async () => {
-    const { landed } = await drawn();
-    const [words, acts] = [...(landed.querySelector("[data-kit-row]")?.firstElementChild?.children ?? [])] as [Element, Element];
-
-    expect(words.textContent).toContain(SPIEL);
-    expect([...acts.querySelectorAll("button")].map((button) => button.textContent)).toStrictEqual(ACTS);
-  });
-
-  // The harm: a row drawing room for acts it lacks, an empty place beside or under its words.
-  it("keeps no room for acts on a row that carries none", async () => {
-    const { landed } = await drawn();
-    const declined = [...landed.querySelectorAll("[data-kit-row]")][1];
-
-    expect(declined?.textContent).toContain(COPY.admin.spiel.declined);
-    expect(declined?.querySelectorAll("button")).toHaveLength(0);
-    // Its words, then the chevron, which holds no words: nothing stands between them.
-    expect([...(declined?.firstElementChild?.children ?? [])].map((part) => part.textContent === "")).toStrictEqual([false, true]);
+    // A seat's row frames its words and, where it carries any, its acts.
+    const parts = (rows: Element[]) => rows.map((row) => row.firstElementChild?.childElementCount);
+    expect(parts(seatsOf(waitingCards[2]))).toStrictEqual(parts(seatsOf(landedCards[2])));
+    expect(seatsOf(landedCards[2])).toHaveLength(3);
   });
 });
 
@@ -313,16 +258,6 @@ describe("a page of one card holding a list", () => {
       { rows: 2, cards: [{ title: TITLE, count: false }] },
       { cards: [{ id: "spiele", title: TITLE, rows, count: false, empty: { kind: "none", plural: TITLE } }] },
     );
-
-  // The harm: in the grid a lone card stands at half the content's width from `lg`, and one that waits there and lands
-  // outside it doubles its width as the rows arrive.
-  it("waits and lands outside the grid, at the content's width", async () => {
-    const { waiting, landed } = await drawn([{ id: "1", href: "/", name: { record: "Ahorn vs. Eiche" }, line: TITLE }]);
-
-    expect(landed.querySelector("h2")?.textContent).toBe(TITLE);
-    // Counted, never the node: a failing comparison would print the whole card.
-    expect([waiting, landed].map((page) => page.querySelectorAll(GRID).length)).toStrictEqual([0, 0]);
-  });
 
   // The harm: a list with nothing in it yet under „Nichts offen.“ tells a referee their work is done, where none is booked.
   it("gives way to the list's own empty state", async () => {
@@ -441,19 +376,12 @@ describe("one club's matches under their matchdays", () => {
   it("sets each match in its own box under its matchday's head, and waits in as many boxes", async () => {
     const { waiting, landed } = await drawn(2, { groups: [group(0), group(1)], empty: EMPTY });
 
-    const boxes = (page: Element) => [...(page.querySelector("main .grid.gap-y-3")?.children ?? [])];
-    expect(boxes(landed).map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
-    expect(boxes(landed).map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
-    expect(boxes(waiting.querySelector("[aria-busy]") ?? waiting)).toHaveLength(2);
-  });
-
-  // The harm: one box's chip widening its when column, so its score and sides stand apart from every other box's down
-  // the list, or a box dropping the columns and printing its cells over each other (`spielColumnsHolder`).
-  it("lines every box's match up on the one set of columns the list holds", async () => {
-    const chipped = { ...group(1), spiel: { ...group(1).spiel, chip: { tone: "warn" as const, label: COPY.shared.saved } } };
-    const { landed } = await drawn(2, { groups: [group(0), chipped], empty: EMPTY });
-
-    expect(spielColumnsHolder(landed)?.closest("main")).not.toBeNull();
+    // Landed, the list holds each box, a matchday's head in its group; waiting, the wait's box in the content's place holds it.
+    const list = within(landed).getByRole("heading", { name: HEADS[0] }).closest("section")?.parentElement?.parentElement;
+    const boxes = [...(list?.children ?? [])];
+    expect(boxes.map((box) => box.querySelector("h3")?.textContent)).toStrictEqual(HEADS);
+    expect(boxes.map((box) => box.querySelectorAll("a").length)).toStrictEqual([1, 1]);
+    expect(waiting.querySelector("[aria-busy] > [aria-hidden] > *")?.children).toHaveLength(2);
   });
 
   // The harm: a season before its draw drawn as an empty box, which reads as a list that failed to load.

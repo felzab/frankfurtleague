@@ -19,7 +19,6 @@ import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
 import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
-import { RowActs } from "./RowActs";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
@@ -204,7 +203,7 @@ type ListContent =
 
 /**
  * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
- * as many as the page states beside its list (`Skeleton.tsx` has the rule), since how many there are is what the read
+ * as many as the page states beside its list, since how many there are is what the read
  * tells.
  */
 function ListPlaceholder({ list }: { list: ListContent }) {
@@ -358,7 +357,7 @@ function FiltersPlaceholder({ count }: { count: number }) {
       </span>
       <span className="flex items-start gap-3 max-lg:hidden">
         {Array.from({ length: count }, (_, index) => (
-          // A filter's select at the least width its row gives it (`./Filters.tsx`).
+          // A filter's select at the least width its row gives it.
           <span
             key={index}
             className="w-40">
@@ -415,13 +414,10 @@ function ToolbarAct({ act: { locked, ...act }, side = false }: { act: ListCreate
     label: actLabel(act.act),
   } as const;
   return locked === undefined ? (
-    // The act that locks it takes its trigger along: a handover's start, whose button stands again unbound to its dialog.
-    <RowActs className="contents">
-      <Dialog
-        {...act}
-        trigger={face}
-      />
-    </RowActs>
+    <Dialog
+      {...act}
+      trigger={face}
+    />
   ) : (
     <Button
       {...face}
@@ -438,15 +434,8 @@ async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
 /** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
 const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
 
-/** The acts at the toolbar row's end, where focus lands when an act takes the control it was on with it. */
 function ToolbarActs({ children }: { children: ReactNode }) {
-  return (
-    <div
-      data-kit-focus="home"
-      className="ms-auto flex flex-wrap items-center justify-end gap-3">
-      {children}
-    </div>
-  );
+  return <div className="ms-auto flex flex-wrap items-center justify-end gap-3">{children}</div>;
 }
 
 /** The toolbar of a reader the role's acts reach, and no row for any other, whose empty row would hold the page's gap. */
@@ -646,7 +635,7 @@ async function ListBody({ list }: { list: ListContent }) {
  * more rows; or, for the season's matches, the matchday tabs, one matchday at a time, opening on the one the server
  * names; or folded cards of tables, as Administratoren sets what stands over what waits; or one card per group, its
  * head naming the group over its table, as the Tabelle stands its groups one under another; or open work
- * as cards of rows, two a row from `lg`, as the Übersicht sets its kinds, a team's own under the team's head and
+ * as cards of rows, two a row from 42 rem of their grid, as the Übersicht sets its kinds, a team's own under the team's head and
  * closing with a card of its seats, and a lone card, such as a referee's games, at the content's width; or the K.-o.-Baum; or matches the
  * filters left, which the search narrows, as the Spielsuche lists them; or one club's matches, each in its own box
  * under its matchday's head, as a team's Spiele lists them; or the

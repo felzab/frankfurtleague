@@ -11,21 +11,20 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { getSpielPage } from "@/features/saisons/queries";
 import { publicSaisonOf } from "@/features/saisons/resolvers";
-import { eventOf, headOf, matchdayOf, sidesOf } from "@/features/spiele/blocks";
+import { eventOf, headOf, matchdayOf, refereeOf, sidesOf } from "@/features/spiele/blocks";
 import { creditedSide } from "@/features/spiele/result";
 import { roleMarkOf, spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type {
   FLAufstellungEntryPublic,
   FLAufstellungPublic,
   FLSpielberichtCardPublic,
   FLSpielberichtScorerPublic,
-  FLSpielberichtSpielerPublic,
   FLSpielJoined,
   FLSpielPageResponse,
 } from "@/core/generated/client/types";
@@ -64,7 +63,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
  * folded side by side, and its goals and cards along the dotted line. Opened from a match card, the pop-up shows
- * instead (`app/@modal/(.)saisons/[saison]/spiele/[spiel]`).
+ * instead.
  */
 export default function SpielPage({ params }: Props) {
   return (
@@ -121,8 +120,7 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
 
 /**
  * The match's five facts, a tile each, an absent one a dash: its matchday, a group matchday by its number over its
- * phase; its date, as a match row writes it, over its year; its time; its referee where the referee's name is public;
- * its venue.
+ * phase; its date, as a match row writes it, over its year; its time; its referee; its venue.
  */
 function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [StatTile, StatTile, StatTile, StatTile, StatTile] {
   const { fact } = COPY.spielplan;
@@ -133,11 +131,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
       : { label: fact.spieltag, value: matchdayOf(spiel, page), words: true },
     dateTileOf(spiel.date === null ? null : dayOf(spiel.date)),
     { label: fact.time, value: spiel.time === null ? COPY.shared.noValue : { record: formatTime(timeOf(spiel.time)) } },
-    {
-      label: fact.schiedsrichter,
-      value: spiel.schiedsrichter?.name == null ? COPY.shared.noValue : { record: spiel.schiedsrichter.name },
-      words: true,
-    },
+    { label: fact.schiedsrichter, value: refereeOf(spiel), words: true },
     spiel.spielort === null
       ? { label: fact.spielort, value: COPY.shared.noValue, words: true }
       : { label: fact.spielort, value: { record: spiel.spielort.name }, words: true, href: buildMapsSearchUrl(spiel.spielort.maps_link) },
@@ -146,7 +140,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
 
 /**
  * The date's tile: the day as a match row writes it, „Mi., 28.10.“, over its year, so the tile is no wider than a fifth
- * of the column (`kit/StatTiles.tsx`'s `five`), as the Spieltag's number stands over its phase.
+ * of the column, as the Spieltag's number stands over its phase.
  */
 function dateTileOf(day: CalendarDay | null): StatTile {
   const { date } = COPY.spielplan.fact;
@@ -156,16 +150,9 @@ function dateTileOf(day: CalendarDay | null): StatTile {
     : { label: date, value: { record: formatDateWithWeekday(day) }, line: { record: day.slice(0, 4) } };
 }
 
-/** A pupil as the public read names them: a name the consent publishes, else „anonym“; a goal nobody was named for, „unbekannt“. */
-function personOf(spieler: Pick<FLSpielberichtSpielerPublic, "type" | "first_name" | "last_name">): Words {
-  const words = SERVER_COPY.season.spiel;
-  if (spieler.type === "unknown") return words.unknown;
-  return spieler.type === "anonymous" ? words.anonymous : spielerName(spieler);
-}
-
 /** A line-up's pupil as their row names them: the captain's or the Co-Kapitän's mark after a published name, never after „anonym“. */
 function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "mark"> {
-  const name = personOf(entry);
+  const name = spielerName(entry);
   const mark = typeof name === "string" ? undefined : roleMarkOf(entry.rolle);
   return mark === undefined ? { name } : { name, mark };
 }
@@ -239,7 +226,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
         id: `k${String(index)}`,
         point: { record: card.minute },
         mark: { colour: card.colour },
-        title: words.event(words.card[card.colour], personOf(card.spieler)),
+        title: words.event(words.card[card.colour], spielerName(card.spieler)),
         detail: shorthand[card.side],
       };
     }
@@ -248,7 +235,7 @@ function eventsOf(spiel: FLSpielJoined, tore: readonly FLSpielberichtScorerPubli
     return {
       id: `t${String(index)}`,
       point: { record: tor.minute },
-      title: words.event(tor.eigentor ? words.eigentor : words.tor, personOf(tor.spieler)),
+      title: words.event(tor.eigentor ? words.eigentor : words.tor, spielerName(tor.spieler)),
       detail: SERVER_COPY.season.labelled(shorthand[tor.side], { record: formatErgebnis(score) }),
     };
   });

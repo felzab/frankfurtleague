@@ -19,19 +19,18 @@ import { PasskeyNameSchema } from "./schemas";
 /* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each calling in process,
    are the whole of the surface. */
 
-/** A stored passkey row's id, as the library mints it. */
 const PasskeyId = z.string().min(1).max(64);
 
 /** What a removal ended: this device's session, which the page then leaves, or other devices' alone. */
 type Removed = "thisDevice" | "otherDevices";
 
 /**
- * Removes one of the person's passkeys, behind the passkey touch, and every session it signed in with, the one this
- * request arrived with among them where the touch answered with this passkey: a session the removed passkey made is
- * no session of a passkey the account holds. Where that ended this device's own session the body records no write
- * and renders nothing again, since the page would render under a session that is gone: the page leaves by a document
- * load. Otherwise it reads the page again itself, the sign-in store holding what changed. The notice mail is owed
- * behind the response, so its write counts as none of this action's.
+ * Removes the passkey and every session it signed in with, the one this request arrived with among them where the
+ * touch answered with this passkey: a session the removed passkey made is no session of a passkey the account holds.
+ * Where that ended this device's own session the body records no write and renders nothing again, since the page would
+ * render under a session that is gone: the page leaves by a document load. Otherwise it reads the page again itself,
+ * the sign-in store holding what changed. The notice mail is owed behind the response, so its write counts as none of
+ * this action's.
  */
 export const removePasskeyAction = action({
   lane: "person",
@@ -67,8 +66,8 @@ export const removePasskeyAction = action({
 });
 
 /**
- * The name a passkey's row shows; the plugin checks the row is the caller's own before it writes. Off the touch's
- * fixed list, which names the acts handing access over: a name changes none.
+ * The plugin checks the row is the caller's own before it writes. Off the touch's fixed list, which names the acts
+ * handing access over: a name changes none.
  */
 export const renamePasskeyAction = action({
   lane: "person",

@@ -12,10 +12,10 @@ import { ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
-import { GlyphChoices, GlyphChoicesPlaceholder } from "./ChoiceButtons";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { entryMark } from "./fieldStyles";
+import { GlyphChoices, GlyphChoicesPlaceholder } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
@@ -23,8 +23,7 @@ import { menuEntry } from "./Link";
 import { Menu } from "./Menu";
 import { currentOf, FreshPerPage, placeOf } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
-import { railFade, railGlyph } from "./railStyles";
-import { groupHeading } from "./Section";
+import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
@@ -33,7 +32,7 @@ import { tv } from "./tv";
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
-import type { GlyphChoice } from "./ChoiceButtons";
+import type { GlyphChoice } from "./GlyphChoices";
 import type { IconName } from "./Icon";
 import type { MenuEntry, MenuLink } from "./Menu";
 
@@ -121,7 +120,6 @@ export function useHoldsSaison() {
   return useContext(SaisonContext) !== null;
 }
 
-/** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
 /** A season page's address in a season, the team the address names filled in where the page is a team's. */
@@ -206,8 +204,7 @@ export function counterpart({
   }
 
   segments[at] = to;
-  // An address built from the one the page answers at, which no literal can spell.
-  return segments.join("/") as Route;
+  return segments.join("/");
 }
 
 /**
@@ -283,8 +280,7 @@ function placeAt(account: Account, path: string) {
  * would keep every hidden route with its rows and typed text. A failure leaves the person where they are.
  */
 async function signOutAndLeave() {
-  const result = await signOut().catch(() => null);
-  if (result?.success === true) {
+  if (await signOut().catch(() => false)) {
     leaveDocumentFor("/");
     return;
   }
@@ -399,7 +395,7 @@ const railHeading = groupHeading({
 });
 
 // Where a heading folds away, a hairline as wide as a glyph fades in, centred in the 16-px gap above its
-// group, so the collapsed rail still reads in groups, as the old rail and Linear's and Vercel's collapsed
+// group, so the collapsed rail still reads in groups, as Linear's and Vercel's collapsed
 // sidebars do; none above the first group, which nothing precedes.
 const railRule = tv({
   base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
@@ -551,7 +547,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "grid min-w-0 flex-1" })}>
             {/* One line, an address standing as the name too, cut with „…“ and whole on hover, so the foot stands as
-                tall as the editor's bar beside it (`railStyles.ts :: editorBarLook`); Konto shows the whole address. */}
+                tall as the editor's bar beside it (`editorBarLook`); Konto shows the whole address. */}
             <CutText
               text={name}
               className="truncate font-semibold text-fg"

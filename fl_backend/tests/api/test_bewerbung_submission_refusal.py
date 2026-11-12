@@ -19,10 +19,8 @@ from app.api.bewerbungen.services import (
     find_repeated_contact_refusal,
     mailbox_anchor_ids,
     open_links_on,
-    owed_at_submission,
     seats_past_the_bound,
 )
-from app.api.outbox.schemas import FLBewerbungReceivedData
 from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_SIZE_MAX,
@@ -192,7 +190,10 @@ class TestTheThreeSeatsAreThreePeople:
         with pytest.raises(ValidationError) as failure:
             FLBewerbungKontaktePayload.model_validate(block)
 
-        assert seat in str(failure.value)
+        # The refusal's own message rather than the error's printed text, which repeats the input and so names the seat whatever was refused.
+        (error,) = failure.value.errors()
+        assert error["type"] == "value_error"
+        assert f"'{seat}'" in error["msg"]
 
     @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
@@ -260,22 +261,6 @@ class TestWhatTheServerComposes:
         assert composed["trainer_is_also"] == "ansprechperson"
         assert composed["stellvertretung"]["first_name"] == "Stellan"
 
-    def test_the_receipt_names_a_trainer_holding_a_second_seat_once_under_both(self):
-        """The Ansprechperson is told who is still to answer: one person, not their two seats as two people."""
-
-        block = kontakte(trainer_is_also="stellvertretung", stellvertretung=person())
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY)
-
-        [receipt] = [
-            mail.data
-            for mail in owed_at_submission(
-                bewerbung_id=PICKED_OID, kontakte=composed, saison_id="2026", schule="Zorbanax", deadline="2026-04-15", unmailed=()
-            )
-            if isinstance(mail.data, FLBewerbungReceivedData)
-        ]
-
-        assert [person.model_dump() for person in receipt.pending] == [{"first_name": "Quillhilde", "rollen": ["stellvertretung", "trainer"]}]
-
     def test_a_client_may_not_name_a_consent(self):
         """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
@@ -293,18 +278,21 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert any(entry["type"] == "extra_forbidden" for entry in failure.value.errors())
 
-    def test_a_school_website_that_is_not_an_http_url_is_refused(self):
+    @pytest.mark.parametrize(
+        "website_url",
+        [
+            pytest.param("javascript:alert(1)", id="no http url"),
+            # The admin panel shows the string and follows the host, which userinfo makes two different domains.
+            pytest.param("https://frankfurtleague.de@evil.example", id="a host behind userinfo"),
+        ],
+    )
+    def test_a_school_website_that_is_not_an_http_url_is_refused(self, website_url: str):
         """Constrained on this payload where the read model leaves it bare: acceptance parses the block through `FLPostTeamPayload`."""
 
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
-
-    @pytest.mark.parametrize("website_url", ["https://frankfurtleague.de@evil.example", "https://user:pw@evil.example"])
-    def test_a_school_website_hiding_its_host_behind_userinfo_is_refused(self, website_url: str):
-        """The admin panel renders the string and follows the host, so userinfo makes those two different domains."""
-
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+
+        assert [(error["type"], error["loc"]) for error in failure.value.errors()] == [("url_not_accepted", ("schule", "website_url"))]
 
     def test_an_empty_website_box_is_stored_as_null(self):
         """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""

@@ -25,5 +25,5 @@ prompt parks the whole fleet; the register is what stays true until the owner is
   back: queue it under the register's "Open, awaiting the owner" with its options, your
   recommendation first. Where it blocks work, build the recommended option provisionally and mark
   it so there; on the owner's return every queued question goes through the ask tool, in batches,
-  each naming the provisional build it confirms or reverses. A rule change, and any string a visitor
-  navigates by, waits for the owner.
+  each naming the provisional build it confirms or reverses. A rule change waits for the owner; a
+  string a visitor reads ships under the project's copy standard and is listed for the owner.

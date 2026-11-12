@@ -2,15 +2,15 @@ import "server-only";
 
 import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
+import { identityGetReferences } from "@/core/generated/client/sdk";
+import { identityGetReferencesBodyIdentifiersMax } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 
-import { postReferences } from "./mutations";
-
 /**
- * The most addresses one references read judges, mirroring the backend's `REFERENCES_ADDRESSES_MAX`
- * (`fl_backend/app/shared/schemas/bounds.py`): a larger batch is refused whole, every pass alike.
+ * The most addresses one references read judges, as the contract publishes it: a larger batch is refused whole, every
+ * pass alike.
  */
-export const REFERENCES_ADDRESSES_MAX = 250;
+export const REFERENCES_ADDRESSES_MAX = identityGetReferencesBodyIdentifiersMax;
 
 /** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
 type AccountSweepCount = {
@@ -21,10 +21,9 @@ type AccountSweepCount = {
 };
 
 /**
- * One pass over every sign-in account, deleting those no record references, for the scheduler
- * (`fl_frontend/src/instrumentationNode.ts :: armScheduler`), which runs one pass at a time. A store that lists
- * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it could not judge
- * or delete.
+ * One pass over every sign-in account, deleting those no record references. The scheduler runs one pass at a time. A
+ * store that lists nothing rejects, for the heartbeat to name; the pass resolves to what it did, `open` the accounts it
+ * could not judge or delete.
  */
 export async function runAccountSweep(): Promise<{ count: AccountSweepCount; open: number }> {
   const accounts = await listAccounts();
@@ -37,7 +36,8 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
     let unreferenced: readonly string[];
 
     try {
-      ({ unreferenced } = await postReferences({ identifiers: batch }));
+      // A POST that reads, the addresses in the body: a query string would put them on the access line.
+      ({ unreferenced } = await identityGetReferences({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       count.failed += batch.length;
@@ -55,12 +55,11 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
   return { count, open: count.failed };
 }
 
-/** One account, deleted only where the read answers its address unreferenced again, alone. */
 async function deleteUnreferencedAccount(address: string, count: AccountSweepCount): Promise<void> {
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenced } = await postReferences({ identifiers: [address] });
+    const { unreferenced } = await identityGetReferences({ identifiers: [address] });
     if (!unreferenced.includes(address)) return;
 
     if (await deleteAccountFor(address)) count.deleted += 1;

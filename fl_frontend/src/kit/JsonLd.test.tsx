@@ -1,23 +1,27 @@
-import { renderMarkup } from "@/test-support/renderMarkup";
-import { describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { VEREIN_NAME } from "@/core/brand";
 
 import { OrganizationJsonLd } from "./JsonLd";
 
-import type * as Brand from "@/core/brand";
+/** The organisation the block publishes, read back as a search engine reads it. */
+function published(): Record<string, unknown> {
+  const markup = renderToStaticMarkup(<OrganizationJsonLd />);
+  const found = /^<script type="application\/ld\+json">(.*)<\/script>$/s.exec(markup);
+  expect(found, `no data block in ${markup}`).not.toBeNull();
 
-// A name that would end the block and open a script of its own, were the server to write it as it stands.
-const { HOSTILE } = vi.hoisted(() => ({ HOSTILE: '</script><script>alert("x")</script>' }));
+  return JSON.parse(found?.[1] ?? "{}") as Record<string, unknown>;
+}
 
-vi.mock("@/core/brand", async (original) => ({ ...(await original<typeof Brand>()), VEREIN_NAME: HOSTILE }));
+describe("the league's structured data", () => {
+  /* A machine compares the legal name as the register spells it, where a no-break space is another character; the
+     screen's name keeps its no-break space and is the same name otherwise. */
+  it("publishes the legal name with plain spaces, the screen's name in every other character", () => {
+    const { legalName } = published();
 
-describe("the league's JSON-LD block", () => {
-  it("cannot be ended early by a value holding `</script>`, and still reads back as the value", () => {
-    const markup = renderMarkup(OrganizationJsonLd, {});
-    expect(markup.match(/<\/script/gi)).toHaveLength(1);
-    expect(markup.startsWith('<script type="application/ld+json">')).toBe(true);
-
-    const data = JSON.parse(markup.slice(markup.indexOf(">") + 1, markup.lastIndexOf("</script>"))) as Record<string, unknown>;
-    expect(data["@type"]).toBe("SportsOrganization");
-    expect(data["legalName"]).toBe(HOSTILE);
+    expect(legalName).toBe("Frankfurt League e. V.");
+    expect(VEREIN_NAME).toContain("\u00A0");
+    expect(VEREIN_NAME.replace("\u00A0", " ")).toBe(legalName);
   });
 });

@@ -70,7 +70,7 @@ type Bar = readonly [string] | readonly [string, string] | readonly [string, str
 /**
  * The frame of every public season page and every signed-in area, which a layout places around its pages.
  * From 1024 px the rail stands at the left: the logo and the wordmark, the season button, the entries in
- * their groups, the foot; the strip's toggle folds it to its glyphs (`RailState.tsx`). Below it the
+ * their groups, the foot; the strip's toggle folds it to its glyphs. Below it the
  * dark-green band stands at the top with the logo, the wordmark and the season button, and the bottom bar
  * holds the pages, „Mehr“ and the account.
  *
@@ -312,11 +312,7 @@ export function RailPage({
             />
           </Placeholder>
         ) : (
-          <h1
-            data-kit-focus="home"
-            className={heading()}>
-            {titleOf(title)}
-          </h1>
+          <h1 className={heading()}>{titleOf(title)}</h1>
         )}
         {chip !== undefined && (
           <span className="flex shrink-0 items-center gap-2">

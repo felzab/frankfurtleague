@@ -35,7 +35,7 @@ from app.api.teams.panel import (
     FLTeamPanelAufstellung,
     FLTeamPanelRegistrierung,
     FLTeamPanelSpiel,
-    FLTeamPanelTermin,
+    FLTeamPanelSpielbestaetigung,
     FLTeamSpieleResponse,
 )
 from app.api.teams.schemas import FLTeamSeat
@@ -49,6 +49,7 @@ from app.core.dependencies import (
     RegistrierungenReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
+    SnapshotSession,
     SpieleReadCollection,
     TeamsReadCollection,
     get_german_date_str,
@@ -63,7 +64,6 @@ from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
-# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
@@ -111,22 +111,10 @@ async def patch_einwilligung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
+    """Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
-    One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
-    differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
-    other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
-    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
-    to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
-    person confirmed a seat on, a past season's included.
-
-    Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
-    `evidence_state` other than the held seats' own, either choice having moved since the page was served
-    (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
-    under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
-    `media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is
-    missing (`media_age`). Each refusal writes nothing.
+    Each choice moves only where it differs from the row as the page served it, so seats answered apart keep their
+    answers to a choice not changed.
     """
 
     pressed: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
@@ -182,9 +170,9 @@ async def patch_einwilligung(
             await session.with_transaction(write)
 
 
-# What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way,
-# proposal and reason, which the Übersicht states of the team's own row alone. Never who answered.
-TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
+# What a team's pages read of the confirmation rows of its fixtures: the judgement's fields, and the answer's way and
+# proposal, which the Übersicht states of the team's own row alone. Never who answered.
+SPIELBESTAETIGUNG_ROW_FIELDS: Final[Mapping[str, int]] = {
     "saison_id": 1,
     "spiel_id": 1,
     "party": 1,
@@ -192,11 +180,10 @@ TERMIN_ROW_FIELDS: Final[Mapping[str, int]] = {
     "deadline": 1,
     "answer.kind": 1,
     "answer.vorschlag": 1,
-    "answer.reason": 1,
     "closed": 1,
 }
 
-TERMIN_ROWS_AS: Final = "termin_rows"
+SPIELBESTAETIGUNG_ROWS_AS: Final = "spielbestaetigung_rows"
 OWN_AUFSTELLUNG_AS: Final = "own_aufstellung"
 
 
@@ -228,15 +215,15 @@ def _team_spiele_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, 
                 "foreignField": "spiel_id",
                 "pipeline": [
                     {"$match": {"saison_id": saison_id, "party.kind": "team", **build_closable_filter()}},
-                    {"$project": dict(TERMIN_ROW_FIELDS)},
+                    {"$project": dict(SPIELBESTAETIGUNG_ROW_FIELDS)},
                 ],
-                "as": TERMIN_ROWS_AS,
+                "as": SPIELBESTAETIGUNG_ROWS_AS,
             }
         },
     ]
 
 
-class _Termin(NamedTuple):
+class _Spielbestaetigung(NamedTuple):
     """The team's row about a fixture as it stands, and the state its pages show of it."""
 
     row: Mapping[str, Any]
@@ -245,11 +232,13 @@ class _Termin(NamedTuple):
     vorschlag_open: FLSpielbestaetigungAppointment | None
 
 
-def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime) -> _Termin | None:
+def _spielbestaetigung_of(
+    spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[Mapping[str, Any]], now: datetime
+) -> _Spielbestaetigung | None:
     """The team's unclosed row about the fixture's Ansetzung as it stands, where it asks the team anything."""
 
     digest = ansetzung_digest_of(spiel_raw)
-    rows = [row for row in spiel_raw[TERMIN_ROWS_AS] if row["ansetzung"]["digest"] == digest]
+    rows = [row for row in spiel_raw[SPIELBESTAETIGUNG_ROWS_AS] if row["ansetzung"]["digest"] == digest]
     own = next((row for row in rows if row["party"]["team_id"] == team_id), None)
     if own is None:
         return None
@@ -267,7 +256,7 @@ def _termin_of(spiel_raw: Mapping[str, Any], *, team_id: Any, vereine: Sequence[
         spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), now=now, vorschlag_open=vorschlag_open
     )
 
-    return None if state is None else _Termin(row=own, state=state, vorschlag_open=vorschlag_open)
+    return None if state is None else _Spielbestaetigung(row=own, state=state, vorschlag_open=vorschlag_open)
 
 
 def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
@@ -275,10 +264,10 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
-    date, time = spiel_raw.get("date"), spiel_raw.get("time")
     own = spiel_raw[OWN_AUFSTELLUNG_AS]
+    stored = aufstellung_stands(own[0] if own else None)
 
-    return aufstellung_marks(date=date, time=time, stored=aufstellung_stands(own[0] if own else None, date=date, time=time, now=now), now=now)
+    return aufstellung_marks(date=spiel_raw.get("date"), time=spiel_raw.get("time"), stored=stored, now=now)
 
 
 async def _pull_team_spiele(
@@ -318,73 +307,64 @@ async def get_team_overview(
     spiele_collection: SpieleReadCollection,
     registrierungen_collection: RegistrierungenReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamOverviewResponse:
-    """
-    Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+    """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
-    The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
-    asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
-    date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal and reason until
-    the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
-    fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
-    still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
-    each with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and
-    `registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that
-    person confirmed it.
-
-    No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
-    signed-in person holds no seat on this team in this season.
+    No address, telephone number, birthdate or consent record of anybody is served.
     """
 
-    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
+    # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
+    # it serves from straddling a commit.
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
 
-        # The seat just judged lives on this row, read in the same snapshot, so it stands.
-        row = await saison_teams_collection.find_one(
-            {"saison_id": saison_id, "team_id": team_id},
-            [
-                "name",
-                "shorthand",
-                "trikot_farbe",
-                *(f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
-            ],
-            session=session,
-        )
-        club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
-        assert row is not None and club is not None
-        spiele, vereine = await _pull_team_spiele(
-            spiele_collection=spiele_collection,
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_id=team_id,
-            session=session,
-        )
-        opened = await pull_open_registrierungen(
-            registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
-        )
+    # The seat just judged lives on this row, read in the same snapshot, so it stands.
+    row = await saison_teams_collection.find_one(
+        {"saison_id": saison_id, "team_id": team_id},
+        [
+            "name",
+            "shorthand",
+            "trikot_farbe",
+            *(f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("first_name", "last_name", "einwilligung.confirmed_at")),
+        ],
+        session=session,
+    )
+    club = await teams_collection.find_one({"_id": team_id}, ["full_name"], session=session)
+    assert row is not None and club is not None
+    spiele, vereine = await _pull_team_spiele(
+        spiele_collection=spiele_collection,
+        saison_teams_collection=saison_teams_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        session=session,
+    )
+    opened = await pull_open_registrierungen(
+        registrierungen_collection=registrierungen_collection, saison_id=saison_id, team_id=team_id, session=session
+    )
 
-    termine: list[FLTeamPanelTermin] = []
+    spielbestaetigungen: list[FLTeamPanelSpielbestaetigung] = []
     aufstellungen: list[FLTeamPanelAufstellung] = []
     for spiel in sorted(spiele, key=lambda spiel: (str(spiel.get("date") or ""), str(spiel.get("time") or ""), spiel["spiel_nr"])):
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
-        if termin is not None and termin.state != "agreed":
-            answer = termin.row.get("answer") or {}
-            declined = termin.state == "declined"
-            termine.append(
-                FLTeamPanelTermin.model_validate(
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        if spielbestaetigung is not None and spielbestaetigung.state != "agreed":
+            answer = spielbestaetigung.row.get("answer") or {}
+            declined = spielbestaetigung.state == "declined"
+            spielbestaetigungen.append(
+                FLTeamPanelSpielbestaetigung.model_validate(
                     {
-                        "spielbestaetigung_id": termin.row["_id"],
+                        "spielbestaetigung_id": spielbestaetigung.row["_id"],
                         "spiel_id": spiel["_id"],
                         "ansetzung": view_ansetzung_of(spiel),
                         "side": _side_of(spiel, team_id),
-                        "state": termin.state,
-                        "deadline": termin.row["deadline"],
-                        "vorschlag": answer.get("vorschlag") if declined else termin.vorschlag_open if termin.state == "vorschlag" else None,
-                        "reason": answer.get("reason") if declined else None,
+                        "state": spielbestaetigung.state,
+                        "deadline": spielbestaetigung.row["deadline"],
+                        "vorschlag": answer.get("vorschlag")
+                        if declined
+                        else spielbestaetigung.vorschlag_open
+                        if spielbestaetigung.state == "vorschlag"
+                        else None,
                     }
                 )
             )
@@ -412,7 +392,7 @@ async def get_team_overview(
         full_name=club["full_name"],
         trikot_farbe=row.get("trikot_farbe"),
         rollen=rollen_on(subject.seats, team_id=team_id, saison_id=saison_id),
-        termine=termine,
+        spielbestaetigungen=spielbestaetigungen,
         aufstellungen=aufstellungen,
         registrierungen=[
             FLTeamPanelRegistrierung.model_validate(
@@ -445,36 +425,36 @@ async def get_team_spiele(
     saison_teams_collection: SaisonTeamsReadCollection,
     spiele_collection: SpieleReadCollection,
     records: SubjectLookup,
-    db: DBClient,
+    session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamSpieleResponse:
-    """
-    Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+    """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 
-    Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
-    state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
-    the clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about
-    the fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.
-
-    Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+    Each carries the state of the date the league asked the team to confirm and its line-up's marks, `spielbestaetigung` null where
+    no row asks the team about the fixture as it stands.
     """
 
-    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
-    async with db.start_session(snapshot=True) as session:
-        subject = await roles_of(identifier, records, session=session)
-        refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
-        spiele, vereine = await _pull_team_spiele(
-            spiele_collection=spiele_collection,
-            saison_teams_collection=saison_teams_collection,
-            saison_id=saison_id,
-            team_id=team_id,
-            session=session,
-        )
+    # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
+    # it serves from straddling a commit.
+    subject = await roles_of(identifier, records, session=session)
+    refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
+    spiele, vereine = await _pull_team_spiele(
+        spiele_collection=spiele_collection,
+        saison_teams_collection=saison_teams_collection,
+        saison_id=saison_id,
+        team_id=team_id,
+        session=session,
+    )
 
     def served(spiel: Mapping[str, Any]) -> dict[str, Any]:
-        termin = _termin_of(spiel, team_id=team_id, vereine=vereine, now=now)
+        spielbestaetigung = _spielbestaetigung_of(spiel, team_id=team_id, vereine=vereine, now=now)
 
-        return {**spiel, **matchday_of(spiel), "termin": None if termin is None else termin.state, "aufstellung": _marks_of(spiel, now)}
+        return {
+            **spiel,
+            **matchday_of(spiel),
+            "spielbestaetigung": None if spielbestaetigung is None else spielbestaetigung.state,
+            "aufstellung": _marks_of(spiel, now),
+        }
 
     return FLTeamSpieleResponse(
         team_id=team_id, saison_id=saison_id, spiele=[FLTeamPanelSpiel.model_validate(served(spiel)) for spiel in spiele]

@@ -1,8 +1,6 @@
-"""
-SHARED · the bounds more than one schema states
+"""The bounds more than one schema states, named once so two slices cannot drift apart.
 
-Named here so two slices spelling the same limit cannot drift apart. A bound only one field states
-stays at that field, and a derived one is never re-spelled as a literal.
+A bound only one field states stays at that field, and a derived one is never re-spelled as a literal.
 """
 
 from datetime import date
@@ -53,9 +51,8 @@ BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final[FLBewerbungConfirmationDeadlineDays]
 # than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
-# A declined application or registration goes as an unconfirmed one does, which the check beside
-# `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS` holds. Published as `ADDRESS_CHANGE_BOUNDS` are: the registration's decline
-# mail and the privacy notice state it, each checked against this alias.
+# A declined application or registration goes as an unconfirmed one does, which the check below holds. Published as a
+# schema of its own: the registration's decline mail and the privacy notice state it, each checked against this alias.
 type FLDeclinedRetentionDays = Literal[14]
 DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 
@@ -64,9 +61,8 @@ DECLINED_RETENTION_DAYS: Final[FLDeclinedRetentionDays] = BEWERBUNG_CONFIRMATION
 # ceiling all the same: an anonymous caller posts it.
 BEWERBUNG_TOKEN_MAX_LENGTH: Final = 128
 
-# What kit the school already owns, in its own words. Bounded on the pair that earns
-# `BEWERBUNG_DECISION_REASON_MAX_LENGTH` its own: an anonymous caller writes it, and it is stored. Lower,
-# because a colour, a count and a size need nothing like a page.
+# What kit the school already owns, in its own words, bounded because an anonymous caller writes it and it is
+# stored. Lower than a decline's reason, because a colour, a count and a size need nothing like a page.
 BEWERBUNG_TRIKOT_SET_MAX_LENGTH: Final = 500
 
 # A club's short name, on the public application and the admin payloads alike: both tiers refuse at
@@ -76,49 +72,44 @@ TEAM_NAME_MAX_LENGTH: Final = 60
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
 TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 
-# A ground's name, which every fixture at it embeds and `maps_link` composes: a school's full name's width.
+# A ground's name, which every fixture at it shows and `maps_link` composes: a school's full name's width.
 SPIELORT_NAME_MAX_LENGTH: Final = 120
 # The school a referee teaches at, named as a school's full name is.
 SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = 120
 
-# A school's homepage. `validate_external_url` reads the scheme and the host and leaves the PATH and
-# QUERY unchecked, so this bounds them. Far under what browsers accept: this is a front page.
+# A school's homepage. `validate_external_url` reads the scheme and the host and leaves the path and
+# query unchecked, so this bounds them. Far under what browsers accept: this is a front page.
 TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
 
 # The opponent a school would like on the first Spieltag, typed freely rather than picked. It takes
 # `TEAM_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
 BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
 
-# A person's name, or one part of one, wherever `app/shared/schemas/kontakt.py :: CustomKontaktName`
-# types it.
-# `PERSON_NAME_PATTERN` bounds the ALPHABET and not the length. Generous against a hyphenated
-# double name and a multi-part surname both.
+# A person's name, or one part of one. `PERSON_NAME_PATTERN` bounds the alphabet and not the length.
+# Generous against a hyphenated double name and a multi-part surname both.
 KONTAKT_NAME_MAX_LENGTH: Final = 80
 
-# The school's estimate of its squad, and the strong players inside it. A ceiling that is a SQUAD
-# SIZE, not `int32`: past this the number is a typo. Not the season's `max_kader_size`, which an
+# The school's estimate of its squad, and the strong players inside it. A ceiling that is a squad
+# size, not `int32`: past this the number is a typo. Not the season's `max_kader_size`, which an
 # application is held true against nothing of.
 BEWERBUNG_KADER_SIZE_MAX: Final = 200
 
 # How many pupils one Abi-Jahrgang holds, the ones who never play included. A ceiling that is a
-# COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
+# cohort rather than `int32`: no German school graduates a thousand pupils in one year.
 BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 
-# Published as `ADDRESS_CHANGE_BOUNDS` are: the generated module holding the pattern is server-only, so a control caps a
-# code at `fl_frontend/src/features/bewerbungen/constants.ts :: SHORTHAND_LENGTH`, which is checked against this alias.
+# Published as a schema of its own: the generated module holding the pattern is server-only, so the frontend's control
+# caps a code at a constant of its own, which is checked against this alias.
 type FLTeamShorthandLength = Literal[3]
 TEAM_SHORTHAND_LENGTH: Final[FLTeamShorthandLength] = 3
 
 SAISON_ID_LENGTH: Final = 4
 
-# Two names for one number, deliberately: one answers what a client may ask for, the other what it
-# gets by asking for nothing. Collapsing them would let a raised ceiling raise every page as well.
+# The most rows one list read takes: no request names a page size, so every list is cut here alone.
 LIST_LIMIT_DEFAULT: Final = 1024
-LIST_LIMIT_MAX: Final = 1024
 
-# The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
-# over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
+# The most addresses one references call judges, each costing about a millisecond, so one call stays far inside the
+# request deadline on a slow server.
 REFERENCES_ADDRESSES_MAX: Final = 250
 
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
@@ -126,8 +117,8 @@ REFERENCES_ADDRESSES_MAX: Final = 250
 # no calendar months.
 ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
-# One page of the Protokoll. Published as `ADDRESS_CHANGE_BOUNDS` are: „Weitere 50 laden“ states the figure, and
-# `fl_frontend/src/core/copy.ts` checks its constant against this alias.
+# One page of the Protokoll. Published as a schema of its own: „Weitere 50 laden“ states the figure, and the frontend
+# checks its constant against this alias.
 type FLActionLogPageSize = Literal[50]
 ACTION_LOG_PAGE_SIZE: Final[FLActionLogPageSize] = 50
 
@@ -143,15 +134,15 @@ ACTION_LOG_SEARCH_MAX_LENGTH: Final = 200
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 BAN_REASON_MAX_LENGTH: Final = 500
 
-# Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
-# `BAN_REASON_MAX_LENGTH`'s figure for its reason.
+# Why a team is out of a season, in an administrator's words on the team's public page: a sentence, as a
+# ban's reason is.
 AUSTRITT_REASON_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, its log row's label: a mail's date and subject fit,
 # and the log keeps it twelve months, so a letter does not.
 ERASURE_REASON_MAX_LENGTH: Final = 200
 
-# How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
+# How many full seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
 type FLBanDurationSaisons = Literal[5]
 BAN_DURATION_SAISONS: Final[FLBanDurationSaisons] = 5
@@ -161,8 +152,8 @@ type FLSchiedsrichterConfirmationDeadlineDays = Literal[14]
 SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS: Final[FLSchiedsrichterConfirmationDeadlineDays] = 14
 
 # How long a step of an address change waits from its asking: the new mailbox's link, or the question
-# the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
-# (read 2026-10-20).
+# the person's own change asks the address on file. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code
+# at 24 hours.
 type FLAddressChangeValidHours = Literal[24]
 ADDRESS_CHANGE_VALID_HOURS: Final[FLAddressChangeValidHours] = 24
 
@@ -171,16 +162,16 @@ ADDRESS_CHANGE_VALID_HOURS: Final[FLAddressChangeValidHours] = 24
 type FLAddressChangeWaitingPeriodDays = Literal[7]
 ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final[FLAddressChangeWaitingPeriodDays] = 7
 
-# Published as schemas of their own (`app/main.py :: with_mirrored_constants`), though no operation names one: the
-# privacy notice, the mails and the link page state both figures, and `fl_frontend/src/core/addressChange.ts` checks
-# its constants against them, so a bound moved here alone fails the frontend's type check rather than the notice
-# stating a figure the backend no longer keeps. Each value is typed by its alias, so neither moves without the other.
+# Published as schemas of their own, though no operation names one: the privacy notice, the mails and the link page
+# state both figures, and the frontend checks its constants against them, so a bound moved here alone fails the
+# frontend's type check rather than the notice stating a figure the backend does not keep. Each value is typed by its
+# alias, so neither moves without the other.
 ADDRESS_CHANGE_BOUNDS: Final = (FLAddressChangeValidHours, FLAddressChangeWaitingPeriodDays)
 
 # The largest squad a season's `max_kader_size` may set, and the first season's own: the edge's link pages are sized for a
-# squad this large behind one school's address (`nginx/shared/site.conf :: location /confirm/`), so a larger cap would
-# meet the edge's 429 rather than the league's rule. Published as the field's `maximum`, which the season editor's
-# generated check words; `scripts/checks/check_public_routes.py` holds the edge's bursts to it.
+# squad this large behind one school's address (the edge's `/confirm/` location), so a larger cap would meet the edge's
+# 429 rather than the league's rule. Published as the field's `maximum`, which the season editor's generated check
+# words; the public routes' check holds the edge's bursts to it.
 KADER_SIZE_MAX: Final = 50
 
 # How long an addition, or an administrator's own address change, waits. Each hands out lasting power, so every holder has
@@ -205,20 +196,19 @@ MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
 # dated inside it is due the day it is asked.
 SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7
 # Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS` and
-# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links: the edge's error log accepts a
-# link's token because it answers nothing past such a deadline.
+# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
 SPIEL_REMINDER_DAYS: Final = 3
 
-# `BAN_REASON_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
-# decline's reason is nor kept on a log row as an erasure's reference is.
+# A sentence read on a card, as a ban's reason is, neither mailed as a decline's reason is nor kept on a
+# log row as an erasure's reference is.
 SPIELBESTAETIGUNG_REASON_MAX_LENGTH: Final = 500
 
 # A report's remarks on one match, whoever writes them, bounded on the payload alone, which keeps the report far under
 # BSON's document ceiling.
 SPIELBERICHT_REMARKS_MAX_LENGTH: Final = 2000
-# The most scorers, and the most cards, one report lists, for the remarks' reason.
+# The most scorers, and the most cards, one report lists, which keeps the report far under BSON's ceiling too.
 SPIELBERICHT_ENTRIES_MAX: Final = 60
 
 # A line-up's three marks, each counted back from its fixture's kick-off, here and nowhere else: from the first a team
@@ -235,8 +225,8 @@ AUFSTELLUNG_LOCK_HOURS: Final = 1
 if not (AUFSTELLUNG_LOCK_HOURS < 24 * AUFSTELLUNG_DUE_DAYS - 1 and AUFSTELLUNG_DUE_DAYS < AUFSTELLUNG_REMINDER_DAYS):
     raise RuntimeError("A line-up's marks nest: the lock inside the due mark, the due mark inside the reminder's.")
 
-# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it. Published as
-# `ADDRESS_CHANGE_BOUNDS` are: the line-up's screen caps its „Startelf“ ticks and disables a nominee's „Aufstellen“ at it.
+# How many of a line-up start: a side fields eleven. A nominee is named only into the gap below it. Published as a
+# schema of its own: the line-up's screen caps its „Startelf“ ticks and disables a nominee's „Aufstellen“ at it.
 type FLAufstellungStartersMax = Literal[11]
 AUFSTELLUNG_STARTERS_MAX: Final[FLAufstellungStartersMax] = 11
 
@@ -262,15 +252,14 @@ if not DECLINED_RETENTION_DAYS == BEWERBUNG_CONFIRMATION_DEADLINE_DAYS == REGIST
 type FLRegistrierungMinAgeYears = Literal[16]
 REGISTRIERUNG_MIN_AGE_YEARS: Final[FLRegistrierungMinAgeYears] = 16
 
-# ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
+# One constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `media`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed.
 type FLMediaMinAgeYears = Literal[18]
 MEDIA_MIN_AGE_YEARS: Final[FLMediaMinAgeYears] = 18
 
-# Published as `ADDRESS_CHANGE_BOUNDS` are, for the same reason: the privacy notice and the consent pages state each
-# figure, and `fl_frontend/src/features/bewerbungen/constants.ts`, `registrierungen/constants.ts` and
-# `schiedsrichter/constants.ts` check their constants against these aliases.
+# Published as schemas of their own: the privacy notice and the consent pages state each figure, and the frontend
+# checks its constants against these aliases.
 CONSENT_BOUNDS: Final = (
     FLBewerbungConfirmationDeadlineDays,
     FLBewerbungKontaktMinAgeYears,
@@ -281,11 +270,11 @@ CONSENT_BOUNDS: Final = (
     FLMediaMinAgeYears,
 )
 
-# The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout (read 2026-10-15):
+# The frontend's administrator cap, NIST SP 800-63B-4 §2.2.3's AAL2 overall timeout:
 # the backend refuses an administrator's session whose sign-in is older, as a looser backend honours a
 # session the frontend believes gone.
 ADMIN_WINDOW_HOURS: Final = 24
 
 # The frontend ends a person's session this long after its sign-in however recently it was used, and
-# the backend refuses a person-lane token whose sign-in is older, for the administrator's reason above.
+# the backend refuses a person-lane token whose sign-in is older, lest it honour a session the frontend believes gone.
 PERSON_WINDOW_DAYS: Final = 30

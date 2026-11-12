@@ -28,7 +28,6 @@ const day = <Stored extends z.ZodType>(stored: Stored) => z.union([stored, z.nul
 /** What the editor's boxes send, each held to the season write's own published rule for it. */
 const SaveSaison = z.object({
   id: SaisonsPatchSaisonParams.shape.saison_id,
-  // The season's version as the editor read it.
   version: shape.version,
   changes: z
     .object({

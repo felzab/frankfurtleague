@@ -50,8 +50,8 @@ const spelledIn = (...files: readonly string[]): Set<string> => {
 
 describe("each form's posted names meet its lane's keys", () => {
   it("loses no box of the referee create dialog", async () => {
-    const { createSchiedsrichter } = await import("@/app/admin/(liste)/schiedsrichter/createSchiedsrichter");
-    const { SchiedsrichterFields } = await import("@/app/admin/(liste)/schiedsrichter/SchiedsrichterFields");
+    const { createSchiedsrichter } = await import("@/app/admin/(list)/schiedsrichter/createSchiedsrichter");
+    const { SchiedsrichterFields } = await import("@/app/admin/(list)/schiedsrichter/SchiedsrichterFields");
 
     expect(namesIn(<SchiedsrichterFields />).toSorted()).toStrictEqual(keysOf(createSchiedsrichter));
   });
@@ -64,9 +64,22 @@ describe("each form's posted names meet its lane's keys", () => {
     expect(namesIn(<SpielortFields rules={SPIELORT_RULES} />).toSorted()).toStrictEqual(keysOf(createSpielort));
   });
 
+  it("loses no box of the season create dialog", async () => {
+    const { createSaison } = await import("@/features/saisons/createSaison");
+    const { CreateFields } = await import("@/app/admin/(list)/saisons/CreateFields");
+    const names = namesIn(
+      <CreateFields
+        next={{ start: null, end: null }}
+        required={{ start: true, end: true }}
+      />,
+    );
+
+    expect(names.toSorted()).toStrictEqual(keysOf(createSaison));
+  });
+
   it("loses no box of a new school's entry", async () => {
-    const { enterTeam } = await import("@/app/admin/(liste)/saisons/[saison]/teams/enterTeam");
-    const { TeamEntryFields } = await import("@/app/admin/(liste)/saisons/[saison]/teams/TeamEntryFields");
+    const { enterTeam } = await import("@/app/admin/(list)/saisons/[saison]/teams/enterTeam");
+    const { TeamEntryFields } = await import("@/app/admin/(list)/saisons/[saison]/teams/TeamEntryFields");
     const { TEAM_ENTRY_RULES } = await import("@/features/teams/fieldRules");
     const names = namesIn(
       <TeamEntryFields
@@ -144,12 +157,11 @@ describe("each form's posted names meet its lane's keys", () => {
   });
 
   it.each([
-    ["the season create dialog", "@/features/saisons/createSaison", "createSaison", ["app/admin/(liste)/saisons/CreateFields.tsx"]],
     [
       "a Zusage's dialog",
-      "@/app/admin/(liste)/saisons/[saison]/enterZusage",
+      "@/app/admin/(list)/saisons/[saison]/enterZusage",
       "enterZusage",
-      ["app/admin/(liste)/saisons/[saison]/page.tsx", "app/admin/(liste)/saisons/[saison]/ZusageDialog.tsx"],
+      ["app/admin/(list)/saisons/[saison]/page.tsx", "app/admin/(list)/saisons/[saison]/ZusageDialog.tsx"],
     ],
     ["the address change's box", "@/features/account/personActions", "startAddressChange", ["app/account/(pages)/signin/SignInBoxes.tsx"]],
     ["a passkey's rename", "@/features/passkeys/actions", "renamePasskeyAction", ["app/account/(pages)/security/SecurityBoxes.tsx"]],
@@ -168,9 +180,9 @@ describe("each form's posted names meet its lane's keys", () => {
     ],
     [
       "an application's „Sitz bearbeiten“",
-      "@/app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat",
+      "@/app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/writeSeat",
       "writeSeat",
-      ["features/teams/components/forms/SeatActs.tsx", "app/admin/(liste)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx"],
+      ["features/teams/components/forms/SeatActs.tsx", "app/admin/(list)/saisons/[saison]/bewerbungen/[bewerbung]/page.tsx"],
     ],
   ])("loses no key of %s", async (_, module, lane, files) => {
     const loaded = (await import(/* @vite-ignore */ module)) as Record<string, unknown>;

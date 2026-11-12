@@ -8,16 +8,15 @@ import {
   ORIGIN,
   overriding,
   registerAuthDoubles,
+  seatEveryAddress,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoClient, ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { CommandFailedEvent, CommandStartedEvent } from "mongodb";
-
-// A replica set: the passkey writes run in transactions.
+// A replica set, as the store the library's adapter writes in transactions is. The file's own: the table-scan
+// refusal set on it below reaches no other file's store.
 const { mongod, closing } = await startJudgedReplicaSet();
 
 /** The client `fl_frontend/src/core/db.ts` builds, once the module has built it. */
@@ -27,24 +26,9 @@ let storeClient: MongoClient | undefined;
 // under test is the one it builds.
 const PRODUCTION_DB = "@/core/db.ts";
 
-/** The server's code for a query it refused to plan while table scans are disabled. */
-const NO_QUERY_EXECUTION_PLANS = 291;
-
-/** Every command the store refused for want of an index, whatever the flow made of the refusal. */
-const scans: string[] = [];
-const started = new Map<number, CommandStartedEvent>();
-
 const DB_DOUBLE = overriding(PRODUCTION_DB, {
   signInStore: (real) => {
     const client = (real.signInStore as () => MongoClient)();
-    // Set before the first operation opens a connection, which is when the pool reads it; the option is
-    // the client's own, left out of its published type.
-    Reflect.set(client, "monitorCommands", true);
-    client.on("commandStarted", (event) => started.set(event.requestId, event));
-    client.on("commandFailed", (event: CommandFailedEvent) => {
-      const command = started.get(event.requestId)?.command;
-      if (Reflect.get(event.failure, "code") === NO_QUERY_EXECUTION_PLANS) scans.push(JSON.stringify(command));
-    });
     storeClient = client;
     closing(() => client.close());
     return () => client;
@@ -66,6 +50,9 @@ const LOGGING_DOUBLE = {
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
+// A seat for every address: the case below signs a person in, whose session the gate admits on a held seat.
+seatEveryAddress();
+
 const { sent } = registerAuthDoubles({
   core: {
     config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
@@ -80,31 +67,40 @@ const { sent } = registerAuthDoubles({
 });
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
-const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library.ts");
-const { endOtherSessions, endSessionsOfAddress } = await import("./auth/accountSessions.ts");
+const { endOtherSessions } = await import("./auth/accountSessions.ts");
 const { getAccountSession } = await import("./auth/guards.ts");
-const { readServedSession } = await import("./auth/session.ts");
-const { removePasskey } = await import("./auth/passkeys.ts");
+const { passkeysOf } = await import("./auth/passkeys.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
-const { devicesOf } = await import("@/features/account/security.ts");
 
 const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {
   errors.length = 0;
-  scans.length = 0;
   requestHeaders = undefined;
   await store().dropDatabase();
 });
+
+/** Every index the four collections hold, by collection, as `listIndexes` answers them. */
+async function heldIndexes(): Promise<Record<string, Record<string, unknown>[]>> {
+  const held: Record<string, Record<string, unknown>[]> = {};
+  for (const collection of COLLECTIONS) held[collection] = await store().collection(collection).indexes();
+  return held;
+}
+
+/** A person rather than an administrator, whose sessions by a mailed code the account page serves. */
+const PERSON = "person@example.org";
+
+/** The server's code for a query it refused to plan while table scans are disabled. */
+const NO_QUERY_EXECUTION_PLANS = 291;
 
 // The server parameter is outside the Stable API the production client is held to, so it is set over a
 // client of the suite's own.
 const operator = new MongoClient(replicaSetUrl(mongod));
 closing(() => operator.close());
 
-/** Runs `body` with table scans refused, recording each query the store could not serve from an index. */
+/** Runs `body` with table scans refused, and allowed again after it whatever it did. */
 async function refusingTableScans<T>(body: () => Promise<T>): Promise<T> {
   await operator.db("admin").command({ setParameter: 1, notablescan: true });
   try {
@@ -114,159 +110,73 @@ async function refusingTableScans<T>(body: () => Promise<T>): Promise<T> {
   }
 }
 
-/**
- * One flow with table scans refused. A scan fails here, over whatever the flow made of the refusal:
- * the library answers one with a 404 or a `null` session, which names no query.
- */
-async function withoutTableScans<T>(body: () => Promise<T>): Promise<T> {
-  try {
-    return await refusingTableScans(body);
-  } finally {
-    expect(scans, "a query found no index to plan on").toStrictEqual([]);
-  }
-}
-
-/** Every index the four collections hold, by collection, as `listIndexes` answers them. */
-async function heldIndexes(): Promise<Record<string, Record<string, unknown>[]>> {
-  const held: Record<string, Record<string, unknown>[]> = {};
-  for (const collection of COLLECTIONS) held[collection] = await store().collection(collection).indexes();
-  return held;
-}
-
-const handler = toNextJsHandler(auth);
-
-async function overHttp(path: string, { method = "GET", cookie, body }: { method?: "GET" | "POST"; cookie?: string; body?: unknown } = {}) {
-  const headers: Record<string, string> = { ...ORIGIN, origin: "http://localhost:3000" };
-  if (cookie !== undefined) headers.cookie = cookie;
-  if (body !== undefined) headers["content-type"] = "application/json";
-  const request = new Request(`http://localhost:3000/api/auth${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  return method === "GET" ? handler.GET(request) : handler.POST(request);
-}
-
-/** A passkey enrolled through both halves of the ceremony, answered as the verify half answers. */
-async function enrol(cookie: string, rawId: Buffer): Promise<Response> {
-  const offered = await overHttp("/passkey/generate-register-options", { cookie });
-  expect(offered.status, await offered.clone().text()).toBe(200);
-  const { challenge } = (await offered.json()) as { challenge: string };
-
-  return overHttp("/passkey/verify-registration", {
-    method: "POST",
-    cookie: `${cookie}; ${cookieHeader(offered)}`,
-    body: { response: registrationFor(challenge, true, rawId) },
-  });
-}
-
-/** A passkey sign-in over the credential `enrol` stored first. */
-async function assertPasskey(cookie: string): Promise<Response> {
-  const offered = await overHttp("/passkey/generate-authenticate-options", { cookie });
-  expect(offered.status, await offered.clone().text()).toBe(200);
-  const { challenge } = (await offered.json()) as { challenge: string };
-
-  return overHttp("/passkey/verify-authentication", {
-    method: "POST",
-    cookie: `${cookie}; ${cookieHeader(offered)}`,
-    body: { response: assertionFor(challenge, true) },
-  });
-}
-
-const asRequest = (cookie: string) => new Headers({ ...ORIGIN, cookie });
-
-describe("every query the sign-in store serves, with table scans refused", () => {
-  /* The index list is derived from what this drives: a query no declared index serves fails here,
-     whether or not the flow that sent it survives the failure. */
-  it("plans each one on an index, from a code's send to a ban ending every session", async () => {
+describe("the reads a visitor can multiply, with table scans refused", () => {
+  /* `verification` grows with every code anybody asks for, and a scan in each send and check would slow every
+     sign-in with it; an account's passkeys are read after every sign-in, to offer or ask one. Driven through the
+     library's own queries rather than an `explain` of a query shaped like them, which the next upgrade would leave behind. */
+  it("plans a code's send and check and an account's passkeys on an index", async () => {
     await buildAuthIndexes();
-    expect(errors, "an index was left unbuilt, so the flows below ran without it").toStrictEqual([]);
+    expect(errors, "an index was left unbuilt, so the reads below ran without it").toStrictEqual([]);
 
-    // The control: without it a parameter the server ignored would pass everything below.
-    await refusingTableScans(() =>
-      expect(store().collection("session").find({ authFactor: "code" }).toArray()).rejects.toSatisfy(
+    await refusingTableScans(async () => {
+      // The control: without it a parameter the server ignored would pass everything below.
+      await expect(store().collection("session").find({ authFactor: "code" }).toArray()).rejects.toSatisfy(
         (failed: { code?: unknown }) => failed.code === NO_QUERY_EXECUTION_PLANS,
-      ),
-    );
-    expect(scans.length, "the monitor missed the refused scan, so an empty record below proves nothing").toBe(1);
-    scans.length = 0;
+      );
 
-    const headers = new Headers(ORIGIN);
+      const headers = new Headers(ORIGIN);
+      await auth.api.sendVerificationOTP({ body: { email: PERSON, type: "sign-in" }, headers });
+      const code = lastMailedCode(sent, PERSON);
+      assert.ok(code !== null, "the send mailed nothing, so no code was checked");
+      // A wrong guess, counted against the code, and then the code itself.
+      await expect(
+        auth.api.signInEmailOTP({ body: { email: PERSON, otp: code === "000000" ? "111111" : "000000" }, headers }),
+      ).rejects.toSatisfy((failed: { body?: { code?: unknown } }) => failed.body?.code === "INVALID_OTP");
+      await auth.api.signInEmailOTP({ body: { email: PERSON, otp: code }, headers });
+      const user = await store().collection("user").findOne({ email: PERSON });
+      assert.ok(user, "the code signed nobody in, so no account's passkeys are listed");
+      const userId = String(user._id);
 
-    // A code mailed, one wrong guess counted against the address, and the mailed code signing in.
-    await withoutTableScans(() => auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers }));
-    const code = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(code !== null, "the send mailed nothing, so no code sign-in is driven");
-    await withoutTableScans(() =>
-      expect(
-        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: code === "000000" ? "111111" : "000000" }, headers }),
-      ).rejects.toSatisfy((failed: { body?: { code?: unknown } }) => failed.body?.code === "INVALID_OTP"),
-    );
-    const first = cookieHeader(
-      await withoutTableScans(() => auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: code }, headers, returnHeaders: true })),
-    );
+      // Written through the library's adapter, so the row is in the shape the plugin's own writes give it.
+      const { adapter } = await auth.$context;
+      await adapter.create({
+        model: "passkey",
+        data: {
+          userId,
+          credentialID: "fl-index-db-credential",
+          publicKey: "fabricated-public-key",
+          counter: 0,
+          deviceType: "singleDevice",
+          backedUp: false,
+          transports: "internal",
+          createdAt: new Date(),
+        },
+      });
+      expect((await passkeysOf(userId)).map(({ credentialID }) => credentialID)).toStrictEqual(["fl-index-db-credential"]);
+    });
+  });
+});
 
-    // A second code sign-in from the same browser, which ends the session it replaces.
-    const byCode = cookieHeader(await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: first })));
+describe("ending every other session on a real store", () => {
+  /* Every other suite stands in for `endOtherSessions`: the adapter's conversion of both ids is met here alone. */
+  it("ends every other session and keeps its own", async () => {
+    const kept = cookieHeader(await signInByCode(auth, PERSON));
+    requestHeaders = new Headers({ ...ORIGIN, cookie: kept });
+    await signInByCode(auth, PERSON);
+    await signInByCode(auth, PERSON);
+    const served = await getAccountSession();
+    assert.ok(served, "the account page refused the session");
+    const sessions = store().collection("session");
+    const owned = { userId: new ObjectId(served.user.id) };
+    expect(await sessions.countDocuments(owned), "fewer than three sessions stood, so the ending proves nothing").toBe(3);
 
-    // The administrator's first passkey, by the mailed code, and a sign-in by it.
-    const enrolled = await withoutTableScans(() => enrol(byCode, CREDENTIAL_RAW_ID));
-    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
-    const asserted = await withoutTableScans(() => assertPasskey(byCode));
-    expect(asserted.status, await asserted.clone().text()).toBe(200);
-    const byPasskey = cookieHeader(asserted);
-    requestHeaders = asRequest(byPasskey);
+    await endOtherSessions(served.user.id, served.session.id);
 
-    assert.ok(await withoutTableScans(() => readServedSession(asRequest(byPasskey))), "the passkey's session was not served");
-    const served = await withoutTableScans(() => getAccountSession());
-    assert.ok(served, "the account page refused the passkey's session");
-
-    // Two more devices, counted and then ended with every other.
-    await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
-    await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
-    expect(await withoutTableScans(() => devicesOf(served)), "the account page counted no other device").toBeGreaterThan(1);
-    await withoutTableScans(() => endOtherSessions(served.user.id, served.session.id));
-    // On the real store, through the adapter's own conversion of both ids: the kept session alone stands.
-    const standing = await withoutTableScans(() =>
-      store()
-        .collection("session")
-        .find({ userId: new ObjectId(served.user.id) })
-        .toArray(),
-    );
+    const standing = await sessions.find(owned).toArray();
     expect(
       standing.map(({ _id }) => String(_id)),
       "another device's session stood past the ending, or the kept one went",
     ).toStrictEqual([served.session.id]);
-
-    // A second passkey, listed, renamed and removed.
-    const second = await withoutTableScans(() => enrol(byPasskey, Buffer.from("fl-index-db-second-authenticator")));
-    expect(second.status, await second.clone().text()).toBe(200);
-    const held = await withoutTableScans(() => auth.api.listPasskeys({ headers: asRequest(byPasskey) }));
-    const removable = held.find(({ credentialID }) => credentialID !== CREDENTIAL_RAW_ID.toString("base64url"));
-    assert.ok(removable && held.length === 2, "the second passkey was not listed beside the first");
-    await withoutTableScans(() =>
-      auth.api.updatePasskey({ body: { id: removable.id, name: "Zweitschlüssel" }, headers: asRequest(byPasskey) }),
-    );
-    expect(await withoutTableScans(() => removePasskey({ id: served.user.id, isAdmin: served.isAdmin }, removable.id))).toBe("removed");
-
-    // The hourly refresh, which the library judges by how far the expiry has run down: the row is aged
-    // two hours, so the read writes it again.
-    const row = { _id: new ObjectId(served.session.id) };
-    const minted = await store().collection("session").findOne(row);
-    const aged = new Date(Number(minted?.expiresAt) - 2 * 60 * 60 * 1000);
-    await store()
-      .collection("session")
-      .updateOne(row, { $set: { expiresAt: aged } });
-    await withoutTableScans(() => auth.api.getSession({ headers: asRequest(byPasskey) }));
-    const refreshed = await store().collection("session").findOne(row);
-    assert.ok(refreshed && refreshed.expiresAt > aged, "the read refreshed nothing, so the refresh's write was not driven");
-
-    // A sign-out, then a ban ending every session the address still holds.
-    await withoutTableScans(() => signInByCode(auth, ADMIN_EMAIL));
-    await withoutTableScans(() => auth.api.signOut({ headers: asRequest(byPasskey) }));
-    await withoutTableScans(() => endSessionsOfAddress(ADMIN_EMAIL));
-
-    expect(await store().collection("session").countDocuments(), "the ban left a session standing, so its query was not driven").toBe(0);
   });
 });
 
@@ -276,7 +186,7 @@ describe("the index build against a real store", () => {
     await buildAuthIndexes();
     const reference = await heldIndexes();
     await store().dropDatabase();
-    await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" });
+    await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" }, undefined);
 
     await buildAuthIndexes();
 

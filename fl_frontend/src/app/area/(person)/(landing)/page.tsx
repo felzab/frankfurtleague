@@ -19,7 +19,6 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 export default function AreaPage() {
   return (
     <StatusPage
-      frame="rail"
       scope="area"
       title={{ route: "area" }}
       card={readChoices()}

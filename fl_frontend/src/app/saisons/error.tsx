@@ -11,7 +11,6 @@ export default function SaisonsError({ error }: { error: unknown }) {
   useReportClientCrash(error);
   return (
     <StatusPage
-      frame="rail"
       scope="saison"
       title={COPY.shared.failure.unexpected}
       card={{ tone: "danger", next: { label: COPY.shared.end.toHome, href: ROUTES.home.path() } }}

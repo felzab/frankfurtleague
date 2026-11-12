@@ -52,7 +52,7 @@ def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
         kontakte={
             "trainer": kontaktperson_document(f"{name}trainer", confirmed_at="2026-03-01"),
             "ansprechperson": kontaktperson_document(f"{name}kontakt", confirmed_at="2026-03-01"),
-            "stellvertretung": kontaktperson_document(f"{name}vertretung"),
+            "stellvertretung": kontaktperson_document(f"{name}deputy"),
             "trainer_is_also": None,
         },
         **fields,

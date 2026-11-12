@@ -1,16 +1,13 @@
-"""
-SHARED · the evidence each consent choice keeps, and the one way a writer composes it
+"""Art. 7(1) DSGVO puts the proof of a consent on the league.
 
-Art. 7(1) DSGVO puts the proof of a consent on the league. Each choice a person makes on their
-record, `scope` and `media`, keeps when they set it and under which wording, and a withdrawal keeps
-the grant it ended: proof for as long as the record stands, bounded at one act per choice.
+Each choice a person makes on their record, `scope` and `media`, keeps when they set it and under
+which wording, and a withdrawal keeps the grant it ended: proof for as long as the record stands,
+bounded at one act per choice.
 
 Invariants:
 - Only the person's own writes grant a choice or stamp its evidence, an admission renewing from their own
   registration and a restore replaying their journalled withdrawal among them; no administrative write does.
 - A choice and its evidence move in one update, never one without the other.
-
-See: docs/glossary.md
 """
 
 import hashlib
@@ -29,7 +26,7 @@ CHOICES: Final[tuple[FLEinwilligungChoice, ...]] = ("scope", "media")
 # one press stand beside two wordings.
 type TextVersions = Mapping[FLEinwilligungChoice, str]
 
-# The values that GRANT, across both vocabularies; every other value of a choice withholds. A
+# The values that grant, across both vocabularies; every other value of a choice withholds. A
 # contact seat's `kontakt_data` is the acknowledgement alone, and WhatsApp the consent on top of it.
 _GIVING: Final[Mapping[str, tuple[object, ...]]] = {"scope": ("kader_public", "kontakt_data_whatsapp"), "media": (True,)}
 
@@ -102,18 +99,18 @@ def evidence_state_of(*, blocks: Sequence[Any]) -> dict[str, str | None]:
     would re-grant what the second withdrew.
     """
 
-    stand: dict[str, str | None] = {}
+    state: dict[str, str | None] = {}
     # Every choice, never a subset: a press moves both, so a stand over one would let the other move unseen.
     for choice in CHOICES:
         values_and_evidence = [[block.get(choice), _evidence_of(block, choice)] for block in blocks if isinstance(block, Mapping)]
         if all(receipt is None for _, receipt in values_and_evidence):
-            stand[choice] = None
+            state[choice] = None
             continue
         # Sorted keys and `sha256`, never `hash()`, whose seed changes per process.
         canonical = json.dumps(values_and_evidence, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
-        stand[choice] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        state[choice] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-    return stand
+    return state
 
 
 def receipt_of(block: Mapping[str, Any], choice: FLEinwilligungChoice) -> tuple[datetime, dict[str, str]] | None:

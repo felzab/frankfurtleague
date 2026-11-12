@@ -4,7 +4,8 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { linkInvalid, TO_ACCOUNT } from "@/kit/MailedPage";
+import { linkInvalid } from "@/kit/mailedLinkState";
+import { TO_ACCOUNT } from "@/kit/MailedPage";
 import { z } from "zod";
 
 import { action, PAGE_HOLDER } from "@/core/action";
@@ -12,6 +13,15 @@ import { deleteOwnAccount, DeletionOutcomeUnknown, requestAccountDeletion } from
 import { endOtherSessions } from "@/core/auth/accountSessions";
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
+import {
+  accountDeleteAddressChange,
+  accountPostAddressChange,
+  bewerbungenPatchEinwilligung,
+  registrierungenPatchEinwilligung,
+  schiedsrichterPatchEinwilligung,
+  spielerPatchEinwilligung,
+  teamsPatchEinwilligung,
+} from "@/core/generated/client/sdk";
 import {
   BewerbungenPatchEinwilligungBody,
   BewerbungenPatchEinwilligungParams,
@@ -28,12 +38,6 @@ import { forgetMailedLink } from "@/core/mailedLink";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { SignInAddressSchema } from "@/features/auth/schemas";
-import { patchBewerbungEinwilligung, patchSeatEinwilligung } from "@/features/kontakte/mutations";
-import { patchRegistrierungEinwilligung } from "@/features/registrierungen/mutations";
-import { patchSchiedsrichterAccountEinwilligung } from "@/features/schiedsrichter/mutations";
-import { patchSpielerAccountEinwilligung } from "@/features/spieler/mutations";
-
-import { eraseOwnRecords, requestAccountAddressChange, stopAccountAddressChange } from "./mutations";
 
 import type { ActionAnswer } from "@/core/action";
 import type { EndState } from "@/kit/MailedPage";
@@ -42,14 +46,13 @@ import type { EndState } from "@/kit/MailedPage";
 const HOLDER_ALONE = z.object(PAGE_HOLDER);
 
 /**
- * Completes a mailed deletion link: the league's records, then the account, behind the passkey touch for a person
- * holding one. The deletion ends the caller's own session, so a done one leads to a page needing none rather than
- * answering: Next renders the posting page again after an action writes a cookie, and the library deletes the session's
- * cookie, but a `redirect` from the body renders the destination alone, the builder having cleared the site's tag on
- * its way out. A link the library refuses, spent, lapsed or another account's, ends as the link no longer valid, with
- * nothing erased; so does one the library spent on a press the backend's erasure then refused, which leads to Konto,
- * where a fresh link is asked for. A press failing past the spent link with its outcome unknown reads the stale-page
- * line, as the passkey removal's does: a reload shows whether the account stands.
+ * The league's records go first, then the account. The deletion ends the caller's own session, so a done one leads to a
+ * page needing none rather than answering: Next renders the posting page again after an action writes a cookie, and
+ * the library deletes the session's cookie, but a `redirect` from the body renders the destination alone, the builder
+ * having cleared the site's tag on its way out. A link the library refuses, spent, lapsed or another account's, ends as
+ * the link no longer valid, with nothing erased; so does one the library spent on a press the backend's erasure then
+ * refused, which leads to Konto, where a fresh link is asked for. A press failing past the spent link with its outcome
+ * unknown reads the stale-page line: a reload shows whether the account stands.
  */
 export const eraseAccount = action({
   lane: "person",
@@ -66,7 +69,7 @@ export const eraseAccount = action({
 
     let outcome: Awaited<ReturnType<typeof deleteOwnAccount>>;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => eraseOwnRecords());
+      outcome = await deleteOwnAccount(token, await headers());
     } catch (failed) {
       if (!(failed instanceof DeletionOutcomeUnknown)) throw failed;
       logger.error("account.deletion_outcome_unknown", undefined, { name: failed.cause instanceof Error ? failed.cause.name : "unknown" });
@@ -82,12 +85,10 @@ export const eraseAccount = action({
 });
 
 /**
- * The person's own address change from Konto: the address on file is mailed its link first, and the new address its
- * own once that confirms, the change taking effect once both have. The final press asks a passkey holder's touch, the
- * one check guarding it, since the backend judges no fresh sign-in. The address typed is one the person will sign in
- * at, so it is held to that schema before it is mailed. An account standing at the new
- * address is not refused here: the start answers alike whatever the new address holds, so it tells nobody which
- * addresses hold an account, and the new mailbox's own press refuses it (`fl_frontend/src/app/(classic)/confirm/address/answers.ts`).
+ * The final press asks a passkey holder's touch, the one check guarding it, since the backend judges no fresh sign-in.
+ * The address typed is one the person will sign in at, so it is held to that schema before it is mailed. An account
+ * standing at the new address is not refused here: the start answers alike whatever the new address holds, so it tells
+ * nobody which addresses hold an account, and the new mailbox's own press refuses it.
  */
 export const startAddressChange = action({
   lane: "person",
@@ -98,19 +99,19 @@ export const startAddressChange = action({
   examples: { email: COPY.shared.field.exampleAddress },
   ownWords: ["address_change_unchanged", "address_change_started_recently"],
   run: async ({ email }) => {
-    await requestAccountAddressChange({ email });
+    await accountPostAddressChange({ email });
     return { ok: true, value: undefined };
   },
 });
 
-/** The pending change withdrawn from Konto, the address on file's stop link's twin: it hands nothing over, so it asks no touch. */
+/** The withdrawal hands nothing over, so it asks no touch. */
 export const withdrawAddressChange = action({
   lane: "person",
   claim: "account",
   name: "withdrawAddressChange",
   input: HOLDER_ALONE,
   run: async () => {
-    await stopAccountAddressChange();
+    await accountDeleteAddressChange();
     return { ok: true, value: undefined };
   },
 });
@@ -131,7 +132,6 @@ export const requestErasure = action({
   },
 });
 
-/** Ends every session of the person's but the one this request arrived with, however many stand. */
 export const signOutOthers = action({
   lane: "person",
   claim: "account",
@@ -153,8 +153,7 @@ export const signOutOthers = action({
  * A save whose media choice the backend refused as given below its floor, answered as a stale page: the page offers
  * the switch from the served age alone, so only a birthdate or a day that moved since it was served reaches this, and
  * the page read again shows the switch closed under its own phrase, which has no subject on the status line. It is
- * answered here rather than in the builder's stale set, since a form taking a birthdate meets the code knowingly. Any
- * other failure goes to the builder.
+ * answered here rather than in the builder's stale set, since a form taking a birthdate meets the code knowingly.
  */
 async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionAnswer> {
   try {
@@ -166,23 +165,22 @@ async function savedUnlessAgedOut(save: () => Promise<unknown>): Promise<ActionA
   return { ok: true, value: undefined };
 }
 
-/** A pupil's own two choices on their record. */
 export const saveSpielerConsent = action({
   lane: "person",
   claim: "account",
   name: "saveSpielerConsent",
   input: SpielerPatchEinwilligungBody.extend(PAGE_HOLDER),
-  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSpielerAccountEinwilligung(choices)),
+  run: ({ holder: _holder, ...choices }) => savedUnlessAgedOut(() => spielerPatchEinwilligung(choices)),
 });
 
-/** A referee's own two choices on one of their rows, of which one address may hold several. */
+/** One address may hold several referee rows. */
 export const saveSchiedsrichterConsent = action({
   lane: "person",
   claim: "account",
   name: "saveSchiedsrichterConsent",
   input: SchiedsrichterPatchEinwilligungParams.extend(SchiedsrichterPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: ({ schiedsrichter_id, holder: _holder, ...choices }) =>
-    savedUnlessAgedOut(() => patchSchiedsrichterAccountEinwilligung(schiedsrichter_id, choices)),
+    savedUnlessAgedOut(() => schiedsrichterPatchEinwilligung(schiedsrichter_id, choices)),
 });
 
 /** A pupil's withdrawal on their pending registration, whose grant waits on the team's admission. */
@@ -192,7 +190,7 @@ export const saveRegistrierungConsent = action({
   name: "saveRegistrierungConsent",
   input: RegistrierungenPatchEinwilligungParams.extend(RegistrierungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: async ({ registrierung_id, holder: _holder, ...choices }) => {
-    await patchRegistrierungEinwilligung(registrierung_id, choices);
+    await registrierungenPatchEinwilligung(registrierung_id, choices);
     return { ok: true, value: undefined };
   },
 });
@@ -203,7 +201,7 @@ export const saveSeatConsent = action({
   claim: "account",
   name: "saveSeatConsent",
   input: TeamsPatchEinwilligungParams.extend(TeamsPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
-  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => patchSeatEinwilligung(team_id, saison_id, choices)),
+  run: ({ team_id, saison_id, holder: _holder, ...choices }) => savedUnlessAgedOut(() => teamsPatchEinwilligung(team_id, saison_id, choices)),
 });
 
 /** A seat holder's withdrawal on a pending application, whose grant is its confirmation page's alone. */
@@ -213,7 +211,7 @@ export const saveBewerbungConsent = action({
   name: "saveBewerbungConsent",
   input: BewerbungenPatchEinwilligungParams.extend(BewerbungenPatchEinwilligungBody.shape).extend(PAGE_HOLDER),
   run: async ({ bewerbung_id, holder: _holder, ...choices }) => {
-    await patchBewerbungEinwilligung(bewerbung_id, choices);
+    await bewerbungenPatchEinwilligung(bewerbung_id, choices);
     return { ok: true, value: undefined };
   },
 });

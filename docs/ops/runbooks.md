@@ -2,238 +2,249 @@
 
 **Purpose:** the recurring procedures that are run rather than read, and the operational facts no file in this repository states
 
-The contracts these depend on — the services, the scripts, the gate scopes and the registry — are
-[`spec.md`](spec.md).
+The services, scripts and gate scopes these procedures rest on are [`spec.md`](spec.md)'s.
 
-**A section number is spent once taken**: a gap in the run below is a number whose procedure left,
-and renumbering what stands would repoint every citation of it, the scripts' own messages among them.
+**A section keeps its number for good**, so a gap in the run below is a number no procedure holds:
+renumbering would repoint every citation of a section, the scripts' own messages among them.
 
-| Section                                                                                                                        | Answers                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| [1. The server](#1-the-server)                                                                                                 | What a deploy does, and what a failed one leaves running       |
-| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)       | The order a shape or index change runs in, then the read-back  |
-| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                   | Who can sign in, and what revoking actually ends               |
-| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                               | What the triage page still shows, and what stops new rows      |
-| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)  | Where each role's data is read, and how a request is answered  |
-| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                               | The authority, the clock, and what the logs can establish      |
-| [7. The logs' age bounds, and the copies a deploy leaves behind](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind) | The host files that bound them, and where a deploy's copies go |
-| [8. Taking the tunnel back out](#8-taking-the-tunnel-back-out)                                                                 | What reverses the tunnel, and the half no commit reaches       |
-| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                     | What answers each, and what each answer means                  |
-| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                          | The six steps no code can carry, and what breaks without them  |
-| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)      | What finds the rows, and why no save clears one                |
-| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                     | Who is re-erased, and what the restore took the record of      |
-| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                            | What builds them, and what a boot that could not leaves        |
-| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                             | What the person cannot tell apart, and the line that can       |
-| [16. The secret files](#16-the-secret-files)                                                                                   | What each holds, and how each machine makes its own            |
-| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                      | Who meets it, when it lifts, and what clearing it costs        |
-| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                   | What `pnpm install` fetches, and what a bare `node` still runs |
-| [19. The database's storage alert](#19-the-databases-storage-alert)                                                            | What fills the tier unseen, and the two alerts that show it    |
-| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                           | What a hand edit leaves cached, and for how long               |
+| Section                                                                                                                       | Answers                                                          |
+| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [1. Deploying a build, and going back to an earlier one](#1-deploying-a-build-and-going-back-to-an-earlier-one)               | What a deploy does, each way it ends, and how to go back by hand |
+| [2. Before deploying a change to a stored shape or an index](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)      | The order a shape or index change runs in, then the read-back    |
+| [3. Granting or revoking admin access](#3-granting-or-revoking-admin-access)                                                  | Who can sign in, and what revoking actually ends                 |
+| [4. When the application queue has been flooded](#4-when-the-application-queue-has-been-flooded)                              | What the triage page still shows, and what stops new rows        |
+| [5. When somebody asks for their data, or asks us to change it](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) | Where each role's data is read, and how a request is answered    |
+| [6. When personal data has been exposed](#6-when-personal-data-has-been-exposed)                                              | The authority, the clock, and what the logs can establish        |
+| [7. The journal's age limit](#7-the-journals-age-limit)                                                                       | The host drop-in that bounds every log line, and how to read one |
+| [9. Checking that the hourly passes have run](#9-checking-that-the-hourly-passes-have-run)                                    | What answers each, and what each answer means                    |
+| [10. The mail provider's dashboard](#10-the-mail-providers-dashboard)                                                         | The six steps no code can carry, and what breaks without them    |
+| [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)     | What finds the rows, and why no save clears one                  |
+| [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                    | Who is re-erased, and what the restore took the record of        |
+| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                           | What builds them, and what a boot that could not leaves          |
+| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                            | What the person cannot tell apart, and the line that can         |
+| [16. The secret files](#16-the-secret-files)                                                                                  | What each holds, and how each machine makes its own              |
+| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                     | Who meets it, when it lifts, and what clearing it costs          |
+| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                  | What `pnpm install` fetches, and how a new release lands         |
+| [19. The database's storage alert](#19-the-databases-storage-alert)                                                           | What fills the tier unseen, and the two alerts that show it      |
+| [20. After a hand edit in MongoDB](#20-after-a-hand-edit-in-mongodb)                                                          | What a hand edit leaves cached, and for how long                 |
+| [21. The repository's settings](#21-the-repositorys-settings)                                                                 | What must be true in GitHub's settings, and why                  |
 
 ---
 
-## 1. The server
+## 1. Deploying a build, and going back to an earlier one
 
-**The repository does not record which host this is**, and deliberately holds no credentials. Getting onto
-the machine is outside the repository. What it does tell you:
+**The repository records no host and holds no credential**, so getting onto the server is outside
+it. `deploy.sh` runs on Linux alone, from the checkout of this repository on the server.
 
-- `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
-  server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
-  compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, every file under
-  `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
-  checks each before anything is pulled. What each secret file holds, who owns it and how it is
-  made, is §16.
-- **A line naming a value a secret file holds, `ALLOWED_ADMIN_EMAILS` or a job switch the hourly
-  scheduler replaced refuses the deploy at exit 2 before compose is asked anything**, giving each
-  line by file, number and the name as the list spells it, never by anything the line holds
-  (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
-  and the administrator list and the switches read by nothing.
-- **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
-  deploy at exit 2 before compose is asked anything**, each line listed
-  as `file:line` alone, never by anything the line holds. Rewrite it with nothing
-  around the `=` and a value of letters, digits and `_ - . ~ : / ? [ ] @ ! & ( ) * + , ; = %` alone:
-  no quote, no space, no comment after the value, a URL writing `#`, `$` and `'` as `%23`, `%24` and
-  `%27`. No line, a comment included, may hold a carriage return before its end, U+2028, U+2029 or a
-  NUL byte.
-- **`./scripts/ops/deploy.sh --check-env` runs the three checks above and below that ask Docker
-  nothing** — the credential lines, the line shape and compose's own `.env` — and nothing else, so
-  run it after the pull and before the deploy: it changes nothing and ends 0 where none refuses.
-- **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
-  `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
-  `git status` never shows it; move it out of the checkout, keeping it only if it holds something
-  you still need ([`spec.md`](spec.md) §1.5).
-- **Compose is asked whether it can parse its own configuration before anything is pulled**
-  (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
-  recreated**, and names the compose file and the two environment files without printing what compose
-  said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
-  message, run the same check on the server, where its answer is not being captured:
-  `docker compose -f docker-compose.yml config --quiet`.
-- **The images the edge runs are fetched next, where the host lacks them, before either application
-  image is pulled** (`scripts/ops/deploy.sh :: fetch_edge_images`): a fetch that fails refuses at
-  exit 2 with nothing recreated, and compose's own reason is printed above the refusal
-  ([`spec.md`](spec.md) §1.5).
-- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
-  (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
-  and the settings class looks up none but its own, so a typo there reads as an omission and the
-  shipped default serves production. **A name the backend does not declare, or a value it will not
-  accept, refuses the deploy at exit 2 with nothing recreated**, and the printed line names a
-  variable the backend declares, gives each line declaring any other name by its number alone, and
-  prints no value — so the remedy is read off the names and the numbers: **correct a named
-  variable's value; open a numbered line, then delete it or declare its name in the settings
-  class**. A check that could not be made at all is an advisory the deploy goes on
-  past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
-  the check judges it; a line the two parsers
-  could read differently was refused before either image was asked.
-- **Each application service's own boot then judges its settings and secret files, before anything
-  is recreated**, in a one-off container started as the stack starts the service, so with its
-  variables, as its own user and in its own group. The frontend's runs the image's own server, which
-  runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
-  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, and an
-  `APP_ENV` naming another deployment than the one being deployed each refuse the deploy at exit
-  2** with nothing recreated — Cloudflare's published test site key under
-  production and a sign-in secret below its library's floor of 32 characters among them. The
-  `CRITICAL` line above the refusal names the variable or the file and never a value:
-  correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
-  backend's container builds its settings as its boot does
-  (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
-  validators refuse — an internal key outside its alphabet among them — refuse there, naming the
-  variable or the file.
-- **Both application containers are stopped for their logs' copy just before the recreate** (§7),
-  and a run ending in between puts them back on its way out, a failed copy, an interrupt and a
-  dropped SSH session alike: it starts them, reloads nginx and waits for each to be
-  healthy (`scripts/ops/deploy.sh :: start_stopped_again`). **A failed copy ends the run at exit 2,
-  and at 1 where the start, the reload or a health wait answered badly**: a bad start or health
-  wait leaves the site out of service, and a refused reload leaves nginx on a configuration not this
-  checkout's. Killed outright, or interrupted again while it puts them back, the run leaves them
-  stopped, which `./scripts/ops/deploy.sh --status` reports as not running, and
-  `restart: unless-stopped` never starts a container `stop` stopped, not even after the daemon
-  restarts
-  ([Docker's restart policies](https://docs.docker.com/engine/containers/start-containers-automatically/),
-  which move without us; read 2026-10-16). **Start them and reload the edge by hand, never with
-  `up`**, which would recreate them from the build the pull fetched, with no copy taken; the reload
-  prints nginx's reply, then `200` once applied:
+**Before a run, every file [`spec.md`](spec.md) §1.2's table names exists with that owner and
+mode.** A service missing one does not start, and a run with no build pinned has nothing to go back
+to. This lists them, without their contents:
 
-  ```bash
-  docker compose -f docker-compose.yml start frontend backend
-  docker compose -f docker-compose.yml exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket /run/nginx-control/control.sock http://localhost/1/control/config
-  ```
+```bash
+sudo find secrets -maxdepth 1 -type f -printf '%u:%g %m %f\n'
+```
 
-- **Only the application containers are recreated**, and nginx is reloaded once they are healthy
-  (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
-  the reload applied. The edge keeps running across the swap and finds the new containers by name
-  , so from the stop before the copy until the new pair answers a deploy
-  that succeeds answers 502 rather than refusing the connection: an estimated 10 to 30 seconds on an
-  idle site, and about eleven minutes where the stop runs to the grace periods
-  (`docker-compose.yml :: stop_grace_period`), each copy to its bound
-  (`scripts/ops/deploy.sh :: copy_streams`) and each health wait to its last poll
-  (`scripts/ops/deploy.sh :: HEALTH_WAIT_BACKEND`, `:: HEALTH_WAIT_FRONTEND`). The reload is what
-  applies a file the pull changed
-  under `nginx/prod/` or `nginx/shared/`, both mounted as directories so the running container reads
-  what the pull wrote ([`spec.md`](spec.md) §1.2); a pull that changed nginx's own service definition
-  makes the same `up` recreate it instead. **A reload nginx refuses ends the run in a finding carrying
-  nginx's own lines**: fix what they name, then recreate nginx. **The deploy then compares every file
-  under `nginx/prod/` and `nginx/shared/`, as nginx holds it in memory, with the checkout's, and a
-  difference ends the run in a finding** naming the recreate that repairs it
-  (`scripts/ops/deploy.sh :: edge_reads_checkout`). A file there that nginx
-  never loads, a README among them, reads as absent and fails every deploy.
-- **A build that fails the health wait is put back automatically** — to the images the application services
-  were running when the deploy began, by image id rather than by tag (`scripts/ops/deploy.sh :: roll_back`) —
-  and the script names the build now serving. **That path is not seconds**: the 502 runs until the restored
-  pair answers, up to about twenty-two minutes where the deploy's
-  stop, copies and health waits and the rollback's own all run to their bounds. **The failed build's
-  own two streams are copied off first** (`scripts/ops/deploy.sh :: copy_streams`), under the deploy's stamp and a `-failed` suffix in
-  `/var/log/frankfurtleague/` (§7); that copy warns rather than refusing where it cannot be made, the site
-  being down by then. **An interrupt during that copy leaves the failed build stopped and nothing put
-  back**, the failed build not being started again after failing its health wait: finish the rollback
-  by deploying the build preflight printed as its rollback target, `./scripts/ops/deploy.sh <tag>`,
-  whose own copy takes the stopped pair's streams. Nothing is put back where preflight recorded no target,
-  because nothing was running, because only half the pair was, or because compose could not be asked; nor
-  where compose stops answering during the health wait, the run refusing at exit 2 instead, because a
-  rollback undoes a build and nothing there reached a verdict on the new one.
-- **A rollback is local to the server, and the registry still names the build that failed.** Nothing in
-  the deploy path pushes or re-tags anything at ghcr, so `git pull && ./scripts/ops/deploy.sh` afterwards
-  pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
-  the tag the rollback names — until a good build is published. Nothing is put back where the pull left
-  `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
-- **Never deploy by tag a build from before the frontend's boot check.** Its image does not know
-  `BOOT_CHECK`, so the preflight's one-off frontend serves instead of ending, and the deploy waits on
-  it with nothing recreated until Ctrl-C. Every such image is deleted from the registry, where the
-  pull of its tag refuses before anything moves. **The automatic rollback is not a deploy by tag**: it
-  restores the running build by image id and runs no preflight, so the first deploy of a build
-  carrying the check can still fall back to the build before it. Then publish a fixed build rather
-  than deploying the restored one by the tag the script names.
-- **Never deploy by tag a build declaring no
-  `fl_backend/app/core/sentinels.py :: GHOST_SPIELER_ID` once a later build has erased a pupil or an
-  administrator; roll forward instead.** Each erasure writes a row such a build mishandles, and
-  nothing refuses the deploy:
-  - a pupil's, the season-after deletion's among them, writes the erased pupils' sentinel with no
-    name, so that build's player list in the administration answers 500, and its public
-    `GET /spieler`, asked for neither a team nor a season, serves the sentinel as a player with no
-    name;
-  - an administrator's queues a grant notice withheld as `erased`, and that build's hourly grant
-    pass writes its claim on the row before reading anything, a write that build's validator refuses
-    with code 121, so every pass fails and no change of access is mailed again, where the row is
-    still queued as that build boots;
-  - that build's boot attaches its own validators again, which refuse any write over either row.
-- **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
-  records as the deletion of every pupil and referee row and the emptying of the action log left
-  them; roll forward instead.** Such a build stamps consent labels the current wordings do not hold
-  (`fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`), so a record it confirms cites
-  words nobody can produce; `python -m app.readback` names each such record, the evidence's label
-  being a `Literal` of the current ones.
-- **After serving a build older than the season-row confirmation links, re-send the link of every
-  contact seat that build re-staffed, once the current build is back.** That build's contacts editor
-  leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
-  seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
-  so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
-  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
-  A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
-  the contacts editor and save, then enter the person again and save, which voids the old link and
-  mints the person a new one.
-- After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
-  that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
-  are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
-  probe and the configuration nginx holds too — every other row it prints comes from a container, and a
-  healthy pair is no statement about whether the edge in front of it reaches the pair or what it
-  loads.
+Each line shows the file's owner, group and mode, which must match the table. §16 writes a missing
+one.
+
+**Before the first run on a server, two more things:**
+
+- **The journal's drop-in is in place** ([section 7](#7-the-journals-age-limit)), since every
+  service logs to the journal from that run on.
+- **The `.env` beside the compose file holds nothing but `TAG`.** The run replaces the file with
+  its pin alone. `sed 's/=.*//' .env` lists its names without their values. Where it lists any
+  other name, settle where that setting belongs before the run.
+
+**A change to a stored shape deploys in [section 2](#2-before-deploying-a-change-to-a-stored-shape-or-an-index)'s
+order**, which holds the background jobs from before the new frontend boots until the read-back has
+passed.
+
+**Put a merge live once its `verify` and `publish` jobs on `main` have succeeded**, in the checkout:
+
+```bash
+git pull
+./scripts/ops/deploy.sh
+```
+
+A bare run deploys `sha-` and the first seven hex digits of the checkout's `HEAD`, the tag the
+publish job pushed for that commit; `./scripts/ops/deploy.sh sha-1a2b3c4` deploys a tag named. The
+pull is what brings the compose file and `nginx/` up to date. A run does this, in order:
+
+1. **It prunes every image no container references**, so the running build stays and the one before
+   it goes. The build this run replaces stays on the host until the next deploy.
+2. **It pulls every image the tag runs with**, taking an image already on the host as it is. A pull
+   that fails refuses with the stack unchanged: a tag CI never pushed, the registry or the network.
+3. **It starts the build and waits up to 180 seconds for every service's healthcheck**
+   (`docker compose up --wait`). Compose recreates a service only where its definition or image
+   moved, so a deploy moving only the application images recreates those two, and nginx keeps
+   serving across the swap.
+4. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
+   seconds for nginx's own line `start worker processes`. An `[emerg]`, `[alert]` or `[crit]` line,
+   or no line at all, fails the deploy, the line shown.
+5. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
+   and the build before it.
+
+**A healthy verdict is container health and the reload, never a page.** The frontend answers a
+static file, the backend its liveness probe, the connector holds a tunnel connection, and nginx is
+running. A site whose every page errors can pass. So once the run ends:
+
+1. **Open the site.** Where it answers 502 or 1033 and the run said live, the tunnel routes
+   somewhere else (below).
+2. **Read the frontend's index builds**: `docker compose logs frontend | grep auth.index_unbuilt`
+   prints nothing, or each line is [section 14](#14-the-auth-databases-indexes)'s.
+
+**The tunnel's two routes name `nginx:80`.** In the Cloudflare dashboard, the tunnel's published
+application routes for `frankfurtleague.de` and `www.frankfurtleague.de` each have the service type
+HTTP and the URL `nginx:80` ([`spec.md`](spec.md) §1.8). A route naming anything else fails every
+visitor while the run says live: the connector's healthcheck reads its connection to Cloudflare,
+never one to nginx. `docker compose logs cloudflared` names the origin it dialled. Change a route
+only after the run has ended. Until then the edge serving is the one the run replaces, and an edge
+from before this stack answers plain HTTP with a redirect to HTTPS, which Cloudflare would send back
+through the same route.
+
+**The pin is the stack's own memory.** Compose reads `.env` for every command, so
+`docker compose ps`, `logs` and `exec` typed in the checkout reach the build that runs. A later run
+that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
+about and counts as no pin.
+
+| Ending                             | Exit      | What stands afterwards                                                                                      |
+| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                        |
+| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                       |
+| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
+| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
+| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
+| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
+| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
+| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |
+| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started |
+
+**A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
+pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
+
+**Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
+and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
+recreated it. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
+files, which any later start of nginx, a reboot included, loads and fails on: pull a commit whose
+configuration nginx takes and deploy it.
+
+**`--no-rollback` is for a build the one before it must never run after**, such as one whose
+migration has already changed the data. It pins the new build before starting it, so a failure
+leaves the stack as it stands and no later run goes back past it.
+
+**A first run finds no pin and goes back to nothing**, so a failed first run leaves the site down
+until a run ends 0. Write down the tag it pins once it does: no build published before that one
+serves again (below).
+
+### When a run fails
+
+1. **Read the run's last lines.** A failed start lists every service's state, then the last 60
+   lines of each service that is not running and healthy. A refused nginx configuration shows
+   nginx's own line, and a crash names the command and its exit status.
+2. **Find the line among [`spec.md`](spec.md) §3's symptoms and do its remedy.** A line naming a
+   secret file is [section 16](#16-the-secret-files)'s; one naming a variable is that package's
+   `.env`.
+3. **Run the deploy again with the same tag**, `./scripts/ops/deploy.sh sha-1a2b3c4`. A run that
+   went back left the previous build serving meanwhile. After `--no-rollback`, or on a first run,
+   the site stays down until a run ends 0.
+4. **Where the fault is in the build itself**, merge its fix and deploy the fix's tag. Going back
+   is the section below, never past its floor.
+
+### Going back by hand
+
+**`./scripts/ops/deploy.sh <older tag>` needs the registry**: its prune removes the older build's
+images, which no container references, and its pull fetches them again. **Without the registry**,
+start the build the last deploy replaced, whose images are still on the host, then pin it:
+
+```bash
+docker image ls ghcr.io/felzab/frankfurtleague-backend
+TAG=sha-1a2b3c4 docker compose up -d --wait
+printf 'TAG=%s\n' sha-1a2b3c4 > .env
+```
+
+The first command lists the tags on the host, and the second starts the one named. The third pins
+it once it is up, so every later Compose command, and a later deploy that fails, reach it.
+
+**No build published before the first run on this server can serve again, so roll forward
+instead.** Each asks for secret files this compose file does not mount. None can read a match report
+entry naming nobody, which an erasure leaves.
 
 ## 2. Before deploying a change to a stored shape or an index
 
 **What a stored document may hold is its record model** — the model `fl_backend/app/readback.py ::
 RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
 shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
-stored shape lands with the Playground paste that moves every stored document into it, and the
+stored shape lands with the migration that moves every stored document into it, and the
 read-back command is what says they all moved:
 
 ```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.readback
+docker compose exec -T backend python -m app.readback
 ```
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
 prints each refused document's collection, id and error location and never a value, and exits 0 when
 every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
-line names the collections it does not read.
+line counts the documents read and refused.
 
-**Run it after the paste and the deploy, never before**: it judges stored documents against the
+**It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
+name is read by nothing, and the new name, never written, reads as an empty collection with nothing
+refused. Only the migration's own counts prove that a rename ran.
+
+**Run it after the migration and the deploy, never before**: it judges stored documents against the
 models of the image it runs in, so a run inside the old image reads the old shape clean.
 
-**A field that is RENAMED cannot be renamed before the deploy.** The still-serving image reads and
-writes the old name, so a rename pasted first breaks every read of the field until the new image
-is up. **This repository holds no migration runner and no migration**: the command belongs to the
-change that needs it and is run by hand as a MongoDB Playground paste against the cluster, as every
-migration here is, so what is written here is the order alone.
+**A stored name is renamed by a migration file the owner runs with `mongosh --file` in an outage,
+after the old release stops and before the new one boots.** The old release reads and writes the
+old name, so a rename run beside it breaks every read of the field. A new release booted first
+reads the old name as missing. **This repository holds no migration runner and no migration**: the
+files belong to the change that needs them, and every migration here is run by hand against the
+cluster as a few generated files, each counting what it changes before and after. What is written
+here is the order, on the server in the checkout:
 
-1. Deploy. Every read of the renamed field fails from here until step 2 lands.
-2. **At once**, the rename, written as every paste is: a count of the rows still holding the old
-   name, the rename, and the same count again, which must read 0.
-3. The read-back: exit 0.
-4. Drop any index the previous name held, by a `dropIndex` line in the same paste —
-   `create_index` refuses a name already held at different options and creates nothing under a
-   name it does not declare, so the boot leaves the old one standing forever.
+1. **Hold the background jobs**: add the line `RESTORE_HOLD=on` to the server's `fl_frontend/.env`.
+   The new frontend reads it as it boots at step 4 ([below](#what-the-hold-stops)).
+2. **Stop the old release**, before pulling anything:
+   `docker compose stop frontend backend`. Every page answers an error from here until step 4
+   ends.
+3. **Run the change's migration files** with `mongosh --file`, in their order, each ending on its
+   own check. A rename is written as a count of the rows still holding the old name, the rename,
+   and the same count again, which must read 0. The same file drops any index the old name held,
+   by a `dropIndex` line: `create_index` refuses a name already held at different options and
+   creates nothing under a name it does not declare, so the boot would leave the old index
+   standing forever.
+4. **Deploy**: `git pull`, then `./scripts/ops/deploy.sh --no-rollback`, since the build before it
+   cannot read the renamed data (§1).
+5. **The read-back**: `docker compose exec -T backend python -m app.readback`, exit 0, then any
+   check the change's files hold for after the boot.
+6. **Lift the hold**: delete the line `RESTORE_HOLD=on` from `fl_frontend/.env`, then run
+   `docker compose up -d --wait --force-recreate frontend`. The first hourly pass runs a minute
+   after that boot.
 
-**Three things decide whether the command pasted at step 2 is the right one.**
+**Where a file stops at step 3, boot nothing.** What it changed before stopping may be what the
+old release cannot read, so run it again once its stop is understood: a migration file is written
+to be run again, as below. Only where the stop says nothing was changed may the old release start again,
+with `docker compose start frontend backend`, nothing having been pulled yet. That starts the
+stopped containers as they were created, so the hold's line does not reach them. Delete the line
+before the next deploy, which would otherwise boot held.
+
+### What the hold stops
+
+**The frontend reads `RESTORE_HOLD` once, as it boots**, so the line takes effect at the
+frontend's next start and not before: a deploy's, or the recreate step 6 runs. Without it, the
+frontend's first hourly pass runs a minute after its boot
+(`fl_frontend/src/instrumentationNode.ts :: FIRST_PASS_DELAY_MS`), on data no read-back has judged
+yet. While it holds:
+
+- **No hourly pass runs**: no sweep, no pupils' deletion, no fixture confirmation and no handover.
+  The frontend logs `scheduler.held` at its boot instead, so
+  `docker compose logs frontend | grep scheduler.held` printing that line is the hold taking.
+- **No mail leaves, a sign-in code included.** Every mail a write owes waits in the Postausgang
+  for the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). Sign
+  in by passkey meanwhile.
+- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the hold lifts.
+- **Nothing else stops**: the site serves, and every write a page or a form makes is stored.
+
+**Three things decide whether a rename file is the right one.**
 
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
 - **A filter on the old name's `$exists`** skips every row already moved, which is what makes the
@@ -242,38 +253,32 @@ migration here is, so what is written here is the order alone.
   whole document where a segment has to traverse a null —
   `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
   three `kontakte` seats moves rows until it meets the first club holding one seat and not another
-  and then stops, the earlier rows moved and the later ones not, inside the window step 2 exists to
-  keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
-  a document matching that filter necessarily holding the segment. Measured against a copy of
-  production, 2026-09-08.
-
-**Where the renamed field sits inside `kontakte`, step 1's window is wider than it says.**
-`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
-editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. Every public club read keeps working, the junction join withholding the block from the base tier.
+  and then stops, the earlier rows moved and the later ones not. One update per path, each filtered
+  on its own `$exists`, cannot traverse a null at all, a document matching that filter necessarily
+  holding the segment. Measured against a copy of production, 2026-09-08.
 
 **A change that only adds an index has nothing for the read-back to answer**: no stored document can
 be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
-builds it, and fails loudly if it cannot. A new unique index is the exception: one Playground
+builds it, and fails loudly if it cannot. A new unique index is the exception: one
 aggregate grouping the collection by its keys, counting the groups holding more than one document,
 says before the deploy whether its build will meet a duplicate, which fails the boot.
 
 **Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
-refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
+refusal does not say. **A changed RETENTION bound** is moved first by a migration file on the owner's
 checklist, setting the `action_log_retention` index's `expireAfterSeconds` to the new bound, which must
 equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
 **A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
 changed one, so the live index is dropped by a `dropIndex` line, and the boot that follows builds the
-new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop belongs in the deploy's
-own window, between the stack coming down and the new build coming up, because the refusal above is
-what the boot answers with while the old index stands. A widening also lets rows the narrow rule
-excused fall inside the wide one, so any that would collide move first, by a paste keyed on a state
-the previous statement leaves, so that one dying partway is repaired by pasting it again.
+new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. Drop it just before the
+deploy, because the refusal above is what the new build's boot answers with while the old index
+stands; the running build serves without the rule until then, and a restart of it would build the
+old index again. A widening also lets rows the narrow rule
+excused fall inside the wide one, so any that would collide move first, by a file keyed on a state
+the previous statement leaves, so that one dying partway is repaired by running it again.
 
 **A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
 it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
@@ -301,32 +306,32 @@ administration is shut while it is down. Each of these is easy to get wrong:
   The owner stays the owner until then. The new owner signs in once more before acting: a session
   older than the handover holds nothing. An erasure removes an administrator's grant; the owner's
   own erasure is refused until a handover (`owner_erasure`).
-- **The database is written directly for two things alone: the first owner, before anybody can sign
-  in, and recovery when the owner cannot sign in.** Write in MongoDB Playground, never
-  `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
+- **`grants` is written directly for two things alone: the first owner, before anybody can sign
+  in, and recovery when the owner cannot sign in.** Write it with a file run by
+  `mongosh --file` in a terminal, into the `grants` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds three fields: `address`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
-  which the application then reads as typed; `admin_tier`, `owner` or `administration`; and `effective_from`, `new Date()`, which any sign-in after the paste passes.
+  which the application then reads as typed; `admin_tier`, `owner` or `administration`; and `effective_from`, `new Date()`, which any sign-in after the write passes.
   A recovery first clears every waiting handover's `owner_from` and deletes every addition still
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and
   writes a new row rather than repointing the old one, whose sign-in account stays at the old address. Removing the row by its
-  folded address removes the grant. A paste mails nobody, which is why it serves these two cases
+  folded address removes the grant. A hand write mails nobody, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
-- **Paste only into a database a boot of the release carrying `grants` has reached.** That
-  boot creates the unique indexes; a paste before it creates the collection without them, and a duplicate in it then fails the next boot's index build (`db.indexes_failed`).
-  Until the paste lands no address holds a grant, so the site admits no administrator; the public
+- **Write only into a database a boot of the release carrying `grants` has reached.** That
+  boot creates the unique indexes; a write before it creates the collection without them, and a duplicate in it then fails the next boot's index build (`db.indexes_failed`).
+  Until the write lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **Keep the `owner` grant standing.** The application removes it by no route, and the Playground refuses nothing: the boot warns with
+- **Keep the `owner` grant standing.** The application removes it by no route, and a hand write refuses nothing: the boot warns with
   `grants.no_grant` where no grant is left and `grants.no_owner` where no owner is, and serves the public
   site either way.
-- **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**: lift the ban, or withdraw or remove the grant, first. A grant the
-  Playground writes onto a banned address is refused by nothing and admits nobody, the sign-in refusing it.
+- **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**: lift the ban, or withdraw or remove the grant, first. A grant written
+  by hand onto a banned address is refused by nothing and admits nobody, the sign-in refusing it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
-  no code. The grant page refuses such an address; the Playground
+  no code. The grant page refuses such an address; a hand write
   refuses nothing. An umlaut is the case that turns up: the sign-in box takes no address outside
   ASCII, so that person needs a mailbox it will accept before a grant is worth writing. A domain
   already spelled in punycode (`xn--`) is taken as typed.
@@ -354,14 +359,11 @@ sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
   case below. The enrolment asks for a discoverable credential and for the person to be verified
-  (`fl_frontend/src/core/auth/library.ts :: USER_VERIFICATION`, beside `residentKey`), so the browser offers
+  (`authenticatorSelection` in `fl_frontend/src/core/auth/library.ts`), so the browser offers
   nothing where the machine has no platform authenticator and no security key supporting both — an
   older desktop with no biometric and no PIN is the case that turns up. Give them a FIDO2 key with
   resident-key and user-verification support, or a second device they can enrol from; there is no
-  password and no code to fall back to. **Where nobody can get in at all, the way back is the
-  previous image** (§1's deploy by tag, never past the floors §1 sets on it), which authenticates
-  against the store that build carries —
-  so it works only while that store is still there, and dropping it is what closes this route.
+  password and no code to fall back to.
 - **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the passkey sign-in exists against, the administration admitting only a session
@@ -436,27 +438,58 @@ this section.
 
 **Every request arrives at the league's address**
 (`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
-reader to), which Cloudflare forwards to the personal mailboxes of the organisers who answer it, and
-the answer goes back from the answering organiser's own address
+reader to). Its mailbox is the league's at Google Workspace, which a board member reads and which
+passes each message on to a board member
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)). There is no ticket system: the mail thread is the
 record, and the action log records the writes you make rather than the request that asked for them.
 
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/saisons/{saison}/spieler/{spieler}` in each season the person holds a squad row; `/admin/saisons/{saison}/registrierungen` for a registration still awaiting its team; plus every match report entry naming them, a goal or a card with its colour and its minute (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`), which no page lists by person and a read-only Playground query on those two fields finds; plus every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their erasure does not reach and which stands until the season-end strip, read in the reports on their team's fixtures of each season they played for it, against their number then          |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name; plus a fixture confirmation row for every fixture they were booked on and asked about (`spielbestaetigungen.party.schiedsrichter_id`), which no page renders and a read-only Playground query on that field finds; plus the remarks, until the season-end strip, of every report on a fixture booked to them (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have written: a report names no writer and its page shows it to the referee booked now alone, so a read-only Playground query on that field finds them whole, while a report they wrote on a fixture booked to somebody else since is found by no field |
-| Contact person | `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on; plus the fixture confirmations their seats were asked, which no page renders either (below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus their address on every log row they wrote (`action_log.by`, `/admin/log`) and, on a grant's, as the grantee (`action_log.label`), and the grants: their own in `grants`, and each notice naming them still owed in `outbox` (`data.address`), which a read-only Playground query on those fields finds                                                                                                                                                                                                                                                                                                                         |
-| Anyone else    | The `auth` database's `verification` collection, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14); plus a pending address change someone typed it into as the new address (`address_changes.email`), found as the holder of a pending new address below                                                                                                                                                                                                                                                                                                                                                                                                                          |
+Where each role's data is read:
+
+- **Pupil.**
+  - `/admin/saisons/{saison}/spieler/{spieler}`, in each season the person holds a squad row.
+  - `/admin/saisons/{saison}/registrierungen`, for a registration still awaiting its team.
+  - Every match report entry naming them, a goal or a card with its colour and its minute
+    (`spielberichte.bericht.scorers.spieler_id`, `spielberichte.bericht.cards.spieler_id`). No page
+    lists these by person; a read-only query on those two fields finds them, run with
+    `mongosh --file`.
+  - Every remark describing them by shirt number (`spielberichte.bericht.remarks`), which their
+    erasure does not reach and which stands until the season-end strip. Read it in the reports on
+    their team's fixtures of each season they played for it, against their number then.
+- **Referee.**
+  - `/admin/schiedsrichter/{schiedsrichter_id}`, and every past fixture that embeds the name.
+  - A fixture confirmation row for every fixture they were booked on and asked about
+    (`spielbestaetigungen.party.schiedsrichter_id`). No page renders it; a read-only query on that
+    field finds it, run with `mongosh --file`.
+  - The remarks, until the season-end strip, of every report on a fixture booked to them
+    (`spiele.schiedsrichter.schiedsrichter_id`), which a referee booked before them may have
+    written. A report names no writer, and its page shows it to the referee booked now alone, so a
+    read-only query on that field finds them whole. A report they wrote on a fixture booked to
+    somebody else since is found by no field.
+- **Contact person.**
+  - `/admin/saisons/{saison}/teams/{team_id}` for the season's seats, and
+    `/admin/saisons/{saison}/bewerbungen/{bewerbung_id}` for the application it was collected on.
+  - The fixture confirmations their seats were asked, which no page renders either (below).
+- **Administrator.**
+  - The sign-in store: the `auth` database, holding the address, the sessions, the sign-in codes
+    and the passkey.
+  - Their address on every log row they wrote (`action_log.by`, `/admin/log`), and on a grant's row
+    as the grantee (`action_log.label`).
+  - The grants: their own in `grants`, and each notice naming them still owed in `outbox`
+    (`data.address`). A read-only query on those fields finds them, run with `mongosh --file`.
+- **Anyone else.**
+  - The `auth` database's `verification` collection, which holds the address of whoever typed it
+    into the sign-in form until the retention index removes the row (§14).
+  - A pending address change someone typed it into as the new address (`address_changes.email`),
+    found as the holder of a pending new address below.
 
 **Whatever the role, a pending change of their address and its owed notices are read apart.** The address tool,
 `/admin/address-changes` (`GET /address_change`), lists every running change with its new address, a
 holder's to the owner alone, and is the one read serving it; the editors show only that a change waits. A notice an ended change still owes either address sits in `outbox` (`to`), and an effect's owed account carry on the change itself (`address_changes.move.old`,
-`address_changes.move.new`); no page renders any of these, and a read-only Playground query on those
-fields finds them.
+`address_changes.move.new`); no page renders any of these, and a read-only query on those
+fields finds them, run with `mongosh --file`.
 
 **Anybody who has signed in is in the sign-in store too, and no erasure leaves their account
 behind.** A person's first sign-in writes their `user` row and a session in the `auth` database, a
@@ -497,8 +530,8 @@ Send the categories, the values, where each came from, who receives them
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)'s processor table), how long
 they are kept, and the address for a complaint to the supervisory authority. Point at the published
 notice at `/datenschutz` for the standing text
-rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy a hand paste
-made from its confirmation's log row before the log was emptied
+rather than restating it in the mail. A contact seat's WhatsApp evidence may be a copy made by hand
+from its confirmation's log row before the log was emptied
 ([`../datenschutz.md`](../datenschutz.md#11-open-and-owed-a-decision)): say so where an answer sends
 it as the proof of that consent.
 
@@ -566,7 +599,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   nothing: its link stops at the hand-out.
 - **The owner's own mailbox, lost or hijacked.** The address on file answers an owner's own change, so
   whoever holds it can decline or stop every attempt, and this tool refuses it: the way out is §3's
-  recovery paste.
+  recovery write.
 - **Re-send** a link only while the change waits on the new mailbox
   (`POST /address_change/{address_change_id}/invite`); a new address taken since the start refuses the
   re-send (`address_change_new_taken`). **Discard** a change that turns out to be
@@ -678,11 +711,6 @@ by mail instead has two answers, and which one you give is the person's to choos
 Tell them that the first cannot be undone, and that the second is theirs to change back on the same
 page.
 
-**A person whose pupil or referee row went in the deletion
-[section 13](#13-after-a-restore-from-a-snapshot)'s cutoff marks has nothing held in that role, and
-their fixtures name nobody**; only a snapshot taken before that cutoff still holds them, until the
-snapshot window passes it.
-
 **Objection, restriction and portability have no mechanism and need none at this scale.** Answer the
 person in writing: say what is held, on what basis, and what you have done. Where a restriction is
 agreed, the only reliable form it can take here is removing the data, which is the erasure route.
@@ -690,18 +718,18 @@ agreed, the only reliable form it can take here is removing the data, which is t
 **Four things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); every mail the
-league sent them outlives it at the mail provider, and in that provider's backups, and Cloudflare
-keeps the sender, recipient and subject of every mail they sent the league, each for the period the
-notice states, no erasure reaching either
-([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); every organiser deletes
-the person's mail from their own personal mailbox, which the notice promises, while what a
-provider keeps in its own backups stays beyond reach; and an erasure is
+league sent them outlives it at the mail provider, and in that provider's backups, for the period
+the notice states, no erasure reaching it
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); every mail they sent the
+league is deleted on request from the league's mailbox and from the board member's mailbox it was
+passed on to, while Google keeps it restorable for its own period and a private provider's backups
+stay beyond reach; and an erasure is
 keyed on an email address, so it clears every record that address holds, in every season and every
 collection. **The erasure takes the address typed, and reaches a record only where that record's
 address folds to the same spelling** once its capitals are lowered
 (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the counts before the final press**: „Löschen“ on `/admin/erasures` asks over a count of each
 kind of record the address holds, the account and its passkeys among them, and names nobody
-(`fl_frontend/src/app/admin/(liste)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
+(`fl_frontend/src/app/admin/(list)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
 Spiele“ above zero is the fixtures that need a new referee afterwards, and a note in the dialog that
 the account may stand means pressing „Löschen“ again, which deletes an account left standing.
 
@@ -743,8 +771,8 @@ page says so too, and a session left standing lasts until it lapses, no request 
 is refused as its session would be created**, by a code or a passkey alike. **Beyond the sign-in the ban stops one thing, the league's mail.**
 The Postausgang's drain settles every mail to the address `barred` at its hand-out, the ban's own notice excepted, so no link reaches it.
 A form takes a barred address and stores it, and a link already mailed still opens and confirms, so a person reading the
-queue is still what keeps a barred address out of everything. A grant of the address is refused (`grant_barred`), and a grant the Playground
-wrote onto it admits nobody. **The
+queue is still what keeps a barred address out of everything. A grant of the address is refused (`grant_barred`), and a grant written onto it by
+hand admits nobody. **The
 ban takes away nothing the address already holds**, and the ban's row names none of it: a record stays until you take it
 away, a registration excepted, which ends by itself. Read what the address holds first, on „Löschungen“: a
 referee is retired once their unplayed fixtures are reassigned, which `schiedsrichter_still_assigned`
@@ -773,24 +801,17 @@ mirrored from the authority's own pages, which move without us and were read on 
 The clock starts when a person becomes aware, and nothing here raises an alert, so the first minutes
 are yours to spend on the steps below rather than on looking for one.
 
-**The fix can ship at once: a deploy keeps both application streams.** Every deploy copies them to
-`/var/log/frankfurtleague/` before it recreates either container, and refuses at exit 2 with nothing
-recreated where it cannot write there (`scripts/ops/deploy.sh :: copy_streams`); a deploy that
-rolls back copies the failed build's streams as well. **Ship it through the deploy and no other route**: a
-`docker compose down`, or an `up --force-recreate` typed by hand, discards a stream with no copy
-taken ([`../logging/overview.md`](../logging/overview.md)). The edge's own two logs are host files
-under `/var/log/frankfurtleague/nginx`, which no recreate reaches.
+**The fix can ship at once: a deploy loses no log line.** Every service logs to the host's journal,
+which keeps a replaced container's lines ([section 7](#7-the-journals-age-limit)).
 
-**What those logs can and cannot answer.** How far back each reaches is bounded
-([section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)): a running container's
-stream by the runtime's size rotation (`docs/logging/overview.md`), so a busy period rotates its
-own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
-thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
-access line carries the visitor's address, user agent and referer with the credential arms redacted
-(`nginx/shared/http.conf :: map $request_uri $credential_free_uri`), so no confirmation token is in it, and a sign-in code travels in a
-request body rather than a URL; the
-same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
-dashboard rather than here.
+**What those logs can and cannot answer.** A line lives between eight and nine days, and a flood can
+take one sooner (section 7). The edge's access line carries the visitor's address, the path without
+its query and the browser identifier (`nginx/shared/http.conf :: log_format fl_json`), so no mailed
+link's token is in it, and a sign-in code travels in a request body rather than a URL. **nginx's
+error line repeats the request line whole, its query with it**, on an upstream failure among other
+causes; a link page's location writes no error line at all (`nginx/shared/site.conf`). The same
+request reached Cloudflare whole, and what Cloudflare keeps is settled in its dashboard rather than
+here.
 
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
 log.** Every recorded act appends a row carrying who acted, what they did and to which record
@@ -803,181 +824,56 @@ may be completed later, and a late one may not; and tell the people affected whe
 them is high. Write down what you established and when you established it: the authority asks, and
 no log above outlives its bound.
 
-## 7. The logs' age bounds, and the copies a deploy leaves behind
+## 7. The journal's age limit
 
-**Every deploy stops both application containers and copies their streams to
-`/var/log/frankfurtleague/` before it recreates them** (`scripts/ops/deploy.sh :: copy_streams`), one
-file per service stamped to the second, so a line written in the seconds before the recreate — an
-erasure's `journal.act` lines among them (§13) — is in the copy. A container already stopped, a failed
-build's backend that exited among them, is copied as well and left stopped; one that keeps
-restarting is running to the engine, and is stopped and copied with the other.
-A directory it cannot write refuses at exit 2 before anything is stopped; a copy failing after the
-stop puts back the containers it stopped, as §1 says, nothing recreated either way.
-**A deploy that rolls back
-recreates the pair twice and so copies twice**, the failed build's streams taking the same stamp and a
-`-failed` suffix, so a failed deploy leaves four files that sort together (§1). The same step creates
-`/var/log/frankfurtleague/nginx`, which `docker-compose.yml` bind-mounts for the edge's access log
-and error log — host files rather than a container's stream, because every line naming a visitor
-is in one of the two. Both directories are created
-by the deploy where it can; on a host whose deploying user is not root, create them once by hand:
+**Every production service logs to the host's journal** (`docker-compose.yml :: x-logging`): the
+edge's access lines, which name each visitor's address, the application logs and the backend's
+`journal.act` lines. **The published notice gives them nine days**
+(`fl_frontend/src/core/serverCopy.ts`), and journald ages nothing by default, so the limit is a
+drop-in on the host that no file in this repository can install. **It is in place before the first
+deploy on a server**, since every service logs to the journal from that deploy on. This writes it,
+creating its directory where the host has none:
 
 ```bash
-sudo install -d -o "$USER" -g "$USER" /var/log/frankfurtleague /var/log/frankfurtleague/nginx
+printf '%s\n' '[Journal]' 'Storage=persistent' 'MaxFileSec=12h' 'MaxRetentionSec=204h' | sudo install -D -m 644 /dev/stdin /etc/systemd/journald.conf.d/frankfurtleague.conf
 ```
 
-**The age bounds are four host files no file in this repository can install** — written on the
-server in the same deployment that ships the published texts stating them
-([`../datenschutz.md`](../datenschutz.md) §6): eight days for the edge's two logs, thirty for the
-copied application logs. **They are two mechanisms because they are two kinds of file.** The edge's
-logs are open and growing, so their bound is a rotation the edge has to be told about; a deploy's
-copy is written once and never appended, so its bound is a deletion.
+**Both age settings are needed.** journald deletes an archived file only once its first entry is
+older than `MaxRetentionSec`, and never touches the file it is still writing, so `MaxFileSec`
+archives that file every twelve hours. Together they give a line between eight and nine days of
+life. `Storage=persistent` keeps the journal on disk across a reboot, where a `journal.act` line has
+to outlast one ([section 13](#13-after-a-restore-from-a-snapshot)).
 
-**The edge's two logs, at `/etc/frankfurtleague/access-log.conf`.** **A host carrying an earlier
-stanza that names `access.log` alone takes the one below whole**: nginx writes `error.log` from the
-first time it loads a configuration naming it, and that file then grows past the eight days with
-nothing on the host reporting it. Substitute the server's own checkout path for `<checkout>` —
-`docker compose` takes its project name from the directory holding the file `-f` names, so a path
-pointing anywhere else finds no `nginx` service and the rotation goes on without the reopen. Spell
-`docker` with the path `command -v docker` prints if it is not on systemd's own PATH, which is what
-this runs under rather than a login shell's.
-
-```text
-# nginx writes these files through a bind mount, so they outlive the container and can be rotated
-# by rename: the master reopens every log it holds on USR1 and a renamed file stops growing, the
-# lines written in between having gone to the renamed file rather than nowhere.
-/var/log/frankfurtleague/nginx/access.log /var/log/frankfurtleague/nginx/error.log {
-    daily
-    # Seven dated files plus the live day is the eight days the notice publishes. `maxage` is the
-    # backstop for a gap in the timer, and drops a dated file once its last line is eight days old.
-    rotate 7
-    maxage 7
-    # The disk stays bounded whatever the traffic: a day that outgrows this rotates early, so the
-    # eight days above are the most an entry lives, never a period a spike can stretch.
-    maxsize 100M
-    dateext
-    # Seconds in the name, because a day can hold more than one rotation: under a bare `-%Y%m%d`
-    # the second one lands on the name the first took, and logrotate skips it and exits 1.
-    dateformat -%Y%m%d-%H%M%S
-    create 0640 root root
-    missingok
-    # No `notifempty`: after a failed reopen the live file is empty, and skipping empty files would
-    # skip every rotation after this one, so nothing would ever send USR1 again.
-    compress
-    delaycompress
-    # One USR1 for both files, which one reopen covers; without it each rotated file sends its own.
-    sharedscripts
-    postrotate
-        docker compose -f <checkout>/docker-compose.yml kill -s USR1 nginx
-    endscript
-}
-```
-
-**Read once with `logrotate -d -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf`**,
-which rotates nothing, before the first real run. It runs no `postrotate` script, so the reopen
-stays unproven until the first real rotation.
-
-**A failed reopen leaves each live log empty beside a dated file that keeps growing**: the rename
-has happened and nginx still writes through its open descriptor, and nothing on the host says so —
-the timer's later runs exit 0. `ls -lt /var/log/frankfurtleague/nginx/` shows it, a live file at
-zero bytes under a dated file of its own name with a newer mtime. The next rotation sends USR1
-again and recovers, losing only the lines written to the orphaned file between its compression and
-the signal.
-
-**That file is deliberately not in `/etc/logrotate.d/`**, and the pair below is what runs it: a size
-cap only bites at the moment logrotate runs, and the host's own invocation is daily, so a spike
-between two of them is unbounded. One config file read by one scheduler against one state file of
-its own is what keeps the two from rotating the same log twice with two ideas of when it last
-happened.
-
-```text
-# /etc/systemd/system/frankfurtleague-logrotate.service
-[Unit]
-Description=Rotate the Frankfurt League edge logs
-
-[Service]
-Type=oneshot
-ExecStart=/usr/sbin/logrotate -s /var/lib/logrotate/frankfurtleague.status /etc/frankfurtleague/access-log.conf
-```
-
-```text
-# /etc/systemd/system/frankfurtleague-logrotate.timer
-[Unit]
-Description=Hourly size check on the Frankfurt League edge logs
-
-[Timer]
-OnCalendar=hourly
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-**The deploy's copies, at `/etc/tmpfiles.d/frankfurtleague.conf`.** `systemd-tmpfiles-clean.timer`,
-which systemd ships enabled and runs daily, is what runs it, so the thirty days need no scheduler of
-their own. **The
-line ages the directory rather than a name**, so every copy a deploy writes into it is reached
-whatever it is called — the `-failed` pair a rollback leaves included, and any suffix a later change
-adds. The command below is what confirms it is running on this host.
-
-```text
-# Aged by mtime alone: a copy's mtime is the moment the deploy wrote it, while its ctime moves for a
-# chown or a relabel, and any of the three being recent is enough to keep a file otherwise.
-e /var/log/frankfurtleague - - - m:30d
-# The line above reaches every level below it, and the edge's live logs are there: on a quiet month
-# the cleaner would delete a file nginx still holds open, and the writes would go nowhere.
-x /var/log/frankfurtleague/nginx
-```
+Apply it, then read back the drop-in and the oldest line the journal holds:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now frankfurtleague-logrotate.timer
-systemctl list-timers frankfurtleague-logrotate.timer systemd-tmpfiles-clean.timer
-sudo systemd-tmpfiles --clean --prefix=/var/log/frankfurtleague
+sudo systemctl restart systemd-journald
+systemd-analyze cat-config systemd/journald.conf
+sudo journalctl --output=short-iso | head -n 1
 ```
 
-**The last of those is also how this host answers whether it reads the age qualifier at all**: one it
-cannot parse is an error naming the file and the line, an exit of 65, and nothing deleted — never a
-line skipped in silence.
+`cat-config` prints the drop-in last, under its own path, with its four lines. Once the drop-in
+has stood nine days, the oldest line the last command prints is at most nine days old.
 
-**What each shape refuses, and why the obvious one is not here:**
+**Two other bounds can take a line sooner, and neither can keep one longer.** journald deletes the
+oldest files once the journal fills its share of the disk. That share is by default a tenth of the
+file system, and at most 4 GB. It also drops lines one service writes past its rate limit, by default 10,000 in 30
+seconds. Every container logs through `docker.service`, so all four share that budget. A flood
+of access lines can therefore cost `journal.act` lines, which is why a restore reads the mail
+threads beside them.
 
-- **A second `logrotate` stanza over `/var/log/frankfurtleague/*.log`** reaches a copy once. The
-  first run renames it out of the glob, and `maxage` prunes what logrotate still finds a source for,
-  so nothing looks at the file again. `olddir`, a `postrotate` or `dateext` off each move the name
-  around and leave that unchanged.
-- **`find -mtime +30 -delete` from cron** deletes the same files, and costs a second scheduler and a
-  file stating an age that `tmpfiles.d` already states declaratively.
-- **Numbered rotation instead of `dateext`** never collides, because every rotation renames every
-  older file. It also takes the date off the names, so a file's age is readable only from its mtime
-  and never from the listing an operator is already looking at.
-- **`dateformat -%Y%m%d-%s`** sorts identically and reads as a number nobody can date by eye.
-- **Leaving the stanza in `/etc/logrotate.d/` and making the host's `logrotate.timer` hourly** is one
-  file fewer and changes the cadence for every other package on the machine.
+### Reading a service's lines
 
-**Two rotations inside one second still collide**, the name carrying seconds and no more: an hourly
-timer cannot reach that, and two runs by hand can.
+**Read a service's lines with Compose in the checkout**, which the `.env` pin points at the build
+that runs, or with `journalctl` by the container's name, which outlives a recreate:
 
-**Nothing here rotates the containers' own `json-file` logs**, whose whole bound is the compose size
-cap (`docker-compose.yml :: x-logging`): the only way to rotate a file the runtime holds open is
-`copytruncate`, and a truncate landing mid-line leaves a partial JSON document in a file read as one
-document per line — which is what `docker compose logs` reads, and what the deploy's own copy-off
-above runs. The copies are what carry an application log past a deploy, and their thirty days is the
-only age bound over one. The edge's own container stream is bounded by that cap alone, which is why
-nothing written there may name a visitor.
+```bash
+docker compose logs --since 2h backend
+sudo journalctl -t "$(docker compose ps --format '{{.Name}}' backend)" --since "2 hours ago" --output=cat
+```
 
-**The rotated file ends up owned by uid 101 rather than root**: nginx's master chowns each log it
-reopens to the user its configuration names, which is the image's `nginx`. `create 0640 root root`
-is what the rotation leaves, and the first line written after the reopen changes that ownership;
-reading the file needs the host's root either way.
-
-## 8. Taking the tunnel back out
-
-**The rollback is `git revert` of the change that put the tunnel in and a redeploy, not
-`deploy.sh`'s own.** That path restores IMAGES, and what would be wrong here is the topology: only
-the reverted commit puts the `ports:` block back and stops the connector, and re-running the
-deploy after it is what applies them. **The edge is the other half, and no commit reaches it**: the
-two hostnames come off the tunnel, the address records naming the origin are created again, and
-whatever closed the host's inbound 80 and 443 is opened.
+`docker compose logs` reads the current container alone; `journalctl` reads every container that
+held the name, so it is the one reaching back past a deploy.
 
 ## 9. Checking that the hourly passes have run
 
@@ -992,6 +888,21 @@ inside it is not, and a `scheduler.pass_skipped` line in every hour says a pass 
 the frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses
 rather than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
 
+**The monitor is made by hand in Better Stack, and production's frontend refuses to boot without
+its address** (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`). So before the first
+deploy that reads it:
+
+1. In Better Stack, create a heartbeat monitor expecting a ping every hour, with a grace period of
+   15 minutes, which a slow pass stays inside.
+2. Set its alerts to the owner's personal address alone, as every monitor's are
+   ([`spec.md`](spec.md) §1.9).
+3. Copy its address, which begins `https://`.
+4. On the server, in the checkout, run
+   `sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/betterstack_heartbeat_url`, paste the
+   address, then press Ctrl-D.
+5. Where the stack runs already, recreate the frontend
+   ([section 16](#16-the-secret-files)).
+
 **Each hourly pass that did anything writes one line**, `scheduler.pass`, every job's counts in
 it:
 
@@ -999,7 +910,8 @@ it:
 docker compose logs --since 2h frontend | grep scheduler.pass
 ```
 
-**A half that did not finish says why in the frontend's log.** Each files its own failure line,
+**A half of the retention sweep that did not finish, the applications' or the registrations', says
+why in the frontend's log.** Each files its own failure line,
 `bewerbung.sweep_failed` and `registrierung.sweep_failed`, naming the season, so the event name is what names the
 half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
 `bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
@@ -1086,7 +998,7 @@ The run passes those pupils over on every pass until their address is stored in 
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
 (`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
 finds nothing to move (`address_change_nothing`), and the tool takes no address the rule refuses.
-Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
+Rewrite it by hand with a file run by `mongosh --file`, kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
 an empty one or one the rule refuses to the folded address the person is established to hold, as
 [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
@@ -1113,10 +1025,11 @@ each, and a mail it gives up is counted on the pass's line and reported to the
 heartbeat. A notice about a match already kicked off is owed nobody. A listing or a season's pass that fails
 ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
 that committed. No mail of the pass carries a link: a club answers on its Übersicht and a referee on
-theirs, signed in. The pass's lines:
+theirs, signed in. The pass's line holds its counts under the key `spielbestaetigungen`, and
+`scheduler.job_failed` names that job where it threw:
 
 ```bash
-docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+docker compose logs --since 2h frontend | grep -E 'scheduler\.(pass|job_failed)'
 ```
 
 **The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
@@ -1143,8 +1056,8 @@ which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; t
 ## 10. The mail provider's dashboard
 
 **None of this is in the repository**, and the webhook is inert until it is done. Steps 1, 2 and 4
-are taken by hand in the mail provider's own console; step 3 is a line in the server's environment
-file, and it is the one that stops the frontend booting.
+are taken by hand in the mail provider's own console; step 3 is a file on the server, and it is
+the one that stops the frontend booting.
 
 1. Create an endpoint at `https://<the league's domain>/api/mail/delivery`.
 2. Subscribe exactly six events — `email.delivered`, `email.bounced`, `email.complained`,
@@ -1154,6 +1067,7 @@ file, and it is the one that stops the frontend booting.
 3. Copy the signing secret into the server's `secrets/resend_webhook_secret`, owned as §16 says. **It begins
    `whsec_` and must be pasted with that prefix**: the verifier accepts the value either way, and
    the boot check does not, deliberately — refusing at start beats answering 400 to every event.
+   The frontend reads it once it is recreated (§16).
 4. Confirm open and click tracking are OFF for the sending domain, which is a second switch from
    step 2.
 
@@ -1183,9 +1097,9 @@ and no record model expresses the pairing either, so the read-back (§2) reports
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
 were collected on
 ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. **The clear is run by hand as a MongoDB Playground
-paste against the cluster, as every migration here is** (§2), the backend image carrying no
-database shell. Four things decide whether the one pasted is right:
+so an accepted school holds each date twice. **The clear is run by hand against the cluster, as every
+migration here is** (§2): a file run with `mongosh --file` in a terminal, the backend image
+carrying no database shell. Four things decide whether that file is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
   that is not null beside a `confirmed_at` that is null — and read the number of documents each
@@ -1203,93 +1117,111 @@ Then the read-back (§2): exit 0.
 ## 13. After a restore from a snapshot
 
 **The published notice promises that nothing comes back from a backup without the person's erasure
-being run again** (`/datenschutz`), and this is
-how that promise is kept ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)).
-Two things a restore is contemplated for: a hand-run migration that succeeded against a mistyped path
-(§2), and a mistaken erasure, for which the snapshot window is the only route back. Write down the
-moment the restored snapshot was taken, and once the restore has completed, that moment too: the
-lines below between the two are what the restore undid, and an act after the second is the restored
-site's own, which stands as its person made it.
+being run again** (`/datenschutz`), and this section is how that promise is kept
+([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)). A restore is
+contemplated for two things: a hand-run migration that succeeded against a mistyped path (§2), and
+a mistaken erasure, for which the snapshot window is the only route back. The steps, in the order
+they are done, each explained below:
 
-**Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
-every pupil and referee row had been deleted and the action log emptied. It brings back those rows
-and that log, holding addresses nobody asked to keep, and records citing consent labels the
-registry does not hold, which §2's read-back passes, a record model taking any label. The rule lapses once the hosting holds no
-snapshot taken before that moment, its snapshot window being about eight days
-([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
+1. **Write down the moment the snapshot to restore was taken.**
+2. **Hold the frontend**: add the line `RESTORE_HOLD=on` to the server's `fl_frontend/.env`, then
+   run `docker compose up -d --wait --force-recreate frontend` in the checkout.
+   `docker compose logs frontend | grep scheduler.held` prints one line once the hold has taken.
+3. **Where the snapshot predates a deploy whose migration files changed stored data, stop the
+   application services too**: `docker compose stop frontend backend`.
+4. **Restore the snapshot in the Atlas console**, onto the cluster it was taken from, and write
+   down the moment the restore completed. Atlas deletes the cluster's data before it restores, and
+   the cluster answers nothing meanwhile.
+5. **Where step 3 stopped them**, run the migration files of every deploy the snapshot predates, in
+   their order, as §2 runs them. Then start the services with `docker compose up -d --wait`, and run
+   §2's read-back: exit 0.
+6. **List the `journal.act` lines between the two moments.**
+7. **Set each withdrawal again, then run each erasure again**, a former owner's only after §3's
+   recovery.
+8. **Re-enter the squad rows and registrations written since the snapshot.**
+9. **Re-run every grant and ban change made inside the window.**
+10. **Activate again each season whose activation the snapshot predates.**
+11. **Lift the hold**: delete the line from `fl_frontend/.env`, then run
+    `docker compose up -d --wait --force-recreate frontend`.
+12. **Write to the clubs and referees the window reached.**
 
-**A snapshot taken before the deploy of the current consent wordings brings back the labels that
-deploy's paste re-pointed: once the restore has completed, run that paste again, before the steps
-below.** It is the paste the owner's checklist holds for that deploy, moving every stored label, a
-withdrawal's `given_before` among them, to its consent's current wording. Skipped, every read of a record citing an older label is refused, the read models
-admitting the current labels alone (`fl_backend/app/shared/schemas/einwilligung.py ::
-FLEinwilligungTextVersion`) while §2's read-back passes them. This lapses with the rule above, once
-the hosting holds no snapshot taken before that deploy; delete it then.
+**The two moments bound what the restore undid.** The lines between them are acts the restore took
+back, and an act after the second is the restored site's own, which stands as its person made it.
 
-**A snapshot taken before the deploy of the current stored names brings back the names that deploy's
-paste moved: once the restore has completed, run that paste again before the steps below.** Here the
-backend stands up with the frontend held, unlike the paste's head, and `uniq_spielbestaetigung_open`
-stands dropped until a boot rebuilds it. This lapses once the hosting holds no snapshot taken before
-that deploy; delete it then.
+**A migration the snapshot predates is run again before anything reads the restored data.** The
+snapshot holds the shape from before that deploy, which the running release cannot read. So the
+application services stay stopped until its files have run, as §2's order keeps them. Those files
+are the ones the owner kept for that deploy, each written to be run again.
 
-**Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
-`fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
-steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
-would act on the restored state before they are done. The pupils' deletion would delete each pupil
-the season-after rule makes due under it, a returning pupil whose squad row the snapshot predates
-among them, and nothing brings one back. The fixture confirmations would mail seat holders and
-referees whose erasure has not run again, and the retention sweep would remind the seats of erased
-people. The drain would send what the snapshot held unsent. Held, the frontend reads the line once
-as it boots: it arms no pass, logging `scheduler.held`, and no write's drain sends, each mail it owes
-waiting in the Postausgang for the first drain after the hold. So, while it holds:
+**The hold keeps every hourly pass off the restored state until the steps are done.** The steps run
+on the admin pages, so the frontend serves throughout, and what the hold stops is §2's
+([What the hold stops](#what-the-hold-stops)). Unheld, a pass would do harm nothing undoes:
 
-- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
-- **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
-  owner's steps below ask for anyway.
+- **The pupils' deletion** would delete each pupil the season-after rule makes due, a returning
+  pupil whose squad row the snapshot predates among them, and nothing brings one back.
+- **The fixture confirmations** would mail seat holders and referees whose erasure has not run
+  again, and the retention sweep would remind the seats of erased people.
+- **The drain** would send what the snapshot held unsent.
+
+The heartbeat alerts until step 11, and no sign-in code is mailed meanwhile: sign in by passkey,
+which every administrator holds and which the owner's steps ask for anyway.
 
 **The action log cannot be the list, because the restore rolls it back too; the backend's
 `journal.act` lines are.** Everything written between the snapshot and the restore is gone, the log's
-own rows about it included. Every erasure a person or an administrator asked for left its lines in the
-backend's stream, and so did every consent a person withdrew and every Widerspruch made through a
-seat's link or a referee's, whether its commit landed or lost its answer. A line names its act and, by id and with no address or name, where its person stood:
-`records`, as `collection/id`, on an erasure's line each record one address alone holds, and on a
-withdrawal's or a Widerspruch's the record the act landed on, which on a seat's row or an application
-holds other people too; `seats`, a seat's withdrawal's or Widerspruch's slots by
-name, an erasure's as `collection/id/slot`, its row holding other people, and a confirmed slot's with
-that slot's `einwilligung.confirmed_at` as a fourth part; `rows`, an erasure's every
-other field that named the address, as `collection/id/path`, so a row naming two people says which
-of them this is; and a withdrawal's `choices`. The season rule's deletions write none, the rule deleting the same pupils again on its own.
+own rows about it included. Every erasure a person or an administrator asked for left its lines in
+the backend's stream. So did every consent a person withdrew and every Widerspruch made through a
+seat's link or a referee's, whether its commit landed or lost its answer. A line names its act, and
+where its person stood by id, with no address or name:
 
-**List the lines between the two moments**, from the running backend and the deploys' copies (§7),
-each in the `journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so
-an act naming more than a line holds, as a former owner's can, takes several: each carries the same
-`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one line.
-A part the two commands do not find leaves that act's list short, so read the mail thread for it:
+- **`records`**, as `collection/id`. On an erasure's line, each record one address alone holds. On a
+  withdrawal's or a Widerspruch's, the record the act landed on, which on a seat's row or an
+  application holds other people too.
+- **`seats`**: a withdrawal's or a Widerspruch's slots by name. An erasure's are
+  `collection/id/slot`, its row holding other people, and a confirmed slot's carries that slot's
+  `einwilligung.confirmed_at` as a fourth part.
+- **`rows`**: an erasure's every other field that named the address, as `collection/id/path`, so a
+  row naming two people says which of them this is.
+- **`choices`**: a withdrawal's.
+- **`act_id`, `part` and `parts`**: one act across the several lines a long one takes (below).
+
+The season rule's deletions write none, the rule deleting the same pupils again on its own.
+
+**List the lines between the two moments** from the host's journal (§7), each in the
+`journal.act` message, every value in a field of its own. Docker cuts a line at 16 KiB, so an act
+naming more than a line holds, as a former owner's can, takes several. Each carries the same
+`act_id` and its `part` of `parts`, and every step below reads the parts of one `act_id` as one
+line.
+A part the command does not find leaves that act's list short, so read the mail thread for it. The
+times are UTC, and the name is every backend container's, across deploys:
 
 ```bash
-docker compose logs --since 2026-10-15T03:00:00Z --until 2026-10-15T09:40:00Z backend | grep '"journal.act"'
-grep -h '"journal.act"' /var/log/frankfurtleague/*backend*
+sudo journalctl -t "$(docker compose ps --format '{{.Name}}' backend)" --since "2026-10-15 03:00:00 UTC" --until "2026-10-15 09:40:00 UTC" --output=cat | grep '"journal.act"'
 ```
 
-**A line outlives the stream only as far as the stream's size cap and the copies reach**, so read the
-mail thread beside the lines for every request that arrived by mail. A line whose commit lost its
+**A line outlives its act only as long as the journal keeps it** (§7), so read the mail thread
+beside the lines for every request that arrived by mail. A line whose commit lost its
 answer may name an act that never landed, and running it again wrongs nobody, the person having asked
 for it.
 
-**A withdrawal is set again on its record, on a seat's in the `einwilligung` of each slot its `seats`
-name and no other, a seat's Widerspruch's seats emptied again, and a referee's stamped again in
-`confirmation.declined_at` with the line's German day**, each in the
-Playground, from the fields of its line, the person's evidence having gone with the lost window.
-A line names the choice and no value, and each choice withholds by one value on each kind of record:
-`scope` is set to `internal` on a pupil, a referee or a registration and to `kontakt_data` on a seat,
-and `media` to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
+**Each withdrawal and Widerspruch is set again by a file run with `mongosh --file`**, from the
+fields of its line,
+the person's evidence having gone with the lost window:
+
+- **A withdrawal** is set again on its record; a seat's in the `einwilligung` of each slot its
+  `seats` name, and no other.
+- **A seat's Widerspruch** empties its seats again.
+- **A referee's** is stamped again in `confirmation.declined_at`, with the line's German day.
+
+A line names the choice and no value, and each choice withholds by one value on each kind of
+record. `scope` is set to `internal` on a pupil, a referee or a registration, and to `kontakt_data`
+on a seat. `media` is set to `false`. A choice granted since by evidence later than the line stands. A person who made one of these acts
 and whose record the restore does not hold needs nothing.
 
 **Then run each erasure again on „Löschungen“, with the address its line shows**: keyed on the
 address, the erasure reaches every other record it names. Read it in the restored rows, in this order,
 never elsewhere on the row, since a seat's row and another person's change hold other people:
 
-- a `records` entry: the address on that record, as §5's table names it;
+- a `records` entry: the address on that record, as §5's list of roles names it;
 - a `seats` entry, `collection/id/slot`: `kontakte.<slot>.email` on that row. A seat passes from one
   person to another, so the slot may hold someone else:
   - An entry with a fourth part, the slot's confirmation day, whose day the restored slot's
@@ -1307,11 +1239,11 @@ took a sign-in account alone, which goes with the account sweep's first pass aft
 nothing. A restored row does not look erased,
 and each role's guard reads something the restore took away:
 
-- **A referee.** The whole row is back, with its name, school and contact members, and every fixture
-  the erasure had repointed names them again in place of the ghost, so nothing reads as erased and
+- **A referee.** The whole row is back, with its name, school and contact members. Every booking
+  the erasure had left naming nobody or taken off names them again, so nothing reads as erased and
   they are editable and bookable. The erasure does all of it again.
-- **A pupil.** The person and their squad rows are back and standing, and every report entry the
-  erasure had repointed names them again in place of the sentinel. The erasure takes them and repoints
+- **A pupil.** The person and their squad rows are back and standing, and every line-up entry, goal
+  and card the erasure had left naming nobody names them again. The erasure takes them and clears
   the entries again, asking no retirement first.
 - **A contact seat.** Every seat that address held is back and filled. The erasure is keyed on the
   address, so the matched address is the whole input — and its counts take in records written since
@@ -1324,7 +1256,7 @@ and each role's guard reads something the restore took away:
   owner** who handed the role over and was then erased comes back as the `owner` row, the handover being
   undone with everything else, and the person the role passed to is an administrator again or holds
   nothing. Nobody who holds no owner's power can erase that address, and the row's holder is the erased
-  person. So the recovery paste runs first: it demotes that row and writes the true owner's, as §3's
+  person. So §3's recovery write runs first: it demotes that row and writes the true owner's, as §3's
   recovery says; only then does the owner run the erasure. The same applies to a handover the restore
   undid with the old owner still present: that person is the owner again until it is started afresh.
 - **A record holding no address.** No erasure reaches one
@@ -1336,8 +1268,8 @@ and each role's guard reads something the restore took away:
   account sweep's first pass after the hold deletes each, a barred address's included (section 5).
 
 **Then re-enter the squad rows and registrations written since the snapshot**, from the clubs'
-mail threads: the pupils' deletion runs on the state the last steps leave, so a returning pupil
-whose row is back by then is no longer due.
+mail threads. The pupils' deletion runs on the state the last steps leave, so a returning pupil whose
+row is back by then is no longer due.
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1348,16 +1280,15 @@ undid the erasures, and which nothing re-runs:
   ([section 3](#3-granting-or-revoking-admin-access)). A grant added after the snapshot is gone and
   is added again, its wait starting anew. The record of each is the mail every change sent every holder.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
-  at `/admin/ban-list`, which owes the person its notice again, sent once the hold is
-  lifted, and lift the others there; the mail thread that asked for each is the record, the log
-  having rolled back with it.
+  at `/admin/ban-list`, which owes the person its notice again, sent once the hold is lifted. Lift
+  the others there. The mail thread that asked for each is the record, the log having rolled back
+  with it.
 
 **Then activate again each season whose activation the snapshot predates**, last of all: the first
 pass after the hold runs the pupils' deletion over the state the steps above re-entered. Its
 deletions are re-derived: it writes no line.
 
-**Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
-and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
+**Once the hold lifts, the first pass runs a minute after the boot**, pinging the heartbeat, and the
 drain sends what waited, so these follow:
 
 - **The Postausgang came back with the snapshot**, so every mail open in it then goes out with the
@@ -1377,35 +1308,41 @@ drain sends what waited, so these follow:
     them off the fixture, so the restore books them onto it again with no row, and the first pass
     mails them a fresh Einteilung; until they agree again the fixture names no referee.
 
-Write to each club mailed inside the window, which the mail provider's list of sent messages names
-by subject, that an answer given on its Übersicht in those days is to be given again there. Write
-to each referee booked onto a fixture still to come, at the address their record holds, that an
-answer given on their Übersicht in those days is to be given again there, a decline included: no
-record the restore keeps says which of them answered.
+**Write to each club mailed inside the window**, which the mail provider's list of sent messages
+names by subject, that an answer given on its Übersicht in those days is to be given again there.
+Write the same to each referee booked onto a fixture still to come, at the address their record
+holds, a decline included. No record the restore keeps says which of them answered.
 
 **A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
-fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then. No
-record names whose report went, the log being rolled back too, and a report can be sent or
-corrected at any time from the match's kick-off until its season ends, so write to the referees booked on
+fixture reads as the snapshot left it, open on the referee's Übersicht where no report stood then.
+No record names whose report went, the log being rolled back too. A report can be sent or corrected
+at any time from the match's kick-off until its season ends. So write to the referees booked on
 every fixture played by the restore day in a season the restore leaves running, which the fixture
-list names, to look at their Übersicht and enter again what it lacks; an administrator's correction
-made inside the window is gone too.
+list names. Ask them to look at their Übersicht and enter again what it lacks. An administrator's
+correction made inside the window is gone too.
 
 **Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
-what they cached before it, the people erased again and the publication consents withdrawn again
-above among them, for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) states.
+what they cached before it for at most the lifetime
+[section 20](#20-after-a-hand-edit-in-mongodb) states. That includes the people erased again and the
+publication consents withdrawn again above.
 
 ## 14. The `auth` database's indexes
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
-built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An
-index the boot could not build is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that event after every deploy:
+built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`). An index the boot could not build
+is one `auth.index_unbuilt` line naming it, and only a store that did not answer is built again
+before the next boot. So after every deploy ([section 1](#1-deploying-a-build-and-going-back-to-an-earlier-one)),
+read the frontend's log for that event:
+
+```bash
+docker compose logs frontend | grep auth.index_unbuilt
+```
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
 | `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
-| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
+| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend (below)                                               |
 | none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `auth.index_unbuilt` again for any still refused                                                |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
@@ -1413,8 +1350,13 @@ collection's unique `credentialID` and both expiry indexes — were made in the 
 the frontend built any, and a same-key index under another name is the code-85 line above.
 
 **For a release changing an index's key or options, drop the old one in the Atlas console as it
-deploys, then restart the frontend container**: `createIndex` refuses a name already held at other
-options and builds nothing in its place, so the old index would otherwise stand for good.
+deploys, then restart the frontend**: `createIndex` refuses a name already held at other options
+and builds nothing in its place, so the old index would otherwise stand for good. A restart boots
+the frontend again, which builds every index:
+
+```bash
+docker compose restart frontend
+```
 
 **The two expiry indexes are the retention.** The library writes an `expiresAt` on every
 `verification` row and every `session` row and deletes neither on a schedule: an expired
@@ -1483,11 +1425,11 @@ trailing newline and surrounding blanks, and everything else in the file is part
 authenticate one machine's processes to each other, so a development machine
 generates fresh ones and never copies production's. **A development machine holds no production
 login at all**: its two database URI files name the local stack's database through the port that
-stack publishes on loopback, the local stack itself hands its services an inline config naming its
-own database, and the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
+stack publishes on loopback. The local stack itself hands its services an inline config naming
+its own database.
 
-On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
-`fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
+On a development machine, in Git Bash at the checkout root, this writes every file both dev servers
+and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
 (umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
@@ -1503,14 +1445,9 @@ read 2026-10-04). **Production holds the widget's own pair**, the site key in `f
 and the secret in `secrets/turnstile_secret_key`, both from the Cloudflare dashboard's Turnstile
 widget, and refuses to boot on either published test key.
 
-**`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
-reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production
-with it and with no other login. Copy its URI out of the password manager into the file in an
-editor, never through a shell command that echoes it.
-
-**No line in either package file names a value a secret file holds**: the deploy and `local.sh`
-refuse one before compose reads the file ([`spec.md`](spec.md) §1.5). Delete such a line in an
-editor, never with `cat`.
+**No line in either package's `.env` holds a value a secret file holds**: Compose hands every line
+to the container as a variable, which `docker inspect` prints. Delete such a line in an editor,
+never with `cat`.
 
 **On the server, each file is owned by the user that reads it** ([`spec.md`](spec.md) §1.2): a new
 value is written without ever existing under another owner or mode, and without passing through the
@@ -1518,25 +1455,43 @@ shell's history. For a value that exists only in the password manager, run the l
 and paste the value, then Ctrl-D:
 
 ```bash
+sudo install -o 65532 -g 65532 -m 400 /dev/stdin secrets/tunnel_token
 sudo install -o 1001 -g 1001 -m 400 /dev/stdin secrets/<a frontend file>
 sudo install -o 1002 -g 1002 -m 400 /dev/stdin secrets/<a backend file>
 sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 ```
 
-**Each service reads its files once, as it boots**, so a value replaced on a running stack — a
-wrong `secrets/turnstile_secret_key` among them, which fails every bot check until then — takes
-effect only with the next `./scripts/ops/deploy.sh`, which judges it and recreates both containers.
+**Each service reads its files once, as it boots**, and Compose recreates a container for a
+changed definition or image, never for a file's new content. So a value replaced on a running stack
+takes effect only once the services reading it are recreated, which [`spec.md`](spec.md) §1.2's
+table names. A wrong `secrets/turnstile_secret_key` fails every bot check until then. Run this in
+the checkout, naming those services; `--wait` reports their healthchecks:
 
-**Where a deploy refuses naming a file**, the refusal says
-which fault: a missing one is written, an unreadable one is given the user and mode above, a blank
-one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
-the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
+```bash
+docker compose up -d --wait --force-recreate frontend backend
+```
+
+- **The three internal keys** are read by both application services, so recreate `frontend backend`
+  together.
+- **A frontend file** recreates `frontend`, and **`backend_mongodb_uri`** recreates `backend`.
+- **`tunnel_token`** is read by the connector alone, so recreate `cloudflared`.
+
+**Where a service refuses to boot naming a file**, its last lines say which fault, and a failed
+deploy prints them. A missing file is written, an unreadable one is given the user and mode above,
+and a blank one is written again.
+
+**Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside the class**
+([`spec.md`](spec.md) §1.2). Generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
-and update the password-manager entry. Both containers are recreated by the same deploy, so the new
-keys never meet the old. **After a suspected leak of `internal_api_key_admin`**, generate all three
-the same way: its holder, reaching the backend on the private network, can act as any administrator,
-so rotating is not finished until `action_log` has been read for every `grants` write since the
-leak, and every grant nobody can account for is revoked in the Playground. **A new `auth_secret` signs everybody out.**
+and update the password-manager entry. Both containers are recreated by the command above, so the
+new keys never meet the old.
+
+**After a suspected leak of `internal_api_key_admin`, generate all three the same way.** Its holder,
+reaching the backend on the private network, can act as any administrator. So rotating is not
+finished until `action_log` has been read for every `grants` write since the leak. Every grant
+nobody can account for is then removed on the „Administratoren“ page.
+
+**A new `auth_secret` signs everybody out.**
 
 ## 17. Clearing an address's code lock
 
@@ -1568,11 +1523,6 @@ frontend image's `FROM node:` tag, so a new Node is one branch editing `devEngin
 its digest together, then running `pnpm install` to rewrite the lockfile:
 `scripts/tests/test_image_pins.py` refuses a manifest, lockfile and tag naming different releases.
 Once it merges, a machine needs nothing more than the next `pnpm install`.
-
-**A bare `node` still runs the machine's own**, and the Claude Code hooks under `.claude/hooks/`
-that read their payload with it call it bare. Install the pinned release machine-wide from
-<https://nodejs.org/en/download>, and again whenever the pin moves: a machine left on an older release
-of the line keeps every security flaw fixed since.
 
 ## 19. The database's storage alert
 
@@ -1614,3 +1564,18 @@ cached league read keeps that lifetime: the first visit a minute or more after a
 still gets the entry and refills it behind its answer, and an entry nobody visits for an hour
 expires, so the next visit waits for a fresh read. A save made on the site clears every
 cached entry at once; a hand edit, a restore and the hourly passes clear none.
+
+## 21. The repository's settings
+
+**GitHub holds them and no file here can read them**, so this is a check the owner makes in the
+repository's settings, after any change there:
+
+- **Rules, Rulesets: one ruleset targets the default branch, its enforcement Active.**
+  - It requires a pull request, with zero approvals: a sole maintainer cannot approve his own.
+  - It requires one status check, `verify`, which fails on any other job's failure
+    ([`spec.md`](spec.md) §1.6). A required check no job reports blocks every merge.
+  - It blocks force pushes and restricts deletions: every published `sha-` tag names a commit of
+    `main`, which a rewrite would leave behind.
+  - Its bypass list is empty, since an exemption would exempt the force push it refuses.
+- **General, Pull Requests: merge commits alone, squash and rebase off.** A merge keeps each commit
+  and its body, which carries what the diff cannot ([`../writing.md`](../writing.md#commit-messages)).

@@ -59,9 +59,9 @@ type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
 interface Handout {
   /** The raw link token minted for this hand-out, or null where the mail carries no link. */
   readonly token: string | null;
-  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: sendHandedOut`), or null where it holds none. */
+  /** The row's secret, which the drain opens, or null where it holds none. */
   readonly secret: string | null;
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not production mails no production link. */
+  /** The serving origin, never `SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
 }
 
@@ -85,9 +85,8 @@ function minted({ token, origin }: Handout): MailLink {
 }
 
 /**
- * Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). Total over
- * the backend's kinds: the annotation refuses a kind left out and, the value being an object literal, one the union
- * does not name.
+ * Each kind's builder, total over the backend's kinds: the annotation refuses a kind left out and, the value being an
+ * object literal, one the union does not name.
  */
 const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
@@ -105,7 +104,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   aufstellung_reminder: buildAufstellungReminderEmail,
   austritt_notice: buildAustrittNoticeEmail,
   registrierung_confirmation: (data, handout) => buildRegistrierungConfirmationEmail(data, minted(handout)),
-  registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
+  registrierung_absage: buildRegistrierungAbsageEmail,
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
   ban: buildBanEmail,
@@ -124,7 +123,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   bewerbung_objection: buildBewerbungObjectionEmail,
 };
 
-/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth/mails.ts :: oweSignInMail`). */
+/** A secret kind's secret, which its every row carries. */
 function secretOf(secret: string | null): string {
   if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
 

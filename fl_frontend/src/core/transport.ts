@@ -6,8 +6,8 @@ import type { FetchOptions } from "./api";
 
 /**
  * What a generated call may add to its request: everything `sendToBackend` takes but the tier, which the operation's
- * `security` fixes, and whether it writes, which the operation's `x-safe` or `x-safe-when` states
- * (`fl_frontend/orval.config.ts :: transportOf`). A call site stating either fails the type check.
+ * `security` fixes, and whether it writes, which the operation's `x-safe` or `x-safe-when` states. A call site stating
+ * either fails the type check.
  */
 type CallOptions = Omit<FetchOptions, "authType" | "readOnly">;
 

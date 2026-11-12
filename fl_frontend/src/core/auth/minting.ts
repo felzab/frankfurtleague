@@ -106,8 +106,8 @@ export async function refuseUnadmitted(ctx: GenericEndpointContext, userId: stri
   const verdict = account === null ? "failed" : carried === undefined ? await mayReceiveSignIn(account.email) : signInVerdictOf(carried.signIn);
   if (verdict === "admitted") return sentAt;
 
-  // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
-  // read is the backend's and not the person's, so it answers as a retry would.
+  // Worded where the ceremony starts; a failed read is the backend's and not the person's, so it answers
+  // as a retry would.
   if (verdict === "failed") throw APIError.fromStatus("SERVICE_UNAVAILABLE");
   // The browser reads this body, so a ban and an address holding nothing answer it byte for byte alike.
   throw new APIError("FORBIDDEN", { code: SIGN_IN_REFUSED, message: "No sign-in is admitted for this address." });

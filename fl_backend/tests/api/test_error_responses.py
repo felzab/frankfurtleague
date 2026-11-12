@@ -5,6 +5,7 @@ import re
 from collections.abc import AsyncIterator
 from typing import Any
 
+import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import Depends, FastAPI, Request
@@ -12,20 +13,16 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from httpx2 import Response
 from pydantic import BaseModel, Field, ValidationError
-from pymongo.errors import BulkWriteError, NetworkTimeout, PyMongoError
+from pymongo.errors import BulkWriteError, ExecutionTimeout, PyMongoError
 
 from app.core.codes import Code
-from app.core.exception_handlers import (
-    db_exception_handler,
-    pydantic_validation_exception_handler,
-    register_exception_handlers,
-)
+from app.core.config import API_VERSION
+from app.core.exception_handlers import db_exception_handler, pydantic_validation_exception_handler
 from app.core.logging import JSONFormatter, TraceContextFilter
-from app.core.middlewares import TracedApp
-from app.core.routing import SAFE, SAFE_WHEN
-from app.main import create_app
+from app.main import create_shell
 from app.shared.schemas.custom import PERSON_NAME_PATTERN, CustomObjectId
-from tests.config import BASE_AUTH, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 from tests.core.app_source import application
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
@@ -72,8 +69,7 @@ class NestedPayload(BaseModel):
 
 # A second app: `APP`'s routes all 503 on the database dependency before parsing can fail, so a
 # payload refusal needs a route that depends on nothing, and so does a success that writes its access line.
-VALIDATION_APP = TracedApp()
-register_exception_handlers(VALIDATION_APP)
+VALIDATION_APP = create_shell()
 ANSWERED_PATH = "/answered"
 
 
@@ -156,16 +152,14 @@ class TestTheRefusedFieldsReachTheCaller:
 
 QUERY_ID = "6890a1b2c3d4e5f607182930"
 
-# Each malformed a different way: `ObjectId` tests length before it decodes hex, so the third is refused on its characters.
-MALFORMED_QUERY_IDS = ["not-an-id", QUERY_ID[:-1], "z" * 24, f"{QUERY_ID}0"]
-
 
 class TestAMalformedQueryIdIsARefusedPayload:
     """A query validates, so a malformed id is a 422, never the 404 a path's would be (`tests/api/test_malformed_ids.py`)."""
 
-    @pytest.mark.parametrize("team_id", MALFORMED_QUERY_IDS)
-    def test_a_malformed_query_id_is_a_422(self, team_id: str):
-        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": team_id})
+    def test_a_malformed_query_id_is_a_422(self):
+        """One id shows the answer; which ids are malformed is bson's to decide."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(FILTERED_PATH, params={"team_id": QUERY_ID[:-1]})
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 
@@ -222,7 +216,7 @@ class TestAServerFaultsLineWithholdsTheValue:
 
     def test_a_refused_stored_document_names_its_field_and_never_its_value(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
-            asyncio.run(pydantic_validation_exception_handler(None, rejected_name_error()))  # type: ignore[arg-type]
+            asyncio.run(pydantic_validation_exception_handler(Request({"type": "http", "method": "GET", "headers": []}), rejected_name_error()))
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document
@@ -280,32 +274,27 @@ async def break_after_the_status() -> StreamingResponse:
     return StreamingResponse(body())
 
 
-async def cut_by_the_deadline() -> None:
-    raise NetworkTimeout("the request's deadline cut the command")
+# What `with_transaction` raises for a commit sent and never answered within the deadline.
+LOST_COMMIT = ExecutionTimeout("timed out", 50, {"ok": 0, "code": 50, "errorLabels": ["UnknownTransactionCommitResult"]})
+
+
+async def lose_the_commit() -> None:
+    raise LOST_COMMIT
 
 
 @functools.cache
 def _crashing_app() -> FastAPI:
-    """The shipped stack around routes that fail: an app of its own, `APP` being every module's.
+    """The shell every route is served inside, around routes that fail: no route the application serves fails so on purpose.
 
     Built on first use rather than at import, which every xdist worker pays at collection.
     """
 
-    crashing = create_app(build_test_config())
+    crashing = create_shell()
     crashing.add_api_route("/crash", crash)
     crashing.add_api_route("/broken-stream", break_after_the_status)
-    # Marked as the application's routes are, so the deadline's answer is judged by the route the router matched.
-    crashing.add_api_route("/cut-read", cut_by_the_deadline, methods=["POST"], openapi_extra=SAFE)
-    crashing.add_api_route("/cut-save", cut_by_the_deadline, methods=["PATCH"], openapi_extra=SAFE_WHEN)
+    crashing.add_api_route("/lost-commit", lose_the_commit)
 
     return crashing
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _built_before_any_case() -> None:
-    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
-
-    _crashing_app()
 
 
 CRASHES = [
@@ -344,12 +333,17 @@ class TestACrashIsAnsweredInsideItsRequest:
         assert crashes == [access[0][1:]]
 
 
+# A read served over POST, which its route marks safe, and a save its route marks safe when it is a dry run. Each meets the
+# database first in its guard's grant read, before its body is judged.
+CUT_READ = f"/api/v{API_VERSION}/action_log/view"
+CUT_SAVE = f"/api/v{API_VERSION}/spiele/{QUERY_ID}"
+
 CUTS = [
-    pytest.param("POST", "/cut-read", Code.DATABASE_FAILED, id="a read over POST, marked safe"),
-    pytest.param("PATCH", "/cut-save?dry_run=true", Code.DATABASE_FAILED, id="a save's dry run, marked safe when asked for"),
-    pytest.param("PATCH", "/cut-save", Code.UNKNOWN_OUTCOME, id="the same save, which may have written"),
+    pytest.param("POST", CUT_READ, Code.DATABASE_FAILED, id="a read over POST, marked safe"),
+    pytest.param("PATCH", f"{CUT_SAVE}?dry_run=true", Code.DATABASE_FAILED, id="a save's dry run, marked safe when asked for"),
+    pytest.param("PATCH", CUT_SAVE, Code.UNKNOWN_OUTCOME, id="the same save, which may have written"),
     # Present and false is a save: a mark read by presence would judge it safe and send the person to repeat it.
-    pytest.param("PATCH", "/cut-save?dry_run=false", Code.UNKNOWN_OUTCOME, id="the same save, its dry run declined"),
+    pytest.param("PATCH", f"{CUT_SAVE}?dry_run=false", Code.UNKNOWN_OUTCOME, id="the same save, its dry run declined"),
 ]
 
 
@@ -357,9 +351,24 @@ CUTS = [
 def test_a_deadline_s_cut_is_of_unknown_outcome_only_where_the_request_could_write(method: str, path: str, code: Code):
     """A cut read answered unknown tells the person a view may have saved something.
 
-    The frontend reads the same marks for its own lost answers.
+    The frontend reads the same marks for its own lost answers. The driver's own timeout cuts the request, at a server
+    that never answers.
     """
 
-    response = TestClient(_crashing_app(), raise_server_exceptions=False).request(method, path)
+    async def _answered() -> Response:
+        async with app_client(UNANSWERED_URI, app=APP) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                return await http.request(method, path, headers=ADMIN_AUTH)
+
+    response = asyncio.run(_answered())
 
     assert (response.status_code, response.json()["error_code"]) == (500, code)
+
+
+class TestACommitOfUnknownOutcomeIsNotCalledFailed:
+    def test_it_answers_its_own_code_over_a_safe_method(self):
+        """Over a safe method, so the label alone can answer: a commit lost to anything but a timeout carries nothing else saying so."""
+
+        response = TestClient(_crashing_app(), raise_server_exceptions=False).get("/lost-commit")
+
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)

@@ -1,5 +1,3 @@
-import { parseDate } from "@internationalized/date";
-
 /** A calendar day as the API stores it, `YYYY-MM-DD`. */
 export type CalendarDay = `${number}-${number}-${number}`;
 
@@ -54,31 +52,6 @@ const ISO_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE, year: "n
 
 /** The league's calendar day an instant falls on, as a stored `YYYY-MM-DD` day: the day the backend judges an age on. */
 export const dayIn = (instant: Date): CalendarDay => ISO_DAY.format(instant) as CalendarDay;
-
-/**
- * The day `years` after `day`, on the Gregorian calendar of `@internationalized/date`: the same month and day, or the
- * month's last day where that year holds no such day, so 29 February moves to 28 February.
- */
-export const yearsLater = (day: CalendarDay, years: number): CalendarDay => parseDate(day).add({ years }).toString() as CalendarDay;
-
-/**
- * The latest birthdate `years` old on `today`: the same day that many years back, the month's last day where that year
- * holds none. A person born on 29 February is a year older from 1 March where the year holds no 29th, as the backend
- * counts whole years (`fl_backend/app/shared/age.py :: whole_years_between`).
- */
-export const bornBy = (today: CalendarDay, years: number): CalendarDay => yearsLater(today, -years);
-
-/** The day before `day`. */
-export const dayBefore = (day: CalendarDay): CalendarDay => parseDate(day).subtract({ days: 1 }).toString() as CalendarDay;
-
-/** The day after `day`. */
-export const dayAfter = (day: CalendarDay): CalendarDay => parseDate(day).add({ days: 1 }).toString() as CalendarDay;
-
-/** The earliest birthdate at most `years` old on `today`: the day after the latest that is a year older. */
-export const bornAfter = (today: CalendarDay, years: number): CalendarDay =>
-  parseDate(bornBy(today, years + 1))
-    .add({ days: 1 })
-    .toString() as CalendarDay;
 
 function asInstant(day: CalendarDay | Date): Date {
   if (day instanceof Date) return day;
@@ -146,8 +119,15 @@ export const formatPeriod = (from: CalendarDay | Date, to: CalendarDay | Date): 
 /** „1.234,5“. */
 export const formatNumber = (number: number): string => NUMBER.format(number);
 
-/** „+3“, „0“, „-3“: a difference, its sign written wherever it is not level. */
-export const formatSigned = (number: number): string => SIGNED.format(number);
+/**
+ * „+3“, „0“, „−3“: a difference, its sign written wherever it is not level. The German locale writes a negative sign
+ * as the hyphen-minus, which reads as a hyphen and is spoken as one („Bindestrich-Minus“ in CLDR's speech names), so
+ * the sign is the minus sign, U+2212, the width of its plus in the table's figures.
+ */
+export const formatSigned = (number: number): string =>
+  SIGNED.formatToParts(number)
+    .map((part) => (part.type === "minusSign" ? "−" : part.value))
+    .join("");
 
 /** „3.“: a place or a position, a German ordinal being its figure and a full stop. */
 export const formatOrdinal = (number: number): string => `${NUMBER.format(number)}.`;

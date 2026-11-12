@@ -12,8 +12,7 @@ import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { RowActs } from "./RowActs";
-import { StatusPage } from "./StatusPage";
+import { ClassicStatusPage } from "./StatusCard";
 import { useBotCheck } from "./useBotCheck";
 import { statusOf, useFormAction } from "./useFormAction";
 import { usePasskeyTouch } from "./usePasskeyTouch";
@@ -21,7 +20,7 @@ import { usePasskeyTouch } from "./usePasskeyTouch";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
-import type { StatusCardProps } from "./StatusPage";
+import type { StatusCardProps } from "./StatusCard";
 import type { FormStatus } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
@@ -46,7 +45,7 @@ export type OneShotActs = { primary: Copy; refusal?: Refusal } | { primary?: nev
 const ACT_FIELD = "act";
 
 /**
- * The server action a one-shot form posts to, built by `fl_frontend/src/core/action.ts :: action`: the fields by their
+ * The server action a one-shot form posts to, built by `action`: the fields by their
  * `name`s, the values the page carries, and the act pressed under `ACT_FIELD`.
  */
 export type OneShotAction = (formData: FormData) => Promise<ActionAnswer<EndState>>;
@@ -56,7 +55,7 @@ const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 
 /**
  * The one-shot's end, held above the mailed page's state, whose place a done answer takes for good. A done action
- * renders the page again with the cache tag its write cleared (`fl_frontend/src/core/action.ts :: body`), and the
+ * renders the page again with the cache tag its write cleared, and the
  * link read again is in another state, the opened-again one, which takes the form's place in the same response.
  * React keeps a component's state only while its type stays at its place in the tree
  * (https://react.dev/learn/preserving-and-resetting-state), so the answer is lifted to this boundary, whose place the
@@ -65,12 +64,7 @@ const AnsweredEnd = createContext<((end: EndState) => void) | null>(null);
 export function OneShotEnd({ children }: { children: ReactNode }) {
   const [end, setEnd] = useState<EndState | null>(null);
   if (end !== null) {
-    return (
-      <StatusPage
-        frame="classic"
-        {...end}
-      />
-    );
+    return <ClassicStatusPage {...end} />;
   }
   return <AnsweredEnd value={setEnd}>{children}</AnsweredEnd>;
 }
@@ -114,7 +108,7 @@ export function OneShotForm({
    * Such a form is a signed-in person's and takes no bot check, whose wait would lose the press the prompt needs.
    */
   touch?: boolean;
-  /** The bot check's public key, on a form whose action declares the check (`fl_frontend/src/core/action.ts`). */
+  /** The bot check's public key, on a form whose action declares the check. */
   botCheck?: { siteKey: string };
   /**
    * The field a replay key posts under, where a press whose answer was lost may have landed: a press posting what the
@@ -158,7 +152,7 @@ export function OneShotForm({
   // The end stands in `OneShotEnd`, in this form's place.
   if (answer?.ok === true) return null;
 
-  const refused = answer !== null && !answer.ok ? answer : null;
+  const refused = answer;
   const status: FormStatus = checkRefusal !== null ? { tone: "error", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
   const isBusy = isPending || isChecking;
 
@@ -219,32 +213,28 @@ export function OneShotForm({
         {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
         <div className="grid">
           {check.widget}
-          {/* The acts leave with the form as its end takes the page's place, and hand the focus to the end's title,
-              so a screen reader hears what the press did. Around the whole footer, whose acts it reorders by layout. */}
-          <RowActs
-            className="contents"
-            describedBy={describedBy}>
-            <FormFooter
-              status={status}
-              note={note}>
-              {acts.primary !== undefined && acts.refusal !== undefined && (
-                <Button
-                  variant="quiet"
-                  label={COPY.shared.verb[acts.refusal.verb]}
-                  isBusy={isBusy && pressed === "secondary"}
-                  onPress={() => {
-                    if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
-                  }}
-                />
-              )}
+          <FormFooter
+            status={status}
+            note={note}>
+            {acts.primary !== undefined && acts.refusal !== undefined && (
               <Button
-                variant="primary"
-                type="submit"
-                label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
-                isBusy={isBusy && pressed === "primary"}
+                variant="quiet"
+                label={COPY.shared.verb[acts.refusal.verb]}
+                aria-describedby={describedBy}
+                isBusy={isBusy && pressed === "secondary"}
+                onPress={() => {
+                  if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
+                }}
               />
-            </FormFooter>
-          </RowActs>
+            )}
+            <Button
+              variant="primary"
+              type="submit"
+              label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
+              aria-describedby={describedBy}
+              isBusy={isBusy && pressed === "primary"}
+            />
+          </FormFooter>
           {/* Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the
               focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`). */}
           {acts.refusal !== undefined && (

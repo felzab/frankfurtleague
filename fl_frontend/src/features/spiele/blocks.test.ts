@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { dayOf, timeOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { eventOf, headedMatchOf, matchRowOf, outcomeFor } from "./blocks";
+import { eventOf, headedMatchOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -86,12 +86,12 @@ describe("what befell a match", () => {
   it("names the side that did not turn up, and gives the match to the side that did", () => {
     const { sonderereignis } = COPY.spielplan;
     expect(eventOf(spiel([0, 3], "nichtantreten_team1"))).toStrictEqual({
-      title: sonderereignis.nichtAngetreten({ record: "Goethe" }),
-      text: sonderereignis.consequence.nichtAngetreten({ record: "Helmholtz" }),
+      title: sonderereignis.nichtantreten({ record: "Goethe" }),
+      text: sonderereignis.consequence.nichtantreten({ record: "Helmholtz" }),
     });
     expect(eventOf(spiel([3, 0], "nichtantreten_team2"))).toStrictEqual({
-      title: sonderereignis.nichtAngetreten({ record: "Helmholtz" }),
-      text: sonderereignis.consequence.nichtAngetreten({ record: "Goethe" }),
+      title: sonderereignis.nichtantreten({ record: "Helmholtz" }),
+      text: sonderereignis.consequence.nichtantreten({ record: "Goethe" }),
     });
   });
 
@@ -102,5 +102,14 @@ describe("what befell a match", () => {
     const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
     expect(first.absent).toBe("team1");
     expect(second.absent).toBe("team2");
+  });
+});
+
+describe("who referees a match", () => {
+  // The harm: a played match whose referee was erased, or one who withheld their name, reading as no referee booked.
+  it("reads a served booking without a name as „anonym“ and no booking as a dash", () => {
+    expect(refereeOf({ schiedsrichter: { name: "Ada K.", name_is_public: true } })).toStrictEqual({ record: "Ada K." });
+    expect(refereeOf({ schiedsrichter: { name: null, name_is_public: false } })).toBe(COPY.shared.anonymous);
+    expect(refereeOf({ schiedsrichter: null })).toBe(COPY.shared.noValue);
   });
 });

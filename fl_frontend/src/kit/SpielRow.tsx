@@ -13,6 +13,7 @@ import { tv } from "./tv";
 import type { Copy, Words } from "@/core/copy";
 import type { Pair } from "@/core/format";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { Plaque } from "./TeamPlaque";
 
@@ -43,7 +44,7 @@ export type SpielRowProps = {
 
 /**
  * The one-line row's columns, named once as `--spiel-columns` on what holds them and read by every grid taking them
- * there, a pair's box from `lg` among them. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
+ * there. The when column holds the date with the chip beside it, „Sa., 21.11.2026 ·
  * 16:00 [Antwort fehlt]“, as the owner ruled for every list's match row on a wide screen: at least a date's width, and
  * as wide as the widest date and chip of the list, the sides taking what is left. The score's 6 rem is its column's
  * most, which a wide box always leaves it, so a narrow box, whose rows stand as cards across the columns, holds the
@@ -59,20 +60,29 @@ export const SPIEL_COLUMNS_CLASSES = "[--spiel-columns:minmax(min(9.5rem,100%),m
 export const spielColumns = tv({ base: `${SPIEL_COLUMNS_CLASSES} grid grid-cols-(--spiel-columns) gap-x-3` });
 
 /**
- * Boxes of matches one under another on a phone and a tablet and two a row from `lg`, as the Spielplan sets a
- * matchday's. Below `lg` the list holds the columns and is the container picking the rows' form, so a tablet's wide
- * boxes stand their scores at one x down the page, each box handing the columns on; a container is never a subgrid,
- * which drops the columns. From `lg` each box of a pair is its own container holding its own columns, so its width
- * alone picks its row's form, the two-line card at a pair's width.
+ * Boxes of matches one under another in a list narrower than 42 rem and two a row from it, as the Spielplan sets a
+ * matchday's, the list's own width deciding (`SpielPairList`). Each box is its own container holding its own columns,
+ * so its width alone picks its row's form: a box of a pair is at most (80 rem − 12 px) / 2, 634 px, and a lone box is
+ * narrower than 42 rem, so every box takes the two-line card.
  */
 export const spielPairs = tv({
   slots: {
-    list: `${SPIEL_COLUMNS_CLASSES} @container grid gap-3 max-lg:grid-cols-(--spiel-columns) lg:grid-cols-2`,
-    box: cardSurface({
-      class: "grid overflow-hidden max-lg:col-span-full max-lg:grid-cols-subgrid lg:@container lg:grid-cols-(--spiel-columns) lg:gap-x-3",
-    }),
+    list: "grid gap-3 @2xl:grid-cols-2",
+    box: cardSurface({ class: `@container overflow-hidden ${spielColumns()}` }),
   },
 });
+
+/**
+ * The list of `spielPairs`' boxes in the container its columns read, since a query reads an ancestor; `w-full`, since a
+ * container's width counts none of its content.
+ */
+export function SpielPairList({ children }: { children: ReactNode }) {
+  return (
+    <div className="@container w-full">
+      <div className={spielPairs().list()}>{children}</div>
+    </div>
+  );
+}
 
 /** A part standing between the box holding the columns and a row, which hands the columns on to the row. */
 export const spielSubgrid = tv({ base: "col-span-full grid grid-cols-subgrid" });
@@ -339,7 +349,7 @@ function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
  * picks between as it picks the row's: the one line, when, the sides about the score and the chevron; or the card,
  * the date line over each side with its goals at the right.
  */
-function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; linked: boolean }) {
+function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
   const form = forms();
   return (
     <div className={spielSubgrid({ class: layout === "rows" ? stacked() : "" })}>
@@ -356,11 +366,9 @@ function SpielRowPlaceholder({ layout, linked }: { layout: "rows" | "cards"; lin
         <span className="col-start-4 row-span-2 row-start-1">
           <SidePlaceholder />
         </span>
-        {linked && (
-          <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
-            <RowEnd />
-          </span>
-        )}
+        <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
+          <RowEnd />
+        </span>
       </span>
       <span className={form.card()}>
         <span className={placeholderBar("h-3 w-32")} />
@@ -387,38 +395,32 @@ function rowsBox(bare: boolean, columns: "own" | "outer") {
 
 /**
  * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
- * cards two a row from `lg` where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body,
- * `columns` as the list's. `linked` is `false` for rows that will open nothing, which end in no chevron.
+ * cards two a row from 42 rem of the list where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body,
+ * `columns` as the list's.
  */
 export function SpielListPlaceholder({
   count,
   layout = "rows",
   bare = false,
   columns = "own",
-  linked = true,
 }: {
   count: number;
   layout?: "rows" | "cards";
   bare?: boolean;
   columns?: "own" | "outer";
-  linked?: boolean;
 }) {
   const rows = Array.from({ length: count }, (_, index) => index);
   if (layout === "cards") {
-    const pairs = spielPairs();
     return (
-      <div className={pairs.list()}>
+      <SpielPairList>
         {rows.map((index) => (
           <div
             key={index}
-            className={pairs.box()}>
-            <SpielRowPlaceholder
-              layout="cards"
-              linked={linked}
-            />
+            className={spielPairs().box()}>
+            <SpielRowPlaceholder layout="cards" />
           </div>
         ))}
-      </div>
+      </SpielPairList>
     );
   }
   return (
@@ -427,7 +429,6 @@ export function SpielListPlaceholder({
         <SpielRowPlaceholder
           key={index}
           layout="rows"
-          linked={linked}
         />
       ))}
     </div>
@@ -441,9 +442,8 @@ export function SpielListPlaceholder({
  * groups holding its columns, Tailwind's `@2xl`) the one-line row, which a rail page's content holds at the rail's 1024-px breakpoint, 704 px wide,
  * and below it the two-line card a phone shows and the landing's narrower card holds on any screen.
  *
- * `cards` sets each match in a box of its own instead, one under another on a phone and two a row from `lg`, as
- * the Spielplan shows a matchday (`spielPairs`): a phone's box and every box of a pair takes the two-line card, and
- * only a box wider than 42 rem below `lg`, a tablet's, the one-line row, on the list's columns.
+ * `cards` sets each match in a box of its own instead, one under another in a list narrower than 42 rem and two a row
+ * from it, as the Spielplan shows a matchday (`spielPairs`), every box taking the two-line card.
  *
  * `bare` sets the rows without the box's own surface, inside a card's body, whose box already holds them, as a
  * table's `bare` does: the season card's matches. The box holds the rows' columns (`spielColumns`), so every row of
@@ -459,17 +459,16 @@ export function SpielList({
   { layout?: "rows"; bare?: boolean; columns?: "own" | "outer" } | { layout: "cards"; bare?: never; columns?: never }
 )) {
   if (layout === "cards") {
-    const pairs = spielPairs();
     return (
-      <div className={pairs.list()}>
+      <SpielPairList>
         {matches.map(({ id, ...spiel }) => (
           <div
             key={id}
-            className={pairs.box()}>
+            className={spielPairs().box()}>
             <SpielRow {...spiel} />
           </div>
         ))}
-      </div>
+      </SpielPairList>
     );
   }
   return (

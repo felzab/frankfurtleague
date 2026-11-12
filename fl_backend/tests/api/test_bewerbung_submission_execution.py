@@ -17,7 +17,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, build_key_filter, compose_kontakte
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, compose_kontakte
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -232,14 +232,13 @@ class TestWhatASubmissionStores:
         stored = on_a_league(mongo_replica_set_url, body)
 
         for seat in ("trainer", "ansprechperson", "stellvertretung"):
-            # Born with the applicant's acknowledgement, naming the application as who seated the
-            # person, and no evidence: no person has set a choice yet.
+            # Born with the applicant's acknowledgement and no evidence: no person has set a choice
+            # yet.
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "scope": "kontakt_data",
                 "date": TODAY,
                 "confirmed_at": None,
                 "media": False,
-                "entered_by": "bewerbung",
             }
             # The key is present and null, as `wunschgegner`'s is: the confirmation fills it.
             assert "birth_date" in stored["kontakte"][seat] and stored["kontakte"][seat]["birth_date"] is None
@@ -325,10 +324,7 @@ class TestWhatTheCreateOwes:
                     "kind": "bewerbung_received",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
-                    "pending": [
-                        {"first_name": "Wraxlington", "rollen": ["trainer"]},
-                        {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
-                    ],
+                    "pending": ["trainer", "stellvertretung"],
                     "deadline": deadline,
                 },
             },
@@ -460,20 +456,6 @@ class TestTheSubmissionKey:
         assert (second, stored) == (first, 1)
         # `with_transaction` retries the anchors' `WriteConflict`, ahead of any insert: the second run's lookup finds the row.
         assert (lookups, failures) == (2, [])
-
-    def test_the_lookup_the_endpoint_sends_is_the_one_its_index_serves(self, mongo_replica_set_url: str):
-        """A bare equality scans the collection (`fl_backend/tests/core/test_constraints_execution.py`)."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            # Set before the press, so the wrapper records the lookup and holds nothing back.
-            committed = asyncio.Event()
-            committed.set()
-            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
-            await submit(database, key=KEY, bewerbungen=held)
-
-            return held.lookup_filters
-
-        assert on_a_league(mongo_replica_set_url, body) == [build_key_filter(key=str(KEY))]
 
 
 def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> APIError:

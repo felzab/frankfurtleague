@@ -304,41 +304,17 @@ class TestTheFaultSweepReportsWhatItsSweepsFound:
     reaches the return value is a fault the one page built to surface it never shows.
     """
 
-    def test_a_stored_double_entry_is_reported(self, spiel):
-        faults = sweep(spiel)
-        fielded_twice = [fault for fault in faults if fault.reason == "fielded_twice"]
+    def test_every_sweep_reaches_the_report(self, spiel):
+        """One equality over every fault, so the diff names the sweep whose result went missing."""
 
-        assert [fault.spiel_nr for fault in fielded_twice] == [CLASHING_FIRST, CLASHING_SECOND]
+        faults = sorted((fault.reason, fault.spiel_nr) for fault in sweep(spiel))
 
-    def test_a_departed_occupant_is_reported(self, spiel):
-        """The other sweep beside the walk, because a report carrying one of the two would still look wired."""
-
-        faults = sweep(spiel)
-        departed = [fault for fault in faults if fault.reason == "departed_occupant"]
-
-        assert [fault.spiel_nr for fault in departed] == [WITH_THE_DEPARTED]
-
-    def test_a_slot_seeded_from_a_group_the_season_does_not_run_is_reported(self, spiel):
-        """`find_gruppen_not_run` is spliced into the walk's own return (`app/api/spiele/crud.py :: _resolve_one_saison`), not run beside it."""
-
-        faults = sweep(spiel)
-        not_run = [fault for fault in faults if fault.reason == "gruppe_not_run"]
-
-        assert [(fault.spiel_nr, fault.gruppe) for fault in not_run] == [(SEEDED_FROM_A_GROUP_NOT_RUN, UNRUN_GRUPPE)]
-
-    def test_a_spiel_booked_onto_a_retired_ground_is_reported(self, spiel):
-        """Keyed on the row the ground read answers, so a report reading the fixture's own copy alone could not raise it."""
-
-        faults = sweep(spiel)
-        retired = [fault for fault in faults if fault.reason == "retired_booking"]
-
-        assert [(fault.spiel_nr, fault.booking, fault.inactive_since) for fault in retired] == [(AT_A_RETIRED_GROUND, "spielort", RETIRED_ON)]
-
-    def test_a_referee_booked_twice_within_the_buffer_is_reported_on_both_spiele(self, spiel):
-        faults = sweep(spiel)
-        clashes = [fault for fault in faults if fault.reason == "double_booked"]
-
-        assert [(fault.spiel_nr, fault.booking, fault.other_spiel_nr) for fault in clashes] == [
-            (REFEREED_FIRST, "schiedsrichter", REFEREED_AN_HOUR_LATER),
-            (REFEREED_AN_HOUR_LATER, "schiedsrichter", REFEREED_FIRST),
+        assert faults == [
+            ("departed_occupant", WITH_THE_DEPARTED),
+            ("double_booked", REFEREED_FIRST),
+            ("double_booked", REFEREED_AN_HOUR_LATER),
+            ("fielded_twice", CLASHING_FIRST),
+            ("fielded_twice", CLASHING_SECOND),
+            ("gruppe_not_run", SEEDED_FROM_A_GROUP_NOT_RUN),
+            ("retired_booking", AT_A_RETIRED_GROUND),
         ]

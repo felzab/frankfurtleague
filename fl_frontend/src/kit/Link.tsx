@@ -101,7 +101,7 @@ type Button = { placement: "button"; look: "primary" | "secondary" | "quiet"; le
 type IconOnly = { placement: "icon"; icon: IconName; label: Copy; children?: never; fullPage?: never; prefetch?: never };
 
 /**
- * A row's link, its record's name stretched over the row it stands in, which `Table` and `LinkRows` write. Its
+ * A row's link, its record's name stretched over the row it stands in. Its
  * content may be markup, the link's accessible name as a card's is: a table row's club, its plaque with the
  * name a phone hides visually, so the stretched link keeps the full name where only the plaque shows.
  */
@@ -113,9 +113,8 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
 type Card = {
   placement: "card";
   /**
-   * The card's content, which is the link's accessible name, so it is read as one line. Only `SpielRow`,
-   * `BracketCard`, `Card` and `TileGrid`'s tiles place a card link, and nothing interactive stands inside one:
-   * no button, link or menu, which a link may not contain.
+   * The card's content, which is the link's accessible name, so it is read as one line. Nothing interactive
+   * stands inside one: no button, link or menu, which a link may not contain.
    */
   children: ReactNode;
   label?: never;
@@ -130,8 +129,9 @@ type Card = {
 const ELSEWHERE = /^https?:\/\//;
 
 /**
- * The one way to go somewhere: Next's link, prefetching on hover and in view, so a page of links loads
- * no React Aria. Its ring comes from `:focus-visible` in the focus file, hugging the words inside text.
+ * The one way to go somewhere: Next's link, prefetching on hover and in view. The icon placement alone names its glyph
+ * by React Aria's tooltip (`IconLink`), which every route loads with this module. Its ring comes from `:focus-visible`
+ * in the focus file, hugging the words inside text.
  */
 export function Link<T extends string>(
   props: {

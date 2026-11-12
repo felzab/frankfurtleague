@@ -78,15 +78,12 @@ export function ClassicFrame({
   liga: ReadonlyArray<HeaderLink>;
   /** The „Rechtliches“ group's links, the legal pages. */
   legal: ReadonlyArray<HeaderLink>;
-  /** The league's Instagram and Threads addresses. */
   social: { instagram: string; threads: string };
   /** Each sponsor's logo, small and grey, as a link to its site, its full name the logo's name, its short name beside it where it has one; no line while there are none. */
   sponsors: ReadonlyArray<Sponsor>;
   children: ReactNode;
 }) {
   return (
-    // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
-    // (`ClassicPage`) and by the toasts.
     <div className="flex min-h-dvh flex-col">
       {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
       <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">

@@ -2,7 +2,7 @@ import type { FLKontaktRolle, FLSaisonStatus } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /**
- * One contact seat on a season that grants a panel, carrying the name and the Kürzel the club PLAYED that season
+ * One contact seat on a season that grants a panel, carrying the name and the Kürzel the club played that season
  * under and the season's first and last day.
  */
 type KontaktRole = {
@@ -25,11 +25,10 @@ type SchiedsrichterRole = { kind: "schiedsrichter"; schiedsrichter_id: string };
 /** Derived from the session's own verdict rather than the stored grant alone, which a code-borne session also holds. */
 type AdministrationRole = { kind: "administration" };
 
-/** What a person IS on screen: one record the lookup matched, narrowed to what grants a panel. */
+/** What a person is on screen: one record the lookup matched, narrowed to what grants a panel. */
 export type Role = KontaktRole | SpielerRole | SchiedsrichterRole | AdministrationRole;
 
-// Held to the backend's own season predicate by `fl_backend/tests/shared/grants_a_panel.json`, which
-// both tiers' suites answer row by row.
+// Held to the backend's own season predicate by a fixture both tiers' suites answer row by row.
 export function grantsAPanel(status: FLSaisonStatus): boolean {
   // A switch rather than a comparison: a status added to the enum fails `tsc` here until somebody
   // decides whether it grants.

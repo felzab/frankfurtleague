@@ -2,7 +2,7 @@
  * E2E · J8, a person's account acts, under each project: the address change through its two mailed links, the address
  * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
- * second device, whose cookie no person would see still admitted. Konto's steps are named by the board's words, which
+ * second device, whose cookie no person would see still admitted. Konto's steps are named by the words
  * Konto's pages are built to. The passkeys are `desktop/accountPasskeys.spec.ts`'s.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
@@ -10,10 +10,10 @@
  */
 import { expect } from "@playwright/test";
 
-import { test as journey } from "./support/journey";
+import { typeInto } from "./support/controls";
+import { test } from "./support/journey";
 import { filedMessages, mailedLink } from "./support/mailSink";
 import { declinePasskeyOffer, expectAccountPageOf, PERSON_LANDING, sessionCookies, signInWithCode, signInWithCodeHere } from "./support/signIn";
-import { standInForTurnstile } from "./support/turnstileStandIn";
 
 import type { Page } from "@playwright/test";
 
@@ -23,25 +23,8 @@ async function signIn(page: Page, address: string): Promise<void> {
   await declinePasskeyOffer(page, PERSON_LANDING);
 }
 
-/**
- * A second device, a browser context beside the test's own, built and closed in a fixture as Playwright's guide builds
- * one for a second role (https://playwright.dev/docs/auth#testing-multiple-roles-with-pom-fixtures), so a journey that
- * fails closes it too. The project's `use` options reach it as they reach every context the test's browser makes
- * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance). The journey's proxy
- * is named all the same: a fixture is torn down before what it depends on, so this context closes before the proxy, and
- * the edge is read once both have.
- */
-const test = journey.extend<{ secondDevice: Page }>({
-  secondDevice: async ({ browser, proxy }, provide) => {
-    const device = await browser.newContext({ proxy });
-    await standInForTurnstile(device);
-    await provide(await device.newPage());
-    await device.close();
-  },
-});
-
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
-  // A second device, signed in first through the journey's own visitor.
+  // A second device, signed in first.
   await signIn(secondDevice, twoDevices);
   await signIn(page, twoDevices);
 
@@ -70,10 +53,7 @@ test("a person changes their address: the address on file confirms first, then t
   // Konto's address box: the new address, and the link it sends.
   await page.goto("/account/signin");
   const before = await filedMessages();
-  const field = page.getByLabel("Neue E-Mail-Adresse");
-  // Tapped first, as a person reaches the field and `e2e/support/signIn.ts :: sendFromHere` taps its own.
-  await field.click();
-  await field.fill(newAddress);
+  await typeInto(page.getByLabel("Neue E-Mail-Adresse"), newAddress);
   // The start's own end, before any mail is waited for: the box stands as the pending change, which a refusal never
   // shows.
   await page.getByRole("button", { name: "Link senden" }).click();
@@ -92,7 +72,7 @@ test("a person changes their address: the address on file confirms first, then t
   await expect(page.getByRole("main").getByRole("link", { name: "Zum Konto" })).toBeVisible();
 
   // Only now the new mailbox is asked; its confirmation makes the change take effect.
-  const newLink = await mailedLink(newAddress, "Neue E-Mail-Adresse bestätigen", afterTheFirst);
+  const newLink = await mailedLink(newAddress, "E-Mail-Adresse bestätigen", afterTheFirst);
   await context.clearCookies();
   await page.goto(newLink);
   await expect(page.getByRole("main").getByRole("heading", { name: "E-Mail-Adresse bestätigen" })).toBeVisible();
@@ -138,7 +118,6 @@ test("the person deletes their account from the mailed link, signed out when it 
   const erasure = page.getByRole("main");
   await expect(erasure.getByRole("heading", { name: "Konto löschen" })).toBeVisible();
   await expect(erasure.getByRole("definition").filter({ hasText: leaver })).toHaveText(leaver);
-  await expect(erasure.getByText("Alles oben wird endgültig gelöscht.")).toBeVisible();
 
   // The deletion leads to the page that needs no session.
   await page.getByRole("main").getByRole("button", { name: "Konto löschen" }).click();

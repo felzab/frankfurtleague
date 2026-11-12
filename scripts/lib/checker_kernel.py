@@ -1,4 +1,4 @@
-"""SCRIPTS · what every checker under `scripts/` is built on.
+"""What every checker under `scripts/` is built on.
 
 The repository root and the finding-to-exit-code tail, once each: a checker taking either from its
 own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge
@@ -69,7 +69,7 @@ CONTINUATION: Final = " " * 14
 def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: TextIO | None = None) -> int:
     """Print the failures, then the advisories, into one stream, and answer the run's exit code.
 
-    One stream: `scripts/gate/verify.sh` prints a failing check's output whole, so splitting the
+    One stream: the gate prints a failing check's output whole, so splitting the
     severities would interleave them under the wrong heading.
     """
     collected = list(findings)

@@ -9,9 +9,8 @@ description: >-
 inputs:
   save-cache:
     description: >-
-      `true` in the one caller that saves the pnpm store to the Actions cache when it changed;
-      `false`, the default, restores it alone, so a lockfile change uploads one store rather than one
-      per job.
+      `true` where the job saves the pnpm store to the Actions cache; `false`, the default, restores
+      it and saves nothing.
     required: false
     default: "false"
 
@@ -24,7 +23,7 @@ runs:
     # the store itself (https://github.com/pnpm/setup#cache-the-pnpm-store). That field therefore
     # holds one exact release, the one fl_frontend/Dockerfile's base carries. Dependabot reaches
     # this action's pin through .github/dependabot.yml's composite-action entry.
-    - uses: pnpm/setup@a0881977cd8ea73b1ed212236c99ca10dcc80cf4 # v3.1.1
+    - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
       with:
         working-directory: fl_frontend
         cache: true

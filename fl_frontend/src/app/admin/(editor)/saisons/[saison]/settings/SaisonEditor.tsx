@@ -9,6 +9,7 @@ import { DateField } from "@/kit/DateField";
 import { EditorPage } from "@/kit/EditorPage";
 import { Facts } from "@/kit/Facts";
 import { FieldRows } from "@/kit/FieldRows";
+import { Section } from "@/kit/Section";
 import { SectionAct } from "@/kit/SectionAct";
 import { Select } from "@/kit/Select";
 import { Table } from "@/kit/Table";
@@ -16,7 +17,8 @@ import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
 import { COPY } from "@/core/copy";
-import { dayBefore, formatDate, formatNumber } from "@/core/format";
+import { dayBefore } from "@/core/dayArithmetic";
+import { formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
@@ -25,7 +27,7 @@ import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonRequired } from "@/features/saisons/required";
 import type { ChipProps } from "@/kit/Chip";
-import type { DangerAct, EditorSection } from "@/kit/EditorPage";
+import type { DangerAct, EditorPart } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -250,7 +252,7 @@ export function SaisonEditor({
   const touch = { holder };
   const of = { saison_id: saison, holder };
 
-  const sections: [EditorSection, ...EditorSection[]] = [
+  const sections: [EditorPart, ...EditorPart[]] = [
     {
       id: "period",
       title: WORDS.period,
@@ -354,7 +356,7 @@ export function SaisonEditor({
     },
     {
       id: "gruppen",
-      title: WORDS.gruppenUndKoRunde,
+      title: WORDS.gruppenAndKoRunde,
       // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
       ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
@@ -531,33 +533,38 @@ export function SaisonEditor({
       ),
     },
     {
-      id: "registrierungslinks",
-      title: WORDS.registrierungslinks,
-      fields: (
-        <SectionAct
-          acts={[
-            {
-              label: COPY.shared.withObject(WORDS.registrierungslinks, "send"),
-              variant: "primary",
-              // The press's own plan reaches nobody: every team is passed over or already mailed.
-              isDisabled: isClosed || links.mailed === 0,
-              confirm: {
-                verb: "send",
-                subject: WORDS.registrierungslinks,
-                consequence: WORDS.dispatchConsequence(links.mailed),
-                tone: "primary",
+      id: "invitations",
+      // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
+      block: (
+        <Section
+          title={WORDS.invitations}
+          list={
+            <Table
+              {...links.head}
+              label={WORDS.invitations}
+              rows={links.rows}
+              empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
+              bare
+            />
+          }>
+          <SectionAct
+            acts={[
+              {
+                label: COPY.shared.withObject(WORDS.invitations, "send"),
+                variant: "primary",
+                // The press's own plan reaches nobody: every team is passed over or already mailed.
+                isDisabled: isClosed || links.mailed === 0,
+                confirm: {
+                  verb: "send",
+                  subject: WORDS.invitations,
+                  consequence: WORDS.dispatchConsequence(links.mailed),
+                  tone: "primary",
+                },
+                run: () => acts.sendLinks({ saison_id: saison }),
               },
-              run: () => acts.sendLinks({ saison_id: saison }),
-            },
-          ]}>
-          <Table
-            {...links.head}
-            label={WORDS.registrierungslinks}
-            rows={links.rows}
-            empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
-            bare
+            ]}
           />
-        </SectionAct>
+        </Section>
       ),
     },
   ];

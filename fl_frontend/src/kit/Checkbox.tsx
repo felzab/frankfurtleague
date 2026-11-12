@@ -4,7 +4,7 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { textOf } from "@/core/copy";
 
-import { MessageLine, RequiredMark } from "./FieldParts";
+import { MessageLine } from "./FieldParts";
 import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
@@ -73,7 +73,7 @@ function Box({ selected, invalid, alone = false }: { selected: boolean; invalid:
   );
 }
 
-// A box alone is its own press target, the kit's control size by the touch rule (`fieldStyles.ts`), the box centred in it.
+// A box alone is its own press target, the kit's control size by the touch rule, the box centred in it.
 const tick = tv({
   slots: {
     root: "flex justify-center",
@@ -133,14 +133,12 @@ export function Tick({
 }
 
 /**
- * A saved yes or no, such as a consent: the drawn box, its label to the
- * right, an asterisk after a required box's label as after every required field's. A required box keeps a
- * message line under its label, where „Pflichtfeld“ appears.
+ * A saved yes or no, such as a consent: the drawn box, its label to the right, and its description's line under the
+ * label where it has one.
  */
 export function Checkbox({
   label,
   description,
-  isRequired = false,
   isDisabled = false,
   name,
   isSelected,
@@ -152,7 +150,6 @@ export function Checkbox({
   description?: Copy;
   /** A line outside the field describing it, such as a consent's, by its id; read with the description's own. */
   "aria-describedby"?: string;
-  isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
   isSelected?: boolean;
@@ -167,7 +164,6 @@ export function Checkbox({
       isSelected={isSelected}
       defaultSelected={defaultSelected}
       onChange={onChange}
-      isRequired={isRequired}
       isDisabled={isDisabled}>
       <CheckboxButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected, isInvalid: invalid }) => (
@@ -176,14 +172,11 @@ export function Checkbox({
               selected={selected}
               invalid={invalid}
             />
-            <span>
-              {textOf(label)}
-              <RequiredMark isRequired={isRequired} />
-            </span>
+            <span>{textOf(label)}</span>
           </>
         )}
       </CheckboxButton>
-      {(isRequired || description !== undefined) && (
+      {description !== undefined && (
         <div className={toggleLine()}>
           <MessageLine description={description} />
         </div>

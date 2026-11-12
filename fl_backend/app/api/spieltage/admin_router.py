@@ -7,31 +7,24 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.grants.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLSpieltagAdmin,
     FLSpieltagAdminResponse,
-    FLSpieltageFilterParams,
-    FLSpieltageListResponse,
-    FLSpieltagListAdapter,
     FLSpieltagRecord,
     FLSpieltagWriteResponse,
 )
 from app.api.spieltage.services import (
-    build_spieltage_filter,
-    build_spieltage_sort,
     dated_neighbour,
     dated_start,
     find_spieltag_order_refusal,
     find_spieltag_span_refusal,
-    order_spieltage,
     with_expected_matches,
 )
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import anchor_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -52,46 +45,6 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
-# whose only separation from this path is the `objectid` convertor.
-@router.get(
-    "/list/admin",
-    response_model=FLSpieltageListResponse,
-    summary="Spieltage for the admin surfaces",
-)
-async def get_spieltage_admin(
-    spieltage_collection: SpieltageReadCollection,
-    saisons_collection: SaisonsReadCollection,
-    filters: FLSpieltageFilterParams = Depends(),
-) -> FLSpieltageListResponse:
-    """
-    List a season's matchdays for the admin surfaces, a `future` season's included.
-
-    No season gate: a season's matchdays are drawn while it is planned, and dating them is what this
-    list is for.
-    """
-
-    # Resolved without the public gate: refusing the planned season is the one thing this must not do.
-    filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
-
-    spieltage_raw = await pull_many_from_db(
-        collection=spieltage_collection,
-        db_filter=build_spieltage_filter(filters=filters),
-        limit=filters.limit,
-        sort_by=build_spieltage_sort(sort_by=filters.sort_by, order=filters.order),
-    )
-    spieltage = FLSpieltagListAdapter.validate_python([with_expected_matches(raw, rules) for raw in spieltage_raw])
-
-    # After the read: the phase's RANK is on no document, so no Mongo sort can put the phases in the
-    # order they are played.
-    if filters.sort_by == "natural":
-        spieltage = order_spieltage(spieltage)
-        if filters.order == "desc":
-            spieltage.reverse()
-
-    return FLSpieltageListResponse(spieltage=spieltage)
-
-
 # A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
@@ -104,18 +57,16 @@ async def get_spieltag_admin(
     spieltage_collection: SpieltageReadCollection,
     saisons_collection: SaisonsReadCollection,
 ) -> FLSpieltagAdminResponse:
-    """
-    Return one matchday by its id for the admin editor, a `future` season's included.
+    """One matchday by its id, a `future` season's included, with how many matchdays its phase holds.
 
-    The shape of `GET /spieltage/{spieltag_id}`, without its season gate, plus `count_spieltage_in_phase`, how many
-    matchdays its phase holds: the editor opens a matchday to date it, and that happens before its season is ever
-    activated. Beside it its season's `status`, read as the re-dating judges it, so the editor opens read-only on
-    exactly the season the write refuses (`saison_past`).
+    Beside it stands its season's `status`, so a `past` season's matchday, which no re-dating moves, can be shown as
+    final.
     """
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
+    # Its own season, as the base read resolves it: `count_spiele` derives from that season's rules, and its `status` is
+    # the one the re-dating judges.
     saison_raw = await pull_one_from_db(
         collection=saisons_collection, db_filter={"_id": spieltag_raw["saison_id"]}, projection=["rules", "status"]
     )
@@ -140,7 +91,7 @@ async def _refuse_an_out_of_order_start(
     saisons_collection: AsyncCollection,
     stored_raw: Mapping[str, Any],
     start: str,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
@@ -195,13 +146,10 @@ async def patch_spieltag(
     spiele_collection: SpieleCollection,
     db: DBClient,
 ) -> FLSpieltagWriteResponse:
-    """
-    Move a matchday's span, answering the matchday's `version` after the save.
+    """Move a matchday's span, answering its `version` after the save.
 
-    No fan-out: matches embed no copy, so a re-dated matchday is picked up on the next read. The span is held
-    to its season's, to the days its own fixtures stand on, and its `start` to the order its phase is dated in. A
-    `past` season's matchday is refused (`saison_past`), as its fixtures' saves are: a finished season's record is
-    closed.
+    The span stays inside its season and around its own dated fixtures, and its `start` keeps the order its phase is
+    dated in.
     """
 
     async def redate_the_matchday(session: AsyncClientSession) -> FLSpieltagWriteResponse:

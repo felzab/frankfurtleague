@@ -2,7 +2,7 @@
 
 `uv run --directory fl_backend --frozen python -m app.openapi_document` from the repository root, or
 with a path to write there instead, as the gate's contract check does to compare a fresh document
-with the committed one (`scripts/gate/verify.sh :: contract_check`).
+with the committed one.
 """
 
 import json

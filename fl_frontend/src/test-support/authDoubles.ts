@@ -1,10 +1,14 @@
-import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
+import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
-import { afterAll, assert, vi } from "vitest";
+import { afterAll, assert, beforeEach, vi } from "vitest";
+
+import { APINetworkError } from "@/core/errors.ts";
 
 import type { auth as AuthInstance } from "@/core/auth/library.ts";
+import type { MailSender } from "@/core/emailShell.ts";
+import type { FLOutboxSignInPayload } from "@/core/generated/client/types.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
@@ -82,6 +86,69 @@ export const memoryAdapterDouble = (store: string): DoubledExports => ({
   mongodbAdapter: () => insertOrderedAdapter(Reflect.get(globalThis, store) as MemoryDB),
 });
 
+/** One sign-in mail the double sent, rendered as the drain renders it. */
+type SentMail = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  sender: MailSender;
+};
+
+/** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */
+type MailAnswer = (mail: SentMail) => "accepted" | "lost" | Promise<"accepted" | "lost">;
+
+/**
+ * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,
+ * then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the suite's own key, and sent; every
+ * other mail is owed by the backend's own write and drained by nothing here.
+ */
+function doubleOutbox(): {
+  sent: SentMail[];
+  owed: FLOutboxSignInPayload[];
+  answerWith: (next: MailAnswer) => void;
+} {
+  const sent: SentMail[] = [];
+  // Every sign-in mail owed through the Postausgang, as the backend was handed it.
+  const owed: FLOutboxSignInPayload[] = [];
+  const accepted: MailAnswer = () => "accepted";
+  let answering = accepted;
+
+  const outboxPostSignIn = async (payload: FLOutboxSignInPayload): Promise<void> => {
+    const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
+      import("@/core/config.ts"),
+      import("@/core/mailKinds.ts"),
+      import("@/core/emailShell.ts"),
+    ]);
+    const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
+    const message = mailFor(payload.data.kind, payload.data, { token: null, secret, origin: frontend_config.AUTH_URL });
+    assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.kind}`);
+    const mail = { to: payload.to, ...renderMail(message) };
+
+    if ((await answering(mail)) === "lost") {
+      throw new APINetworkError({ message: "Request failed.", traceId: "0" });
+    }
+
+    owed.push(payload);
+    sent.push(mail);
+  };
+
+  // Imported after this call by the suite, so the modules it loads owe through the double.
+  vi.doMock("@/core/generated/client/sdk.ts", async () => ({
+    ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
+    outboxPostSignIn,
+  }));
+
+  // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.
+  beforeEach(() => {
+    sent.length = 0;
+    owed.length = 0;
+    answering = accepted;
+  });
+
+  return { sent, owed, answerWith: (next) => void (answering = next) };
+}
+
 type AuthDoubles = {
   /** By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. */
   readonly core?: Readonly<Record<string, ModuleDouble>>;
@@ -91,8 +158,7 @@ type AuthDoubles = {
 
 /**
  * Doubles, through `vi.doMock`, the config, the store client and the mailer `fl_frontend/src/core/auth/library.ts`
- * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
- * `fl_frontend/eslint.config.mjs` holds it to.
+ * builds on, and the lookup its grant is read over.
  */
 export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather

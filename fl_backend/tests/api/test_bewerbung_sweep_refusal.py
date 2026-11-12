@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     decline_erasure_is_due,
     deletion_day,
     deletion_is_due,
-    first_name_of,
     group_seats_by_mailbox,
     lapsed_seats,
     owed_deletion_notices,
@@ -56,12 +55,12 @@ def confirmations(*, sent_at: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[
 APPLICATION_ID = "bewerbung"
 
 
-def refusing(seat: str, *, stand: str = "undeliverable") -> set[str]:
-    """The seats whose last mail did not arrive, the provider having reported `stand` for the last mail to `seat`."""
+def refusing(seat: str, *, delivery: str = "undeliverable") -> set[str]:
+    """The seats whose last mail did not arrive, the provider having reported `delivery` for the last mail to `seat`."""
 
     state = FLOutboxStatus(
         state="sent",
-        delivery=FLOutboxDelivery(state=cast(FLOutboxDeliveryState, stand), reason=None, at=datetime(2026, 3, 29, tzinfo=UTC)),
+        delivery=FLOutboxDelivery(state=cast(FLOutboxDeliveryState, delivery), reason=None, at=datetime(2026, 3, 29, tzinfo=UTC)),
     )
 
     return unreachable_seats(row=application(), states={(APPLICATION_ID, seat): state})
@@ -172,11 +171,11 @@ class TestTheReminderMark:
 
     # Spelled out rather than read off the outbox's set, so a state the set loses fails here: a person who reported the
     # first mail as spam is never mailed again.
-    @pytest.mark.parametrize("stand", ["complaint", "suppressed", "undeliverable"])
-    def test_a_seat_the_provider_refuses_is_not_chased(self, stand: str):
+    @pytest.mark.parametrize("delivery", ["complaint", "suppressed", "undeliverable"])
+    def test_a_seat_the_provider_refuses_is_not_chased(self, delivery: str):
         """The one reminder a seat gets is spent on nobody where the address is already known to reject it."""
 
-        assert reminder_seats(bewerbung_raw=application(), today=TODAY, unreachable=refusing("ansprechperson", stand=stand)) == [
+        assert reminder_seats(bewerbung_raw=application(), today=TODAY, unreachable=refusing("ansprechperson", delivery=delivery)) == [
             "trainer",
             "stellvertretung",
         ]
@@ -237,11 +236,11 @@ class TestAMailDeliveredToAClosedChase:
     def test_it_leaves_every_other_seat_as_it_stands(self, kontakte_block: Any, bookkeeping: Any, to: str):
         assert reopened_chases(bewerbung_raw=application(kontakte=kontakte_block, confirmations=bookkeeping), to=to) == []
 
-    @pytest.mark.parametrize("stand", ["delivered", "delayed"])
-    def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):
+    @pytest.mark.parametrize("delivery", ["delivered", "delayed"])
+    def test_a_seat_a_later_message_may_still_reach_is_chased(self, delivery: str):
         """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
 
-        assert refusing("trainer", stand=stand) == set()
+        assert refusing("trainer", delivery=delivery) == set()
 
     def test_a_trainer_who_is_another_seats_person_is_judged_by_that_seats_mail(self):
         """One mail went to both seats, read by the seat the Trainer mirrors."""
@@ -411,7 +410,7 @@ class TestWhatTheNoticesNeed:
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=partly_answered, saison_id="2026")] == ["stellan@example.com"]
 
-    def test_a_widerspruchs_notice_spares_the_person_it_told_and_no_other_confirmed_seat(self):
+    def test_an_objection_notice_spares_the_person_it_told_and_no_other_confirmed_seat(self):
         confirmed = kontakte(
             ansprechperson=kontaktperson_document("Ansgar", confirmed_at=YESTERDAY),
             stellvertretung=kontaktperson_document("Stellan", confirmed_at=YESTERDAY),
@@ -419,7 +418,3 @@ class TestWhatTheNoticesNeed:
         told = application(kontakte=confirmed, erasure_announced_at=YESTERDAY)
 
         assert [mail.to for mail in owed_deletion_notices(bewerbung_raw=told, saison_id="2026")] == ["stellan@example.com"]
-
-    def test_a_first_name_reads_off_the_slot_and_an_emptied_slot_has_none(self):
-        assert first_name_of(kontakte=kontakte(), seat="stellvertretung") == "Stellan"
-        assert first_name_of(kontakte=kontakte(stellvertretung=None), seat="stellvertretung") is None

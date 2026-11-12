@@ -36,7 +36,6 @@ export function Switch({
   isDisabled = false,
   name,
   isSelected,
-  defaultSelected,
   onChange,
 }: {
   label: Copy;
@@ -44,7 +43,6 @@ export function Switch({
   isDisabled?: boolean;
   name?: string;
   isSelected?: boolean;
-  defaultSelected?: boolean;
   onChange?: (isSelected: boolean) => void;
 }) {
   const root = useEarlyEdit();
@@ -54,7 +52,6 @@ export function Switch({
       className={toggleField()}
       name={name}
       isSelected={isSelected}
-      defaultSelected={defaultSelected}
       onChange={onChange}
       isDisabled={useDisabled(isDisabled)}>
       <SwitchButton className={toggleRow({ in: "field" })}>

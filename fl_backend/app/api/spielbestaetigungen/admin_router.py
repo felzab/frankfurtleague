@@ -2,18 +2,15 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows, pull_named_spiele
+from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_named_spiele
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigung,
     FLSpielbestaetigungAppointment,
-    FLSpielbestaetigungenFilterParams,
-    FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungEnterPayload,
 )
 from app.api.spielbestaetigungen.services import (
@@ -42,6 +39,7 @@ from app.api.spiele.schemas import FLSpiel
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
+    AufstellungenCollection,
     DBClient,
     OutboxCollection,
     SaisonsCollection,
@@ -49,7 +47,6 @@ from app.core.dependencies import (
     SchiedsrichterCollection,
     SpielberichteCollection,
     SpielbestaetigungenCollection,
-    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpielorteCollection,
     SpieltageCollection,
@@ -69,39 +66,6 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
-
-
-@router.get(
-    "",
-    response_model=FLSpielbestaetigungenListResponse,
-    summary="A season's fixture confirmations, or one fixture's",
-)
-async def get_spielbestaetigungen(
-    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
-    filters: FLSpielbestaetigungenFilters,
-) -> FLSpielbestaetigungenListResponse:
-    """
-    Every confirmation row of the season, or of its one fixture.
-
-    Newest first, closed rows included. No seat's address is served. Every row still holding its party's question is
-    served; `limit` cuts the others, and `complete` is false where it left the oldest of them out. A season no
-    document has answers no rows rather than 404.
-    """
-
-    db_filter: dict[str, Any] = {"saison_id": filters.saison_id}
-    if filters.spiel_id is not None:
-        db_filter["spiel_id"] = filters.spiel_id
-
-    rows, complete = await pull_admin_rows(
-        spielbestaetigungen_collection=spielbestaetigungen_collection, db_filter=db_filter, limit=filters.limit
-    )
-
-    return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in rows],
-        complete=complete,
-    )
-
 
 @router.post(
     f"{by_id('spielbestaetigung_id')}/enter",
@@ -115,15 +79,10 @@ async def enter_spielbestaetigung(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """
-    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
+    """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
-    The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
-    nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
-    the season's end. Refused for a row
-    already answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers
-    while this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since
-    left is settled as asked, and the next confirmation pass closes it.
+    The answer is the league's record of how a date was agreed and is never rewritten; it names nobody, and its reason
+    goes at the season's end.
     """
 
     async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -175,20 +134,12 @@ async def discard_spielbestaetigung(
     saison_teams_collection: SaisonTeamsCollection,
     outbox_collection: OutboxCollection,
     db: DBClient,
-    today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
+    """Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
 
-    IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
-    answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
-    counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
-    address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
-    declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
-    while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of
-    the move.
+    The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
+    the date stands.
     """
 
     async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> Mapping[str, Any]:
@@ -219,7 +170,7 @@ async def discard_spielbestaetigung(
             discarded = await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": spielbestaetigung_id, **build_discardable_filter()},
-                update=compose_closing_update(reason="discarded", today=today),
+                update=compose_closing_update(reason="discarded"),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.AFTER,
@@ -283,26 +234,15 @@ async def adopt_spielbestaetigung(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+    """Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.
 
-    Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
-    discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
-    stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
-    hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
-    status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
-    body. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the
-    referee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,
-    `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
-    (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
-    as that save resolves it. The
-    row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
-    next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
-    about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+    The next confirmation pass closes every party's row about the slot left, tells each of the move and asks about the
+    new slot.
     """
 
     collections = SpielSaveCollections(
@@ -314,6 +254,7 @@ async def adopt_spielbestaetigung(
         spielorte=spielorte_collection,
         schiedsrichter=schiedsrichter_collection,
         spielberichte=spielberichte_collection,
+        aufstellungen=aufstellungen_collection,
     )
 
     async def adopt_the_proposal(session: AsyncClientSession) -> None:
@@ -338,6 +279,7 @@ async def adopt_spielbestaetigung(
                 payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
+                now=now,
                 act="spielbestaetigung.vorschlag_adopted",
                 session=session,
             )

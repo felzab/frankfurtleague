@@ -31,8 +31,8 @@ from .test_bewerbung_public_read import (
 
 # Module-scoped for the read module's `seeded_url`'s reason.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
-    yield from seed_the_public_corpus(mongo_url)
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+    yield from seed_the_public_corpus(mongo_replica_set_url)
 
 
 pytestmark = pytest.mark.db
@@ -41,7 +41,7 @@ FORM = f"{PREFIX}/form/{OPEN_SAISON}"
 
 
 class TestTheClubList:
-    """`READ-BEWERBUNG-001`: an anonymous visitor picks from this, so every field is serialised into a public page."""
+    """An anonymous visitor picks from this, so every field is serialised into a public page."""
 
     def test_only_a_club_id_and_a_name_are_served(self, seeded_url: str):
         response = answered(seeded_url, FORM)

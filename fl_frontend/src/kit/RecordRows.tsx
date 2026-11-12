@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-
-import { FocusScope, useFocusManager } from "react-aria/FocusScope";
+import { useId, useState } from "react";
 
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
@@ -11,7 +9,6 @@ import { CheckboxPlaceholder } from "./Checkbox";
 import { messageLine } from "./fieldStyles";
 import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
-import { useFocusHome } from "./RowActs";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
@@ -44,10 +41,10 @@ type RowCell<Row extends EditorRow> = {
 };
 
 /**
- * A row's cells by their place. A phone's first line holds `lead`, a short choice heading the row, and `figure`, a
- * short field; its second `main`, the long field, and `beside`, a toggle at its end; `below` takes a third line, as a
- * card's colour does. From desktop up the first four stand on one line in this order, and `below` keeps a line of its
- * own under them.
+ * A row's cells by their place. A narrow list's first line holds `lead`, a short choice heading the row, and `figure`,
+ * a short field; its second `main`, the long field, and `beside`, a toggle at its end; `below` takes a third line, as
+ * a card's colour does. From 42 rem of the list's box the first four stand on one line in this order, and `below`
+ * keeps a line of its own under them.
  */
 export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowCell<Row>; main: RowCell<Row> } & (
   | { beside?: RowCell<Row>; below?: never; room?: never }
@@ -68,13 +65,14 @@ export type RowCells<Row extends EditorRow> = { lead: RowCell<Row>; figure: RowC
  */
 const recordRows = tv({
   slots: {
-    // Edge to edge in its box, which holds it unpadded (`Section`'s `list`): the rows, then the foot.
-    root: "grid w-full min-w-0",
-    // The columns every row shares, so a field stands at one x in every row. A phone's first line: the lead, the
-    // figure, and the remove control at the row's end. From desktop up one line: the lead and the figure at their own
+    // Edge to edge in its box, which holds it unpadded (`Section`'s `list`): the rows, then the foot. The container whose
+    // width picks the rows' form, not the screen's, since the rail resizes the box under one viewport.
+    root: "@container grid w-full min-w-0",
+    // The columns every row shares, so a field stands at one x in every row. Below 42 rem the first line: the lead, the
+    // figure, and the remove control at the row's end. From 42 rem one line: the lead and the figure at their own
     // widths, the main field taking the room that is left, since a row spans its box, up to its own standard width,
     // then the cell beside it at its own width and the remove control.
-    grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm lg:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] lg:gap-x-3 pointer-coarse:text-base",
+    grid: "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 text-sm @2xl:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] @2xl:gap-x-3 pointer-coarse:text-base",
     // A row brings the box's 16-px insets itself, so the hairline over it reaches the box's edges. Its label and its
     // lines stand 8 px apart, 16 px inside the hairlines over and under it. A field's message stands under that field
     // in its own cell, as under any field, and only while it has words, so the row grows by it as a refusal lands; the
@@ -84,16 +82,16 @@ const recordRows = tv({
     label: smallCaps({ class: "col-span-full row-start-1" }),
     lead: "col-start-1 row-start-2",
     figure: "col-start-2 row-start-2",
-    // A phone's second line, the main field and what stands beside it; from desktop up its two cells are the row's own.
-    second: "col-span-full row-start-3 grid items-start gap-x-2 lg:contents",
-    main: "lg:col-start-3 lg:row-start-2",
-    beside: "lg:col-start-4 lg:row-start-2",
-    // A line of its own at every width, under the row's first line from desktop up, so the main field keeps the room
-    // a name needs beside the lead and the figure, which a card's three colours would leave it too little of.
-    below: "col-span-full row-start-4 lg:col-span-4 lg:col-start-1 lg:row-start-3",
+    // A narrow list's second line, the main field and what stands beside it; from 42 rem its two cells are the row's own.
+    second: "col-span-full row-start-3 grid items-start gap-x-2 @2xl:contents",
+    main: "@2xl:col-start-3 @2xl:row-start-2",
+    beside: "@2xl:col-start-4 @2xl:row-start-2",
+    // A line of its own at every width, under the row's first line from 42 rem, so the main field keeps the room a name
+    // needs beside the lead and the figure, which a card's three colours would leave it too little of.
+    below: "col-span-full row-start-4 @2xl:col-span-4 @2xl:col-start-1 @2xl:row-start-3",
     // The cross ends with the fields' edge: its button, as wide as a control is tall, reaches past the edge by the
     // room it keeps around its 16-px glyph, 8 px with a mouse and 12 px on a touch screen.
-    remove: "col-start-3 row-start-2 -me-2 justify-self-end lg:col-start-5 pointer-coarse:-me-3",
+    remove: "col-start-3 row-start-2 -me-2 justify-self-end @2xl:col-start-5 pointer-coarse:-me-3",
     // The add control in the box's padding, under the hairline that parts it from the last row, and the list's own
     // refusal 6 px under it while there is one, as a field's message stands under its field.
     foot: `grid justify-items-start gap-1.5 p-4 ${stacked()}`,
@@ -113,24 +111,8 @@ const FIELD_LINE_CLASSES = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
 
 type Slots = ReturnType<typeof recordRows>;
 
-/** The keys of the rows as they stand, the next key to give, and the key of the row the add control just made. */
-type Keys = { keys: readonly number[]; next: number; added: number | null };
-
-/**
- * Hands the keys to the first control of the row it stands in, once, as the row the add control made mounts: moved in
- * an effect, as the code field's focus is (`./CodeField.tsx`), through React Aria's focus manager, which knows what a
- * Tab reaches. Once, because Next shows a kept page again by running its effects again, the keys elsewhere by then.
- */
-function FirstControlFocus() {
-  const manager = useFocusManager();
-  const isDone = useRef(false);
-  useEffect(() => {
-    if (isDone.current) return;
-    isDone.current = true;
-    manager?.focusFirst({ tabbable: true });
-  }, [manager]);
-  return null;
-}
+/** The keys of the rows as they stand, and the next key to give. */
+type Keys = { keys: readonly number[]; next: number };
 
 function RecordRow<Row extends EditorRow>({
   slots,
@@ -141,7 +123,6 @@ function RecordRow<Row extends EditorRow>({
   errors,
   change,
   removal,
-  takesFocus,
 }: {
   slots: Slots;
   cells: RowCells<Row>;
@@ -154,19 +135,14 @@ function RecordRow<Row extends EditorRow>({
   change: (patch: Partial<Row>) => void;
   /** The remove control's name and its act; absent in a form closed read-only. */
   removal: { label: Copy; act: () => void } | undefined;
-  takesFocus: boolean;
 }) {
   const labelId = useId();
-  const element = useRef<HTMLDivElement>(null);
-  // A removed row hands the keys to the row after it, or before it, or to the list.
-  useFocusHome(element);
   const control = (cell: RowCell<Row>) => {
     const field = `${box}.${cell.field}`;
     return cell.control({ row, name: field, label: cell.label, error: errors?.[field], change });
   };
   return (
     <div
-      ref={element}
       data-kit-row
       role="group"
       aria-labelledby={labelId}
@@ -176,45 +152,41 @@ function RecordRow<Row extends EditorRow>({
         className={slots.label()}>
         {label}
       </div>
-      <FocusScope>
-        {takesFocus && <FirstControlFocus />}
-        <div className={slots.lead()}>{control(cells.lead)}</div>
-        <div className={slots.figure()}>{control(cells.figure)}</div>
-        <div className={slots.second()}>
-          <div className={slots.main()}>{control(cells.main)}</div>
-          {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
-          {cells.room !== undefined && (
-            // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
-            <div
-              aria-hidden
-              inert
-              className={slots.beside({ class: "invisible" })}>
-              <CheckboxPlaceholder label={cells.room} />
-            </div>
-          )}
-        </div>
-        {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
-        {removal !== undefined && (
-          <div className={slots.remove()}>
-            <Button
-              icon="close"
-              label={removal.label}
-              aria-describedby={labelId}
-              onPress={removal.act}
-            />
+      <div className={slots.lead()}>{control(cells.lead)}</div>
+      <div className={slots.figure()}>{control(cells.figure)}</div>
+      <div className={slots.second()}>
+        <div className={slots.main()}>{control(cells.main)}</div>
+        {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
+        {cells.room !== undefined && (
+          // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
+          <div
+            aria-hidden
+            inert
+            className={slots.beside({ class: "invisible" })}>
+            <CheckboxPlaceholder label={cells.room} />
           </div>
         )}
-      </FocusScope>
+      </div>
+      {cells.below !== undefined && <div className={slots.below()}>{control(cells.below)}</div>}
+      {removal !== undefined && (
+        <div className={slots.remove()}>
+          <Button
+            icon="close"
+            label={removal.label}
+            onPress={removal.act}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 /**
  * A list of records as rows of fields, such as a Spielbericht's goals: each row under the label counting it, its
- * fields on two or three lines on a phone and on one, or two with a cell below, from desktop up, the remove control at
- * the end of its first line, and the add
- * control in the foot under the list. It stands edge to edge in its box (`./Section.tsx`'s `list`), the hairline
- * between two rows reaching the box's edges. The value is the editor's (`./useEditor.ts :: EditorRow`): `rows` its
+ * fields on two or three lines in a list narrower than 42 rem and on one, or two with a cell below, from it, the remove
+ * control at the end of its first line, and the add
+ * control in the foot under the list. It stands edge to edge in its box (`Section`'s `list`), the hairline
+ * between two rows reaching the box's edges. The value is the editor's (`EditorRow`): `rows` its
  * draft's list, `onChange` the whole list anew.
  *
  * Each refused field's refusal stands under it, however many of a row's fields are refused, and the refused field takes
@@ -223,9 +195,7 @@ function RecordRow<Row extends EditorRow>({
  * carries no description, so the line under a field is its refusal's alone.
  * The list's own refusal, such as too many rows, stands under the add control.
  *
- * The add control appends `blank` and hands the keys to the new row's first control. A removed row hands them to the
- * row after it, else the row before it, else the list, as every row the kit lets leave does (`./RowActs.tsx`), so a
- * row's first control is one a press reaches, a button or a link. A form closed read-only draws neither control.
+ * The add control appends `blank`. A form closed read-only draws neither control.
  */
 export function RecordRows<Row extends EditorRow>({
   label,
@@ -249,7 +219,7 @@ export function RecordRows<Row extends EditorRow>({
   /** A new row as the add control makes it. */
   blank: Row;
   cells: RowCells<Row>;
-  /** The label over a row by its number, from 1, such as „Tor 3“: it names the row and describes its remove control. */
+  /** The label over a row by its number, from 1, such as „Tor 3“, which names the row. */
   rowLabel: (number: number) => Copy;
   /** The add control's label, such as „Tor eintragen“. */
   add: Copy;
@@ -257,23 +227,23 @@ export function RecordRows<Row extends EditorRow>({
   remove: Copy;
   /**
    * Why the list takes no new row as the draft stands, such as a no-show's goals: the add control stays reachable and
-   * says it, as every locked act does (`./Button.tsx`'s `locked`). The rows stand, each with its remove control.
+   * says it, as every locked act does (`Button`'s `locked`). The rows stand, each with its remove control.
    */
   locked?: Copy;
-  /** The editor's served refusals by box (`./useEditor.ts`'s `fieldErrors`). */
+  /** The editor's served refusals by box (`useEditor`'s `fieldErrors`). */
   errors?: Readonly<Record<string, Copy>>;
 }) {
   const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });
   const isClosed = useDisabled(false);
   const lineId = useId();
-  const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length, added: null }));
+  const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length }));
 
   // A row keeps its key while the add and the remove control change the list. A list of another length was reset or
-  // served anew: its rows keep their places' keys, and none of them was just made here.
+  // served anew: its rows keep their places' keys.
   let current = held;
   if (held.keys.length !== rows.length) {
     const more = Array.from({ length: Math.max(0, rows.length - held.keys.length) }, (_, index) => held.next + index);
-    current = { keys: [...held.keys.slice(0, rows.length), ...more], next: held.next + more.length, added: null };
+    current = { keys: [...held.keys.slice(0, rows.length), ...more], next: held.next + more.length };
     setHeld(current);
   }
 
@@ -284,7 +254,6 @@ export function RecordRows<Row extends EditorRow>({
       role="group"
       aria-label={label}
       aria-describedby={listError === undefined ? undefined : lineId}
-      data-kit-focus="home"
       className={slots.root()}>
       {/* An empty list is its foot alone, which then stands first and draws no hairline over itself. */}
       {rows.length > 0 && (
@@ -310,7 +279,6 @@ export function RecordRows<Row extends EditorRow>({
                       },
                     }
               }
-              takesFocus={current.keys[index] === current.added}
             />
           ))}
         </div>
@@ -324,7 +292,7 @@ export function RecordRows<Row extends EditorRow>({
             locked={locked}
             lockedEdge="start"
             onPress={() => {
-              setHeld((state) => ({ keys: [...state.keys, state.next], next: state.next + 1, added: state.next }));
+              setHeld((state) => ({ keys: [...state.keys, state.next], next: state.next + 1 }));
               onChange([...rows, blank]);
             }}
           />
@@ -344,8 +312,8 @@ export function RecordRows<Row extends EditorRow>({
 
 /**
  * The list while its record is read: `rows` rows, each its label's line over as many lines of fields as a row takes
- * on a phone, two, or three where it has a cell below, and over one from desktop up, or two with a cell below; then the
- * foot's add control by its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
+ * in a list narrower than 42 rem, two, or three where it has a cell below, and over one from it, or two with a cell
+ * below; then the foot's add control by its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
  */
 export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; lines: 2 | 3; add: Copy }) {
   const slots = recordRows({ beside: false });
@@ -364,8 +332,8 @@ export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; line
               {Array.from({ length: lines }, (_, line) => (
                 <span
                   key={line}
-                  // The phone's second line joins the first from desktop up; a cell below keeps its own line.
-                  className={placeholderBar(line === 1 ? `${FIELD_LINE_CLASSES} lg:hidden` : FIELD_LINE_CLASSES)}
+                  // The narrow list's second line joins the first from 42 rem; a cell below keeps its own line.
+                  className={placeholderBar(line === 1 ? `${FIELD_LINE_CLASSES} @2xl:hidden` : FIELD_LINE_CLASSES)}
                 />
               ))}
             </div>

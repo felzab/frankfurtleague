@@ -25,7 +25,10 @@ export default function SponsorsPage() {
   return (
     <ClassicPage width="form">
       <ClassicTitle text={COPY.page.sponsors} />
-      <SponsorTiles sponsors={SPONSORS} />
+      <SponsorTiles
+        sponsors={SPONSORS}
+        reads="screen"
+      />
       <Door
         title={words.doors.support}
         level={2}

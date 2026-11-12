@@ -10,10 +10,7 @@ import { eventOf, headOf, popupFactsOf, sidesOf } from "./blocks";
 
 import type { SpielPopupContent } from "@/kit/SpielHead";
 
-/**
- * The match pop-up's body, which the root layout's `@modal` slot renders over the page a match row was pressed on.
- * The ids are the caller's, parsed already.
- */
+/** The ids arrive parsed by the caller. */
 export async function spielPopupOf(saison: string, spielId: string): Promise<SpielPopupContent> {
   const page = await getSpielPage(saison, spielId);
   if (page === null) notFound();

@@ -55,7 +55,7 @@ type Kind =
   | { kind: "text"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "digits"; autofill?: Autofill; example?: never; pattern?: never }
   | { kind: "email"; autofill?: EmailAutofill; example?: never; pattern?: never }
-  | { kind: "tel" | "search"; autofill?: never; example?: never; pattern?: never }
+  | { kind: "tel"; autofill?: never; example?: never; pattern?: never }
   | { kind: "url"; autofill?: never; example: Copy; pattern?: never }
   /**
    * A played minute, stoppage time after a plus, „90+3“: `pattern` is the write's own for it, which the caller reads
@@ -65,7 +65,7 @@ type Kind =
 
 /*
  * A field's width follows from what it holds, so no caller sets one: a value of a known length is short, a paragraph
- * takes its box's whole width, and every other value the one standard width (`fieldStyles.ts :: fieldFrame`).
+ * takes its box's whole width, and every other value the one standard width (`fieldFrame`).
  */
 
 /**
@@ -100,7 +100,6 @@ const KINDS = {
   email: { type: "email", inputMode: undefined, autoComplete: "email", pattern: undefined },
   tel: { type: "tel", inputMode: undefined, autoComplete: "tel", pattern: undefined },
   url: { type: "url", inputMode: undefined, autoComplete: "url", pattern: undefined },
-  search: { type: "search", inputMode: undefined, autoComplete: undefined, pattern: undefined },
 } as const;
 
 /** The example a malformed value is shown, by kind; a URL names its own. */
@@ -108,7 +107,7 @@ const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.f
 
 /**
  * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
- * what a person typed there, so `./useEarlyEdit.ts` has nothing to raise and a press would save nothing under
+ * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
  * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
  * does and keeps its Tab stop and the caret a click leaves, where `inert` takes both. An empty one keeps its replay,
  * since React writes nothing there.

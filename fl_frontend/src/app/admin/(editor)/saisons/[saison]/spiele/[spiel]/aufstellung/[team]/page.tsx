@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 function leadOf({ spiel, team_id }: FLAufstellungResponse): Copy {
   const club = [spiel.team1, spiel.team2].find((side) => side?.team_id === team_id);
   if (club === undefined || club === null) throw new ContractBreakError("A line-up's read named a club its fixture does not field.");
-  return SERVER_COPY.area.line([
+  return COPY.shared.line([
     COPY.area.team.aufstellung.ofTeam({ record: club.name }),
     matchdayOf(spiel, spiel),
     COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
@@ -79,7 +79,7 @@ async function readEditor(params: Props["params"]) {
       team={found.team_id}
       title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
       lead={leadOf(found)}
-      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler, erased: found.erased }}
+      aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
       words={LINEUP_WORDS}
       {...(locked === undefined ? {} : { locked })}
@@ -94,7 +94,7 @@ export default function AdminAufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
-        // The line-up the board drew: eleven named over the squad's nine others, as a club that has entered one opens it.
+        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {
             block: (

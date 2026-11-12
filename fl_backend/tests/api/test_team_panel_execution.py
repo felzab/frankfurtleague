@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -117,7 +116,7 @@ ROWS = [
     row(VORSCHLAG, OTHER, answer=declined("trainer", OTHERS_REASON, "2026-04-16")),
     row(DECLINED, TEAM, answer=declined("ansprechperson", OWN_REASON, "2026-04-23")),
     row(AGREED, TEAM, answer={"kind": "agreed", "at": TODAY, "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}),
-    row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"at": TODAY, "reason": "discarded"}),
+    row(OVERDUE, TEAM, answer=declined("trainer", OWN_REASON, "2026-04-03"), closed={"reason": "discarded"}),
     {**row(MOVED, TEAM), "ansetzung": {**row(MOVED, TEAM)["ansetzung"], "time": "16:00:00", "digest": "a-slot-left"}},
     row(VALID, TEAM),
     row(LEFT_HOME, TEAM),
@@ -180,9 +179,7 @@ async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
     await database[Collection.AUFSTELLUNGEN].insert_many(
         [
-            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY)),
-            # Past its lock, naming only a pupil erased since: the club's final record, which still stands as a line-up.
-            documents.aufstellung_document(EXPIRED, TEAM, starters=[GHOST_SPIELER_ID]),
+            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY, EXPIRED)),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -272,7 +269,7 @@ class TestEachReadAnswersTheTeamsSeatHoldersAlone:
         assert not any(value in text for value in ("@", "+49", "2009-05-04", CONFIRMED_ON, OTHERS_REASON))
 
 
-class TestTheUebersicht:
+class TestTheOverview:
     def test_it_lists_the_open_work_and_nothing_settled(self, mongo_replica_set_url: str):
         status, served = read(mongo_replica_set_url, "overview")
 
@@ -281,16 +278,17 @@ class TestTheUebersicht:
         # The date agreed, the discarded decline, the row about a slot left and the call-off ask nothing; the others by
         # their day.
         assert [
-            (termin["spiel_id"], termin["state"], termin["side"], termin["vorschlag"], termin["reason"]) for termin in served["termine"]
+            (spielbestaetigung["spiel_id"], spielbestaetigung["state"], spielbestaetigung["side"], spielbestaetigung["vorschlag"])
+            for spielbestaetigung in served["spielbestaetigungen"]
         ] == [
-            (str(EXPIRED["_id"]), "expired", "team1", None, None),
-            # The other club's proposed date and hour alone, never its reason.
-            (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}, None),
-            (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}, OWN_REASON),
-            (str(VALID["_id"]), "valid", "team1", None, None),
+            (str(EXPIRED["_id"]), "expired", "team1", None),
+            # The other club's proposed date and hour.
+            (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}),
+            (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}),
+            (str(VALID["_id"]), "valid", "team1", None),
             # Inside their deadline: the opponent's exit by the fixture's day is what ends each.
-            (str(LEFT_HOME["_id"]), "expired", "team2", None, None),
-            (str(LEFT_AWAY["_id"]), "expired", "team1", None, None),
+            (str(LEFT_HOME["_id"]), "expired", "team2", None),
+            (str(LEFT_AWAY["_id"]), "expired", "team1", None),
         ]
         # Stored, locked within the hour, or undated, a fixture asks for no line-up; the overdue one comes first.
         assert [(entry["spiel_id"], entry["marks"]["phase"]) for entry in served["aufstellungen"]] == [
@@ -317,7 +315,7 @@ class TestTheTeamsSpiele:
         assert status == 200
         by_spiel = {entry["id"]: entry for entry in served["spiele"]}
         assert [entry["spiel_nr"] for entry in served["spiele"]] == sorted(spiel_raw["spiel_nr"] for spiel_raw in SPIELE)
-        assert {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["termin"] for spiel_raw in SPIELE} == {
+        assert {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["spielbestaetigung"] for spiel_raw in SPIELE} == {
             1: "vorschlag",
             2: "declined",
             3: "agreed",

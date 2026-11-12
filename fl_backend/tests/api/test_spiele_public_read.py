@@ -5,6 +5,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     FLSpiel,
     FLSpielJoined,
@@ -12,13 +13,12 @@ from app.api.spiele.schemas import (
     FLSpielortFieldPublic,
     FLSpielSchiedsrichterFieldPublic,
     FLSpielTeamFieldJoined,
-    public_referee_name,
 )
-from app.api.spieltage.schemas import FLSpielplanSpieltag
-from tests.core.app_source import application
-from tests.documents import spiel_document
+from app.api.spieltage.services import build_spielplan
+from tests.core.app_source import api_routes, application
+from tests.documents import rules_document, spiel_document, spieltag_document
 
-# The two figures `READ-MONEY-001` keeps off the base tier, spelled as a DOCUMENT spells them: the
+# The two figures the base tier never serves, the rent and the fee, spelled as a DOCUMENT spells them: the
 # assertions below search published property names, where a model's field name need not match.
 MIETPREIS_KEY = "mietpreis"
 PAYMENT_KEY = "payment"
@@ -49,7 +49,7 @@ PAYMENT = 30
 SPIELORT_NAME = "Sportplatz Ost"
 
 # Written out rather than composed from the pair, so a reducer agreeing with any spelling of the
-# rule -- the whole surname, or the initial without its dot -- fails these cases (`READ-REFEREE-001`).
+# rule -- the whole surname, or the initial without its dot -- fails these cases.
 SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
@@ -73,12 +73,6 @@ def stored_document() -> dict[str, Any]:
         schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "payment": PAYMENT},
         ergebnis="2:1",
     )
-
-
-def spieltag_document() -> dict[str, Any]:
-    """The fixture's matchday, which the Spielplan lists it under."""
-
-    return {"_id": SPIELTAG_ID, "start": None, "end": None, "position": 1, "saison_phase": "gruppenphase", "saison_id": SAISON_ID}
 
 
 def joined_document() -> dict[str, Any]:
@@ -164,7 +158,7 @@ BASE_TIER_SPIEL_FIELDS = frozenset(
         "sonderereignis",
         "saison_phase",
         "saison_id",
-        # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
+        # Published by decision, and past what an erasure rewrites.
         "note",
         # A verdict and never a row: no seat, no answer's reason.
         "ansetzung_confirmed",
@@ -201,11 +195,49 @@ class TestTheJoinedSideShapes:
         assert set(FLSpielTeamFieldJoined.model_fields) == {"team_id", "name", "shorthand", "tore", "austritt_type"}
 
 
+# The block each of a referee's three public states is served as. A withheld name and a booking naming nobody read alike,
+# `name` null, which the frontend words as „anonym“; a published name keeps its surname's initial alone.
+REFEREE_STATES = [
+    pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME, "name_is_public": True}, id="published"),
+    pytest.param({"name_is_public": False}, {"name": None, "name_is_public": False}, id="withheld"),
+    pytest.param({"schiedsrichter_id": None, "name": None, "name_is_public": False}, {"name": None, "name_is_public": False}, id="nobody"),
+]
+
+# The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
+SCHEDULE_READS = [
+    pytest.param("/api/v0/saisons/{saison_id}/spielplan", {"current_spieltag_id": None}, id="Spielplan"),
+    pytest.param("/api/v0/saisons/{saison_id}/ko_runde", {}, id="K.-o.-Runde"),
+]
+
+
+class TestTheScheduleServesTheRefereeByConsent:
+    """The referee block each schedule read answers with, built by the route's own service into the route's own response model.
+
+    The schedule lists its fixtures through a model of its own, so a fixture case alone would pass a list typed on another.
+    """
+
+    @pytest.mark.parametrize(("path", "beside"), SCHEDULE_READS)
+    @pytest.mark.parametrize(("referee", "served"), REFEREE_STATES)
+    def test_a_public_reader_gets_no_name_whole_and_none_withheld(
+        self, path: str, beside: dict[str, Any], referee: dict[str, Any], served: dict[str, Any]
+    ):
+        document = joined_document()
+        fixture = {**document, "schiedsrichter": {**document["schiedsrichter"], **referee}}
+        spieltag = spieltag_document(SPIELTAG_ID, SAISON_ID, 1)
+        (route,) = [route for route in api_routes(application()) if route.path == path and route.methods == {"GET"}]
+
+        spieltage = build_spielplan([spieltag], [fixture], FLSaisonRules.model_validate(rules_document()))
+        answer = route.response_model.model_validate({"spieltage": spieltage, **beside}).model_dump(mode="json", by_alias=True)
+
+        # The whole block, so the record id and the fee are refused as well as the name.
+        assert [spiel["schiedsrichter"] for spiel in answer["spieltage"][0]["spiele"]] == [served]
+
+
 class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
     def test_the_base_tier_spiel_cuts_the_referees_surname(self):
-        """`READ-REFEREE-001`, on the shape a base-tier read answers with rather than on the reducer alone.
+        """The surname cut to its initial, on the shape a base-tier read answers with rather than on the reducer alone.
 
         The stored document carries the surname in full, so a model that stopped reducing would serve it.
         """
@@ -227,6 +259,28 @@ class TestTheSpielShapes:
 
         with pytest.raises(ValidationError):
             FLSpielJoined.model_validate(unjudged)
+
+    @pytest.mark.parametrize(
+        ("schiedsrichter_id", "served"), [pytest.param(None, True, id="nobody"), pytest.param(ObjectId(), False, id="a-referee")]
+    )
+    def test_a_booking_naming_nobody_is_served_nameless_where_a_referee_s_waits_for_their_agreement(self, schiedsrichter_id, served):
+        """An erased referee's played match reads as nobody named; withheld, it would read as no referee booked at all."""
+
+        document = joined_document()
+        nobody_agreed = {
+            **document,
+            "schiedsrichter": {
+                **document["schiedsrichter"],
+                "schiedsrichter_id": schiedsrichter_id,
+                "name": None,
+                "name_is_public": False,
+                "einsatz_confirmed": False,
+            },
+        }
+
+        parsed = FLSpielJoined.model_validate(nobody_agreed)
+
+        assert (parsed.schiedsrichter is not None, None if parsed.schiedsrichter is None else parsed.schiedsrichter.name) == (served, None)
 
     def test_the_base_tier_spiel_declares_exactly_these_fields(self):
         """The tier's whole membership, since neither the admin nor the internal shape narrows it.
@@ -253,21 +307,6 @@ class TestTheSpielShapes:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
 
 
-class TestTheTwoListShapes:
-    """Which fixture model each list response carries, read off the declaration rather than off a request.
-
-    The lists split as the single reads already do, so a tier decides the referee's name as it
-    decides the figures.
-    """
-
-    def test_the_base_tier_list_reduces_the_referees_surname(self):
-        """The Spielplan's matchday, the one base-tier read listing a season's fixtures."""
-        spieltag = FLSpielplanSpieltag.model_validate({**spieltag_document(), "count_spiele": 1, "spiele": [joined_document()]})
-
-        assert spieltag.spiele[0].schiedsrichter is not None
-        assert spieltag.spiele[0].schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-
-
 # (stored, what the base tier serves). The surname is everything after the FIRST space, so a
 # particle and a double surname reduce whole rather than leaking their front half.
 REFEREE_NAME_CASES = [
@@ -279,19 +318,15 @@ REFEREE_NAME_CASES = [
 
 
 class TestTheSurnameReduction:
-    """`READ-REFEREE-001` over the shapes of name a referee's one free-text field holds.
+    """The surname cut to its initial, over the shapes of name a referee's one free-text field holds.
 
     A rule taking the LAST word would serve `Ada van der B.` and `Anna Müller S.`, publishing a
     particle or half a double surname.
     """
 
     @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
-    def test_the_rule_answers_a_forename_and_one_initial(self, stored: str, served: str):
-        assert public_referee_name(stored) == served
-
-    @pytest.mark.parametrize(("stored", "served"), REFEREE_NAME_CASES)
     def test_the_base_tier_shape_applies_it(self, stored: str, served: str):
-        """The rule reaches a caller through the model, so a reducer nothing calls would pass the case above."""
+        """Through the model, which is how the rule reaches a caller: a reducer nothing calls would pass a case on the rule alone."""
 
         published = {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": stored, "name_is_public": True}
 

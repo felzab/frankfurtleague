@@ -47,19 +47,27 @@ const VIEW: FLSpieleAdminSingleResponse = {
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
-doubleApiClient(() => VIEW);
+let served = VIEW;
+
+doubleApiClient(() => served);
 
 const { default: SpielEditorPage } = await import("./page");
+
+/** The editor the page draws over `view`. */
+async function editorOver(view: FLSpieleAdminSingleResponse) {
+  served = view;
+  const shell = SpielEditorPage({
+    params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }),
+    searchParams: Promise.resolve({}),
+  }) as ReactElement<{ editor: Promise<ReactElement<Parameters<typeof SpielEditor>[0]>> }>;
+  return await shell.props.editor;
+}
 
 describe("the match editor's links to the line-ups", () => {
   // The harm: one club's line-up counted under the other's name, or a row leading to the other club's line-up, so the
   // league reads a missing line-up as entered and enters it for the wrong club.
   it("states and links each side's own club's line-up", async () => {
-    const shell = SpielEditorPage({
-      params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }),
-      searchParams: Promise.resolve({}),
-    }) as ReactElement<{ editor: Promise<ReactElement<Parameters<typeof SpielEditor>[0]>> }>;
-    const editor = await shell.props.editor;
+    const editor = await editorOver(VIEW);
 
     const words = COPY.area.team.aufstellung;
     expect(editor.props.aufstellungen).toStrictEqual([
@@ -76,5 +84,17 @@ describe("the match editor's links to the line-ups", () => {
         line: words.missing,
       },
     ]);
+  });
+});
+
+describe("the match editor's answers", () => {
+  // The harm: a booking an erasure left naming nobody drawn as a party not yet asked, whom nobody can ask.
+  it("draws no referee's row for a booking naming nobody", async () => {
+    const editor = await editorOver({
+      ...VIEW,
+      spiel: { ...VIEW.spiel, schiedsrichter: { schiedsrichter_id: null, name: null, payment: 25 } },
+    });
+
+    expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1", "team2"]);
   });
 });

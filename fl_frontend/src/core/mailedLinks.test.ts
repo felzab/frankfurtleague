@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { filesUnder } from "@/test-support/treeWalk.ts";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "./routes.ts";
 
@@ -11,9 +10,6 @@ import type { FLOutboxHandout } from "./generated/client/types.ts";
 const { mailFor } = await import("./mailKinds.ts");
 
 const APP = path.resolve(import.meta.dirname, "..", "app");
-
-// The http-level file both edges include, so the map read here is the one production serves.
-const EDGE_CONFIG = path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "shared", "http.conf");
 
 const ORIGIN = "http://localhost:3000";
 
@@ -74,7 +70,6 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     appointment: ANSETZUNG,
     due_at: "2026-10-23T14:00:00Z",
     saison_id: "2627",
-    spiel_id: "6890a1b2c3d4e5f607250021",
     team: "Ahorn",
     team_id: "6890a1b2c3d4e5f607250011",
   },
@@ -85,7 +80,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
   bewerbung_received: {
     kind: "bewerbung_received",
     deadline: "2026-10-17",
-    pending: [{ first_name: "Pia", rollen: ["stellvertretung"] }],
+    pending: ["stellvertretung"],
     rollen: ["trainer"],
     saison_id: "2627",
   },
@@ -105,14 +100,13 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     shorthand: "LES",
     team: "Lessing",
     trikot_farbe: null,
-    wunschgegner: null,
   },
-  bewerbung_absage: { kind: "bewerbung_absage", deletion_days: 14, reason: "Zu spät", rollen: ["trainer"], saison_id: "2627", team: "Lessing" },
+  bewerbung_absage: { kind: "bewerbung_absage", reason: "Zu spät", rollen: ["trainer"], saison_id: "2627", team: "Lessing" },
   deletion_notice: { kind: "deletion_notice", saison_id: null },
   bewerbung_objection: {
     kind: "bewerbung_objection",
     deadline: "2026-10-17",
-    declined: { first_name: "Pia", rollen: ["stellvertretung"] },
+    declined: ["stellvertretung"],
     rollen: ["trainer"],
     saison_id: "2627",
   },
@@ -143,26 +137,6 @@ function tokenLinksOf(kind: OutboxKind): string[] {
   return tokenLinksIn(mail);
 }
 
-/** The alternation each arm of the edge's map matches on, one entry per arm, in the file's order. */
-function armAlternations(arms: string): string[][] {
-  return arms
-    .split("\n")
-    .filter((line) => line.trim().startsWith('"~'))
-    .map((line) => [...line.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((match) => (match[1] ?? "").split("|")));
-}
-
-/**
- * The query-parameter names the edge redacts in EVERY arm of its map: the intersection rather than the union, since the
- * first arm keeps the path and replaces the query alone, so a name only the arms below it hold costs every access line
- * its path. Empty where the map was read as having no arm at all, which the assertion below reports.
- */
-function redactedParameterNames(): string[] {
-  const config = readFileSync(EDGE_CONFIG, "utf8");
-  const block = config.slice(config.indexOf("map $request_uri $credential_free_uri {"));
-  const [first, ...rest] = armAlternations(block.slice(0, block.indexOf("}")));
-  return first === undefined ? [] : first.filter((name) => rest.every((arm) => arm.includes(name)));
-}
-
 /**
  * The segments a route folder answers at, as `core/routes.test.ts` reads them: a route group's `(…)` and a parallel slot's
  * `@…` are no segment, an interception's `(.)` prefix leaves its segment, and a dynamic `[…]` is kept as written.
@@ -181,17 +155,14 @@ const PAGES = new Set(filesUnder(APP, (name) => name === "page.tsx", 20).map((fi
 const FIXED_ROUTES = new Set(Object.values(ROUTES).flatMap((row) => (row.path.length === 0 ? [(row.path as () => string)()] : [])));
 
 describe("a mailed link's token", () => {
-  // nginx redacts a token in its access log by the parameter's name alone, so a builder spelling another name writes
-  // every live token of its kind, a minor's included, into the log with nothing else failing. Every kind's mail is
-  // built, so a link a later builder spells in any way at all is held here.
-  it.each(KINDS)("rides only in a parameter the edge redacts, in a %s mail", (kind) => {
-    const redacted = redactedParameterNames();
-    assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
-
+  // The edge's access line carries a request's path and never its query (`nginx/shared/http.conf :: fl_json`), so a
+  // builder spelling the token into the path writes every live token of its kind, a minor's included, into the log
+  // with nothing else failing. Every kind's mail is built, so a link a later builder spells in any way is held here.
+  it.each(KINDS)("rides in the query, never in the path the edge logs, in a %s mail", (kind) => {
     for (const link of tokenLinksOf(kind)) {
-      const parameters = [...new URL(link).searchParams].filter(([, value]) => value === TOKEN).map(([name]) => name);
-      assert.ok(parameters.length > 0, `the link ${link} carries the token outside its query`);
-      for (const name of parameters) assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
+      const { pathname, searchParams } = new URL(link);
+      expect(pathname.includes(TOKEN), `the link ${link} carries the token in its path`).toBe(false);
+      expect([...searchParams.values()].includes(TOKEN), `the link ${link} carries the token outside its query`).toBe(true);
     }
   });
 
@@ -208,5 +179,18 @@ describe("a mailed link's token", () => {
   // The two cases above hold nothing where no mail carries a link, as a builder that dropped its token would.
   it("is carried by the mails that lead a person to a page", () => {
     expect(KINDS.filter((kind) => tokenLinksOf(kind).length > 0).length).toBeGreaterThan(0);
+  });
+});
+
+/** A move's notice naming the day the fixture moved to, whose subject `FACTS`' row, naming none, never builds. */
+const MOVED_TO: OutboxData = { ...FACTS.spiel_moved, moved_to: APPOINTMENT };
+
+describe("a mail's subject", () => {
+  // A mail program shows and searches a subject as typed, and the journeys find a mail by its subject's start: a
+  // no-break space from the catalogue's `boundBy` fails both with every page still reading the same.
+  it.each([...KINDS.map((kind) => FACTS[kind]), MOVED_TO])("joins its words with plain spaces, in a $kind mail", (data) => {
+    const mail = mailFor(data.kind, data as never, { token: TOKEN, secret: TOKEN, origin: ORIGIN });
+    if (mail === undefined) throw new Error(`the kind ${data.kind} has no builder`);
+    expect(mail.subjectLine).not.toContain("\u00A0");
   });
 });

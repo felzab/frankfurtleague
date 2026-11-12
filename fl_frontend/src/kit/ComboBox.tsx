@@ -47,7 +47,6 @@ export function ComboBox({
   isDisabled = false,
   name,
   value,
-  defaultValue,
   onChange,
 }: {
   label: Copy;
@@ -62,14 +61,13 @@ export function ComboBox({
   isDisabled?: boolean;
   name?: string;
   value?: string | null;
-  defaultValue?: string | null;
   onChange?: (id: string | null) => void;
 }) {
   // React Aria filters the list itself while the field holds its own text, so the field clears its value when
   // its text is cleared and its arrow opens the whole list; the create entry's own text keeps it in.
   // The field's text and value, followed rather than held, for the create entry to hand on.
   const [text, setText] = useState("");
-  const [chosen, setChosen] = useState(defaultValue ?? null);
+  const [chosen, setChosen] = useState<string | null>(null);
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
   const root = useEarlyEdit();
@@ -83,7 +81,6 @@ export function ComboBox({
       formValue="key"
       allowsCustomValue={free !== undefined}
       value={value}
-      defaultValue={defaultValue}
       onChange={(key) => {
         const id = key === null ? null : String(key);
         setChosen(id);

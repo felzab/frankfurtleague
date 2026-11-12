@@ -25,6 +25,7 @@ from app.api.spieltage.services import build_admin_spielplan, current_spieltag_i
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
+    AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
     SaisonsCollection,
@@ -50,7 +51,7 @@ from app.core.dependencies import (
 from app.core.routing import SAFE_WHEN, by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -72,16 +73,14 @@ async def get_spiele_spielplan(
     spiele_collection: SpieleReadCollection,
 ) -> FLSpieleSpielplanAdminResponse:
     """
-    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.
+    Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.
 
-    Each round holds its matches by number, and the rounds come in the order they are played. The matchday to open on
-    is the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its
-    last. `document_not_found` for a season id naming no season. Writes nothing.
+    `current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.
     """
 
     saison_raw, spieltage_raw, spiele_raw = await asyncio.gather(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
-        pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_MAX),
+        pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),
     )
 
@@ -115,13 +114,8 @@ async def get_spiel_admin(
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
 
-    Beside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether
-    they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
-    another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
-    group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
-    reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
-    side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
-    club has stored none. `document_not_found` for an id no fixture holds.
+    Beside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,
+    confirmation rows and line-up counts.
     """
 
     return await read_spiel_editor(
@@ -163,6 +157,7 @@ async def patch_spiel(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
@@ -175,14 +170,8 @@ async def patch_spiel(
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    The fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht
-    adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
-    `dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass
-    would mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,
-    by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
-    deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
-    and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
-    a result entered or changed after the question was asked is never deleted unasked.
+    A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+    later results the save would delete, which the save's `voided_results` must name back.
     """
 
     collections = SpielSaveCollections(
@@ -194,6 +183,7 @@ async def patch_spiel(
         spielorte=spielorte_collection,
         schiedsrichter=schiedsrichter_collection,
         spielberichte=spielberichte_collection,
+        aufstellungen=aufstellungen_collection,
     )
 
     if dry_run:
@@ -207,7 +197,7 @@ async def patch_spiel(
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

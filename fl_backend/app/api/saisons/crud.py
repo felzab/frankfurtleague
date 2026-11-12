@@ -46,14 +46,6 @@ async def pull_create_state(*, saisons_collection: ReadCollection, session: Asyn
     )
 
 
-async def pull_active_saison_id(saisons_collection: ReadCollection) -> str:
-    """The current season's id; 404 where none is active, rather than degrading to an unfiltered query."""
-
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"])
-
-    return str(saison_raw["_id"])
-
-
 async def pull_governing_saison_id(saisons_collection: ReadCollection, session: AsyncClientSession | None = None) -> str | None:
     """The season a count of seasons is reckoned from: the running one.
 
@@ -64,8 +56,7 @@ async def pull_governing_saison_id(saisons_collection: ReadCollection, session: 
         running = await pull_one_from_db(collection=saisons_collection, db_filter=CURRENT_SAISON_FILTER, projection=["_id"], session=session)
     except DocumentNotFoundError:
         # Never the newest `past` season instead: after the first activation no route leaves the
-        # league without a running one, and a ban counted from a
-        # guessed season bars a person for the wrong five.
+        # league without a running one, and a ban counted from a guessed season bars a person for the wrong five.
         return None
 
     return str(running["_id"])
@@ -117,7 +108,7 @@ async def saisons_with_a_spiel_taken_place(
     *,
     spiele_collection: ReadCollection,
     saison_ids: Collection[str],
-    # REQUIRED, `None` included: a transactional caller that forgot it would read outside its
+    # Required, `None` included: a transactional caller that forgot it would read outside its
     # snapshot in silence, so the omission has to be a TypeError at the call.
     session: AsyncClientSession | None,
 ) -> set[str]:
@@ -142,7 +133,7 @@ async def pull_finale_by_saison(*, spiele_collection: ReadCollection, saison_ids
     """Each of these seasons' Finale matches, joined as every match read joins them, keyed by season; a season holding none is absent.
 
     One read for every season asked about: `build_spiele_pipeline` marks the match for third place per fixture's own season,
-    so `app/api/saisons/services.py :: decided_podium` reads each season's list as it reads the landing's.
+    so `decided_podium` reads each season's list as it reads the landing's.
     """
 
     by_saison: dict[str, list[FLSpielJoinedInternal]] = {}
@@ -183,18 +174,3 @@ async def count_spiele_by_saison(*, spiele_collection: ReadCollection, saison_id
     )
 
     return {str(row["_id"]): int(row["spiele"]) for row in rows}
-
-
-async def pull_saison_id_and_rules(
-    saisons_collection: ReadCollection,
-    saison_id: str | None,
-) -> tuple[str, FLSaisonRules]:
-    """A season's id and its scoring rules.
-
-    `saison_id=None` means the current season; an explicit id naming none raises 404.
-    """
-
-    db_filter = CURRENT_SAISON_FILTER if saison_id is None else {"_id": saison_id}
-    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=["_id", "rules"])
-
-    return str(saison_raw["_id"]), FLSaisonRules.model_validate(saison_raw["rules"])

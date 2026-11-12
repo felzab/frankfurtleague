@@ -12,22 +12,18 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     austritt_notices_of,
     build_austritt_spiele_filter,
-    build_holding_filter,
-    build_referee_rows_filter,
     build_season_reasons_filter,
 )
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    delete_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     pull_whole_from_db,
 )
 from app.core.readonly import ReadCollection
 from app.core.recording import ACT_BY_SYSTEM, record_act
-from app.shared.schemas.custom import CustomObjectId
 
 # --- The fixture a row is judged against.
 
@@ -76,20 +72,13 @@ async def pull_ansetzung_state(
     spiele_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     spielbestaetigung_raw: Mapping[str, Any],
-    # `None` for the stored fixture whole, which a judgement validates as `FLSpiel` and which names nothing; a
-    # projection reads it through the name join.
-    spiel_projection: Mapping[str, Any] | None,
     verein_projection: Mapping[str, Any],
     session: AsyncClientSession | None = None,
 ) -> AnsetzungState | None:
     """`None` where the fixture is gone: an undraw or a replace removes it with its rows, so a row read outside a transaction can outlive it."""
 
-    by_id = {"_id": spielbestaetigung_raw["spiel_id"]}
-    if spiel_projection is None:
-        spiel = await spiele_collection.find_one(by_id, session=session)
-    else:
-        named = await pull_named_spiele(spiele_collection=spiele_collection, db_filter=by_id, projection=spiel_projection, session=session)
-        spiel = named[0] if named else None
+    # The stored fixture whole, which a judgement validates as `FLSpiel` and which names nothing.
+    spiel = await spiele_collection.find_one({"_id": spielbestaetigung_raw["spiel_id"]}, session=session)
     if spiel is None:
         return None
 
@@ -103,44 +92,31 @@ async def pull_ansetzung_state(
     return AnsetzungState(spiel=spiel, vereine=vereine)
 
 
-# --- The ADMINISTRATOR's read.
+# --- The administrator's read.
 
-# What the list serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
+# What the match editor serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
 # no administrator reads, an old seat's address among them, never leaves the database.
 ADMIN_ROW_FIELDS: Final[list[str]] = [
     field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()
 ]
 
 
-async def pull_admin_rows(
-    *, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any], limit: int
-) -> tuple[list[Mapping[str, Any]], bool]:
-    """Every row still holding its question, whole, and the newest `limit` of the rest; and whether none was left out.
+async def pull_admin_rows(*, spielbestaetigungen_collection: ReadCollection, db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """The rows `db_filter` selects, newest first, as an administrator reads them."""
 
-    A cut across all rows would drop the oldest open ones, the overdue, first.
-    """
-
-    holding = await spielbestaetigungen_collection.find({**db_filter, **build_holding_filter()}, ADMIN_ROW_FIELDS).to_list(length=None)
-    # Read after the holding rows, so a row closing between the two reads arrives twice rather than not at all, and
-    # its closed image wins below.
-    rest = await pull_many_from_db(
+    return await pull_many_from_db(
         collection=spielbestaetigungen_collection,
-        db_filter={**db_filter, "$nor": [build_holding_filter()]},
-        # One row over what is served, and the extra never is: it answers whether the list is whole without a count.
-        limit=limit + 1,
+        db_filter=db_filter,
         # Rows carry no creation stamp; an ObjectId's leading bytes are its insert time.
         sort_by=[("_id", -1)],
         projection=ADMIN_ROW_FIELDS,
     )
-    rows = {row["_id"]: row for row in [*holding, *rest[:limit]]}
-
-    return sorted(rows.values(), key=lambda row: row["_id"], reverse=True), len(rest) <= limit
 
 
-# --- A REFEREE'S OWN ROWS.
+# --- A referee's own rows.
 
-# What a referee's answer and their own list read of a row (`app/api/schiedsrichter/services.py ::
-# build_self_spiele_pipeline`): no deadline, a referee answering signed in until the fixture's kick-off.
+# What a referee's answer and their own list read of a row: no deadline, a referee answering signed in until the
+# fixture's kick-off.
 OWN_ROW_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
@@ -160,7 +136,7 @@ async def strip_the_seasons_confirmations(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     saison_id: str,
-    # REQUIRED: the season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
+    # The season's end judged in the same snapshot, so an activation since the caller's read keeps the rows.
     session: AsyncClientSession,
 ) -> int:
     """At the season's end, every reason left on the season's rows, answering how many rows that took.
@@ -190,33 +166,6 @@ async def strip_the_seasons_confirmations(
     return stripped
 
 
-# --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
-
-
-async def erase_referee_confirmations_in_session(
-    *,
-    spielbestaetigungen_collection: AsyncCollection,
-    schiedsrichter_ids: Sequence[CustomObjectId],
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
-    session: AsyncClientSession,
-) -> int:
-    """Remove every confirmation row these referees are the party of.
-
-    Run ahead of the referee's own step, which removes the document the rows name.
-    """
-
-    # No command for none: a person holding no referee row costs this step nothing.
-    if not schiedsrichter_ids:
-        return 0
-
-    # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
-    removed = await delete_many_from_db(
-        collection=spielbestaetigungen_collection, db_filter=build_referee_rows_filter(schiedsrichter_ids), session=session
-    )
-
-    return removed.deleted_count
-
-
 # --- What a write owing mails read their recipients off.
 
 
@@ -224,7 +173,7 @@ async def anchor_the_mailboxes_told(
     *,
     saison_teams_collection: AsyncCollection,
     saison_team_ids: Sequence[Any],
-    # REQUIRED: committed on its own, the anchor conflicts with no seat write.
+    # Committed on its own, the anchor conflicts with no seat write.
     session: AsyncClientSession,
 ) -> None:
     """Write the season rows a write read its mails' mailboxes off: a request's, a reminder's or a notice's.
@@ -239,7 +188,7 @@ async def anchor_the_referees_told(
     *,
     schiedsrichter_collection: AsyncCollection,
     schiedsrichter_ids: Sequence[Any],
-    # REQUIRED: committed on its own, the anchor conflicts with no erasure.
+    # Committed on its own, the anchor conflicts with no erasure.
     session: AsyncClientSession,
 ) -> None:
     """Write the referees a step tells: the mint's and the reminder's, the notice step's.
@@ -250,7 +199,7 @@ async def anchor_the_referees_told(
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)
 
 
-# --- An AUSTRITT's opponents.
+# --- An Austritt's opponents.
 
 # What `austritt_notices_of` judges and lists of a fixture, which holds no name: each club's comes off its season row.
 AUSTRITT_SPIEL_FIELDS: Final = ["team1", "team2", "date", "time", "ergebnis", "sonderereignis"]
@@ -265,7 +214,7 @@ async def owe_the_austritt_notices_in_session(
     team_id: Any,
     exit_day: str,
     now: datetime,
-    # REQUIRED: the exit and its notices commit or fail together.
+    # The exit and its notices commit or fail together.
     session: AsyncClientSession,
 ) -> None:
     """Owe each opponent of a club leaving the season its notice, at the exit's own write, which happens once."""

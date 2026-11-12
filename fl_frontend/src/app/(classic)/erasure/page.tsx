@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { erasureLinkStands } from "@/core/auth/accounts";
 import { getAccountSession } from "@/core/auth/guards";
@@ -16,19 +17,16 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { getSubjectSession } from "@/core/subject";
 import { eraseAccount } from "@/features/account/personActions";
 import { getErasureView } from "@/features/account/queries";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy, Words } from "@/core/copy";
 import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { MailedState } from "@/kit/MailedPage";
-import type { Metadata, ResolvingMetadata, Route } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 
-/** A row no crawler fetches, under the mailed pages' referrer. */
+/** A row no crawler fetches, titled by the link's state. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.accountErasure;
-  const title = mailedTitle(await readState());
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.accountErasure, readState());
 }
 
 const WORDS = SERVER_COPY.accountErasure;
@@ -51,7 +49,8 @@ export default function AccountErasurePage() {
   );
 }
 
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`, which would hand one person's list to another.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   // Judged before the session: a spent, lapsed or unknown link is a dead end a sign-in cannot repair.
@@ -65,7 +64,7 @@ const readState = cache(async (): Promise<MailedState> => {
       state: "end",
       tone: "info",
       title: COPY.page.accountErasure,
-      next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) as Route },
+      next: { label: COPY.shared.verb.signIn, href: withReturnAddress(ROUTES.signIn.path(), link) },
     };
   }
 
@@ -101,7 +100,7 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
 
   for (const { first_name: firstName, last_name: lastName } of spieler)
     add(ENTRIES.spieler, { record: lastName === null ? firstName : `${firstName} ${lastName}` });
-  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, name === null ? COPY.shared.notProvided : { record: name });
+  for (const { name } of schiedsrichter) add(ENTRIES.schiedsrichter, { record: name });
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }

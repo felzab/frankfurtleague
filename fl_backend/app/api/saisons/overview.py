@@ -1,12 +1,12 @@
-"""SAISONS · the Übersicht: one season's open work, each kind on its card, read in one aggregation.
+"""The Übersicht: one season's open work, each kind on its card, read in one aggregation.
 
 The read is anchored on the season's own document, and every collection a card draws on is joined to it by an
 uncorrelated `$lookup`: the fixtures through `build_spiele_pipeline`, the confirmation rows in the administrator's
 queue and every row holding its party's question, the reports and the undecided applications. That makes one round
 trip and one document. Each kind is judged here in Python, by the predicates the confirmations, the reports and the
 applications already hold, so no rule is spelled a second time in a query. The bracket faults are the exception: they
-need the standings walk, so they are judged over the same fixtures by `app/api/spiele/crud.py :: bracket_faults_of`,
-whose own reads are the ones no aggregation can fold in.
+need the standings walk, so they are judged over the same fixtures by `bracket_faults_of`, whose own reads are the
+ones no aggregation can fold in.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -180,7 +180,7 @@ type FLOverviewRow = Annotated[
 
 
 class FLOverviewCard(BaseModel):
-    """One card and its rows, a fixture once, ordered by `CARD_OF`'s kinds, then each fixture's day, undated last, then its number."""
+    """One card and its rows, a fixture once, ordered by kind, then each fixture's day, undated last, then its number."""
 
     card: FLOverviewCardName
     rows: list[FLOverviewRow]

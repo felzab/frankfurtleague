@@ -1,8 +1,5 @@
-# OPS · local stack
-#
 # The production images, built from source, behind nginx, with a database of its own; started by
-# `./scripts/ops/local.sh` and served on http://localhost:3000. `docs/ops/spec.md` §1.5 states what
-# this stack covers that neither `pnpm dev` nor production does.
+# `./scripts/ops/local.sh` and served on http://localhost:3000.
 #
 # Invariants:
 # - An override of docker-compose.yml, never a stack on its own: `local.sh` runs
@@ -12,6 +9,16 @@
 # - Paths resolve against docker-compose.yml's directory, the first file named, not this one's.
 # - Never renamed to docker-compose.override.yml or compose.override.yaml: compose merges a file of
 #   either name unasked, and the server's checkout holds this file.
+
+# Docker's own json-file driver for every service this stack starts, capped at 30 MB a service: Docker
+# Desktop refuses the journald driver production's file names ("journald is not enabled on this
+# host"). A `logging` naming another driver replaces the base's whole, journald's `tag` with it
+# (compose-go's `override/merge.go :: mergeLogging`).
+x-logging: &local-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   frontend:
@@ -35,7 +42,7 @@ services:
       - AUTH_URL=http://localhost:3000
       # Cloudflare's published site key that always passes, which the published secret the frontend
       # reads where no file is handed over verifies; production refuses both at boot
-      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04).
+      # (https://developers.cloudflare.com/turnstile/troubleshooting/testing/).
       - TURNSTILE_SITE_KEY=1x00000000000000000000AA
     # Production's list without `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` and
     # `betterstack_heartbeat_url`: this stack mails nothing, is sent no provider event, verifies the bot
@@ -54,6 +61,7 @@ services:
       # rather than copying it out. Without it the sink has nowhere to write: `/app` is root-owned
       # and the container runs as `nextjs`.
       - ./.tmp-mail:/app/.tmp-mail
+    logging: *local-logging
     depends_on:
       mongo:
         condition: service_healthy
@@ -71,6 +79,7 @@ services:
     configs:
       - source: local_mongodb_uri
         target: /run/secrets/backend_mongodb_uri
+    logging: *local-logging
     depends_on:
       # Healthy, not started: the lifespan builds every index before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
@@ -80,9 +89,8 @@ services:
   # Production declares no database service and must not gain one.
   mongo:
     # The tag `fl_backend/tests/conftest.py` starts the db tier against, and the floor the managed
-    # cluster runs, so a copy taken from it restores into a server of its own major version. Pinned
-    # here by its digest too (`docs/ops/spec.md` §1.1).
-    image: mongo:8.3.13@sha256:0e900a3364da37b76d642b73b0bba56bd4c6c509ab470cf700436fd866bee3ff
+    # cluster runs. Pinned here by its digest too.
+    image: mongo:8.3.13@sha256:e16e606f792ea89d2b4907b54e5e31eb86a7a23e27231dce3a982cc8f2d73cd2
     # A single-node replica set rather than a standalone: every transactional endpoint runs
     # `session.with_transaction`, and a standalone answers one with `IllegalOperation`.
     command: --replSet rs0 --bind_ip_all
@@ -99,18 +107,10 @@ services:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
-      # What `./scripts/ops/local.sh --seed` restores from. Read-only: the restore reads this directory
-      # and nothing inside the container writes it.
-      - ./.local-db/dump:/dump:ro
     # The application pair's network, which nginx shares and nothing reaching the edge does.
     networks:
       - frankfurtleague-app
-    # docker-compose.yml's `x-logging`, spelled out: a YAML anchor does not reach across files.
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *local-logging
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -118,7 +118,7 @@ services:
     healthcheck:
       # Initiates the set on the first probe and reports healthy only once the node has elected
       # itself: `replSetInitiate` returns before the election, and the first write then fails with
-      # `NotWritablePrimary` (`fl_backend/tests/conftest.py :: mongo_replica_set_url`).
+      # `NotWritablePrimary` (`mongo_replica_set_url`).
       test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate() } db.hello().isWritablePrimary || quit(1)'"]
       interval: 30s
       timeout: 10s
@@ -129,17 +129,15 @@ services:
 
   nginx:
     # Production publishes nothing; this stack serves the edge on 3000 to this host alone, since any
-    # other interface serves a copy of production's data to every machine on the developer's network.
+    # other interface serves the stack to every machine on the developer's network.
     ports:
       - "127.0.0.1:3000:80"
     # `!override`, the whole list replaced: nginx/local in nginx/prod's place, a directory for the
-    # base file's reason, and no ./certs.
+    # base file's reason.
     volumes: !override
       - ./nginx/local:/etc/nginx/conf.d:ro
       - ./nginx/shared:/etc/nginx/shared:ro
-      # In the checkout, this stack's Windows hosts having no `/var/log`. `.tmp-*/` is ignored, and
-      # `local.sh --fresh` removes it with the database copy: both are records of real people.
-      - ./.tmp-nginx-log:/var/log/frankfurtleague/nginx
+    logging: *local-logging
 
   # The tunnel is production's only route in; this stack is reached on this host. A profile nothing
   # here activates keeps compose from starting it, where the merge rules offer no way to delete a
@@ -151,7 +149,7 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-# This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
+# This machine's own files, and none for the connector, which never
 # starts.
 secrets: !override
   auth_secret:

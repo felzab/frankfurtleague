@@ -18,7 +18,6 @@ export default function AccountError({ error }: { error: unknown }) {
   return (
     <RailColumn back={ACCOUNT_HOME.href}>
       <StatusPage
-        frame="rail"
         scope="area"
         title={COPY.shared.failure.unexpected}
         card={{ tone: "danger", next: ACCOUNT_HOME }}

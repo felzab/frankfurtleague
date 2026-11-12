@@ -11,12 +11,12 @@ import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, 
 import type { FLRefusedField } from "./generated/client/types";
 
 /**
- * Past the backend's own deadline on a request (`fl_backend/app/core/middlewares.py :: REQUEST_DEADLINE_S`), which
- * bounds every database call it makes: an answer the backend gives at its deadline still arrives.
+ * Past the backend's own deadline on a request, its `REQUEST_DEADLINE_S`, which bounds every database call it makes:
+ * an answer the backend gives at its deadline still arrives.
  */
-const FETCH_TIMEOUT_MS = 15000;
+export const FETCH_TIMEOUT_MS = 15000;
 
-/** The path every endpoint is spelled under, as `fl_backend/openapi.json` writes it into each of its paths. */
+/** The path every endpoint is spelled under, as the contract writes it into each of its paths. */
 export const BASE_FETCH_PATH = "/api/v0";
 
 /** Whether the URL parser left an endpoint's path as the call site spelled it. */
@@ -26,17 +26,17 @@ function isPathAsSpelled(endpoint: string, builtPathname: string, basePathname: 
 
   // Catches renavigation — `..`, `.`, an empty segment — and nothing else: an id carrying a plain `/`
   // survives parsing untouched and reads exactly like a nested endpoint, which is why every generated path builder
-  // percent-encodes its parameters (`fl_frontend/src/core/generated/client/sdk.ts`).
+  // percent-encodes its parameters.
   return builtPathname === `${basePathname}${spelled}`;
 }
 
 export interface FetchOptions extends RequestInit {
-  /** The key the call sends, which the operation's `security` names (`fl_frontend/src/core/transport.ts`). */
+  /** The key the call sends, which the operation's `security` names. */
   authType: "base" | "system" | "admin" | "none";
   /**
    * A call changing nothing whatever its method says, such as a POST keeping a token out of the URL or
    * a dry run: its timeout is a read that failed, never a write of unknown outcome. Set by the operation's
-   * transport from what the contract states (`fl_frontend/src/core/transport.ts`), never by a call site.
+   * transport from what the contract states, never by a call site.
    */
   readOnly?: true;
 }
@@ -70,14 +70,12 @@ const getFetchHeaders = (type: FetchOptions["authType"]): Record<string, string>
 const isCode = (value: unknown): value is Code => typeof value === "string" && Object.hasOwn(Code, value);
 
 /** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
-const refusalOf = async ({ res, traceId, endpoint }: { res: Response; traceId: string; endpoint: string }) => {
+const refusalOf = async ({ res, traceId }: { res: Response; traceId: string }) => {
   // An edge's own page, never the backend's body: nginx's and Cloudflare's answers are HTML.
   if (!res.headers.get("content-type")?.includes("application/json")) {
     return new APIBadStatusError({
       message: "Infrastructure routing failure.",
-      url: res.url,
       statusCode: res.status,
-      endpoint,
       traceId,
     });
   }
@@ -88,21 +86,18 @@ const refusalOf = async ({ res, traceId, endpoint }: { res: Response; traceId: s
 
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: res.url,
     statusCode: res.status,
     // A code the contract does not name is none: the backend's own line still records it under the trace.
     serverErrorCode: isCode(failure.error_code) ? failure.error_code : undefined,
     // The backend's `FLFailureBody` lists them on every status; a body from anywhere else marks no field.
     refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
-    endpoint,
     traceId,
   });
 };
 
 /**
  * One call to the backend, answering its success body as the type the caller names: typed, never parsed, as the
- * generated types describe the backend's own answer. `fl_frontend/src/core/transport.ts` sends every generated call
- * through here.
+ * generated types describe the backend's own answer.
  */
 export async function sendToBackend<T>(endpoint: string, options: FetchOptions): Promise<T> {
   // Unseeded means a call no request scope encloses: a `"use cache"` fill, where Next refuses request APIs, or a
@@ -130,11 +125,10 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   // which record the actor first.
   if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
   // The session as the guard read it, set after the caller's own headers so none of them names
-  // the actor. The backend believes these behind the admin key alone
-  // (`fl_backend/app/core/security.py :: get_session_actor`).
+  // the actor. The backend believes these behind the admin key alone.
   if (actor) {
     // Percent-encoded: a field value is a ByteString, which `Headers` refuses above U+00FF and sends as Latin-1 below it.
-    // The backend refuses any other spelling (`fl_backend/app/core/security.py :: actor_header_value`).
+    // The backend refuses any other spelling.
     headers.set(ACTOR_HEADER, encodeURIComponent(actor.email));
     headers.set(AUTH_TIME_HEADER, String(actor.authTime));
     headers.set(AUTH_FACTOR_HEADER, actor.factor);
@@ -144,7 +138,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
     headers.delete(AUTH_FACTOR_HEADER);
   }
 
-  // Parsed per REQUEST, never at module scope: the image build imports this with no `API_URL`, and a
+  // Parsed per request, never at module scope: the image build imports this with no `API_URL`, and a
   // top-level parse throws while `next build` collects page data.
   const baseUrl = `${frontend_config.API_URL}${BASE_FETCH_PATH}`;
   const urlObj = new URL(`${baseUrl}${endpoint}`);
@@ -164,8 +158,6 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   const asNetworkError = (error: unknown) =>
     new APINetworkError({
       message: "Network request failed. Please check your connection.",
-      isTimeout: error instanceof Error && error.name === "TimeoutError",
-      url: urlObj.toString(),
       traceId,
       originalError: error,
     });
@@ -175,8 +167,6 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
   if (signal.aborted) {
     throw new APINetworkError({
       message: "The request's deadline had passed before this call was sent.",
-      isTimeout: true,
-      url: urlObj.toString(),
       traceId,
     });
   }
@@ -189,7 +179,7 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions):
       throw asNetworkError(error);
     }
     // Thrown inside the dispatch, which takes a write the backend refused back from those that may stand.
-    if (!answered.ok) throw await refusalOf({ res: answered, traceId, endpoint });
+    if (!answered.ok) throw await refusalOf({ res: answered, traceId });
     return answered;
   });
 

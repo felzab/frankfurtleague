@@ -17,13 +17,15 @@ done
 
 FAILURES=0
 note_fail() { fail "$*"; FAILURES=$(( FAILURES + 1 )); }
+# A linter that could not run judged nothing, which the exit contract spells 2 once no finding outranks it.
+UNRUN=()
 
 # Asked of the tree rather than written down, so a script landing anywhere is checked. `--others`, so
-# a script is covered the moment it exists; `.claude/` aside, whose hooks are its own to check.
+# a script is covered the moment it exists.
 SHELL_FILES=()
 while IFS= read -r f; do
   # git lists what the index holds, which a deleted-but-unstaged path outlives.
-  [[ -f "$f" && "$f" != .claude/* ]] || continue
+  [[ -f "$f" ]] || continue
   case "${f##*/}" in
     *.sh) ;;
     # A hook carries no suffix, so an extensionless file is asked what runs it.
@@ -55,12 +57,14 @@ done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 # binary on PATH runs only at the pinned version, and otherwise the image runs through Docker.
 SHELLCHECK_VERSION="0.11.0"
 SHELLCHECK_IMAGE_DIGEST="sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
+ACTIONLINT_VERSION="1.7.12"
+ACTIONLINT_IMAGE_DIGEST="sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
 
 # Git Bash mounts %TEMP% at /tmp, so a checkout there makes `/$REPO_ROOT` bind an unrelated directory.
 mount_source() { cygpath -w "$REPO_ROOT" 2>/dev/null || printf '/%s' "$REPO_ROOT"; }
 
 step "3. shellcheck"
-# SC1091 throughout: shellcheck cannot follow the sourced `scripts/lib/_lib.sh`.
+# SC1091 throughout: shellcheck cannot follow the sourced library.
 sc_rc=0
 if [[ "$(shellcheck --version 2>/dev/null | awk '$1 == "version:" { print $2 }')" == "$SHELLCHECK_VERSION" ]]; then
   shellcheck -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
@@ -69,26 +73,26 @@ elif docker version >/dev/null 2>&1; then
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
     "koalaman/shellcheck:v${SHELLCHECK_VERSION}@${SHELLCHECK_IMAGE_DIGEST}" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
 else
-  note_fail "neither shellcheck ${SHELLCHECK_VERSION} on PATH nor Docker, so no script was linted"
+  UNRUN+=("neither shellcheck ${SHELLCHECK_VERSION} on PATH nor Docker, so no script was linted")
 fi
 if (( sc_rc )); then note_fail "shellcheck reported the findings above (exit ${sc_rc})"; fi
 
 step "4. actionlint on the workflows"
-# 1.7.8 is the floor: earlier versions reject `using: node24`. Its digest moves with its tag.
 al_rc=0
-if command -v actionlint >/dev/null 2>&1; then
+if [[ "$(actionlint -version 2>/dev/null | head -n 1)" == "$ACTIONLINT_VERSION" ]]; then
   actionlint || al_rc=$?
 elif docker version >/dev/null 2>&1; then
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo \
-    rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 || al_rc=$?
+    "rhysd/actionlint:${ACTIONLINT_VERSION}@${ACTIONLINT_IMAGE_DIGEST}" || al_rc=$?
 else
-  note_fail "neither actionlint on PATH nor Docker, so no workflow was linted"
+  UNRUN+=("neither actionlint ${ACTIONLINT_VERSION} on PATH nor Docker, so no workflow was linted")
 fi
 if (( al_rc )); then note_fail "actionlint reported the findings above (exit ${al_rc})"; fi
 
 printf '\n'
-if (( FAILURES == 0 )); then
-  ok "All script self-checks passed."
-else
+if (( FAILURES > 0 )); then
   die --summary "${FAILURES} script self-check(s) failed."
+elif (( ${#UNRUN[@]} > 0 )); then
+  refuse "$(printf '%s\n' "${UNRUN[@]}")"
 fi
+ok "All script self-checks passed."

@@ -6,16 +6,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsrichterConfirmationData
 from app.api.outbox.services import OwedMail, enqueue_mails
-from app.api.schiedsrichter.services import (
-    ADDRESS_PATH,
-    TOKEN_HASHES_PATH,
-    build_assignment_filter,
-    build_ghost_repoint,
-    build_ghost_schiedsrichter,
-    build_referee_filter,
-)
+from app.api.schiedsrichter.services import ADDRESS_PATH, TOKEN_HASHES_PATH, build_assignment_filter
+from app.api.spielbestaetigungen.services import build_referee_rows_filter
+from app.api.teams.services import is_played
 from app.core.collections import Collection
-from app.core.crud import delete_many_from_db, ensure_one_in_db, patch_many_in_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_many_in_db, pull_one_from_db
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -28,7 +23,7 @@ async def owe_the_confirmation(
     # The referee's `version` after the write owing the mail: the same on a retry of that write, another on every other.
     version: int,
     now: datetime,
-    # REQUIRED: the mail is owed by the write that minted the block, and stands or falls with it.
+    # The mail is owed by the write that minted the block, and stands or falls with it.
     session: AsyncClientSession,
 ) -> None:
     """Owe the referee their confirmation link at the address the write left them, the link minted when it is handed out.
@@ -53,36 +48,20 @@ async def owe_the_confirmation(
     )
 
 
-async def ensure_ghost_schiedsrichter(
-    *,
-    schiedsrichter_collection: AsyncCollection,
-    # REQUIRED: written outside the erasure's transaction, the ghost would stand where the repoint it
-    # exists for rolled back.
-    session: AsyncClientSession,
-) -> None:
-    """Write the ghost where none stands; called once before the first referee of a transaction goes.
-
-    One upsert inside the erasure's transaction, on a collection the boot's index build has already made
-    (`app/core/db.py`); an upsert creating one there is a write a sharded transaction would refuse.
-    """
-
-    # Written here rather than at a deploy step, so an erasure can never repoint a fixture at a
-    # row nothing holds -- which `booking_unknown_resource` would then read as an unknown referee and
-    # the Übersicht would report as nothing at all.
-    await ensure_one_in_db(collection=schiedsrichter_collection, document=build_ghost_schiedsrichter(), session=session)
-
-
 async def erase_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
+    spielbestaetigungen_collection: AsyncCollection,
     schiedsrichter_id: CustomObjectId,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # The erasing request's clock, which judges each fixture played or still to come.
+    now: datetime,
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> int:
-    """Delete the referee and repoint their fixtures at the ghost, answering how many fixtures moved.
+) -> None:
+    """Delete the referee, every confirmation row they are the party of, and their bookings of fixtures still to come.
 
-    The ghost must stand already: `ensure_ghost_schiedsrichter` writes it once per transaction, ahead of every referee.
+    A played fixture's booking stands naming nobody, its `payment` kept: it records what that match agreed.
     """
 
     # In-session, so the 404 for an id already erased is decided on the snapshot the delete
@@ -90,22 +69,42 @@ async def erase_referee_in_session(
     # to the id: nothing here reads a value this call destroys.
     await pull_one_from_db(
         collection=schiedsrichter_collection,
-        db_filter=build_referee_filter(schiedsrichter_id),
+        db_filter={"_id": schiedsrichter_id},
         projection={"_id": 1},
         session=session,
     )
 
-    repointed = await patch_many_in_db(
+    # Removed rather than emptied: a row asks its party, and nobody can answer.
+    await delete_many_from_db(
+        collection=spielbestaetigungen_collection, db_filter=build_referee_rows_filter([schiedsrichter_id]), session=session
+    )
+
+    booked = await aggregate_many_from_db(
         collection=spiele_collection,
-        db_filter=build_assignment_filter(schiedsrichter_id),
-        update=build_ghost_repoint(),
+        pipeline=[{"$match": build_assignment_filter(schiedsrichter_id)}, {"$project": {"_id": 1, "date": 1, "time": 1}}],
         session=session,
     )
+    played = sorted((spiel["_id"] for spiel in booked if is_played(date=spiel.get("date"), time=spiel.get("time"), now=now)), key=str)
+    to_come = sorted((spiel["_id"] for spiel in booked if spiel["_id"] not in played), key=str)
+
+    # No write for none: most referees are erased holding no booking.
+    if played:
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"_id": {"$in": played}},
+            update={"$set": {"schiedsrichter.schiedsrichter_id": None}},
+            session=session,
+        )
+    if to_come:
+        await patch_many_in_db(
+            collection=spiele_collection,
+            db_filter={"_id": {"$in": to_come}},
+            update={"$set": {"schiedsrichter": None}},
+            session=session,
+        )
 
     await delete_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
         session=session,
     )
-
-    return repointed.modified_count

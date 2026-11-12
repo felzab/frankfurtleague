@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,17 +24,15 @@ const page = (inputs: ReadonlyArray<unknown>) => (
   />
 );
 
-const line = () => screen.getAllByRole("status").at(-1);
-
 describe("a section's act", () => {
   // The harm: „Gespeichert“ standing beside inputs that no longer say what was done, a second press under it.
   it("drops its done line once one of its inputs changes", async () => {
     const { rerender } = render(page(["a", "b"]));
     await userEvent.click(screen.getByRole("button", { name: LABEL }));
-    await waitFor(() => expect(line()?.textContent).toBe(COPY.shared.saved));
+    await screen.findByText(COPY.shared.saved);
 
     rerender(page(["a", "c"]));
-    expect(line()?.textContent).toBe("");
+    expect(screen.queryByText(COPY.shared.saved)).toBeNull();
   });
 
   // The harm: a dialog's trigger around the locked button would open the question behind the reason.

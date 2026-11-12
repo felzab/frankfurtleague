@@ -16,13 +16,13 @@ import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 
 import type { ActionAnswer } from "@/core/action";
 
-const ids = AufstellungenPutAufstellungSelfBody.shape.spieler.element.shape.spieler_id;
+// A pupil's id: the editor names pupils alone, and the stored entries naming nobody go back as stored.
+const ids = AufstellungenPutAufstellungSelfBody.shape.spieler.element.shape.spieler_id.options[0];
 
 /** What the line-up's editor sends: the club and the season its seat is claimed at, the fixture, and the half it changed. */
 const SaveAufstellung = z.object({
   team_id: AufstellungenPutAufstellungSelfParams.shape.team_id,
   saison_id: TeamsGetTeamSpieleParams.shape.saison_id,
-  // The fixture, the editor's record.
   id: AufstellungenPutAufstellungSelfParams.shape.spiel_id,
   version: AufstellungenPutAufstellungSelfBody.shape.version,
   changes: z.object({ picked: z.array(ids).readonly(), starters: z.array(ids).readonly() }).partial(),

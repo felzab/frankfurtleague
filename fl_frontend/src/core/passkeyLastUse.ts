@@ -19,7 +19,7 @@ export const passkeyLastUse = () =>
     // passkey plugin's own `schema` option only renames the fields it already has.
     schema: {
       passkey: {
-        // `input: false`, as `authFactor` on the session: no caller's body may write a use.
+        // `input: false`: no caller's body may write a use.
         fields: { lastUsedAt: { type: "date", required: false, input: false } },
       },
     },

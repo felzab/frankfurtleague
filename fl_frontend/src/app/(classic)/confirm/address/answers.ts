@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { requestOf } from "@/core/errors";
+import { addressChangePostAddressChangeAnswer, addressChangePostAddressChangeStop } from "@/core/generated/client/sdk";
 import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { runAddressChangeMoves } from "@/features/address-change/moves";
-import { postAddressChangeAnswer, postAddressChangeStop } from "@/features/address-change/mutations";
 import { endsTheLink } from "@/features/address-change/refusals";
 
 import { endOf, LINK_INVALID, STOPPED } from "./ends";
@@ -19,7 +19,7 @@ const { token } = AddressChangePostAddressChangeAnswerBody.shape;
 
 /**
  * Either link's question answered, the side and the way the page read posted beside the token, the pressed act under
- * `act`, `kit/OneShot.tsx`'s field: the main act confirms, the refusal declines. The two word the end alone; the
+ * the one-shot form's `act`: the main act confirms, the refusal declines. The two word the end alone; the
  * backend tells the links apart by the token. A link that holds no more at the press, answered, ended or refused since
  * the page opened, ends as the link no longer valid, one message for every cause.
  */
@@ -42,7 +42,7 @@ export const answerAddressChange = action({
 
     let answered;
     try {
-      answered = await postAddressChangeAnswer({ token: link, answer });
+      answered = await addressChangePostAddressChangeAnswer({ token: link, answer });
     } catch (error) {
       if (!endsTheLink(error)) throw error;
       return { ok: true, value: LINK_INVALID };
@@ -61,7 +61,7 @@ export const stopAddressChange = action({
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its stop.",
   run: async ({ token: link }): Promise<{ ok: true; value: EndState }> => {
     try {
-      await postAddressChangeStop({ token: link });
+      await addressChangePostAddressChangeStop({ token: link });
     } catch (error) {
       if (!endsTheLink(error)) throw error;
       return { ok: true, value: LINK_INVALID };

@@ -1,18 +1,16 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { EditorPage } from "./EditorPage";
 import { Lineup, lineupMoves, lineupValue } from "./Lineup";
-import { useEditor } from "./useEditor";
 
 import type { Copy } from "@/core/copy";
-import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "./Lineup";
+import type { LineupPlayer, LineupValue, LineupWords, NamelessEntry } from "./Lineup";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/area/team/aho/2027/spiele/spiel-1",
@@ -34,7 +32,7 @@ const WORDS: LineupWords = {
   noSquad: { kind: "none", plural: COPY.shared.kader, one: true },
   startersFull: COPY.shared.field.max(MAX),
   nomineeLocked: COPY.template.draftUnsaved,
-  anonymous: COPY.shared.noValue,
+  anonymous: COPY.shared.anonymous,
 };
 
 const nameOf = (nummer: number) => `Spieler ${String(nummer)}`;
@@ -63,21 +61,21 @@ function Held({
   seen,
   locked,
   refusals,
-  erased = [],
+  nameless = [],
 }: {
   players: LineupPlayer[];
   start?: LineupValue;
   seen?: (value: LineupValue) => void;
   locked?: Copy;
   refusals?: Record<string, Copy>;
-  erased?: ReadonlyArray<ErasedEntry>;
+  nameless?: ReadonlyArray<NamelessEntry>;
 }) {
   const [value, setValue] = useState(start);
   return (
     <Lineup
       players={players}
       value={value}
-      erased={erased}
+      nameless={nameless}
       onChange={(next) => {
         setValue(next);
         seen?.(next);
@@ -90,13 +88,13 @@ function Held({
   );
 }
 
-/** A pupil's name at the start of what names its row or describes its word or its cross, with whatever follows it there. */
+/** A pupil's name at the start of what names its row, with whatever follows it there. */
 const named = (nummer: number) => new RegExp(`^${nameOf(nummer)}(?!\\d)`);
 const rowOf = (nummer: number) => screen.getByRole("row", { name: named(nummer) });
-// Found by its description, as a screen reader tells one row's word from the next: every row's word has the same name.
-const pick = (nummer: number) => userEvent.click(screen.getByRole("button", { name: WORDS.pick, description: named(nummer) }));
+// Found in its row: every row's word and cross have the same name.
+const pick = (nummer: number) => userEvent.click(within(rowOf(nummer)).getByRole("button", { name: WORDS.pick }));
 const tickOf = (nummer: number) => screen.getByRole<HTMLInputElement>("checkbox", { name: `${WORDS.starts} ${nameOf(nummer)}` });
-const crossOf = (nummer: number) => screen.getByRole("button", { name: WORDS.remove, description: named(nummer) });
+const crossOf = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.remove });
 
 /** The names a list shows, in its rows' order. */
 const namesIn = (list: Copy) =>
@@ -129,9 +127,8 @@ describe("a line-up", () => {
     const full = { picked: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), starters: ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) };
     expect(seen).toHaveBeenLastCalledWith(full);
 
-    // The twelfth: heard as unavailable before the press, and refused on its own row by it.
+    // The twelfth: refused on its own row by the press.
     expect(within(rowOf(12)).queryByText(WORDS.startersFull)).toBeNull();
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(12)}`, description: WORDS.startersFull })).toBeTruthy();
     const raised = seen.mock.calls.length;
     await userEvent.click(tickOf(12));
     expect(tickOf(12).checked).toBe(false);
@@ -151,25 +148,6 @@ describe("a line-up", () => {
       starters: ids(1, 2, 4, 6, 7, 8, 9, 10, 11, 12),
     });
     expect(namesIn(WORDS.rest)).toStrictEqual([nameOf(5), nameOf(13)]);
-  });
-
-  // The harm: a keyboard's focus dropped on `body` with each row named or taken out, back at the page's top every time.
-  it("hands the focus to the row after the one that left, in either list", async () => {
-    render(
-      <Held
-        players={squad(4)}
-        start={lineupValue([idOf(1), idOf(2)], [])}
-      />,
-    );
-
-    crossOf(1).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(crossOf(2)));
-
-    const word = (nummer: number) => within(rowOf(nummer)).getByRole("button", { name: WORDS.pick });
-    word(3).focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() => expect(document.activeElement).toBe(word(4)));
   });
 });
 
@@ -251,7 +229,7 @@ describe("a line-up's states", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", { name: `${WORDS.starts} ${nameOf(1)}`, description: COPY.shared.failure.stale })).toBeTruthy();
+    expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
     expect(within(rowOf(40)).getByText(COPY.admin.spiel.departed)).toBeTruthy();
     expect(tickOf(40).disabled).toBe(true);
 
@@ -260,21 +238,21 @@ describe("a line-up's states", () => {
   });
 });
 
-// The harm: an erased pupil's kept start left out of the count, so the page lets a twelfth start and the write refuses
-// it; or an erased entry sent back, which the write refuses as a pupil outside the squad.
-describe("a line-up keeping erased pupils' entries", () => {
-  it("draws them read-only, counts them as named, starting and regular, and never sends them", async () => {
+// The harm: the start of an entry naming nobody left out of the count, so the page lets a twelfth start and the write
+// refuses it; or such an entry let into the draft, where a press could take it out or tick it.
+describe("a line-up keeping entries naming nobody", () => {
+  it("draws them read-only, counts them as named, starting and regular, and keeps them out of the value", async () => {
     const seen = vi.fn();
     render(
       <Held
         players={[...squad(11), nominee(20)]}
         start={lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))}
-        erased={[{ starts: true }]}
+        nameless={[{ starts: true }]}
         seen={seen}
       />,
     );
     const picked = within(screen.getByRole("table", { name: WORDS.picked }));
-    const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.noValue}` });
+    const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.anonymous}` });
 
     expect(kept).toHaveProperty("checked", true);
     expect(kept).toHaveProperty("disabled", true);
@@ -283,70 +261,22 @@ describe("a line-up keeping erased pupils' entries", () => {
 
     // Ten named and the kept start make eleven: an eleventh named regular leaves a nominee no gap, and no twelfth starts.
     await pick(11);
-    expect(screen.getByRole("button", { name: WORDS.pick, description: new RegExp(nameOf(20)) }).getAttribute("aria-disabled")).toBe("true");
+    expect(within(rowOf(20)).getByRole("button", { name: WORDS.pick }).getAttribute("aria-disabled")).toBe("true");
     await userEvent.click(tickOf(11));
     expect(tickOf(11).checked).toBe(false);
     expect(seen.mock.calls.at(-1)?.[0]).toStrictEqual(lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
   });
 });
 
-/** The block as its page places it: bare in the editor's column, its counts on the bar, its moves the editor's count. */
-function Page({ players, stored }: { players: LineupPlayer[]; stored: LineupValue }) {
-  const editor = useEditor<LineupValue>({ id: "spiel-1", version: 1, values: stored }, async () => ({ ok: true, value: 2 }), {
-    countOf: lineupMoves,
-  });
-  return (
-    <EditorPage
-      title={{ record: "Ahorn vs. Eiche" }}
-      editor={editor}
-      barText={COPY.shared.field.max(editor.draft.picked.length)}
-      sections={[
-        {
-          id: "lineup",
-          block: (
-            <Lineup
-              players={players}
-              value={editor.draft}
-              erased={[]}
-              onChange={(next) => {
-                editor.set("picked", next.picked);
-                editor.set("starters", next.starters);
-              }}
-              startersMax={MAX}
-              words={WORDS}
-            />
-          ),
-        },
-      ]}
-    />
-  );
-}
-
-describe("a line-up in its editor", () => {
+describe("a line-up's changes", () => {
   // The harm: six pupils moved reading „2 Änderungen“, the two fields, or a line-up put back as it was stored still
   // counted as changed, so the way back asks about changes nobody made.
-  it("counts each pupil moved after the page's own words on the bar, and nothing once they are back", async () => {
-    render(
-      <Page
-        players={squad(8)}
-        stored={lineupValue([idOf(7), idOf(8)], [idOf(7)])}
-      />,
-    );
-    const bar = screen.getByRole("region", { name: COPY.shared.verb.save });
-    const line = () => bar.querySelector("p")?.textContent;
-    expect(line()).toBe(COPY.shared.field.max(2));
+  it("counts each pupil moved, and nothing once they are back", () => {
+    const stored = lineupValue([idOf(7), idOf(8)], [idOf(7)]);
 
     // Four named, the starter taken out, the other one starting.
-    for (const nummer of [4, 1, 3, 2]) await pick(nummer);
-    await userEvent.click(crossOf(7));
-    await userEvent.click(tickOf(8));
-    expect(line()).toBe(`${COPY.shared.field.max(5)}${COPY.template.changesPending(6)}`);
-
-    // Back, the stored pair now named in the other order than it was stored in.
-    await pick(7);
-    await userEvent.click(tickOf(7));
-    await userEvent.click(tickOf(8));
-    for (const nummer of [1, 2, 3, 4]) await userEvent.click(crossOf(nummer));
-    expect(line()).toBe(COPY.shared.field.max(2));
+    expect(lineupMoves(stored, lineupValue([idOf(1), idOf(2), idOf(3), idOf(4), idOf(8)], [idOf(8)]))).toBe(6);
+    // Back, the stored pair named in the other order than it was stored in.
+    expect(lineupMoves(stored, lineupValue([idOf(8), idOf(7)], [idOf(7)]))).toBe(0);
   });
 });

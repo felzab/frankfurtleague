@@ -2,7 +2,8 @@ import { cache } from "react";
 
 import { ConsentLine, ConsentLinePlaceholder } from "@/kit/ConsentLine";
 import { FieldPlaceholder } from "@/kit/FieldPair";
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage } from "@/kit/MailedPage";
 import { SectionPlaceholder } from "@/kit/Section";
 
 import { requires } from "@/core/action";
@@ -20,7 +21,6 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { orderStufen } from "@/features/spieler/constants";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { endOf, readInvitation, REPLAY_FIELD, TO_HOME } from "./invitation";
 import { RegistrierungFields } from "./RegistrierungFields";
@@ -31,11 +31,9 @@ import type { MailedState } from "@/kit/MailedPage";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { RegistrierungRules } from "./RegistrierungFields";
 
-/** A row no crawler fetches, under the mailed pages' referrer. */
+/** A row no crawler fetches, titled by the link's state. */
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.registrierung;
-  const title = mailedTitle(await readState());
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.registrierung, readState());
 }
 
 const WORDS = SERVER_COPY.registrierung;
@@ -74,8 +72,8 @@ const LINES: { objection: Line; notice: Line } = {
 
 /**
  * `/registrierung`, the page a team's registration link opens, which the proxy hands its token in this page's cookie
- * (`fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent
- * once through the one-shot submit, its outcome replacing it. Where no form stands, the page is its status card: the
+ * (`MAILED_LINK_PAGES`), since the form loads Turnstile: the form, in one box, sent once through the one-shot submit, its
+ * outcome replacing it. Where no form stands, the page is its status card: the
  * window shut or the season over, the club out of the season, the squad full, and the link no longer valid. The link is
  * the team's, opened by every pupil, so it has no state of having been answered.
  *
@@ -113,7 +111,8 @@ export default function RegistrierungPage() {
   );
 }
 
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`: the token is never a key.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readState = cache(async (): Promise<MailedState> => {
   const token = await mailedLinkToken();
   if (token === null) return INVALID;

@@ -50,10 +50,9 @@ router = APIRouter(
 
 @router.get("", response_model=FLGrantsListResponse, summary="List who may enter the administration")
 async def get_grants(grants_collection: GrantsReadCollection) -> FLGrantsListResponse:
-    """
-    List every grant by address: its tier, when it holds, and when a handover to it completes.
+    """Every grant by address: its tier, when it holds, and when a handover to it completes.
 
-    Uncapped, as few people hold one. A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
+    A future `effective_from` is an addition still waiting, and `owner_from` a handover still waiting.
     """
 
     rows = await read_grants(grants_collection=grants_collection)
@@ -84,16 +83,12 @@ async def post_grant(
     operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
-    """
-    Add an address as `administration`, holding once `GRANT_WAIT_HOURS` have passed. No request grants `owner`.
+    """Add an address as `administration`, holding once its wait has passed; only the owner adds one, and no request grants `owner`.
 
-    Only the owner adds (`grant_only_owner`). The address is stored folded to its sign-in identifier, the spelling every admin-tier
-    request is judged by. Refused where a grant already holds the address, a waiting one included (`grant_exists`), and where the ban
-    list holds it (`grant_barred`). Any live address change at that address ends here: left standing, its switch could carry a grant
-    to an address nobody named. Every holder in effect and the person named are told in the same transaction, and told what date
-    it holds from.
+    Every holder in effect and the address named are told, with the date it holds from.
     """
 
+    # The spelling every admin-tier request is judged by.
     address = sign_in_identifier(str(payload.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> FLGrantWriteResponse:
@@ -104,6 +99,8 @@ async def post_grant(
         refuse(find_exists_refusal(address=address, grants=grants))
         refuse(find_barred_refusal(barred=await address_is_barred(ban_list_collection=ban_list_collection, address=address, session=session)))
 
+        # A live address change at that address ends here: left standing, its switch could carry a grant to an address
+        # nobody named.
         live = await address_changes_collection.find_one(build_address_filter(address), {"_id": 1}, session=session)
         if live is not None:
             await end_the_change_in_session(
@@ -137,20 +134,16 @@ async def delete_grant(
     operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
-    """
-    Remove one grant at once, HARD, no soft form: the removed address meets `actor_not_admin` on its next request.
+    """Remove a grant for good, its address losing access on its next request, or withdraw an addition still waiting.
 
-    Only the owner removes (`grant_only_owner`), judged before anything about the target is answered. 404 where no grant has the id.
-    Refused for the `owner` row (`grant_owner`), which leaves only by a handover. A row still waiting is withdrawn by the same press,
-    and a handover waiting on the row ends with it, told apart. Every holder in effect and the person named are told in the same
-    transaction. An address change standing on the row is left to run, as a
-    change of an address holding no grant.
+    Only the owner removes one, the owner's own row leaving only by a handover; every holder in effect and the address named are told.
     """
 
     async def judge_and_revoke(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then remove the row, owing its notice."""
 
         grants = await pull_the_list_to_judge(grants_collection=grants_collection, session=session)
+        # Judged before anything about the target is answered.
         refuse(find_only_owner_refusal(actor=operator, grants=grants))
 
         grant = next((row for row in grants if row["_id"] == grant_id), None)
@@ -160,6 +153,7 @@ async def delete_grant(
             raise DocumentNotFoundError()
 
         refuse(find_owner_row_refusal(grant=grant))
+        # An address change standing on the row is left to run, as a change of an address holding no grant.
         await revoke_in_session(
             grant=grant,
             grants_collection=grants_collection,
@@ -184,13 +178,9 @@ async def post_handover(
     operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
-    """
-    Start handing the owner role to a current administrator, completed by the hourly pass once `OWNER_WAIT_DAYS` have passed.
+    """Start handing the owner role to an administrator in effect, completing once its wait has passed; the owner stays the owner until then.
 
-    Only the owner starts one (`grant_only_owner`), and the owner stays the owner until it completes. 404 where no grant has the id.
-    Refused for the owner's own row (`grant_owner`), while any handover waits (`grant_handover_waiting`), for a row whose own wait
-    still runs (`grant_not_in_effect`), and where the ban list holds the address (`grant_barred`). Every holder in effect is told in
-    the same transaction, and told what date it completes on.
+    Only the owner starts one, and every holder in effect is told the date it completes on.
     """
 
     async def judge_and_start(session: AsyncClientSession) -> None:
@@ -233,12 +223,7 @@ async def delete_handover(
     operator: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLGrantWriteResponse:
-    """
-    Stop a waiting handover, the role staying with the owner.
-
-    Only the owner stops one (`grant_only_owner`), which a press landing after the pass no longer is. 404 where the row waits on
-    no handover. Every holder in effect is told in the same transaction.
-    """
+    """Stop a waiting handover, the role staying with the owner; only the owner stops one, and every holder in effect is told."""
 
     async def judge_and_stop(session: AsyncClientSession) -> None:
         """Anchor and read the list, judge the actor and the row against it, then take the date off, owing its notice."""

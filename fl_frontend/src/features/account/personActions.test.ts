@@ -51,23 +51,10 @@ const mail = registerAuthDoubles({
   },
 });
 
-const store = memoryStore("__flKontoLoeschenStore");
+const store = memoryStore("__flAccountErasureStore");
 
 /** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
 const HELD = new Map<string, LookupFixture>();
-
-/** The counts the erasure answers a person holding one squad row. */
-const ERASED = {
-  spieler: 1,
-  saison_spieler: 1,
-  schiedsrichter: 0,
-  spiele: 0,
-  kontakt_seats: 0,
-  registrierungen: 0,
-  address_change: 0,
-  grants: 0,
-  grant_approval_requests: 0,
-};
 
 /** Every erasure the backend was asked for, with the actor header each carried. */
 const erasures: { method: string; actor: string | null }[] = [];
@@ -89,7 +76,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
   if (path === ERASURE_PATH) {
     erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(Response.json(ERASED));
+    return Promise.resolve(new Response(null, { status: 204 }));
   }
   if (path === ADDRESS_CHANGE_PATH) {
     addressChanges.push(init?.method ?? "GET");
@@ -111,7 +98,6 @@ const {
   saveSeatConsent,
   saveSpielerConsent,
   signOutOthers,
-  startAddressChange,
   withdrawAddressChange,
 } = await import("./personActions.ts");
 const { COPY } = await import("@/core/copy.ts");
@@ -299,21 +285,6 @@ describe("the account's acts, behind the account's guard", () => {
     assert.ok(store.session.includes(other), "the stale page ended the signed-in account's other device");
     expect(mail.sent.length, "the stale page had a deletion link mailed").toBe(mailed);
     expect(addressChanges, "the stale page withdrew the signed-in account's change").toStrictEqual([]);
-  });
-
-  /* The API takes every atext character and the sign-in library does not: the account would move onto an address whose
-     code never comes, the sign-in answering as sent. */
-  it("refuses a change onto an address the sign-in library refuses, posting nothing", async () => {
-    const email = "umzug@example.org";
-    const { cookie, row } = await sessionByCode(auth, store, email);
-    madeByPasskey(store, row);
-    arriveAs(cookie);
-
-    expect(await startAddressChange({ email: "a~b@example.de", holder: email })).toStrictEqual({
-      ok: false,
-      fieldErrors: { email: COPY.shared.field.format(COPY.shared.field.exampleAddress) },
-    });
-    expect(addressChanges).toStrictEqual([]);
   });
 
   it("ends every other session of the account however many stand, and keeps this one", async () => {

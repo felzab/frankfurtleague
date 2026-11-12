@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SCRIPTS · shared helpers — sourced, never run directly.
+# Sourced, never run directly.
 # Sourcing applies strict mode and installs the ERR, INT, TERM and HUP traps.
 
 # `-E`: without errtrace the ERR trap is not inherited by a function, so a command failing inside
@@ -22,21 +22,6 @@ unset _caller
 # and this file are entered before the `cd` below, and a file sourced after it takes an absolute path.
 _STARTED_IN="$PWD"
 cd "$REPO_ROOT"
-
-# --- Image naming -----------------------------------------------------------------------------------
-
-# Public packages: an anonymous pull needs no login on the server and no token that expires
-# mid-deploy. A pull failing to authenticate means one was made private. SC2034 throughout:
-# every name below is read by the scripts that source this file.
-REGISTRY="ghcr.io"
-# shellcheck disable=SC2034
-REPO_FRONTEND="${REGISTRY}/felzab/frankfurtleague-frontend"
-# shellcheck disable=SC2034
-REPO_BACKEND="${REGISTRY}/felzab/frankfurtleague-backend"
-# shellcheck disable=SC2034
-IMAGE_FRONTEND="${REPO_FRONTEND}:latest"
-# shellcheck disable=SC2034
-IMAGE_BACKEND="${REPO_BACKEND}:latest"
 
 # --- Output ----------------------------------------------------------------------------------------
 
@@ -79,7 +64,7 @@ VERBOSE="${VERBOSE:-0}"
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
 # the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed")
+_RANK_LABELS=("no verdict" "pass" "advisory" "refused" "failed")
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -181,9 +166,7 @@ _emit() {
   done <<< "$*"
 }
 
-# One verb per meaning, each defined in `docs/ops/spec.md` §1.7.
 info() { _emit "$C_BLUE"   "   ·" "$*"; }
-skip() { _emit "$C_DIM"    "  --" "$*"; _escalate 1; }
 
 # An advisory, never a finding — use `fail` where the run must not stay green.
 warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; _record_advisory; }
@@ -204,8 +187,7 @@ fail() {
   local s; s="$(_step_suffix)"
   if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   _emit "$C_RED" "   ✗" "$*${s}" >&2
-  add_findings 1
-  _escalate 5
+  _record_finding
   _STEP_MS0=""
 }
 
@@ -215,7 +197,7 @@ die() {
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   printf '\n' >&2
-  if (( _CHROME )); then add_findings 1; _escalate 5; _closing findings; fi
+  if (( _CHROME )); then _record_finding; _closing findings; fi
   exit 1
 }
 
@@ -236,7 +218,7 @@ ok() {
   local suffix=""
   if (( _CHROME )); then
     suffix="$(_step_suffix)"
-    _escalate 2
+    _escalate 1
   elif [[ -n "${_STEP_T0:-}" ]] && (( SECONDS - _STEP_T0 >= 3 )); then
     suffix=" ${C_DIM}($(fmt_duration $(( SECONDS - _STEP_T0 ))))${C_RESET}"
   fi
@@ -244,23 +226,11 @@ ok() {
   _STEP_MS0=""
 }
 
-# Six spaces, the continuation indent every verb's later lines take (`docs/ops/spec.md` §1.7).
+# Six spaces, the continuation indent every verb's later lines take.
 detail() {
   spinner_stop
   if (( $# )); then printf '      %s\n' "$@"
   else sed 's/^/      /'
-  fi
-}
-
-excerpt() {
-  local max="${1:-5}" n=0 line
-  spinner_stop
-  while IFS= read -r line; do
-    n=$(( n + 1 ))
-    if (( VERBOSE || n <= max )); then printf '      %s\n' "$line"; fi
-  done
-  if (( ! VERBOSE && n > max )); then
-    printf '      %s… %s more line(s) — --verbose prints all of it%s\n' "$C_DIM" "$(( n - max ))" "$C_RESET"
   fi
 }
 
@@ -273,7 +243,7 @@ _QUIETLY_CAPTURE=""
 
 quietly() {
   local out rc=0
-  local -a piped=()
+  local -a piped=() said=()
   QUIETLY_OUTPUT=""
   if (( VERBOSE )); then
     # Kept as well as streamed, or a caller grading by the output grades this form differently. A
@@ -291,7 +261,8 @@ quietly() {
     if (( _CHROME )); then spinner_start "$_STEP_LABEL"; fi
     out="$("$@" 2>&1)" || rc=$?
     spinner_stop
-    if (( rc )); then printf '%s\n' "$out" | detail; fi
+    # As arguments, one per line: a here-string yields at least one, so `detail` never reads stdin.
+    if (( rc )); then mapfile -t said <<<"$out"; detail "${said[@]}"; fi
   fi
   # shellcheck disable=SC2034  # read by the scripts that source this file
   QUIETLY_OUTPUT="$out"
@@ -321,14 +292,13 @@ _escalate() {
   return 0
 }
 
-# For what a checker counted itself: findings reported in one block say so here rather than
-# counting as one. The run total is kept open section or not — `finish` tests it before green.
-add_findings() {
-  _RUN_FINDINGS=$(( _RUN_FINDINGS + $1 ))
-  if (( ! _CHROME || _SECTION_OPEN < 0 )); then return 0; fi
-  _SECTION_FINDINGS[_SECTION_OPEN]=$(( _SECTION_FINDINGS[_SECTION_OPEN] + $1 ))
-  if (( $1 > 0 )); then _escalate 5; fi
-  return 0
+# The run total is kept open section or not: `finish` tests it before green.
+_record_finding() {
+  _RUN_FINDINGS=$(( _RUN_FINDINGS + 1 ))
+  if (( _CHROME && _SECTION_OPEN >= 0 )); then
+    _SECTION_FINDINGS[_SECTION_OPEN]=$(( _SECTION_FINDINGS[_SECTION_OPEN] + 1 ))
+  fi
+  _escalate 4
 }
 
 _record_advisory() {
@@ -336,7 +306,7 @@ _record_advisory() {
   if (( _CHROME && _SECTION_OPEN >= 0 )); then
     _SECTION_ADVISORIES[_SECTION_OPEN]=$(( _SECTION_ADVISORIES[_SECTION_OPEN] + 1 ))
   fi
-  _escalate 3
+  _escalate 2
 }
 
 # Empty outside a section, and once the open step is closed: one verdict per step is what makes
@@ -394,9 +364,9 @@ _summary_table() {
   for (( i = 0; i < count; i++ )); do
     rank=${_SECTION_RANKS[i]}
     case "$rank" in
-      2) colour="$C_GREEN" ;;
-      3) colour="$C_YELLOW" ;;
-      4|5) colour="$C_RED" ;;
+      1) colour="$C_GREEN" ;;
+      2) colour="$C_YELLOW" ;;
+      3|4) colour="$C_RED" ;;
       *) colour="$C_DIM" ;;
     esac
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
@@ -453,15 +423,8 @@ finish() {
     fi
     if (( _SECTION_RANKS[i] > worst )); then worst=${_SECTION_RANKS[i]}; fi
   done
-  if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
-  if (( worst == 4 )); then _closing refused; exit 2; fi
-  # No row reached `pass`, so nothing judged anything and green would read as a run that did.
-  # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
-  # plainly opens no section at all.
-  if (( count > 0 && worst < 2 )); then
-    refuse "every section in this run was skipped, so nothing here judged the change and there is
-no verdict to report. Each skip above names what was not run and why."
-  fi
+  if (( _RUN_FINDINGS > 0 || worst >= 4 )); then _closing findings; exit 1; fi
+  if (( worst == 3 )); then _closing refused; exit 2; fi
   _closing green "$*"
   exit 0
 }
@@ -469,14 +432,15 @@ no verdict to report. Each skip above names what was not run and why."
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
 # a step that passed before the refusal cannot leave the row reading green.
 refuse() {
-  _escalate 4
+  _escalate 3
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
   _annotate "$*"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
-  _closing refused
+  # As `die` and an interrupt: a script speaking the verbs plainly ends on its own sentence.
+  if (( _CHROME )); then _closing refused; fi
   # 2, not 1: a caller branching on the code has to tell "fix the change" from "the checker could
   # not judge it", and 1 is spoken for by findings.
   exit 2
@@ -489,8 +453,8 @@ on_error() {
   local where="${file##*/}"
   # The open section failed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
-  _escalate 5
-  # Outside the fold, for `refuse`'s reason.
+  _escalate 4
+  # Outside the fold, so a reader told to look above is not sent into something collapsed.
   end_section
   _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
   printf '\n' >&2
@@ -570,15 +534,13 @@ require_platform() {
   case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) have=windows ;;
     Linux)                have=linux   ;;
-    Darwin)               have=macos   ;;
     *)                    have=unknown ;;
   esac
   [[ "$have" == "$want" ]] || refuse "This script targets ${want}; this machine looks like ${have}.
 See scripts/README.md for which script belongs to which environment."
 }
 
-# The venv layout differs by platform, and `scripts/gate/verify.sh` runs on both. Returns 1 rather than
-# dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
+# The venv layout differs by platform, and the gate runs on both. Returns 1 rather than dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
 # trap prints a stack block over the message.
 venv_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
@@ -589,8 +551,7 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`, for `nginx/edge_test.sh`, which needs an interpreter at the floor and no
-# package.
+# Wider than `venv_python`, for a caller needing an interpreter at the floor and no package.
 any_python() {
   if venv_python; then return 0
   elif command -v python3 >/dev/null 2>&1; then printf 'python3'
@@ -599,12 +560,11 @@ any_python() {
   fi
 }
 
-# In bash and nowhere else: a checker cannot report on the version that refuses to compile it
-# (`docs/ops/spec.md` §1.5).
+# In bash and nowhere else: a checker cannot report on the version that refuses to compile it.
 PYTHON_FLOOR="3.14"
 
-# Called bare in a condition, for `verbose`'s reason. `--version` rather than a `-c` snippet, whose
-# own syntax an interpreter this refuses would have to be trusted to parse.
+# Called bare in a condition, where a false answer is no status `set -e` acts on. `--version` rather
+# than a `-c` snippet, whose own syntax an interpreter this refuses would have to be trusted to parse.
 python_at_floor() { # $1 an interpreter
   local said major minor
   # A python 2 writes its version to stderr and a Windows Store stub prints nothing at all, so an
@@ -618,243 +578,18 @@ python_at_floor() { # $1 an interpreter
   (( found >= floor ))
 }
 
-require_file() { [[ -f "$1" ]] || refuse "Missing required file: $1${2:+
-$2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
-
-# The one line every reader takes alike: a value of RFC 3986's URL
-# characters less `#`, `$` and `'`, some reader's comment, substitution and quote. A character
-# joins only once every reader takes it literally.
-ENV_LINE_RE='^[A-Za-z_][A-Za-z0-9_]*=[]A-Za-z0-9_.~:/?[@!&()*+,;=%-]*$'
-
-# A name in any form compose reads one from -- `NAME=`, `NAME:` or a bare `NAME`, behind an optional
-# `export` -- for the credential check alone, which never prints it: a word off a line may be a
-# key's data.
-ENV_NAME_RE='^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*([=:]|$)'
-
-# Every line neither blank nor a comment, as `ENV_LINE_*`: its number, the name `ENV_NAME_RE` reads
-# past a byte-order mark, and whether it keeps `ENV_LINE_RE`.
-env_lines() { # $1 the file
-  # Off, so a trace never prints a line; C, so a range admits ASCII alone whatever the host's locale.
-  local -
-  set +x
-  local LC_ALL=C line number=0 name kept marks k
-  local -a split=()
-  ENV_LINE_NUMBER=(); ENV_LINE_NAME=(); ENV_LINE_KEPT=(); ENV_BOM=0
-  # `read` drops a NUL byte unseen, so the lines holding one are counted off the bytes first, a NUL
-  # and a newline spelled as letters.
-  marks="$(tr -cd '\000\n' < "$1" | tr '\000\n' 'Zn')"
-  number=1
-  for (( k = 0; k < ${#marks}; k++ )); do
-    if [[ "${marks:k:1}" == n ]]; then number=$(( number + 1 )); else split[number]=1; fi
-  done
-  number=0
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    number=$(( number + 1 ))
-    # The line's terminator, which every reader drops with the newline.
-    line="${line%$'\r'}"
-    # python-dotenv and `@next/env` end a line at a carriage return, `@next/env` at U+2028 and
-    # U+2029 too, and compose at neither: such a line is refused, a comment's included.
-    if [[ "$line" == *$'\r'* || "$line" == *$'\xE2\x80\xA8'* || "$line" == *$'\xE2\x80\xA9'* ]]; then
-      split[number]=1
-    fi
-    if [[ -z "${split[$number]:-}" ]] && [[ "$line" =~ ^[[:blank:]]*$ || "$line" == '#'* ]]; then continue; fi
-    name=""; kept=0
-    if [[ -z "${split[$number]:-}" && "$line" =~ $ENV_LINE_RE ]]; then kept=1; fi
-    if (( number == 1 )) && [[ "$line" == $'\xEF\xBB\xBF'* ]]; then
-      ENV_BOM=1
-      line="${line#$'\xEF\xBB\xBF'}"
-    fi
-    if [[ "$line" =~ $ENV_NAME_RE ]]; then name="${BASH_REMATCH[2]}"; fi
-    ENV_LINE_NUMBER+=("$number"); ENV_LINE_NAME+=("$name"); ENV_LINE_KEPT+=("$kept")
-  done < "$1"
-  # A last line of NUL bytes alone, no newline after it, reads as empty and ends the loop unvisited.
-  for k in "${!split[@]}"; do
-    if (( k > number )); then ENV_LINE_NUMBER+=("$k"); ENV_LINE_NAME+=(""); ENV_LINE_KEPT+=(0); fi
-  done
-}
-
-# Every file named is read before the refusal, so one visit to a host corrects them all.
-check_env_spellings() { # $@ the files
-  local file i
-  local -a wrong=() marked=()
-  for file in "$@"; do
-    env_lines "$file"
-    if (( ENV_BOM )); then marked+=("  ${file}"); fi
-    for i in "${!ENV_LINE_NUMBER[@]}"; do
-      if (( ! ENV_LINE_KEPT[i] )); then wrong+=("  ${file}:${ENV_LINE_NUMBER[i]}"); fi
-    done
-  done
-  (( ${#wrong[@]} )) || return 0
-  refuse "${#wrong[@]} line(s) are not NAME=VALUE in the characters every reader of these files takes
-alike, so compose and a dev server could each be handed a different value. Each is listed as
-file:line, and never with anything the line holds:
-$(printf '%s\n' "${wrong[@]}")${marked[0]:+
-These open with a byte-order mark, which some readers take into the first name; save each as UTF-8
-without one:
-$(printf '%s\n' "${marked[@]}")}
-Write each as NAME=VALUE with nothing around the =: no quotes, no spaces, no comment after the
-value, and a value of letters, digits and _ - . ~ : / ? [ ] @ ! & ( ) * + , ; = % alone. In a URL,
-write # as %23, \$ as %24 and ' as %27; any other value, generate again without the character. A
-comment is a line of its own opening with #. No line, a comment included, may hold a carriage
-return before its end, U+2028, U+2029 or a NUL byte.
-NOTHING was asked of compose or of either service."
-}
-
-# --- The secret files ---------------------------------------------------------------------------------
-
-# The files under `secrets/` each stack mounts per service, held to the compose files by
-# `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
-# them. The tunnel token is checked apart.
-# shellcheck disable=SC2034  # read by the scripts that source this file
-FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key betterstack_heartbeat_url)
-# shellcheck disable=SC2034  # read by the scripts that source this file
-BACKEND_SECRETS=(backend_mongodb_uri internal_api_key_base internal_api_key_system internal_api_key_admin)
-
-# The local stack sends no mail and is sent no provider event, so its frontend is handed no key to
-# the provider, and each login is an inline config naming the stack's own database
-# (`docker-compose.local.yml`).
-# shellcheck disable=SC2034  # read by the scripts that source this file
-LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
-# shellcheck disable=SC2034  # read by the scripts that source this file
-LOCAL_BACKEND_SECRETS=(internal_api_key_base internal_api_key_system internal_api_key_admin)
-
-# The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
-# spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
-# it; `scripts/tests/test_check_compose_model.py` holds the two equal.
-MOVED_ENV_NAMES=(MONGODB_URI AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY BETTERSTACK_HEARTBEAT_URL)
-
-# Names no service reads: the administrator list the stored grants replaced, whose addresses are what
-# `docker inspect` would print, the five job switches the hourly scheduler replaced, which the
-# frontend's settings never read, so a line left standing would read as a switch still set, and the
-# ban list's two retired key names, whose value a line under either would never reach.
-RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE SPERRLISTE_SCHLUESSEL SPERRLISTE_KEY)
-
-# No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
-# the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentationNode.ts :: registerOnNode`).
-check_frontend_boot_config() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
-  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
-  local -
-  set +x
-  local standing="$1" deployment="$2" rc=0 said=""
-  shift 2
-  said="$("$@" -e "BOOT_CHECK=${deployment}" frontend 2>&1)" || rc=$?
-  # A pass prints only the server's start banner, which says nothing about the check.
-  if (( rc )) && [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
-  if (( rc == 3 )); then
-    refuse "the frontend refuses the settings its container would boot with, and the CRITICAL line above names
-what: a variable to correct in fl_frontend/.env -- APP_ENV where it names another deployment than
-${deployment} -- or a file under secrets/ to write again or give the owner and mode
-docs/ops/runbooks.md §16 says. No value is printed.
-${standing}"
-  elif (( rc )); then
-    warn "the frontend image could not be asked to run its boot gates (exit ${rc}), so nothing here says
-whether it would boot. Its own answer is above."
-  else
-    ok "the frontend's boot passes every gate on its container's variables and secret files"
-  fi
-}
-
-# The backend's settings as its boot builds them: no other reader sees the files' values before the
-# recreate, and this is the backend's only check of its files. `get_config`, never the class, whose
-# refusal quotes the value.
-BACKEND_BOOT_CHECK='
-import sys
-
-try:
-    from app.core.config import EnvironmentValidationError, get_config
-except Exception as unavailable:
-    print(type(unavailable).__name__, file=sys.stderr)
-    raise SystemExit(4)
-
-try:
-    get_config()
-except EnvironmentValidationError as refusal:
-    print(refusal, file=sys.stderr)
-    raise SystemExit(3)
-except Exception as unexpected:
-    print(type(unexpected).__name__, file=sys.stderr)
-    raise SystemExit(4)
-'
-
-# `check_frontend_boot_config`'s contract, the backend's program in place of the frontend's boot.
-check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
-  # Off, as in `check_frontend_boot_config`.
-  local -
-  set +x
-  local standing="$1" rc=0 said=""
-  shift
-  said="$("$@" backend python -c "$BACKEND_BOOT_CHECK" 2>&1)" || rc=$?
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
-  if (( rc == 3 )); then
-    refuse "the backend refuses the settings its container would boot with, and the line above names what:
-a variable to correct in fl_backend/.env, or a file to write again under secrets/. No value is printed.
-${standing}"
-  elif (( rc )); then
-    warn "the backend image could not be asked to build its settings (exit ${rc}), so nothing here says
-whether it would boot. Its own answer is above."
-  else
-    ok "the backend builds its settings from its container's variables and secret files"
-  fi
-}
-
-# Compose hands the container every line of its file as a variable, which `docker inspect` prints,
-# so a credential's or the retired list's name is refused with any value or none,
-# given in the list's spelling.
-refuse_credential_lines() { # $@ the environment files
-  # Off, as in `env_lines`: a name read in any form may be a key's data, and a trace would print it.
-  local -
-  set +x
-  # C, so `^^` upper-cases `i` to `I` in every locale: a Turkish one's dotted capital would miss
-  # `mongodb_uri`, and no runner here holds that locale for a case to reach.
-  local file i moved LC_ALL=C
-  local -a found=()
-  for file in "$@"; do
-    env_lines "$file"
-    for i in "${!ENV_LINE_NAME[@]}"; do
-      for moved in "${MOVED_ENV_NAMES[@]}" "${RETIRED_ENV_NAMES[@]}"; do
-        if [[ "${ENV_LINE_NAME[i]^^}" == "$moved" ]]; then found+=("${file}:${ENV_LINE_NUMBER[i]} ${moved}"); fi
-      done
-    done
-  done
-  (( ${#found[@]} )) || return 0
-  refuse "these lines name a value no service reads from its environment: a credential, which is its
-file's under secrets/, the administrator list the stored grants replaced, a job switch the
-hourly scheduler replaced, or a retired name of the ban list's key:
-$(printf '  %s\n' "${found[@]}")
-Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
-}
-
-# What a deploy, its `--check-env` and a local start each judge of the environment files before
-# compose is asked anything, in one order: a credential's line first, whose remedy is deletion,
-# before the shape check would have it rewritten.
-judge_env_files() { # $@ the environment files
-  refuse_credential_lines "$@"
-  check_env_spellings "$@"
-}
-
-# Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:
-# a project name there aims every command, `down -v` included, at another stack. Named and never
-# read: one may hold credentials.
-refuse_compose_dotenv() {
-  [[ -e .env || -L .env ]] || return 0
-  refuse "a .env stands beside the compose files: ${PWD}/.env
-Compose loads it unasked, for its own settings and for any bare name in an environment file, and
-nothing in this repository writes or reads one. A line there can rename the compose project, which
-points every compose command at another stack's containers. Move it out of the checkout.
-NOTHING was asked of compose."
-}
 
 # --- The rendered compose models ----------------------------------------------------------------------
 
 # Every environment file the compose files name. Compose refuses to parse a stack whose file is
-# missing, and the real ones are never copied: each is replaced by a stand-in naming itself
-# (`scripts/checks/check_compose_model.py :: STAND_IN_READ`).
+# missing, and the real ones are never copied: each is replaced by a stand-in naming itself, which
+# the compose checker reads back.
 COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
 
-# One staging for the gate's ops scope and `nginx/edge_test.sh`, so a change to the files compose reads
-# reaches both. `$1` is an empty scratch directory.
+# One staging for every reader of the rendered models, so a change to the files compose reads reaches
+# each. `$1` is an empty scratch directory.
 stage_compose_models() {
   local directory="$1" env_file number=0
   mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
@@ -868,120 +603,14 @@ stage_compose_models() {
 # `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
 # the override being no stack alone. `--output` keeps a text-mode stream off the model.
 render_compose_model() {
+  # The base file names both images by the tag a deploy pins and refuses to parse without one, and a
+  # rendered model runs no image, so any word stands in.
+  local -x TAG=gate
   local -a files=(-f "$1/docker-compose.yml")
   if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
   # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
   # make the rendered environment depend on the release.
   quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
-}
-
-# --- Redaction -------------------------------------------------------------------------------------
-
-# A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
-# `Invalid connection string "<uri>"` with the credential still in it, and the patterns
-# `wait_healthy` greps for select the failures carrying one.
-redact_uri_credentials() {
-  # Stopped at the FIRST `@` after the scheme: no password character defeats that, where a
-  # delimiter class leaves an ill-formed password unmatched and a greedy run costs the host.
-  # `I`, for a scheme echoed back in another case.
-  sed -E 's#(mongodb(\+srv)?://)[^@]*@#\1<redacted>@#gI'
-}
-
-# --- Health ----------------------------------------------------------------------------------------
-
-# Which arm answered, for a caller that has to tell a verdict on the service from a question nobody
-# answered: every failing arm returns 1, and only `unhealthy` and `timeout` are about the service.
-WAIT_HEALTHY_REASON=""
-
-# A started container and a working app are different statements: on a bad environment variable
-# the frontend stays up and 500s on every route.
-wait_healthy() {
-  # An empty compose file leaves the choice to COMPOSE_FILE, which is how `scripts/ops/local.sh`
-  # names its two-file stack.
-  local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
-  # An array, never `${compose_file:+-f "$compose_file"}`: under this file's IFS a space splits no
-  # word, so that expansion hands compose one argument, `-f docker-compose.yml`, and compose reads a
-  # file named " docker-compose.yml" and exits 1 on every question.
-  local -a compose=(docker compose)
-  [[ -z "$compose_file" ]] || compose+=(-f "$compose_file")
-  WAIT_HEALTHY_REASON=""
-  info "waiting for '${service}' to become healthy (up to ${timeout}s)"
-  while (( waited < timeout )); do
-    rc=0
-    cid="$("${compose[@]}" ps -q "$service" 2>/dev/null)" || rc=$?
-    # An unasked question and an answered one both leave `cid` empty, and "no running container"
-    # about a daemon that never replied sends an operator to the container, not the engine.
-    if (( rc )); then
-      WAIT_HEALTHY_REASON="unasked"
-      warn "could not ask compose about '${service}' — 'docker compose ps' exited ${rc}.
-This says nothing about the container; the daemon or the compose file is what did not answer."
-      return 1
-    fi
-    if [[ -z "$cid" ]]; then
-      WAIT_HEALTHY_REASON="no-container"
-      warn "'${service}' has no running container"
-      "${compose[@]}" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
-      return 1
-    fi
-    # A service with no healthcheck reports "" — treat "running" as good enough for those.
-    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"
-    case "$state" in
-      healthy|running) ok "'${service}' is ${state}"; return 0 ;;
-      unhealthy)
-        WAIT_HEALTHY_REASON="unhealthy"
-        warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
-        # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
-        # prints the arm below underneath the lines it just found.
-        log_tail="$("${compose[@]}" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
-        matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
-        if [[ -n "$matched" ]]; then
-          printf '%s\n' "$matched" | excerpt 12
-        elif [[ -n "$log_tail" ]]; then
-          detail "(nothing in the log matches the usual causes — its last 30 lines follow)"
-          printf '%s\n' "$log_tail" | tail -30 | detail
-        else
-          detail "(no log came back for '${service}' — ask compose yourself)" \
-                 "   docker compose ${compose_file:+-f ${compose_file}} logs ${service}"
-        fi
-        return 1 ;;
-    esac
-    sleep 3; waited=$(( waited + 3 ))
-  done
-  # shellcheck disable=SC2034  # read by the scripts that source this file
-  WAIT_HEALTHY_REASON="timeout"
-  warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  "${compose[@]}" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
-  return 1
-}
-
-# The empty string is the only sentinel for an absent label: a comparison or an interpolated
-# command needs a value, and a prose one breaks both. Wording it is the display pair's job.
-_image_label() {
-  local image="$1" label="$2" value=""
-  # Returns 1 where the inspect itself failed, so a caller can tell "no such label" from "nothing
-  # answered" — `docker image inspect` prints an empty line for both.
-  value="$(docker image inspect --format "{{index .Config.Labels \"${label}\"}}" "$image" 2>/dev/null)" \
-    || return 1
-  [[ "$value" == "<no value>" ]] && value=""
-  printf '%s' "$value"
-}
-image_revision() { _image_label "$1" "org.opencontainers.image.revision"; }
-image_created()  { _image_label "$1" "org.opencontainers.image.created";  }
-
-# For status output only: never in a comparison or a command, where a sentence is not a status.
-image_revision_display() {
-  local v rc=0; v="$(image_revision "$1")" || rc=$?
-  if (( rc )); then printf 'could not be read'
-  elif [[ -n "$v" ]]; then printf '%s' "$v"
-  else printf 'unlabelled (not built by publish.yml)'
-  fi
-}
-image_created_display() {
-  local v rc=0; v="$(image_created "$1")" || rc=$?
-  if (( rc )); then printf 'could not be read'
-  elif [[ -n "$v" ]]; then printf '%s' "$v"
-  else printf 'unknown'
-  fi
 }
 
 # --- What a successful build does not prove ------------------------------------------------------------
@@ -998,7 +627,7 @@ image_has_instrumentation() { # $1 the frontend image
     0) ;;
     # The test's own answer. Anything higher is docker's, and says nothing about the file.
     1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
-    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
+    # 130 travels: flattened to 3 it reads as a crash, and the caller cannot recover the interrupt.
     130) return 130 ;;
     *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
        return 3 ;;
@@ -1011,7 +640,7 @@ image_runs_unprivileged() { # $1.. the images
   for image in "$@"; do
     rc=0
     uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
-    # For `image_has_instrumentation`'s reason.
+    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
     if (( rc == 130 )); then return 130; fi
     if (( rc )); then
       printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
@@ -1027,8 +656,8 @@ image_runs_unprivileged() { # $1.. the images
 # The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
 # certificates of their own, and the check widens until it says nothing.
 
-# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
-# two lists together.
+# The shapes both `.dockerignore` files exclude; the image assertions' tests hold the two lists
+# together.
 IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
 # A context the dockerignore stopped covering still builds.
 image_context_clean() { # $1.. the images
@@ -1036,7 +665,7 @@ image_context_clean() { # $1.. the images
   for image in "$@"; do
     rc=0
     found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # For `image_has_instrumentation`'s reason.
+    # 130 travels: flattened to 3 it would read as a crash rather than an interrupt.
     if (( rc == 130 )); then return 130; fi
     if (( rc )); then
       printf '%s\n' "the ${image} image would not run, so its context was never read"

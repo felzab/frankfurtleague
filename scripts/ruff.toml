@@ -1,8 +1,6 @@
-# SCRIPTS · makes the repository's Python rules apply to the gate's own tooling
-#
-# `extend` rather than a copy, and here rather than at the repository root: `docs/ops/spec.md` §1.6
-# argues both. It must keep adding and overriding nothing — the moment it carries its own `select`,
-# this configuration and the backend's can disagree.
+# The repository's Python rules, applied to the gate's own tooling by `extend` rather than a copy. It
+# must keep adding and overriding nothing — the moment it carries its own `select`, this
+# configuration and the backend's can disagree.
 #
 # No `target-version` for that same reason, and because the inherited one is right: `extend` carries
 # the backend's `requires-python` across, so ruff reads this folder at the version its python RUNS

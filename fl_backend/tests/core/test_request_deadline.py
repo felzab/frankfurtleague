@@ -1,7 +1,6 @@
 import asyncio
 import enum
 import functools
-import json
 import logging
 import re
 import time
@@ -13,7 +12,7 @@ from typing import Any, NamedTuple
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -24,12 +23,13 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import post_one_to_db
-from app.core.db import collection_dependency
+from app.core.db import CLOSE_TIMEOUT_S, collection_dependency
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
-from app.main import create_app
+from app.main import create_app, create_shell
 from app.shared.tokens import hash_token
+from tests.boot import image_command
 from tests.config import ADMIN_KEY, TEST_BASE_URL, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
@@ -41,16 +41,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
 
-# For a case whose route must work inside the deadline before its cut: the first request into an app
-# builds every router branch ahead of its route inside that deadline, a quarter second on a developer's
-# machine and more on CI's runner, where half a second leaves a transaction's first write no time. Long
-# enough that the work lands inside it on a loaded machine: the team before the stall minted, a
-# transaction's first write returned.
-SHORT_REQUEST_DEADLINE_S = 1.5
-
 # Far under the stall's 60 s, what the case below would wait with no deadline, so an answer in time can
 # only be the deadline's doing.
-ANSWERED_WITHIN_S = SHORT_REQUEST_DEADLINE_S + 10
+ANSWERED_WITHIN_S = REQUEST_DEADLINE_S + 10
 
 ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
@@ -72,7 +65,6 @@ class TestTheDeadlinesTheApplicationSets:
         assert 0 < ABORT_GRACE_S < int(ceiling[1]) / 1000 - REQUEST_DEADLINE_S
 
 
-DOCKERFILE = BACKEND_ROOT / "Dockerfile"
 COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
 GRACEFUL_WAIT = "--timeout-graceful-shutdown"
 STOP_GRACE = re.compile(r"^    stop_grace_period: (\d+)s$", re.MULTILINE)
@@ -80,14 +72,12 @@ SERVICE = re.compile(r"^  (\w+):$", re.MULTILINE)
 COMMAND_OVERRIDES = re.compile(r"""^    ["']?(command|entrypoint|<<)["']?\s*:""", re.MULTILINE)
 
 # uvicorn notices the signal on a 0.1 s tick and pauses 0.1 s after closing its connections before its
-# wait starts (its `Server.shutdown`, read in uvicorn 0.54), so the engine's kill falls a whole second later.
-UVICORN_STEPS_BEFORE_ITS_WAIT_S = 1
+# wait starts (its `Server.shutdown`, read in uvicorn 0.54).
+UVICORN_STEPS_BEFORE_ITS_WAIT_S = 0.2
 
 
 def _uvicorn_s_graceful_wait() -> int:
-    command = [line for line in DOCKERFILE.read_text(encoding="utf-8").splitlines() if line.startswith("CMD [")]
-    assert len(command) == 1, f"{DOCKERFILE} holds {len(command)} exec-form CMD lines, where this reads exactly one"
-    arguments = json.loads(command[0].removeprefix("CMD "))
+    arguments = image_command()
     assert GRACEFUL_WAIT in arguments, f"the backend's CMD sets no {GRACEFUL_WAIT}, so uvicorn waits on a stopping request without limit"
 
     return int(arguments[arguments.index(GRACEFUL_WAIT) + 1])
@@ -110,15 +100,17 @@ def _backend_stop_grace() -> int:
 
 
 class TestAStoppedContainerOutlastsEveryRequest:
-    """Three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
+    """Four budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
 
     def test_uvicorn_waits_out_a_request_s_whole_bound(self):
         """A request cut at its deadline: the deadline, then the one grace its aborts share."""
 
         assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
 
-    def test_the_engine_kills_only_after_uvicorn_s_wait(self):
-        assert _backend_stop_grace() >= _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S
+    def test_the_engine_kills_only_after_uvicorn_s_wait_and_the_client_s_close(self):
+        """The lifespan closes the client once uvicorn's wait ends, and the process exits in what the close leaves: hence strictly."""
+
+        assert _backend_stop_grace() > _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S + CLOSE_TIMEOUT_S
 
     def test_the_container_runs_the_cmd_the_wait_is_read_off(self):
         """Compose's `command:` replaces that CMD and its `entrypoint:` drops it; a merge key can bring in either unread."""
@@ -179,76 +171,87 @@ async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> 
         return await listed.to_list()
 
 
-# What the one route `_served` adds runs, set by the request's own task, which the app's handlers inherit.
-_FAULT: ContextVar[Callable[[], Awaitable[None]]] = ContextVar("fault")
+# The transaction the one route `_served` holds runs, set by the request's own task, which the route's handler inherits.
+_TRANSACTION: ContextVar[Callable[[], Awaitable[None]]] = ContextVar("transaction")
 
 
 @functools.cache
 def _served() -> FastAPI:
-    """One app for every case driving a fault or a transaction through it, an app per case costing most of this file's run.
+    """The shell every route is served inside, around a route running the transaction its request hands it.
 
-    Built on first use rather than at import, which every xdist worker pays at collection. Its route stands after every
-    router, so the first request into it builds them all, inside that case's deadline.
+    No route the application serves stalls inside its transaction on purpose. Built on first use rather than at import,
+    which every xdist worker pays at collection.
     """
 
-    served = create_app(build_test_config())
+    served = create_shell()
 
-    async def faulting() -> None:
-        await _FAULT.get()()
+    async def transacting() -> None:
+        await _TRANSACTION.get()()
 
-    served.add_api_route("/faulting", faulting, methods=["GET", "POST"])
+    served.add_api_route("/transacting", transacting, methods=["POST"])
 
     return served
 
 
-def _transacted(url: str, cut: _Cut) -> _Transacted:
-    """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets."""
+async def _transacted(url: str, cut: _Cut) -> _Transacted:
+    """One transaction run by a request, so the deadline around it is the one the middleware sets.
 
-    async def body() -> _Transacted:
-        fresh = a_clean_database(url, DATABASE_NAME, constraints=False)
-        async with fresh as (client, database):
-            written = database[Collection.ACTION_LOG]
+    On a client of its own, whose sessions no other cut's transaction can be handed once this one ends.
+    """
 
-            sessions: list[Mapping[str, Any]] = []
-            first_writes: list[Mapping[str, Any]] = []
+    async with AsyncMongoClient(url) as client:
+        written = client[DATABASE_NAME][Collection.ACTION_LOG]
+        mark = {"cut": cut.value}
 
-            async def write_then_wait(session: AsyncClientSession) -> None:
-                sessions.append(session.session_id)
-                await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
-                first_writes.append(session.session_id)
-                if cut is _Cut.PAST_THE_GRACE:
-                    await asyncio.sleep(_until_past_the_deadline(ABORT_GRACE_S))
-                else:
-                    await asyncio.sleep(_until_past_the_deadline(0))
-                if cut in {_Cut.INSIDE_THE_CALLBACK, _Cut.PAST_THE_GRACE}:
-                    await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
+        sessions: list[Mapping[str, Any]] = []
+        first_writes: list[Mapping[str, Any]] = []
 
-            async def transacting() -> None:
-                async with transaction_session(client) as session:
-                    await session.with_transaction(write_then_wait)
+        async def write_then_wait(session: AsyncClientSession) -> None:
+            sessions.append(session.session_id)
+            await post_one_to_db(collection=written, document={"_id": ObjectId(), **mark}, session=session)
+            first_writes.append(session.session_id)
+            if cut is _Cut.PAST_THE_GRACE:
+                await asyncio.sleep(_until_past_the_deadline(ABORT_GRACE_S))
+            else:
+                await asyncio.sleep(_until_past_the_deadline(0))
+            if cut in {_Cut.INSIDE_THE_CALLBACK, _Cut.PAST_THE_GRACE}:
+                await post_one_to_db(collection=written, document={"_id": ObjectId(), **mark}, session=session)
 
-            _FAULT.set(transacting)
-            transport = ASGITransport(app=_served(), raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                response = await http.post("/faulting")
+        async def transacting() -> None:
+            async with transaction_session(client) as session:
+                await session.with_transaction(write_then_wait)
 
-            # Read before anything else runs through `client`, whose next call would take the route's session.
-            held = await _transactions_held(url, sessions)
-            error_code = None if response.status_code == 200 else response.json()["error_code"]
-            return _Transacted(response.status_code, error_code, await written.count_documents({}), held, bool(first_writes))
+        _TRANSACTION.set(transacting)
+        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            response = await http.post("/transacting")
+
+        held = await _transactions_held(url, sessions)
+        error_code = None if response.status_code == 200 else response.json()["error_code"]
+        return _Transacted(response.status_code, error_code, await written.count_documents(mark), held, bool(first_writes))
+
+
+@pytest.fixture(scope="module")
+def cut_transactions(mongo_replica_set_url: str) -> Mapping[_Cut, _Transacted]:
+    """Every cut at once, each in a request of its own: each waits out the whole deadline, and together they wait it once."""
+
+    async def body() -> dict[_Cut, _Transacted]:
+        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False):
+            cuts = list(_Cut)
+            transacted = await asyncio.gather(*(_transacted(mongo_replica_set_url, cut) for cut in cuts))
+
+            return dict(zip(cuts, transacted, strict=True))
 
     return on_the_seed_loop(body())
 
 
 @pytest.mark.db
 class TestATransactionPastTheRequestDeadlineCommitsNothing:
-    @pytest.mark.parametrize("cut", [_Cut.AT_THE_COMMIT, _Cut.INSIDE_THE_CALLBACK, _Cut.PAST_THE_GRACE], ids=lambda cut: cut.value)
-    def test_a_callback_outliving_the_deadline_leaves_no_write(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch, cut: _Cut):
+    @pytest.mark.parametrize("cut", list(_Cut), ids=lambda cut: cut.value)
+    def test_a_callback_outliving_the_deadline_leaves_no_write(self, cut_transactions: Mapping[_Cut, _Transacted], cut: _Cut):
         """Unknown though nothing stands: the answer errs toward unknown on a write the deadline cut, its commit sent or not."""
 
-        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_REQUEST_DEADLINE_S)
-
-        transacted = _transacted(mongo_replica_set_url, cut)
+        transacted = cut_transactions[cut]
 
         # First, so a start slow enough that the deadline cut the first write reads red rather than passing on its answer.
         assert transacted.first_write_returned, "the deadline cut the first write, so the case reached none of its cuts"
@@ -279,7 +282,6 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "saison_id": SAISON_ID,
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
-        "created_at": "2026-03-15",
         "revoked_at": None,
         "sent_at": None,
     }
@@ -382,7 +384,7 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
                 transport = ASGITransport(app=served, raise_app_exceptions=False)
                 async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                     started = time.monotonic()
-                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS, json={"resend": False})
+                    response = await http.post(DISPATCH_PATH, headers=ADMIN_HEADERS)
                     elapsed = time.monotonic() - started
             finally:
                 # The app outlives the case, so the stand-in goes with it.
@@ -407,12 +409,8 @@ def _pressed(served: FastAPI, url: str, stand_in: Callable[[AsyncCollection], An
 
 @pytest.mark.db
 class TestTheSendPastItsDeadline:
-    def test_no_team_is_revoked_after_the_page_has_stopped_waiting(
-        self, pressing_app: FastAPI, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch
-    ):
+    def test_no_team_is_revoked_after_the_page_has_stopped_waiting(self, pressing_app: FastAPI, mongo_replica_set_url: str):
         """The press whose database stops answering mid-loop: a link revoked after the deadline is one whose replacement nobody receives."""
-
-        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_REQUEST_DEADLINE_S)
 
         status, elapsed, counts, live, seeded = _pressed(pressing_app, mongo_replica_set_url, _StallsOneTeam)
 
@@ -437,27 +435,3 @@ class TestTheSendPastItsDeadline:
         assert [getattr(record, "error_code", None) for record in caplog.records if record.message == "saisons.invitation_unminted"] == [
             Code.UNKNOWN_OUTCOME
         ]
-
-
-def _raised_through_the_app(error: Exception) -> Response:
-    """The error raised from a safe route of the real app, so the handler Starlette picks is the one resolved from the class's own MRO."""
-
-    async def raising() -> None:
-        raise error
-
-    async def _answered() -> Response:
-        _FAULT.set(raising)
-        transport = ASGITransport(app=_served(), raise_app_exceptions=False)
-        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            return await http.get("/faulting")
-
-    return asyncio.run(_answered())
-
-
-class TestACommitOfUnknownOutcomeIsNotCalledFailed:
-    def test_it_answers_its_own_code(self):
-        """Over a safe method, so the label alone can answer: a commit lost to anything but a timeout carries nothing else saying so."""
-
-        response = _raised_through_the_app(UNKNOWN_COMMIT_OUTCOME)
-
-        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)

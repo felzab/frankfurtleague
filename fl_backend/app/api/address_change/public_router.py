@@ -102,10 +102,12 @@ def _day_of(moment: datetime | None) -> str | None:
     return None if moment is None else german_day(moment)
 
 
-# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
+# Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable. The press answers
+# each by its own code; what keeps the link's holder from telling them apart is the edge, which routes no public call here.
 _NOT_CONFIRMABLE = frozenset({"taken", "new_granted", "occupied"})
 
 
+# A POST that reads, so the token travels in a body and never in a second URL.
 @router.post(
     "/view",
     response_model=FLAddressChangeViewResponse,
@@ -120,22 +122,10 @@ async def get_address_change_view(
     grants_collection: GrantsReadCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:
-    """
-    Answer what this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
+    """What this token opens: the new mailbox's link, the link the address on file was mailed, or how either's change ended.
 
-    **Nothing else about the change**: never a name or the id, and the new address only where the link's holder judges by
-    it, the new mailbox's `valid` link and the address on file's link while the change stands, masked on `waiting_period`.
-    A POST that reads,
-    so the token travels in a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
-    links answer `ended`, how it ended and on which day, for as long as its record is kept.
-
-    The new mailbox's side is served in a state: once pressed, `confirmed`; else `expired`, then `not_confirmable` wherever
-    the press would be refused for the address on file's sake or would
-    find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
-    answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
-    the proxy routes no public call to this service. The address on file's side answers the step the change waits on,
-    `release_open` while the person's own change waits on this link's confirmation and `release_expired` once that lapsed,
-    never whether the new mailbox could confirm, and the day it confirmed once it has.
+    Each side is served in the state its press would meet, and an ended change's links answer for as long as its record
+    is kept.
     """
 
     token_hash = hash_token(view_data.token)
@@ -233,33 +223,10 @@ async def post_address_change_answer(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeAnswerResponse:
-    """
-    Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
+    """Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
-    **The person's own change asks the address on file first**: its link's confirmation owes the new mailbox its link,
-    and nothing moves yet, answering `confirmed` with `effective` false and `effective_from` null; refused `link_expired`
-    past that link's deadline and `address_change_ended` once answered or ended, a decline refused only the latter, and a
-    decline is the one way this link ends the change before it confirmed (`/stop` refuses it). Every other link the
-    address on file was mailed answers no confirmation (`link_invalid`).
-
-    The new mailbox's link: **a confirmation moves the person, not a record.** Unless the change waits -- on the lost-mailbox
-    way, or because the address holds a grant -- it takes effect in this transaction: every pupil row, confirmed referee row,
-    confirmed contact seat and registration the address on file holds moves to the new one, asking no consent and writing
-    none, and `effective` says so; its completion notice is owed in this transaction, and so is its sign-in account's
-    carry. A change that waits is confirmed alone, answering `effective_from`, the old address working until the hourly pass
-    moves it; a holder's tells every holder in effect, in this transaction.
-    Either answer spends the link, which keeps answering what became of the change.
-
-    Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
-    (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION past its deadline
-    (`link_expired`), one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one moving a
-    grant onto an address holding one (`address_change_new_granted`), and one whose new address any entry names, confirmed
-    or not (`address_change_occupied`): moving the person onto it would join two people's records. **A decline is refused
-    none of these**: it removes an address nobody proved.
-
-    A confirmation whose address has come to hold nothing to move is refused `address_change_nothing`, writing nothing, and
-    the change lapses with its link. The codes past `link_expired` tell a caller what the view's `not_confirmable` keeps
-    alike; only the edge keeps them from the link's holder.
+    The new mailbox's confirmation moves everything the address holds unless the change waits, as `effective` and
+    `effective_from` say; the address on file's confirmation of the person's own change only mails the new mailbox its link.
     """
 
     token_hash = hash_token(answer_data.token)
@@ -285,6 +252,7 @@ async def post_address_change_answer(
         refuse(find_ended_refusal(is_open=record.get("ended") is None and record.get("confirmed_at") is None))
         db_filter = {"_id": record["_id"], **build_open_link_terms(token_hash)}
 
+        # A decline is refused none of the judgements below: it removes an address nobody proved.
         if answer_data.answer == "declined":
             await end_the_change_in_session(
                 address_changes_collection=address_changes_collection,
@@ -307,7 +275,7 @@ async def post_address_change_answer(
             session=session,
         )
         refuse(refusal_of(verdict.cause))
-        # Refused rather than ended, so this 409 keeps the promise of `app/core/codes.py`: the hourly pass ends the change as its link lapses.
+        # Refused rather than ended, so this 409 keeps its code's published promise: the hourly pass ends the change as its link lapses.
         refuse(find_nothing_refusal(empty=verdict.empty))
 
         wait = wait_after_confirmation(way=record["way"], admin_tier=holdings.waits_as)
@@ -431,16 +399,9 @@ async def post_address_change_stop(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeStopResponse:
-    """
-    Stop the change the address on file was mailed about: its new address goes.
+    """Stop the change the address on file was mailed about, its new address going, at any time until the change ends.
 
-    **Refused nothing but a token no change holds, a change ended, and the person's own change before its address on
-    file confirmed it**: a stop hands nothing over, so it answers past every deadline until the change ends. A token no
-    change holds answers `link_invalid` and an ended change `address_change_ended`. The person's own change offers this
-    link no stop until its address on file confirmed it, and answers `link_invalid` as the unknown token does, the page
-    offering no stop then: the question's decline is the one way that link ends it before, so one act keeps one ending.
-    From that confirmation on, the same link is the change's stop on every way. A holder's change in its wait tells
-    every holder.
+    The person's own change offers this link no stop until its address on file confirmed it.
     """
 
     stop_hash = hash_token(stop_data.token)
@@ -450,6 +411,8 @@ async def post_address_change_stop(
         refuse(find_unknown_refusal(found=record is not None))
         assert record is not None
         refuse(find_ended_refusal(is_open=record.get("ended") is None))
+        # Answered as an unknown token: until the address on file confirmed the person's own change, its question's decline
+        # is the one way that link ends it, so one act keeps one ending. A stop hands nothing over, so no deadline refuses it.
         refuse(find_unknown_refusal(found=not asks_the_address_on_file(record)))
 
         await end_the_change_in_session(

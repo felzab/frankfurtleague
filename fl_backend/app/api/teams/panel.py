@@ -1,5 +1,4 @@
-"""
-API · what a team's own pages read: its Übersicht and its matches
+"""What a team's own pages read: its Übersicht and its matches.
 
 Apart from `schemas.py`, which the fixture's models import: these read models are built from a fixture's and a
 confirmation's, so they stand above both.
@@ -16,10 +15,10 @@ from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpi
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class FLTeamPanelTermin(BaseModel):
+class FLTeamPanelSpielbestaetigung(BaseModel):
     """One date the league asked the team to confirm, while it still holds work for the team or waits on the league.
 
-    An agreed date is no row here. A declined one stays, with the team's own proposal, until the league adopts or
+    An agreed date is no row here, and a declined one stays, with the team's own proposal, until the league adopts or
     discards it.
     """
 
@@ -31,11 +30,9 @@ class FLTeamPanelTermin(BaseModel):
     side: FLSpielSide
     state: FLSpielbestaetigungTeamState
     deadline: CustomDateString
-    # On `vorschlag` the other club's proposed date and hour, never its reason or which of its seats answered; on
+    # On `vorschlag` the other club's proposed date and hour, never which of its seats answered; on
     # `declined` the team's own; null otherwise.
     vorschlag: FLSpielbestaetigungAppointment | None
-    # The team's own reason on `declined`, null otherwise and where it gave none.
-    reason: CustomNonEmptyString | None
 
 
 class FLTeamPanelAufstellung(BaseModel):
@@ -57,7 +54,7 @@ class FLTeamPanelRegistrierung(BaseModel):
     # The registration's own answers, null where the pupil left one open.
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
-    # Whether the pupil answered their own link (`app/api/registrierungen/schemas.py :: FLOpenRegistrierung.admissible`).
+    # Whether the pupil answered their own link.
     admissible: bool
 
 
@@ -78,7 +75,7 @@ class FLTeamOverviewResponse(BaseAPIResponse):
     # The seats the signed-in person holds on this team, in `KONTAKT_ROLLEN` order: never empty, the read refusing
     # anybody holding none.
     rollen: list[FLKontaktRolle]
-    termine: list[FLTeamPanelTermin]
+    spielbestaetigungen: list[FLTeamPanelSpielbestaetigung]
     aufstellungen: list[FLTeamPanelAufstellung]
     registrierungen: list[FLTeamPanelRegistrierung]
     # Whether every pending registration is listed, as `FLOpenRegistrierungenResponse.complete` says of the same read: the
@@ -92,7 +89,7 @@ class FLTeamPanelSpiel(FLTeamPageSpiel):
     """One of the team's matches as its own list shows it: the fixture and its matchday, and the two things that can be open on it."""
 
     # The state of the date the league asked the team to confirm, null where no row asks the team about the fixture as it stands.
-    termin: FLSpielbestaetigungTeamState | None
+    spielbestaetigung: FLSpielbestaetigungTeamState | None
     # Null for a fixture holding no day or no hour, which owes no line-up.
     aufstellung: FLAufstellungMarks | None
 

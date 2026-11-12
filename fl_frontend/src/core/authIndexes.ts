@@ -5,7 +5,7 @@ import { MongoError, MongoServerError } from "mongodb";
 import { signInStore } from "./db";
 import { logger } from "./logging";
 
-import type { CreateIndexesOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
+import type { IndexOptions, IndexSpecification, TopologyDescriptionChangedEvent } from "mongodb";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -15,21 +15,19 @@ export const MONGO_DB_NAME = "auth";
 type AuthIndex = {
   readonly collection: "session" | "passkey" | "user" | "verification";
   readonly key: IndexSpecification;
-  readonly options: CreateIndexesOptions & { readonly name: string };
+  readonly options: IndexOptions & { readonly name: string };
 };
 
 /**
- * One index per query the library and this application send, derived from the flows
- * `fl_frontend/src/core/authIndexes.db.test.ts` drives with table scans refused.
+ * One index per query the library and this application send to the sign-in store.
  * The library declares none of them at table level, so its adapter builds none.
  */
 const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
   { collection: "session", key: { token: 1 }, options: { name: "session_token_uidx", unique: true } },
   { collection: "session", key: { userId: 1 }, options: { name: "session_userId_idx" } },
-  // Each of these three names is the one production's hand-made index carries, read in its Atlas
-  // console on 2026-09-27 and moving there without us: a same-key index under another name refuses
-  // the build with code 85.
+  // Each of these three names is the one production's hand-made index carries, which can change there
+  // without us: a same-key index under another name refuses the build with code 85.
   { collection: "session", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
   { collection: "passkey", key: { credentialID: 1 }, options: { name: "credentialID_1", unique: true } },
   { collection: "verification", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
@@ -41,11 +39,7 @@ const AUTH_INDEXES: readonly AuthIndex[] = [
   { collection: "verification", key: { identifier: 1 }, options: { name: "verification_identifier_idx" } },
 ];
 
-// A build waits on no visitor, so the client's per-request `timeoutMS` never holds it: cut short, the
-// server abandons it unmade. Chosen, not measured, and bounded so an unanswered build lets its connection go.
-const INDEX_BUILD_TIMEOUT_MS = 60_000;
-
-/** The run in flight, which the next waits out, for the reason one collection's builds run in order. */
+/** The run in flight, which the next waits out, so no two runs race on one collection. */
 let running: Promise<void> = Promise.resolve();
 
 /** Whether a rebuild already waits on the store's recovery, so one outage arms one. */
@@ -69,7 +63,9 @@ async function buildOnce(): Promise<void> {
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         try {
-          await database.collection(collection).createIndex(key, { ...options, timeoutMS: INDEX_BUILD_TIMEOUT_MS });
+          // Under the client's socket bound like every call: a build outlasting it is logged unbuilt
+          // and still finishes, since the server keeps a build whose connection closed.
+          await database.collection(collection).createIndex(key, options, undefined);
         } catch (failed) {
           logUnbuilt(options.name, failed);
           // No server code is a store that did not answer, which a restart would only meet again.

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useState } from "react";
+import { startTransition, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Dialog as AriaDialog, DialogTrigger, Heading } from "react-aria-components/Dialog";
@@ -17,7 +17,6 @@ import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
 import { statusLine } from "./fieldStyles";
 import { FormFooter } from "./FormFooter";
-import { RowName } from "./RowActs";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
@@ -81,6 +80,17 @@ export function RouteDialog({
 }) {
   const router = useRouter();
   const close = () => goBackOrPush(router, beneath);
+  const dialog = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const box = dialog.current;
+    return () => {
+      // Next hides a departed intercepted route rather than unmounting it, and the browser moves focus off a hidden
+      // element only later, so the focus is released here as an unmount releases it, and React Aria gives it back to
+      // the element that opened the dialog.
+      const focused = box?.ownerDocument.activeElement;
+      if (focused instanceof HTMLElement && box?.contains(focused)) focused.blur();
+    };
+  }, []);
   return (
     <DialogOverlay
       width="form"
@@ -90,6 +100,7 @@ export function RouteDialog({
         if (!open) close();
       }}>
       <AriaDialog
+        ref={dialog}
         data-kit-focus
         className="relative grid gap-6">
         {/* In the box's corner, 12 px from its edges, over whatever the first block draws there: Primer's dialog
@@ -109,7 +120,7 @@ export function RouteDialog({
 }
 
 /**
- * A dialog's part ending its record, shaped as a row of an editor's danger box (`EditorPage.tsx`) in a dialog's width:
+ * A dialog's part ending its record, shaped as a row of an editor's danger box in a dialog's width:
  * a part of its own between the fields and the footer, a hairline over it and under it running out to both of the
  * dialog's edges through the padding the box declares, as a field group's does, and between them, 16 px from each, the
  * act's name over its consequence at the left and its outlined button at the right.
@@ -126,31 +137,24 @@ const dangerRow = tv({
  */
 function DangerRow({ danger, isClosed, onDone }: { danger: DialogDanger; isClosed: boolean; onDone: () => void }) {
   const { confirm } = danger;
-  const nameId = useId();
   return (
     <div className={dangerRow()}>
       <div className="grid min-w-0 flex-1 text-sm">
-        <span
-          id={nameId}
-          className="font-semibold">
-          {danger.name}
-        </span>
+        <span className="font-semibold">{danger.name}</span>
         <p className={statusLine({ placement: "column", tone: "resting" })}>{danger.consequence}</p>
       </div>
       {/* Its button says the verb alone, as an editor's danger row's does, so the part's name says what it acts on. */}
-      <RowName value={nameId}>
-        <ConfirmDialog
-          {...confirm}
-          onConfirm={async () => {
-            // An act answering nothing is done, as the question reads it.
-            const answered = (await confirm.onConfirm()) ?? DONE;
-            // An update after the `await` commits outside the question's transition unless it opens one of its own.
-            if (answered.ok) startTransition(onDone);
-            return answered;
-          }}
-          trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
-        />
-      </RowName>
+      <ConfirmDialog
+        {...confirm}
+        onConfirm={async () => {
+          // An act answering nothing is done, as the question reads it.
+          const answered = (await confirm.onConfirm()) ?? DONE;
+          // An update after the `await` commits outside the question's transition unless it opens one of its own.
+          if (answered.ok) startTransition(onDone);
+          return answered;
+        }}
+        trigger={{ label: COPY.shared.verb[confirm.verb], isDisabled: isClosed }}
+      />
     </div>
   );
 }
@@ -210,7 +214,7 @@ function ActDialog({
       <AriaDialog data-kit-focus>
         {/* A dialog opened from inside another form, such as an editor's section, is a form of its own: React Aria's
             `Form` would otherwise take the outer form's props from its context, the outer submit handler among them. */}
-        <FormContext.Provider value={null}>
+        <FormContext value={null}>
           <Form
             className="grid gap-6"
             validationErrors={refused?.fieldErrors}
@@ -257,7 +261,7 @@ function ActDialog({
               />
             </FormFooter>
           </Form>
-        </FormContext.Provider>
+        </FormContext>
       </AriaDialog>
     </DialogOverlay>
   );

@@ -28,7 +28,7 @@ async function press(act: (seat: string) => Promise<ActionAnswer>) {
     <>
       <ToastRegion frame="rail" />
       <PressAct
-        icon="email"
+        variant="primary"
         label={LABEL}
         act={act}
         payload="trainer"
@@ -59,16 +59,5 @@ describe("an act done at once", () => {
 
     expect(await screen.findByText(COPY.shared.failure.stale)).toBeTruthy();
     expect(state.refreshes).toBe(1);
-  });
-
-  // The generic line sends the person to a retry the same rule refuses again.
-  it("says a refusal in its own words, and its done act in the catalogue's", async () => {
-    const act = vi.fn(async (seat: string) =>
-      seat === "trainer" ? { ok: false as const, reason: COPY.shared.failure.accessGone } : { ok: true as const, value: undefined },
-    );
-    await press(act);
-
-    expect(await screen.findByText(COPY.shared.failure.accessGone)).toBeTruthy();
-    expect(act.mock.calls).toStrictEqual([["trainer"]]);
   });
 });

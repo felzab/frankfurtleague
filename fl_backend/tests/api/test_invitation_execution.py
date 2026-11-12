@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.invitations.crud import owed_invitation_mails
-from app.api.invitations.schemas import FLInvitationDispatchPayload, FLInvitationMailPayload
+from app.api.invitations.schemas import FLInvitationMailPayload
 from app.api.invitations.services import (
     InvitationRecipient,
     find_live_invitation_filter,
@@ -96,7 +96,6 @@ def invitation_row(team_id: ObjectId, *, _id: ObjectId | None = None, sent_at: s
         "saison_id": SAISON_ID,
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
-        "created_at": "2026-03-15",
         "revoked_at": None,
         "sent_at": sent_at,
     }
@@ -193,7 +192,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
 
 
 async def editor(database: AsyncDatabase) -> Any:
-    """The season editor's read, whose registration links' rows are the press's own plan with `resend` left false."""
+    """The season editor's read, whose registration links' rows are the press's own plan."""
 
     return await get_saison_admin(
         saison_id=SAISON_ID,
@@ -208,10 +207,9 @@ async def editor(database: AsyncDatabase) -> Any:
     )
 
 
-async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
+async def press(database: AsyncDatabase) -> Any:
     return await post_invitations_dispatch(
         saison_id=SAISON_ID,
-        dispatch_data=FLInvitationDispatchPayload(resend=resend),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         invitations_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
@@ -636,37 +634,19 @@ class TestTheSeasonWidePress:
         assert hashes == []
         assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
 
-    def test_the_press_writes_its_one_row_and_a_re_send_writes_none(self, mongo_replica_set_url: str):
-        """The Protokoll records no re-send, and a row for each would bury the press that matters."""
+    def test_the_press_writes_one_row_across_the_teams_it_mails(self, mongo_replica_set_url: str):
+        """One press is one act in the Protokoll, though each team it mails commits in a transaction of its own."""
 
         async def body(database: AsyncDatabase) -> Any:
             # Every link gone, so the press mails several teams, each in its own transaction.
             await database[Collection.INVITATIONS].delete_many({})
-            mailed = (await press(database)).mailed
-            first = await dispatched(database)
-            await press(database, resend=True)
 
-            return mailed, first, await dispatched(database)
+            return (await press(database)).mailed, await dispatched(database)
 
-        mailed, first, after_the_re_send = on_a_league(mongo_replica_set_url, body)
+        mailed, recorded = on_a_league(mongo_replica_set_url, body)
 
         assert mailed > 1
-        assert (first, after_the_re_send) == ([SAISON_ID], [SAISON_ID])
-
-    def test_a_re_send_replaces_the_mailed_teams_link(self, mongo_replica_set_url: str):
-        """The raw value is recoverable from nothing, so a link to be mailed again is one that has just been minted."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await press(database, resend=True)
-            replaced = await database[Collection.INVITATIONS].find_one({"_id": SEEDED_INVITATION})
-
-            assert replaced is not None
-            return replaced["revoked_at"], await live_count(database, ALREADY_MAILED)
-
-        revoked_at, live = on_a_league(mongo_replica_set_url, body)
-
-        assert revoked_at == TODAY
-        assert live == 1
+        assert recorded == [SAISON_ID]
 
     def test_a_second_press_skips_the_team_whose_mails_are_owed(self, mongo_replica_set_url: str):
         """The whole of the idempotence: a mail still waiting in the outbox counts as sent, so a second press owes nothing twice."""
@@ -700,10 +680,11 @@ class TestTheSeasonWidePress:
         """The press answers for every team, or the teams already done hold mails nobody is told were owed."""
 
         async def body(database: AsyncDatabase) -> Any:
+            # The seeded link never mailed, so the press revokes it and reaches the insert that fails.
+            await database[Collection.INVITATIONS].update_one({"_id": SEEDED_INVITATION}, {"$set": {"sent_at": None}})
             collection = as_collection(_InsertFailsForOneTeam(database[Collection.INVITATIONS], ALREADY_MAILED))
             done = await post_invitations_dispatch(
                 saison_id=SAISON_ID,
-                dispatch_data=FLInvitationDispatchPayload(resend=True),
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 invitations_collection=collection,
                 saisons_collection=database[Collection.SAISONS],

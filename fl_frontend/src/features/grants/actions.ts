@@ -9,16 +9,13 @@ import { SignInAddressSchema } from "@/features/auth/schemas";
 
 import { GRANT_ID } from "./schemas";
 
-/** The add dialog. */
 const NewGrant = z.object({ email: SignInAddressSchema, ...PAGE_HOLDER });
 
-/** A row's act, naming the grant it presses on. */
 const OfGrant = z.object({ id: GRANT_ID, ...PAGE_HOLDER });
 
-/** The handover's dialog, its select posting the current administrator chosen. */
 const HandoverChoice = z.object({ grant_id: GRANT_ID, ...PAGE_HOLDER });
 
-/** Adds an administrator, whose access holds once the wait has passed, every holder and the person told. */
+/** The access holds once the wait has passed, every holder and the person told. */
 export const addAdministrator = action({
   lane: "admin",
   name: "addAdministrator",
@@ -58,7 +55,6 @@ export const startHandover = action({
   },
 });
 
-/** Stops a waiting handover, the role staying with the owner. */
 export const stopHandover = action({
   lane: "admin",
   name: "stopHandover",

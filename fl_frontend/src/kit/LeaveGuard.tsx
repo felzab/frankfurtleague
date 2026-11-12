@@ -18,7 +18,7 @@ const GuardContext = createContext<Held | null>(null);
 export function LeaveGuardProvider({ children }: { children: ReactNode }) {
   const [guard, setGuard] = useState<LeaveGuard | null>(null);
   const value = useMemo(() => ({ guard, setGuard }), [guard]);
-  return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
+  return <GuardContext value={value}>{children}</GuardContext>;
 }
 
 /** The changes the way back would lose, or `null` where leaving loses nothing. */

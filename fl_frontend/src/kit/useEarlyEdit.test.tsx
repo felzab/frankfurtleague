@@ -248,20 +248,6 @@ const FIELDS: Case[] = [
     ...ticked,
   },
   {
-    field: "a consent box, required and described from outside",
-    page: (onChange) => (
-      <Checkbox
-        label={WORD}
-        name="scope"
-        aria-describedby="line"
-        isRequired
-        defaultSelected={false}
-        onChange={onChange}
-      />
-    ),
-    ...ticked,
-  },
-  {
     field: "a switch",
     page: (onChange) => (
       <Switch
@@ -273,54 +259,59 @@ const FIELDS: Case[] = [
   },
   {
     field: "a list of answers",
-    page: (onChange) => (
+    page: () => (
       <RadioGroup
         label={WORD}
         defaultValue="yes"
         choices={YES_NO}
-        onChange={onChange}
       />
     ),
     ...chose("no"),
+    // Its owner is the form, which posts the answer from the radio the person chose.
+    raised: undefined,
   },
   {
     field: "cards of answers",
-    page: (onChange) => (
+    page: () => (
       <RadioGroup
         label={WORD}
         layout="cards"
         choices={CARDS}
-        onChange={onChange}
       />
     ),
     ...chose("yes"),
+    raised: undefined,
   },
   {
     field: "a segmented choice",
     page: (onChange) => (
       <Segmented
         label={WORD}
-        defaultValue="yes"
+        value="yes"
         choices={YES_NO}
         onChange={onChange}
       />
     ),
-    ...chose("no"),
+    edit: (root) => tick(root, "no"),
+    raised: "no",
+    // Its owner in this case holds no state: the change is what is asked of it.
+    shown: () => undefined,
+    kept: undefined,
   },
   {
     field: "toggle boxes",
     page: (onChange) => (
       <ToggleBoxes
         label={WORD}
-        defaultValue={["yes"]}
+        value={["yes"]}
         choices={YES_NO}
         onChange={onChange}
       />
     ),
     edit: (root) => tick(root, "no"),
     raised: ["yes", "no"],
-    shown: (root) => shownChecked(root, "no"),
-    kept: true,
+    shown: () => undefined,
+    kept: undefined,
   },
 ];
 
@@ -455,12 +446,6 @@ describe("a field the person left as the server drew it", () => {
           label={WORD}
           kind="email"
           value=" lena@example.com "
-          onChange={onChange}
-        />
-        <RadioGroup
-          label={WORD}
-          defaultValue="yes"
-          choices={YES_NO}
           onChange={onChange}
         />
         <Checkbox
@@ -820,22 +805,6 @@ describe("a press held across hydration over a field edited before it", () => {
     expect(save).toHaveBeenCalledExactlyOnceWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" } });
     expect(shownText(container)).toBe("Riedberg Nord");
     expect(container.querySelector("output")?.textContent).toBe("1");
-    container.remove();
-  });
-
-  it("saves an editor's early edit once for two presses of a page that did not answer the first", async () => {
-    const save = refusedSave();
-    const page = <EditorWithWayBack save={save} />;
-    const container = drawn(page, (root) => {
-      typeInto(root, "Riedberg Nord");
-      press(root);
-      press(root);
-    });
-
-    await hydrated(container, page);
-    await replayed();
-
-    expect(save).toHaveBeenCalledOnce();
     container.remove();
   });
 

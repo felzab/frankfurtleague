@@ -1,11 +1,3 @@
-"""
-API · the erasure's grants step: a person's grants
-
-Every match is the sign-in fold's, the pattern only narrowing the read: a Playground paste keeps the
-case it was typed in, and is the one writer of a grant no fold reaches, so this step alone keeps a
-case-blind read where every other record is read by equality.
-"""
-
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -35,13 +27,13 @@ async def erase_grants_in_session(
     *,
     grants_collection: AsyncCollection,
     outbox_collection: AsyncCollection,
-    # Folded (`app/shared/folding.py :: sign_in_identifier`).
+    # Folded.
     identifier: str,
     now: datetime,
-    # REQUIRED: the grants and their notices go in one transaction or none.
+    # Required: the grants and their notices go in one transaction or none.
     session: AsyncClientSession,
-) -> int:
-    """Removes an `owner` grant, refusing nothing, answering how many went.
+) -> None:
+    """Remove every grant this person holds, an `owner` grant included, refusing nothing.
 
     Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
     """
@@ -68,5 +60,3 @@ async def erase_grants_in_session(
 
     # After the removal, so the person is no holder told: every holder who remains is.
     await owe_in_session(notices, outbox_collection=outbox_collection, grants_collection=grants_collection, now=now, session=session)
-
-    return len(grant_ids)

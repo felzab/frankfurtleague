@@ -41,13 +41,11 @@ export async function passkeysOf(userId: string): Promise<Passkey[]> {
   return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }], limit: EVERY_ROW });
 }
 
-/** What a removal found inside its transaction, each answered differently by the one caller. */
 type PasskeyRemoval = "removed" | "last" | "absent";
 
 /**
  * One transaction around the count, the claim, the delete and the sign-out: two removals started
  * from two rows would otherwise each see a second row and leave none.
- * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
 export async function removePasskey(holder: { readonly id: string; readonly isAdmin: boolean }, id: string): Promise<PasskeyRemoval> {
   // Set once the callback has returned. A throw before that aborted a transaction that never
@@ -55,7 +53,7 @@ export async function removePasskey(holder: { readonly id: string; readonly isAd
   let committing = false;
 
   try {
-    // Inside the `try`, for `deleteAccountFor`'s reason: the caller has recorded its write as sent, so a failure
+    // Inside the `try`: the caller has recorded its write as sent, so a failure
     // here reads as of unknown outcome unless it is told nothing was written.
     const { adapter } = await auth.$context;
 
@@ -73,8 +71,8 @@ export async function removePasskey(holder: { readonly id: string; readonly isAd
       return outcome;
     });
   } catch (failed) {
-    // No conflict reaches here as one: the adapter retries a write conflict on a fresh snapshot, which
-    // answers the other change's result, until the client's `timeoutMS` turns it into a timeout.
+    // A conflict reaches here only once the driver's `withTransaction` has spent its 120 s retrying it,
+    // each run on a fresh snapshot that answers the other change's result.
     throw committing ? failed : new RolledBackError(failed);
   }
 

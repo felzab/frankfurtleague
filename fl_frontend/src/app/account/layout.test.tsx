@@ -38,8 +38,6 @@ async function renderFor(read: Promise<SubjectSession>) {
 /** Where each „‹ Zurück“ leads and each logo, the rail's head's and the phone's band's. */
 const backs = () => screen.queryAllByRole("link", { name: COPY.shared.back }).map((link) => link.getAttribute("href"));
 const logos = () => screen.queryAllByRole("link", { name: COPY.brand.name }).map((link) => link.getAttribute("href"));
-/** The two places a way back or the logo stands in: the rail's head, over the menu, and the phone's band. */
-const heads = () => [screen.getByRole("complementary").firstElementChild, screen.getByRole("banner")];
 
 // The Übersicht sends a person holding no Funktion to Konto, so „Zurück“ there leads straight back to the page it
 // stands on: a control that renders, takes a press and goes nowhere.
@@ -58,11 +56,10 @@ describe("the head of Konto's rail and the band over the list of its pages", () 
     expect(logos()).toEqual([ROUTES.home.path(), ROUTES.home.path()]);
   });
 
-  it("hold neither while the session is read, the way back's own placeholder standing in each place", async () => {
+  it("hold neither while the session is read", async () => {
     await renderFor(new Promise(() => undefined));
 
     expect(backs()).toEqual([]);
     expect(logos()).toEqual([]);
-    expect(heads().map((head) => head?.querySelector("[aria-hidden]") !== null)).toEqual([true, true]);
   });
 });

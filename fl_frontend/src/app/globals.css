@@ -45,6 +45,20 @@
   --font-sans--font-feature-settings: "lnum";
 }
 
+/* Anton's stand-in until the face arrives, tuned by hand because the site sets Anton in capitals alone, where
+   next/font's own stand-in, scaled to Anton's average lowercase letter, draws a title about 30 % wider than Anton,
+   moving what stands beside it and breaking it over a line more. Here Arial is scaled to Anton's average capital, by
+   the frequency of each letter in German, and its line box takes Anton's ascent and descent, so a title stands as
+   wide and as tall as it will within a few pixels. */
+@font-face {
+  font-family: "Anton Fallback";
+  src: local("Arial");
+  size-adjust: 68.19%;
+  ascent-override: 172.5%;
+  descent-override: 48.26%;
+  line-gap-override: 0%;
+}
+
 /* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
    saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
    the selector lands on the wrong element and nothing corrects it once the content arrives. With no
@@ -54,8 +68,8 @@
   overflow-anchor: none;
 }
 
-/* An over-long PLACEHOLDER ends in an ellipsis, declared once because the
-   population is every field in the app. BOTH arms are needed: `text-overflow`
+/* An over-long placeholder ends in an ellipsis, declared once because the
+   population is every field in the app. Both arms are needed: `text-overflow`
    does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
 /* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
    inline overflow. */
@@ -87,20 +101,13 @@ input:focus:placeholder-shown::placeholder {
   }
 }
 
-/* Reduced motion, SOFTENED: the policy is "remove movement, keep fades", never
+/* Reduced motion, softened: the policy is "remove movement, keep fades", never
    "remove motion". Zeroing every duration makes the site motionless rather than
    calm, and reads as flickering. Deliberately unlayered. */
-/* Autonomous loops stop, but never a loading indicator — a frozen one says nothing about the wait
-   it exists to report. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-  }
-
-  .animate-ping,
-  .animate-pulse {
-    animation: none !important;
   }
 }

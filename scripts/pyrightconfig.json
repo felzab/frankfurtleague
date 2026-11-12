@@ -14,9 +14,9 @@
 // `venvPath` and `venv` name the backend's virtualenv, the one every python scope of the gate runs
 // in, so pytest's import resolves for the gate and for a plain `pyright` run from this folder alike.
 
-// `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
-// for the reason its own block records, so the two settings are measured separately rather than
-// one following the other.
+// `standard` is pyright's own default, and this folder is clean at it. The backend runs it too,
+// less the one rule its own block records, so the two settings are measured separately rather
+// than one following the other.
 {
   "include": ["."],
   "extraPaths": ["lib", "checks"],

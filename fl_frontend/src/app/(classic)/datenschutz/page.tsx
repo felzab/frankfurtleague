@@ -1,34 +1,28 @@
 import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
 import { Prose } from "@/kit/Prose";
+import { Table } from "@/kit/Table";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
+import { BAN_DURATION_SAISONS, DECLINED_RETENTION_DAYS, MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS } from "@/core/bounds";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS } from "@/core/sessionLifetimes";
+import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import { DAY_MS } from "@/core/timeUnits";
-import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
-import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
-import { MEDIA_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS, REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
+import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
+import { DATENSCHUTZ_AS_OF } from "@/features/meta/constants";
+import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { Copy } from "@/core/copy";
-import type { FLDeclinedRetentionDays } from "@/core/generated/client/types";
 import type { ProseBlock, ProseText } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
-
-/**
- * The days a declined application or registration stands before its sweep deletes it, checked against
- * `fl_backend/app/shared/schemas/bounds.py :: DECLINED_RETENTION_DAYS`: the backend moving it fails the type check here.
- * The notice's own copy, no slice holding the bound both kinds share.
- */
-const DECLINED_RETENTION_DAYS = 14 satisfies FLDeclinedRetentionDays;
 
 /** The league's address as a link inside a sentence. */
 const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
@@ -57,7 +51,7 @@ export default function PrivacyNoticePage() {
     paragraph(words.website.browser),
     heading(words.bewerbung.heading),
     paragraph(words.bewerbung.form),
-    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE)),
+    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
     heading(words.kader.heading),
     paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)),
     heading(words.schiedsrichter.heading),
@@ -70,6 +64,7 @@ export default function PrivacyNoticePage() {
         { minutes: CODE_VALIDITY_MINUTES },
         { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
         { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+        SESSION_EXPIRES_IN_DAYS,
       ),
     ),
     paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
@@ -90,37 +85,39 @@ export default function PrivacyNoticePage() {
     heading(retention.heading),
     {
       kind: "table",
-      table: {
-        label: retention.heading,
-        nameLabel: retention.nameLabel,
-        columns: [
-          { key: "content", label: retention.content },
-          { key: "period", label: retention.period },
-        ],
-        rows: retention.rows.map((row) => ({
-          id: row.name,
-          name: row.name,
-          cells: {
-            content: row.content,
-            period:
-              typeof row.period === "string"
-                ? row.period
-                : row.period({
-                    bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
-                    registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
-                    declinedDays: DECLINED_RETENTION_DAYS,
-                    schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
-                    addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
-                    code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
-                    person: { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
-                    admin: { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
-                  }),
-          },
-        })),
-        // Its rows are fixed, so this state never shows; every table names one.
-        empty: { kind: "none", plural: retention.nameLabel },
-        prose: true,
-      },
+      table: (
+        <Table
+          label={retention.heading}
+          nameLabel={retention.nameLabel}
+          columns={[
+            { key: "content", label: retention.content },
+            { key: "period", label: retention.period },
+          ]}
+          rows={retention.rows.map((row) => ({
+            id: row.name,
+            name: row.name,
+            cells: {
+              content: row.content,
+              period:
+                typeof row.period === "string"
+                  ? row.period
+                  : row.period({
+                      bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+                      registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+                      declinedDays: DECLINED_RETENTION_DAYS,
+                      schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
+                      addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
+                      code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
+                      sessionDays: SESSION_EXPIRES_IN_DAYS,
+                      banSaisons: BAN_DURATION_SAISONS,
+                    }),
+            },
+          }))}
+          // Its rows are fixed, so this state never shows; every table names one.
+          empty={{ kind: "none", plural: retention.nameLabel }}
+          prose
+        />
+      ),
     },
     heading(words.erasure.heading),
     paragraph(words.erasure.text),
@@ -129,7 +126,7 @@ export default function PrivacyNoticePage() {
     paragraph(rights.text.before, MAIL, rights.text.after),
     { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
     paragraph(rights.closing),
-    paragraph(words.stand(DATENSCHUTZ_STAND)),
+    paragraph(words.asOf(DATENSCHUTZ_AS_OF)),
   ];
   return (
     <ClassicPage width="form">

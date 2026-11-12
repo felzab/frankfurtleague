@@ -27,9 +27,9 @@ HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "opti
 SLICE_GUARDS: set[Callable[..., Any]] = {verify_access_base, verify_access_admin, verify_access_system}
 
 
-# `/system/is_live` is the container healthcheck: one that needs a secret fails for the wrong reasons
-# (`app/core/security.py`).
-UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live"})
+# `/system/is_live` is the container healthcheck and `/system/is_ready` a monitor's: a probe that needs
+# a secret fails for the wrong reasons (`app/core/security.py`).
+UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live", "/api/v0/system/is_ready"})
 
 # FastAPI drops the convertor when it builds the document (`app/core/routing.py`), so
 # `{spiel_id:objectid}` publishes as `{spiel_id}` and the two spellings need bringing together.
@@ -98,9 +98,8 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
-    # A POST that stores nothing, listed for `ADMIN_READS`' erasure reveal's reason: the address
-    # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
-    # system tier's.
+    # A POST that stores nothing: the address travels in a body, so `MUTATIONS` would cover it, and
+    # this exemption leaves its one guard the system tier's.
     ("/api/v0/identity/subject", "post"),
     ("/api/v0/identity/sign_in", "post"),
     ("/api/v0/identity/references", "post"),
@@ -129,62 +128,6 @@ MUTATIONS = [
     if method != "get" and (path, method) not in PUBLIC_WRITES and (path, method) not in SYSTEM_WRITES
 ]
 
-# Admin reads this inventory PINS, not every admin read the application serves -- nothing about a GET
-# tells the inventory which tier it belongs to, so each is enumerated and parametrised below.
-
-# What earns a place: a revert to `verify_access_base` here publishes something named -- a venue's
-# rent, a referee's contact details (`READ-MONEY-001`, `READ-CONTACT-001`).
-
-# The two `bewerbungen` reads serve three people's names, addresses, telephone numbers and dates of
-# birth, and that prefix now carries a base-tier router too, so the guard is the only thing between.
-ADMIN_READS = [
-    ("/api/v0/spielorte", "get"),
-    ("/api/v0/spielorte/{spielort_id}", "get"),
-    ("/api/v0/schiedsrichter", "get"),
-    ("/api/v0/schiedsrichter/{schiedsrichter_id}", "get"),
-    ("/api/v0/bewerbungen/list/admin", "get"),
-    ("/api/v0/bewerbungen/{bewerbung_id}", "get"),
-    # Every confirmation row of a season, each reason a club typed or an administrator recorded among them: free text
-    # that may name anyone, which no base-tier read serves.
-    ("/api/v0/spielbestaetigungen", "get"),
-    # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
-    # stop covering it the day somebody makes the reveal a GET.
-    ("/api/v0/identity/erasure/view", "post"),
-    # A revert to `verify_access_base` here publishes every barred address beside its reason
-    # (`READ-CONTACT-001`).
-    ("/api/v0/ban_list", "get"),
-    # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
-    # as the two `bewerbungen` reads are.
-    # The team editor's read serves its seats' addresses (`READ-CONTACT-001`).
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/admin", "get"),
-    # A registration holds a pupil's name, the address the league mailed and, once they confirm,
-    # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
-    ("/api/v0/registrierungen/list/admin", "get"),
-    # A team's squad with every surname whole, served to its own seat holders: a revert to
-    # `verify_access_base` hands it to every visitor, past the initial `READ-PUPIL-001` keeps for them.
-    ("/api/v0/spieler/kader/{team_id}/{saison_id}", "get"),
-    # A team's pending registrations name the person each address resolves to, a pupil's record the
-    # base tier never serves.
-    ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-    # A person's own records: a birthdate and a consent record, and on a referee's the contact
-    # details (`READ-CONTACT-001`), each served to that person alone.
-    ("/api/v0/account/einwilligungen", "get"),
-    # A report's remarks and card reasons, which only the booked referee reads; the squads beside them carry every
-    # surname whole.
-    ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
-    # Every report's proposed result, which the public result never serves.
-    ("/api/v0/spielberichte", "get"),
-    # A line-up's read serves the squad to pick from with every surname whole, to the club's seats and to an
-    # administrator: past the initial `READ-PUPIL-001` keeps for a visitor.
-    ("/api/v0/aufstellungen/{spiel_id}/{team_id}", "get"),
-    ("/api/v0/aufstellungen/{spiel_id}/{team_id}/self", "get"),
-    # A team's open work names the pupils awaiting its decision and its seats' holders.
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview", "get"),
-    # A pupil's own season and a referee's own fixtures, the second with the reason they declined one for.
-    ("/api/v0/spieler/self/{saison_id}", "get"),
-    ("/api/v0/schiedsrichter/self/spiele/{saison_id}", "get"),
-]
-
 
 def guards_of(route: APIRoute) -> set[Callable[..., Any]]:
     """`set[Callable]` rather than `set[object]`: `set` is invariant, so the narrower element type is not assignable."""
@@ -197,18 +140,40 @@ def test_the_published_surface_and_the_mounted_routes_are_the_same_set():
     assert set(PUBLISHED_OPERATIONS) == set(ROUTES_BY_OPERATION)
 
 
+# Each path parameter as a request fills it: an id where the convertor asks one, a season's year elsewhere.
+PATH_PARAMETER = re.compile(r"\{[^}:]+(:[^}]+)?\}")
+AN_ID = "6890a1b2c3d4e5f607182930"
+
+
+def requested(path: str) -> str:
+    return PATH_PARAMETER.sub(lambda parameter: AN_ID if parameter[1] else "2026", path)
+
+
+def test_every_operation_is_answered_by_its_own_route():
+    """Matched as Starlette matches, the first route in mount order taking the path and the method.
+
+    What every guard case here assumes: a literal segment such as `/spieler/self/saisons` reaching a
+    route mounted earlier, `/spieler/self/{saison_id}`, would be served under that route's guard.
+    Not parametrised, so one failure names every shadowed operation at once.
+    """
+
+    shadowed = []
+    for (path, method), route in MOUNTED_OPERATIONS:
+        answering = next(
+            candidate
+            for _, candidate in MOUNTED_OPERATIONS
+            if method.upper() in (candidate.methods or ()) and candidate.path_regex.match(requested(route.path))
+        )
+        if answering is not route:
+            shadowed.append(f"{method.upper()} {path} is answered by {answering.path}")
+
+    assert shadowed == []
+
+
 @pytest.mark.parametrize(("path", "method"), MUTATIONS, ids=lambda value: value)
 def test_every_mutation_is_admin_guarded(path: str, method: str):
     """Parametrised rather than looped, so a failure names the method and path it broke on."""
     assert verify_access_admin in guards_of(ROUTES_BY_OPERATION[(path, method)]), f"{method.upper()} {path} is not admin-guarded"
-
-
-@pytest.mark.parametrize(("path", "method"), ADMIN_READS, ids=lambda value: value)
-def test_the_pinned_reads_are_admin_guarded(path: str, method: str):
-    """Money, contact details and three people's own data ride on these, so a guard reverted to `verify_access_base` publishes them."""
-    assert (path, method) in ROUTES_BY_OPERATION, f"{method.upper()} {path} is not mounted -- this list names a route that moved"
-
-    assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_admin}, f"{method.upper()} {path} is not admin-guarded"
 
 
 @pytest.mark.parametrize(("path", "method"), PUBLISHED_OPERATIONS, ids=lambda value: value)
@@ -322,13 +287,14 @@ def test_a_public_write_is_base_tier(path: str, method: str):
     assert guards_of(ROUTES_BY_OPERATION[(path, method)]) == {verify_access_base}, f"{method.upper()} {path} is not base-tier"
 
 
-@pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
-def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: str):
+def test_a_public_write_is_unreachable_without_the_base_key():
     """Public here means no SESSION, never no key: the edge reaches this application through the frontend.
 
-    A request carrying no bearer token answers `access_key_refused` before the body is parsed.
+    A request carrying no bearer token answers `access_key_refused` before the body is parsed. One write
+    stands for all: the case above holds each to the base guard alone, and that guard is one function.
     """
 
+    path, method = PUBLIC_WRITES[0]
     response = TestClient(APP, raise_server_exceptions=False).request(method, path, json={})
 
     assert response.status_code == 401
@@ -348,6 +314,45 @@ SYSTEM_READS = [
 ]
 
 
+# The reads a visitor's page makes, which are therefore NOT admin-guarded: enumerated as the public
+# writes are, since nothing about a GET tells which tier it belongs to.
+BASE_READS = [
+    ("/api/v0/bewerbungen/form/{saison_id}", "get"),
+    ("/api/v0/saisons/frame", "get"),
+    ("/api/v0/saisons/landing", "get"),
+    ("/api/v0/saisons/{saison_id}", "get"),
+    ("/api/v0/saisons/{saison_id}/ko_runde", "get"),
+    ("/api/v0/saisons/{saison_id}/spiele/{spiel_id}", "get"),
+    ("/api/v0/saisons/{saison_id}/spielplan", "get"),
+    ("/api/v0/saisons/{saison_id}/tabelle", "get"),
+    ("/api/v0/saisons/{saison_id}/teams", "get"),
+    ("/api/v0/saisons/{saison_id}/teams/{team_id}", "get"),
+    ("/api/v0/spiele/{spiel_id}", "get"),
+    ("/api/v0/spieler/{spieler_id}", "get"),
+    ("/api/v0/spieltage/{spieltag_id}", "get"),
+    ("/api/v0/teams/{team_id}", "get"),
+]
+
+
+def test_every_read_is_admin_guarded_unless_the_inventory_names_it():
+    """Derived fail-closed, as the writes are: a read moved to the base router publishes what its guard kept back.
+
+    An equality either way, so a base read that gained the system guard fails too. Not parametrised, so
+    one failure names every misplaced read at once.
+    """
+
+    misplaced = []
+    for path, method in PUBLISHED_OPERATIONS:
+        if method != "get" or path in UNGUARDED_BY_DESIGN or (path, method) in SYSTEM_READS:
+            continue
+        tier, expected = ("base", verify_access_base) if (path, method) in BASE_READS else ("admin", verify_access_admin)
+        if guards_of(ROUTES_BY_OPERATION[(path, method)]) != {expected}:
+            misplaced.append(f"GET {path} is not {tier}-tier")
+    unmounted = [path for path, method in BASE_READS if (path, method) not in ROUTES_BY_OPERATION]
+
+    assert (misplaced, unmounted) == ([], [])
+
+
 @pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)
 def test_a_system_write_is_system_tier(path: str, method: str):
     """An equality, as the public exemption's is: a sweep endpoint that fell to the base key would erase applications for anyone."""
@@ -360,8 +365,10 @@ def test_a_system_write_is_system_tier(path: str, method: str):
     assert bind_actor not in calls, f"{method.upper()} {path} refuses the pass it serves"
 
 
-@pytest.mark.parametrize(("path", "method"), [*SYSTEM_WRITES, *SYSTEM_READS], ids=lambda value: value)
-def test_a_system_write_is_unreachable_without_the_system_key(path: str, method: str):
+def test_a_system_write_is_unreachable_without_the_system_key():
+    """One write stands for all, as for the public writes: each is held to the system guard alone above."""
+
+    path, method = SYSTEM_WRITES[0]
     response = TestClient(APP, raise_server_exceptions=False).request(method, path.replace("{saison_id}", "2026"), json={})
 
     assert response.status_code == 401

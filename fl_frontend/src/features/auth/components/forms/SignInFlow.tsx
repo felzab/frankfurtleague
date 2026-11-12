@@ -21,9 +21,8 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 
 /**
- * `/signin` for somebody signed out: the address and its send, the six boxes for the mailed code, and the
- * passkey by its button alone. `next` is the landing every finished sign-in leaves for; `siteKey` the bot
- * check's public key, which the page reads at request time.
+ * `next` is the landing every finished sign-in leaves for; `siteKey` the bot check's public key, which the page reads
+ * at request time.
  */
 export function SignInFlow({ next, siteKey }: { next: string; siteKey: string }) {
   const [email, setEmail] = useState("");
@@ -117,7 +116,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
   }
 
   const refused = answer !== null && answer !== left && !answer.ok ? answer : null;
-  // None while a send is on its way, as the kit's `statusOf` answers, so the same refusal twice is announced twice.
+  // None while a send is on its way: the last refusal is none to the send still running.
   const sendError = refused === null || send.isPending ? null : (refused.reason ?? null);
 
   const withPasskey = async () => {

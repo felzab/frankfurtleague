@@ -1,9 +1,7 @@
-"""
-API · the account page's consent controls: what every kind of own record's share
+"""One module for every kind of own record, deciding from what the routers pass and reading nothing.
 
-One module for every kind, so their PATCHes cannot answer one press differently and the account page's
-read judges a grant exactly as the PATCH it offers does. Pure: the routers read, and this module decides
-from what they pass.
+One module, so the kinds' PATCHes cannot answer one press differently and the account page's read judges a grant
+exactly as the PATCH it offers does.
 """
 
 from collections.abc import Mapping, Sequence
@@ -23,13 +21,12 @@ from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung_evidence import CHOICES, FLEinwilligungChoice, TextVersions, compose_choices, evidence_state_of, is_given
-from app.shared.schemas.bounds import MEDIA_MIN_AGE_YEARS
 from app.shared.schemas.einwilligung import PressTextVersions, stale_grants
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
 def gives_anything(*, saved: Mapping[str, Any], chosen: Mapping[FLEinwilligungChoice, Any]) -> bool:
-    """Whether a press GRANTS a choice the stored record withholds, in either vocabulary.
+    """Whether a press grants a choice the stored record withholds, in either vocabulary.
 
     A grant is admitted only where its record's grant predicate allows it, a withdrawal on every confirmed one (Art. 7(3) DSGVO).
     """
@@ -172,10 +169,6 @@ def find_evidence_state_refusal(*, expected: Mapping[str, Any], blocks: Sequence
     )
 
 
-# --- The records each read serves: CONFIRMED ones alone, retired rows and past seasons included, a
-# withdrawal staying open on every record a consent stands on.
-
-
 def context_teams_lookup(local_field: str) -> Mapping[str, Any]:
     """The clubs a record's `local_field` names, read today as `teams`: the name a registration's and an application's entry shows."""
 
@@ -213,14 +206,13 @@ def build_account_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def compose_spieler_account(row: Mapping[str, Any], *, today: str) -> dict[str, Any]:
-    """The pupil's account entry: its stored data and its consent, never its squad rows, which the page lists none of."""
+    """The pupil's account entry: its stored data and its consent."""
 
     return {
         **_compose_spieler_person(row),
         "einwilligung": _account_einwilligung(row["einwilligung"]),
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
-        "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
 
@@ -263,12 +255,11 @@ def compose_schiedsrichter_account(row: Mapping[str, Any], *, givable: bool, tod
         "evidence_state": evidence_state_of(blocks=[row["einwilligung"]]),
         "givable": givable,
         "media_offered": media_offered(birth_date=row.get("birth_date"), today=today),
-        "media_minimum_age": MEDIA_MIN_AGE_YEARS,
     }
 
 
 def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """Every season row one of whose seats names the address, `app/api/identity/services.py :: own_seats` judging each slot.
+    """Every season row one of whose seats names the address, `own_seats` judging each slot.
 
     No `austritt` term: a withdrawal reaches a withdrawn team's seat too. Each row carries its season's status, so the page
     reads none apart.
@@ -330,11 +321,7 @@ def compose_seats_self(
     seats_with_panel: Sequence[FLSubjectSeat],
     today: str,
 ) -> list[dict[str, Any]]:
-    """One entry per season row on which this address holds a confirmed seat.
-
-    Per ROW, the seat PATCH moving a person's slots together; each choice is on where any held slot's
-    is, so a withdrawal stays offered.
-    """
+    """One entry per season row on which this address holds a confirmed seat, the seat PATCH moving a person's slots together."""
 
     seats = []
     for row in rows:
@@ -349,17 +336,12 @@ def compose_seats_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_seat_choices_held(held),
-                "media_minimum_age": MEDIA_MIN_AGE_YEARS,
                 "media_offered": all(media_offered(birth_date=seat.get("birth_date"), today=today) for seat in held),
                 "givable": holds_a_seat(seats_with_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
             }
         )
 
     return seats
-
-
-# --- The pending applications a person confirmed a seat on: withdraw-only, a grant being the
-# confirmation page's alone.
 
 
 def build_self_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -402,9 +384,6 @@ def compose_bewerbung_seats_self(
         )
 
     return entries
-
-
-# --- The pending registrations a pupil confirmed: withdraw-only until the admission.
 
 
 def build_self_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
@@ -456,9 +435,6 @@ def compose_registrierungen_self(
 
     return entries
 
-
-# --- The page's ONE read: every kind of own record, each arm keyed by the person's own rows and joined to what it names,
-# unioned into one aggregation so the page costs one round trip.
 
 AccountArm = Literal["spieler", "schiedsrichter", "seats", "bewerbungen", "registrierungen"]
 

@@ -1,19 +1,19 @@
 import "server-only";
 
+import { DECLINED_RETENTION_DAYS } from "./bounds";
 import { COPY, rollenText } from "./copy";
 import { mailOrigin } from "./emailShell";
-import { dayOf, formatDateLong, formatList } from "./format";
+import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
-import { TRIKOT_FARBEN } from "./teamVocabulary";
+import { TRIKOT_FARBEN } from "./trikotFarben";
 
 import type { Mail, Sentence } from "./emailShell";
 import type {
   FLBewerbungAbsageData,
   FLBewerbungLinkData,
   FLBewerbungObjectionData,
-  FLBewerbungPerson,
   FLBewerbungReceivedData,
   FLBewerbungZusageData,
   FLDeletionNoticeData,
@@ -31,29 +31,22 @@ const toBewerbung = (origin: string, saisonId: string) => ({
   href: `${origin}${ROUTES.bewerbung.path(encodeURIComponent(saisonId))}`,
 });
 
-/** A seat's own last day set semibold, in the words of the page's `applicationDeadline`: each seat holds its own day. */
+/** A seat's own last day set semibold: each seat holds its own day. */
 const deadlineSentence = (deadline: string): Sentence => [
   WORDS.deadline.before,
   { strong: formatDateLong(dayOf(deadline)) },
   WORDS.deadline.after,
 ];
 
-/** „{first_name} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
-function personName({ first_name: firstName, rollen }: FLBewerbungPerson): string {
-  return `${firstName ?? WORDS.unnamed} (${rollenText(rollen)})`;
-}
-
 /** A fill named by its hex, in this shape alone: no supplier could match any other. */
 const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
-  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
+  { team, shorthand, saison_id, rollen, gruppe, trikot_farbe }: FLBewerbungZusageData,
   { origin }: MailOrigin,
 ): Mail {
   const site = mailOrigin(origin);
-  // Blank counts as unnamed, so the silence rests on no payload's trim.
-  const opponent = (wunschgegner ?? "").trim();
   const farbe = TRIKOT_FARBEN.find((entry) => entry.value === trikot_farbe);
   const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
@@ -78,20 +71,13 @@ export function buildBewerbungZusageEmail(
         { label: WORDS.registeredAs, value: rollenText(rollen) },
       ],
     },
-    afterBlock: [
-      [farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed],
-      ...(opponent === "" ? [] : [[WORDS.zusage.wunschgegner(opponent)] as const]),
-      [WORDS.zusage.signIn],
-    ],
+    afterBlock: [[farbe === undefined ? WORDS.zusage.fixedNoColour : WORDS.zusage.fixed], [WORDS.zusage.signIn]],
     button: { label: COPY.shared.verb.signIn, href: `${site}${ROUTES.signIn.path()}` },
   };
 }
 
 /** The decision and the reason it was given, unabridged and last: the one thing the mail exists to hand over. */
-export function buildBewerbungAbsageEmail(
-  { team, saison_id, rollen, reason, deletion_days }: FLBewerbungAbsageData,
-  { origin }: MailOrigin,
-): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, reason }: FLBewerbungAbsageData, { origin }: MailOrigin): Mail {
   return {
     kind: "notice",
     subjectLine: WORDS.absage.subject(saison_id),
@@ -100,7 +86,7 @@ export function buildBewerbungAbsageEmail(
       [
         [WORDS.absage.lead.before, { strong: team }, WORDS.absage.lead.after(saison_id)],
         WORDS.absage.decision,
-        WORDS.absage.deletion(deletion_days),
+        WORDS.absage.deletion(DECLINED_RETENTION_DAYS),
       ],
     ],
     block: {
@@ -153,8 +139,8 @@ export function buildBewerbungReminderEmail({ saison_id, schule, deadline }: FLB
 
 /**
  * The Ansprechperson's link mail, a first contact as every seat's is: the address was typed into a form, and nothing
- * says its reader typed it. `pending` names who else is to answer and the mail names no school, so a mistyped address
- * hands a stranger names with nothing to attach them to.
+ * says its reader typed it. `pending` names the other seats by role alone and the mail names no school, so a mistyped
+ * address hands a stranger nobody.
  */
 export function buildBewerbungReceivedEmail(
   { saison_id, rollen, pending, deadline }: FLBewerbungReceivedData,
@@ -175,7 +161,7 @@ export function buildBewerbungReceivedEmail(
       title: WORDS.status,
       facts: [
         { label: COPY.shared.saison, value: saison_id },
-        { label: WORDS.received.pending, value: formatList(pending.map(personName)) },
+        { label: WORDS.received.pending, value: rollenText(pending) },
       ],
     },
     button: { label: COPY.page.entryConfirmation, href: kontaktConfirmationLink(site, token) },
@@ -205,21 +191,21 @@ export function buildDeletionNoticeEmail({ saison_id }: FLDeletionNoticeData, { 
 }
 
 /**
- * What the Ansprechperson is told when a person refuses their entry; `declined` was read before the decline emptied it.
+ * What the Ansprechperson is told when a person refuses their entry, by the seats it emptied.
  * No button: the next step is „Sitz bearbeiten“, the league's, and a reply reaches its mailbox.
  */
 export function buildBewerbungObjectionEmail(
   { saison_id, rollen, declined, deadline }: FLBewerbungObjectionData,
   { origin }: MailOrigin,
 ): Mail {
-  const person = personName(declined);
+  const seats = rollenText(declined);
 
   return {
     kind: "notice",
     subjectLine: WORDS.objection.subject(saison_id),
     origin: mailOrigin(origin),
     paragraphs: [
-      [[{ strong: person }, WORDS.objection.lead.after], WORDS.objection.removed],
+      [[WORDS.objection.lead.before, { strong: seats }, WORDS.objection.lead.after], WORDS.objection.removed],
       [WORDS.objection.replace, [WORDS.objection.until.before, { strong: formatDateLong(dayOf(deadline)) }, WORDS.objection.until.after]],
     ],
     block: {
@@ -227,7 +213,7 @@ export function buildBewerbungObjectionEmail(
       facts: [
         { label: COPY.shared.saison, value: saison_id },
         { label: WORDS.registeredAs, value: rollenText(rollen) },
-        { label: WORDS.objection.from, value: person },
+        { label: WORDS.objection.from, value: seats },
       ],
     },
   };

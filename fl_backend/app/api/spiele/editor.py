@@ -22,8 +22,8 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.admin_router import get_spielbestaetigungen
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungenFilterParams
+from app.api.spielbestaetigungen.crud import pull_admin_rows
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -36,9 +36,8 @@ from app.api.spiele.services import (
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import is_confirmed
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -69,16 +68,17 @@ class FLSpielEditorSchiedsrichter(BaseReadModel):
 class FLSpielEditorTeam(BaseReadModel):
     """A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
 
-    `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
-    off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
-    and occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.
+    `on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it
+    here as the fixture stands would pass.
     """
 
     id: CustomObjectId
     name: CustomNonEmptyString
     # The plaque a side picked and not yet saved shows, as a fielded side's joined block carries it.
     shorthand: CustomNonEmptyString
+    # A save fielding the club here either moves it off that fixture or is refused for it.
     on_spieltag: bool
+    # Judged by the write's own eligibility and occupancy rules, on the side the club already holds.
     fieldable: bool
 
 
@@ -105,13 +105,11 @@ class FLSpielEditorAufstellungen(BaseReadModel):
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
-    """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
-
-    `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
-    match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
-    """
+    """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
     spiel: FLSpielJoinedAdmin
+    # On the response rather than on the fixture: the editor alone asks it, to open a finished season's match read-only,
+    # which the save refuses, and a fixture carries no season-scoped state.
     saison_status: FLSaisonStatus
     # Every live venue and referee, and the fixture's own where it has retired, so a booking stays named.
     spielorte: list[FLSpielEditorSpielort]
@@ -120,7 +118,7 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     teams: list[FLSpielEditorTeam] | None
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
-    # The fixture's confirmation rows, newest first, as the confirmations' own read serves them.
+    # The fixture's confirmation rows, newest first, as an administrator reads them.
     spielbestaetigungen: list[FLSpielbestaetigung]
     aufstellungen: FLSpielEditorAufstellungen
 
@@ -166,7 +164,7 @@ async def _teams_of(
         pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": spiel.saison_id},
-            limit=LIST_LIMIT_MAX,
+            limit=LIST_LIMIT_DEFAULT,
             sort_by=[("name", 1)],
             projection=["team_id", "shorthand"],
             collation=GERMAN_COLLATION,
@@ -272,7 +270,7 @@ async def read_spiel_editor(
     spiel = FLSpielJoinedAdmin.model_validate(spiele_raw[0])
 
     booked_spielort = None if spiel.spielort is None else spiel.spielort.spielort_id
-    gebuchter_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
+    booked_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
     # The rest named by the fixture alone, so read beside one another, in two groups because `asyncio.gather`'s typing
     # stops at six.
@@ -283,16 +281,15 @@ async def read_spiel_editor(
             pull_many_from_db(
                 collection=spielorte_collection,
                 db_filter=_offered(booked_spielort),
-                limit=LIST_LIMIT_MAX,
+                limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_mietpreis", "inactive_since"],
                 collation=GERMAN_COLLATION,
             ),
             pull_many_from_db(
                 collection=schiedsrichter_collection,
-                # Never the ghost, whom no fixture is booked onto anew and who has no name to offer.
-                db_filter={**_offered(gebuchter_schiedsrichter), "_id": {"$ne": GHOST_SCHIEDSRICHTER_ID}},
-                limit=LIST_LIMIT_MAX,
+                db_filter=_offered(booked_schiedsrichter),
+                limit=LIST_LIMIT_DEFAULT,
                 sort_by=[("name", 1)],
                 projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
                 collation=GERMAN_COLLATION,
@@ -308,10 +305,10 @@ async def read_spiel_editor(
                 spieler_collection=spieler_collection,
                 spielberichte_collection=spielberichte_collection,
             ),
-            # The confirmations' own reader, so a row reaches the editor as their list serves it.
-            get_spielbestaetigungen(
+            # The administrator's read of confirmation rows, so no seat's address reaches the editor.
+            pull_admin_rows(
                 spielbestaetigungen_collection=spielbestaetigungen_collection,
-                filters=FLSpielbestaetigungenFilterParams(saison_id=spiel.saison_id, spiel_id=spiel_id, limit=LIST_LIMIT_MAX),
+                db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
             ),
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection),
@@ -329,6 +326,6 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=confirmations.spielbestaetigungen,
+        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations],
         aufstellungen=aufstellungen,
     )

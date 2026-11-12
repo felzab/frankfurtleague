@@ -20,12 +20,13 @@ TRACEPARENT = re.compile(r"\A00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\Z")
 ZERO_TRACE_ID = "0" * 32
 ZERO_PARENT_ID = "0" * 16
 
-# Docker's healthcheck asks every 30 seconds; its answers would outnumber every other line, and the
-# edge still logs the external monitor's checks of it.
-IS_LIVE_PATH: Final = f"/api/v{API_VERSION}/system/is_live"
+# The two probes, whose answers would outnumber every other line: Docker's healthcheck asks the first
+# every 30 seconds, a monitor outside asks the second on a schedule of its own, and the edge logs
+# every request from outside. A failed answer is still logged: it marks when the probe began failing.
+PROBE_PATHS: Final = frozenset({f"/api/v{API_VERSION}/system/is_live", f"/api/v{API_VERSION}/system/is_ready"})
 
-# Under `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` by what the page's clock counts and
-# this one cannot: the hop in, the queue before this runs, the answer's way back.
+# Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
+# in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
 
@@ -33,7 +34,7 @@ REQUEST_DEADLINE_S: Final = 10.0
 class RequestDeadline:
     """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
 
-    The aborts' grace (`app/core/transactions.py :: ABORT_GRACE_S`) is the time the request's aborts may
+    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
     run past `at`, all of them together, charged after each abort: the first abort past the deadline
     gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
     the request reaches an abort only when its next database operation meets the deadline, however
@@ -131,7 +132,7 @@ class TraceContextMiddleware:
 
     @staticmethod
     def _log_access(request: Request, status: int, started: float, answer: _Answer) -> None:
-        if request.url.path == IS_LIVE_PATH and status < 400:
+        if request.url.path in PROBE_PATHS and status < 400:
             return
         # The query string is logged too: on this API it carries ids and filters, never personal
         # data, which travels in bodies and is never logged.

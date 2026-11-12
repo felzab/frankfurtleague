@@ -14,7 +14,7 @@ from app.shared.schemas.custom import (
     FLUtcInstant,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielerPosition, FLSpielSide
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
@@ -43,8 +43,8 @@ type FLSpielberichtState = Literal["proposed", "adopted", "differing", "cancelle
 class FLSpielberichtVorschlag(BaseModel):
     """The referee's proposed result, which only the administrator's own save applies.
 
-    Each count is the entries credited to that side, written by the report's save and sent by no form. Both null on a
-    no-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.
+    Each count is the entries credited to that side, written by the report's save and sent by no form, and both are null
+    on a no-show alone, whose goals the save composes from the season's forfeit.
     """
 
     team1_tore: Annotated[int, Field(ge=0)] | None
@@ -54,7 +54,7 @@ class FLSpielberichtVorschlag(BaseModel):
 
 
 class FLSpielberichtScorer(BaseModel):
-    """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
+    """One goal. A null `spieler_id` names nobody: a scorer the referee did not name, or a pupil erased since, read alike."""
 
     side: FLSpielSide
     spieler_id: CustomObjectId | None
@@ -66,8 +66,7 @@ class FLSpielberichtScorer(BaseModel):
 class FLSpielberichtCard(BaseModel):
     """One card: who was shown it, when, and its colour.
 
-    A null `spieler_id` is a player nobody named and nothing else, as a scorer's is: a side whose club holds no squad
-    still takes cards.
+    A null `spieler_id` names nobody, as a scorer's does: a side whose club holds no squad still takes cards.
     """
 
     side: FLSpielSide
@@ -109,7 +108,7 @@ class FLSpielberichtBericht(BaseModel):
     sides: FLSpielberichtSides
     submitted_at: FLUtcInstant
     # Whether the administrator's save took this content over. The referee's every write clears it in the same update,
-    # so it never outlives the content it was given for; a job writing the document (an erased pupil's repoint, the
+    # so it never outlives the content it was given for; a job writing the document (an erased pupil's entries, the
     # season-end strip) leaves it alone.
     adopted: bool
 
@@ -121,11 +120,10 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht
-    # 0 until a write raises it, as the create stamps it.
     version: int = 0
 
 
-# --- The WRITE: the referee's PUT.
+# --- The write: the referee's PUT.
 
 
 class FLSpielberichtVorschlagPayload(BaseModel):
@@ -133,7 +131,7 @@ class FLSpielberichtVorschlagPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Both required as KEYS and null where unused: an omitted key would read as a form that forgot it.
+    # Both required as keys and null where unused: an omitted key would read as a form that forgot it.
     elfmeterschiessen: FLSpielElfmeterschiessenPayload | None
     sonderereignis: FLSpielberichtSonderereignis | None
 
@@ -190,11 +188,11 @@ class FLSpielberichtPayload(BaseModel):
 
     bericht: FLSpielberichtBerichtPayload
     # The document's `version` the form was served, null where it showed no report: required with no default, since an
-    # omitted one would check nothing (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # omitted one would check nothing.
     version: CustomVersion | None
 
 
-# --- The READ of the referee's form: the fixture, both live squads to pick from, and the stored block.
+# --- The read of the referee's form: the fixture, both live squads to pick from, and the stored block.
 
 
 class FLSpielberichtTeam(BaseModel):
@@ -220,7 +218,7 @@ class FLSpielberichtSpiel(BaseModel):
 
 
 class FLSpielberichtSpieler(BaseModel):
-    """A pupil a report may name or names, with the names their record holds, both null where an erasure took the record."""
+    """A pupil a report may name or names, with the names their record holds, both null where no record holds the pupil."""
 
     spieler_id: CustomObjectId
     first_name: str | None
@@ -256,40 +254,18 @@ class FLSpielberichtSchiedsrichterResponse(BaseAPIResponse):
     reportable: bool
 
 
-class FLSpielberichtStateEntry(BaseModel):
-    """One fixture's report as the triage reads it: its state and what it proposes."""
-
-    spiel_id: CustomObjectId
-    state: FLSpielberichtState
-    ergebnis_vorschlag: FLSpielberichtVorschlag
-
-
-class FLSpielberichteSaisonResponse(BaseAPIResponse):
-    """Every report of one season that holds a block, each with its state."""
-
-    spielberichte: list[FLSpielberichtStateEntry]
-
-
-# --- The PUBLIC read: what the match page shows of a report, every pupil through the base tier's mask.
-
-# Which of three things an entry names: a pupil whose consent publishes their name; one whose name is withheld or
-# who was erased, their entry repointed at the placeholder; and nobody, a goal no scorer was named for. The words
-# for the two absences are the frontend's.
-type FLSpielberichtSpielerType = Literal["named", "anonymous", "unknown"]
+# --- The public read: what the match page shows of a report, every pupil through the base tier's mask.
 
 
 class FLSpielberichtSpielerPublic(BaseReadModel):
-    """One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
+    """One pupil an entry names, as the base tier serves them, without their record's id.
 
-    The names only where `type` is `named`, the surname as an initial (`READ-PUPIL-001`); the number and position off
-    the pupil's squad row for that side's club in the match's season, kept where the name is withheld.
+    The names where the pupil's consent publishes them, the surname as an initial; both null where it does not, and
+    where the entry names nobody, which the two cases share.
     """
 
-    type: FLSpielberichtSpielerType
     first_name: str | None
     last_name: str | None
-    nummer: str | None
-    position: FLSpielerPosition | None
 
 
 class FLSpielberichtScorerPublic(BaseReadModel):

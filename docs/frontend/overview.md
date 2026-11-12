@@ -9,26 +9,29 @@ its invalidation live here rather than in the backend.
 
 ## How it is organised
 
-| Folder                   | Holds                                                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                               |
-| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                        |
-| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                           |
-| `src/shared/`            | What a rendered page is built from beside the kit: hooks and utilities                                                                                                                |
-| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                       |
-| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                    |
-| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                      |
-| `e2e/`                   | The Playwright journeys against the end-to-end stack, every project's at its top and one project's under `desktop/` or `phone/`, and `support/`, the fixtures and helpers they import |
+| Folder                   | Holds                                                                                                                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                                                     |
+| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                                              |
+| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                                                 |
+| `src/shared/`            | What a rendered page is built from beside the kit: hooks and utilities                                                                                                                                      |
+| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                                             |
+| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                                          |
+| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                            |
+| `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`, and `support/`, the fixtures and helpers they import |
 
-**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, one
-module per act (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts` beside a team's Kader). A slice holds what
-several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for the
-calls that write, `actions.ts` or an act's own module for the server actions more than one page calls
-(`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in person's own pages
-call, `schemas.ts` for its Zod schemas.
+**Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, in
+one module per act or per record's acts (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts`
+beside a team's Kader). Every administration and person read lives in a slice's `queries.ts`, even
+where one route alone calls it. A slice holds only the modules it needs: `queries.ts` for reads,
+`mutations.ts` for a write that shapes its arguments before the generated client sends them (a
+write passing them through calls the generated client itself), `actions.ts` or an act's own module
+for its server actions (`features/saisons/createSaison.ts`), `personActions.ts` for those a
+signed-in person's own pages call, `schemas.ts` for its Zod schemas.
 
-**Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`, and
-`src/shared/` does not import `src/features/`; ESLint refuses both (`fl_frontend/eslint.config.mjs`).
+**Imports run one way.** `src/core/` imports neither `src/shared/` nor `src/features/`,
+`src/shared/` does not import `src/features/`, and `src/kit/` imports neither `src/features/` nor
+`src/app/`; ESLint refuses all three (`fl_frontend/eslint.config.mjs`).
 Which of the two folders a module belongs in, that rule does not decide: `src/core/` is what the
 server process is and what every surface needs before a page exists, and `src/shared/` is what a
 rendered page is built from. A module some `src/core/` module imports belongs in `src/core/`, and one
@@ -92,11 +95,26 @@ Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `
 `browserslist` in `fl_frontend/package.json` is Tailwind's own support matrix, since the stylesheet
 uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own polyfills.
 
-**The kit's components take every wording prop as `fl_frontend/src/core/copy.ts :: Words`**: the
-catalogue's `Copy`, or a record's own data as `{ record }`, which lint keeps free of literals, so a
-string typed into a page has no way into a text slot; a slot holding a block takes a kit element. A
-page formats every date, time and number through `fl_frontend/src/core/format.ts`.
-How a string is written is [`copy.md`](copy.md).
+**A block chooses its form by a container query on its own box, never by the screen's width**,
+because the rail opens and closes under one viewport, so only the box says how much room a block
+has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
+42 rem (`@2xl`) and spread from it. A card's act row, `Facts` and `LinkRows` switch at 32 rem
+(`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
+(`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of block switch by the screen at `lg` instead:
+
+- **A block, or a use of one, standing in the classic frame alone**, such as the landing's rows of
+  cards, its hero, the classic footer, and the tiles the landing and the sponsors page set with
+  `reads="screen"` (`fl_frontend/src/kit/TileGrid.tsx :: TilesReads`). On the landing every block
+  reads the screen, so the page switches as one.
+- **A part that answers a phone's touch rather than the room**: a form footer's acts stacking
+  across the width, the filters folding into a sheet, a read page's acts, and a row's taller touch
+  height. The screen tells the device, and a box does not.
+
+A new block takes the box's rule unless it is one of these.
+
+**Every string a visitor reads comes from the catalogue**, and the kit's text props refuse one typed
+into a page: [`copy.md`](copy.md) says where each string, date and number comes from and how it is
+written.
 
 ## Authentication and authorization
 

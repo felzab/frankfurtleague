@@ -1,17 +1,17 @@
 import { cache } from "react";
 
-import { MAILED_PAGE_METADATA, MailedPage, mailedTitle, TO_ACCOUNT } from "@/kit/MailedPage";
+import { mailedMetadata } from "@/kit/mailedLinkState";
+import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
 import { COPY } from "@/core/copy";
 import { dayOf, formatInstantShort } from "@/core/format";
+import { addressChangeGetAddressChangeView } from "@/core/generated/client/sdk";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { runWithIncomingTrace } from "@/core/traceScope";
 import { accountAtNewAddress } from "@/features/address-change/account";
-import { postAddressChangeView } from "@/features/address-change/mutations";
 import { readsAsDeadLink } from "@/features/address-change/refusals";
-import { pageMetadata } from "@/shared/utils/metadata";
 
 import { answerAddressChange, stopAddressChange } from "./answers";
 import { confirmedAgain, doneOnEnd, stoppedOn } from "./ends";
@@ -30,11 +30,9 @@ import type { Side } from "./ends";
 
 type Props = PageProps<"/confirm/address">;
 
-/** A row no crawler fetches, and no referrer: the URL carries the link's token. */
+/** A row no crawler fetches: the URL carries the link's token. */
 export async function generateMetadata({ searchParams }: Pick<Props, "searchParams">, parent: ResolvingMetadata): Promise<Metadata> {
-  const row = ROUTES.addressChangeConfirmation;
-  const title = mailedTitle(await readState(searchParams));
-  return { ...(await pageMetadata(parent, row, row.path(), { title })), ...MAILED_PAGE_METADATA };
+  return mailedMetadata(parent, ROUTES.addressChangeConfirmation, readState(searchParams));
 }
 
 const WORDS = SERVER_COPY.addressChange;
@@ -42,10 +40,11 @@ const WORDS = SERVER_COPY.addressChange;
 const INVALID: MailedState = { state: "invalid", next: TO_ACCOUNT };
 
 /** The link's read, `null` for a dead link. A failed read is no state of the link's: it reaches the frame's error boundary. */
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readChange = cache(async (token: string) =>
   runWithIncomingTrace(() =>
-    postAddressChangeView({ token }).catch((error: unknown) => {
+    addressChangeGetAddressChangeView({ token }).catch((error: unknown) => {
       if (!readsAsDeadLink(error)) throw error;
       return null;
     }),

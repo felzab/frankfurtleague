@@ -7,12 +7,11 @@ import { Facts, FactsPlaceholder } from "./Facts";
 import { formColumn, RailPage } from "./RailFrame";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { SectionTitle } from "./Section";
-import { PlaceholderLine, Waiting } from "./Skeleton";
+import { Waiting } from "./Skeleton";
 import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
 import { SpielHead, SpielHeadPlaceholder } from "./SpielHead";
-import { SpielList, spielPairs } from "./SpielRow";
+import { SpielPairList, spielPairs } from "./SpielRow";
 import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
-import { Table } from "./Table";
 import { Timeline, TimelinePlaceholder } from "./Timeline";
 import { tv } from "./tv";
 
@@ -25,20 +24,17 @@ import type { PageTitle } from "./RailFrame";
 import type { SeatRow } from "./SeatRows";
 import type { SpielHeadProps } from "./SpielHead";
 import type { SpielRowProps } from "./SpielRow";
-import type { TableProps } from "./Table";
 import type { Checkpoint } from "./Timeline";
 
 type GroupContent =
   | { kind: "facts"; facts: ReadonlyArray<Fact> }
-  | { kind: "table"; table: TableProps }
-  | { kind: "matches"; matches: ReadonlyArray<SpielRowProps & { id: string }> }
   /** A record's figures at a glance, each in its tile. */
   | { kind: "tiles"; tiles: ComponentProps<typeof StatTiles> }
   /** Things in their order along the dotted line, or why there are none yet. */
   | { kind: "timeline"; label: Copy; items: readonly Checkpoint[]; empty: EmptyStateProps }
   /**
    * Matches each in a card of its own under its head, such as a club's matches under their matchdays, one under
-   * another on a phone and two a row from `lg`; or why there are none yet.
+   * another in a list narrower than 42 rem and two a row from it; or why there are none yet.
    */
   | { kind: "spiele"; spiele: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps }
   /** A record's seats, each its person and the page's acts on them. */
@@ -63,11 +59,6 @@ export type ReadRecord = {
   /** What the record's status leaves unsaid and its reader must not miss, after the chip. */
   flag?: ChipProps;
   /**
-   * The Vorschau, as an editor's (`EditorPage`'s `lead`): one line under the title saying a fact about the record as it
-   * is stored, such as a locked line-up's matchday and day and that the league alone changes it now.
-   */
-  lead?: Copy;
-  /**
    * A match's own head over the groups, the one its pop-up shows: the matchday over the pairing and its
    * score, and what befell the match where something did, which says how it counts.
    */
@@ -81,8 +72,6 @@ export type ReadRecord = {
   groups: readonly [ReadGroup, ...ReadGroup[]];
   /** The decision's acts, the kit's buttons and the dialogs they open, under the first group. */
   acts?: ReadonlyArray<ReactElement>;
-  /** Why an act is closed on the record's present state, under the acts. */
-  actsNote?: Copy;
 };
 
 /** What a page naming itself before its read reads: the record without the title, which the page holds already. */
@@ -106,7 +95,7 @@ const readActs = tv({ base: "grid gap-3 lg:flex lg:flex-wrap lg:items-center" })
 
 /**
  * The box the page's blocks stand in one under another: the editor's column, or the content's whole width, where a
- * page such as a person's own Übersicht sets its tiles four in a row from `lg` and its matches two in a row.
+ * page such as a person's own Übersicht sets its tiles four in a row and its matches two in a row, each from 42 rem.
  */
 const column = tv({
   variants: { width: { form: formColumn(), content: "grid w-full gap-6" } },
@@ -120,10 +109,6 @@ function GroupBody({ group }: { group: GroupContent }) {
   switch (group.kind) {
     case "facts":
       return <Facts facts={group.facts} />;
-    case "table":
-      return <Table {...group.table} />;
-    case "matches":
-      return <SpielList matches={group.matches} />;
     case "tiles":
       return <StatTiles {...group.tiles} />;
     case "timeline":
@@ -135,17 +120,16 @@ function GroupBody({ group }: { group: GroupContent }) {
           items={group.items}
         />
       );
-    case "spiele": {
-      // One under another on a phone and a tablet, on one set of columns, and two a row from `lg`, as `SpielList`'s cards.
-      const pairs = spielPairs();
+    case "spiele":
+      // As `SpielList`'s cards: one under another in a list narrower than 42 rem, two a row from it.
       return group.spiele.length === 0 ? (
         <EmptyBox {...group.empty} />
       ) : (
-        <div className={pairs.list()}>
+        <SpielPairList>
           {group.spiele.map(({ head, spiel }) => (
             <div
               key={spiel.id}
-              className={pairs.box()}>
+              className={spielPairs().box()}>
               <SpielGroup
                 head={head}
                 spiel={spiel}
@@ -153,9 +137,8 @@ function GroupBody({ group }: { group: GroupContent }) {
               />
             </div>
           ))}
-        </div>
+        </SpielPairList>
       );
-    }
     case "seats":
       return (
         <SeatRows
@@ -171,7 +154,7 @@ function GroupBody({ group }: { group: GroupContent }) {
 /** The page once its record is read, in the boundary's place. */
 async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; width: ReadWidth | undefined; named: Named }) {
   const { title, read } = await titled(named);
-  const { chip, flag, lead, spiel, club, groups, acts, actsNote } = read;
+  const { chip, flag, spiel, club, groups, acts } = read;
   const [first, ...rest] = groups;
   return (
     <RailPage
@@ -180,7 +163,6 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
       chip={chip}
       flag={flag}>
       <div className={column({ width })}>
-        {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
         {spiel !== undefined && (
           <div className="grid gap-3">
             <SpielHead
@@ -211,12 +193,7 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
         <section className="grid gap-3">
           {first.title !== undefined && <SectionTitle text={first.title} />}
           <GroupBody group={first} />
-          {acts !== undefined && acts.length > 0 && (
-            <div className={readActs()}>
-              {acts}
-              {actsNote !== undefined && <p className="text-sm text-warn lg:basis-full">{actsNote}</p>}
-            </div>
-          )}
+          {acts !== undefined && acts.length > 0 && <div className={readActs()}>{acts}</div>}
         </section>
         {rest.map((group, index) => (
           <section
@@ -233,16 +210,14 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
 
 /**
  * The read page: a record shown without editing, its groups one under another in the editor's column,
- * at most 760 px centred in the content (`formColumn`), no save bar, under the editor's line where the record has
- * one (`lead`); a match's page heads them with the head
+ * at most 760 px centred in the content (`formColumn`), no save bar; a match's page heads them with the head
  * its pop-up shows and what befell the match, a club's page with the club's head and its exit from the season
  * where it left one. The first group holds the facts its decision reads, and
- * the decision's acts stand directly under it, together, with the line saying why an act is closed where one
- * is; the next groups follow the reader's next question. The two parts holding client code, the folded cards
+ * the decision's acts stand directly under it; the next groups follow the reader's next question. The two parts holding client code, the folded cards
  * and the club's head, are modules of their own the page places, so the template imports neither.
  *
  * The record names the page, so the whole page waits for it in the template's one boundary: meanwhile the strip
- * holds a bar where the title will stand, and the column the placeholders of the page's own blocks, its line, its head
+ * holds a bar where the title will stand, and the column the placeholders of the page's own blocks, its head
  * and its groups in their order, as `wait` states them. A page whose title no read decides, such as a person's own Übersicht,
  * hands it as `title`, and its strip stands at once. `width: "content"` sets the blocks across the content, where
  * the tiles stand four in a row and the matches two, rather than in the column.
@@ -255,12 +230,6 @@ export function ReadPage({ scope, wait, width, ...named }: { scope: "saison" | "
           scope={scope}
           title={named.title ?? null}>
           <Waiting layoutClass={column({ width })}>
-            {wait.lead === true && (
-              <PlaceholderLine
-                textClass="text-sm"
-                widthClass="w-2/3"
-              />
-            )}
             {wait.spiel === true && <SpielHeadPlaceholder />}
             {wait.club}
             {wait.groups.map((group, index) => (
@@ -291,8 +260,6 @@ export function ReadPage({ scope, wait, width, ...named }: { scope: "saison" | "
  * placeholders, `ClubHeadPlaceholder` and `ReadFoldsPlaceholder`, from their own modules.
  */
 export type ReadWait = {
-  /** The Vorschau's line, as `ReadRecord`'s `lead` stands under the title. */
-  lead?: true;
   /** The match's head, as `ReadRecord`'s `spiel` opens the page. */
   spiel?: true;
   /** The club head's placeholder, as `ReadRecord`'s `club` opens the page with the head. */
@@ -348,20 +315,18 @@ function GroupPlaceholder({ group }: { group: ReadWait["groups"][number] }) {
           matches={group.matches}
         />
       );
-    case "spiele": {
-      const pairs = spielPairs();
+    case "spiele":
       return (
-        <div className={pairs.list()}>
+        <SpielPairList>
           {Array.from({ length: group.count }, (_, index) => (
             <div
               key={index}
-              className={pairs.box()}>
+              className={spielPairs().box()}>
               <SpielGroupPlaceholder columns="outer" />
             </div>
           ))}
-        </div>
+        </SpielPairList>
       );
-    }
     case "seats":
       return <SeatRowsPlaceholder />;
     case "folds":

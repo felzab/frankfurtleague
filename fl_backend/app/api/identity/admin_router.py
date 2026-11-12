@@ -1,22 +1,23 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.address_change.crud import others_naming
 from app.api.grants.crud import read_grants
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.identity.crud import EACH_PERSON_GROUP, erase_everything, resolve_subject
-from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse
+from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload, FLErasureViewResponse
 from app.api.identity.services import (
     address_change_viewable_denied,
-    build_unplayed_count_pipeline,
+    build_booked_spiele_pipeline,
     compose_erasure_view,
     find_admin_address_refusal,
     find_foreign_address_change_refusal,
     find_own_address_refusal,
 )
+from app.api.teams.services import is_played
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
@@ -77,17 +78,11 @@ async def get_erasure_view(
     address_changes_collection: AddressChangeReadCollection,
     session: SnapshotSession,
     operator: str = Depends(get_actor_email),
+    now: datetime = Depends(get_germany_now),
 ) -> FLErasureViewResponse:
-    """
-    Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
+    """Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
 
-    ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
-    counts the fixtures still to be played that a referee row is booked on. `address_change` counts the address's own live
-    change and each other address's change naming it, leaving out a grant holder's for an administrator without an owner's
-    power, since counting it would answer whether a typed address is its new one. Stores nothing.
-
-    Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
-    administrator holds an owner's power (`admin_address`).
+    It is refused as that erasure is, and leaves out of `address_change` a grant holder's change this administrator may not see.
     """
 
     identifier = sign_in_identifier(view_data.email)
@@ -109,16 +104,17 @@ async def get_erasure_view(
         grants_collection=grants_collection,
         session=session,
     )
-    unplayed = (
+    booked = (
         await aggregate_many_from_db(
             collection=spiele_collection,
-            pipeline=build_unplayed_count_pipeline(row["_id"] for row in subject.schiedsrichter),
+            pipeline=build_booked_spiele_pipeline(row["_id"] for row in subject.schiedsrichter),
             session=session,
         )
         if subject.schiedsrichter
         else []
     )
-    # A grant holder's change is left out for whoever the tool refuses it.
+    # A grant holder's change is left out for whoever the tool refuses it: counting it would answer whether a typed
+    # address is its new one.
     withheld = [
         row
         for row in others_naming(subject.address_change, identifier)
@@ -134,13 +130,14 @@ async def get_erasure_view(
         registrierung_rows=subject.registrierungen,
         address_change_rows=[row for row in subject.address_change if row not in withheld],
         grant_rows=subject.grants,
-        spiele=sum(row["count"] for row in unplayed),
+        # Partitioned as the erasure partitions them, so the count is the bookings it takes off.
+        spiele=sum(not is_played(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in booked),
     )
 
 
 @router.post(
     "/erasure",
-    response_model=FLErasureResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Erase every record an address holds, on that person's request",
 )
 async def post_erasure(
@@ -162,21 +159,10 @@ async def post_erasure(
     db: DBClient,
     operator: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureResponse:
-    """
-    Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
+) -> None:
+    """Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.
 
-    ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
-    state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
-    refusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,
-    or the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),
-    judged inside the write. An address another address's pending change would move to is refused, judged inside the write,
-    where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
-    change, a discard only the owner makes of it.
-
-    `reason` names the request the erasure answers, as free text. An address holding nothing is answered with every count
-    zero. The 404 and the 409 answer only a database changed by hand under the request. The sign-in account is not touched
-    here: deleting it is the caller's, once this has answered.
+    Nothing about the person's own state refuses it, and the sign-in account is the caller's to delete once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -186,7 +172,7 @@ async def post_erasure(
     journal = Journal()
 
     @journal.attempted
-    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+    async def erase_the_address(session: AsyncClientSession) -> None:
         grants = await read_grants(grants_collection=grants_collection, session=session)
         refuse(find_admin_address_refusal(identifier=identifier, actor=operator, grants=grants))
 
@@ -234,7 +220,5 @@ async def post_erasure(
         await record_act(collection=action_log_collection, action="erasure.on_request", label=erasure_data.reason, session=session)
         journal.note("erasure", erasure.records, seats=erasure.seats, rows=erasure.rows)
 
-        return FLErasureResponse(**erasure.counts.model_dump())
-
     async with journal, transaction_session(db) as session:
-        return await session.with_transaction(erase_the_address)
+        await session.with_transaction(erase_the_address)

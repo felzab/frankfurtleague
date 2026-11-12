@@ -57,12 +57,11 @@ from app.core.recording import ACT_BY_KONTAKT, ACT_BY_SCHIEDSRICHTER, record_act
 from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
-# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason: a
-# referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
+# A referee and a club's seat holder answer here, each answer recorded under the answering party's Funktion.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
@@ -100,25 +99,10 @@ async def post_schiedsrichter_answer(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielbestaetigungSchiedsrichterAnswerResponse:
-    """
-    Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
+    """Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
 
-    The first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee
-    null and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so
-    booking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at
-    the season's end. Answering is open until the fixture's kick-off, or its day where it holds no time, whatever
-    deadline a club's row of the same fixture carries.
-
-    Refuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no
-    row of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row
-    already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
-    (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
-    time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
-    fixture whose kick-off has come (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
-    before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
-
-    **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
-    on the public fixture, and a decline takes it off.
+    A decline takes them off the fixture, and the caller drops the cached fixture list after a successful answer, since
+    either answer can move the referee's name on the public fixture.
     """
 
     today = clock.german_day(now)
@@ -131,7 +115,7 @@ async def post_schiedsrichter_answer(
 
         # The active seasons alone: a row of a season ended since is no booking left to answer, its slot the archive's.
         saisons = await pull_many_from_db(
-            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
+            collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_DEFAULT, session=session
         )
         # `find_one` rather than `pull_one_from_db`, whose 404 would tell the caller which ids exist.
         row = await spielbestaetigungen_collection.find_one(
@@ -150,7 +134,6 @@ async def post_schiedsrichter_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=JUDGED_VEREIN_FIELDS,
             session=session,
         )
@@ -202,7 +185,6 @@ async def post_schiedsrichter_answer(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
-                spiel_projection=None,
                 verein_projection=JUDGED_VEREIN_FIELDS,
                 session=None,
             )
@@ -233,24 +215,10 @@ async def post_team_answer(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLSpielbestaetigungAnswerResponse:
-    """
-    Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
+    """Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
 
-    The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
-    (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
-    signed-in person's own on the row's team, the first in order where they hold two.
-
-    Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
-    its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
-    unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
-    whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
-    deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
-    the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
-    administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
-    outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
-    fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside
-    the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
-    than letting it stand.
+    It writes no fixture: a decline's proposal is the administrator's to act on, and is refused wherever the
+    administrator's own save of that date would be.
     """
 
     today = clock.german_day(now)
@@ -274,7 +242,6 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=VEREIN_FIELDS,
             session=session,
         )
@@ -351,7 +318,6 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=VEREIN_FIELDS,
             session=None,
         )

@@ -5,12 +5,15 @@ import { runInBackground } from "./core/requestScope";
 import { HOUR_MS } from "./core/timeUnits";
 import { mintTraceId } from "./core/trace";
 
-// The code `scripts/lib/_lib.sh :: check_frontend_boot_config` reads as a refusal, apart from a fault's 1:
-// collapsed into one, a host's bad file would read as a check the deploy could not make, and go on.
+// A refused configuration's exit, apart from a fault's 1, as the backend's `BOOT_REFUSED`: `docker compose ps`
+// shows it on the restarting container, `Restarting (3)`, which tells a host's bad file from a crash before anyone
+// opens the log.
 const REFUSED = 3;
 
 export async function registerOnNode() {
-  const { checkedAs, frontend_config, heartbeatUrl } = await passBootGates().catch((refusal: unknown) => {
+  // Importing it *is* the boot's gate, over the environment and the secret files, each refusal writing its own
+  // CRITICAL line before it throws. Taken apart where it loads: the whole namespace would carry every secret's reader.
+  const { frontend_config, heartbeatUrl } = await import("./core/config").catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
@@ -19,15 +22,11 @@ export async function registerOnNode() {
     throw refusal;
   });
 
-  // Before anything below is armed: a one-off container would otherwise sweep and announce beside the
-  // service it is judging for.
-  if (checkedAs !== undefined) process.exit(0);
-
-  // The one line per start that says which build runs: the json-file driver records no image version of its own.
+  // The one line per start that says which build runs: the log driver records no image version of its own.
   logger.info("system.started", { version: frontend_config.APP_VERSION ?? null });
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
-  // and the league's real people. A restore's hold arms nothing, and says so: the heartbeat then misses its pings.
+  // and the league's real people. The hold arms nothing, and says so: the heartbeat then misses its pings.
   if (process.env.NODE_ENV === "production" && frontend_config.RESTORE_HOLD === "on") logger.warn("scheduler.held");
   else if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
 
@@ -85,7 +84,7 @@ async function loadJobs(): Promise<{
 
 /**
  * Every job is idempotent and selects on a date or a lapse, so the hour decides only how late in the day a deadline is
- * acted on; every write drains the Postausgang behind its answer besides (`fl_frontend/src/core/api.ts :: sendToBackend`).
+ * acted on; every write drains the Postausgang behind its answer besides.
  */
 const PASS_INTERVAL_MS = HOUR_MS;
 
@@ -98,7 +97,7 @@ const FIRST_PASS_DELAY_MS = 60 * 1000;
 /**
  * The one scheduler, for the life of this process: production runs one frontend container, so one process holds the
  * timer and no cross-process lease is built. Armed and returned at once, the first pass never awaited: Next serves
- * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
+ * nothing until `register` returns.
  */
 function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
   let running = false;
@@ -194,18 +193,4 @@ async function ping(url: string | undefined, failures: readonly string[]): Promi
     // The error's name alone: its message can quote the address, whose token is the credential.
     logger.warn("scheduler.heartbeat_failed", { name: error instanceof Error ? error.name : undefined });
   }
-}
-
-/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the deployment a preflight names. */
-async function passBootGates() {
-  // Importing it *is* the gate — validation runs during this module load, before anything is served.
-  // Taken apart where it loads: the whole namespace would carry every secret's reader.
-  const { bootCheck, frontend_config, heartbeatUrl, refuseInvalidEnvironment } = await import("./core/config");
-  const checkedAs = bootCheck();
-
-  // The schema demands production's files and keys on `APP_ENV`'s word alone, so a production host whose
-  // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
-  if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
-
-  return { checkedAs, frontend_config, heartbeatUrl };
 }

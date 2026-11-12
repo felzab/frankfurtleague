@@ -10,11 +10,11 @@ on the others by searching for that id.
 
 ## How it is organised
 
-| Surface  | Writes                                                                                                 | Where                                                                                                                |
-| -------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| nginx    | One access line per request in the `fl_json` format, and a plain-text error log                        | `nginx/shared/http.conf`, `nginx/shared/site.conf`; both logs are host files under `/var/log/frankfurtleague/nginx/` |
-| Frontend | Its own lines through one logger; Next's and a library's output prints as it prints                    | `fl_frontend/src/core/logging.ts`                                                                                    |
-| Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py`                     |
+| Surface  | Writes                                                                                                    | Where                                                                                            |
+| -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| nginx    | One access line per request in the `fl_json` format on stdout, and nginx's plain-text error log on stderr | `nginx/shared/http.conf`, `nginx/shared/site.conf`                                               |
+| Frontend | Its own lines through one logger; Next's and a library's output prints as it prints                       | `fl_frontend/src/core/logging.ts`                                                                |
+| Backend  | One access line per request, a line per server failure, and every library's lines in the same envelope    | `fl_backend/app/core/middlewares.py :: TraceContextMiddleware`, `fl_backend/app/core/logging.py` |
 
 The frontend writes JSON from a production build, the image's and the local stack's alike, and a
 plain line under `next dev`, by the runtime's own `NODE_ENV`. The backend writes JSON whenever its
@@ -44,22 +44,26 @@ trace end to end (`fl_frontend/src/core/traceScope.ts`).
 duration, and the `error_code` of a refused request's failure body. A server failure adds a line of
 its own with its code. When no handler answered the failure, Starlette re-raises it for uvicorn,
 which logs the stack on its own line, `Exception in ASGI application`, right after the request's
-two; it carries `SYSTEM`, the request's trace having ended with its access line. Docker's healthcheck of `/api/v0/system/is_live` writes no line while it is
-answered.
+two; it carries `SYSTEM`, the request's trace having ended with its access line. Neither probe,
+`/api/v0/system/is_live` nor `/api/v0/system/is_ready`, writes a line while it is answered with a
+success; a failed answer writes its line as any request does.
 
 ## What a line holds
 
-Every JSON line opens with `timestamp`, `level`, `service`, `trace_id` and `message`; the edge's
-carries a `span_id` after the trace. A backend message is a constant
-`<slice>.<event>`, and each value travels as a field of its own after `module` and `line`; a line
-carrying a stack adds `error`, holding the exception's `name`, `message` and `stack`. A log line
-names the field a request got wrong and never the value submitted for it, since that value can be
-personal data. The backend's formatter, on every line it writes, and the frontend's logger, on the
-frontend's own lines, write `[address]` in place of anything shaped like an email address. The
-edge's access line logs `[redacted]` in place of any query carrying a `token`, an `email` or a `q` parameter
-(`nginx/shared/http.conf :: map $request_uri $credential_free_uri`), because a mailed link's token
-and a mailed address travel there. nginx's error log is plain text, since the open-source build
-offers no other format, and it can repeat such a URL.
+Every JSON line opens with `timestamp`, `level`, `service`, `trace_id` and `message`. A backend
+message is a constant `<slice>.<event>`, and each value travels as a field of its own after `module`
+and `line`; a line carrying a stack adds `error`, holding the exception's `name`, `message` and
+`stack`. A log line names the field a request got wrong and never the value submitted for it, since
+that value can be personal data. The backend's formatter, on every line it writes, and the
+frontend's logger, on the frontend's own lines, write `[address]` in place of anything shaped like an
+email address.
+
+**The edge's access line writes the path and never the query**, because a mailed link's token and a
+mailed address travel there (`nginx/shared/http.conf :: log_format fl_json`). Beside it stand the
+method, the status, both durations, the bytes sent, the visitor's address and the browser
+identifier. nginx's error log is plain text, since the open-source build offers no other format, and
+a line there repeats the request line whole, its query with it. A refusal writes no error line, and
+a link page's location writes none at all (`nginx/shared/site.conf`).
 
 **An error code is its reason's name in lower snake case**, such as `version_stale`. Every code a
 failure body carries is a member of `fl_backend/app/core/codes.py :: Code`, its value the member's
@@ -68,16 +72,25 @@ only the log carries names its event by its key alone, such as `db.unreachable`.
 
 ## Where the logs are, and how long they stay
 
-- **The application services** log to Docker's `json-file` driver, capped by size
-  (`docker-compose.yml :: x-logging`). Replacing a container discards its log, and every deploy
-  replaces both, so `scripts/ops/deploy.sh :: copy_streams` copies both streams to the host first.
-- **The edge's two logs** are bind-mounted host files, which the host ages and rotates
+- **In production, every service logs to the host's journal** through Docker's `journald` driver,
+  each line tagged with its container's name (`docker-compose.yml :: x-logging`). A replaced
+  container's lines stay there, so a deploy loses none.
+- **The journal's age limit is the host's own setting**, which no file in this repository holds
   ([`../ops/runbooks.md`](../ops/runbooks.md) §7).
-- **The backend's `journal.act` lines** stand in the stream and those copies alone, at least one per erasure, withdrawal and objection, naming its records: the list of what a restore undid
+- **The backend's `journal.act` lines** stand in the journal alone, at least one per erasure,
+  withdrawal and objection, naming its records: the list of what a restore undid
   ([`../ops/runbooks.md`](../ops/runbooks.md) §13).
+- **The local and end-to-end stacks** log to Docker's `json-file` driver, capped by size
+  (`docker-compose.local.yml :: x-logging`), since Docker Desktop has no journald.
 
-Reading production logs is `ssh` and `docker compose logs`, or those copies; nothing aggregates or
-indexes them.
+Reading production's logs is `ssh` and then `docker compose logs <service>` in the checkout, or
+`journalctl` on the host; nothing aggregates or indexes them.
+
+- **No alert reads a log line, and no hosted service receives one.** The monitors are the alerts
+  ([`../ops/spec.md`](../ops/spec.md#19-the-monitors)).
+- **A request a Cloudflare rule refused never reached nginx**, so no line here records it.
+  Cloudflare's Security Events shows it, sampled, for up to the last 31 days on every plan
+  (<https://developers.cloudflare.com/waf/analytics/security-events/>, read 2026-11-12).
 
 ## A crash in the browser
 
@@ -91,9 +104,8 @@ nginx rate-limits it and the route caps every field. A failure rendered on the s
 
 `next dev` writes the frontend's line as `LEVEL message {fields as JSON}`, with a stack on the lines
 after it (`fl_frontend/src/core/logging.ts`). The backend writes
-`LEVEL timestamp module:line - message key=value…` to a terminal, as under `fastapi dev`, with no
-colour and the stack below it. With no nginx in front, whichever service receives the request mints
-the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
+`LEVEL timestamp module:line - message key=value…` to a terminal, with no colour and the stack
+below it. With no nginx in front, whichever service receives the request mints the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
 
 ## Read next
 

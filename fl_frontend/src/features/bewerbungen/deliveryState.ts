@@ -25,7 +25,6 @@ const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
   abandoned: { tone: "danger", label: COPY.admin.saison.linkNotSent },
 };
 
-/** A seat's second chip, where its last mail met trouble: the provider's event where it reported one, else the outbox's own state. */
 export function deliveryChip(status: FLOutboxStatus | null): ChipProps | null {
   if (status === null) return null;
   return status.delivery === null ? OWED[status.state] : REPORTED[status.delivery.state];

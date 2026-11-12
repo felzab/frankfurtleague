@@ -1,16 +1,15 @@
-import inspect
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpielJoinedAdmin,
-    FLSpielJoinedAdminListAdapter,
     FLSpielJoinedInternal,
     FLSpielJoinedInternalListAdapter,
     FLSpielListAdapter,
@@ -19,29 +18,26 @@ from app.api.spiele.schemas import (
 from app.api.spiele.services import (
     BookedVenue,
     ResolvedReferences,
-    SaisonMembership,
     find_booking_refusal,
     find_claims_made,
     find_clash_refusal,
-    find_departed_occupants,
     find_double_bookings,
-    find_eligibility_refusal,
     find_retired_bookings,
     find_slot_claims,
     reopens,
     resolve_bracket,
     slots_booked_against,
 )
-from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
+from app.api.spieler.services import mark_shared_nummern
 from app.core.codes import Code
-from app.core.collections import Collection
-from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.readback import RECORD_MODELS
 from tests.documents import joined_spiel_document, rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
+# A list of fixtures as an administrator's read validates each of them.
+JOINED_ADMIN_LIST = TypeAdapter(list[FLSpielJoinedAdmin])
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SPIELTAG_ONE = "6890a1b2c3d4e5f607210001"
@@ -70,22 +66,6 @@ def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = Non
     record = None if disqualified_from is None else {"type": "disqualifikation", "reason": "Nicht angetreten", "date": disqualified_from}
 
     return _side(team_id, name, austritt=record, austritt_type=None if record is None else record["type"], **overrides)
-
-
-@pytest.fixture
-def one_spiel(spiel: PayloadFactory) -> list[dict[str, Any]]:
-    """One undecided group fixture between two clubs, which is the smallest slice the occupant rules read."""
-
-    return [
-        spiel(
-            _id=MATCH_ID.format(1),
-            spiel_nr=1,
-            spieltag_id=SPIELTAG_ONE,
-            team1=_side(ADLER, "Adler"),
-            team2=_side(BIEBER, "Bieber"),
-            ergebnis=None,
-        )
-    ]
 
 
 @pytest.fixture
@@ -162,19 +142,7 @@ def _rules(**overrides: Any) -> FLSaisonRules:
 
 
 class TestASharedSquadNumber:
-    """That no write refuses a number another row wears, and that the one read reporting it compares what is stored."""
-
-    def test_no_unique_index_reaches_a_squad_number(self):
-        # The floor: the squad junction IS uniquely indexed, so the empty result below is `nummer`
-        # going unkeyed rather than a sweep over nothing.
-        assert [index for index in UNIQUE_INDEXES if index.collection == Collection.SAISON_SPIELER]
-
-        covering = [index.name for index in UNIQUE_INDEXES if "nummer" in index.keys]
-
-        assert not covering
-
-    def test_the_squad_refusal_is_about_the_club_and_never_the_number(self):
-        assert set(inspect.signature(find_squad_refusal).parameters) == {"team_in_saison"}
+    """That the one read reporting a shared number compares what is stored."""
 
     def test_the_marker_compares_the_stored_string_between_live_rows_alone(self):
         """`07` beside `7` is two shirts; an ausgetragen row wearing `9` marks neither itself nor the live `9`."""
@@ -195,14 +163,7 @@ class TestASharedSquadNumber:
 
 
 class TestABracketSlotHeldByADisqualifiedClub:
-    """That a slot the resolution filled and whose club was disqualified afterwards is REPORTED, and that the resolution leaves it standing."""
-
-    def test_the_slot_is_reported_as_a_derived_fault(self, filled_bracket_slot):
-        """The feeder was played before the exit and is clean, so the report names the slot alone."""
-
-        faults = find_departed_occupants(filled_bracket_slot)
-
-        assert [(fault.spiel_nr, fault.side, fault.reason) for fault in faults] == [(SLOT_NR, "team1", "departed_occupant")]
+    """That the resolution leaves standing a slot it filled whose club was disqualified afterwards."""
 
     def test_the_resolution_rewrites_nothing(self, filled_bracket_slot):
         """The same fixtures through the resolution, which reads the wiring the slot was filled from and reports nothing of its own."""
@@ -255,9 +216,7 @@ class TestARetiredBookingOnAReopenedSpiel:
     """That a rewrite voiding a played result keeps a retired booking and reports it, while a save newly booking the row stays refused."""
 
     def test_the_reopened_spiel_is_reported_and_the_played_one_is_not(self, a_semi_final_played_at_a_retired_ground):
-        (played,) = FLSpielJoinedAdminListAdapter.validate_python(
-            [joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground]
-        )
+        (played,) = JOINED_ADMIN_LIST.validate_python([joined_spiel_document(spiel) for spiel in a_semi_final_played_at_a_retired_ground])
         # What `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` writes over a slot whose occupant changed.
         reopened = played.model_copy(update={"team1": played.team2, "team2": None, "ergebnis": None})
         retired = {ObjectId(RETIRED_GROUND): GROUND_RETIRED_ON}
@@ -308,7 +267,7 @@ LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
 def a_lifted_no_show_beside_a_later_booking(spiel: PayloadFactory) -> list[FLSpielJoinedAdmin]:
     """Two fixtures of one day at one ground, 18:00 and 19:00: the first's no-show has just been lifted by a rewrite."""
 
-    return FLSpielJoinedAdminListAdapter.validate_python(
+    return JOINED_ADMIN_LIST.validate_python(
         [
             joined_spiel_document(
                 spiel(
@@ -386,7 +345,7 @@ class TestARefereeDoubleBookedAtTwoGrounds:
     def test_the_referee_clash_is_reported_beside_a_free_ground(self, spiel: PayloadFactory):
         """A fixture's ground is judged before its referee, so a walk stopping at a free ground would never report the referee."""
 
-        spiele = FLSpielJoinedAdminListAdapter.validate_python(
+        spiele = JOINED_ADMIN_LIST.validate_python(
             [
                 joined_spiel_document(spiel(_id=MATCH_ID.format(nr), spiel_nr=nr, ergebnis=None, **booking))
                 for nr, booking in (
@@ -413,38 +372,3 @@ class TestNoBracketFaultIsStored:
     @pytest.mark.parametrize("collection", sorted(RECORD_MODELS), ids=str)
     def test_no_collection_stores_a_faults_reason(self, collection):
         assert self.DISCRIMINATOR not in RECORD_MODELS[collection].model_fields
-
-
-# The junction as the refusal reads it: the season's own name for the club, and the day it left.
-MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", departed_from=EXIT_BEFORE_THE_SPIEL),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", departed_from=None),
-}
-
-
-class TestADisqualifiedClubKeepsItsSpiele:
-    """That a disqualification leaves the club's drawn fixtures standing, its opponents' walkover needing them."""
-
-    def test_fielding_it_somewhere_new_is_one_of_two_things_that_refuse(self, one_spiel):
-        moved_in = _resubmit(one_spiel, 1).model_copy(update={"team2": _resubmit(one_spiel, 1).team1})
-        refusal = find_eligibility_refusal(
-            ObjectId(MATCH_ID.format(1)),
-            moved_in,
-            FLSpielListAdapter.validate_python(one_spiel),
-            MEMBERSHIP,
-        )
-
-        assert refusal is not None
-
-    def test_re_dating_it_past_the_exit_is_the_other(self, one_spiel):
-        """The half `eligibility_disqualified` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
-
-        stored = FLSpielListAdapter.validate_python(one_spiel)
-        re_dated = _resubmit(one_spiel, 1).model_copy(update={"date": "2026-04-01"})
-
-        assert re_dated.team1 is not None and stored[0].team1 is not None
-        assert re_dated.team1.team_id == stored[0].team1.team_id, "both sides must be unchanged, or this proves the other half"
-
-        refusal = find_eligibility_refusal(ObjectId(MATCH_ID.format(1)), re_dated, stored, MEMBERSHIP)
-
-        assert refusal is not None

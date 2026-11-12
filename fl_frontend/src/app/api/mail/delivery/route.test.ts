@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { inspect } from "node:util";
 
+import { refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types.ts";
@@ -39,7 +40,7 @@ vi.doMock("@/core/generated/client/sdk.ts", () => ({
 }));
 
 const { POST } = await import("./route.ts");
-const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { APINetworkError } = await import("@/core/errors.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
@@ -98,9 +99,7 @@ async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutb
 const NETWORK_FAILURE = () =>
   new APINetworkError({
     message: "Request failed.",
-    url: "http://backend:8000",
     traceId: "t".repeat(32),
-    isTimeout: false,
   });
 
 beforeEach(() => {
@@ -246,15 +245,7 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
       };
       return statusFor(eventFor("email.delivered"));
     };
-    const badStatus = (statusCode: number, serverErrorCode: Code | undefined) =>
-      new APIBadStatusError({
-        message: "API returned a bad status.",
-        url: "http://backend:8000",
-        statusCode,
-        serverErrorCode,
-        endpoint: "/outbox/event",
-        traceId: "t".repeat(32),
-      });
+    const badStatus = (status: number, code: Code | undefined) => refused(code, { status });
 
     for (const [statusCode, code] of [
       [404, "no_route"],

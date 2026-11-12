@@ -30,7 +30,6 @@ const LINK_ENDED: ReadonlySet<Code> = new Set<Code>([
   "duplicate_key",
 ]);
 
-/** Whether a press was refused as the link no longer valid, rather than failing. */
 export function endsTheLink(error: unknown): boolean {
   return isRefusal(error) && error.serverErrorCode !== undefined && LINK_ENDED.has(error.serverErrorCode);
 }

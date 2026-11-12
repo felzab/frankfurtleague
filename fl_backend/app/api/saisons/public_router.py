@@ -1,6 +1,5 @@
 import asyncio
 from collections.abc import Mapping
-from datetime import datetime
 from typing import Any, Final
 
 from fastapi import APIRouter, Depends
@@ -67,13 +66,12 @@ from app.core.dependencies import (
     SpieltageReadCollection,
     TeamsReadCollection,
     get_german_date_str,
-    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.core.routing import by_id
 from app.core.security import verify_access_base
-from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -91,7 +89,7 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
         db_filter=base_tier_status_term(),
         sort_by=list(SAISON_FRAME_ORDER.items()),
         projection=["_id", *SAISON_FRAME_FIELDS, "status"],
-        limit=LIST_LIMIT_MAX,
+        limit=LIST_LIMIT_DEFAULT,
     )
 
     # The stored status alone: `uniq_saison_active` holds at most one, and activating the next
@@ -162,8 +160,8 @@ _IN_A_PUBLIC_SAISON: tuple[Mapping[str, Any], ...] = (
     {"$match": {"public_saison": {"$ne": []}}},
 )
 
-# A club a season's Teams page lists, as `app/api/teams/services.py :: build_retirement_stages` keeps it: one that has
-# not left the league, or one that left it after a season now `past`, which keeps its place there.
+# A club a season's Teams page lists, as `build_retirement_stages` keeps it: one that has not left the league, or one
+# that left it after a season now `past`, which keeps its place there.
 _LISTED_CLUB: tuple[Mapping[str, Any], ...] = (
     {
         "$lookup": {
@@ -303,12 +301,10 @@ async def get_landing(
 ) -> FLLandingResponse:
     """The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
 
-    Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
-    the judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures
-    over every season the public reads, counted on every read. The windows and the figures are read beside the season's
-    two steps rather than after them, so they add no step to the read.
+    Beside it, the application windows and the league's figures over every season the public reads, counted on every read.
     """
 
+    # The windows and the figures beside the season's two steps rather than after them, so they add no step to the read.
     saison, windows, counts = await asyncio.gather(
         _landing_saison(
             saisons_collection=saisons_collection, spiele_collection=spiele_collection, teams_collection=teams_collection, today=today
@@ -383,7 +379,7 @@ async def get_spielplan(
 ) -> FLSpielplanResponse:
     """Every matchday of one season with its matches, in playing order, and the matchday to open on.
 
-    The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+    404 for a season this tier may not read.
     """
 
     saison, spieltage = await _spielplan_of(
@@ -485,8 +481,7 @@ async def get_team(
     404 for a season this tier may not read and for a club the season does not hold.
     """
 
-    # Beside the resolve, for `_spielplan_of`'s reason: each needs the path's id alone, and none is served before the
-    # resolve has passed.
+    # Beside the resolve: each needs the path's id alone, and none is served before the resolve has passed.
     saison, club_raw, spiele_raw, kader_raw = await asyncio.gather(
         resolve_public_saison(saisons_collection=saisons_collection, saison_id=saison_id),
         # A club that left the league stays addressable by id, as `GET /teams/{team_id}` keeps it: a caller holding one
@@ -537,8 +532,6 @@ async def get_spiel(
     spiele_collection: SpieleReadCollection,
     teams_collection: TeamsReadCollection,
     spielberichte_collection: SpielberichteReadCollection,
-    # Whether an erased pupil's line-up entry is served turns on the line-up's lock, judged as its screen judges it.
-    now: datetime = Depends(get_germany_now),
 ) -> FLSpielPageResponse:
     """One match as its page and its pop-up show it, each side of a group match with its group and `platz`; 404 outside a readable season.
 
@@ -581,6 +574,6 @@ async def get_spiel(
         spieltag_position=matchday["spieltag_position"],
         count_spieltage_in_phase=matchday["count_spieltage_in_phase"],
         standings=standings,
-        aufstellungen=compose_public_aufstellungen(spiel_raw, now=now),
+        aufstellungen=compose_public_aufstellungen(spiel_raw),
         bericht=compose_public_bericht(berichte_raw[0], spiel_raw) if berichte_raw else None,
     )

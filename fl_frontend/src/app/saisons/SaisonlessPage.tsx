@@ -9,12 +9,11 @@ import { getSaisonFrame } from "@/features/saisons/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { SAISONLESS_PAGES } from "@/core/routes";
-import type { StatusCardProps } from "@/kit/StatusPage";
+import type { StatusCardProps } from "@/kit/StatusCard";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Saisonless = (typeof SAISONLESS_PAGES)[number];
 
-/** Such a page's metadata, from its row. */
 export function metadataOf(route: Saisonless["route"]) {
   return async (_: unknown, parent: ResolvingMetadata): Promise<Metadata> => pageMetadata(parent, ROUTES[route], ROUTES[route].path());
 }
@@ -39,7 +38,6 @@ async function readSaison(page: Saisonless["page"]): Promise<StatusCardProps> {
 export function SaisonlessPage({ route, page }: Saisonless) {
   return (
     <StatusPage
-      frame="rail"
       scope="saison"
       title={{ route }}
       card={readSaison(page)}

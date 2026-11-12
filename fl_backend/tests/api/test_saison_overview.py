@@ -120,7 +120,7 @@ ROWS = [
         SPIELE[DECLINED],
         party=REFEREE_PARTY,
         asked_at="2026-03-10",
-        closed={"at": "2026-03-12", "reason": "schiedsrichter_declined"},
+        closed={"reason": "schiedsrichter_declined"},
     ),
     # The booked referee owing an answer past the deadline too: the fixture's one row names both parties.
     documents.spielbestaetigung_document(SPIELE[OVERDUE], party=REFEREE_PARTY, deadline="2026-03-14", asked_at="2026-03-10"),

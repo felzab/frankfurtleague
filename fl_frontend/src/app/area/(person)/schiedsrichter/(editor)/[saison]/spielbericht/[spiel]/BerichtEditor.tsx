@@ -45,7 +45,7 @@ type Side = { name: Words; plaque: RecordText | null };
 /** The minute's rule, the write's own pattern, which the server reads off the published contract. */
 type MinuteRule = { pattern: string };
 
-const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: WORDS.unknown };
+const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: COPY.shared.nobody };
 
 const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label: WORDS.colour[colour], mark: <CardMark colour={colour} /> }));
 
@@ -116,8 +116,8 @@ export function BerichtEditor({
   });
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: SPIEL.none },
-    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team1.name) },
-    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtAngetreten(sides.team2.name) },
+    { id: "nichtantreten_team1", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team1.name) },
+    { id: "nichtantreten_team2", label: COPY.spielplan.sonderereignis.nichtantreten(sides.team2.name) },
     { id: "abgebrochen", label: SPIEL.abgebrochen },
   ];
 
@@ -157,7 +157,7 @@ export function BerichtEditor({
       />
     ),
   };
-  /** A row's player, from its side's squad, the list opening on „Unbekannt“, a player nobody can name. */
+  /** A row's player, from its side's squad, the list opening on „Anonym“, a player nobody can name. */
   const playerCell = (isRequired: boolean): Cells["main"] => ({
     field: "spieler_id",
     label: COPY.shared.spieler,
@@ -268,7 +268,7 @@ export function BerichtEditor({
           ),
         },
         {
-          id: "karten",
+          id: "cards",
           block: (
             <Section
               title={WORDS.cards}
@@ -311,7 +311,7 @@ export function BerichtEditor({
           ),
         },
         {
-          id: "bemerkungen",
+          id: "remarks",
           title: WORDS.remarks,
           fields: (
             <TextField

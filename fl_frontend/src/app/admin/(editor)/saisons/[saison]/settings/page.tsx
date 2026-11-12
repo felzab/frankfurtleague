@@ -5,6 +5,7 @@ import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
 import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
+import { SectionPlaceholder } from "@/kit/Section";
 import { TablePlaceholder } from "@/kit/Table";
 
 import { getAdminSession } from "@/core/auth/guards";
@@ -19,15 +20,7 @@ import { saisonChipOf } from "@/features/saisons/saisonState";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
-import {
-  activateSaison,
-  deleteSpielplan,
-  drawSpielplan,
-  recreateSpielplan,
-  replaceTeam,
-  sendRegistrierungslinks,
-  swapGruppen,
-} from "./saisonActs";
+import { activateSaison, deleteSpielplan, drawSpielplan, recreateSpielplan, replaceTeam, sendInvitations, swapGruppen } from "./saisonActs";
 import { SaisonEditor } from "./SaisonEditor";
 import { valuesOf } from "./saisonValues";
 import { saveSaison } from "./saveSaison";
@@ -72,15 +65,15 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
     case null:
       return undefined;
     case "activate_target_undrawn":
-      return WORDS.noDraw;
+      return WORDS.noDrawLocked;
     case "activate_spieltage_undated":
-      return WORDS.undated;
+      return WORDS.undatedLocked;
     case "activate_saison_unfinished":
-      return WORDS.unfinished;
+      return WORDS.unfinishedLocked;
     case "spielplan_berichte_submitted":
       return WORDS.reportsHold;
     case "spielplan_gruppen_off_rules":
-      return WORDS.gruppenOffRules;
+      return WORDS.gruppenOffRulesLocked;
     // One code for both ways the planning window closes: the season went live, or a match of it holds an entry.
     case "spielplan_replace_outside_its_window":
     case "spielplan_undraw_outside_its_window":
@@ -145,15 +138,20 @@ export default function SaisonSettingsPage({ params }: Props) {
           ],
           { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }] },
           { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }] },
-          [
-            <TablePlaceholder
-              key="links"
-              head={LINKS_HEAD}
-              rows={24}
-              bare
-            />,
-            { acts: [COPY.shared.withObject(WORDS.registrierungslinks, "send")] },
-          ],
+          {
+            block: (
+              <SectionPlaceholder
+                list={
+                  <TablePlaceholder
+                    head={LINKS_HEAD}
+                    rows={24}
+                    bare
+                  />
+                }
+                rows={[{ acts: [COPY.shared.withObject(WORDS.invitations, "send")] }]}
+              />
+            ),
+          },
         ],
         danger: [
           {
@@ -241,7 +239,7 @@ async function readEditor(params: Props["params"]) {
         activate: activateSaison,
         swap: swapGruppen,
         replace: replaceTeam,
-        sendLinks: sendRegistrierungslinks,
+        sendLinks: sendInvitations,
       }}
       // A finished season takes no change of its rules, its draw or its clubs, so the editor opens on it read-only.
       {...(saison.status === "past" ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}

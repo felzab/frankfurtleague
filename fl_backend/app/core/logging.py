@@ -1,9 +1,9 @@
 """
-CORE · logging
+One logger for the service.
 
-One logger for the service. A message is a constant
-`<slice>.<event>` and every value travels in `extra=`, as a field of its own; a field names what a
-request got wrong and never the value submitted for it, which can be personal data.
+A message is a constant `<slice>.<event>` and every value travels in `extra=`, as a field of its
+own; a field names what a request got wrong and never the value submitted for it, which can be
+personal data.
 """
 
 import json
@@ -23,10 +23,10 @@ trace_id_var: ContextVar[str] = ContextVar("trace_id", default=NO_REQUEST_SENTIN
 
 # A stored or submitted address reaches a message or a stack through a library's own text, a
 # duplicate key's report among them; the formatter takes it out of every line, whoever wrote it.
-# `fl_frontend/src/core/logging.ts :: ADDRESS` spells the same classes in JavaScript's syntax, `\w` being
-# `[\p{L}\p{N}_]` here, and `fl_backend/tests/shared/log_addresses.json` holds the two to one answer. The
-# domain ends in a label opening with a letter, as every top-level domain does, so a package store's
-# `name@1.2.3` in a stack frame's path is left standing.
+# The frontend spells the same classes in JavaScript's syntax, `\w` being `[\p{L}\p{N}_]` here, and a
+# shared test case holds the two to one answer. The domain ends in a label opening with a letter, as
+# every top-level domain does, so a package store's `name@1.2.3` in a stack frame's path is left
+# standing.
 ADDRESS = re.compile(r"[\w.!#$%&'*+/=?^`{|}~-]+@[\w-]+(?:\.[\w-]+)*\.[^\W\d_][\w-]*")
 SCRUBBED = "[address]"
 

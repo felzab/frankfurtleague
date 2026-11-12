@@ -7,12 +7,10 @@ import type { ChipProps } from "@/kit/Chip";
 // Keyed by every route, so a route the contract adds fails to compile until the catalogue words it.
 const AUSTRITT_WORDS: Record<FLAustrittType, { readonly state: Copy; readonly shorthand: Copy }> = COPY.shared.austritt;
 
-/** The state a club is in once the record exists — `Disqualifiziert seit …`, `Zurückgezogen seit …`. */
 export function austrittState(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].state;
 }
 
-/** The badge form, for a table cell, a popover or a chip, where only two letters have room. */
 function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].shorthand;
 }
@@ -37,15 +35,11 @@ export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType 
   return exit === null ? undefined : { tone: "danger", label: austrittState(exit) };
 }
 
-/** A kit colour's name, as the catalogue words it. */
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {
   return COPY.team.trikotFarbeName[farbe];
 }
 
-/**
- * The three seats a season holds per club, in every surface's order, the Trainer first as the application form draws
- * them; each is named by the catalogue (`COPY.team.seatName`, `rollenText`).
- */
+/** In every surface's order, the Trainer first as the application form draws them. */
 export const KONTAKT_ROLLEN = ["trainer", "ansprechperson", "stellvertretung"] as const satisfies readonly FLKontaktRolle[];
 
 /**

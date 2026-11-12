@@ -91,8 +91,8 @@ if (( ${#SELECTED[@]} > 1 )); then
   spinner_stop
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
-  # The exit contract's order, as `scripts/lib/_lib.sh :: finish` reads a single run's sections:
-  # findings over a refusal over a crash.
+  # The exit contract's order, as `finish` reads a single run's sections: findings over a refusal
+  # over a crash.
   findings=0; refused=0; crashed=0
   printf '\n      %s%-16s  %s%s\n' "$C_DIM" "scope" "result" "$C_RESET"
   for scope in "${SELECTED[@]}"; do
@@ -131,25 +131,55 @@ fi
 SCOPE="${SELECTED[0]}"
 
 # Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
-# verdict. `--checker` adds the 2 a checker built on `scripts/lib/checker_kernel.py :: run` answers
-# for an input it could not judge. `--summary` is for a tool raising an annotation per finding itself
+# verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
+# could not judge. `--summary` is for a tool raising an annotation per finding itself
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
-check() { # [--checker] [--summary] $1 what to say on a finding · the command
-  local checker=0 said rc=0
+# `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
+check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
+  local said rc=0 command
+  local -a flags=()
+  while [[ "$1" == --checker || "$1" == --summary || "$1" == --pytest ]]; do flags+=("$1"); shift; done
+  said="$1"; shift
+  # Joined on spaces here: `$*` joins on the repository's IFS, a newline, and a crash would print the
+  # command one word to a line.
+  printf -v command '%s ' "$@"
+  quietly "$@" || rc=$?
+  verdict "${flags[@]}" "$said" "$rc" "${BASH_LINENO[0]}" "${command% }"
+}
+
+# `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
+verdict() { # [--checker] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
+  local checker=0 pytest=0
   local -a summary=()
   if [[ "$1" == --checker ]]; then checker=1; shift; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
-  said="$1"; shift
-  quietly "$@" || rc=$?
-  case "$rc" in
+  if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
+  case "$2" in
     0) return 0 ;;
-    1) fail "${summary[@]}" "$said"; return 1 ;;
+    # pnpm answers a script its manifest does not declare with 1 as well, and then no tool ran at all.
+    1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
+       if (( pytest )) && annotate_cases; then summary=(--summary); fi
+       fail "${summary[@]}" "$1"; return 1 ;;
     130) on_interrupt ;;
     2) if (( checker )); then refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above."; fi
-       on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
-    *) on_error "$rc" "${BASH_LINENO[0]}" "$*" ;;
+       on_error "$2" "$3" "$4" ;;
+    *) on_error "$2" "$3" "$4" ;;
   esac
+}
+
+# pytest's short summary gives each case that failed or errored a line of its own, `FAILED <case>` or
+# `ERROR <case>` and any reason after it, at the end of a log the step's fold hides: each becomes an
+# annotation through `_annotate`, so the run page names the case. Answers 1 where no line names one.
+annotate_cases() {
+  local line found=1
+  while IFS= read -r line; do
+    if [[ "$line" == "FAILED "* || "$line" == "ERROR "* ]]; then
+      _annotate "${_STEP_LABEL}: ${line}"
+      found=0
+    fi
+  done <<< "$QUIETLY_OUTPUT"
+  return "$found"
 }
 
 # A command run from inside one of the repository's directories.
@@ -167,7 +197,7 @@ ruff_both() { # $1 the directory · the paths
 }
 
 # By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Each `--maxprocesses` below is its suite's measured optimum on 16 cores (2026-09).
+# job's timeout. Each `--maxprocesses` below is its suite's optimum on 16 cores.
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 
 case "$SCOPE" in
@@ -176,15 +206,15 @@ esac
 case "$SCOPE" in
   format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
-    # pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) runs on every
-    # `pnpm run` and `pnpm exec`, so one exec answers for every step below before any of them runs.
+    # pnpm's dependency check (`verifyDepsBeforeRun`) runs on every `pnpm run` and `pnpm exec`, so
+    # one exec answers for every step below before any of them runs.
     quietly in_dir fl_frontend pnpm exec node -e "" \
       || refuse "pnpm would not start a command in fl_frontend: node_modules does not answer the manifest
 and lockfile, or pnpm itself did not start (its own words are above). Fix with:  cd fl_frontend && pnpm install" ;;
 esac
 PY=""
 case "$SCOPE" in
-  scripts|docs|backend|ops|db)
+  scripts|backend|ops|db)
     PY="$(venv_python)" || refuse "No fl_backend virtualenv found. Create it with:  uv sync --project fl_backend --dev"
     # On a runner the job's own `uv sync --locked` has just run.
     if [[ -z "${GITHUB_ACTIONS:-}" ]]; then
@@ -199,7 +229,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --checker --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -212,7 +242,7 @@ scope_scripts() {
     && ok "the gate's own types are clean"
 
   step "scripts · pytest"
-  check "pytest over scripts/tests failed; the failing test names which." \
+  check --pytest "pytest over scripts/tests failed; the failing test names which." \
     "$PY" -m pytest scripts/tests "${PYTEST_SPREAD[@]}" --maxprocesses 8 \
     && ok "the scripts' own tests pass"
   return 0
@@ -267,12 +297,6 @@ scope_docs() {
   step "docs · every link and fragment inside the repository resolves"
   check "lychee names each broken link or fragment above, with the file it stands in." check_links \
     && ok "every link inside the repository resolves"
-
-  # This scope because the check reads the App Router tree and `nginx/shared/site.conf` together.
-  step "docs · every route handler, link page and metadata convention is metered or accounted for"
-  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
-    "$PY" scripts/checks/check_public_routes.py \
-    && ok "every route handler is accounted for at the edge"
   return 0
 }
 
@@ -294,9 +318,9 @@ scope_backend() {
   check "pyright found type errors in fl_backend." in_dir fl_backend env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
     && ok "no type errors"
 
-  # No worker starts a server (`fl_backend/tests/conftest.py :: pytest_configure_node`).
+  # No server starts: the controller starts none for the default tier's own `-m`.
   step "backend · pytest  (default tier)"
-  check "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
+  check --pytest "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
     && ok "default-tier tests pass"
 
   # `app/` alone, deptry's default: `tests/` imports the dev group by design.
@@ -336,6 +360,38 @@ scope_frontend_units() {
 
 # --- frontend --------------------------------------------------------------------------------------
 
+# tsc answers 2 for the errors it found where it wrote its build information and 1 where that was
+# current already (`ExitStatus.DiagnosticsPresent_OutputsGenerated`, `_OutputsSkipped`), and 1 too
+# where it stopped before there was a program to check, a project path it could not read among
+# them, as Node does for an uncaught exception. So its words decide: an error at a file's line and
+# column is a finding, and a failure naming none is no verdict on the change.
+typecheck() {
+  local rc=0 out line
+  out="$(in_dir fl_frontend pnpm typecheck:only 2>&1)" || rc=$?
+  printf '%s\n' "$out"
+  case "$rc" in
+    0) return 0 ;;
+    1|2)
+      while IFS= read -r line; do
+        if [[ "$line" =~ \([0-9]+,[0-9]+\):\ error\ TS[0-9]+: ]]; then return 1; fi
+      done <<< "$out"
+      return 3 ;;
+    *) return "$rc" ;;
+  esac
+}
+
+# pnpm audit answers 1 for an advisory and for a registry it could not read alike; only a run that read
+# one writes its report, so the report decides: 0 none at the level, 1 one or more, 2 no report.
+audit_prod() {
+  local report rc=0
+  report="$(in_dir fl_frontend pnpm audit:prod --json)" || rc=$?
+  printf '%s\n' "$report"
+  case "$rc" in
+    0|1) if [[ "$report" == *'"metadata"'* ]]; then return "$rc"; fi; return 2 ;;
+    *) return "$rc" ;;
+  esac
+}
+
 scope_frontend() {
   section frontend
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible, and the repeat-install shortcut
@@ -367,7 +423,7 @@ Fix with:  cd fl_frontend && pnpm dedupe  -- then commit the lockfile." \
   ok "route types generated"
 
   step "frontend · tsc"
-  check "tsc found type errors." in_dir fl_frontend pnpm typecheck:only && ok "no type errors"
+  check "tsc found type errors." typecheck && ok "no type errors"
 
   step "frontend · eslint"
   check "eslint failed." in_dir fl_frontend pnpm lint && ok "lint clean"
@@ -383,30 +439,32 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
     in_dir fl_frontend pnpm knip:prod \
     && ok "nothing only tests read"
 
-  # Advisory: something published upstream overnight must not block an unrelated merge.
-  step "frontend · dependency audit  (runtime advisories only)"
-  local rc=0
-  quietly in_dir fl_frontend pnpm audit:prod || rc=$?
-  case "$rc" in
-    0)   ok "no known runtime vulnerabilities" ;;
-    1)   warn "runtime advisories present — triage with: cd fl_frontend && pnpm audit" ;;
-    130) on_interrupt ;;
-    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod" ;;
-  esac
-
-  # Last: it writes `.next/`, which tsconfig.json's `include` covers. The builder's skipped
-  # environment validation, for `fl_frontend/Dockerfile`'s reason.
+  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
+  # environment is set for the build, so the startup gate's validation is skipped, as the image's
+  # builder skips it.
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
+
+  # An advisory, never a finding: one is published upstream while the tree stays as it was.
+  step "frontend · dependency audit  (runtime advisories, high and above)"
+  local rc=0
+  quietly audit_prod || rc=$?
+  case "$rc" in
+    0)   ok "no known runtime vulnerability at high or above" ;;
+    1)   warn "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
+triage with:  cd fl_frontend && pnpm audit" ;;
+    2)   warn "pnpm audit wrote no report, so no advisory was read. Its own words are above." ;;
+    130) on_interrupt ;;
+    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod --json" ;;
+  esac
   return 0
 }
 
 # --- ops -------------------------------------------------------------------------------------------
 
 OPS_SCRATCH=""
-NGINX_CHECK="${REPO_ROOT}/.tmp-nginx-check"
-cleanup_ops() { rm -rf "$NGINX_CHECK" || true; if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
+cleanup_ops() { if [[ -n "$OPS_SCRATCH" ]]; then rm -rf "$OPS_SCRATCH" || true; fi; }
 
 # zizmor answers 11 to 14 for findings and 1 for its own failure. Installed at the release and the
 # file hashes scripts/gate/zizmor/requirements.txt pins, being no backend dependency; Dependabot moves
@@ -457,15 +515,18 @@ findings above name the service and the rule." \
     "$PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json" \
     && ok "each stack publishes, mounts, trusts and holds only what its rules allow"
 
-  # `nginx -t` loads the certificates, hence the throwaway pair under the repository root, a path MSYS
-  # leaves alone; `log/` because it opens every log the file declares, a bind mount in production.
+  step "ops · every route handler, link page and metadata convention is metered at the edge"
+  check --checker "The route accounting is out. Each finding above names the handler, the location or the reason." \
+    "$PY" scripts/checks/check_public_routes.py \
+    && ok "every route handler is accounted for at the edge"
+
+  step "ops · no path or name in the tree holds a retired German stem"
+  check --checker "A path or a name holds a retired German stem. Each finding above names the file, the line, the name
+and the stem; rename it to English by the glossary's rule." \
+    "$PY" scripts/checks/check_retired_stems.py \
+    && ok "every path and name in the tree is clear of the retired stems"
+
   step "ops · nginx accepts prod.conf"
-  rm -rf "$NGINX_CHECK"
-  mkdir -p "${NGINX_CHECK}/log"
-  # Relative output paths, which a Windows openssl can open; the exclusion protects the subject alone.
-  MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
-    -keyout .tmp-nginx-check/key.pem -out .tmp-nginx-check/cert.pem \
-    || die "could not generate a throwaway certificate for the nginx check."
   # The image production's model names, so the nginx accepting prod.conf is the one that serves it.
   # `write`, not `print`: a Windows stdout would end the name in a carriage return.
   local nginx_image
@@ -482,8 +543,6 @@ findings above name the service and the rule." \
     docker run --rm --pull never \
     -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
     -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
-    -v "/${NGINX_CHECK}:/etc/nginx/certs:ro" \
-    -v "/${NGINX_CHECK}/log:/var/log/frankfurtleague/nginx" \
     "$nginx_image" nginx -t \
     && ok "${nginx_image} accepts prod.conf"
 
@@ -520,10 +579,42 @@ contract_check() {
   return "$rc"
 }
 
+# Global, for the EXIT trap, which runs after the scope has returned.
+DB_TIERS=""
+
+# A command run beside another, its output kept in `$1.log` and its status, with the milliseconds it
+# took, in `$1.status`. Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored,
+# which would leave a tier running past a Ctrl-C: reset, as `build_images` does.
+run_beside() { # $1 where its files go · the command
+  local at="$1" t0 rc=0
+  shift
+  trap - INT QUIT
+  t0="$(_now_ms)"
+  "$@" > "${at}.log" 2>&1 || rc=$?
+  printf '%s %s\n' "$rc" "$(( $(_now_ms) - t0 ))" > "${at}.status"
+}
+
+# A command `run_beside` ran, read under the open step as `check` reads its own: its output where
+# it failed, or under `--verbose` whole, since two tiers streaming at once would interleave. The
+# step's time is the tier's own rather than the moment its step was printed.
+beside_verdict() { # $1 its files · [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+  local at="$1" rc=3 ms=0
+  local -a said=()
+  shift
+  # A tier that left no status ended before its command did, which reads as a crash.
+  # Split on the space `run_beside` writes, which the repository's IFS leaves out.
+  if [[ -f "${at}.status" ]]; then IFS=' ' read -r rc ms < "${at}.status"; fi
+  QUIETLY_OUTPUT=""
+  if [[ -f "${at}.log" ]]; then QUIETLY_OUTPUT="$(<"${at}.log")"; fi
+  _STEP_MS0=$(( $(_now_ms) - ms ))
+  if (( VERBOSE || rc )); then mapfile -t said <<<"$QUIETLY_OUTPUT"; detail "${said[@]}"; fi
+  verdict "${@:1:$#-1}" "$rc" "${BASH_LINENO[0]}" "${!#}"
+}
+
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
-  trap 'rm -rf "$CONTRACT_SCRATCH"' EXIT
+  trap 'rm -rf "$CONTRACT_SCRATCH" ${DB_TIERS:+"$DB_TIERS"}' EXIT
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   step "db · the contract and its generated client match the code they are built from"
   check "The committed contract no longer matches the code it is generated from; the diff above names each file.
@@ -531,18 +622,30 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
     contract_check \
     && ok "the contract and the client are current"
 
-  # `loadfile` for isolation too: `fl_backend/tests/api/test_commit_fail_points.py` sets the
-  # server's one `failCommand`, so its cases run one after another on one worker.
-  step "db · pytest -m db, distributed over the two shared mongods"
-  check "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
-own message above says which." \
-    in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
+  # Side by side, each into its own capture, as `build_images` runs two builds: the tiers share no
+  # container, each starting its own on ports Docker picks.
+  DB_TIERS="$(mktemp -d)"
+  local backend frontend
+  # `loadfile` for isolation too: the commit fail points' cases set the server's one
+  # `failCommand`, so they run one after another on one worker.
+  ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
+  backend=$!
+  # Each file starts its own replica set through `@testcontainers/mongodb`.
+  ( run_beside "${DB_TIERS}/frontend" in_dir fl_frontend pnpm run test:db ) &
+  frontend=$!
+  spinner_start "db · the backend's and the frontend's db tiers, side by side"
+  wait "$backend" || true
+  wait "$frontend" || true
+  spinner_stop
+
+  step "db · pytest -m db, distributed over one shared replica set"
+  beside_verdict "${DB_TIERS}/backend" --pytest "fl_backend db-tier tests failed. A failing test and a mongo that never started both end here: each case's
+own message above says which." "pytest -m db" \
     && ok "db-tier tests pass"
 
-  # Each file starts its own replica set through `@testcontainers/mongodb`.
   step "db · the frontend's *.db.test.ts files"
-  check --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
-own message above says which." in_dir fl_frontend pnpm run test:db \
+  beside_verdict "${DB_TIERS}/frontend" --summary "fl_frontend db-tier tests failed. A failing test and a mongo that never started both end here: each file's
+own message above says which." "pnpm run test:db" \
     && ok "frontend db-tier tests pass"
   return 0
 }

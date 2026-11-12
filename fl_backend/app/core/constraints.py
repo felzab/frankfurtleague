@@ -36,8 +36,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # undo, by renaming one.
     UniqueIndex(Collection.SPIELORTE, "uniq_spielort_name", ("name",), "a name identifies exactly one venue"),
     # Every row, as the venue index above takes every row: an erasure deletes the referee rather
-    # than nulling them, so the one null name this can meet is the ghost's and there is only ever
-    # one ghost (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).
+    # than nulling the name, so the index meets no null.
     UniqueIndex(Collection.SCHIEDSRICHTER, "uniq_schiedsrichter_name", ("name",), "a name identifies exactly one referee"),
     # The phase is a key, not a filter: positions restart at 1 in each phase, so a season legitimately
     # holds several matchdays numbered 1.
@@ -93,7 +92,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/grants/guard.py :: verify_actor_is_admin`),
-    # and what refuses a second grant a Playground paste adds for an address already holding one.
+    # and what refuses a second grant a hand-run `mongosh` file adds for an address already holding one.
     UniqueIndex(Collection.GRANTS, "uniq_grant_address", ("address",), "one grant per address"),
     # Checked at each write rather than at the commit, so a handover demotes before it promotes
     # (`app/api/grants/crud.py :: complete_the_handover_in_session`).
@@ -148,14 +147,14 @@ class SupportIndex:
 
 
 SUPPORT_INDEXES: Sequence[SupportIndex] = (
-    # Ending in the read's own sort order, `submitted_at` then `_id`: with the sort key unindexed
-    # every request scans the collection and sorts it in memory, which is work proportional to an
-    # archive an anonymous form can grow.
+    # Ending in `submitted_at` then `_id`, the sort order of a read filtering on the season and the
+    # status, which walks these keys in order: with the sort keys unindexed such a read sorts in
+    # memory, which is work proportional to an archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
-        "one season's queue narrowed to one status, which is what a triage tab reads",
+        "a season's undecided applications, oldest first on the season overview, counted by the duplicate check and erased at the season's end",
     ),
     # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
     # hashes, so each link answers how its change ended.
@@ -187,18 +186,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("confirmation.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
     ),
-    # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
-    # looked up on whichever seat holds it, on a season row or on an application.
-    *(
-        SupportIndex(
-            Collection.SAISON_TEAMS,
-            f"saison_teams_confirmations_{seat}_token_hashes",
-            ((f"confirmations.{seat}.token_hashes", ASCENDING),),
-            "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
-        )
-        for seat in KONTAKT_ROLLEN
-    ),
-    # Multikey, each seat keeping every link it was mailed until a re-send voids them.
+    # One per clause of the link lookup's `$or`, each multikey: every open of a contact's link reads this collection by
+    # the hash, and anybody can grow it through the public application form.
     *(
         SupportIndex(
             Collection.BEWERBUNGEN,
@@ -256,9 +245,9 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         Collection.SPIELBERICHTE,
         "spielberichte_saison_id",
         (("saison_id", ASCENDING),),
-        "a season's reports, which the triage's read and a replace's or an undraw's removal filter on",
+        "a season's reports, which the season overview and the season editor's count read, and a replace's or an undraw's removal filters on",
     ),
-    # The reports are kept with no retention bound, and the pupil repoint names no season the season-leading index could
+    # The reports are kept with no retention bound, and the pupil's erasure names no season the season-leading index could
     # narrow by: one per clause of its `$or`, for the registration's pair's reason; each multikey.
     *(
         SupportIndex(

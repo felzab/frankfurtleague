@@ -58,11 +58,10 @@ export function SpielerEditor({
   person: readonly Fact[];
   /** The Kader box's facts: the team, and the day an ausgetragen row left. */
   kader: readonly Fact[];
-  /** The Einwilligung box's facts. */
   einwilligung: readonly Fact[];
   /** What the save asks of each box, read on the server. */
   rules: { required: { first_name: boolean; last_name: boolean; birth_date: boolean }; max: { first_name: number; last_name: number } };
-  /** The position's and the level's choices, each opening on the empty box (`features/spieler/options.ts`). */
+  /** The position's and the level's choices, each opening on the empty box. */
   positions: readonly Option[];
   stufen: readonly Option[];
   /** Each role another live row of the squad holds, standing in its list closed. */

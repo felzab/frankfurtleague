@@ -44,9 +44,8 @@ export type FormStatus = { tone: "changes" | "saved" | "warn" | "error"; text: C
  * a server refusal its fields carry, since the fields say what; a refusal with a reason no box says says that
  * reason, the boxes saying theirs beside it, and any other the shared failure line; a done one says what else
  * the write moved, or „Gespeichert“.
- * Nothing for no answer, for a save held back for the question its answer asks, nor while a send is on its way: the last answer is none to the press still running,
- * and the line, a polite live region, is announced only where its words change, so the same refusal twice
- * goes in afresh after the empty line or a screen reader stays silent on the second.
+ * Nothing for no answer, for a save held back for the question its answer asks, nor while a send is on its way: the
+ * last answer is none to the press still running.
  */
 export function statusOf(answer: ActionAnswer<unknown> | null, isBlocked: boolean, isPending: boolean): FormStatus {
   if (isBlocked) return { tone: "error", text: COPY.template.checkFields };
@@ -67,8 +66,7 @@ type Step<Payload> = { kind: "send"; payload: Payload } | { kind: "reset" };
 /**
  * The one way a browser form posts: a server action through React's `useActionState`, whose rejection would
  * otherwise reach the nearest error boundary with nothing to say, so every throw answers in the form's own
- * status line, as `answering` words it. Every form kind takes it: the editor's bar, a Konto box, and the
- * one-shot submit.
+ * status line, as `answering` words it.
  *
  * Next keeps a page the person left in a hidden `Activity`. With `resetOnLeave`, an answer already shown is
  * cleared as the page hides, so a „Gespeichert“ never greets a later visit; a draft not yet sent stays, which

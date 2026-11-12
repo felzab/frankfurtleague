@@ -8,8 +8,8 @@ import { z } from "zod";
 import { BootRefusal } from "./bootRefusal";
 import { logger } from "./logging";
 
-// The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
-// without the space, which `secrets.compare_digest` there reads.
+// The class the backend's `INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII without the space, which
+// `secrets.compare_digest` there reads.
 const INTERNAL_API_KEY = z
   .string()
   .length(64)
@@ -18,8 +18,6 @@ const INTERNAL_API_KEY = z
 // Where Compose mounts a file secret, which is where a container finds it with nothing set.
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
-// One `KEY: "file",` a line, which `scripts/checks/check_compose_model.py :: frontend_schema_files`
-// holds the compose files to, as it does `PRODUCTION_ONLY_REQUIRED` below.
 /**
  * Each value read from a file rather than the environment, by the schema's key. One file name serves the
  * host, the container and development, so the database login carries this service's prefix: the backend
@@ -99,7 +97,7 @@ function refuse(refusals: readonly Refusal[]): never {
   throw new BootRefusal(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
 }
 
-export function refuseInvalidEnvironment(names: readonly string[]): never {
+function refuseInvalidEnvironment(names: readonly string[]): never {
   const variables = names.filter((name) => !isSecretKey(name));
   // By the file's name, the one an operator goes and fixes.
   const files = names.filter(isSecretKey).map((name) => SECRET_FILES[name]);
@@ -125,12 +123,12 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 
-// The deployments this repository defines -- `docker-compose.yml` and `docker-compose.local.yml`.
-// A third member would name a stack nothing here deploys.
+// The deployments this repository defines, the production stack and the local one. A third member
+// would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: the deploy asks production for them by file, never by a
+// production host alone. Files only: the production stack hands each as a file secret, never a
 // variable.
 const PRODUCTION_ONLY_REQUIRED = [
   "AUTH_RESEND_KEY",
@@ -139,8 +137,8 @@ const PRODUCTION_ONLY_REQUIRED = [
   "BETTERSTACK_HEARTBEAT_URL",
 ] as const satisfies readonly SecretKey[];
 
-// Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
-// which moves without us: every published test key, site and secret alike, takes this shape.
+// Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, which moves
+// without us: every published test key, site and secret alike, takes this shape.
 const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
 
 /**
@@ -149,26 +147,21 @@ const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
  */
 const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
-// A name without a default refuses the boot where it is misspelled or missing, and the deploy's preflight
-// boots before anything is recreated, so no shipped value serves in its place. Bound to a name rather
-// than written inside the call: the validation reads each variable off its keys.
+// A name without a default refuses the boot where it is misspelled or missing, which fails the deploy, so
+// no shipped value serves in its place. Bound to a name rather than written inside the call: the
+// validation reads each variable off its keys.
 const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
-  // production host too, and an origin test would call a staging box production. `mail.ts` sends on
+  // production host too, and an origin test would call a staging box production. The mailer sends on
   // this value alone.
   APP_ENV: z.enum(APP_ENVIRONMENTS),
 
-  // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
-  // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
-  // call. Caught at boot: that shape reads as healthy.
-  API_URL: z.url().refine((raw) => {
-    const authUrl = process.env.AUTH_URL;
-    return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
-  }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
+  // Its origin is held apart from AUTH_URL's by `schemaBeside`, which reads both.
+  API_URL: z.url(),
 
-  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth/library.ts` reads this
-  // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
-  // or neither.
+  // A stray http:// here ships a session cookie in plaintext: the sign-in library reads this value's
+  // scheme and gives the cookie the `__Host-` name prefix and the `secure` attribute together or
+  // neither.
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
@@ -176,20 +169,19 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; unset under
-  // `next dev`, and empty, so read as unset, in a build handed none.
+  // The image's version from its build argument, which the start-up line logs; unset under `next dev`, and empty, so
+  // read as unset, in a build handed none.
   APP_VERSION: z.string().min(1).optional(),
 
-  // On for a restore's steps alone (`docs/ops/runbooks.md` §13): no pass is armed and no write's drain sends, so nothing
-  // acts on the restored state before those steps have. Off where the server sets nothing.
+  // On while the stored data is changed by hand, in a restore or a migration: no pass is armed and no write's drain
+  // sends, so nothing acts on that data before the steps judging it have run. Off where the server sets nothing.
   RESTORE_HOLD: z
     .string()
     .transform((value) => value.toLowerCase())
     .pipe(z.enum(["on", "off"]))
     .default("off"),
 
-  // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
-  // is refused before the recreate rather than at the boot.
+  // Public: the bot check's widget prints it into the page.
   TURNSTILE_SITE_KEY: z.string().min(1),
 };
 
@@ -224,22 +216,68 @@ const fromFiles = {
   BETTERSTACK_HEARTBEAT_URL: z.url({ protocol: /^https$/ }).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
-// A rule reading two variables at once, which a per-variable schema cannot express. Each issue carries a
-// `path`, so the refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
-const schema = z.object({ ...environment, ...fromFiles }).superRefine((values, ctx) => {
-  if (values.APP_ENV !== "production") return;
+/**
+ * The whole schema, beside the AUTH_URL the environment holds as it was set. Each issue carries a `path`, so the
+ * refusal names the file to go and write: `failingVariableNames` reduces one without to `<unknown>`.
+ */
+const schemaBeside = (authUrl: string | undefined) =>
+  z
+    .object({
+      ...environment,
+      ...fromFiles,
+      // The public origin reaches FastAPI on the liveness path alone, so an API_URL sharing
+      // AUTH_URL's origin leaves the footer's probe green while Next's 404 answers every other
+      // call. Caught at boot: that shape reads as healthy.
+      API_URL: environment.API_URL.refine(
+        (raw) => !authUrl || new URL(raw).origin !== new URL(authUrl).origin,
+        "API_URL must reach the backend directly, not through the public origin AUTH_URL names",
+      ),
+    })
+    // A rule reading two variables at once, which a per-variable schema cannot express.
+    .superRefine((values, ctx) => {
+      if (values.APP_ENV !== "production") return;
 
-  for (const name of PRODUCTION_ONLY_REQUIRED) {
-    if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
-  }
+      for (const name of PRODUCTION_ONLY_REQUIRED) {
+        if (values[name] === undefined) ctx.addIssue({ code: "custom", path: [name], message: `${name} is required under APP_ENV=production` });
+      }
 
-  // A test key passes every visitor, so production on one would run with no bot check at all.
-  for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
-    if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
-      ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
-    }
-  }
-});
+      // A test key passes every visitor, so production on one would run with no bot check at all.
+      for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"] as const) {
+        if (TURNSTILE_TEST_KEY.test(values[name] ?? "")) {
+          ctx.addIssue({ code: "custom", path: [name], message: `${name} holds one of Cloudflare's test keys under APP_ENV=production` });
+        }
+      }
+    });
+
+type Validated = z.output<ReturnType<typeof schemaBeside>>;
+
+/**
+ * The input the schema reads: each setting the environment names, and the secret files' values over them. An empty
+ * variable reads as unset, as the backend's `env_ignore_empty` reads it: an image built without an argument carries its
+ * `ENV` as the empty string, which Docker cannot leave unset. The files alone give a secret: a variable of the same
+ * name, standing in for a missing file, would hand a credential `docker inspect` prints to a boot that should refuse.
+ */
+function inputOf(variables: Readonly<Record<string, string | undefined>>, files: Readonly<Partial<Record<SecretKey, string>>>) {
+  return {
+    ...Object.fromEntries(Object.keys(environment).map((name) => [name, variables[name] === "" ? undefined : variables[name]])),
+    ...files,
+  };
+}
+
+/**
+ * The boot's judgement of its settings and its secret files' values, together: the production demand reads `APP_ENV`
+ * beside the files, and a boot refusing both kinds prints both lines before it throws `BootRefusal`. Handed the
+ * environment and the files' values, it reads nothing else.
+ */
+export function judgedSettings(
+  variables: Readonly<Record<string, string | undefined>>,
+  files: Readonly<Partial<Record<SecretKey, string>>>,
+): Validated {
+  const parsed = schemaBeside(variables.AUTH_URL).safeParse(inputOf(variables, files));
+  if (!parsed.success) refuseInvalidEnvironment(failingVariableNames(parsed.error.issues));
+
+  return parsed.data;
+}
 
 const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 
@@ -248,32 +286,14 @@ const skipValidation = process.env.SKIP_ENV_VALIDATION === "true";
 const secrets = readSecretFiles(process.env.SECRETS_DIR ?? DEFAULT_SECRETS_DIR);
 if (!skipValidation && secrets.unreadable.length > 0) refuseUnreadableSecretFiles(secrets.unreadable);
 
-/** Skipped, the input itself, unvalidated and undefaulted: the image's builder and the test runner hold none of these values. */
-function validate(input: Record<string, string | undefined>): z.output<typeof schema> {
-  if (skipValidation) return input as unknown as z.output<typeof schema>;
-
-  const parsed = schema.safeParse(input);
-  if (!parsed.success) refuseInvalidEnvironment(failingVariableNames(parsed.error.issues));
-
-  return parsed.data;
-}
-
-// One validation over the settings and the secrets together: the production demand reads `APP_ENV`
-// beside the files, and a boot refusing both kinds prints both lines before it throws.
-const validated = validate({
-  // An empty variable reads as unset, as the backend's `env_ignore_empty` reads it: an image built without an
-  // argument carries its `ENV` as the empty string, which Docker cannot leave unset.
-  ...Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name] === "" ? undefined : process.env[name]])),
-  // Off the files alone: a variable of the same name, standing in for a missing file, would hand
-  // a credential `docker inspect` prints to a boot that should refuse.
-  ...secrets.values,
-});
+// Skipped, the input itself, unvalidated and undefaulted: the image's builder and the test runner hold none of these values.
+const validated = skipValidation ? (inputOf(process.env, secrets.values) as unknown as Validated) : judgedSettings(process.env, secrets.values);
 
 type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
 
 /**
  * The settings, and no secret: any server module may import this, so each secret is handed out by its
- * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owners alone import.
+ * own reader below, which the lint lets its owners alone import.
  */
 export const frontend_config = Object.fromEntries(Object.entries(validated).filter(([name]) => !isSecretKey(name))) as Settings;
 
@@ -286,6 +306,3 @@ export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYS
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
 export const heartbeatUrl = (): string | undefined => validated.BETTERSTACK_HEARTBEAT_URL;
-
-/** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
-export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;

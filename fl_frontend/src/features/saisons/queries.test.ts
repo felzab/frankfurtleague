@@ -1,6 +1,5 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
 import { describe, expect, it, vi } from "vitest";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
@@ -14,68 +13,35 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
-/** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const LIST = "/saisons/list/admin";
-const reads = doubleApiClient(({ endpoint }) => (endpoint.startsWith(LIST) ? { saisons: [{ id: "2526" }] } : { saison: { id: "2627" } }));
-
-serveServerReact();
+/** Every request the doubled client was asked for, cumulative across this file. */
+const reads = doubleApiClient(() => ({ saison: { id: "2627" } }));
 
 const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
 
-const listReads = () => reads.filter(({ endpoint }) => endpoint.startsWith(LIST));
-const adminReads = (): number => listReads().length;
-
-describe("the admin season list across a render pass", () => {
-  /* First, so a scope that failed to take fails here rather than under every count below. */
-  itOpensAScopeThatMemoizes();
-
-  /* Its readers take the newest season off its end, which a list on the backend's default order no longer holds once
-     that default moves, handing the next season an older season's days with nothing on screen saying so. */
-  it("asks for every season oldest first by id", async () => {
-    beginRenderPass();
-    await getAdminSaisons();
-
-    expect(new URL(listReads().at(-1)?.endpoint ?? "", "http://backend").searchParams.toString()).toBe("sort_by=_id&order=asc");
-  });
-
-  it("is fetched once when the frame and the page both read it", async () => {
-    beginRenderPass();
-    const before = adminReads();
+describe("the admin season list's read", () => {
+  /* Kept past one request, the list would serve every administrator the first request's seasons, `next_saison_id`
+     and create refusal until the server restarts, and no journey creates a season to notice. */
+  it("is read on the admin tier every time, declaring no cache", async () => {
+    const before = reads.length;
 
     await getAdminSaisons();
     await getAdminSaisons();
 
-    expect(adminReads() - before, "the admin season list went to the backend twice in one render pass").toBe(1);
-  });
-
-  it("is fetched again in the next pass, so no request is served another's copy", async () => {
-    // Primed here rather than leaning on the test above: a leak is only visible against a pass that
-    // already read the list, and `it` order is not something this should depend on.
-    beginRenderPass();
-    await getAdminSaisons();
-    const before = adminReads();
-
-    beginRenderPass();
-    await getAdminSaisons();
-    await getAdminSaisons();
-
-    // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`
-    // would open on this read, and 2 is no memoization at all.
-    const fetched = adminReads() - before;
-    expect(fetched, "a new request was served the previous request's admin list").not.toBe(0);
-    expect(fetched, "the admin season list went to the backend twice in one render pass").toBe(1);
+    expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
+      ["/saisons/list/admin", "admin"],
+      ["/saisons/list/admin", "admin"],
+    ]);
+    expect(declared, "the administrators' season list is declared into a cache every caller shares").toStrictEqual([]);
   });
 });
 
 describe("the season editor's read", () => {
   /* Cached, the read would key on the season id alone: every administrator would share one slot, and a version from
      before another administrator's save would refuse every save as stale. */
-  it("is read on the admin tier in every pass, declaring no cache", async () => {
+  it("is read on the admin tier every time, declaring no cache", async () => {
     const before = reads.length;
 
-    beginRenderPass();
     await getAdminSaison("2627");
-    beginRenderPass();
     await getAdminSaison("2627");
 
     expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
@@ -90,7 +56,6 @@ describe("the season editor's read", () => {
     setSession(null);
     const before = reads.length;
 
-    beginRenderPass();
     await expect(getAdminSaison("2627")).rejects.toThrow();
 
     expect(reads.length, "the season was read for a session the guard turns away").toBe(before);

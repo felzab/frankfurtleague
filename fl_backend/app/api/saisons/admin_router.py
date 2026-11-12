@@ -15,7 +15,6 @@ from app.api.grants.guard import verify_actor_is_admin
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.schemas import (
     FLInvitation,
-    FLInvitationDispatchPayload,
     FLInvitationDispatchResponse,
     FLInvitationLinkRow,
 )
@@ -55,7 +54,6 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLSaisonsAdminListResponse,
     FLSaisonsAdminRefusals,
-    FLSaisonsFilterParams,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
@@ -97,8 +95,6 @@ from app.core.crud import (
     GERMAN_COLLATION,
     VERSION_FIELD,
     anchor_in_db,
-    build_query,
-    build_sort,
     delete_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
@@ -157,7 +153,7 @@ async def _rewrite_gruppenphase_sides(
 
     Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
     whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
-    read BEFORE any write: filtering on the club would let the second pass match what the first just wrote and swap it
+    read before any write: filtering on the club would let the second pass match what the first just wrote and swap it
     back.
     """
 
@@ -191,30 +187,16 @@ async def get_saisons_admin(
     saisons_collection: SaisonsReadCollection,
     spiele_collection: SpieleReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
-    filters: FLSaisonsFilterParams = Depends(),
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonsAdminListResponse:
-    """
-    List every season, the `future` ones every base-tier read withholds included, each with its start, play and decision states.
+    """Every season, the `future` ones included, each with its start, play and decision states and its counts.
 
-    The admin surfaces read here because a season is created `future` and clubs are entered while it
-    still is, so an admin who cannot see one cannot run the league. `begun` is the start every
-    start lock refuses on, the swap's, the replacement's and the rules freeze's; `taken_place` is what
-    fixes the start date (`saison_start_taken_place`); `decided` is the landing's own rule, all four places of the Finale in.
-    `count_teams` counts every club row of the season, one that left included, and `count_spiele` its fixtures.
     `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
-    now, by its own judgement, or null.
+    now, or null.
     """
 
-    db_filter = build_query(filters, terms={"status"})
-    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
-
-    saisons_raw = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
-    )
+    # Oldest first: a season's id is its starting year.
+    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
 
     saison_ids = [str(raw["_id"]) for raw in saisons_raw]
     taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
@@ -258,32 +240,21 @@ async def get_saison_admin(
     invitations_collection: InvitationsReadCollection,
     today: str = Depends(get_german_date_str),
 ) -> FLSaisonAdminResponse:
-    """
-    Return what the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
+    """What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
 
-    The season is served a `future` one included, with its `version`, whether it has started (`begun`), whether a
-    fixture of it has taken place (`taken_place`) and whether it is decided (`decided`), by the landing's own rule.
-
-    Each club's two flags are what the group swap's `swap_sides_taken_place` and the replacement's
-    `replace_sides_taken_place` read, so a picker closes exactly the pairs and rows those writes refuse; `begun` closes
-    both before either is pressed. `incoming_teams` is every club still in the league holding no row of the season,
-    which is what the replacement admits.
-
-    `refusals` names, per act, the refusal its write would answer now, by that write's own judgement, so the editor
-    offers an act exactly where the write takes it. `invitations` is the registration links' press planned by the function
-    the press decides each team by, `resend` left false, beside each team's live link and the day it was last sent.
-    Read outside a transaction: a write landing between this read and a press is judged by the press. 404 where no
-    season holds that id.
+    The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+    judges it, so an act is offered exactly where its write takes it.
     """
 
-    # First and alone: a season id naming nothing raises the 404 here, and the activation is judged on the status read.
+    # Outside a transaction: a write landing between this read and a press is judged by the press. First and alone: a
+    # season id naming nothing raises the 404 here, and the activation is judged on the status read.
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
     saison_status = str(saison_raw["status"])
 
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
     (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
-            # Each whole, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` reads its season: a truncated
+            # Each whole, as the bracket's advance reads its season: a truncated
             # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
             # refuses as entered.
             pull_whole_from_db(
@@ -291,7 +262,7 @@ async def get_saison_admin(
                 db_filter={"saison_id": saison_id},
                 what=f"season {saison_id}'s clubs",
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
-                sort_by=build_sort(sort_by="name", order="asc"),
+                sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
             ),
             pull_whole_from_db(
@@ -306,7 +277,7 @@ async def get_saison_admin(
                 db_filter={"inactive_since": None},
                 what="the league's clubs",
                 projection=["name", "shorthand"],
-                sort_by=build_sort(sort_by="name", order="asc"),
+                sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
             ),
             pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
@@ -427,15 +398,10 @@ async def post_saison(
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPostSaisonResponse:
-    """
-    Create the next season, always `future`, from its two days, answering the id it minted.
+    """Create the next season, always `future`, from its two days, answering the id it minted.
 
-    The server names it: the year after the newest stored season's, or the league's first where none is stored, so a
-    season is never created out of turn. Its rules carry on from that newest season, or are the league's first season's
-    (`FIRST_SAISON_RULES`), and its two windows start closed, each set in the season's own editor. Refused while a
-    `future` season stands (`create_saison_future_stands`), so a league holds at most one planned season, the loser of
-    two creates at once included (`find_saison_create_refusal`); then by the rules it carries on and by its span against
-    them. Making the season live is a separate step.
+    Its id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league
+    holds at most one planned season.
     """
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
@@ -492,20 +458,16 @@ async def patch_saison(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSaisonResponse:
-    """
-    Update a season's dates and rules on the `version` the editor was served, answering the version stored, which its next save sends.
+    """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
-    `status` is on no payload. Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    started or drawn season has fixed is refused, as is a rule narrowed below what it holds. The start date moves until a
-    fixture of the season has taken place (`saison_start_taken_place`), and later only while no club's exit is stored
-    (`saison_start_austritt_stored`, its `latest` the stored start); the rules freeze reads the STORED start, so a season
-    started too early is unlocked by one save moving its start and a second changing its rules.
+    What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
+    fixed once a fixture has taken place, and moves later only while no club's exit is stored.
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
         """Judge, then write the season's dates and rules. Every figure is read in-session."""
 
-        # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
+        # Through the session, and first: this opens the snapshot the update below is judged
         # against, so a rival writing `saisons` under the judgement conflicts instead of being
         # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
@@ -534,7 +496,7 @@ async def patch_saison(
                 if isinstance(quelle, dict) and quelle.get("type") == "gruppe":
                     highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
 
-        # The fullest matchday of a phase, not the total, and keyed on the MATCHDAY's phase, which the
+        # The fullest matchday of a phase, not the total, and keyed on the matchday's phase, which the
         # fixture's can disagree with. Judged on the snapshot for `highest_platz`'s reason, the
         # unreachable refusal here being `rules_spieltag_over_its_phase`.
         attached_by_phase: dict[Any, int] = {}
@@ -570,7 +532,7 @@ async def patch_saison(
         ).to_list(length=1)
         largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
 
-        # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
+        # Dated rows only, filtered in the query rather than after `str()`: a generated matchday carries
         # no span until somebody sets one, and a null stringified to "None" sorts above every date and
         # would be reported as falling outside the season.
         spieltag_spans = [
@@ -602,8 +564,9 @@ async def patch_saison(
                 austritt_stored=austritt_stored,
             )
         )
-        # The STORED start, in this transaction's snapshot: the date on the payload is what the edit
-        # proposes, and a freeze lifted by the same save that changes the rules would be no freeze.
+        # The stored start, in this transaction's snapshot: the date on the payload is what the edit
+        # proposes, and a freeze lifted by the same save that changes the rules would be no freeze. A season started
+        # too early is unlocked by one save moving its start and a second changing its rules.
         refuse(
             find_rules_freeze_refusal(
                 saison_status=str(stored_raw["status"]),
@@ -684,7 +647,7 @@ async def _judge_the_activation(
     )
     outgoing_ids = [row["_id"] for row in outgoing]
 
-    # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
+    # Empty where nothing but the target holds `active` -- a fresh league, or a re-activation.
     unplayed: list[int] = []
     if outgoing_ids:
         unplayed = unplayed_spiel_nrs(
@@ -694,11 +657,11 @@ async def _judge_the_activation(
         )
 
     # One call, so which of the two refusals an admin is shown stays the service's decision.
-    # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
+    # The target's own fixtures, not the outgoing season's: a league going live with nothing drawn
     # has no repair, activation writing `status` one way only.
     target_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
 
-    # In-session for `target_status`'s reason, and `start` alone: `end` is dated with it, and a
+    # In-session where the caller holds a session, so a retry re-judges it, and `start` alone: `end` is dated with it, and a
     # matchday half-dated is a shape no write here produces.
     undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "start": None}, session=session)
 
@@ -717,8 +680,8 @@ async def _pull_recorded_fact_rows(
 
     The predicate's own fields, so the projection cannot fall behind what it reads: a venue, a referee or an admin's note
     is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
-    refused past it, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks: a truncated list counts fewer
-    records than the season holds, and the window opens on work the removal would destroy.
+    refused past it: a truncated list counts fewer records than the season holds, and the window opens on work the
+    removal would destroy.
     """
 
     return await pull_whole_from_db(
@@ -749,17 +712,15 @@ async def activate_saison(
     ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
-    """
-    Make this the active season, moving whichever holds `active` to `past` in one transaction.
+    """Make this the active season, moving whichever holds `active` to `past`.
 
-    The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
-    refused, and every matchday of the target carries a date.
+    The outgoing season must be finished, and every matchday of the target dated.
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
         """Judge, then demote every incumbent and promote the target. Every figure is read in-session."""
 
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
+        # Through the session, as the draw's reads are: a retry after a write conflict judges the
         # league as it stands then. A season id naming nothing raises the 404 here, before any demotion.
         target_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
@@ -774,7 +735,7 @@ async def activate_saison(
         )
         refuse(refusal)
 
-        # BEFORE the promotion: `uniq_saison_active` is checked at each write rather than at the
+        # Before the promotion: `uniq_saison_active` is checked at each write rather than at the
         # commit, so promoting first meets the incumbent and aborts the rollover.
         demoted = await patch_many_in_db(
             collection=saisons_collection,
@@ -805,7 +766,7 @@ async def activate_saison(
         await record_act(collection=saisons_collection, action="saison.activated", label=saison_id, session=session)
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
-        # lapses on the activation of the season AFTER it.
+        # lapses on the activation of the season after it.
         lapsed = await delete_many_from_db(
             collection=ban_list_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
@@ -846,11 +807,10 @@ async def swap_gruppen(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLSwapGruppenResponse:
-    """
-    Exchange the groups of two clubs entered in this season, as one write.
+    """Exchange the groups of two clubs entered in this season, as one write.
 
-    Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
-    so each group stays a round robin. Neither `tore` nor `austritt` moves.
+    Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
+    `tore` nor `austritt` moves.
     """
 
     # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
@@ -864,7 +824,7 @@ async def swap_gruppen(
 
         both_ids = [swap_data.team1_id, swap_data.team2_id]
 
-        # THROUGH the session: a retry after a write conflict has to judge these rows as they are
+        # Through the session: a retry after a write conflict has to judge these rows as they are
         # then, not as this request first saw them.
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
@@ -911,7 +871,7 @@ async def swap_gruppen(
             session=session,
         )
 
-        # Built BEFORE the junction writes and then written FROM: the model refuses a stored group
+        # Built before the junction writes and then written from: the model refuses a stored group
         # outside the closed set before anything lands, and the echo cannot disagree with what did.
         swapped = FLSwapGruppenResponse(
             saison_id=saison_id,
@@ -964,13 +924,10 @@ async def post_spielplan(
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
     today: str = Depends(get_german_date_str),
 ) -> FLGenerateSpielplanResponse:
-    """
-    Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
+    """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
 
-    `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
-    window and on a season holding no submitted match report (`spielplan_berichte_submitted`): nothing writes the
-    removed rows back.
+    A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
+    confirmations, reports and line-ups with it; nothing writes the removed rows back.
     """
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
@@ -979,12 +936,12 @@ async def post_spielplan(
     async def draw_the_whole_season(session: AsyncClientSession) -> FLGenerateSpielplanResponse:
         """Judge, then write both collections and the watermark. Everything judged is read in-session."""
 
-        # THROUGH the session, as the group swap's callback is: a retry after a write conflict has to
+        # Through the session, as the group swap's callback is: a retry after a write conflict has to
         # judge the season as it stands then, not as this request first saw it.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
-        # ONE object judged, drawn and stored, so every refusal below weighs the numbers this draw
+        # One object judged, drawn and stored, so every refusal below weighs the numbers this draw
         # runs from. `model_copy` skips validation and safely: `FLSpielplanShape` declares the three
         # under `FLSaisonRules`' own types.
         rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
@@ -994,7 +951,7 @@ async def post_spielplan(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
             what=f"season {saison_id}'s clubs",
-            # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
+            # `name` and `shorthand` off the junction: that is the name the season is played under,
             # and `teams` may since have been renamed.
             projection=["team_id", "gruppe", "name", "shorthand"],
             session=session,
@@ -1005,7 +962,7 @@ async def post_spielplan(
             gruppe = row["gruppe"]
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
-        # LISTED rather than counted, as the group swap's callback lists its own: one read answers
+        # Listed rather than counted, as the group swap's callback lists its own: one read answers
         # `spielplan_already_drawn` and supplies what `spielplan_replace_outside_its_window` weighs, so the two cannot
         # disagree about what a replace would destroy.
         stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
@@ -1059,7 +1016,7 @@ async def post_spielplan(
         )
 
         # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and
-        # `find_eligibility_refusal` are all unasked: each judges ONE payload against a stored season,
+        # `find_eligibility_refusal` are all unasked: each judges one payload against a stored season,
         # and would see a draw half written. The construction is what is verified instead.
         drawn = draw_spielplan(
             saison_id=saison_id,
@@ -1076,8 +1033,7 @@ async def post_spielplan(
             ],
         )
 
-        # Both collections together, fixtures first for
-        # `delete_spielplan`'s reason.
+        # Both collections together, fixtures first, the reverse of the draw's write order, as the undraw removes them.
         removed_spieltage = 0
         removed_spiele = 0
 
@@ -1087,7 +1043,7 @@ async def post_spielplan(
             # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-            # NOT extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
+            # Not extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
@@ -1121,7 +1077,7 @@ async def post_spielplan(
             )
 
         watermark = FLSaisonSpielplan(generated_at=today)
-        # ONE `$set` inside the transaction: the shape and the draw it produced are one fact.
+        # One `$set` inside the transaction: the shape and the draw it produced are one fact.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
@@ -1171,20 +1127,15 @@ async def delete_spielplan(
     aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
-    """
-    Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+    """Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
 
-    Every fixture's confirmations go with it.
-
-    The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
-    (`spielplan_berichte_submitted`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
-    an entry.
+    Undoing the draw reopens the shape rules to an edit and the groups to an entry.
     """
 
     async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
         """Judge, then remove both collections and the watermark. Everything judged is read in-session."""
 
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
+        # Through the session, as the draw's reads are: a retry after a write conflict judges the
         # season as it stands then. A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
@@ -1214,7 +1165,7 @@ async def delete_spielplan(
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        # INSIDE the transaction holding both removals: a season keeping its watermark while its fixtures
+        # Inside the transaction holding both removals: a season keeping its watermark while its fixtures
         # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries.
         before = await patch_one_in_db(
             collection=saisons_collection,
@@ -1226,7 +1177,8 @@ async def delete_spielplan(
         )
         await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
 
-        # The replace's reason.
+        # Counted again outside the transaction: a report's write conflicts with this one, but a document no write made
+        # does not.
         refuse(
             find_berichte_refusal(
                 berichte=await count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
@@ -1237,7 +1189,7 @@ async def delete_spielplan(
             saison_id=saison_id,
             spieltage=removed_spieltage.deleted_count,
             spiele=removed_spiele.deleted_count,
-            # The update's OWN pre-image, so nothing lands between reading the watermark and clearing
+            # The update's own pre-image, so nothing lands between reading the watermark and clearing
             # it. A season holding one with no fixtures behind it reports the only thing removed.
             watermark_cleared=before.get("spielplan") is not None,
         )
@@ -1253,8 +1205,8 @@ async def delete_spielplan(
 async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: str) -> list[Mapping[str, Any]]:
     """Every team this season holds, ordered as its other lists are.
 
-    Read one over the cap and refused past it (`app/api/spiele/crud.py :: advance_bracket_winners`'s
-    reason): a truncated list silently leaves teams unmailed, which is what this press exists to stop.
+    Read one over the cap and refused past it: a truncated list silently leaves teams unmailed, which is what this press
+    exists to stop.
     """
 
     return await pull_whole_from_db(
@@ -1262,7 +1214,7 @@ async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: 
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
-        sort_by=build_sort(sort_by="name", order="asc"),
+        sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
     )
 
@@ -1283,8 +1235,7 @@ async def _plan_the_dispatch(
 ) -> list[_PlannedTeam]:
     """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
-    `resend` left false, as the editor's press sends it. Read outside any transaction, for the editor's read: the press
-    plans each team again in its own.
+    Read outside any transaction, for the editor's read: the press plans each team again in its own.
     """
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
@@ -1307,7 +1258,6 @@ async def _plan_the_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=invitation_raw,
-            resend=False,
         )
         planned.append(_PlannedTeam(team=team, live=invitation_raw, plan=plan))
 
@@ -1325,7 +1275,6 @@ async def _mail_one_team(
     db: AsyncMongoClient,
     saison_id: str,
     team: Mapping[str, Any],
-    resend: bool,
     records_the_press: bool,
     today: str,
     now: datetime,
@@ -1340,7 +1289,7 @@ async def _mail_one_team(
     async def mint_where_the_team_qualifies(session: AsyncClientSession) -> _PressOutcome:
         """Plan this team, then revoke, insert and owe where the plan says to.
 
-        The INVITE and its mails alone are read in-session: the withdrawal and the contacts come from
+        The invite and its mails alone are read in-session: the withdrawal and the contacts come from
         the read before the loop, so a retry re-decides on those as they stood then.
         """
 
@@ -1351,11 +1300,12 @@ async def _mail_one_team(
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
+        # A link already sent is read off the day stored on it, never off the Postausgang, whose row is erased a retention
+        # after it settles: pressing twice mails nobody twice.
         plan = plan_invitation_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
             invitation_raw=live[0] if live else None,
-            resend=resend,
         )
 
         if plan.skipped is not None:
@@ -1373,7 +1323,7 @@ async def _mail_one_team(
         post_operation = await post_one_to_db(
             collection=invitations_collection,
             # No link of its own: each mail below mints one at its hand-out.
-            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], today=today, sent_at=today),
+            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], sent_at=today),
             session=session,
         )
         await enqueue_mails(
@@ -1400,7 +1350,7 @@ async def _mail_one_team(
         async with transaction_session(db) as session:
             return await session.with_transaction(mint_where_the_team_qualifies)
     except PyMongoError as failure:
-        # Per TEAM: every team already done is committed with its mails. A commit sent and never answered may have revoked
+        # Per team: every team already done is committed with its mails. A commit sent and never answered may have revoked
         # this team's link and owed its mails too, so its line says unknown rather than failed.
         uncertain = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
@@ -1423,7 +1373,6 @@ async def _mail_one_team(
 )
 async def post_invitations_dispatch(
     saison_id: str,
-    dispatch_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
@@ -1432,26 +1381,10 @@ async def post_invitations_dispatch(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLInvitationDispatchResponse:
-    """
-    Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
+    """Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
 
-    **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
-    copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
-    handed out; no link is answered. A team this skips is left exactly as it was.
-
-    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, or its live link was already sent and `resend` is false. **The fourth is read off the day the
-    live link was sent, stored on it**, never off the Postausgang, whose row is erased a retention after it settles: pressing twice mails
-    nobody twice, and a link a club holds is replaced only by a deliberate resend. **The first is read off the junction row's
-    `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
-    being a deliberate act rather than a bulk one.
-
-    Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers zero
-    counts.
-
-    **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
-    that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
-    teams and reaches the rest.
+    A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
+    was, so pressing twice mails nobody twice.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
@@ -1470,10 +1403,9 @@ async def post_invitations_dispatch(
                 db=db,
                 saison_id=saison_id,
                 team=team,
-                resend=dispatch_data.resend,
                 # One press across a transaction per team is one act, its row in the first team's that mails: a write
                 # after the loop would meet the deadline the loop spent, and answer 500 over teams already mailed.
-                records_the_press=not dispatch_data.resend and "mailed" not in outcomes,
+                records_the_press="mailed" not in outcomes,
                 today=today,
                 now=germany_now,
             )

@@ -7,8 +7,8 @@ export type LogMeta = Record<string, unknown>;
 
 // An address anywhere in a line: a store's duplicate-key refusal quotes the stored one in its message and
 // stack, and a failure on the sign-in or the mail path carries the submitted one, a Unicode domain included.
-// `fl_backend/app/core/logging.py :: ADDRESS` spells the same classes in Python's syntax, and
-// `fl_backend/tests/shared/log_addresses.json` holds the two to one answer. The domain ends in a label
+// The backend's `ADDRESS` spells the same classes in Python's syntax, and a fixture of addresses both
+// suites read holds the two to one answer. The domain ends in a label
 // opening with a letter, as every top-level domain does, so pnpm's `.pnpm/<name>@<version>/` in a stack
 // frame's path is left standing.
 const ADDRESS = /[\p{L}\p{N}_.!#$%&'*+/=?^`{|}~-]+@[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.\p{L}[\p{L}\p{N}_-]*/gu;

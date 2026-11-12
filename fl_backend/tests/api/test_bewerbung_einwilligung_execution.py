@@ -218,7 +218,7 @@ def leaf_paths(document: Any, prefix: str = "") -> set[str]:
 
 class TestWhatALinkOpens:
     def test_a_live_link_shows_the_seat_and_no_contact_record(self, mongo_replica_set_url: str):
-        """`READ-BEWERBUNG-002`: a school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
+        """A school, a season and a role, and no name, no stored record or anything a leaked link could act on."""
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: read_view(database, RAW["ansprechperson"]))
 
@@ -286,8 +286,6 @@ class TestWhatAConfirmationWrites:
             "date": "2026-03-20",
             "confirmed_at": TODAY,
             "media": False,
-            # The seating's, which the answer leaves standing.
-            "entered_by": "bewerbung",
             # Each choice's evidence under its own wording: the WhatsApp grant, and the media answer
             # withholding.
             "evidence": {
@@ -521,8 +519,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                     "kind": "bewerbung_objection",
                     "saison_id": SAISON_ID,
                     "rollen": ["ansprechperson"],
-                    # Off the read before the decline: nothing left in the record names whose entry was refused.
-                    "declined": {"first_name": "Bramblewick", "rollen": ["stellvertretung"]},
+                    "declined": ["stellvertretung"],
                     "deadline": "2026-04-03",
                 },
             }

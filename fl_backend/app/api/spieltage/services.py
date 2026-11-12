@@ -12,32 +12,11 @@ from app.api.spieltage.schemas import (
     FLSpielplanSpieltagAdminListAdapter,
     FLSpielplanSpieltagListAdapter,
     FLSpieltag,
-    FLSpieltageFilterParams,
 )
 from app.core.codes import Code
-from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSaisonStatus
-
-
-def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The Mongo sort, an APPROXIMATION of the natural order that `order_spieltage` refines.
-
-    The phase RANK is on no document, so no `find` separates the phases and `limit` may keep a
-    prefix of each. `position` leads, being exact inside one.
-    """
-
-    if sort_by == "natural":
-        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `position` tie
-        # straddling `limit`, a descending page needs the descending end of that tie.
-        direction = 1 if order == "asc" else -1
-
-        return build_sort(sort_by="position", order=order, chain=(("_id", direction),))
-
-    # Tie-broken by the two fields that make any ordering here reproducible. `position` and not a
-    # date: every matchday has one, and it is the order the season's schedule was drawn in.
-    return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
 
 
 def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spieltag]:
@@ -48,14 +27,6 @@ def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spi
     """
 
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
-
-
-def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
-    return build_query(
-        filters,
-        terms={"saison_id", "saison_phase"},
-        compiled={"saison_phase": {"$ne": "gruppenphase"}} if filters.saison_phase == "playoffs" else None,
-    )
 
 
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
@@ -83,7 +54,7 @@ def build_spielplan(
 ) -> list[FLSpielplanSpieltag]:
     """A season's matchdays in the order they are played, each holding its matches by `spiel_nr`.
 
-    `spiele_raw` is what `app/api/spiele/services.py :: build_spiele_pipeline` yields for the same season.
+    `spiele_raw` is what `build_spiele_pipeline` yields for the same season.
     """
 
     return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
@@ -121,7 +92,7 @@ def find_spieltag_span_refusal(
 ) -> WriteRefusal | None:
     """Why this matchday's span must be refused, or `None`.
 
-    `spiel_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing.
     """
 
     if start < saison_start or end > saison_end:
@@ -151,8 +122,8 @@ class DatedNeighbour:
 def dated_start(spieltag_raw: Mapping[str, Any]) -> str | None:
     """One stored `start` as the rule takes it, or `None` for an undated row.
 
-    The record model reads the field string-or-null (`app/api/spieltage/schemas.py :: FLSpieltagRecord`), so
-    nothing converts it: a `str()` would turn an undated row into a day above every ISO date.
+    The record model reads the field string-or-null, so nothing converts it: a `str()` would turn an undated row into
+    a day above every ISO date.
     """
 
     return spieltag_raw["start"]
@@ -178,11 +149,11 @@ def find_spieltag_order_refusal(
 ) -> WriteRefusal | None:
     """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
-    `previous` and `following` are the nearest DATED matchday below and above this `position`; an
+    `previous` and `following` are the nearest dated matchday below and above this `position`; an
     undated one states no date to compare, so the caller passes neither.
     """
 
-    # The STEP, never the state: an `end`-only edit resubmits this
+    # The step, never the state: an `end`-only edit resubmits this
     # `start`. A first dating moves from no pair at all, so it is judged against both neighbours.
     moved_earlier = stored_start is None or start < stored_start
     moved_later = stored_start is None or start > stored_start

@@ -1,8 +1,9 @@
-// Apart from the Zod map, which `instrumentation.ts` installs on both runtimes: the rule phrases are the server's
+// Apart from the Zod map, which the instrumentation installs on both runtimes: the rule phrases are the server's
 // own catalogue, which neither instrumentation bundle is to carry.
 import { now } from "./clock";
 import { COPY } from "./copy";
-import { bornBy, dayIn, dayOf } from "./format";
+import { bornBy } from "./dayArithmetic";
+import { dayIn, dayOf } from "./format";
 import { saisonsPatchSaisonBodyRulesDrawPointsMin, saisonsPatchSaisonBodyRulesLossPointsMin } from "./generated/zod/inputs";
 import { SERVER_COPY } from "./serverCopy";
 
@@ -33,10 +34,9 @@ const atLeast = ({ min }: Context) => (typeof min === "number" ? field.min(min) 
 
 /**
  * Each rule the backend refuses a payload with that a field pattern words, by its kind, from the bounds the rule's
- * context carries: the same line the box shows where the form's own check catches the value
- * (`fl_frontend/src/core/zodGerman.ts :: fieldMessage`). Beside them, each code whose phrase names a bound its refusal
- * carries, by the code, which every field the refusal names carries as its kind with the bounds as its context
- * (`fl_backend/app/core/exceptions.py :: APIError`); a code whose phrase names none stays `SERVER_COPY.refusal`'s.
+ * context carries: the same line the box shows where the form's own check catches the value. Beside them, each code
+ * whose phrase names a bound its refusal carries, by the code, which every field the refusal names carries as its kind
+ * with the bounds as its context; a code whose phrase names none stays `SERVER_COPY.refusal`'s.
  */
 const PATTERNED = {
   saison_ends_before_start: notBeforeStart,

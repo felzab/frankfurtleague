@@ -17,7 +17,6 @@ const { shape } = SpieltagePatchSpieltagBody;
 /** What the editor's two boxes send, each held to the matchday write's own published rule for it. */
 const SaveSpieltag = z.object({
   id: SpieltagePatchSpieltagParams.shape.spieltag_id,
-  // The matchday's version as the editor read it.
   version: shape.version,
   // A box emptied sends no day, which the write cannot take: refused below on its box.
   changes: z.object({ start: z.union([shape.start, z.null()]), end: z.union([shape.end, z.null()]) }).partial(),

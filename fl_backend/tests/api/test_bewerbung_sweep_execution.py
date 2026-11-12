@@ -20,7 +20,7 @@ from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.admin_router import decline_bewerbung, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLDeclineBewerbungPayload
-from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update, confirmation_deadline_from
+from app.api.bewerbungen.services import compose_confirmation_update, confirmation_deadline_from
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
@@ -36,6 +36,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
+from app.core.transactions import SWEEP_PAGE
 from app.main import create_app
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
@@ -44,7 +45,7 @@ from tests import documents
 from tests.acts import deletions_of
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import SEED_BOUND_S, a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
     SEAT_TEXT_VERSIONS,
@@ -1099,8 +1100,9 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
         return _ThenTheRival(cursor, self.run_the_rival)
 
 
-# Far past the call's few seconds over two pages, and far short of a job's own budget.
-DRAIN_BOUND_S = 60.0
+# Far past the call's few seconds over two pages, far short of a job's own budget, and inside the seed's own bound, so a
+# drain that never ends fails as one rather than as a seed cancelled for a deadlock.
+DRAIN_BOUND_S = SEED_BOUND_S / 2
 
 
 class TestAnActivationInsideAnEraseTransactionKeepsTheSeasonsRows:
@@ -1842,7 +1844,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         party={"kind": "team", "team_id": team_id},
         asked_at=f"{saison_id}-04-01",
         answer=documents.kontakt_answer_document("trainer", reason="Wir sind auf Klassenfahrt"),
-        closed={"at": f"{saison_id}-04-19", "reason": "spiel_past"},
+        closed={"reason": "spiel_past"},
     )
 
 

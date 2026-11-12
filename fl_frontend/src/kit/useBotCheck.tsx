@@ -13,7 +13,7 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 // Explicit rendering, Cloudflare's way for a page whose forms mount after it loads; fetched from this exact
-// URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/, read 2026-10-04).
+// URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
 const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 // Cloudflare's own bound on a siteverify call: a press waits for a token being minted as long as the
@@ -36,7 +36,7 @@ type TurnstileApi = {
 const turnstileApi = (): TurnstileApi | undefined => (window as Window & { turnstile?: TurnstileApi }).turnstile;
 
 /** Minting, holding a token, showing Cloudflare's click, or failed until Cloudflare's own retry mints one. */
-type Stand = "loading" | "ready" | "interactive" | "failed";
+type CheckState = "loading" | "ready" | "interactive" | "failed";
 
 /** A press's token, or the sentence it is answered with instead: a press never posts an empty token. */
 type TokenRequest = { readonly token: string } | { readonly sentence: Copy };
@@ -55,12 +55,12 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
   widget: ReactNode;
   takeToken: () => Promise<TokenRequest>;
 } {
-  const [stand, setStandState] = useState<Stand>("loading");
+  const [state, setRenderedState] = useState<CheckState>("loading");
   // Read by a press, which can run between a callback and the render it causes.
-  const standNow = useRef<Stand>("loading");
-  const setStand = (next: Stand): void => {
-    standNow.current = next;
-    setStandState(next);
+  const stateNow = useRef<CheckState>("loading");
+  const setState = (next: CheckState): void => {
+    stateNow.current = next;
+    setRenderedState(next);
   };
 
   // State rather than a ref, so a container the form mounts anew is an effect's dependency.
@@ -83,7 +83,7 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
   // Reported once per form: Cloudflare retries by itself, calling back again for the one fault.
   const fail = (code: string): void => {
     token.current = null;
-    setStand("failed");
+    setState("failed");
     settle(null);
     if (reported.current) return;
     reported.current = true;
@@ -92,20 +92,20 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
 
   const onToken = useEffectEvent((minted: string) => {
     token.current = minted;
-    setStand("ready");
+    setState("ready");
     settle(minted);
   });
   const onExpired = useEffectEvent(() => {
     token.current = null;
-    setStand("loading");
+    setState("loading");
   });
   const onError = useEffectEvent((code: string) => fail(code));
   const onInteractive = useEffectEvent(() => {
-    setStand("interactive");
+    setState("interactive");
     settle(null);
   });
   const onInteractiveDone = useEffectEvent(() => {
-    if (standNow.current === "interactive") setStand(token.current === null ? "loading" : "ready");
+    if (stateNow.current === "interactive") setState(token.current === null ? "loading" : "ready");
   });
 
   // One widget per container and theme, removed with them: a second render into a container is a second
@@ -142,7 +142,7 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
       widgetId.current = null;
       // Minting again with the token: a press before the new widget mints waits for it, never answers at once.
       token.current = null;
-      setStand("loading");
+      setState("loading");
       api.remove(id);
     };
   }, [container, isScriptReady, siteKey, size, theme]);
@@ -151,16 +151,16 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
     const handOver = (minted: string): TokenRequest => {
       // A token is spent by the check it reaches, so the next press's starts being minted now.
       token.current = null;
-      setStand("loading");
+      setState("loading");
       if (widgetId.current !== null) turnstileApi()?.reset(widgetId.current);
       return { token: minted };
     };
     const withoutToken = (): TokenRequest => {
-      return { sentence: standNow.current === "interactive" ? CONFIRM_HUMAN : UNCHECKED };
+      return { sentence: stateNow.current === "interactive" ? CONFIRM_HUMAN : UNCHECKED };
     };
 
     if (token.current !== null) return Promise.resolve(handOver(token.current));
-    if (standNow.current !== "loading") return Promise.resolve(withoutToken());
+    if (stateNow.current !== "loading") return Promise.resolve(withoutToken());
 
     return new Promise((resolve) => {
       const waiter = (minted: string | null): void => {
@@ -180,7 +180,7 @@ export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: B
           ref={setContainer}
           // Spacing alone follows the callbacks: Cloudflare shows and hides the widget itself, so a missed
           // callback costs a margin and never the challenge.
-          className={stand === "interactive" ? "pb-4" : undefined}
+          className={state === "interactive" ? "pb-4" : undefined}
         />
         {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
         <Script

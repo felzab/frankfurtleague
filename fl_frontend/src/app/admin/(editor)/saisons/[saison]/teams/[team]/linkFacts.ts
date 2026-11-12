@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
-import { dayAfter, dayOf, formatDate } from "@/core/format";
+import { dayAfter } from "@/core/dayArithmetic";
+import { dayOf, formatDate } from "@/core/format";
 
 import type { Copy } from "@/core/copy";
 import type { FLSaisonStatus, FLTeamLinkState, FLTeamSaisonFacts } from "@/core/generated/client/types";
@@ -26,8 +27,8 @@ function linkStateOf({ skipped, invitation, paused, running }: FLTeamLinkState, 
 
 /**
  * The link box's facts: where the link stands, and the day from which an entry through it is a Nachnominierung. The
- * window's end closes no link: it opens on until the season ends, an entry made past that day standing outside the cap
- * (`fl_backend/app/api/saisons/services.py :: entry_is_a_nominee`, which counts a day past `end` and never `end` itself).
+ * window's end closes no link: it opens on until the season ends, an entry made past that day standing outside the cap.
+ * The backend's `entry_is_a_nominee` counts a day past `end`, never `end` itself.
  */
 export function linkFactsOf(
   link: FLTeamLinkState,

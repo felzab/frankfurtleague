@@ -1,10 +1,3 @@
-"""
-API · every read and write of the grants that reaches a collection
-
-The anchor lives here beside the read it protects, so no caller can judge the list without writing
-every row of it.
-"""
-
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -41,14 +34,15 @@ async def read_grants(*, grants_collection: ReadCollection, session: AsyncClient
 async def pull_the_list_to_judge(
     *,
     grants_collection: AsyncCollection,
-    # REQUIRED: the anchor is what closes the race, so forgetting the session has to be a TypeError
+    # Required: the anchor is what closes the race, so forgetting the session has to be a TypeError
     # at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> list[Mapping[str, Any]]:
     """Read every grant, then write each one, in the caller's transaction.
 
     A snapshot re-validates no read: a rival judging the list writes the same rows, so whichever
-    lands second meets a write conflict and retries.
+    lands second meets a write conflict and retries. The anchor sits beside the read it protects, so
+    no caller can judge the list without writing every row of it.
     """
 
     grants = await read_grants(grants_collection=grants_collection, session=session)
@@ -82,7 +76,7 @@ async def read_admin_tier_of(
 def _named_recipients(data: FLGrantData) -> set[str]:
     """Who a notice names, beyond the holders: a completed address change's old address alone has its short-lived mail.
 
-    A row kept here would hold that address 30 days past an erasure (`app/api/outbox/services.py :: RETENTION`).
+    A row kept here would hold that address for the outbox's retention past an erasure.
     """
 
     if data.address is None or (data.change == "address" and data.stage == "completed"):
@@ -103,15 +97,14 @@ async def owe_in_session(
 
     The starter is among them: on a hijacked session the mail is how its owner learns of it. The holders are read after the
     caller's write, on its session, so a removed one is told only as the address named. A barred recipient is stopped at the
-    hand-out, not here (`app/api/outbox/system_router.py :: post_handout`).
+    hand-out, not here.
     """
 
     if not notices:
         return
     grants = await read_grants(grants_collection=grants_collection, session=session)
     # Each recipient is keyed by its own grant row, one per address (`uniq_grant_address`), and the one address a notice
-    # names beyond them by `named`: never by the address, which a key keeps past an address move and an erasure
-    # (`app/api/outbox/services.py :: TOMBSTONE_UPDATE`).
+    # names beyond them by `named`: never by the address, which a key keeps past an address move and an erasure.
     holders = {str(row["address"]): str(row["_id"]) for row in grants if in_effect(row, now)}
 
     mails: list[OwedMail] = []

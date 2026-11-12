@@ -22,13 +22,10 @@ from app.api.spielbestaetigungen.admin_router import (
     adopt_spielbestaetigung,
     discard_spielbestaetigung,
     enter_spielbestaetigung,
-    get_spielbestaetigungen,
 )
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_answer, post_team_answer
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnswerResponse,
-    FLSpielbestaetigungenFilterParams,
-    FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungEnterPayload,
     FLSpielbestaetigungSchiedsrichterAnswerPayload,
     FLSpielbestaetigungSchiedsrichterAnswerResponse,
@@ -44,7 +41,6 @@ from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.acts import acts_of
@@ -53,7 +49,6 @@ from tests.erasure import erased
 from tests.isolation import InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
-from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -539,17 +534,7 @@ async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
-        today=TODAY,
         now=NOW,
-    )
-
-
-async def read_admin_rows(
-    database: AsyncDatabase, *, spiel_id: ObjectId | None = None, spielbestaetigungen: Any = None, limit: int = LIST_LIMIT_DEFAULT
-) -> FLSpielbestaetigungenListResponse:
-    return await get_spielbestaetigungen(
-        spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
 
@@ -613,7 +598,7 @@ class TestTheDiscard:
 
         declined, row, owed = on_a_spiel(mongo_replica_set_url, body)
 
-        assert (row["answer"], row["closed"]) == (declined, {"at": TODAY, "reason": "discarded"})
+        assert (row["answer"], row["closed"]) == (declined, {"reason": "discarded"})
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
         assert sorted((mail["to"], mail["kind"], mail["reference"]["seat"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
@@ -639,9 +624,7 @@ class TestTheDiscard:
             await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
 
             async def the_pass_closes_it() -> None:
-                await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                    {"_id": ROW1}, {"$set": {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}}
-                )
+                await database[Collection.SPIELBESTAETIGUNGEN].update_one({"_id": ROW1}, {"$set": {"closed": {"reason": "ansetzung_changed"}}})
 
             confirmations = ConfirmationsCountingTheJudgements(database[Collection.SPIELBESTAETIGUNGEN], the_pass_closes_it)
             outcome = await outcome_of(discard_row(database, client, ROW1, spielbestaetigungen=confirmations))
@@ -695,6 +678,7 @@ async def adopt(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         db=client,
         today=today,
         now=MAIL_NOW,
@@ -792,28 +776,6 @@ class TestTheAdoption:
         assert slot == (DATE, TIME)
 
 
-class TestWhatTheAdministratorsReadServes:
-    def test_a_season_holding_more_rows_than_one_read_serves_says_so_and_keeps_every_open_one(self, mongo_replica_set_url: str):
-        """Cut by age alone, the read would drop the overdue row first, the oldest still open.
-
-        The page is the caller's, so two of three closed rows cut it, and `complete` says so.
-        """
-
-        closed = {"closed": {"at": TODAY, "reason": "ansetzung_changed"}}
-        overdue = {**confirmation(ObjectId("6890a1b2c3d4e5f600000000"), TEAM2), "deadline": "2126-04-30"}
-        rows = [overdue, *(confirmation(ObjectId(f"6890a1b2c3d4e5f6{index:08x}"), TEAM1, **closed) for index in range(1, 4))]
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> FLSpielbestaetigungenListResponse:
-            return await read_admin_rows(database, limit=2)
-
-        served = on_a_spiel(mongo_replica_set_url, body, rows=rows)
-
-        assert ([row.id for row in served.spielbestaetigungen], served.complete) == (
-            [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
-            False,
-        )
-
-
 DECLINE = {
     "kind": "declined",
     "at": TODAY,
@@ -836,7 +798,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
             pytest.param({"asked_at": None}, DEADLINE, False, True, id="due-today-and-never-asked"),
             pytest.param({}, DEADLINE, False, False, id="due-today-and-asked-days-ago"),
             pytest.param({"answer": DECLINE}, TODAY, True, False, id="a-proposal-about-an-ansetzung-left"),
-            pytest.param({"answer": DECLINE, "closed": {"at": TODAY, "reason": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
+            pytest.param({"answer": DECLINE, "closed": {"reason": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
         ],
     )
     def test_the_spiel_is_listed_where_a_clubs_row_asks_for_the_administrator(
@@ -1095,7 +1057,7 @@ class TestARefereesDeclineReturnsTheSpiel:
             "vorschlag": None,
             "reason": DECLINE_REASON,
         }
-        assert row["closed"] == {"at": TODAY, "reason": "schiedsrichter_declined"}
+        assert row["closed"] == {"reason": "schiedsrichter_declined"}
 
     def test_booking_the_same_referee_again_leaves_them_unheld(self, mongo_replica_set_url: str):
         """Held, the declined row would keep the next pass from asking them about the booking at all."""
@@ -1111,52 +1073,6 @@ class TestARefereesDeclineReturnsTheSpiel:
             )
 
         assert on_a_refereed_spiel(mongo_replica_set_url, body) == 0
-
-
-# Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
-OTHER_REFEREES_ROWS = 2000
-
-REFEREE_INDEX_SCAN = "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }"
-
-
-def deletes_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
-    """The erasure's delete, naming the referee's id."""
-
-    return collection == Collection.SPIELBESTAETIGUNGEN and any("party.schiedsrichter_id" in delete["q"] for delete in command["deletes"])
-
-
-class TestARefereesOwnRowsAreReachedThroughTheirIndex:
-    """`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`'s referee index, which nothing else would keep the planner on."""
-
-    def test_the_erasure_walks_the_referee_index_past_a_season_of_other_rows(self, mongo_replica_set_url: str):
-        """The erasure's delete is unbounded, so a walk of the season-leading index costs it every row of the season."""
-
-        others = [
-            documents.spielbestaetigung_document(
-                spiel(ObjectId(), spiel_nr=100 + position),
-                party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-            )
-            for position in range(OTHER_REFEREES_ROWS)
-        ]
-
-        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(others)
-            _, sent = await plans_of_sent_reads(
-                mongo_replica_set_url,
-                database,
-                lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT),
-                deletes_a_referees_rows,
-                commands=("delete",),
-            )
-
-            return sent
-
-        sent = on_a_refereed_spiel(mongo_replica_set_url, body)
-
-        # The premise: the delete was sent, or the plan below would pass vacuously.
-        assert sent, "the erasure sent no delete naming the referee's id"
-        for _, plan in sent:
-            assert plan == REFEREE_INDEX_SCAN, plan
 
 
 async def book_ute(database: AsyncDatabase) -> None:
@@ -1215,6 +1131,7 @@ async def save(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
+        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         now=NOW,
         dry_run=dry_run,

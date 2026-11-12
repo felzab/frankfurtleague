@@ -1,9 +1,9 @@
 """
 API · the rules a line-up's save judges whom it names by, pinned on fabricated squads
 
-A nominee is named only while the line-up names fewer than eleven regular players, and no more of them than the gap;
-and eleven start at most, an erased pupil's kept entry among them. Only a pupil the stored line-up does not name is
-judged against the squad. The payload names each pupil once and eleven starters at most.
+A nominee is named only while the line-up names fewer than eleven regular players, and no more of them than the gap.
+Only a pupil the stored line-up does not name is judged against the squad, and an entry naming nobody is one the stored
+line-up holds, never one a save adds. The payload names each pupil once and eleven starters at most.
 """
 
 from typing import Any
@@ -13,10 +13,9 @@ from bson import ObjectId
 from pydantic import ValidationError
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry, FLAufstellungPayload
-from app.api.aufstellungen.services import find_not_in_kader_refusal, judge_the_names, newly_named
+from app.api.aufstellungen.services import count_nameless, find_not_in_kader_refusal, judge_the_names, newly_named
 from app.core.codes import Code
 from app.core.exceptions import APIError
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import AUFSTELLUNG_STARTERS_MAX
 
 # One past a side, so a line-up can name more regular players than start.
@@ -29,11 +28,11 @@ KADER = [
 LIVE_KADER = [{**row, "inactive_since": None} for row in KADER]
 
 
-def judged(entries: list[FLAufstellungEntry], *, kept: list[FLAufstellungEntry] | None = None) -> APIError | None:
+def judged(entries: list[FLAufstellungEntry]) -> APIError | None:
     """The refusal a save naming `entries` meets, none of them newly named, or None: judged as the save judges, every rule in its order."""
 
     try:
-        judge_the_names(entries=entries, kept=kept or [], new=set(), kader=LIVE_KADER)
+        judge_the_names(entries=entries, new=set(), nameless=0, kader=LIVE_KADER)
     except APIError as refusal:
         return refusal
 
@@ -67,15 +66,15 @@ def test_nominees_fill_the_gap_below_eleven_and_no_more(regular: int, nominees: 
 def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_naming_one():
     """The paths the screen marks its rows by: an entry stored before, or in the squad, is never among them."""
 
-    outside, ausgetragen = ObjectId(), ObjectId()
+    outside, withdrawn = ObjectId(), ObjectId()
     kader = [
         *({**row, "inactive_since": None} for row in KADER),
-        {"spieler_id": ausgetragen, "is_nachnominiert": False, "inactive_since": "2026-10-01"},
+        {"spieler_id": withdrawn, "is_nachnominiert": False, "inactive_since": "2026-10-01"},
     ]
-    saved = {"spieler": [{"spieler_id": ausgetragen, "starts": False}]}
-    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, ausgetragen, outside)]
+    saved = {"spieler": [{"spieler_id": withdrawn, "starts": False}]}
+    entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in (REGULAR[0], outside, withdrawn, outside)]
 
-    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), kader=kader)
+    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=0, kader=kader)
 
     assert refusal is not None
     assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"), ("spieler", 3, "spieler_id")))
@@ -89,7 +88,7 @@ def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_nam
     ],
 )
 def test_only_a_pupil_the_stored_line_up_does_not_name_is_judged_against_the_squad(saved: dict[str, Any] | None, judged: set[int]):
-    """So a line-up keeps a pupil ausgetragen or erased since it named them, and judges a newcomer all the same."""
+    """So a line-up keeps a pupil ausgetragen since it named them, and judges a newcomer all the same."""
 
     entries = [FLAufstellungEntry(spieler_id=pupil, starts=False) for pupil in REGULAR[:2]]
 
@@ -114,6 +113,11 @@ def _starters(count: int) -> list[dict[str, Any]]:
             [("spieler_named_twice", None)],
             id="one pupil twice",
         ),
+        pytest.param(
+            [{"spieler_id": None, "starts": True}, {"spieler_id": None, "starts": False}],
+            [],
+            id="two entries naming nobody",
+        ),
     ],
 )
 def test_the_list_names_each_pupil_once_and_a_side_of_starters_at_most(entries: list[dict[str, Any]], refusals: list[Any]):
@@ -128,25 +132,29 @@ def test_the_list_names_each_pupil_once_and_a_side_of_starters_at_most(entries: 
     assert refused == refusals
 
 
-def test_a_save_naming_the_placeholder_is_refused_on_that_entry():
-    """Stored, the placeholder would read as named before and pass, and a list keyed by the pupil collapses every erased entry into one."""
+@pytest.mark.parametrize(("sent", "refused"), [pytest.param(1, (), id="the one stored"), pytest.param(2, (2,), id="one more")])
+def test_a_save_keeps_the_entries_naming_nobody_and_adds_none(sent: int, refused: tuple[int, ...]):
+    """Only an erasure makes an entry naming nobody: one a save added would field a place in a played match nobody filled."""
 
-    saved = {"spieler": [{"spieler_id": REGULAR[0], "starts": True}, {"spieler_id": GHOST_SPIELER_ID, "starts": True}]}
-    entries = [FLAufstellungEntry(spieler_id=pupil, starts=True) for pupil in (REGULAR[0], GHOST_SPIELER_ID)]
+    saved = {"spieler": [{"spieler_id": REGULAR[0], "starts": True}, {"spieler_id": None, "starts": True}]}
+    entries = [
+        FLAufstellungEntry(spieler_id=REGULAR[0], starts=True),
+        *(FLAufstellungEntry(spieler_id=None, starts=False) for _ in range(sent)),
+    ]
 
-    with pytest.raises(APIError) as raised:
-        judge_the_names(entries=entries, kept=[], new=newly_named(entries, saved), kader=LIVE_KADER)
-    assert (raised.value.error_code, raised.value.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 1, "spieler_id"),))
+    refusal = find_not_in_kader_refusal(entries=entries, new=newly_named(entries, saved), nameless=count_nameless(saved), kader=LIVE_KADER)
 
-
-@pytest.mark.parametrize(("kept", "refused"), [pytest.param(1, False, id="eleven in all"), pytest.param(2, True, id="twelve in all")])
-def test_an_erased_pupils_kept_start_counts_toward_eleven(kept: int, refused: bool):
-    """The payload's own rule sees ten starters either way: a twelfth stored start would go unnoticed on the public page."""
-
-    entries = [FLAufstellungEntry(spieler_id=pupil, starts=True) for pupil in REGULAR[:10]]
-    refusal = judged(entries, kept=[FLAufstellungEntry(spieler_id=GHOST_SPIELER_ID, starts=True)] * kept)
-
-    # On the list and with its bound, as the nominee's refusal: the screen words the eleven from the server's figure.
-    assert (None if refusal is None else (refusal.error_code, refusal.fields, refusal.bounds)) == (
-        (Code.AUFSTELLUNG_STARTERS_EXCEED_ELEVEN, (("spieler",),), {"max": AUFSTELLUNG_STARTERS_MAX}) if refused else None
+    assert (None if refusal is None else (refusal.error_code, refusal.fields)) == (
+        (Code.SPIELER_NOT_IN_KADER, tuple(("spieler", index, "spieler_id") for index in refused)) if refused else None
     )
+
+
+def test_a_first_save_adds_no_entry_naming_nobody():
+    """No line-up is stored yet, so it holds no entry naming nobody for the save to keep."""
+
+    entries = [FLAufstellungEntry(spieler_id=None, starts=True)]
+
+    refusal = find_not_in_kader_refusal(entries=entries, new=set(), nameless=count_nameless(None), kader=[])
+
+    assert refusal is not None
+    assert (refusal.error_code, refusal.fields) == (Code.SPIELER_NOT_IN_KADER, (("spieler", 0, "spieler_id"),))

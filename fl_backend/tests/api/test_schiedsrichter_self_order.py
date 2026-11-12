@@ -12,8 +12,6 @@ from bson import ObjectId
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSpiel
 from app.api.schiedsrichter.services import order_self_spiele
 
-SCHIEDSRICHTER_ID = ObjectId("6890a1b2c3d4e5f607e60001")
-
 
 def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: Any) -> FLSchiedsrichterSpiel:
     """A fixture to come, agreed and owing no report, its id ordered by `spiel_nr`."""
@@ -21,7 +19,6 @@ def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: An
     return FLSchiedsrichterSpiel.model_validate(
         {
             "spiel_id": ObjectId(f"6890a1b2c3d4e5f607e600{10 + spiel_nr:02d}"),
-            "schiedsrichter_id": SCHIEDSRICHTER_ID,
             "team1_name": "Adler",
             "team2_name": "Biber",
             "date": date,

@@ -124,6 +124,7 @@ async function figuresOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
       title={words.figures.title}>
       <StatTiles
         layout="four"
+        reads="screen"
         items={[
           { label: words.figures.saisons, value: { record: formatNumber(counts.count_saisons) } },
           { label: words.figures.schulen, value: { record: formatNumber(counts.count_schulen) } },
@@ -165,6 +166,7 @@ async function schoolsOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
       title={words.schools.title(saison.id)}
       more={{ label: COPY.page.teams, href: ROUTES.teams.path(saison.id) }}>
       <SchoolTiles
+        reads="screen"
         schools={saison.teams.map((team) => ({
           name: { record: team.name },
           plaque: { record: team.shorthand },
@@ -224,6 +226,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
           <LandingSectionPlaceholder>
             <StatTilesPlaceholder
               layout="four"
+              reads="screen"
               line={false}
             />
           </LandingSectionPlaceholder>
@@ -239,7 +242,10 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         eyebrow={words.sponsors.eyebrow}
         title={COPY.page.sponsors}
         more={{ label: COPY.page.sponsors, href: ROUTES.sponsors.path() }}>
-        <SponsorTiles sponsors={SPONSORS} />
+        <SponsorTiles
+          sponsors={SPONSORS}
+          reads="screen"
+        />
       </LandingSection>
       <LandingSectionWait
         block={doorsOf(read)}
@@ -254,7 +260,10 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         block={schoolsOf(read)}
         fallback={
           <LandingSectionPlaceholder more={COPY.page.teams}>
-            <SchoolTilesPlaceholder count={24} />
+            <SchoolTilesPlaceholder
+              count={24}
+              reads="screen"
+            />
           </LandingSectionPlaceholder>
         }
       />

@@ -1,4 +1,4 @@
-"""SPIELER · the consent table every spelling of `READ-PUPIL-003` and `READ-REFEREE-004` is joined against
+"""SPIELER · the consent table every spelling of the rule publishing a pupil's or a referee's name is joined against
 
 Hand-written rather than derived from either spelling: a table taken from one would compare that
 spelling with itself. One sheet rather than a table and two homes, so a spelling with no case
@@ -59,7 +59,7 @@ def _record(scope: Any, confirmed_at: Any) -> dict[str, Any]:
     return {key: value for key, value in record.items() if value is not ABSENT}
 
 
-# The three inputs `READ-PUPIL-003` names, closed over: the record's presence, its `scope`, and
+# The three inputs the rule reads, closed over: the record's presence, its `scope`, and
 # whether `confirmed_at` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
     EinwilligungCase("no record at all", None, False),
@@ -94,7 +94,7 @@ def _oid_for(case: EinwilligungCase) -> ObjectId:
 
 
 def _nummer_for(case: EinwilligungCase) -> str:
-    """The row's shirt, which is how the squad read's answer is told apart: it carries no record id (`READ-PUPIL-005`)."""
+    """The row's shirt, which is how the squad read's answer is told apart: it carries no record id."""
 
     return str(NAME_IS_PUBLIC.index(case) + 1)
 
@@ -103,22 +103,34 @@ def _nummer_for(case: EinwilligungCase) -> str:
 class TestTheSquadPipelineAnswersTheSameTable:
     """`build_spieler_pipeline`'s `$cond`, against a real mongod: a `$cond` is only a `$cond` where Mongo evaluates it."""
 
-    def _served(self, url: str) -> dict[str, Mapping[str, Any]]:
+    def _rows(self, url: str) -> list[Mapping[str, Any]]:
         async def body(database: AsyncDatabase) -> Any:
-            rows = await aggregate_many_from_db(
+            return await aggregate_many_from_db(
                 collection=database.saison_spieler,
                 pipeline=build_spieler_pipeline(team_id=TEAM_OID, saison_id=SAISON),
             )
-
-            return {row["nummer"]: row for row in rows}
 
         return on_the_seed_loop(body(shared_client(url)[DATABASE_NAME]))
 
     @pytest.mark.parametrize("case", NAME_IS_PUBLIC, ids=CASE_IDS)
     def test_the_projection_answers_the_table(self, seeded_url: str, case: EinwilligungCase):
-        served = self._served(seeded_url)[_nummer_for(case)]
+        """A published row is found by its number; a withheld one serves none, so its number is nowhere in the read."""
 
-        assert (served["first_name"], served["last_name"]) == ((FIRST_NAME, INITIAL) if case.published else (None, None))
+        numbered = {row["nummer"]: row for row in self._rows(seeded_url) if row["nummer"] is not None}
+
+        if case.published:
+            assert (numbered[_nummer_for(case)]["first_name"], numbered[_nummer_for(case)]["last_name"]) == (FIRST_NAME, INITIAL)
+        else:
+            assert _nummer_for(case) not in numbered
+
+    def test_every_withheld_row_serves_the_missing_name_and_nothing_beside_it(self, seeded_url: str):
+        """A number, a position or a mark beside a withheld name would say whose row it is."""
+
+        withheld = [row for row in self._rows(seeded_url) if row["first_name"] is None]
+
+        assert withheld == [dict.fromkeys(("first_name", "last_name", "position", "nummer", "rolle"))] * sum(
+            not case.published for case in NAME_IS_PUBLIC
+        )
 
 
 @pytest.mark.db
@@ -147,12 +159,12 @@ def _spiel_oid_for(case: EinwilligungCase) -> ObjectId:
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_url: str) -> Iterator[str]:
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """One person per row of the table, each holding a name and a live squad row in one team's season; one referee per row, booked."""
 
     async def _seed() -> None:
         async with a_clean_database(
-            mongo_url,
+            mongo_replica_set_url,
             DATABASE_NAME,
             constraints=False,
             stores_a_refused_shape="consent records of every shape the mirror tables judge, ones no model reads among them",
@@ -194,5 +206,5 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
     on_the_seed_loop(_seed())
 
-    with unwritten(mongo_url, DATABASE_NAME):
-        yield mongo_url
+    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+        yield mongo_replica_set_url

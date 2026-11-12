@@ -1,5 +1,3 @@
-"""API · what an erasure of one contact person has to reach, spelled apart from the request."""
-
 from collections.abc import Iterable, Mapping, Sequence, Set
 from typing import Any
 
@@ -11,9 +9,8 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
-    For a grant's rows alone, which an erasure and an address change's effect read: a grant is pasted through the Playground,
-    folded by the runbook's hand and checked folded only at a deploy's preflight; every other record stores the fold its
-    write made.
+    For a grant's rows alone: a grant is pasted by hand and checked folded only by the read-back an operator runs, where
+    every other record stores the fold its write made.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -29,8 +26,8 @@ def rows_seating(*identifiers: str) -> Mapping[str, Any]:
     sign-in counts rows the account page never serves.
     """
 
-    # One clause per slot, each its own index's (`app/core/constraints.py :: SUPPORT_INDEXES`): an `$or` with an
-    # unindexed clause scans the collection. Folded here, the form every seat stores.
+    # One clause per slot, each served by its own index: an `$or` with an unindexed clause scans the collection.
+    # Folded here, the form every seat stores.
     folded = sorted({sign_in_identifier(identifier) for identifier in identifiers})
 
     return {"$or": [{f"kontakte.{slot}.email": {"$in": folded}} for slot in KONTAKT_ROLLEN]}
@@ -67,7 +64,7 @@ def find_matching_slots(row: Mapping[str, Any], identifier: str) -> tuple[str, .
     return tuple(slot for slot, email in named if isinstance(email, str) and sign_in_identifier(email) == identifier)
 
 
-# A seat's name as `app/shared/folding.py :: person_name_key` compares it, first name and surname apart.
+# A seat's name as the name fold compares it, first name and surname apart.
 PersonName = tuple[str, str]
 
 
@@ -112,8 +109,8 @@ def seated_people(row: Mapping[str, Any]) -> tuple[frozenset[str], frozenset[Per
 def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False, takes_the_notice_back: bool = False) -> Mapping[str, Any]:
     """Null the named slots, their confirmation bookkeeping where the caller found a block, and a deletion notice whose day this moves.
 
-    Dotted keys, so the block itself survives: `app/api/teams/schemas.py :: FLSaisonTeamKontakte` requires
-    all four members, and on an application the block is non-nullable outright.
+    Dotted keys, so the block itself survives: a season row's block requires all four fields, and on an application the
+    block is non-nullable outright.
     """
 
     cleared: dict[str, Any] = {f"kontakte.{slot}": None for slot in slots}

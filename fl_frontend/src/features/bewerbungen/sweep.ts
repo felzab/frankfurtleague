@@ -1,12 +1,14 @@
 import "server-only";
 
 import { requestOf } from "@/core/errors";
+import {
+  bewerbungenGetSweepSaisons,
+  bewerbungenSweepSaison,
+  registrierungenSweepRegistrierungen,
+  schiedsrichterSweepSchiedsrichter,
+} from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 import { sweepAddressChange } from "@/features/address-change/sweep";
-import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { postSchiedsrichterSweep } from "@/features/schiedsrichter/mutations";
-
-import { getBewerbungSweepSaisons, postBewerbungSweep } from "./mutations";
 
 /** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
 type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
@@ -15,9 +17,8 @@ type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
 type PassedOver = { bewerbung: number; registrierung: number };
 
 /**
- * One pass over every season, then the two clocks no season holds (`docs/datenschutz.md :: 6`), the address changes'
- * and the unconfirmed referee entries', for the scheduler (`fl_frontend/src/instrumentationNode.ts :: armScheduler`),
- * which runs one pass at a time.
+ * One pass over every season, then the two clocks no season holds, the address changes' and the unconfirmed referee
+ * entries'. The scheduler runs one pass at a time.
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
  * and what the address changes and the referee clock did, `open` the erasures passed over and the lapsed changes left,
@@ -30,7 +31,7 @@ export async function runBewerbungSweep() {
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAddressChange();
   // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased with its log images.
-  const schiedsrichter = await postSchiedsrichterSweep();
+  const schiedsrichter = await schiedsrichterSweepSchiedsrichter();
 
   return {
     count: {
@@ -53,19 +54,20 @@ export async function runBewerbungSweep() {
  * passed over and, where any call failed, every failure as one; a listing that fails rejects.
  */
 async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unknown }> {
-  const { saison_ids: saisonIds } = await getBewerbungSweepSaisons();
+  // No base-tier season read can serve this: each withholds a `future` season, which is the status every season
+  // with an open application holds.
+  const { saison_ids: saisonIds } = await bewerbungenGetSweepSaisons();
 
   const passedOver: PassedOver = { bewerbung: 0, registrierung: 0 };
   const error: unknown[] = [];
   // Season by season and never in parallel: the sweep is on the clock of a day, and one slow pass costs nothing.
   for (const saisonId of saisonIds) {
-    // Its own event per half: one line for both cannot say which stopped, and that is the question
-    // `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
+    // Its own event per half: one line for both cannot say which stopped, which is what an operator reads the logs for.
     await halfRun("bewerbung.sweep_failed", saisonId, error, async () => {
-      passedOver.bewerbung += (await postBewerbungSweep(saisonId)).failed;
+      passedOver.bewerbung += (await bewerbungenSweepSaison(saisonId)).failed;
     });
     await halfRun("registrierung.sweep_failed", saisonId, error, async () => {
-      passedOver.registrierung += (await postRegistrierungSweep(saisonId)).failed;
+      passedOver.registrierung += (await registrierungenSweepRegistrierungen(saisonId)).failed;
     });
   }
 
@@ -74,7 +76,6 @@ async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unkn
   return { passedOver, error: new AggregateError(error, `${String(error.length)} of the seasons' sweep calls failed.`) };
 }
 
-/** One season's half, its failure filed under its own line and kept for the pass's answer. */
 async function halfRun(event: SweepFailure, saisonId: string, errors: unknown[], run: () => Promise<void>): Promise<void> {
   try {
     await run();

@@ -1,6 +1,5 @@
-// The seeding half lives here rather than in `fl_frontend/src/core/requestScope.ts`, which owns the
-// storage and is reachable from the Edge bundle: `next/headers` is request-only and cannot be
-// bundled for it.
+// The seeding half lives here rather than in the request scope's module, which owns the storage and is
+// reachable from the Edge bundle: `next/headers` is request-only and cannot be bundled for it.
 import { headers } from "next/headers";
 import { connection } from "next/server";
 

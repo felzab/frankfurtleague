@@ -3,8 +3,6 @@ import { person } from "@/test-support/subjectFixtures";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import { UNKNOWN_PLAYER } from "./berichtValues";
 
@@ -49,7 +47,7 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
 };
 
 /** What the report's read answers, and every write the save sends. */
-const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as { endpoint: string; body: unknown }[], write: null as Error | null }));
+const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as { endpoint: string; body: unknown }[] }));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
@@ -60,7 +58,6 @@ vi.mock("@/core/subject", () => ({ getSubjectSession: async () => person({}) }))
 const calls = doubleApiClient((call) => {
   if (call.method === "GET") return state.read;
   state.sent.push({ endpoint: call.endpoint, body: JSON.parse(call.body ?? "null") });
-  if (state.write !== null) throw state.write;
   return { ...(state.read as FLSpielberichtSchiedsrichterResponse), version: 4 };
 });
 
@@ -70,32 +67,9 @@ beforeEach(() => {
   calls.length = 0;
   state.read = READ;
   state.sent = [];
-  state.write = null;
 });
 
 const sentPayload = () => state.sent[0]?.body as FLSpielberichtPayload | undefined;
-
-// The harm: a refusal the form invites worded as a page out of date, whose reload throws away every row typed.
-describe("a shoot-out the form takes level", () => {
-  it("is refused in the rule's own sentence", async () => {
-    state.write = new APIBadStatusError({
-      message: "refused",
-      url: "http://backend/api/v0/",
-      statusCode: 422,
-      serverErrorCode: "payload_refused",
-      refusedFields: [{ kind: "elfmeterschiessen_without_winner", path: ["bericht", "ergebnis_vorschlag"], ctx: {}, in: "body" }],
-      endpoint: "/",
-      traceId: "0",
-    });
-    const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Elfmeter" } });
-
-    expect(answer).toStrictEqual({
-      ok: false,
-      errorCode: "payload_refused",
-      reason: SERVER_COPY.ruleLine.elfmeterschiessen_without_winner,
-    });
-  });
-});
 
 // The harm: a report written onto another match than the one the form showed, which nobody would notice there.
 describe("the report's save", () => {
@@ -115,7 +89,7 @@ describe("the report's save", () => {
 // The harm: a goal or a card credited to another side or another pupil than its row shows, which the write takes as
 // given and the administrator then adopts.
 describe("each row the save sends", () => {
-  it("carries its own side and player, „Unbekannt“ as the null player, and the rows it left as they stand", async () => {
+  it("carries its own side and player, „Anonym“ as the null player, and the rows it left as they stand", async () => {
     await saveBericht({
       id: SPIEL_ID,
       version: 3,
@@ -136,7 +110,7 @@ describe("each row the save sends", () => {
     expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team2", spieler_id: LENA, minute: "40", colour: "gelb" }]);
   });
 
-  it("sends a card's „Unbekannt“ as the null player, as a goal's", async () => {
+  it("sends a card's „Anonym“ as the null player, as a goal's", async () => {
     await saveBericht({
       id: SPIEL_ID,
       version: 3,

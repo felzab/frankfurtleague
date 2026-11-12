@@ -25,11 +25,6 @@ import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 import type { Outcome } from "@/kit/Timeline";
 import type { Route } from "next";
 
-/**
- * A match as the kit's blocks show it, built once for every season page, the match page and the pop-up, the
- * landing's among them: its sides, its row, its head and its facts, from the public read's match.
- */
-
 /** A match's two sides, each a club or, while the draw has not settled it, where it comes from: the public read's and the admin read's alike. */
 type Sides = Pick<FLSpielJoined, "team1" | "team2" | "team1_quelle" | "team2_quelle">;
 
@@ -110,7 +105,6 @@ export const matchTitle = (team1: string | null, team2: string | null): PageTitl
   team2: sideName(team2),
 });
 
-/** The match's two sides, the first-listed side first. */
 export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
@@ -122,7 +116,6 @@ function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
 }
 
-/** When a match is played, as its row and its bracket card show it. */
 export const whenOf = (spiel: Pick<FLSpielJoined, "date" | "time">): Copy => COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
 
 /**
@@ -146,7 +139,7 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   const label = sonderereignisOf(sonderereignis, spiel);
   if (!isNoShow(sonderereignis)) return { chip: { tone: "danger", label }, muted: true };
   return {
-    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtAngetretenChip, spoken: label },
+    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtantretenChip, spoken: label },
     muted: true,
     absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2",
   };
@@ -221,6 +214,15 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
 }
 
 /**
+ * Who referees the match as the public read serves it: the name where it is published, „anonym“ where the booking is
+ * served without one, and a dash where none is served.
+ */
+export function refereeOf(spiel: Pick<FLSpielJoined, "schiedsrichter">): Words {
+  if (spiel.schiedsrichter === null) return COPY.shared.noValue;
+  return spiel.schiedsrichter.name === null ? COPY.shared.anonymous : { record: spiel.schiedsrichter.name };
+}
+
+/**
  * The pop-up's four facts under its head, each led by its glyph, an absent one a dash: when and where the
  * match is played, and who referees it. The matchday stands in the head and the result in its score, so
  * neither is repeated here.
@@ -240,11 +242,7 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
           glyph: "spielorte",
           elsewhere: { href: buildMapsSearchUrl(spiel.spielort.maps_link), label: { record: spiel.spielort.name } },
         },
-    {
-      label: fact.schiedsrichter,
-      glyph: "schiedsrichter",
-      value: spiel.schiedsrichter?.name == null ? noValue : { record: spiel.schiedsrichter.name },
-    },
+    { label: fact.schiedsrichter, glyph: "schiedsrichter", value: refereeOf(spiel) },
   ];
 }
 
@@ -253,9 +251,9 @@ function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy 
   const words = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":
-      return words.nichtAngetreten(sidesOf(spiel).team1.name);
+      return words.nichtantreten(sidesOf(spiel).team1.name);
     case "nichtantreten_team2":
-      return words.nichtAngetreten(sidesOf(spiel).team2.name);
+      return words.nichtantreten(sidesOf(spiel).team2.name);
     default:
       return words[sonderereignis];
   }
@@ -272,9 +270,9 @@ export function eventOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "e
   const { consequence } = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team2.name) };
+      return { title, text: consequence.nichtantreten(sidesOf(spiel).team2.name) };
     case "nichtantreten_team2":
-      return { title, text: consequence.nichtAngetreten(sidesOf(spiel).team1.name) };
+      return { title, text: consequence.nichtantreten(sidesOf(spiel).team1.name) };
     case "abgebrochen":
       return { title, text: spiel.ergebnis === null ? consequence.abgebrochenOpen : consequence.abgebrochenScored };
     case "ausgefallen":

@@ -61,7 +61,6 @@ const entryOf = ({ label, tone, locked, onPress }: SideAct): MenuEntry =>
  * holding more than its list was told folds them all the same. A row's decision, such as „Zusagen“ and „Ablehnen“, keeps
  * its labelled buttons and is never drawn here.
  *
- * The „⋯“ and the button are described by their row's name, as every button repeated down a list is (`RowActs`).
  * `children` are the questions and dialogs the acts open, each on the open state its act's press sets: one opened from
  * the menu hands the focus back to the „⋯“ as it closes, as the menu itself does.
  */

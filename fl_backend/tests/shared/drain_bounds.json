@@ -1,0 +1,4 @@
+{
+  "fetch_timeout_ms": 15000,
+  "mail_timeout_ms": 15000
+}

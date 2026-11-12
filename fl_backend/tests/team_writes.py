@@ -66,7 +66,7 @@ def seat_sent(seat: Mapping[str, Any], *, today: str) -> dict[str, Any]:
     sent = {field: value for field, value in seat.items() if field != "einwilligung"}
     person = FLKontaktSeatPayload.model_validate({**sent, "version": 0}).model_dump(mode="json", exclude={"version"}, exclude_unset=True)
 
-    return {**person, "einwilligung": compose_einwilligung(today=today, entered_by="liga")}
+    return {**person, "einwilligung": compose_einwilligung(today=today)}
 
 
 async def write_the_block(

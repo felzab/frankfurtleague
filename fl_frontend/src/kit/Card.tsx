@@ -1,5 +1,3 @@
-import { useId } from "react";
-
 import { textOf } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
@@ -7,7 +5,6 @@ import { actRow, card, cardHover, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
-import { RowActs } from "./RowActs";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 
@@ -19,8 +16,6 @@ import type { ChipProps } from "./Chip";
 export type CardProps = {
   /** Catalogue text such as the kind of open work, or a record's own name, such as a club's. */
   title: Words;
-  /** The card's one button. */
-  action?: ReactElement;
   body?: "rows" | "fields";
   children?: ReactNode;
   /** The one line under the title: catalogue text such as a figure's meaning, or a record's own detail. */
@@ -43,7 +38,7 @@ export type CardProps = {
  * body folds behind its head is `CardFold`, a module of its own, so a page placing only plain cards ships none
  * of the fold's client code.
  */
-export function Card({ title, count, chip, action, body = "rows", children, line }: CardProps) {
+export function Card({ title, count, chip, body = "rows", children, line }: CardProps) {
   const s = card({ body });
   return (
     <section className={s.root()}>
@@ -60,7 +55,6 @@ export function Card({ title, count, chip, action, body = "rows", children, line
         {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
       </div>
       {children !== undefined && <div className={s.body()}>{children}</div>}
-      {action !== undefined && <div className={s.foot()}>{action}</div>}
     </section>
   );
 }
@@ -189,7 +183,7 @@ export function CardLink({ href, title, line }: CardLinkProps) {
   );
 }
 
-// A card's act row is the container its parts read (`cardStyles.ts :: actRow`): it spans its card, so its width is the
+// A card's act row is the container its parts read (`actRow`): it spans its card, so its width is the
 // card's and every row of one card takes one form.
 const CARD_ROW_CLASSES = `@container relative ${stacked()} text-sm ${cardHover()}`;
 
@@ -207,7 +201,7 @@ export type CardActRowProps = {
  * One record in a card's rows whose open work is done where it shows: its name with its chip, a line saying what is
  * open where the name and the chip leave something to say, and its acts, one or two kit buttons: a decision, such as
  * „Zusagen“ and „Ablehnen“, or the row's one act, labelled at every width. The chip stands directly after the name on
- * its line (`cardStyles.ts :: nameWithChips`). The card's width picks where the acts stand, for every row of the card
+ * its line (`nameWithChips`). The card's width picks where the acts stand, for every row of the card
  * alike: on a card from 32 rem beside the words, before the chevron; on a narrower one, a phone's and each of two beside
  * the rail, on one line under the words. The whole row opens the record through its name, as every card row does, and
  * ends in the chevron, with acts or none; under the pointer the row takes the one hover layer and an act's own stacks
@@ -217,8 +211,6 @@ export type CardActRowProps = {
 export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
   const s = actRow({ opens: true });
   const words = nameWithChips({ card: true });
-  // What the row's acts are described by, since every row's carry the same labels.
-  const nameId = useId();
   return (
     <div
       data-kit-row
@@ -228,7 +220,6 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           <span className={words.line()}>
             <span className={words.head()}>
               <CutText
-                id={nameId}
                 text={textOf(name)}
                 className={words.name()}>
                 <Link
@@ -246,13 +237,7 @@ export function CardActRow({ href, name, chip, line, acts }: CardActRowProps) {
           </span>
           {line !== undefined && <span className={s.line()}>{textOf(line)}</span>}
         </span>
-        {acts !== undefined && (
-          <RowActs
-            className={s.acts()}
-            describedBy={nameId}>
-            {acts}
-          </RowActs>
-        )}
+        {acts !== undefined && <div className={s.acts()}>{acts}</div>}
         <span className={s.end()}>
           <RowEnd />
         </span>

@@ -11,18 +11,17 @@ from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationErro
 from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
-# A property of THIS CODE, never a deployment's: an environment able to set it could serve
+# A property of this code, never a deployment's: an environment able to set it could serve
 # `/api/v2/` from code implementing v0.
 API_VERSION = 0
 
-# The length `fl_frontend/src/core/config.ts` pins each internal key to (`length(64)`). An equality
-# rather than a floor: the pair only works when the two values are identical, so a key one side
-# alone would refuse is a deployment already broken.
+# The length the frontend pins each internal key to. An equality rather than a floor: the pair only
+# works when the two values are identical, so a key one side alone would refuse is a deployment
+# already broken.
 INTERNAL_API_KEY_LENGTH: Final = 64
 
-# RFC 9110's `VCHAR`, which a header carries as written: `security.py :: verify_api_key`'s
-# `secrets.compare_digest` RAISES on a non-ASCII `str`. Pinned
-# identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
+# RFC 9110's `VCHAR`, which a header carries as written: the guard's `secrets.compare_digest` raises
+# on a non-ASCII `str`. The frontend pins the same characters.
 INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 
 # Where Compose mounts a file secret, which is where a container finds it with nothing set.
@@ -59,9 +58,8 @@ class EnvironmentValidationError(Exception):
 UNDECLARED: Final = "extra_forbidden"
 
 
-# Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
-# holds the compose files to these fields: a file named by any shape but a string or a module constant
-# refuses there.
+# Parsed rather than imported by the check holding the compose files to these fields: a file named by
+# any shape but a string or a module constant refuses there.
 class _SecretFields(BaseModel):
     """The credentials, each read from its own file under `SECRETS_DIR`."""
 
@@ -93,13 +91,13 @@ class BackendConfig(BaseSettings, _SecretFields):
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
 
-    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; unset in a run
-    # outside an image, and empty, so read as unset, in a build handed none.
+    # The image's version from its build argument, which the start-up line logs; unset in a run outside an image, and
+    # empty, so read as unset, in a build handed none.
     app_version: str | None = Field(default=None, min_length=1, description="The image's version")
 
     model_config = SettingsConfigDict(
-        # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
-        # compose hands the container. A container has no file: compose hands it the names as variables.
+        # The package's file, the one compose lists, so a run from `fl_backend/` reads what compose hands
+        # the container. A container has no file: compose hands it the names as variables.
         env_file=".env",
         env_file_encoding="utf-8",
         # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
@@ -131,19 +129,18 @@ class BackendConfig(BaseSettings, _SecretFields):
         return init_settings, file_secret_settings, env_settings, dotenv_settings
 
 
-def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -> EnvironmentValidationError:
+def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValidationError:
     """Each failing variable upper-cased as the environment spells it, a count of the undeclared, and each failing file by name.
 
-    A failing credential is its file where the build read the files, and otherwise the variable or
-    dotenv line that stood in for it. An issue's own message and its `input_value` each quote what
-    was rejected, so neither is read. An undeclared name is the file's own text, which a pasted key's
-    line keeping the dotenv shape would be, so it is counted and nothing names it. The first sentence
-    is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in
-    `scripts/ops/deploy.sh` covers both.
+    A failing credential is named by its file. An issue's own message and its `input_value` each quote
+    what was rejected, so neither is read. An undeclared name is the file's own text, which a pasted
+    key's line keeping the dotenv shape would be, so it is counted and nothing names it. The first
+    sentence is the frontend gate's too, so an operator reading either service's refusal reads one
+    wording.
     """
     # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
     failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
-    read_from_files = failing & set(SECRET_FILES) if files_read else set()
+    read_from_files = failing & set(SECRET_FILES)
     variables = sorted(failing - read_from_files)
     files = files | read_from_files
     undeclared = sum(issue["type"] == UNDECLARED for issue in issues)
@@ -154,29 +151,6 @@ def _refusal(issues: list[ErrorDetails], *, files: set[str], files_read: bool) -
     if files:
         sentences.append(f"Invalid secret files: {', '.join(sorted(files))}")
     return EnvironmentValidationError("; ".join(sentences))
-
-
-def read_environment() -> None:
-    """The deploy's preflight: the variables and the dotenv file, refused as the boot refuses them, opening no secret file.
-
-    Its caller's uid reads none, so the class is built with no secrets directory, and the credentials
-    that leaves missing are no question of this one.
-    """
-    try:
-        BackendConfig()
-    except ValidationError as error:
-        issues = [issue for issue in error.errors() if not (issue["type"] == "missing" and issue["loc"] and issue["loc"][0] in SECRET_FILES)]
-    except ValueError as error:
-        # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
-        # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
-        # names a field -- so the type alone leaves.
-        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
-    else:
-        return
-    # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
-    # quotes each rejected value into the traceback uvicorn prints.
-    if issues:
-        raise _refusal(issues, files=set(), files_read=False) from None
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
@@ -216,7 +190,7 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
 def get_config() -> BackendConfig:
     """The settings, built once and reused, the credentials read from the directory `SECRETS_DIR` names.
 
-    A FUNCTION rather than a module-level instance, which would make importing any module touching
+    A function rather than a module-level instance, which would make importing any module touching
     configuration read the environment as a side effect.
     """
     # Read before the build, which takes the directory as an argument: the settings loader is the one
@@ -230,18 +204,20 @@ def get_config() -> BackendConfig:
     # Built even where a file is missing, so every present value is judged as well; a missing one is
     # refused whatever the library found to stand in for it.
     try:
-        # Raised rather than printed: the source only WARNS for a directory at a file's path, and a
+        # Raised rather than printed: the source only warns for a directory at a file's path, and a
         # warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
             config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        refused = _refusal(error.errors(), files=set(absent), files_read=True)
+        refused = _refusal(error.errors(), files=set(absent))
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
     except ValueError as error:
-        # For `read_environment`'s reason.
+        # Below `ValidationError`'s arm, which is a `ValueError` too: the dotenv read's
+        # `UnicodeDecodeError` lands here, chaining what it wrapped and naming no field, so the type
+        # alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
     else:
         if not absent:
@@ -253,7 +229,7 @@ def get_config() -> BackendConfig:
 def get_app_config(request: Request) -> BackendConfig:
     """The settings the application was built with, read per request rather than from `get_config`.
 
-    Held on the application (`app/main.py :: create_app`), so one built with other settings answers
-    with them and no dependency is replaced to make it do so.
+    Held on the application, so one built with other settings answers with them and no dependency is
+    replaced to make it do so.
     """
     return request.app.state.config

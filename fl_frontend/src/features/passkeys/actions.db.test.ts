@@ -362,28 +362,34 @@ describe("the sessions a removal ends, against a real database", () => {
     expect(cacheCalls.map(({ name }) => name)).toStrictEqual(["refresh"]);
   });
 
-  /* Another device's `updatedAt` refresh, landing while the sign-out runs on every run the adapter
-     retries: the delete before the sign-out rolls back with it rather than standing alone, until the
-     client's `timeoutMS` ends the retries. */
-  it("rolls the removal back whole where every run's sign-out meets another write to the sessions", async () => {
+  /* Another device's `updatedAt` refresh, landing while the first run's sign-out runs: the delete
+     before the sign-out rolls back with it, or the run the adapter retries finds its passkey gone and
+     answers the stale refusal. Once, because a conflict on every run is retried for the driver's
+     120 s. */
+  it("rolls the removal's first run back whole where its sign-out meets another write to the sessions", async () => {
     const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
-    signingOut = () =>
-      authDb()
-        .collection("session")
-        .updateMany({}, { $set: { updatedAt: new Date() } });
+    let runs = 0;
+    signingOut = async () => {
+      runs += 1;
+      if (runs === 1)
+        await authDb()
+          .collection("session")
+          .updateMany({}, { $set: { updatedAt: new Date() } });
+    };
 
     const answer = await removePasskeyAction({ id: first, holder: ADMIN_EMAIL });
 
     expect({
       answer,
+      runs,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
       warnings: [...warnings],
-    }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
+    }).toStrictEqual({ answer: { ok: true, value: "otherDevices" }, runs: 2, rows: 1, open: [false, true], warnings: [] });
   });
 
   // A failure the adapter does not retry rolls the delete back with it, before any commit.
