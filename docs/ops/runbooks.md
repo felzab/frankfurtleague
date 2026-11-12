@@ -729,7 +729,7 @@ collection. **The erasure takes the address typed, and reaches a record only whe
 address folds to the same spelling** once its capitals are lowered
 (`fl_backend/app/shared/folding.py :: sign_in_identifier`). **Read the counts before the final press**: „Löschen“ on `/admin/erasures` asks over a count of each
 kind of record the address holds, the account and its passkeys among them, and names nobody
-(`fl_frontend/src/app/admin/(liste)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
+(`fl_frontend/src/app/admin/(list)/erasures/erasureActs.ts :: readErasureCounts`); „Eingeteilte
 Spiele“ above zero is the fixtures that need a new referee afterwards, and a note in the dialog that
 the account may stand means pressing „Löschen“ again, which deletes an account left standing.
 
