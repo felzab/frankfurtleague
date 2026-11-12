@@ -1,5 +1,4 @@
-# The zizmor release `scripts/gate/verify.sh :: run_zizmor` installs, locally and in CI, in pip's
-# hash-checking mode. A file of its own so Dependabot's pip ecosystem moves it, and outside
+# The zizmor release the gate's ops scope installs, locally and in CI, in pip's hash-checking mode. A file of its own so Dependabot's pip ecosystem moves it, and outside
 # fl_backend's dev group because it audits `.github/`, not the backend. Every file PyPI holds for the
 # release is listed by its sha256, so a file added to the release later matches none and is refused;
 # zizmor depends on nothing, so these hashes cover the whole install.

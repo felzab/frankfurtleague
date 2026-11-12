@@ -1,4 +1,4 @@
-// SCRIPTS · the made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
+// The made-up seed: a league nobody plays in, for daily work and the end-to-end journeys.
 //
 // Three seasons, ten clubs, five venues, the referees the fixtures book and the journeys' own people, an
 // owner and the administrators, every one of them invented, so no machine needs production's personal
@@ -36,14 +36,14 @@
 // writes, each one journey's, are the account acts' three per project, the desktop passkey journeys' two and the
 // access journeys' own. Each project's contact journey signs in as a Trainer of Ahorn or Ulme, its registration
 // journey's as a Trainer of Kastanie or Eiche, and its booked referee's journey as Selma Seidel or Tobias Thiel
-// (`fl_frontend/e2e/support/journey.ts :: JourneyOptions`).
+// (`JourneyOptions`).
 //
 // Run by `./scripts/ops/local.sh --e2e` and `--seed-made-up`, and by the journeys' CI job, with
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
 // with `directConnection=true`: no other server is reachable by that address, so this script cannot
 // write anywhere but the stack it is handed to. The backend has booted first, so every index is in
 // place, and `python -m app.readback` judges every document afterwards; the frontend starts
-// only once it has passed (`docs/ops/spec.md` §1.5).
+// only once it has passed.
 //
 // Invariants:
 // - Every date is relative to today in Germany, so "today's matchday" is today whenever it runs.
@@ -69,7 +69,7 @@ function day(offset) {
   return new Date(Date.parse(`${TODAY}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10);
 }
 
-/** The hash of the link `?token=made-up-<label>` opens, as `fl_backend/app/shared/tokens.py :: hash_token` stores one. */
+/** The hash of the link `?token=made-up-<label>` opens, as `hash_token` stores one. */
 function linkHash(label) {
   return createHash("sha256").update(`made-up-${label}`, "utf8").digest("hex");
 }
@@ -103,14 +103,14 @@ club.Buche.inactive_since = day(-400);
 
 // --- Venues and referees -------------------------------------------------------------------------
 
-/** The parts holding more than blanks, joined: `fl_backend/app/shared/schemas/addresses.py :: _join_present`. */
+/** The parts holding more than blanks, joined: `_join_present`. */
 function joinPresent(parts, separator) {
   return parts.filter((part) => part.trim() !== "").join(separator);
 }
 
 /**
  * The search string the public match facts hand to a map search, never a URL, as
- * `fl_backend/app/api/spielorte/admin_router.py :: _maps_link` writes it.
+ * `_maps_link` writes it.
  */
 function mapsLink(name, address) {
   const street = joinPresent([address.street, address.house_number], " ");
@@ -143,7 +143,7 @@ function referee(name, schule, payment, email, inactiveSince) {
 }
 
 /**
- * The instant opening `isoDay` in Germany, as `fl_backend/app/api/schiedsrichter/services.py :: erase_at_from` stores
+ * The instant opening `isoDay` in Germany, as `erase_at_from` stores
  * it. The offset read at that day's UTC midnight is the one in force at its German midnight: Germany changes its
  * clocks at 01:00 UTC, after both.
  */
@@ -155,11 +155,11 @@ function germanMidnight(isoDay) {
 }
 
 // The link's deadline, fourteen days after the mail that owed it
-// (`fl_backend/app/shared/schemas/bounds.py :: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`).
+// (`SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS`).
 const LINK_DAYS = 14;
 
 /**
- * The block every owed link writes (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`), owed on
+ * The block every owed link writes (`compose_mint_update`), owed on
  * the day `sentOn` days from today. No hash: the seed owes no mail, and the hand-out writes one only as it mints a link.
  */
 function confirmationBlock(sentOn) {
@@ -174,7 +174,7 @@ const LABELS = { scope: "2026-11-name-kader-1", media: "2026-11-medien-1" };
 
 /**
  * A referee as their own confirmation leaves the row
- * (`fl_backend/app/api/schiedsrichter/services.py :: compose_confirmation_update`), in its one write: the birthdate and
+ * (`compose_confirmation_update`), in its one write: the birthdate and
  * the consent, the name kept off the public pages and no media, its name's choice under the referees' own wording
  * (`SCHIEDSRICHTER_TEXT_VERSIONS`), and no deletion date. Every referee a fixture books is one, as the booking refuses
  * any other (`booking_unconfirmed_schiedsrichter`).
@@ -197,20 +197,20 @@ function confirmed(row) {
 
 /**
  * A referee entered three days ago who has not answered: the create's block, and the deletion date its link sets
- * (`fl_backend/app/core/constraints.py :: TTL_INDEXES`), the midnight after the deadline.
+ * (`TTL_INDEXES`), the midnight after the deadline.
  */
 function unanswered(row) {
   return { ...row, confirmation: confirmationBlock(-3), erase_at: germanMidnight(day(-3 + LINK_DAYS + 1)) };
 }
 
 // A journey's person: a confirmed referee no fixture books. A referee row is its person's own only once confirmed
-// (`fl_backend/app/api/identity/services.py :: is_own_schiedsrichter`), so an address change or an erasure moves
+// (`is_own_schiedsrichter`), so an address change or an erasure moves
 // nothing of a row without one.
 function journeyPerson(name, email) {
   return confirmed(referee(name, null, 20, email, null));
 }
 
-// The booked referees' journey (each project's, `fl_frontend/e2e/support/journey.ts :: JourneyOptions`'s `booked`): a
+// The booked referees' journey (each project's, `JourneyOptions`'s `booked`): a
 // confirmed referee whose played fixture owes its report and whose coming one asks an answer.
 const BOOKED_REFEREES = {
   desktop: confirmed(referee("Selma Seidel", null, 20, "selma.seidel@example.com", null)),
@@ -247,10 +247,10 @@ const REFEREES = [
 
 // --- Grants --------------------------------------------------------------------------------------
 
-// Each row as `fl_backend/app/api/grants/crud.py :: grant_in_session` leaves it, the one owner and the administrators in
+// Each row as `grant_in_session` leaves it, the one owner and the administrators in
 // effect a day ago, so every session signed in since holds its grant, and one addition still waiting. The handover's
 // wait outlasts any run, or the scheduler's first pass would take the owner's role from under the owner's journey.
-// Folded as the sign-in folds an address, or the grant admits nobody (`docs/ops/runbooks.md` §3).
+// Folded as the sign-in folds an address, or the grant admits nobody.
 const IN_EFFECT = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const WAITING = new Date(Date.now() + 12 * 60 * 60 * 1000);
 const HANDOVER_WAITING = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000);
@@ -291,7 +291,7 @@ const RULES = {
   allowed_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
 };
 
-// `fl_backend/app/api/saisons/spielplan.py :: circle_rounds` for a group of four: each round's pairs
+// `circle_rounds` for a group of four: each round's pairs
 // as indexes into the group, the first index being `team1`.
 const ROUNDS = [
   [
@@ -374,7 +374,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     }
   });
 
-  // `fl_backend/app/api/saisons/spielplan.py :: bracket_seeding` for two groups of two qualifiers:
+  // `bracket_seeding` for two groups of two qualifiers:
   // A1 meets B2 and B1 meets A2. The Finale's matchday plays both semi-finals' losers for third place,
   // then the final takes both winners, as `draw_spielplan` numbers them.
   const halbfinale = spieltag("halbfinale", 1, dates[3]);
@@ -494,7 +494,7 @@ const running = season({
       case 4:
         return { date: day(-13), time: "16:30:00", booking, tore: [1, 3] };
       // Matchday 2, running across today: played yesterday, still to come today, and called off. A match takes its
-      // report from its kick-off (`fl_backend/app/api/teams/services.py :: is_played`), so the played one kicks off on
+      // report from its kick-off (`is_played`), so the played one kicks off on
       // a day already gone, and the phone's booked referee owes its report whatever hour the seed is loaded at.
       case 5:
         return { date: day(-1), time: "09:30:00", booking: booked(2, BOOKED_REFEREES.phone), tore: [1, 2] };
@@ -525,7 +525,7 @@ const running = season({
 });
 
 // The registration window ended the day before the season began, and its link stays open: an entry now is a nominee
-// (`fl_backend/app/api/saisons/services.py :: entry_is_a_nominee`).
+// (`entry_is_a_nominee`).
 running.saison.registrierung = { open: true, end: day(-36) };
 
 // --- A seat's person and link ---------------------------------------------------------------------
@@ -533,7 +533,7 @@ running.saison.registrierung = { open: true, end: day(-36) };
 // Every phone its own: the form refuses two people one number (`find_repeated_contact_refusal`).
 let seatedPeople = 0;
 
-/** A person as the form or the league seats them, nobody having answered (`fl_backend/app/api/bewerbungen/services.py :: compose_einwilligung`). */
+/** A person as the form or the league seats them, nobody having answered (`compose_einwilligung`). */
 function seated(firstName, lastName, enteredOn) {
   seatedPeople += 1;
   return {
@@ -547,9 +547,9 @@ function seated(firstName, lastName, enteredOn) {
 }
 
 /**
- * The same person after their own link (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`): no
+ * The same person after their own link (`compose_confirmation_update`): no
  * WhatsApp and no media, each choice evidenced under a seat's wordings
- * (`fl_backend/app/shared/schemas/einwilligung.py :: FLSeatTextVersions`).
+ * (`FLSeatTextVersions`).
  */
 function confirmedPerson(person, answeredOn) {
   const receipt = (textVersion) => ({ at: `${day(answeredOn)}T10:00:00+00:00`, text_version: textVersion });
@@ -566,8 +566,8 @@ function confirmedPerson(person, answeredOn) {
 
 /**
  * A seat's bookkeeping beside its slot. An application's link takes one reminder
- * (`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation`); a season row's is chased by nothing, and its
- * record model refuses the key (`fl_backend/app/api/teams/services.py :: compose_kontakt_confirmation`).
+ * (`compose_confirmation`); a season row's is chased by nothing, and its
+ * record model refuses the key (`compose_kontakt_confirmation`).
  */
 function seatLink({ label, sentOn, reminded }, { remindedOn = null, declinedOn = null } = {}) {
   return {
@@ -609,7 +609,7 @@ function rowSeats(owner, sentOn, states) {
 
 // Weide stayed away from match 3 and is disqualified since: it keeps its group place and its drawn fixtures, match 12
 // still to play, as a departed club does (`docs/domain.md`, "A departed club holding drawn fixtures"). Its open seat's
-// link takes a Widerspruch alone (`fl_backend/app/api/bewerbungen/services.py :: saison_state_of`).
+// link takes a Widerspruch alone (`saison_state_of`).
 Object.assign(
   running.saisonTeams.find((row) => row.name === "Weide"),
   {
@@ -661,7 +661,7 @@ journeySeat("Ulme", "Uta", "Uhlig");
 journeySeat("Kastanie", "Katja", "Kraus", confirmedSeat("Konrad", "Kuhn"));
 journeySeat("Eiche", "Edgar", "Eckert");
 
-// The digest of a fixture's Ansetzung, as `fl_backend/app/api/spielbestaetigungen/services.py :: _digest` writes it: a
+// The digest of a fixture's Ansetzung, as `_digest` writes it: a
 // row whose `digest` is not its fixture's is about a slot the fixture left, which neither act takes.
 function ansetzungOf(spiel) {
   const values = {
@@ -704,7 +704,7 @@ const PROPOSALS = [
 
 // Match 12, Esche against Weide next week, asked of its referee like match 11 and unanswered: the first pass closes the
 // row for Weide's exit and owes him the Einteilung's lifting
-// (`fl_backend/app/api/spielbestaetigungen/services.py :: notice_owed`), the one mail of the kind a journey can read.
+// (`notice_owed`), the one mail of the kind a journey can read.
 const LIFTED = running.spiele.find((row) => row.spiel_nr === 12);
 const ASKED_REFEREE = {
   _id: ObjectId(),
@@ -721,7 +721,7 @@ const ASKED_REFEREE = {
 
 /**
  * An unanswered row about `spiel` for `party`, minted and asked by the pass `askedOn` days from today
- * (`fl_backend/app/api/spielbestaetigungen/services.py :: compose_spielbestaetigung`): due a week before the fixture, or
+ * (`compose_spielbestaetigung`): due a week before the fixture, or
  * on the day it was asked where that is later (`:: deadline_of`, `SPIEL_CONFIRMATION_DEADLINE_DAYS`).
  */
 function request(spiel, party, askedOn) {
@@ -775,7 +775,7 @@ const STATED_REQUESTS = [
 
 // Each pupil's consent, publishing the name and no media, under the labels above `REFEREES`. Sixteen and a half, so
 // sixteen on the day of a confirmation two months back too, which refuses a younger pupil
-// (`fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_MIN_AGE_YEARS`), and under the media's eighteen.
+// (`REGISTRIERUNG_MIN_AGE_YEARS`), and under the media's eighteen.
 function pupil(firstName, lastName, consentedOn = CONSENTED) {
   const evidence = (choice) => ({ at: `${consentedOn}T10:00:00+00:00`, text_version: LABELS[choice] });
   return {
@@ -812,7 +812,7 @@ function squadRow(person, clubName, nummer, { saison = "2027", position = "Angri
 }
 
 // With Mia and Jonas, Ahorn's squad fills `RULES.max_kader_size`, so a full squad and a nominee outside its count stand
-// together (`fl_backend/app/api/spieler/services.py :: CAPPED_SQUAD_ROW`), and the retired nominee's reactivation
+// together (`CAPPED_SQUAD_ROW`), and the retired nominee's reactivation
 // passes the cap.
 const POSITIONS = ["Tor", "Abwehr", "Mittelfeld", "Angriff"];
 const AHORN_SQUAD = [
@@ -886,9 +886,9 @@ const SQUADS = [
 
 // --- The registration links and what came through them --------------------------------------------
 
-// `fl_backend/app/api/invitations/services.py :: compose_invitation`, each minted for copying. Group A's stay open past
+// `compose_invitation`, each minted for copying. Group A's stay open past
 // the window's end, Kastanie's and Eiche's the registration journey's (`registering`), and Weide's opens as the link no
-// longer valid (`fl_backend/app/api/registrierungen/services.py :: find_team_departed_refusal`).
+// longer valid (`find_team_departed_refusal`).
 function invitation(clubName) {
   return {
     _id: ObjectId(),
@@ -902,12 +902,12 @@ function invitation(clubName) {
 
 const INVITATIONS = Object.fromEntries(["Ahorn", "Eiche", "Ulme", "Kastanie", "Weide"].map((clubName) => [clubName, invitation(clubName)]));
 
-// `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`.
+// `REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS`.
 const REGISTRATION_LINK_DAYS = 14;
 
 /**
  * One pupil's row through a club's link, Kastanie's unless `clubName` names another
- * (`fl_backend/app/api/registrierungen/services.py :: compose_registrierung`), past the window's end, so its admission
+ * (`compose_registrierung`), past the window's end, so its admission
  * makes a nominee.
  */
 function registration(person, submittedOn, { clubName = "Kastanie", confirmed = false, decision = null } = {}) {
@@ -973,7 +973,7 @@ const REPORTS = [
 ];
 
 /**
- * One club's line-up for a fixture (`fl_backend/app/api/aufstellungen/schemas.py :: FLAufstellung`), the starters
+ * One club's line-up for a fixture (`FLAufstellung`), the starters
  * ahead of the bench.
  */
 function lineup(spiel, clubName, starters, bench = []) {
@@ -1021,7 +1021,7 @@ function decided(madeOn, reason = null) {
 }
 
 /**
- * One application as the form stored it (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungRecord`): for the club
+ * One application as the form stored it (`FLBewerbungRecord`): for the club
  * `picked`, or for the new school `school`, each seat in the state `states` names, its link mailed on the day of the
  * submission. `outcome` is what the triage moved, `owner` the link labels' head where a club applied twice.
  */
@@ -1187,7 +1187,7 @@ const APPLICATIONS = [
 ];
 
 // The last mail owed `BOUNCED`'s Ansprechperson, as its final state leaves the row
-// (`fl_backend/app/api/outbox/services.py :: final_update`): it owes nothing and only says what became of the mail.
+// (`final_update`): it owes nothing and only says what became of the mail.
 const SETTLED_MAILS = [
   {
     _id: ObjectId(),
@@ -1252,7 +1252,7 @@ const BANS = [
   },
 ];
 
-/** A running change, as `fl_backend/app/api/address_change/services.py :: compose_record` writes one. */
+/** A running change, as `compose_record` writes one. */
 const addressChange = (address, way, label, step) => ({
   _id: ObjectId(),
   address,
@@ -1278,7 +1278,7 @@ const HOLDER_CHANGE = addressChange("admin.umzug@example.com", "account", "umzug
 
 const ADDRESS_CHANGES = [addressChange("nina.noll@example.com", "waiting_period", "noll", { valid_until: WAITING }), HOLDER_CHANGE];
 
-/** One act as `fl_backend/app/core/recording.py :: record_act` writes it, `hoursAgo` before the seed. */
+/** One act as `record_act` writes it, `hoursAgo` before the seed. */
 const logged = (hoursAgo, by, action, { team = null, label = null, count = null } = {}) => ({
   _id: ObjectId(),
   at: new Date(Date.now() - hoursAgo * 60 * 60 * 1000),
@@ -1329,9 +1329,9 @@ for (const name of db.getCollectionNames()) {
 // Ordered: an insert a unique index refuses throws with the server's own account of the key, and
 // mongosh exits non-zero on it; the read-back after the seed judges every document's shape. Each
 // document carries the `version: 0` the backend's create stamps:
-// every collection seeded here but `grants` is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`,
+// every collection seeded here but `grants` is in `EDITED_COLLECTIONS`,
 // whose saves match on the version their editor was served, and none matches a document without one.
-// The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
+// The first of each collection `anchor_in_db` writes carries the count an
 // anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
 const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "grants", "saisons", "saison_teams", "spieler", "spiele"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {

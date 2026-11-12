@@ -1,7 +1,7 @@
-"""SCRIPTS · the gate's scopes and the workflow's jobs, each held to the other.
+"""The gate's scopes and the workflow's jobs, each held to the other.
 
 Every event runs every scope (`docs/decisions.md`, **ci**). The workflow's `verify` job proves each job sits in its
-`needs`, and nothing else proves each scope has a job: a scope added to `scripts/gate/verify.sh :: SCOPES` alone would
+`needs`, and nothing else proves each scope has a job: a scope added to the gate's `SCOPES` alone would
 run locally and never in CI, every check green.
 """
 

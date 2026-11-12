@@ -91,8 +91,8 @@ if (( ${#SELECTED[@]} > 1 )); then
   spinner_stop
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
 
-  # The exit contract's order, as `scripts/lib/_lib.sh :: finish` reads a single run's sections:
-  # findings over a refusal over a crash.
+  # The exit contract's order, as `finish` reads a single run's sections: findings over a refusal
+  # over a crash.
   findings=0; refused=0; crashed=0
   printf '\n      %s%-16s  %s%s\n' "$C_DIM" "scope" "result" "$C_RESET"
   for scope in "${SELECTED[@]}"; do
@@ -131,8 +131,8 @@ fi
 SCOPE="${SELECTED[0]}"
 
 # Each tool's status: 1 is what it found, 130 an interrupt, anything else a tool that never reached a
-# verdict. `--checker` adds the 2 a checker built on `scripts/lib/checker_kernel.py :: run` answers
-# for an input it could not judge. `--summary` is for a tool raising an annotation per finding itself
+# verdict. `--checker` adds the 2 a checker built on the checker kernel answers for an input it
+# could not judge. `--summary` is for a tool raising an annotation per finding itself
 # under Actions, as Vitest and the self-check do: what is said then sums them, `fail --summary`.
 # `--pytest` raises those annotations for pytest, one per case its summary names (`annotate_cases`).
 check() { # [--checker] [--summary | --pytest] $1 what to say on a finding · the command
@@ -197,7 +197,7 @@ ruff_both() { # $1 the directory · the paths
 }
 
 # By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Each `--maxprocesses` below is its suite's measured optimum on 16 cores (2026-09).
+# job's timeout. Each `--maxprocesses` below is its suite's optimum on 16 cores.
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 
 case "$SCOPE" in
@@ -206,8 +206,8 @@ esac
 case "$SCOPE" in
   format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
-    # pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) runs on every
-    # `pnpm run` and `pnpm exec`, so one exec answers for every step below before any of them runs.
+    # pnpm's dependency check (`verifyDepsBeforeRun`) runs on every `pnpm run` and `pnpm exec`, so
+    # one exec answers for every step below before any of them runs.
     quietly in_dir fl_frontend pnpm exec node -e "" \
       || refuse "pnpm would not start a command in fl_frontend: node_modules does not answer the manifest
 and lockfile, or pnpm itself did not start (its own words are above). Fix with:  cd fl_frontend && pnpm install" ;;
@@ -318,7 +318,7 @@ scope_backend() {
   check "pyright found type errors in fl_backend." in_dir fl_backend env PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright \
     && ok "no type errors"
 
-  # No worker starts a server (`fl_backend/tests/conftest.py :: pytest_configure_node`).
+  # No server starts: the controller starts none for the default tier's own `-m`.
   step "backend · pytest  (default tier)"
   check --pytest "fl_backend tests failed." in_dir fl_backend "$PY" -m pytest "${PYTEST_SPREAD[@]}" --maxprocesses 6 \
     && ok "default-tier tests pass"
@@ -439,8 +439,9 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
     in_dir fl_frontend pnpm knip:prod \
     && ok "nothing only tests read"
 
-  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. The
-  # builder's skipped environment validation, for `fl_frontend/Dockerfile`'s reason.
+  # After every reader of tsconfig.json: it writes `.next/`, which that file's `include` covers. No
+  # environment is set for the build, so the startup gate's validation is skipped, as the image's
+  # builder skips it.
   step "frontend · next build"
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
@@ -619,8 +620,8 @@ Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
   # container, each starting its own on ports Docker picks.
   DB_TIERS="$(mktemp -d)"
   local backend frontend
-  # `loadfile` for isolation too: `fl_backend/tests/api/test_commit_fail_points.py` sets the
-  # server's one `failCommand`, so its cases run one after another on one worker.
+  # `loadfile` for isolation too: the commit fail points' cases set the server's one
+  # `failCommand`, so they run one after another on one worker.
   ( run_beside "${DB_TIERS}/backend" in_dir fl_backend "$PY" -m pytest -m db "${PYTEST_SPREAD[@]}" --maxprocesses 6 ) &
   backend=$!
   # Each file starts its own replica set through `@testcontainers/mongodb`.

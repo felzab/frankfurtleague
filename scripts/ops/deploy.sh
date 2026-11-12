@@ -22,7 +22,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 TAG_RE='^sha-[0-9a-f]{7}$'
 
 # Above the healthchecks' start period plus three failed probes, so a service is judged by its own
-# healthcheck before the wait gives up on it (`docker-compose.yml`).
+# healthcheck before the wait gives up on it.
 WAIT_S=180
 
 ROLLBACK=1
