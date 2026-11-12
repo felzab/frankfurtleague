@@ -1,4 +1,4 @@
-import { INSTAGRAM_URL, KONTAKT_EMAIL, SITE_URL, THREADS_URL, VEREIN_ADDRESS, VEREIN_NAME } from "@/core/brand";
+import { INSTAGRAM_URL, KONTAKT_EMAIL, SITE_URL, THREADS_URL, VEREIN_ADDRESS, VEREIN_LEGAL_NAME } from "@/core/brand";
 import { COPY } from "@/core/copy";
 
 /**
@@ -12,7 +12,7 @@ const ORGANIZATION = {
   "@context": "https://schema.org",
   "@type": "SportsOrganization",
   name: COPY.brand.name,
-  legalName: VEREIN_NAME,
+  legalName: VEREIN_LEGAL_NAME,
   sport: "Fußball",
   url: SITE_URL,
   logo: `${SITE_URL}/icons/manifest/icon-512.png`,

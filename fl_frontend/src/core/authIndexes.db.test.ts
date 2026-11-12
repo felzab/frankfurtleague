@@ -186,7 +186,7 @@ describe("the index build against a real store", () => {
     await buildAuthIndexes();
     const reference = await heldIndexes();
     await store().dropDatabase();
-    await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" });
+    await store().collection("session").createIndex({ token: 1 }, { unique: true, name: "made_by_hand" }, undefined);
 
     await buildAuthIndexes();
 

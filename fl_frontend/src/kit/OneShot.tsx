@@ -152,7 +152,7 @@ export function OneShotForm({
   // The end stands in `OneShotEnd`, in this form's place.
   if (answer?.ok === true) return null;
 
-  const refused = answer !== null && !answer.ok ? answer : null;
+  const refused = answer;
   const status: FormStatus = checkRefusal !== null ? { tone: "error", text: checkRefusal } : statusOf(refused, isBlocked, isPending);
   const isBusy = isPending || isChecking;
 

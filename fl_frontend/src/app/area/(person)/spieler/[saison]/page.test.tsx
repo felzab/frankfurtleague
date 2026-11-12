@@ -23,7 +23,7 @@ vi.mock("@/features/roles/queries", () => ({
 }));
 
 // The public frame's read, cached for every visitor, which a unit render has no cache for.
-vi.mock("@/features/saisons/queries", () => ({ isPublicSaison: async () => true }));
+vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => ({ saisons: [{ id: "2027" }] }) }));
 
 const own = vi.hoisted(() => ({ read: null as FLSpielerSaisonSelfResponse | null }));
 vi.mock("@/features/spieler/queries", () => ({ getSpielerSaisonSelf: async () => own.read }));

@@ -77,8 +77,7 @@ export class APIBadStatusError extends Error {
     refusedFields?: readonly FLRefusedField[];
     traceId: string;
   }) {
-    // The fields `instrumentation.ts :: onRequestError` reads off the cause for the crash line.
-    super(message, { cause: { traceId, statusCode, serverErrorCode } });
+    super(message);
 
     this.name = "APIBadStatusError";
     this.traceId = traceId;
@@ -234,7 +233,7 @@ export class MailSendError extends Error {
     providerErrorName?: string;
     traceId: string;
   }) {
-    super(message, { cause: { traceId, statusCode, providerErrorName } });
+    super(message);
 
     this.name = "MailSendError";
     this.traceId = traceId;

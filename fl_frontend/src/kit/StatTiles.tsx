@@ -45,7 +45,7 @@ export type StatTile = {
  * „Mo., 28.10.“, about 114 px at the value's size, and its widest label „Schiedsrichter“ about 102 px: a fifth of the full form
  * column (`--container-form`, 760 px) less the gaps is 142 px, which holds either inside its 12-px insets, and a fifth
  * of any narrower column, such as 1024 px beside the open rail, would not. Two columns hold them at every phone width.
- * The landing's four read the screen instead, as every block of the landing does (`reads`, `TileGrid.tsx :: TilesReads`).
+ * The landing's four read the screen instead, as every block of the landing does (`reads`, `TilesReads`).
  */
 type Layout =
   | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile]; reads?: TilesReads }

@@ -3,13 +3,14 @@ import "server-only";
 import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
 import { identityGetReferences } from "@/core/generated/client/sdk";
+import { identityGetReferencesBodyIdentifiersMax } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 
 /**
- * The most addresses one references read judges, the backend's `REFERENCES_ADDRESSES_MAX`: a larger batch is refused
- * whole, every pass alike.
+ * The most addresses one references read judges, as the contract publishes it: a larger batch is refused whole, every
+ * pass alike.
  */
-export const REFERENCES_ADDRESSES_MAX = 250;
+export const REFERENCES_ADDRESSES_MAX = identityGetReferencesBodyIdentifiersMax;
 
 /** What one pass did, by count and never by address: the scheduler's pass line is all that records it. */
 type AccountSweepCount = {

@@ -7,7 +7,7 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 
 const REASON = COPY.template.draftUnsaved;
 
@@ -92,7 +92,7 @@ describe("a locked act", () => {
 
   // The harm: pressed, or by Enter from a field, a locked submit button would send the form it stands in.
   it("sends no form it stands in", async () => {
-    const onSubmit = vi.fn((event: FormEvent) => event.preventDefault());
+    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
     render(
       <form onSubmit={onSubmit}>
         <Button

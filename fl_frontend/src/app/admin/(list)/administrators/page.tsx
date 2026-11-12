@@ -12,6 +12,7 @@ import { COPY } from "@/core/copy";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { formatDate, formatInstantShort } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { DAY_MS } from "@/core/timeUnits";
 import { discardChange } from "@/features/address-change/actions";
 import { getAddressChanges } from "@/features/address-change/queries";
 import { addAdministrator, removeAdministrator, startHandover, stopHandover } from "@/features/grants/actions";
@@ -31,8 +32,6 @@ const WORDS = COPY.admin.administrators;
 const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
-
-const DAY_MS = 86_400_000;
 
 /** The two toolbar acts, each naming its button, its wait and its dialog. */
 const ADD = { verb: "enter", object: WORDS.object } as const;

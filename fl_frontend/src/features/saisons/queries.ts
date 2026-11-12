@@ -6,6 +6,7 @@ import {
   saisonsGetFrame,
   saisonsGetKoRunde,
   saisonsGetSaisonAdmin,
+  saisonsGetSaisonOverview,
   saisonsGetSaisonsAdmin,
   saisonsGetSpiel,
   saisonsGetSpielplan,
@@ -20,6 +21,7 @@ import type {
   FLKoRundeResponse,
   FLSaisonAdminResponse,
   FLSaisonFrameResponse,
+  FLSaisonOverviewResponse,
   FLSaisonsAdminListResponse,
   FLSaisonTeamsResponse,
   FLSpielPageResponse,
@@ -41,10 +43,11 @@ export const getAdminSaison = cache(async (saisonId: string): Promise<FLSaisonAd
   runAdminRead(() => orMissing(saisonsGetSaisonAdmin(saisonId))),
 );
 
-/** Judged against the season pages' frame: a planned season the public may not read. */
-export async function isPublicSaison(saisonId: string): Promise<boolean> {
-  return (await getSaisonFrame()).saisons.some((saison) => saison.id === saisonId);
-}
+/** The season's open work, `null` where no season holds the id. */
+// `cache` memoizes per render pass, so the tab's title and the page read it once.
+export const getSaisonOverview = cache(async (saisonId: string): Promise<FLSaisonOverviewResponse | null> =>
+  runAdminRead(() => orMissing(saisonsGetSaisonOverview(saisonId))),
+);
 
 /** Every season the public may read, the newest first. */
 export async function getSaisonFrame(): Promise<FLSaisonFrameResponse> {
