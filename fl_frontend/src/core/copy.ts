@@ -160,6 +160,29 @@ const PRIVACY_NOTICE = "Datenschutz";
 const RETIREMENT = "Stilllegung";
 // An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
+// The season's start having passed: an act's reason, and the lock line's sentence naming what it holds.
+const LOCKED_SINCE_START = "Seit Saisonbeginn gesperrt";
+/** The boxes and fields one reason holds, as the lock line names them after it, in the editor's order. */
+const named = (names: readonly string[]) => names.join(", ");
+
+/**
+ * Each reason an editor's fields can stand locked for, as its lock line says it, the boxes and fields it holds named
+ * after it. The line says its reasons in this order: the reasons holding several boxes first, then the one fixed fact.
+ */
+const LOCK = {
+  /** The season's start has passed, which fixes its scoring, its qualifiers and its clubs. */
+  sinceStart: (names: readonly string[]) => `${LOCKED_SINCE_START}: ${named(names)}.`,
+  /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
+  byDraw: (names: readonly string[]) => `Gesperrt, solange ein Spielplan steht: ${named(names)}.`,
+  /** The club left the season, which fixes its group and its colour. */
+  departed: (names: readonly string[]) => `Seit dem Ausscheiden gesperrt: ${named(names)}.`,
+  /** A match of the season has taken place, which fixes its start. */
+  takenPlace: (names: readonly string[]) => `${named(names)} ${names.length === 1 ? "steht" : "stehen"} fest.`,
+} as const;
+
+/** Why an editor's box or field stands locked, which its lock line says once for everything it holds. */
+export type LockReason = keyof typeof LOCK;
+
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
 // A group matchday by its place, `shared`'s entry, which the application form's wished opponent names the first by.
@@ -668,6 +691,17 @@ export const COPY = catalogue({
       count === 1 ? "1\u00A0Änderung geht verloren." : `${boundBy(formatNumber(count), "Änderungen")} gehen verloren.`,
     /** In an editor's act's own line while its draft holds unsaved changes, which close every act of it. */
     draftUnsaved: "Gesperrt, solange Änderungen ungespeichert sind",
+    /**
+     * An editor's one lock line, muted under its title, from each locked box or field in the editor's order with its
+     * reason: each reason once, in `LOCK`'s order, everything it holds named after it.
+     */
+    lockLine: (held: ReadonlyArray<readonly [LockReason, Copy]>) =>
+      (Object.keys(LOCK) as LockReason[])
+        .flatMap((by) => {
+          const names = held.filter(([each]) => each === by).map((pair) => pair[1]);
+          return names.length === 0 ? [] : [LOCK[by](names)];
+        })
+        .join(" "),
     /** The chip after an editor's title while its record is closed read-only, its season finished. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
@@ -1099,11 +1133,6 @@ export const COPY = catalogue({
        * rules write's refusal and the draw's say it alike, on the status line, the two counts together being at fault.
        */
       bracketImpossible: `Aus diesen Zahlen entsteht keine ${K_O_RUNDE}.`,
-      /**
-       * Under the season's start once a match of the season has taken place, which holds it: a match has taken place
-       * once it has a result, a recorded no-show or abandonment, or one side's goals.
-       */
-      startFixed: "Steht fest, seit ein Spiel stattgefunden hat",
 
       /** The span a season runs from its start to its end: the list's column and the editor's first box. */
       period: "Zeitraum",
@@ -1151,10 +1180,8 @@ export const COPY = catalogue({
       stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
       /** The fixture list these counts would draw is longer than one read lists, which every season page reads it in. */
       tooManySpiele: "Aus diesen Zahlen entstehen zu viele Spiele.",
-      /** Under a box's title once the season's start has passed, which fixes its scoring, its seeding and its clubs. */
-      lockedSinceStart: "Seit Saisonbeginn gesperrt",
-      /** Under the rules' title while a Spielplan stands: the counts it was drawn from move only with a new draw. */
-      lockedByDraw: "Gesperrt, solange ein Spielplan steht",
+      /** Why an act on the season's clubs cannot run once its start has passed, as the act's tooltip says it. */
+      lockedSinceStart: LOCKED_SINCE_START,
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
       /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */

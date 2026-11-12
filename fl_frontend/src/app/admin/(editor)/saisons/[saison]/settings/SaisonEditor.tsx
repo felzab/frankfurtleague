@@ -27,7 +27,7 @@ import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonRequired } from "@/features/saisons/required";
 import type { ChipProps } from "@/kit/Chip";
-import type { DangerAct, EditorPart } from "@/kit/EditorPage";
+import type { DangerAct, EditorPart, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -252,11 +252,25 @@ export function SaisonEditor({
   const touch = { holder };
   const of = { saison_id: saison, holder };
 
+  // A draw fixes the three counts it was drawn from, and the start the qualifiers among them, each the write's own
+  // refusal: a started season with a draw holds its counts by the draw and its qualifiers by the start.
+  const gruppenLocks: EditorSection["locked"] =
+    facts.begun && drawn
+      ? [
+          { by: "byDraw", fields: [WORDS.gruppen, WORDS.teamsPerGruppe] },
+          { by: "sinceStart", fields: [WORDS.qualifiers] },
+        ]
+      : facts.begun
+        ? [{ by: "sinceStart", fields: [WORDS.qualifiers] }]
+        : drawn
+          ? [{ by: "byDraw" }]
+          : undefined;
+
   const sections: [EditorPart, ...EditorPart[]] = [
     {
       id: "period",
       title: WORDS.period,
-      ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
+      ...(facts.takenPlace ? { locked: [{ by: "takenPlace", fields: [WORDS.start] }] } : {}),
       fields: (
         <FieldRows>
           <DateField
@@ -283,8 +297,8 @@ export function SaisonEditor({
       id: "scoring",
       title: WORDS.scoring,
       help: WORDS.scoringHelp,
-      // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      // The start fixes the points and the tiebreak; a no-show's goals stay open all season, so the lock names the two.
+      ...(facts.begun ? { locked: [{ by: "sinceStart", fields: [WORDS.punkte, WORDS.tiebreak] }] } : {}),
       fields: (
         <>
           <FieldRows label={WORDS.punkte}>
@@ -357,8 +371,7 @@ export function SaisonEditor({
     {
       id: "gruppen",
       title: WORDS.gruppenAndKoRunde,
-      // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
-      ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      ...(gruppenLocks === undefined ? {} : { locked: gruppenLocks }),
       fields: (
         <FieldRows>
           <TextField
@@ -508,7 +521,7 @@ export function SaisonEditor({
     {
       id: "gruppentausch",
       title: WORDS.gruppentausch,
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      ...(facts.begun ? { locked: [{ by: "sinceStart" }] } : {}),
       fields: (
         <Swap
           saison={saison}
@@ -521,7 +534,7 @@ export function SaisonEditor({
     {
       id: "replacement",
       title: WORDS.replacement,
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      ...(facts.begun ? { locked: [{ by: "sinceStart" }] } : {}),
       fields: (
         <Replacement
           saison={saison}

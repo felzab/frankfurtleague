@@ -57,6 +57,12 @@ export const boxHead = tv({
 });
 
 /**
+ * The muted lines under an editor's title, over its first box: the Vorschau and the lock line, one step apart as a
+ * box's title and its line are (`boxHead`).
+ */
+export const editorHead = tv({ base: "grid gap-1 text-sm text-fg-muted" });
+
+/**
  * A hairline between two parts of a section that one title holds, such as a match's score and its Sonderereignis:
  * across the box's whole width as the rule under the title, the fields' 16 px from the parts over and under it, which
  * is the box's own inset.
@@ -140,16 +146,15 @@ export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
 
 /**
  * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. `note`
- * is the words of the line a section's closed state stands under its title, set unseen, where the section can carry
- * one. An editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge
- * `list`, the list's own placeholder, over `rows` where the section holds fields or acts under its list.
+ * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. An
+ * editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge `list`,
+ * the list's own placeholder, over `rows` where the section holds fields or acts under its list.
  */
 export function SectionPlaceholder(
   props:
-    | { rows: ReadonlyArray<FieldRow>; note?: Copy; danger?: never; list?: ReactElement }
-    | { danger: ReadonlyArray<DangerRowWait>; rows?: never; note?: never; list?: never }
-    | { list: ReactElement; rows?: never; note?: never; danger?: never },
+    | { rows: ReadonlyArray<FieldRow>; danger?: never; list?: ReactElement }
+    | { danger: ReadonlyArray<DangerRowWait>; rows?: never; list?: never }
+    | { list: ReactElement; rows?: never; danger?: never },
 ) {
   const slots = boxHead({ ruled: true });
   return (
@@ -159,12 +164,6 @@ export function SectionPlaceholder(
           textClass="text-base font-semibold"
           widthClass="w-1/3"
         />
-        {props.note !== undefined && (
-          <PlaceholderSentence
-            textClass="text-sm"
-            words={props.note}
-          />
-        )}
       </div>
       {props.list !== undefined && <div className="grid">{props.list}</div>}
       {props.rows !== undefined && (
@@ -222,7 +221,10 @@ export function Section({
   title: Copy;
   /** The section's help behind the ⓘ after its title: a few short declarative lines, one statement each. */
   help?: readonly [Copy, ...Copy[]];
-  /** Why the fields under the title cannot change, in the hue a closed act's reason takes, visible under the title. */
+  /**
+   * What a change causes for the box, in the warn hue under the title, such as a match report's goals once other clubs
+   * play the match; never a lock, which an editor says once under its own title (`EditorPage`).
+   */
   note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;

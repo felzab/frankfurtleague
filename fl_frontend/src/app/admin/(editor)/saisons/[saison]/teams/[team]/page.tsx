@@ -31,7 +31,6 @@ import type { TeamRow } from "./TeamEditor";
 type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
 
 const WORDS = COPY.admin.team;
-const LINK_WORDS = COPY.admin.saison;
 
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = <FieldPlaceholder key="select" />;
@@ -53,6 +52,11 @@ export default function TeamEditorPage({ params }: Props) {
   return (
     <EditorShell
       wait={{
+        // A club that left, the longest lock line the editor says.
+        lock: COPY.template.lockLine([
+          ["departed", COPY.team.gruppe],
+          ["departed", COPY.team.trikotFarbe],
+        ]),
         sections: [
           [
             "field",
@@ -69,18 +73,15 @@ export default function TeamEditorPage({ params }: Props) {
             />,
           ],
           ["pair", "pair", "field"],
-          // A club that left: the box says since when, over the exit's three facts.
-          {
-            note: LINK_WORDS.lockedSinceStart,
-            rows: [
-              SELECT,
-              SELECT,
-              <FactsPlaceholder
-                key="austritt"
-                pairs={3}
-              />,
-            ],
-          },
+          // A club that left: the exit's three facts under its two fixed fields.
+          [
+            SELECT,
+            SELECT,
+            <FactsPlaceholder
+              key="austritt"
+              pairs={3}
+            />,
+          ],
           [<SeatRowsPlaceholder key="seats" />],
           // A live link's three acts, in the box's one footer.
           [
@@ -117,20 +118,13 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
   const austritt = membership.austritt;
   const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
-  const note =
-    austritt !== null && stands !== null
-      ? COPY.shared.austrittSince(stands.state, dayOf(austritt.date))
-      : drawn && saison.begun
-        ? LINK_WORDS.lockedSinceStart
-        : undefined;
   return {
     saisonTitle: COPY.shared.saisonName(saison.id),
-    ...(note === undefined ? {} : { note }),
     gruppen: gruppeOptions(gruppen, membership.gruppe),
-    gruppeLocked: drawn || austritt !== null,
-    ...(drawn && !saison.begun ? { gruppeNote: LINK_WORDS.lockedByDraw } : {}),
+    // The exit fixes the group whether or not a draw stands too, so the lock says the one reason for both fields.
+    gruppeLocked: austritt !== null ? "departed" : drawn ? "byDraw" : null,
     colours: trikotOptions(taken),
-    colourLocked: austritt !== null,
+    colourLocked: austritt !== null ? "departed" : null,
     austritt:
       austritt === null || stands === null
         ? null
