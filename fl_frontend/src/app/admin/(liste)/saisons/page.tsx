@@ -61,7 +61,7 @@ export default function SaisonsPage() {
  * here words means a page older than the API, which the stale line says.
  */
 function lockedOf(code: Code): Copy {
-  return code === "create_saison_future_stands" ? WORDS.futureStands : COPY.shared.failure.stale;
+  return code === "create_saison_future_stands" ? WORDS.futureStandsLocked : COPY.shared.failure.stale;
 }
 
 /**

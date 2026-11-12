@@ -75,7 +75,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
   await expect(main.getByRole("heading", { name: "Bestätige deine Registrierung per E-Mail" })).toBeVisible();
 
   // The mailed link asks the birthdate and what of the name the site may show.
-  await page.goto(await mailedLink(pupil.address, `Registrierung für ${club} bestätigen`, before));
+  await page.goto(await mailedLink(pupil.address, `Registrierung bestätigen: ${club}`, before));
   await expect(main.getByRole("heading", { name: "Registrierung bestätigen" })).toBeVisible();
   // React Aria makes a segment a text box where the browser says it is an iPhone, and a spin button everywhere else.
   const birthday = main.getByRole("group", { name: /^Geburtsdatum/ });
