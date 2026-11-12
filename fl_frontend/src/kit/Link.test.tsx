@@ -132,4 +132,22 @@ describe("the kit's link", () => {
     expect(link.getAttribute("href")).toBe(SPIEL);
     expect(link.getAttribute("data-kit-focus")).toBe("ring");
   });
+
+  // The harm: under the pointer the struck name loses its strike, so a no-show reads as a player who turned up, and only
+  // an eye over a hovered name sees it.
+  it("keeps a struck name's strike beside the pointer's underline", () => {
+    render(
+      <Link
+        href={SPIEL}
+        placement="struck"
+        label={COPY.shared.toSpiel}
+      />,
+    );
+
+    const classes = screen.getByRole("link", { name: COPY.shared.toSpiel }).className.split(" ");
+    expect(classes).toContain("line-through");
+    const decorated = classes.filter((name) => /^(?:hover|active):.*(?:underline|text-decoration)/.test(name));
+    expect(decorated.length).toBeGreaterThan(0);
+    for (const name of decorated) expect(name).toContain("line-through");
+  });
 });

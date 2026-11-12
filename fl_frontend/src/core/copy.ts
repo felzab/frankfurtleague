@@ -644,6 +644,9 @@ export const COPY = catalogue({
     /** The strip's toggle folding the rail to its glyphs and back, named for what the next press does. */
     sidebar: { collapse: "Seitenleiste einklappen", expand: "Seitenleiste ausklappen" },
 
+    /** A reading page's contents list: the rail's label beside the text, and the fold's on a phone. */
+    contents: "Inhalt",
+
     /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
     legal: "Rechtliches",
