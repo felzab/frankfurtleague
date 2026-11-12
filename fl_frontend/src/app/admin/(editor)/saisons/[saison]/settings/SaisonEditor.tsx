@@ -643,8 +643,6 @@ export function SaisonEditor({
     <EditorPage
       title={title}
       chip={chip}
-      // Which season the site shows is a fact of the season, never a state word.
-      {...(facts.isCurrent ? { lead: WORDS.isCurrent } : {})}
       editor={editor}
       closed={closed}
       sections={sections}

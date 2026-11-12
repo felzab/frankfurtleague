@@ -1198,8 +1198,7 @@ export const COPY = catalogue({
           ? "1\u00A0Team bekommt seinen Link per E-Mail."
           : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
-      /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
-      isCurrent: "Die Website zeigt diese Saison.",
+      /** The activation: its subject, „Auf Saison 2027 umstellen?“, and the season the site shows from then on. */
       onto: (saison: string) => boundBy("Auf", saisonName(saison)),
       activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonName(saison))}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */
