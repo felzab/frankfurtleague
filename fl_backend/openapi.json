@@ -761,15 +761,8 @@
       "FLAccountErasureSchiedsrichter": {
         "properties": {
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "title": "Name",
+            "type": "string"
           }
         },
         "required": [

@@ -388,7 +388,7 @@ async def reactivate_schiedsrichter(
         if stored.get("inactive_since") is None:
             return None
 
-        email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
+        email = stored["kontakt"]["email"] if owes_reactivation_mint(stored=stored) else None
 
         # ONE write, the mint riding the revival's `$set`: the press is one action.
         minted = compose_mint_update(today=today) if email is not None else {}

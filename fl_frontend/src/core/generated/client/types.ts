@@ -508,7 +508,7 @@ export interface FLAccountErasureRegistrierung {
 }
 
 export interface FLAccountErasureSchiedsrichter {
-  name: string | null;
+  name: string;
 }
 
 /**
