@@ -55,7 +55,8 @@ const facts = tv({
         // included, takes the row's whole width, so no empty cell stands beside it.
         row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the match pop-up's facts under its teams. A lone pair
+      // No box and no hairlines, two pairs a row at every width: facts inside a card or a pop-up, which draws no box
+      // inside its own. A lone pair
       // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",
@@ -131,8 +132,8 @@ export function FactsPlaceholder({
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
  * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
- * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box as the
- * match pop-up sets them under the pairing. The one block that pairs a label with a value.
+ * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box inside
+ * a card or a pop-up. The one block that pairs a label with a value.
  */
 export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fact>; look?: "boxed" | "free" }) {
   const { list } = facts({ look });

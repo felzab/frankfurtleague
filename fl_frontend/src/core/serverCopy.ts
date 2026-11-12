@@ -680,7 +680,7 @@ export const SERVER_COPY = catalogue({
     /** The way to apply while a window is open: the hero's second act, the steps' band and the school's door. */
     toBewerbung: "Zur Bewerbung",
 
-    /** What About tells in short sections, each written once: the landing's pillars and its small cards read them too. */
+    /** The league's short facts, each written once: the pillars' and the small cards', on the landing and on About alike. */
     about: {
       who: {
         title: "Wer spielt",

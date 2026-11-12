@@ -87,7 +87,8 @@ describe("a game's answers", () => {
 });
 
 /* One match, one word: the Spielplan names the event, so a list naming it otherwise reads as a second thing that
-   happened, and a no-show read as „Abgesagt“ sends the referee looking for a new date that never comes. */
+   happened. Read by its booking alone, a called-off game draws nothing, and a no-show asks the referee for a
+   Spielbericht of a game nobody played. */
 describe("a game something befell", () => {
   it("carries the event's own chip, as the Spielplan's row does, whatever the booking says", async () => {
     const rows = await rowsOf(

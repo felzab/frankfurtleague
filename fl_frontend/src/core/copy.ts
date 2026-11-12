@@ -701,7 +701,7 @@ export const COPY = catalogue({
           return names.length === 0 ? [] : [LOCK[by](names)];
         })
         .join(" "),
-    /** The chip after an editor's title while its record is closed read-only, its season finished. */
+    /** A finished season, which shuts every registration link and every acceptance: a link's state, and why „Annehmen“ is locked. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",
