@@ -117,11 +117,9 @@ describe("the league's save of a line-up", () => {
     // Sent in shirt-number order as THREE, ONE, TWO: the write refuses the first entry, THREE, newly named.
     refusal.write = new APIBadStatusError({
       message: "refused",
-      url: "http://backend/api/v0/",
       statusCode: 409,
       serverErrorCode: "spieler_not_in_kader",
       refusedFields: [{ kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" }],
-      endpoint: "/",
       traceId: "0",
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
@@ -137,11 +135,9 @@ describe("the league's save of a line-up", () => {
   it("says the nominees' gap by the bound the refusal carries", async () => {
     refusal.write = new APIBadStatusError({
       message: "refused",
-      url: "http://backend/api/v0/",
       statusCode: 409,
       serverErrorCode: "aufstellung_nominee_without_shortage",
       refusedFields: [{ kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 9 }, in: "body" }],
-      endpoint: "/",
       traceId: "0",
     });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [ONE, TWO, THREE] } });

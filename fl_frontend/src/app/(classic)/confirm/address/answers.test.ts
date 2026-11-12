@@ -19,9 +19,9 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/features/address-change/account", () => ({
   accountAtNewAddress: async ({ token }: { token: string }) => held.accountAtTheNewAddress && token === held.newLink,
 }));
-vi.mock("@/features/address-change/mutations", async (original) => ({
+vi.mock("@/core/generated/client/sdk", async (original) => ({
   ...(await original<object>()),
-  postAddressChangeAnswer: async (payload: unknown) => {
+  addressChangePostAddressChangeAnswer: async (payload: unknown) => {
     held.posted.push(payload);
     if (held.answered === null) throw new Error("the case answered no press");
     return held.answered;

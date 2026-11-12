@@ -351,8 +351,6 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
   const failNetwork = (error: unknown) =>
     new APINetworkError({
       message: "Mail request failed.",
-      isTimeout: error instanceof Error && error.name === "TimeoutError",
-      url: MAIL_ENDPOINT,
       traceId,
       originalError: error,
     });
@@ -408,7 +406,6 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
 
     throw new MailSendError({
       message: "The mail provider refused the message.",
-      url: MAIL_ENDPOINT,
       statusCode: res.status,
       providerErrorName,
       traceId,

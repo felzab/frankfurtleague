@@ -54,7 +54,7 @@ beforeEach(() => {
 
 describe("the account menu", () => {
   it("signs out with one press and leaves the document for the start page", async () => {
-    leave.signOut.mockResolvedValue({ success: true });
+    leave.signOut.mockResolvedValue(true);
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
@@ -65,7 +65,7 @@ describe("the account menu", () => {
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {
-    leave.signOut.mockResolvedValue({ success: false, error: "x" });
+    leave.signOut.mockResolvedValue(false);
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 

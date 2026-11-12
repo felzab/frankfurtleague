@@ -2430,10 +2430,8 @@ async function erasureRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: `${API_ORIGIN}/api/v0/identity/account/erasure`,
     statusCode: 409,
     serverErrorCode: "owner_erasure",
-    endpoint: "/identity/account/erasure",
     traceId: "0".repeat(32),
   });
 }

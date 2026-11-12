@@ -282,8 +282,7 @@ function placeAt(account: Account, path: string) {
  * would keep every hidden route with its rows and typed text. A failure leaves the person where they are.
  */
 async function signOutAndLeave() {
-  const result = await signOut().catch(() => null);
-  if (result?.success === true) {
+  if (await signOut().catch(() => false)) {
     leaveDocumentFor("/");
     return;
   }

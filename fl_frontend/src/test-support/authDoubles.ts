@@ -98,8 +98,6 @@ type SentMail = {
 /** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */
 type MailAnswer = (mail: SentMail) => "accepted" | "lost" | Promise<"accepted" | "lost">;
 
-const BACKEND = "https://backend.invalid/api/v0/outbox/sign_in";
-
 /**
  * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,
  * then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the suite's own key, and sent; every
@@ -128,7 +126,7 @@ function doubleOutbox(): {
     const mail = { to: payload.to, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
-      throw new APINetworkError({ message: "Request failed.", url: BACKEND, traceId: "0", isTimeout: false });
+      throw new APINetworkError({ message: "Request failed.", traceId: "0" });
     }
 
     owed.push(payload);
