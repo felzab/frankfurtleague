@@ -123,7 +123,7 @@ function terminRow(row: FLTeamPanelTermin, team: string, saison: string, today: 
         line: line([when, row.vorschlag === null ? null : COPY.admin.spiel.proposed(whenOf(row.vorschlag))]),
       };
     case "agreed":
-      return { ...base, chip: { tone: "success", label: COPY.admin.spiel.zugesagt }, line: line([when, venueOf(ansetzung)]) };
+      return { ...base, chip: { tone: "success", label: COPY.admin.spiel.agreed }, line: line([when, venueOf(ansetzung)]) };
   }
 }
 

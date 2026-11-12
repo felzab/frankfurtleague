@@ -86,12 +86,12 @@ describe("what befell a match", () => {
   it("names the side that did not turn up, and gives the match to the side that did", () => {
     const { sonderereignis } = COPY.spielplan;
     expect(eventOf(spiel([0, 3], "nichtantreten_team1"))).toStrictEqual({
-      title: sonderereignis.nichtAngetreten({ record: "Goethe" }),
-      text: sonderereignis.consequence.nichtAngetreten({ record: "Helmholtz" }),
+      title: sonderereignis.nichtantreten({ record: "Goethe" }),
+      text: sonderereignis.consequence.nichtantreten({ record: "Helmholtz" }),
     });
     expect(eventOf(spiel([3, 0], "nichtantreten_team2"))).toStrictEqual({
-      title: sonderereignis.nichtAngetreten({ record: "Helmholtz" }),
-      text: sonderereignis.consequence.nichtAngetreten({ record: "Goethe" }),
+      title: sonderereignis.nichtantreten({ record: "Helmholtz" }),
+      text: sonderereignis.consequence.nichtantreten({ record: "Goethe" }),
     });
   });
 

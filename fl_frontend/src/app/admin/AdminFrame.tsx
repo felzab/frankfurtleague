@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  */
 const RAIL_GROUPS: RailGroup[] = [
   {
-    entries: [{ id: "uebersicht", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
+    entries: [{ id: "overview", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }],
   },
   {
     heading: COPY.admin.group.saisonsAndSpiele,
@@ -66,7 +66,7 @@ const RAIL_GROUPS: RailGroup[] = [
 ];
 
 /** The phone bar's pages, before „Mehr“. */
-const BAR = ["uebersicht", "spiele", "teams"] as const;
+const BAR = ["overview", "spiele", "teams"] as const;
 
 /**
  * The administration's frame. It is drawn without waiting for the session: the account and the seasons it shows

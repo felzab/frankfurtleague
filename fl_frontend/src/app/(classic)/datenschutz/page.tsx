@@ -12,7 +12,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { ADMIN_IDLE_HOURS, ADMIN_WINDOW_HOURS, PERSON_LIFETIME, PERSON_WINDOW_DAYS } from "@/core/sessionLifetimes";
 import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import { DAY_MS } from "@/core/timeUnits";
-import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
 import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
@@ -51,7 +51,7 @@ export default function PrivacyNoticePage() {
     paragraph(words.website.browser),
     heading(words.bewerbung.heading),
     paragraph(words.bewerbung.form),
-    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE)),
+    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
     heading(words.kader.heading),
     paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)),
     heading(words.schiedsrichter.heading),

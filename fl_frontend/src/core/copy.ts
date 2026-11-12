@@ -137,7 +137,7 @@ const DATE_OPEN = "Termin offen";
 // The mark beside a score a shoot-out decided.
 const AFTER_ELFMETERSCHIESSEN = "n. E.";
 // A party's agreement to a fixture's date: its chip, and the toast as the agreed row leaves its list.
-const ZUGESAGT = "Zugesagt";
+const AGREED = "Zugesagt";
 const SONDEREREIGNIS = { ausgefallen: "Ausgefallen", abgebrochen: "Abgebrochen", annulliert: "Annulliert" } as const;
 // Two clubs named by their place in a pair: a fixture's two sides, and the group swap's two clubs.
 const TEAM_PAIR = { team1: "Team 1", team2: "Team 2" } as const;
@@ -282,7 +282,7 @@ export const COPY = catalogue({
       /** Every other device's session ended, this one's kept. */
       othersSignedOut: "Alle abgemeldet",
       /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */
-      agreed: ZUGESAGT,
+      agreed: AGREED,
       admitted: "Aufgenommen",
       failure: UNEXPECTED,
     },
@@ -592,9 +592,9 @@ export const COPY = catalogue({
     /** What befell a match, as a visitor reads it: a no-show names the club that did not turn up. */
     sonderereignis: {
       ausgefallen: SONDEREREIGNIS.ausgefallen,
-      nichtAngetreten: (team: Words) => `${textOf(team)} nicht angetreten`,
+      nichtantreten: (team: Words) => `${textOf(team)} nicht angetreten`,
       /** A no-show's chip in a match row, whose struck side names the club. */
-      nichtAngetretenChip: "Nicht angetreten",
+      nichtantretenChip: "Nicht angetreten",
       abgebrochen: SONDEREREIGNIS.abgebrochen,
       annulliert: SONDEREREIGNIS.annulliert,
       /**
@@ -605,7 +605,7 @@ export const COPY = catalogue({
        */
       consequence: {
         notScored: "Das Spiel wird nicht gewertet.",
-        nichtAngetreten: (opponent: Words) => `Das Spiel wird ${boundBy("für", textOf(opponent))} gewertet.`,
+        nichtantreten: (opponent: Words) => `Das Spiel wird ${boundBy("für", textOf(opponent))} gewertet.`,
         abgebrochenScored: "Das eingetragene Ergebnis wird gewertet.",
         abgebrochenOpen: "Die Wertung steht noch nicht fest.",
       },
@@ -1093,14 +1093,14 @@ export const COPY = catalogue({
        * scoring, its groups and knockout stage, its squads), its windows, then what happens in it.
        */
       scoring: "Wertung",
-      gruppenUndKoRunde: `Gruppen und ${K_O_RUNDE}`,
+      gruppenAndKoRunde: `Gruppen und ${K_O_RUNDE}`,
       /** The goals a no-show is scored with, named over their two boxes in the Wertung box. */
       forfeit: "Wertung bei Nichtantreten",
       bewerbungsfenster: "Bewerbungsfenster",
       registrierungsfenster: "Registrierungsfenster",
       gruppentausch: "Gruppentausch",
       replacement: "Ersatz",
-      registrierungslinks: "Registrierungslinks",
+      invitations: "Registrierungslinks",
       /** The danger box's title, by what its rows are about: the draw's regeneration and removal, the switch, or both. */
       dangerBox: (draw: boolean, activation: boolean) => (draw && activation ? "Spielplan und Umstellung" : draw ? "Spielplan" : "Umstellung"),
 
@@ -1262,7 +1262,7 @@ export const COPY = catalogue({
       minute: "Minute",
       /** What a declining club proposed, after its answer's date on the party's line. */
       proposed: (when: Copy) => `Vorschlag ${when}`,
-      zugesagt: ZUGESAGT,
+      agreed: AGREED,
       /** A club's decline and a referee's alike: „Abgesagt“ is a match called off. */
       declined: "Abgelehnt",
       cancelled: "Abgesagt",

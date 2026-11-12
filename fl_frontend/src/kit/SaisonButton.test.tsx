@@ -26,7 +26,7 @@ vi.mock("next/link", () => ({
 const GROUPS: RailGroup[] = [
   {
     entries: [
-      { id: "uebersicht", label: ROUTES.teamOverview.title, team: "teamOverview", icon: "overview" },
+      { id: "overview", label: ROUTES.teamOverview.title, team: "teamOverview", icon: "overview" },
       { id: "spiele", label: ROUTES.teamSpiele.title, team: "teamSpiele", icon: "spielplan" },
       { id: "kader", label: ROUTES.teamKader.title, team: "teamKader", icon: "spieler" },
     ],
@@ -53,7 +53,7 @@ async function entryFor(saison: string, pathname: string, params: Record<string,
       underNext(
         <RailFrame
           groups={GROUPS}
-          bar={["uebersicht", "spiele", "kader"]}
+          bar={["overview", "spiele", "kader"]}
           saison={{ teams: Promise.resolve(TEAMS), home: "teamOverview" }}
           foot={{ kind: "account", account: Promise.resolve(null) }}>
           <p>Seite</p>

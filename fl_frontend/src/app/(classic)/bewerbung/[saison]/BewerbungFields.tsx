@@ -14,7 +14,7 @@ import { useUnsavedChangesWarning } from "@/kit/useUnsavedChangesWarning";
 
 import { COPY } from "@/core/copy";
 import { TRIKOT_FARBEN } from "@/core/trikotFarben";
-import { BEWERBUNG_MIN_AGE, VERTRETUNG_MIN_AGE } from "@/features/bewerbungen/constants";
+import { BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE } from "@/features/bewerbungen/constants";
 
 import { NO_SECOND_SEAT, SEATS } from "./application";
 
@@ -202,7 +202,7 @@ export function BewerbungFields({
           ) : (
             <SeatBoxes
               seat={seat}
-              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_AGE : VERTRETUNG_MIN_AGE}
+              floor={seat === "trainer" && trainerAlso === NO_SECOND_SEAT ? BEWERBUNG_MIN_AGE : SIGNATORY_MIN_AGE}
               box={box}
               rules={rules}
             />
