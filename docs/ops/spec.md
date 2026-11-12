@@ -122,36 +122,35 @@ again in a transaction of their own, and the account sweep counts an account alr
 **After every pass the scheduler pings Better Stack's heartbeat**, at the address
 `secrets/betterstack_heartbeat_url` holds. It appends `/fail` and names each job where a job threw,
 left owed deletions or erasures, or the drain gave a mail up. The monitor alerts on a failed ping
-and on a missing one, so the heartbeat is what answers whether the passes run, and each job's
-per-pass line in the frontend's log says what it did ([`runbooks.md`](runbooks.md) §9). The ping
-never fails the pass.
+and on a missing one ([`runbooks.md`](runbooks.md) §9). The ping never fails the pass.
 
-**Note:** `API_VERSION` is a constant of the code rather than a setting, so bumping it is a code change — and the
-version is spelled again beyond it, at sites a commit does not all reach. §4 names the sites
-where a version left behind breaks something; §3 carries what each failure looks like.
+**`API_VERSION` is a constant of the code rather than a setting**, so bumping it is a code change,
+and the version is spelled again at sites a commit does not all reach (§4).
 
-### 1.2 Mounts
+### 1.2 Mounts and secrets
 
-| Host path                        | Container path                   | Mode       |
-| -------------------------------- | -------------------------------- | ---------- |
-| `./nginx/prod`                   | `/etc/nginx/conf.d`              | read-only  |
-| `./nginx/shared`                 | `/etc/nginx/shared`              | read-only  |
-| `./certs`                        | `/etc/nginx/certs`               | read-only  |
-| `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
-| `./secrets/<name>`, each secret  | `/run/secrets/<name>`            | read-only  |
+| Host path                       | Container path        | Mode      |
+| ------------------------------- | --------------------- | --------- |
+| `./nginx/prod`                  | `/etc/nginx/conf.d`   | read-only |
+| `./nginx/shared`                | `/etc/nginx/shared`   | read-only |
+| `./secrets/<name>`, each secret | `/run/secrets/<name>` | read-only |
 
-Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/prod`
-and `./nginx/shared` and every secret file included, before anything is stopped or pulled, and
-creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a directory it
-left to Docker would be root-owned, and the host's `logrotate` file names it. A missing config
-directory is mounted empty, so nginx loads no server of this site's or fails on its includes.
+**Each must exist before the stack starts, and nothing checks them before a deploy.** Docker mounts
+a missing directory empty, so nginx serves none of this site or refuses its includes. A missing
+secret file fails that service's start, which the deploy's wait reports.
 
-**Every credential the stack holds is a Compose file secret, and none is an environment
-variable**: `docker inspect` prints a container's environment, and never the contents of a
-mount. Each file has one name on the host, at `/run/secrets/` and in development, so the two
-database logins are two files. Who holds which is
-`scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; no service is handed one of their old
-environment names.
+**nginx's configuration is mounted as directories, never as a file.** A bind-mounted file stays the
+inode it was created with, and a `git pull` writes a changed file as a new one, so a container
+mounting the file would reload the old one. A directory mount shows what the checkout holds, and the
+reload the deploy sends applies it with no restart, the old workers finishing the requests in
+flight.
+
+**Every credential the stack holds is a Compose file secret, and none is an environment variable**:
+`docker inspect` prints a container's environment, and never the contents of a mount. Each file has
+one name on the host, at `/run/secrets/` and in development, so the two database logins are two
+files. Who holds which is `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
+**`./secrets/` is `.gitignore`d**, which keeps the credentials uncommittable from a checkout that
+has to hold them.
 
 **Compose mounts a file secret as a bind mount and ignores its `uid`, `gid` and `mode`**, so the
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
@@ -168,41 +167,17 @@ host file's own owner and mode are what the container sees (Docker's Compose fil
 different users: both take group 1003 through `group_add`, the documented answer for containers of
 different users sharing one file, so neither service's copy can drift from the other's. A file
 readable by the wrong user leaves that service refusing to boot, and the connector restarting in a
-loop; the deploy has each service's own container read its files before anything is recreated.
+loop.
+
+**A key is printable ASCII without the space**: `secrets.compare_digest` raises on anything else,
+so a key outside the class would boot and then answer every internal request 500. Its file is its
+only reader, so `"`, `#`, `$`, `'`, `\` and the backtick are part of the class. A key from
+`openssl rand -hex 32`, as [`runbooks.md`](runbooks.md) §16 generates one, is one every build takes.
 
 **`internal_api_key_admin` is what names an actor**: the backend believes the actor headers on a
 request carrying it (`fl_backend/app/core/security.py :: get_session_actor`), so its holders are the
 two application services alone, and only the private network reaches the backend
-([`runbooks.md`](runbooks.md) §16). **`./secrets/` is `.gitignore`d**, which is what keeps the
-credentials uncommittable from a checkout that has to hold them.
-
-**nginx's configuration is mounted as directories, never as a file**. A bind-mounted file
-stays the inode it was created with, and a `git pull` writes a changed file as a new one, so a
-container mounting the file keeps reading the old one and a reload applies it again. A directory
-mount shows what the checkout holds, and the reload `deploy.sh` sends applies it with no restart.
-Recreating nginx on every change to its files would apply it too, while refusing connections and
-dropping the requests in flight for the length of a start, which a reload leaves the old workers to
-finish.
-
-**Every file under `nginx/prod/` and `nginx/shared/` is one nginx loads.** The deploy compares
-each with what nginx holds in memory, so a file nothing includes, a README among them, reads as
-absent and fails every deploy (`scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS`).
-
-**nginx also takes a tmpfs at `/run/nginx-control`, mode 700**, where it opens the Control API
-the deploy reloads through (`docker-compose.yml :: nginx`, `scripts/ops/deploy.sh ::
-EDGE_CONTROL_SOCKET`). A tmpfs because a master killed outright leaves its socket behind and the
-next start refuses to bind it; mode 700 because Docker's default, 1777, lets every user in the
-container into the directory. `scripts/checks/check_compose_model.py :: control_socket` holds
-both, and `nginx/edge_test.sh` reads the mode off a running edge.
-
-**The Control API needs nginx 1.31.5 or newer** (nginx's `CHANGES` and command-line page, read
-2026-09-24), and an older release refuses the `-l` switch and never starts. So
-`docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
-release is what an update is compared against, and it must stay at 1.31.5 or newer.
-`scripts/tests/test_image_pins.py` holds the tag's release to that floor, which fails the scripts
-scope. The tag is a label the digest is not checked against (§1.1), so the ops scope's
-`nginx/edge_test.sh` starts the pinned image with the `-l` switch too, and a digest below the floor
-never publishes its port, which ends that scope refused.
+([`runbooks.md`](runbooks.md) §16).
 
 ### 1.3 nginx routing
 
