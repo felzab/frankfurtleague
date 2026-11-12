@@ -108,7 +108,8 @@ Then the Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sen
 a write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included, and `next dev` arms nothing.
 **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all**, while the data is not yet what the
-jobs may act on, as during a restore ([`runbooks.md`](runbooks.md) §13): read once at the boot,
+jobs may act on: after a migration until its read-back, and during a restore
+([`runbooks.md`](runbooks.md) §2, §13). Read once at the boot,
 it arms no pass and makes a write's drain send nothing
 (`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang.
 

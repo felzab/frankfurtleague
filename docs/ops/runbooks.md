@@ -153,22 +153,58 @@ refused. Only the migration's own counts prove that a rename ran.
 **Run it after the migration and the deploy, never before**: it judges stored documents against the
 models of the image it runs in, so a run inside the old image reads the old shape clean.
 
-**A field that is RENAMED cannot be renamed before the deploy.** The still-serving image reads and
-writes the old name, so a rename run first breaks every read of the field until the new image is
-up. **This repository holds no migration runner and no migration**: the command belongs to the
-change that needs it and is run by hand against the cluster, as every migration here is: a few
-generated files, each counting what it changes before and after, run with `mongosh --file` in a
-terminal. What is written here is the order alone.
+**A stored name is renamed by a migration file the owner runs with `mongosh --file` in an outage,
+after the old release stops and before the new one boots.** The old release reads and writes the
+old name, so a rename run beside it breaks every read of the field. A new release booted first
+reads the old name as missing. **This repository holds no migration runner and no migration**: the
+files belong to the change that needs them, and every migration here is run by hand against the
+cluster as a few generated files, each counting what it changes before and after. What is written
+here is the order, on the server in the checkout:
 
-1. Deploy. Every read of the renamed field fails from here until step 2 lands.
-2. **At once**, the rename, written as every migration file is: a count of the rows still holding the old
-   name, the rename, and the same count again, which must read 0.
-3. The read-back: exit 0.
-4. Drop any index the previous name held, by a `dropIndex` line in the same file —
-   `create_index` refuses a name already held at different options and creates nothing under a
-   name it does not declare, so the boot leaves the old one standing forever.
+1. **Hold the background jobs**: add the line `RESTORE_HOLD=on` to the server's `fl_frontend/.env`.
+   The new frontend reads it as it boots at step 4 ([below](#what-the-hold-stops)).
+2. **Stop the old release**, before pulling anything:
+   `docker compose stop frontend backend`. Every page answers an error from here until step 4
+   ends.
+3. **Run the change's migration files** with `mongosh --file`, in their order, each ending on its
+   own check. A rename is written as a count of the rows still holding the old name, the rename,
+   and the same count again, which must read 0. The same file drops any index the old name held,
+   by a `dropIndex` line: `create_index` refuses a name already held at different options and
+   creates nothing under a name it does not declare, so the boot would leave the old index
+   standing forever.
+4. **Deploy**: `git pull`, then `./scripts/ops/deploy.sh --no-rollback`, since the build before it
+   cannot read the renamed data (§1).
+5. **The read-back**: `docker compose exec -T backend python -m app.readback`, exit 0, then any
+   check the change's files hold for after the boot.
+6. **Lift the hold**: delete the line `RESTORE_HOLD=on` from `fl_frontend/.env`, then run
+   `docker compose up -d --wait --force-recreate frontend`. The first hourly pass runs a minute
+   after that boot.
 
-**Three things decide whether the command run at step 2 is the right one.**
+**Where a file stops at step 3, boot nothing.** What it changed before stopping may be what the
+old release cannot read, so run it again once its stop is understood: a migration file is written
+to be run again, as below. Only where the stop says nothing was changed may the old release start again,
+with `docker compose start frontend backend`, nothing having been pulled yet. That starts the
+stopped containers as they were created, so the hold's line does not reach them. Delete the line
+before the next deploy, which would otherwise boot held.
+
+### What the hold stops
+
+**The frontend reads `RESTORE_HOLD` once, as it boots**, so the line takes effect at the
+frontend's next start and not before: a deploy's, or the recreate step 6 runs. Without it, the
+frontend's first hourly pass runs a minute after its boot
+(`fl_frontend/src/instrumentationNode.ts :: FIRST_PASS_DELAY_MS`), on data no read-back has judged
+yet. While it holds:
+
+- **No hourly pass runs**: no sweep, no pupils' deletion, no fixture confirmation and no handover.
+  The frontend logs `scheduler.held` at its boot instead, so
+  `docker compose logs frontend | grep scheduler.held` printing that line is the hold taking.
+- **No mail leaves, a sign-in code included.** Every mail a write owes waits in the Postausgang
+  for the first drain after the hold (`fl_frontend/src/core/afterResponse.ts :: drainSoon`). Sign
+  in by passkey meanwhile.
+- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the hold lifts.
+- **Nothing else stops**: the site serves, and every write a page or a form makes is stored.
+
+**Three things decide whether a rename file is the right one.**
 
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
 - **A filter on the old name's `$exists`** skips every row already moved, which is what makes the
@@ -177,16 +213,9 @@ terminal. What is written here is the order alone.
   whole document where a segment has to traverse a null —
   `cannot use the part (…) to traverse the element ({trainer: null})` — so one update naming the
   three `kontakte` seats moves rows until it meets the first club holding one seat and not another
-  and then stops, the earlier rows moved and the later ones not, inside the window step 2 exists to
-  keep short. One update per path, each filtered on its own `$exists`, cannot traverse a null at all,
-  a document matching that filter necessarily holding the segment. Measured against a copy of
-  production, 2026-09-08.
-
-**Where the renamed field sits inside `kontakte`, step 1's window is wider than it says.**
-`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme` requires the block's names, and
-`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbung` declares the same block, so the contacts
-editor, a club's season panel and the whole application queue answer 500 on every stored row until
-the rename lands. Every public club read keeps working, the junction join withholding the block from the base tier.
+  and then stops, the earlier rows moved and the later ones not. One update per path, each filtered
+  on its own `$exists`, cannot traverse a null at all, a document matching that filter necessarily
+  holding the segment. Measured against a copy of production, 2026-09-08.
 
 **A change that only adds an index has nothing for the read-back to answer**: no stored document can
 be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
