@@ -24,7 +24,7 @@ const anton = Anton({
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the
 // tree spells to the browser to fake, with nothing reporting it. No italic either: with font
-// synthesis off (`fl_frontend/src/app/globals.css`), an `italic` sets upright.
+// synthesis off in the global styles, an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
   display: "swap",
@@ -44,8 +44,8 @@ const inter = Inter({
 /**
  * What every page inherits, so nothing here names one page: a description, a canonical or an og:url set
  * here would stand on every page declaring none, a signed-in one or one a mail opens among them. Each page
- * names its own title part, its description and its address through
- * `fl_frontend/src/shared/utils/metadata.ts :: pageMetadata`; `metadataBase` lets it spell them as a PATH.
+ * names its own title part, its description and its address through `pageMetadata`; `metadataBase` lets it spell
+ * them as a path.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -7,9 +7,9 @@ import { readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 import type { NextRequest } from "next/server";
 
-// A boundary posts a crash only where it got no digest, a digest-bearing failure being
-// `fl_frontend/src/core/instrumentation.ts`'s line already, and the bot check's widget posts its
-// failure with no stack, so the report is these three fields and no fourth.
+// A boundary posts a crash only where it got no digest, a digest-bearing failure being the server's
+// own line already, and the bot check's widget posts its failure with no stack, so the report is
+// these three fields and no fourth.
 const ClientErrorReportSchema = z.object({
   message: z.string().min(1).max(500),
   // Pathname only, so a caller cannot smuggle search text or tokens into the log.
@@ -21,8 +21,7 @@ const ClientErrorReportSchema = z.object({
 });
 
 /**
- * Reachable the moment this file exists: nginx names no frontend route, so the catch-all carries
- * every path to Next (`docs/ops/overview.md :: Routing`). Nothing authenticates it —
+ * Public: the edge meters it per network and bounds its body, and nothing authenticates it —
  * `sec-fetch-site` and the schema bounds are all that stand in front of the log.
  */
 export async function POST(request: NextRequest) {
