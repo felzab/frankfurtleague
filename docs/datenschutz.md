@@ -262,8 +262,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
   store a pupil by record id alone, and the read joins the name from the pupil's row. A name
   therefore stands only while that row exists: the season rule or an erasure leaves the slot naming
   nobody, as [section 5](#5-erasure-reaches-everyone-who-asks) says. Whether a card may stand
-  beside a named pupil of 16 or 17 is open, and the deploy that first serves that read waits on the
-  answer ([section 11](#11-open-and-owed-a-decision)).
+  beside a named pupil of 16 or 17 is open ([section 11](#11-open-and-owed-a-decision)), and the
+  read is served while it is.
 - **A photograph, a video or an interview needs its own consent, from 18**, published on this site
   and the league's Instagram account. A withdrawal takes it down from both, which the notice
   promises. No code publishes media, so the takedown is the organisers' step by hand.
@@ -584,11 +584,9 @@ cannot reach is section 5's list, each bounded by its own period.
 
 ## 11. Open, and owed a decision
 
-Each question but the last goes to a Datenschutzexperte; the last is a fact this record owes. The
-questions on re-pointing stored consents (1) and on Art. 22 (7) are answered before the deploy that
-first serves the current notice. The one on a card beside a named minor (2) is answered before the
-deploy that first serves that read. The rest hold back no deploy. Until an answer, the notice and
-the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
+Each question but the last goes to a Datenschutzexperte; the last is a fact this record owes. No
+question holds back a deploy: the site serves what each concerns while it is open. Until an answer,
+the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as they are.
 
 1. **Re-pointing every stored consent's label to the current wording** (ruled 2026-11-04): whether a
    record then still proves, under Art. 7(1), a consent its person gave under words they were not
