@@ -375,8 +375,10 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: 64 of the body face's figures, in rem so its fallback face draws the same box */
-  --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
+  --container-measure: 39.25rem; /* a line of running text on a legal or consent page, the width the owner judged those pages at: about 84 characters of German prose a line, as measured on the privacy notice; in rem so its fallback face draws the same box */
+  /* A floating panel: the page's width less its two 16-px gutters. `vw` is the viewport short of the scrollbar's track,
+     which the root always keeps, and the whole viewport where scrollbars overlay the page. */
+  --container-panel: calc(100vw - 2rem);
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a

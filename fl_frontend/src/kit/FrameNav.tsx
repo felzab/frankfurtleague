@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Suspense, use, useContext } from "react";
+import { createContext, Suspense, use, useContext, useEffect, useState } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -108,11 +108,37 @@ export type FrameSaisons = SaisonFrame | TeamFrame;
 /** A frame's seasons with the season pages its menu lists. */
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
-const SaisonContext = createContext<SaisonScopeValue | null>(null);
+/** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
+const SaisonContext = createContext<(SaisonScopeValue & { chosen?: string }) | null>(null);
 
-/** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
+/**
+ * Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach, and holds the
+ * last season an address named for as long as the frame's layout stays mounted: React state alone, so a reload or a new
+ * sign-in starts at the standard season, and nothing is stored.
+ */
 export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
-  return <SaisonContext value={value}>{children}</SaisonContext>;
+  const [chosen, setChosen] = useState<string>();
+  return (
+    <SaisonContext value={{ ...value, chosen }}>
+      {/* Reads the address, which no prerender knows, so it waits in a boundary of its own, drawing nothing. */}
+      <Suspense fallback={null}>
+        <SaisonMemory choose={setChosen} />
+      </Suspense>
+      {children}
+    </SaisonContext>
+  );
+}
+
+/**
+ * Records the season the address names once the page showing it is committed. The record is read only on a page whose
+ * address names none, so the render after it changes nothing a person sees.
+ */
+function SaisonMemory({ choose }: { choose: (saison: string) => void }) {
+  const { saison } = useParams();
+  useEffect(() => {
+    if (typeof saison === "string") choose(saison);
+  }, [saison, choose]);
+  return null;
 }
 
 /** Whether the frame holds seasons at all, which it knows before they are read: a frame with none draws no season button. */
@@ -136,8 +162,9 @@ type FrameSaison = {
 };
 
 /**
- * The season the page works in: the one its address names where the frame holds it, else the frame's standard, in a
- * team's frame among the seasons of the team the address names; `null` where there is none.
+ * The season the page works in: the one its address names where the frame holds it; on a page whose address names
+ * none, the one the last address naming one named where the frame holds it; else the frame's standard. In a team's
+ * frame among the seasons of the team the address names; `null` where there is none.
  */
 export function useFrameSaison(): FrameSaison | null {
   return useWorkingSaison(false) ?? null;
@@ -152,13 +179,17 @@ function useWorkingSaison(listless: boolean): FrameSaison | null | undefined {
   const { saison, team } = useParams();
   if (frame === null) return null;
   if (listless && typeof saison === "string" && (frame.teams === undefined || typeof team === "string")) return undefined;
+  // The season chosen before is sought only where the address names none: an address naming a season the frame does not
+  // hold, as a not-found page's, falls to the standard, as it would on the first page the frame shows.
+  const sought = typeof saison === "string" ? saison : frame.chosen;
+  const activeIn = (held: Saisons) => held.entries.find((entry) => entry.id === sought)?.id ?? held.standard;
 
   if (frame.teams !== undefined) {
     const held = use(frame.teams).find((each) => each.team === team);
     if (held === undefined) return null;
     return {
       entries: held.entries,
-      active: held.entries.find((entry) => entry.id === saison)?.id ?? held.standard,
+      active: activeIn(held),
       team: held.team,
       home: (to) => ROUTES[frame.home].path(held.team, to),
       pages: frame.pages.map((page) => (to) => ROUTES[page].path(held.team, to)),
@@ -169,7 +200,7 @@ function useWorkingSaison(listless: boolean): FrameSaison | null | undefined {
   if (saisons === null) return null;
   return {
     entries: saisons.entries,
-    active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard,
+    active: activeIn(saisons),
     home: (to) => ROUTES[frame.home].path(to),
     pages: frame.pages.map((page) => (to) => ROUTES[page].path(to)),
   };

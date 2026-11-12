@@ -143,6 +143,41 @@ describe("the entries on a page whose address names the season", () => {
   });
 });
 
+// A page whose address names no season, such as the Spielorte, keeps the season the person last chose: one that fell back
+// to the standard would send their next press into another season's pages, which looks right on every page alone.
+describe("the season a page whose address names none works in", () => {
+  it("is the one the last address named, while the frame stays mounted", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.adminSpielorte.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2025"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2025"),
+      ROUTES.adminTeams.path("2025"),
+    ]);
+  });
+});
+
 const TEAM_GROUPS: RailGroup[] = [
   {
     entries: [
