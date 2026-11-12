@@ -152,6 +152,11 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
 - **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
   day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
+- **A lock is said once, in an editor's lock line**, muted under its title: each reason once, then
+  every box or field it holds in the editor's order, a box held only in part by the fields it holds,
+  „Seit Saisonbeginn gesperrt: Punkte, Bei Punktgleichheit, Gruppentausch, Ersatz. Beginn steht
+  fest.“ (`COPY.template.lockLine`). A closed record's reason stands in its place, and no box carries
+  a lock note: the warn hue is for what a change being made will cause.
 
 ## Dates and numbers go through the formatting module
 

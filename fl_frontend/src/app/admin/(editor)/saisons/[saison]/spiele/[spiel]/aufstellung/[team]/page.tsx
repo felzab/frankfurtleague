@@ -99,6 +99,7 @@ export default function AdminAufstellungPage({ params }: Props) {
     <EditorShell
       wait={{
         lead: true,
+        lock: SERVER_COPY.refusalLine.saison_past,
         // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
         sections: [
           {

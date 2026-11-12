@@ -23,7 +23,7 @@ import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { AustrittRules, SeatRules, TeamRules } from "@/features/teams/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
@@ -43,17 +43,13 @@ const TEAM = COPY.shared.facts.team;
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {
   saisonTitle: Copy;
-  /** Why the box's fields cannot change, or how the club left the season. */
-  note?: Copy;
   gruppen: readonly Option[];
-  /** The group is fixed: a draw stands, or the club left. */
-  gruppeLocked: boolean;
-  /** Under the group while a draw alone fixes it. */
-  gruppeNote?: Copy;
+  /** Why the group is fixed, where it is: the club left, or a draw stands. */
+  gruppeLocked: LockReason | null;
   /** The colours open to the club: every one but those another row of the season holds. */
   colours: readonly Option[];
-  /** The colour is fixed with it once the club left. */
-  colourLocked: boolean;
+  /** Why the colour is fixed, where it is: the club left. */
+  colourLocked: LockReason | null;
   /** The exit's facts, once the club left. */
   austritt: readonly Fact[] | null;
   /** The row's own count, which a seat's write sends. */
@@ -192,15 +188,18 @@ export function TeamEditor({
           {
             id: "saison",
             title: row.saisonTitle,
-            ...(row.note === undefined ? {} : { note: row.note }),
+            // The lock line names the two fields under one reason where both stand fixed for it.
+            locked: [
+              ...(row.gruppeLocked === null ? [] : [{ by: row.gruppeLocked, fields: [COPY.team.gruppe] } as const]),
+              ...(row.colourLocked === null ? [] : [{ by: row.colourLocked, fields: [COPY.team.trikotFarbe] } as const]),
+            ],
             fields: (
               <>
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
                   isRequired={rules.gruppeRequired}
-                  isDisabled={row.gruppeLocked}
-                  {...(row.gruppeNote === undefined ? {} : { description: row.gruppeNote })}
+                  isDisabled={row.gruppeLocked !== null}
                   options={row.gruppen}
                   value={draft.gruppe}
                   onChange={(gruppe) => set("gruppe", gruppe ?? record.values.gruppe)}
@@ -208,7 +207,7 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.trikotFarbe}
                   name="trikot_farbe"
-                  isDisabled={row.colourLocked}
+                  isDisabled={row.colourLocked !== null}
                   options={row.colours}
                   value={draft.trikot_farbe}
                   onChange={(colour) => set("trikot_farbe", colour ?? "")}

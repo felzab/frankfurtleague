@@ -5,8 +5,8 @@ import { COPY } from "@/core/copy";
 import { buttonPlaceholder } from "./buttonStyles";
 import { formColumn, RailPage } from "./RailFrame";
 import { editorBarLook } from "./railStyles";
-import { SectionPlaceholder } from "./Section";
-import { Placeholder, PlaceholderLine, Waiting } from "./Skeleton";
+import { editorHead, SectionPlaceholder } from "./Section";
+import { Placeholder, PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
@@ -18,18 +18,19 @@ async function EditorBody({ editor }: { editor: Promise<ReactNode> }) {
 }
 
 /**
- * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, every
- * section it renders in their order, each its rows as the editor lays them out, with `note` where a state of the record
- * stands one under its title, a part drawing its own boxes (`EditorPage`'s `{ id, block }`) as `block`, that part's own
- * placeholder set bare as the part is, and `danger`, the rows of its danger box, where it has one. The page states it
- * beside the editor it reads, each section in its taller state, since a rail page's wait must never stand shorter than
- * the page.
+ * What an editor is before its record is read: the Vorschau's line under the title where the editor has one, its lock
+ * line where it can stand one, every section it renders in their order, each its rows as the editor lays them out, a
+ * part drawing its own boxes (`EditorPage`'s `{ id, block }`) as `block`, that part's own placeholder set bare as the
+ * part is, and `danger`, the rows of its danger box, where it has one. The page states it beside the editor it reads,
+ * each part in its taller state, since a rail page's wait must never stand shorter than the page.
  */
 export type EditorWait = {
   lead?: true;
+  /** The words of the editor's longest lock line, set unseen, so its place stands as tall as the line will. */
+  lock?: Copy;
   /** The words of the strip's way to the record's public page, where the editor lands with one most days (`RailPage`). */
   link?: Copy;
-  sections: ReadonlyArray<ReadonlyArray<FieldRow> | { note: Copy; rows: ReadonlyArray<FieldRow> } | { block: ReactElement }>;
+  sections: ReadonlyArray<ReadonlyArray<FieldRow> | { block: ReactElement }>;
   danger?: ReadonlyArray<DangerRowWait>;
 };
 
@@ -56,11 +57,21 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
             </Placeholder>
           }>
           <Waiting layoutClass={formColumn()}>
-            {wait.lead === true && (
-              <PlaceholderLine
-                textClass="text-sm"
-                widthClass="w-2/3"
-              />
+            {(wait.lead === true || wait.lock !== undefined) && (
+              <div className={editorHead()}>
+                {wait.lead === true && (
+                  <PlaceholderLine
+                    textClass="text-sm"
+                    widthClass="w-2/3"
+                  />
+                )}
+                {wait.lock !== undefined && (
+                  <PlaceholderSentence
+                    textClass="text-sm"
+                    words={wait.lock}
+                  />
+                )}
+              </div>
             )}
             {wait.sections.map((section, index) =>
               "block" in section ? (
@@ -68,7 +79,7 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
               ) : (
                 <SectionPlaceholder
                   key={index}
-                  {...("note" in section ? section : { rows: section })}
+                  rows={section}
                 />
               ),
             )}
