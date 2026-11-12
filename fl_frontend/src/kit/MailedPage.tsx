@@ -4,7 +4,7 @@ import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { buttonPlaceholder } from "./buttonStyles";
-import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { ClassicPage, ClassicTitle, classicTitle, mailedCard } from "./ClassicPage";
 import { Facts, FactsPlaceholder } from "./Facts";
 import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
@@ -113,8 +113,17 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
           describedBy={props.describedBy}
           head={
             <>
-              <ClassicTitle text={props.title} />
-              {props.facts !== undefined && props.facts.length > 0 && <Facts facts={props.facts} />}
+              {/* A form of boxes holds its title on the page; a question holds it in its card. */}
+              <ClassicTitle
+                text={props.title}
+                place={props.boxes === true ? "page" : "card"}
+              />
+              {props.facts !== undefined && props.facts.length > 0 && (
+                <Facts
+                  facts={props.facts}
+                  look={props.boxes === true ? "boxed" : "free"}
+                />
+              )}
               {props.sentence !== undefined && (
                 <p className="text-base">
                   {props.sentence}
@@ -166,38 +175,69 @@ type QuestionWait = {
 
 /** The question while the read says what it asks: its title, its facts, its sentences, its fields and its acts. */
 function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, note, boxes = false }: QuestionWait) {
-  return (
-    <ClassicPage width="form">
-      <Waiting layoutClass="flex flex-col gap-6">
-        <PlaceholderLine
-          textClass={classicTitle()}
-          widthClass="w-2/3"
+  const head = (
+    <>
+      <PlaceholderLine
+        textClass={classicTitle({ place: boxes ? "page" : "card" })}
+        widthClass="w-2/3"
+      />
+      {facts > 0 && (
+        <FactsPlaceholder
+          pairs={facts}
+          look={boxes ? "boxed" : "free"}
         />
-        {facts > 0 && <FactsPlaceholder pairs={facts} />}
-        {sentence === undefined ? (
-          <PlaceholderLine
-            textClass="text-base"
-            widthClass="w-full"
-          />
-        ) : (
-          sentence !== false && (
-            <PlaceholderSentence
-              textClass="text-base"
-              words={sentence}
-            />
-          )
-        )}
-        {sentenceAfter !== undefined && (
+      )}
+      {sentence === undefined ? (
+        <PlaceholderLine
+          textClass="text-base"
+          widthClass="w-full"
+        />
+      ) : (
+        sentence !== false && (
           <PlaceholderSentence
             textClass="text-base"
-            words={sentenceAfter}
+            words={sentence}
           />
-        )}
-        {/* `OneShotForm`'s own wrapper, so the fields stand where the question's land. */}
-        {fields !== undefined && (boxes ? <div className={boxStack()}>{fields}</div> : <FieldStack>{fields}</FieldStack>)}
-        <FormFooterPlaceholder note={note}>
-          {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
-          <span className={buttonPlaceholder()}>{act}</span>
+        )
+      )}
+      {sentenceAfter !== undefined && (
+        <PlaceholderSentence
+          textClass="text-base"
+          words={sentenceAfter}
+        />
+      )}
+    </>
+  );
+  const acts = (
+    <>
+      {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
+      <span className={buttonPlaceholder()}>{act}</span>
+    </>
+  );
+  // `OneShotForm`'s own shapes, so the fields and the acts stand where the question's land.
+  if (boxes) {
+    return (
+      <ClassicPage width="form">
+        <Waiting layoutClass="flex flex-col gap-6">
+          {head}
+          {fields !== undefined && <div className={boxStack()}>{fields}</div>}
+          <FormFooterPlaceholder note={note}>{acts}</FormFooterPlaceholder>
+        </Waiting>
+      </ClassicPage>
+    );
+  }
+  const card = mailedCard();
+  return (
+    <ClassicPage width="mailed">
+      <Waiting layoutClass={card.root()}>
+        <div className={card.body()}>
+          {head}
+          {fields !== undefined && <FieldStack>{fields}</FieldStack>}
+        </div>
+        <FormFooterPlaceholder
+          place="strip"
+          note={note}>
+          {acts}
         </FormFooterPlaceholder>
       </Waiting>
     </ClassicPage>
@@ -205,7 +245,8 @@ function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fiel
 }
 
 /**
- * The one shape of the seven pages a mail opens, in the classic frame's form column. Its state is a function of the
+ * The one shape of the seven pages a mail opens: a question in one card, or a form of boxes in the classic frame's form
+ * column (`OneShotForm`). Its state is a function of the
  * link's token and the session beside it, so the whole page waits for the read in the template's one boundary:
  * meanwhile the column holds the state that lands most often, as the classic frame's footer asks: the
  * question, the state a link is opened on, or `end`, the status card of a page that lands an end most days, as the

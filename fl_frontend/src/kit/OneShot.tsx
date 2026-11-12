@@ -6,7 +6,7 @@ import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
 import { Button } from "./Button";
-import { ClassicPage } from "./ClassicPage";
+import { ClassicPage, mailedCard } from "./ClassicPage";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
 import { boxStack } from "./fieldStyles";
@@ -70,8 +70,9 @@ export function OneShotEnd({ children }: { children: ReactNode }) {
 }
 
 /**
- * The one-shot submit: a page in the classic frame's form column whose form is sent once and whose outcome
- * replaces it. Done, the server's end state takes the page's place as the status template; refused, the
+ * The one-shot submit: a page whose form is sent once and whose outcome replaces it. A question asking at most a few
+ * fields stands in one card, its acts in the strip across its foot (`mailedCard`); a form of boxes stands in the classic
+ * frame's form column under its title, its acts under the boxes. Done, the server's end state takes the page's place as the status template; refused, the
  * form stays with its input, each field's message under its field and the reason in the footer's line. The acts
  * stand in the form's footer (`FormFooter`), the main act at its right end and, before it, the refusal of what the link
  * offers, an objection or a decline, which sends without asking the fields, needing none of them. The refusal stands in
@@ -97,7 +98,7 @@ export function OneShotForm({
   describedBy,
   children,
 }: {
-  /** What stands above the form: the page's title and what the person answers. */
+  /** What stands above the fields: the page's title and what the person answers. */
   head: ReactElement;
   action: OneShotAction;
   acts: OneShotActs;
@@ -116,7 +117,7 @@ export function OneShotForm({
    * field changed carries a new one, since a key never stands for two different requests.
    */
   replayField?: string;
-  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do. */
+  /** The form's fields stand in `Section` boxes, which fill the column 24 px apart, as an editor's do, and no card. */
   boxes?: boolean;
   /** A sentence the press rests on, at the footer's start beside the acts, such as where a confirmation goes. */
   note?: ReactNode;
@@ -195,61 +196,88 @@ export function OneShotForm({
     else void checked(formData);
   };
 
+  const footer = (
+    <FormFooter
+      place={boxes ? "row" : "strip"}
+      status={status}
+      note={note}>
+      {acts.primary !== undefined && acts.refusal !== undefined && (
+        <Button
+          variant="quiet"
+          label={COPY.shared.verb[acts.refusal.verb]}
+          aria-describedby={describedBy}
+          isBusy={isBusy && pressed === "secondary"}
+          onPress={() => {
+            if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
+          }}
+        />
+      )}
+      <Button
+        variant="primary"
+        type="submit"
+        label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
+        aria-describedby={describedBy}
+        isBusy={isBusy && pressed === "primary"}
+      />
+    </FormFooter>
+  );
+  // Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the focus
+  // back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`).
+  const question = acts.refusal !== undefined && (
+    <ConfirmDialog
+      verb={acts.refusal.verb}
+      subject={acts.refusal.subject}
+      consequence={acts.refusal.consequence}
+      tone="danger"
+      open={{ isOpen: isAsking, onOpenChange: setAsking }}
+      onConfirm={() => {
+        if (asked !== null && !isBusy) send(asked.formData, asked.act);
+      }}
+    />
+  );
+  const held = {
+    ref: form,
+    validationErrors: refused?.fieldErrors,
+    onInvalid: block,
+    onSend: (formData: FormData) => {
+      if (isBusy) return;
+      // The refusal alone is the form's main act, and asks before it posts as one.
+      if (acts.primary === undefined) ask(formData, "primary");
+      else send(formData, "primary");
+    },
+  };
+
+  if (boxes) {
+    return (
+      <ClassicPage width="form">
+        {head}
+        <HeldForm
+          {...held}
+          className="grid gap-6">
+          {children !== undefined && <div className={boxStack()}>{children}</div>}
+          {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
+          <div className="grid">
+            {check.widget}
+            {footer}
+            {question}
+          </div>
+        </HeldForm>
+      </ClassicPage>
+    );
+  }
+  const card = mailedCard();
   return (
-    <ClassicPage width="form">
-      {head}
+    <ClassicPage width="mailed">
       <HeldForm
-        ref={form}
-        validationErrors={refused?.fieldErrors}
-        onInvalid={block}
-        onSend={(formData) => {
-          if (isBusy) return;
-          // The refusal alone is the form's main act, and asks before it posts as one.
-          if (acts.primary === undefined) ask(formData, "primary");
-          else send(formData, "primary");
-        }}
-        className="grid gap-6">
-        {children !== undefined && (boxes ? <div className={boxStack()}>{children}</div> : <FieldStack>{children}</FieldStack>)}
-        {/* One item of the form's gap: a widget Cloudflare shows nothing in leaves no gap of its own. */}
-        <div className="grid">
-          {check.widget}
-          <FormFooter
-            status={status}
-            note={note}>
-            {acts.primary !== undefined && acts.refusal !== undefined && (
-              <Button
-                variant="quiet"
-                label={COPY.shared.verb[acts.refusal.verb]}
-                aria-describedby={describedBy}
-                isBusy={isBusy && pressed === "secondary"}
-                onPress={() => {
-                  if (form.current !== null && !isBusy) ask(new FormData(form.current), "secondary");
-                }}
-              />
-            )}
-            <Button
-              variant="primary"
-              type="submit"
-              label={acts.primary ?? COPY.shared.verb[acts.refusal.verb]}
-              aria-describedby={describedBy}
-              isBusy={isBusy && pressed === "primary"}
-            />
-          </FormFooter>
-          {/* Mounted closed from the first render, as a held question must be (`useOpenUntilHidden`). Closed, it hands the
-              focus back to the press that opened it, which held it as the question opened (React Aria's `FocusScope`). */}
-          {acts.refusal !== undefined && (
-            <ConfirmDialog
-              verb={acts.refusal.verb}
-              subject={acts.refusal.subject}
-              consequence={acts.refusal.consequence}
-              tone="danger"
-              open={{ isOpen: isAsking, onOpenChange: setAsking }}
-              onConfirm={() => {
-                if (asked !== null && !isBusy) send(asked.formData, asked.act);
-              }}
-            />
-          )}
+        {...held}
+        className={card.root()}>
+        <div className={card.body()}>
+          {head}
+          {children !== undefined && <FieldStack>{children}</FieldStack>}
         </div>
+        <div className={card.check()}>{check.widget}</div>
+        {footer}
+        {question}
       </HeldForm>
     </ClassicPage>
   );
