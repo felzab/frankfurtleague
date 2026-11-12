@@ -440,12 +440,18 @@ or name production code knip cannot see in fl_frontend/knip.production.json." \
   check "next build failed." in_dir fl_frontend env SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 pnpm build \
     && ok "build succeeds"
 
-  # The one place an advisory meets a change before it lands, Dependabot's alerts reading the default
-  # branch alone. Last, as a registry it could not read refuses the scope.
+  # An advisory, never a finding: one is published upstream while the tree stays as it was.
   step "frontend · dependency audit  (runtime advisories, high and above)"
-  check --checker "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
-triage with:  cd fl_frontend && pnpm audit" audit_prod \
-    && ok "no known runtime vulnerability at high or above"
+  local rc=0
+  quietly audit_prod || rc=$?
+  case "$rc" in
+    0)   ok "no known runtime vulnerability at high or above" ;;
+    1)   warn "pnpm audit names a runtime advisory at high or above in the report above. Upgrade the package, or
+triage with:  cd fl_frontend && pnpm audit" ;;
+    2)   warn "pnpm audit wrote no report, so no advisory was read. Its own words are above." ;;
+    130) on_interrupt ;;
+    *)   on_error "$rc" "${LINENO}" "pnpm audit:prod --json" ;;
+  esac
   return 0
 }
 
