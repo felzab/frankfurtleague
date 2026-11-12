@@ -134,7 +134,7 @@ mints the person a new one.
 **What a stored document may hold is its record model** — the model `fl_backend/app/readback.py ::
 RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
 shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
-stored shape lands with the Playground paste that moves every stored document into it, and the
+stored shape lands with the migration that moves every stored document into it, and the
 read-back command is what says they all moved:
 
 ```bash
@@ -148,26 +148,27 @@ line counts the documents read and refused.
 
 **It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
 name is read by nothing, and the new name, never written, reads as an empty collection with nothing
-refused. Only the paste's own counts prove that a rename ran.
+refused. Only the migration's own counts prove that a rename ran.
 
-**Run it after the paste and the deploy, never before**: it judges stored documents against the
+**Run it after the migration and the deploy, never before**: it judges stored documents against the
 models of the image it runs in, so a run inside the old image reads the old shape clean.
 
 **A field that is RENAMED cannot be renamed before the deploy.** The still-serving image reads and
-writes the old name, so a rename pasted first breaks every read of the field until the new image
-is up. **This repository holds no migration runner and no migration**: the command belongs to the
-change that needs it and is run by hand as a MongoDB Playground paste against the cluster, as every
-migration here is, so what is written here is the order alone.
+writes the old name, so a rename run first breaks every read of the field until the new image is
+up. **This repository holds no migration runner and no migration**: the command belongs to the
+change that needs it and is run by hand against the cluster, as every migration here is: a few
+generated files, each counting what it changes before and after, run with `mongosh --file` in a
+terminal. What is written here is the order alone.
 
 1. Deploy. Every read of the renamed field fails from here until step 2 lands.
-2. **At once**, the rename, written as every paste is: a count of the rows still holding the old
+2. **At once**, the rename, written as every migration file is: a count of the rows still holding the old
    name, the rename, and the same count again, which must read 0.
 3. The read-back: exit 0.
-4. Drop any index the previous name held, by a `dropIndex` line in the same paste —
+4. Drop any index the previous name held, by a `dropIndex` line in the same file —
    `create_index` refuses a name already held at different options and creates nothing under a
    name it does not declare, so the boot leaves the old one standing forever.
 
-**Three things decide whether the command pasted at step 2 is the right one.**
+**Three things decide whether the command run at step 2 is the right one.**
 
 - **`$rename` is atomic per document**, so no row is ever seen holding both names or neither.
 - **A filter on the old name's `$exists`** skips every row already moved, which is what makes the
@@ -189,14 +190,14 @@ the rename lands. Every public club read keeps working, the junction join withho
 
 **A change that only adds an index has nothing for the read-back to answer**: no stored document can
 be in breach of a read index (`fl_backend/app/core/constraints.py :: SupportIndex`). The next boot
-builds it, and fails loudly if it cannot. A new unique index is the exception: one Playground
+builds it, and fails loudly if it cannot. A new unique index is the exception: one
 aggregate grouping the collection by its keys, counting the groups holding more than one document,
 says before the deploy whether its build will meet a duplicate, which fails the boot.
 
 **Two index changes stop the deploy, and both for one reason.** `create_index` refuses a name already
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
-refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
+refusal does not say. **A changed RETENTION bound** is moved first by a migration file on the owner's
 checklist, setting the `action_log_retention` index's `expireAfterSeconds` to the new bound, which must
 equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
@@ -207,8 +208,8 @@ new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. Drop it jus
 deploy, because the refusal above is what the new build's boot answers with while the old index
 stands; the running build serves without the rule until then, and a restart of it would build the
 old index again. A widening also lets rows the narrow rule
-excused fall inside the wide one, so any that would collide move first, by a paste keyed on a state
-the previous statement leaves, so that one dying partway is repaired by pasting it again.
+excused fall inside the wide one, so any that would collide move first, by a file keyed on a state
+the previous statement leaves, so that one dying partway is repaired by running it again.
 
 **A rolled-back deploy can put the narrow index back.** Where the build being rolled back to declares
 it, that build's own boot rebuilds it narrowed, and the retry's boot then meets the same refusal —
@@ -237,31 +238,31 @@ administration is shut while it is down. Each of these is easy to get wrong:
   older than the handover holds nothing. An erasure removes an administrator's grant; the owner's
   own erasure is refused until a handover (`owner_erasure`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
-  in, and recovery when the owner cannot sign in.** Write in MongoDB Playground, never
-  `mongosh`, into the `grants` collection of the application database (`DB_BASE_NAME`,
+  in, and recovery when the owner cannot sign in.** Write it with a file run by
+  `mongosh --file` in a terminal, into the `grants` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds three fields: `address`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed and lower-case, ASCII throughout —
-  which the application then reads as typed; `admin_tier`, `owner` or `administration`; and `effective_from`, `new Date()`, which any sign-in after the paste passes.
+  which the application then reads as typed; `admin_tier`, `owner` or `administration`; and `effective_from`, `new Date()`, which any sign-in after the write passes.
   A recovery first clears every waiting handover's `owner_from` and deletes every addition still
   waiting, or a thief's handover stays armed; it then demotes any other `owner` row, which
   `uniq_grant_owner` otherwise refuses, and
   writes a new row rather than repointing the old one, whose sign-in account stays at the old address. Removing the row by its
-  folded address removes the grant. A paste mails nobody, which is why it serves these two cases
+  folded address removes the grant. A hand write mails nobody, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
-- **Paste only into a database a boot of the release carrying `grants` has reached.** That
-  boot creates the unique indexes; a paste before it creates the collection without them, and a duplicate in it then fails the next boot's index build (`db.indexes_failed`).
-  Until the paste lands no address holds a grant, so the site admits no administrator; the public
+- **Write only into a database a boot of the release carrying `grants` has reached.** That
+  boot creates the unique indexes; a write before it creates the collection without them, and a duplicate in it then fails the next boot's index build (`db.indexes_failed`).
+  Until the write lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
-- **Keep the `owner` grant standing.** The application removes it by no route, and the Playground refuses nothing: the boot warns with
+- **Keep the `owner` grant standing.** The application removes it by no route, and a hand write refuses nothing: the boot warns with
   `grants.no_grant` where no grant is left and `grants.no_owner` where no owner is, and serves the public
   site either way.
-- **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**: lift the ban, or withdraw or remove the grant, first. A grant the
-  Playground writes onto a banned address is refused by nothing and admits nobody, the sign-in refusing it.
+- **A banned address is added by nobody, and a holder is banned by nobody, a waiting row included**: lift the ban, or withdraw or remove the grant, first. A grant written
+  by hand onto a banned address is refused by nothing and admits nobody, the sign-in refusing it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
-  no code. The grant page refuses such an address; the Playground
+  no code. The grant page refuses such an address; a hand write
   refuses nothing. An umlaut is the case that turns up: the sign-in box takes no address outside
   ASCII, so that person needs a mailbox it will accept before a grant is worth writing. A domain
   already spelled in punycode (`xn--`) is taken as typed.
@@ -886,7 +887,7 @@ The run passes those pupils over on every pass until their address is stored in 
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
 (`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
 finds nothing to move (`address_change_nothing`), and the tool takes no address the rule refuses.
-Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
+Rewrite it by hand with a file run by `mongosh --file`, kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
 an empty one or one the rule refuses to the folded address the person is established to hold, as
 [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
@@ -984,9 +985,9 @@ and no record model expresses the pairing either, so the read-back (§2) reports
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
 were collected on
 ([`../glossary.md`](../glossary.md#kontakte--the-three-people-the-league-reaches-a-team-through)),
-so an accepted school holds each date twice. **The clear is run by hand as a MongoDB Playground
-paste against the cluster, as every migration here is** (§2), the backend image carrying no
-database shell. Four things decide whether the one pasted is right:
+so an accepted school holds each date twice. **The clear is run by hand against the cluster, as every
+migration here is** (§2): a file run with `mongosh --file` in a terminal, the backend image
+carrying no database shell. Four things decide whether that file is right:
 
 - **Count before clearing, per seat and per collection, on the term the clear will use** — a date
   that is not null beside a `confirmed_at` that is null — and read the number of documents each

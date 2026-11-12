@@ -761,15 +761,8 @@
       "FLAccountErasureSchiedsrichter": {
         "properties": {
           "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
+            "title": "Name",
+            "type": "string"
           }
         },
         "required": [
@@ -2497,7 +2490,7 @@
         "type": "object"
       },
       "FLAufstellungResponse": {
-        "description": "One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.\n\n`saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up\nopens read-only, which the save refuses (`saison_past`).",
+        "description": "One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.\n\nA finished season's line-up, which `saison_status` marks, is read-only.",
         "properties": {
           "kader": {
             "items": {
@@ -5034,7 +5027,7 @@
         "type": "object"
       },
       "FLEinwilligung": {
-        "description": "What this person agreed may be published about them.\n\nIts keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody\nconsented, and no surface can tell that from one somebody gave.",
+        "description": "What this person agreed may be published about them.\n\nIts keys stand together: a scope with no confirmation date claims somebody consented, and no surface can tell\nthat from one somebody gave.",
         "properties": {
           "confirmed_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -6100,7 +6093,7 @@
         "type": "object"
       },
       "FLKaderRow": {
-        "description": "One squad row as its team's seat holder reads it (`READ-KADER-001`).\n\nDeclared from nothing rather than a public model unmasked, so the whole surname reaches no\nbase-tier model, and no address or telephone number reaches this one.",
+        "description": "One squad row as its team's seat holder reads it, the surname whole and no address or telephone number.",
         "properties": {
           "first_name": {
             "minLength": 1,
@@ -6280,7 +6273,7 @@
         "type": "object"
       },
       "FLKontaktKenntnisnahme": {
-        "description": "How this person's record came to be held, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
+        "description": "The scope this person's record is held on, the day they were seated, and what they answered.\n\nKenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds\nother values entirely.",
         "properties": {
           "confirmed_at": {
             "anyOf": [
@@ -8313,7 +8306,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed.\n\n`version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and\nnull on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as\nit stands: told of the move, of the referee taken off it, or of its call-off, each by its name.\n`voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:\nthe set a save names in its body to delete them.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.\n\n`voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,\nevery party the confirmation pass would mail of the change.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -8381,7 +8374,7 @@
       },
       "FLPatchSpielerSaisonPayload": {
         "additionalProperties": false,
-        "description": "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.",
+        "description": "The Spieler editor's one save: the person, and their squad row in the season the page stands under.\n\nReplaced wholesale, with no consent and no address, each being the person's own to change.",
         "properties": {
           "birth_date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11112,7 +11105,7 @@
         "type": "object"
       },
       "FLSchiedsrichterConfirmationResponse": {
-        "description": "What the person just recorded, read back off the updated document.\n\nBounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a\ncaller holding a leaked token learns nothing it did not already post.",
+        "description": "What the person just recorded, as their press sent it.\n\nA caller holding a leaked token learns nothing it did not already post.",
         "properties": {
           "confirmed_at": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -11145,7 +11138,7 @@
         "type": "string"
       },
       "FLSchiedsrichterConfirmationViewResponse": {
-        "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
+        "description": "What one confirmation link opens, and nothing that says who its person is.\n\nThe link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.",
         "properties": {
           "answered_at": {
             "anyOf": [
@@ -11842,7 +11835,7 @@
         "type": "object"
       },
       "FLSpielEditorTeam": {
-        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it\noff or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility\nand occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.",
+        "description": "A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.\n\n`on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it\nhere as the fixture stands would pass.",
         "properties": {
           "fieldable": {
             "title": "Fieldable",
@@ -11950,7 +11943,7 @@
       },
       "FLSpielElfmeterschiessenPayload": {
         "additionalProperties": false,
-        "description": "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.\n\nIts own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the\ndocuments it reads.",
+        "description": "A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.",
         "properties": {
           "team1": {
             "minimum": 0.0,
@@ -13813,7 +13806,7 @@
         "type": "object"
       },
       "FLSpielberichtSpielerPublic": {
-        "description": "One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).\n\nThe names where the pupil's consent publishes them, the surname as an initial (`READ-PUPIL-001`); both null where\nit does not, and where the entry names nobody, which the two cases share.",
+        "description": "One pupil an entry names, as the base tier serves them, without their record's id.\n\nThe names where the pupil's consent publishes them, the surname as an initial; both null where it does not, and\nwhere the entry names nobody, which the two cases share.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -13880,7 +13873,7 @@
         "type": "object"
       },
       "FLSpielberichtVorschlag": {
-        "description": "The referee's proposed result, which only the administrator's own save applies.\n\nEach count is the entries credited to that side, written by the report's save and sent by no form. Both null on a\nno-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.",
+        "description": "The referee's proposed result, which only the administrator's own save applies.\n\nEach count is the entries credited to that side, written by the report's save and sent by no form, and both are null\non a no-show alone, whose goals the save composes from the season's forfeit.",
         "properties": {
           "elfmeterschiessen": {
             "anyOf": [
@@ -13981,7 +13974,7 @@
         "type": "object"
       },
       "FLSpielbestaetigung": {
-        "description": "One party's confirmation of one Ansetzung, as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).",
+        "description": "One party's confirmation of one Ansetzung, as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
@@ -14084,7 +14077,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungAnsetzung": {
-        "description": "The Ansetzung a row answers about: every input of `digest`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).",
+        "description": "The Ansetzung a row answers about: every input of `digest`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `digest`.",
         "properties": {
           "date": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14572,7 +14565,7 @@
         "type": "object"
       },
       "FLSpieleAdminSingleResponse": {
-        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.\n\n`saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's\nmatch read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.",
+        "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.",
         "properties": {
           "aufstellungen": {
             "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
@@ -14808,7 +14801,7 @@
         "type": "string"
       },
       "FLSpielerPublic": {
-        "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it.",
+        "description": "One squad row as an anonymous visitor may read it: the surname an initial, and no `stufe` or consent record.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -15397,7 +15390,7 @@
         "type": "object"
       },
       "FLSpielerSingleResponse": {
-        "description": "One player as the BASE TIER serves them -- an allow-list of what this surface needs.\n\nSquad fields are season-scoped, and inventing a season would make the answer depend on a default\nnobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).",
+        "description": "One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.",
         "properties": {
           "first_name": {
             "anyOf": [
@@ -16117,7 +16110,7 @@
         "type": "object"
       },
       "FLSubjectSchiedsrichter": {
-        "description": "One referee record the mailbox names, carrying the id alone for `FLSubjectSpieler`'s reason.",
+        "description": "One referee record the mailbox names, by its id alone, so a machine read gets no fresh copy of somebody's own data.",
         "properties": {
           "schiedsrichter_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16132,7 +16125,7 @@
         "type": "object"
       },
       "FLSubjectSeat": {
-        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLAccountErasureSeat` is: one row seats one\nperson twice where `trainer_is_also` says so.",
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person: one row seats one person twice where `trainer_is_also` says so.",
         "properties": {
           "rolle": {
             "$ref": "#/components/schemas/FLKontaktRolle"
@@ -19237,7 +19230,7 @@
     },
     "/api/v0/aufstellungen/{spiel_id}/{team_id}": {
       "get": {
-        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.\n\nWith the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that\ndoes not exist or does not field this club.",
+        "description": "The line-up screen of one club for one fixture, as the club's own seat holders read it.",
         "operationId": "aufstellungen_get_aufstellung",
         "parameters": [
           {
@@ -19324,7 +19317,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.\n\nThe document a seat holder's save writes, on the same payload, so the lock never reaches this save\n(`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist or does not field this club\n(`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture\nholding no day or no hour (`aufstellung_spiel_undated`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds\n(`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past the shortage\n(`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's\nsave, and every refusal but `version_stale` is asked again outside the transaction just before answering. An entry\nnaming nobody stands for a pupil erased after the match was played: the screen serves it in `spieler`, and a save\nkeeps it by sending it back.",
+        "description": "Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.\n\nAn entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.",
         "operationId": "aufstellungen_put_aufstellung",
         "parameters": [
           {
@@ -19433,7 +19426,7 @@
     },
     "/api/v0/aufstellungen/{spiel_id}/{team_id}/self": {
       "get": {
-        "description": "The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.\n\nThe fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was\nsaved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's\nmarks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is\nnull for a fixture holding no day or no hour, which takes no line-up.\n\nRefused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished\nseason granting none, and `document_not_found` for a fixture that does not exist or does not field this club.",
+        "description": "The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.\n\nA finished season grants no seat, so its line-ups are an administrator's to read.",
         "operationId": "aufstellungen_get_aufstellung_self",
         "parameters": [
           {
@@ -19520,7 +19513,7 @@
         ]
       },
       "put": {
-        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nThe first save creates the document and answers 201. `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as\n`aufstellung.saved`.\n\nRefuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season\ngranting none (`role_not_held`); a\nfixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour\n(`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than\nthe document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live\nsquad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds\n(`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named beside eleven regular players, or\nmore nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by\n`max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are\nrefused as the payload's own rules. A line-up being due or overdue refuses nothing.\nEvery refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,\na fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.",
+        "description": "Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.\n\nA line-up being due or overdue refuses nothing, and `version` is the document's as the screen was served it, null\nwhere the screen showed no line-up.",
         "operationId": "aufstellungen_put_aufstellung_self",
         "parameters": [
           {
@@ -21394,7 +21387,7 @@
     },
     "/api/v0/identity/account/erasure": {
       "post": {
-        "description": "Erase every record the signed-in address holds, at once and as one write.\n\nPERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a\nperson holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a\npupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the\nperson's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals\nand cards and its entries on the line-ups of played matches standing and naming nobody, and its entries on line-ups\nof matches still to come going; the referee record, every played fixture it was booked on standing with its own fee\nand naming nobody, every booking of a fixture still to come going, and every\nconfirmation it was asked for, answered or not; every registration at the address, pending or declined; another\naddress's pending change naming this one as its new address, every record it would move standing at its own; every\ngrant the address holds, every administrator being told it ended.\nEmptied: every contact seat the address holds on a team's season row and on an application of any status, the row\nand its other seats standing.\nEvery reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer\nstanding. Every match report stands, its remarks and entries included, and names no referee. Every log row naming\ntheir address names a fixed marker in their place.\n\nAn address holding nothing is no refusal. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.\n\nA played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the\nsign-in account is the caller's to delete once this has answered.",
         "operationId": "identity_post_account_erasure",
         "responses": {
           "204": {
@@ -21454,7 +21447,7 @@
     },
     "/api/v0/identity/account/erasure/view": {
       "get": {
-        "description": "Answer what `POST /identity/account/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link\nhas reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures\nbooking their referee record, which name nobody once played and lose the booking while still to come; the\nconfirmations their referee record was asked for, which go; the goals, cards and played matches' line-up entries of\ntheir pupil record, which name nobody, and its entries on line-ups of matches still to come, which go; every reason they typed\nanswering a match confirmation, from any\nseat they held, which goes from its row, the answer standing; and the log rows naming their address, which name a\nmarker in their place. Written besides: the notice that their grant ended, which\nevery administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the\naddress, which admits nobody, goes with the erasure unnamed.",
+        "description": "What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.\n\nAnother address's pending change naming this one is counted and not named once its link has reached this mailbox,\nsince its records are not this address's until it takes effect.",
         "operationId": "identity_get_account_erasure_view",
         "responses": {
           "200": {
@@ -21521,7 +21514,7 @@
     },
     "/api/v0/identity/erasure": {
       "post": {
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write.\n\nADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own\nstate: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three\nrefusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,\nor the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),\njudged inside the write. An address another address's pending change would move to is refused, judged inside the write,\nwhere that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the\nchange, a discard only the owner makes of it.\n\n`reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the\n409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.\n\nNothing about the person's own state refuses it, and the sign-in account is the caller's to delete once this has answered.",
         "operationId": "identity_post_erasure",
         "requestBody": {
           "content": {
@@ -21591,7 +21584,7 @@
     },
     "/api/v0/identity/erasure/sweep": {
       "post": {
-        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nThe rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,\nin the latest `past` season, in any season with a greater id or in the running one, and no registration still `submitted`\nat their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `completed_saison_id`\nis null. A pupil holding no address is never due: nothing else erases by a name.\n\nEach pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a\npending registration since this call read them, the two committing before that transaction writes included, or whom another\ncall deleted first, is counted `skipped` and left standing. A squad entry or a registration meeting that transaction's\nwrites waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.\nTwo calls at once therefore delete each pupil once. Deleted are\nthe pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined\none included. A contact seat, a referee record, a grant and anything else held at the same address stand.\n\n**A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call\nanswering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass\nholds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted\n`failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and\nthe next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers\nwhat it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the\ncall, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no\nlimit.",
+        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nA pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering\n`after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.",
         "operationId": "identity_sweep_erasure",
         "parameters": [
           {
@@ -21677,7 +21670,7 @@
     },
     "/api/v0/identity/erasure/view": {
       "post": {
-        "description": "Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`\ncounts the fixtures not yet kicked off that a referee row is booked on, whose booking the erasure takes off.\n`address_change` counts the address's own live change and each other address's change naming it, leaving out a grant\nholder's for an administrator without an owner's power, since counting it would answer whether a typed address is its\nnew one. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the\nadministrator holds an owner's power (`admin_address`).",
+        "description": "Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.\n\nIt is refused as that erasure is, and leaves out of `address_change` a grant holder's change this administrator may not see.",
         "operationId": "identity_get_erasure_view",
         "requestBody": {
           "content": {
@@ -23257,7 +23250,7 @@
     },
     "/api/v0/saisons/landing": {
       "get": {
-        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application window open today by the rule the submission refuses on, the day the next one opens by\nthe judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures\nover every season the public reads, counted on every read. The windows and the figures are read beside the season's\ntwo steps rather than after them, so they add no step to the read.",
+        "description": "The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.\n\nBeside it, the application windows and the league's figures over every season the public reads, counted on every read.",
         "operationId": "saisons_get_landing",
         "responses": {
           "200": {
@@ -24197,7 +24190,7 @@
         ]
       },
       "get": {
-        "description": "Every matchday of one season with its matches, in playing order, and the matchday to open on.\n\nThe Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.",
+        "description": "Every matchday of one season with its matches, in playing order, and the matchday to open on.\n\n404 for a season this tier may not read.",
         "operationId": "saisons_get_spielplan",
         "parameters": [
           {
@@ -24604,7 +24597,7 @@
     },
     "/api/v0/schiedsrichter": {
       "get": {
-        "description": "An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).\n\nThe fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones\nstay retrievable for a historical match.",
+        "description": "Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.",
         "operationId": "schiedsrichter_get_schiedsrichter",
         "parameters": [
           {
@@ -24681,7 +24674,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused where another referee holds the name (`duplicate_key`, naming `name`).",
+        "description": "Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.\n\nEntering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody\nasked is a name nobody consented to publish.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -24758,7 +24751,7 @@
     },
     "/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to\n`kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a\n`evidence_state` other than the record's own, either choice having moved since the page was served\n(`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label\nother than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to\n`true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nThe public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -24840,7 +24833,7 @@
     },
     "/api/v0/schiedsrichter/confirmation": {
       "post": {
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's\nevidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's\npublication scope has one home, which the fixture list joins at read time to decide whether to publish the name each\nfixture stores.\n\nRefuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or\ndeclined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to\n`maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below\n`MEDIA_MIN_AGE_YEARS` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:\na withheld name would go on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as\nlong as that entry lives.",
         "operationId": "schiedsrichter_post_confirmation",
         "requestBody": {
           "content": {
@@ -24917,7 +24910,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/decline": {
       "post": {
-        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an\nunconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no\nre-send or reactivation asks the person again. The objection is journalled.\n\nRefuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,\nconfirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).",
+        "description": "Record the referee's objection to the entry their link opens: its day, and nothing else of the person.\n\nThe entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks\nthe person again.",
         "operationId": "schiedsrichter_post_decline",
         "requestBody": {
           "content": {
@@ -24987,7 +24980,7 @@
     },
     "/api/v0/schiedsrichter/confirmation/view": {
       "post": {
-        "description": "Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.\n\n**Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the\nentry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has\nconfirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second\nURL.\n\nRefuses only a token no referee holds (`link_invalid`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. `answered_at` is the day the\nstate's answer was given, the consent's or the objection's, and null on every state showing none.",
+        "description": "What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.\n\nA confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.",
         "operationId": "schiedsrichter_get_confirmation_view",
         "requestBody": {
           "content": {
@@ -25065,7 +25058,7 @@
     },
     "/api/v0/schiedsrichter/self/saisons": {
       "get": {
-        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.\n\nA planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address\nholding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.",
         "operationId": "schiedsrichter_get_self_saisons",
         "responses": {
           "200": {
@@ -25132,7 +25125,7 @@
     },
     "/api/v0/schiedsrichter/self/spiele/{saison_id}": {
       "get": {
-        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.\n\nEach with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,\ntheir own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now\n(from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is\nserved, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the\nfixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,\nor none at all, answers an empty list.\n\nRefuses an address holding no live, confirmed referee record (`role_not_held`).",
+        "description": "Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.\n\nNobody's address is served, and no reason an administrator entered.",
         "operationId": "schiedsrichter_get_self_spiele",
         "parameters": [
           {
@@ -25210,7 +25203,7 @@
     },
     "/api/v0/schiedsrichter/sweep": {
       "post": {
-        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nErased as a person's own erasure erases a referee entry, as the privacy notice says of an unconfirmed or declined\none: the entry goes with its confirmation rows and its bookings of fixtures still to come, and a played fixture's\nbooking stands naming nobody. A confirmed entry holds no deletion date and is never due.\n\nA page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an\nentry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next\npass. No body: the clock takes no season.",
+        "description": "Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.\n\nEach goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and\nstays due for the next pass.",
         "operationId": "schiedsrichter_sweep_schiedsrichter",
         "responses": {
           "200": {
@@ -25277,7 +25270,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}": {
       "delete": {
-        "description": "Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.\n\nRefused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with\nthose fixtures' `spiel_nrs` and their `count` as its bounds.",
+        "description": "Deactivate a referee, who stays on record because a played match names them by id.\n\nRefused while a fixture still to be played books them.",
         "operationId": "schiedsrichter_delete_schiedsrichter",
         "parameters": [
           {
@@ -25347,7 +25340,7 @@
         ]
       },
       "get": {
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. An id whose referee has been erased\nanswers 404: the document is gone.\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee\nwas owed, null where none was.",
+        "description": "One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.\n\nAn erased referee's id answers 404.",
         "operationId": "schiedsrichter_get_schiedsrichter_by_id",
         "parameters": [
           {
@@ -25424,7 +25417,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nThe editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so\nnothing else is written; each fixture keeps the `payment` agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one.\n\nRefused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.",
+        "description": "Update a referee on the `version` the editor was served, answering the version stored.\n\nA corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a\nconfirmed referee's address moves only through an address change.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -25513,7 +25506,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite": {
       "post": {
-        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`schiedsrichter_retired`), where they have already\nanswered, consenting or objecting (`confirmation_exists`), and where they carry no email address\n(`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nThe previous link stops working at once and the deadline restarts from today; a referee who has already answered is\nrefused, since the new link could never be spent.",
         "operationId": "schiedsrichter_invite_schiedsrichter",
         "parameters": [
           {
@@ -25592,7 +25585,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered.",
+        "description": "Bring a retired referee back into the picker and every default read.\n\nOne who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -25671,7 +25664,7 @@
     },
     "/api/v0/spielberichte/{spiel_id}/bericht": {
       "get": {
-        "description": "What the booked referee's report form reads.\n\nThe fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored\nreport, its remarks included, or null.\n\n`reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it\nholds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose\npage says why it takes no report, with both squads empty: the pupils the stored report names are then all in\n`named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads\nempty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee\nrecord, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a\nfixture that does not exist.",
+        "description": "What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.\n\nWhere `reportable` is false or `completed` true, both squads are empty and every pupil the report names is in `named`.",
         "operationId": "spielberichte_get_spielbericht_bericht",
         "parameters": [
           {
@@ -25748,7 +25741,7 @@
         ]
       },
       "put": {
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are\nthe entries credited to each side, an own goal crediting the other one, and no form sends them. The first write\ncreates it and answers 201; every write changing it clears its adoption in the same update, so a report the\nadministrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes\nnothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side\nunder reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.\n\n`version` is the report document's as the form was served it, null where the form showed no report: a write composed\non another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form\nread before an adoption saves stale once.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records\n(`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a\n`version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose\nkick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out\n(`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil\nthe write newly names on a side outside that side's live squad of the season, a pupil the report already named on\nthat side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`\nis asked again outside the transaction just before answering, the referee's records included, so a write landing on\nwhat was judged before that second asking refuses the report rather than letting it stand, and one landing after it\nstands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets\n`version_stale`. Two first writes at once are two forms opened on no report: the later is refused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.\n\nA write changing the report clears its adoption, and `version` is the report document's as the form was served it,\nnull where the form showed no report.",
         "operationId": "spielberichte_put_spielbericht_bericht",
         "parameters": [
           {
@@ -25847,7 +25840,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep": {
       "get": {
-        "description": "Answer every `active` season's id, oldest first.\n\n`active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody\nentered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own\nbookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.",
+        "description": "Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.",
         "operationId": "spielbestaetigungen_get_sweep_saisons",
         "responses": {
           "200": {
@@ -25914,7 +25907,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture has kicked off, or reached its day where it holds no time, closes `spiel_past`, so\nnobody answers about a match already started. A club's decline closed `discarded` is closed again for each of\nthose but a move and a referee change, in the pass that closes an agreement beside it, and once the slot it was\nabout has kicked off: the public fixture then stops counting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a slot not yet kicked off: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now\nwhere the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a\nreferee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,\neach opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::\nowe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a\nreferee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.\nA club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no\nlink, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed\nseat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A\nparty still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the\ntransaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and\nthe request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,\nits answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture\nholding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never\nreminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and\nwhose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is\nreminded of nothing.\n\nThe line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose\nkick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_DAYS` and `:: AUFSTELLUNG_DUE_DAYS`\nahead, each counted back at the kick-off's clock time, and for which the club stores no line-up, neither the\nfixture decided or called off nor the club out by its\nday; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py\n:: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no\nreminder of it went. Each states the moment the line-up is due and is given up at it.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `failed`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.\n\nEach step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -25992,7 +25985,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/adopt": {
       "post": {
-        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.\n\nRefused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a\ndiscard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the\nstored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and\nhour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and\nstatus alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no\nbody. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the\nreferee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,\n`spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then\n(`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved\nas that save resolves it. The\nrow is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the\nnext confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it\nabout the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.",
+        "description": "Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.\n\nThe next confirmation pass closes every party's row about the slot left, tells each of the move and asks about the\nnew slot.",
         "operationId": "spielbestaetigungen_adopt_spielbestaetigung",
         "parameters": [
           {
@@ -26064,7 +26057,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer": {
       "post": {
-        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's kick-off, or its day where it holds no time, whatever\ndeadline a club's row of the same fixture carries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no\nrow of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row\nalready answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered\n(`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a\nfixture whose kick-off has come (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "description": "Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.\n\nA decline takes them off the fixture, and the caller drops the cached fixture list after a successful answer, since\neither answer can move the referee's name on the public fixture.",
         "operationId": "spielbestaetigungen_post_schiedsrichter_answer",
         "parameters": [
           {
@@ -26153,7 +26146,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/answer/team": {
       "post": {
-        "description": "Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.\n\nThe first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered\n(`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the\nsigned-in person's own on the row's team, the first in order where they hold two.\n\nRefuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in\nits season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed\nunanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one\nwhose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the\ndeadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming\nthe day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the\nadministrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),\noutside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other\nfixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside\nthe transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather\nthan letting it stand.",
+        "description": "Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.\n\nIt writes no fixture: a decline's proposal is the administrator's to act on, and is refused wherever the\nadministrator's own save of that date would be.",
         "operationId": "spielbestaetigungen_post_team_answer",
         "parameters": [
           {
@@ -26242,7 +26235,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/discard": {
       "post": {
-        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an\nagreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every\naddress its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving\nwhile this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of\nthe move.",
+        "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that\nthe date stands.",
         "operationId": "spielbestaetigungen_discard_spielbestaetigung",
         "parameters": [
           {
@@ -26314,7 +26307,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/enter": {
       "post": {
-        "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.\n\nThe administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and\nnothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at\nthe season's end. Refused for a row\nalready answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers\nwhile this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since\nleft is settled as asked, and the next confirmation pass closes it.",
+        "description": "Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.\n\nThe answer is the league's record of how a date was agreed and is never rewritten; it names nobody, and its reason\ngoes at the season's end.",
         "operationId": "spielbestaetigungen_enter_spielbestaetigung",
         "parameters": [
           {
@@ -26396,7 +26389,7 @@
     },
     "/api/v0/spiele/spielplan": {
       "get": {
-        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in order.\n\nEach round holds its matches by number, and the rounds come in the order they are played. The matchday to open on\nis the Spielplan's own: the first holding a match still to be played, else the last; a finished season opens on its\nlast. `document_not_found` for a season id naming no season. Writes nothing.",
+        "description": "Every matchday and knockout round of one season, a planned one included, its matches in the admin shape, in play order.\n\n`current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.",
         "operationId": "spiele_get_spiele_spielplan",
         "parameters": [
           {
@@ -26553,7 +26546,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nThe fixture stores no name: every read joins it. With `adopts_bericht` the save also stamps the fixture's Spielbericht\nadopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A\n`dry_run` answers the same report and writes nothing, and names in `recipients` every party the confirmation pass\nwould mail about the fixture once it is saved so: told of its move, of the referee taken off it, or of its call-off,\nby the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save\ndeletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,\nand is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:\na result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a\nplayed fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a\nsave putting the fixture back among those to come drops it and its line-ups' entries naming nobody.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {
@@ -26674,7 +26667,7 @@
     },
     "/api/v0/spiele/{spiel_id}/admin": {
       "get": {
-        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it every live venue and referee to book, the fixture's own where it has retired, each referee saying whether\nthey confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on\nanother fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a\ngroup fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it\nreads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per\nside how many pupils the stored line-up of the club fielded there names and how many of them start, null where that\nclub has stored none. `document_not_found` for an id no fixture holds.",
+        "description": "The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.\n\nBeside it come the venues and referees to book, the clubs a knockout fixture may field, and the fixture's report,\nconfirmation rows and line-up counts.",
         "operationId": "spiele_get_spiel_admin",
         "parameters": [
           {
@@ -26753,7 +26746,7 @@
     },
     "/api/v0/spieler/account/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`evidence.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing.\n\nRefuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `evidence_state`\nother than the record's own, either choice having moved since the page was served (`choices_stale`); a choice\nmoving onto a grant under a label other than its\ncurrent wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where\nthe stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nEach moved choice is written with its evidence, and the caller drops its cached squad lists after a success, since\nthe scope decides whether a name is served.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -26823,7 +26816,7 @@
     },
     "/api/v0/spieler/kader/{team_id}/{saison_id}": {
       "get": {
-        "description": "The squad of one team in one season, for a person holding any contact seat on it.\n\nEvery row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no\ne-mail address or telephone number of anybody. `nummer_double` marks a live row whose number\nanother live row of the squad wears, compared as stored. `allowed_stufen` is what the season's\nrules offer an edit. Refused `role_not_held` where the signed-in person holds no seat on this\nteam in this season, a seat on a `past` season holding none.",
+        "description": "The squad of one team in one season for a person holding a contact seat on it, ausgetragen rows included.\n\nEach surname is whole, and no address or telephone number of anybody is served.",
         "operationId": "spieler_get_kader",
         "parameters": [
           {
@@ -26911,7 +26904,7 @@
     },
     "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
       "delete": {
-        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.",
+        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may, the row staying.\n\nThe person stays in the league, and only an administrator brings the row back.",
         "operationId": "spieler_delete_kader_row",
         "parameters": [
           {
@@ -27007,7 +27000,7 @@
         ]
       },
       "patch": {
-        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `role_not_held` without a seat, `kader_stufe_not_allowed` for a `stufe` the\nseason's `allowed_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
+        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's, and a shared `nummer` is permitted.",
         "operationId": "spieler_patch_kader_row",
         "parameters": [
           {
@@ -27115,7 +27108,7 @@
     },
     "/api/v0/spieler/list/admin": {
       "get": {
-        "description": "The Spieler page in one read: every squad row of the season, live and ausgetragen alike, each named and with its club.\n\nRead whole, as every list but the Protokoll is, the page narrowing what it holds. `nummer_double` marks a live row\nwhose number another live row of its own squad wears, compared as stored. 404 where no season holds that id.",
+        "description": "Every squad row of the season, live and ausgetragen alike, each named and with its club.\n\n`nummer_double` marks a live row whose number another live row of its own squad wears, compared as stored.",
         "operationId": "spieler_get_spieler_admin",
         "parameters": [
           {
@@ -27193,7 +27186,7 @@
     },
     "/api/v0/spieler/self/saisons": {
       "get": {
-        "description": "Every season the signed-in pupil holds a squad row in, a deregistered one included, the newest first, each with its span.\n\nA planned season is served as any other. Refuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "Every season the signed-in pupil holds a squad row in, the newest first, each with its span.\n\nA deregistered row's season and a planned season are served as any other.",
         "operationId": "spieler_get_self_saisons",
         "responses": {
           "200": {
@@ -27260,7 +27253,7 @@
     },
     "/api/v0/spieler/self/{saison_id}": {
       "get": {
-        "description": "What the signed-in pupil's own page shows of one season, in one read.\n\nTheir squad row of this season with the name its club plays the season under, null where they hold none; and\nthat club's fixtures in the order the draw numbered them, each with\nwhether the club's stored line-up starts them (`starts` true), benches them (false) or does not name them, or\nnone is stored (null).\n\nRefuses an address holding no confirmed pupil record (`role_not_held`).",
+        "description": "The signed-in pupil's squad row of one season, null where they hold none, and their club's fixtures in the draw's order.\n\nEach fixture's `starts` is true where the club's stored line-up starts them, false where it benches them, and null\nwhere it does not name them or none is stored.",
         "operationId": "spieler_get_self_saison",
         "parameters": [
           {
@@ -27417,7 +27410,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}": {
       "delete": {
-        "description": "Take a player out of a season's squad. SOFT: the row stays.\n\nThe row records that this player wore this number in this squad, which stays true after they\nleave. `GET /spieler/list/admin` is where an admin reads it back, marked by `inactive_since`.",
+        "description": "Take a player out of a season's squad, the row staying, marked by `inactive_since`.\n\nThe row records that this player wore this number in this squad, which stays true after they leave.",
         "operationId": "spieler_delete_saison_spieler",
         "parameters": [
           {
@@ -27498,7 +27491,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/admin": {
       "get": {
-        "description": "Return what the Spieler editor shows in one read: the person, their squad row of the season, and what its boxes offer.\n\n`version` is what the one save sends. `allowed_stufen` is what the season's rules offer, `taken_rollen` each role\nanother live row of the squad holds. Read outside a transaction: a write landing under this read is judged by its own\nwrite. 404 where no person, no season or no squad row of the person in that season holds those ids: the page stands\nunder a season, and a person out of its squad is no row of that season's list.",
+        "description": "What the Spieler editor shows: the person, their squad row of the season, and what its boxes may offer.\n\n`version` is what the one save sends, and `taken_rollen` each role another live row of the squad holds.",
         "operationId": "spieler_get_spieler_saison",
         "parameters": [
           {
@@ -27584,7 +27577,7 @@
         ]
       },
       "patch": {
-        "description": "Save the Spieler editor's one version: the person's own facts and their squad row of the season.\n\nThe team stays the stored row's: no player moves between teams. Refused `version_stale` once the person or the row has\nmoved since the editor read them, whichever it was; `kader_stufe_not_allowed` for a `stufe` the season's rules do not\noffer unless the row already holds it; `kader_rolle_taken` for a `rolle` another live row of the squad holds. A shared\n`nummer` is permitted (`docs/domain.md`'s what the model permits on purpose). 404 where the person holds no row of the\nseason. No fan-out: unlike a team or a venue, a person is embedded in no other document.",
+        "description": "Save the person's own facts and their squad row of the season together, the team staying the stored row's.\n\nA shared `nummer` is permitted.",
         "operationId": "spieler_patch_spieler_saison",
         "parameters": [
           {
@@ -27682,7 +27675,7 @@
     },
     "/api/v0/spieler/{spieler_id}/saisons/{saison_id}/reactivate": {
       "post": {
-        "description": "Clear a squad row's `inactive_since`, with the number and position it had.\n\nRefused where the squad has filled up, a nominee's row standing outside that cap, where its club\nleft, or where the `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).",
+        "description": "Clear a squad row's `inactive_since`, the row returning with the number, position and role it had.",
         "operationId": "spieler_reactivate_saison_spieler",
         "parameters": [
           {
@@ -29043,7 +29036,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a\n`evidence_state` other than the held seats' own, either choice having moved since the page was served\n(`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant\nunder a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);\n`media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is\nmissing (`media_age`). Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nEach choice moves only where it differs from the row as the page served it, so seats answered apart keep their\nanswers to a choice not changed.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {
@@ -29983,7 +29976,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/overview": {
       "get": {
-        "description": "Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.\n\nThe team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league\nasked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed\ndate and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until\nthe league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming\nfixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may\nstill enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,\neach with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and\n`registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that\nperson confirmed it.\n\nNo address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the\nsigned-in person holds no seat on this team in this season.",
+        "description": "Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.\n\nNo address, telephone number, birthdate or consent record of anybody is served.",
         "operationId": "teams_get_team_overview",
         "parameters": [
           {
@@ -30071,7 +30064,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/self/spiele": {
       "get": {
-        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the\nstate of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase\nthe clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about\nthe fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.\n\nRefused `role_not_held` where the signed-in person holds no seat on this team in this season.",
+        "description": "Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.\n\nEach carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where\nno row asks the team about the fixture as it stands.",
         "operationId": "teams_get_team_spiele",
         "parameters": [
           {

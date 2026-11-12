@@ -112,7 +112,7 @@ async def _resolve_one_saison(
         quelle.gruppe for spiel in spiele for quelle in (spiel.team1_quelle, spiel.team2_quelle) if isinstance(quelle, FLSpielQuelleGruppe)
     }
 
-    # The groups the season RUNS alone: a standing built for any other would have the walk report a
+    # The groups the season runs alone: a standing built for any other would have the walk report a
     # reference to it as a table too short, where `find_gruppen_not_run` names the group.
     gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_gruppen))
 
@@ -120,7 +120,7 @@ async def _resolve_one_saison(
     if gruppen_to_decide:
         # The Tabelle's own pipeline, so the bracket ranks the clubs the site's table ranks, and
         # `include_inactive` stays default: a club that table withholds must hold no placing the bracket
-        # honours. `rules=None` asks it for the ROWS alone.
+        # honours. `rules=None` asks it for the rows alone.
 
         # No `GERMAN_COLLATION`, unlike the reads that serve that pipeline to a page: what comes back
         # here is grouped and ranked by points, so its order reaches nobody and would only cost the
@@ -135,7 +135,7 @@ async def _resolve_one_saison(
         # results those points never saw. It is also the scope the figures below are derived at.
         gruppenphase = [spiel for spiel in spiele if spiel.saison_phase == "gruppenphase"]
 
-        # From the fixtures ARGUED, never re-read: the preview hands in a season this collection
+        # From the fixtures argued, never re-read: the preview hands in a season this collection
         # does not hold yet, so a table read back from it would rank the save's fixtures while the
         # walk ranks the preview's.
         by_team = build_statistik_by_team(gruppenphase, rules)
@@ -168,14 +168,14 @@ async def bracket_faults_of(
     """Every derived fault in one season, judged over its fixtures as the caller read them through `build_spiele_pipeline`.
 
     The fixtures are handed in rather than read here, so a read showing them beside their faults judges both on its one
-    read of them. The INTERNAL fixture: `find_departed_occupants` orders a fault on the DAY a club left, which no served
+    read of them. The internal fixture: `find_departed_occupants` orders a fault on the day a club left, which no served
     side carries.
     """
 
     resolution = await _resolve_one_saison(teams_collection=teams_collection, saison_id=saison_id, rules=rules, spiele=spiele)
     faults: list[FLBracketFault] = [*resolution.bracket_faults]
 
-    # From the JOINED fixtures, not the resolution: this compares a fixture's date against a junction
+    # From the joined fixtures, not the resolution: this compares a fixture's date against a junction
     # record, so it sits beside the walk and covers group fixtures too.
     faults.extend(find_departed_occupants(spiele))
 
@@ -240,7 +240,7 @@ async def pull_slot_holders(
         session=session,
     ).to_list(length=None)
 
-    # VALIDATED, not read as raw dicts, for the reason `fl_backend/app/api/spiele/schemas.py :: FLSpielBooking` states.
+    # Validated, not read as raw dicts: the clash rule splits each holder's `time`.
     return FLSpielSlotHolderListAdapter.validate_python(holders)
 
 
@@ -267,7 +267,7 @@ async def pull_saison_membership(
     saison_id: str,
     session: AsyncClientSession | None = None,
 ) -> dict[CustomObjectId, SaisonMembership]:
-    """Which teams hold a row for this season, under which name, and from which DAY each is out.
+    """Which teams hold a row for this season, under which name, and from which day each is out.
 
     Not `build_team_pipeline`, which withholds a retired club outside `past` seasons: a refusal about
     this season must see its row.
@@ -310,7 +310,7 @@ async def pull_spieltag_span(
     if row is None:
         return None
 
-    # RAW, never through `str()`: a drawn matchday stores a null span, and "None" sorts above every
+    # Raw, never through `str()`: a drawn matchday stores a null span, and "None" sorts above every
     # date, so a stringified one would refuse every fixture the season drew.
     return SpieltagSpan(start=row["start"], end=row["end"])
 
@@ -341,7 +341,7 @@ async def pull_booked_referee(
     schiedsrichter_id: CustomObjectId | None,
     session: AsyncClientSession | None = None,
 ) -> BookedReferee | None:
-    """The referee this payload's reference names, for the reason `pull_booked_venue` exists."""
+    """The referee this payload's reference names, or `None` for no reference and for one naming no row."""
 
     if schiedsrichter_id is None:
         return None
@@ -359,7 +359,7 @@ async def anchor_a_booked_venue(
     *,
     spielorte_collection: AsyncCollection,
     spielort_id: CustomObjectId,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
@@ -376,7 +376,7 @@ async def anchor_a_booked_referee(
     *,
     schiedsrichter_collection: AsyncCollection,
     schiedsrichter_id: CustomObjectId,
-    # REQUIRED for `anchor_a_booked_venue`'s reason.
+    # Required: the anchor below is what closes the race.
     session: AsyncClientSession,
 ) -> None:
     """Put a write booking this referee in the write set of `schiedsrichter_still_assigned` and of the erasure.
@@ -436,7 +436,7 @@ async def preview_bracket_after_patch(
     """What saving this payload would move and destroy, writing nothing.
 
     The same `_resolve_one_saison` the save uses, over a season rebuilt in memory with the releases
-    substituted FIRST: a released slot can be refilled by the resolution.
+    substituted first: a released slot can be refilled by the resolution.
     """
 
     substituted = {patched.id: patched}
@@ -463,7 +463,7 @@ async def preview_bracket_after_patch(
 
 
 def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
-    """One resolved side as the DOCUMENT stores it; `include` is `FLSpielTeamField`'s field set, so no join can denormalise into it."""
+    """One resolved side as the document stores it; `include` is `FLSpielTeamField`'s field set, so no join can denormalise into it."""
 
     if side is None:
         return None
@@ -481,7 +481,7 @@ async def advance_bracket_winners(
 ) -> tuple[list[FLSpielAdvancement], list[BookedReferences]]:
     """Resolve one season's bracket and write back every fixture whose slots disagree.
 
-    The WHOLE season, not only what the changed match feeds, so the result does not depend on which
+    The whole season, not only what the changed match feeds, so the result does not depend on which
     edit triggered it and a second run writes nothing.
     """
 
@@ -545,7 +545,7 @@ def report_advancement(advancement: SlotAdvancement) -> FLSpielAdvancement:
 
 
 def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
-    """One released side as the response reports it, for the same reason `report_advancement` exists."""
+    """One released side as the response reports it -- the one mapping to the wire shape, so save and preview report alike."""
 
     return FLSpielReleasedSide(
         spiel_id=release.spiel_id,
@@ -567,7 +567,7 @@ def _other_side(side: FLSpielSide) -> FLSpielSide:
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
-    The PREVIEW's model; the write spells the same rule as a `$set`. The side left behind loses its
+    The preview's model; the write spells the same rule as a `$set`. The side left behind loses its
     goals too, scored against the team being removed.
     """
 
@@ -580,7 +580,7 @@ def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
             other: other_side.model_copy(update={"tore": None}) if other_side is not None else None,
             "ergebnis": None,
             "elfmeterschiessen": None,
-            # Conditional for the reason `advance_bracket_winners` states, and read off the release
+            # Conditional, so only a no-show goes: the other events name no side. Read off the release
             # rather than off `spiel`, so the model and the `$set` cannot key on different facts.
             **({"sonderereignis": None} if release.voided_sonderereignis is not None else {}),
         }
@@ -596,7 +596,7 @@ async def release_spieltag_sides(
 ) -> tuple[list[FLSpielReleasedSide], list[BookedReferences]]:
     """Empty each side another fixture gives up so a team can play this Spieltag.
 
-    INSIDE the caller's transaction and BEFORE `advance_bracket_winners`, so the resolution sees the
+    Inside the caller's transaction and before `advance_bracket_winners`, so the resolution sees the
     released state and can refill the slot.
     """
 
@@ -847,10 +847,10 @@ async def save_spiel_in_session(
     now: datetime,
     # The act another route saves a fixture under, which records this one save; `None` for the save's own.
     act: FLAction | None = None,
-    # REQUIRED: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
+    # Required: every read here judges what the write stores, so a retry after a write conflict must re-read it all.
     session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
-    """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket, as `PATCH /spiele/{id}` does.
+    """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket.
 
     Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
     where its document still stands at that version about the clubs the save leaves; a miss refuses nothing.
@@ -858,7 +858,7 @@ async def save_spiel_in_session(
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)
 
-    # From the NORMALISED fixture, with keys off the PAYLOAD's field set: keys off the fixture would put `saison_id`,
+    # From the normalised fixture, with keys off the payload's field set: keys off the fixture would put `saison_id`,
     # `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
     document = judged.patched.model_dump(context={"keep_oid": True}, include={*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"})
 

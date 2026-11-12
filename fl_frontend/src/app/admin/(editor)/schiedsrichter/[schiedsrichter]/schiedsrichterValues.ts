@@ -12,7 +12,6 @@ export type SchiedsrichterValues = {
   default_payment: string;
 };
 
-/** The editor's values as a stored referee gives them. */
 export function valuesOf(referee: FLSchiedsrichter): SchiedsrichterValues {
   return {
     name: referee.name ?? "",

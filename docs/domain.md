@@ -138,17 +138,19 @@ referee is assigned to no fixture that does not already hold it, nor kept on one
 (`booking_unknown_resource`). Both judge the reference being made rather than one merely stored, and
 reopening a fixture makes its references again. That is what lets a venue retire while played or called-off
 fixtures still name it. A bracket resolution, or a side emptied for a Spieltag clash, reopening such a fixture
-is no save and refuses nothing: the retired row stays booked and is reported. The ghost every erased
-referee's fixtures point at is one such retired row. `retire_blocked`, `spielort_still_booked` and
-`schiedsrichter_still_assigned` are every refusal a retirement meets.
+is no save and refuses nothing: the retired row stays booked and is reported. `retire_blocked`,
+`spielort_still_booked` and `schiedsrichter_still_assigned` are every refusal a retirement meets.
 
 **Where a document really is removed, the removal is what the operation is for.** A confirmed **replace** of
 a season's draw takes its matchdays and fixtures away and writes fresh ones. An **undraw** takes the same two
 sets away and writes nothing back, and what it is for is
-[the rules below](#what-freezes-a-seasons-rules-and-the-way-back). A pupil's **erasure** removes the person
-and their squad rows and reaches every report, line-up and log row naming them, in one transaction that asks
-no retirement first; [section 5 of the privacy record](datenschutz.md#5-erasure-reaches-everyone-who-asks)
-says what it does to each.
+[the rules below](#what-freezes-a-seasons-rules-and-the-way-back). An **erasure** removes a pupil or a
+referee in one transaction that asks no retirement first, and judges each match they stand in by its
+kick-off. A played match keeps its shape: the booking, the line-up entry, the goal or the card stands naming
+nobody, a null id in storage rather than a placeholder record, and every page reads it „anonym“. A match
+still to come loses the person, and the place is open to fill again.
+[Section 5 of the privacy record](datenschutz.md#5-erasure-reaches-everyone-who-asks) says what else an
+erasure deletes.
 
 ### What freezes a season's rules, and the way back
 
@@ -325,7 +327,7 @@ no later feature can come to depend on a flag.
   forfeit and a replacement.
 - **A fixture still to be played booked onto a retired venue or referee.** `booking_unknown_resource` judges
   what a save books, and a bracket resolution reopening a fixture books nothing; refusing it would refuse the
-  correction upstream. The booking is reported as a fault, the ghost an erased referee leaves among them.
+  correction upstream. The booking is reported as a fault.
 - **One venue or referee claimed by two fixtures under four hours apart.** `spiel_double_booked` refuses only a
   claim a save newly makes. A lifted no-show reclaiming its slot is reported, because which fixture moves is a
   competition call.

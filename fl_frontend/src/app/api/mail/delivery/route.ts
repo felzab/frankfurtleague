@@ -18,7 +18,7 @@ import type { NextRequest } from "next/server";
 const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
 
 /**
- * What the provider is told, and it is the STATUS that carries the meaning: anything but 200 starts
+ * What the provider is told, and it is the status that carries the meaning: anything but 200 starts
  * a retry schedule of about thirty-two hours, after which Resend disables the endpoint and notifies
  * the account.
  */
@@ -71,7 +71,7 @@ function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload
 
 /**
  * The write one event asks for, or `null` where it asks none: an event about no row, a mail sent before the Postausgang
- * among them, and one that leaves no state. **Every `null` is answered 200**: the provider retries a non-200 for
+ * among them, and one that leaves no state. Every `null` is answered 200: the provider retries a non-200 for
  * thirty-two hours and then disables the endpoint.
  */
 function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
@@ -107,8 +107,8 @@ function signedByProvider(raw: string, headers: Record<string, string>): boolean
 }
 
 /**
- * Resend's delivery events, on neither spine the other route handlers take: `handlePublicRequest`
- * always answers 200, which would tell a caller that retries on non-200 that a forgery was accepted.
+ * Resend's delivery events, each answered by the status its outcome takes: a handler answering every
+ * request 200 would tell a caller that retries on non-200 that a forgery was accepted.
  */
 export async function POST(request: NextRequest) {
   // The exact bytes, because the signature is over them: parsing first and re-serialising changes

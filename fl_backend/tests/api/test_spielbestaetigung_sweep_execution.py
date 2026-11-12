@@ -1408,6 +1408,33 @@ class TestOneRowHoldsBackNoOther:
 
         assert {row["spiel_id"] for row in stored} == {OTHER_SPIEL}
 
+    def test_a_referee_no_record_holds(self, mongo_replica_set_url: str):
+        """Only a hand edit leaves a row or a booking naming one: the close passes the row over and the mint the fixture.
+
+        The close meets the missing address after it took its share, so only the halving finds the row; the mint meets it
+        while judging the fixture.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await database[Collection.SCHIEDSRICHTER].delete_one({"_id": SCHIEDSRICHTER})
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
+            await database[Collection.SPIELE].insert_one(a_spiel(FRESH_SPIEL, 3, NEXT_WEEK))
+            called_off = await sweep(database, client, passed_over=2)
+            await sweep(database, client, passed_over=2)
+            return called_off, await rows(database)
+
+        called_off, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+
+        assert {row["spiel_id"] for row in stored} == {SPIEL}
+        assert row_of(stored, schiedsrichter_id=SCHIEDSRICHTER)["closed"] is None
+        assert [row_of(stored, team_id=team_id)["closed"]["reason"] for team_id in (ALPHA, BETA)] == ["cancelled", "cancelled"]
+        # The clubs' rows closed in the same pass, each club told.
+        assert {notice.spielbestaetigung_id for notice in called_off.spiel_cancelled} == {
+            row_of(stored, team_id=team_id)["_id"] for team_id in (ALPHA, BETA)
+        }
+        assert called_off.closed == 2
+
 
 def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]]:
     """One fixture per position, the referee left off so each fixture's rows are its two sides' alone."""

@@ -35,7 +35,7 @@ const SAME = "same";
 const OTHER = "other";
 
 /**
- * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“, as the owner ruled, and a wrong one is
+ * „Aufnehmen“ as the entry's admission says: an admission done says „Aufgenommen“, and a wrong one is
  * undone in the Kader by „Austragen“; where the team is asked, the other person's answer declines the registration, and
  * the pupil's mail asks them to register under an address of their own.
  */

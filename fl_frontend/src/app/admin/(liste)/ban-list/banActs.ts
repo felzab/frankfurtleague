@@ -29,7 +29,7 @@ const BanForm = z.object({
 
 const LiftInput = z.object({ id: BanListDeleteBanListEntryParams.shape.ban_list_entry_id, ...PAGE_HOLDER });
 
-/** The failure's NAME alone: the address must reach no line. */
+/** The failure's name alone: the address must reach no line. */
 const nameOf = (failed: unknown) => (failed instanceof Error ? failed.name : "unknown");
 
 /**

@@ -40,13 +40,13 @@ async def refuse_a_full_squad(
     spieler_id: CustomObjectId,
     # Whether the row entering is a nominee's, which the caller reads or derives: a nominee stands outside the cap.
     nominee: bool,
-    # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
+    # Required: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
     """Refuse `kader_full` when this team's squad for this season is already at the season's cap.
 
-    Shared by every writer that grows a squad: the cap is a property of the DESTINATION squad, not of the verb.
+    Shared by every writer that grows a squad: the cap is a property of the destination squad, not of the verb.
     """
 
     # A count is a read, which a snapshot re-validates nowhere, so two writers pass one figure
@@ -105,13 +105,12 @@ async def refuse_a_taken_rolle(
     team_id: CustomObjectId,
     spieler_id: CustomObjectId,
     rolle: FLSpielerRolle | None,
-    # REQUIRED for `refuse_a_full_squad`'s reason: the anchor below closes the race.
+    # Required: the anchor below closes the race.
     session: AsyncClientSession,
 ) -> None:
     """Refuse `kader_rolle_taken` when another live row in this squad already holds `rolle`.
 
-    Shared by every squad write for the reason the cap is: the role belongs to the DESTINATION squad,
-    never to the verb.
+    Shared by every squad write: the role belongs to the destination squad, never to the verb.
     """
 
     # Before the anchor: a row holding no role competes with nobody, so there is no count to protect.
@@ -140,7 +139,7 @@ async def refuse_a_taken_rolle(
 async def another_pupil_holds(
     *,
     spieler_collection: ReadCollection,
-    # Folded (`app/shared/folding.py :: sign_in_identifier`), the form `spieler.email` stores.
+    # Folded, the form `spieler.email` stores.
     identifier: str,
     spieler_id: CustomObjectId,
     # The writing transaction's, so the judgement is read where the write lands; `None` for the link's view alone.
@@ -168,7 +167,7 @@ async def erase_person_in_session(
     aufstellungen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
     now: datetime,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> PersonErased:
     """Empty their report entries and their played matches' line-up entries, drop their other ones, remove them and their squad rows.

@@ -59,8 +59,7 @@ const BAR = ["overview"] as const;
  * list of seasons, and the three differ in both. A place's frame stands above the season of its address, whose
  * subtree Next keys on its value, so a season switch remounts the page alone and keeps the frame. It is drawn without
  * waiting for the session, the seasons and the account streaming into their places, and judges no page: each page's
- * read asks who the person is itself (`fl_frontend/src/features/roles/resolvers.ts :: requireRole`). A place's seasons
- * are a read of its own (`fl_frontend/src/features/roles/queries.ts :: getOwnSaisons`), which its pages share.
+ * read asks who the person is itself. A place's seasons are a read of its own, which its pages share.
  */
 export function PersonFrame({ place, children }: { place: keyof typeof FRAMES; children: ReactNode }) {
   const frame: Frame = FRAMES[place];

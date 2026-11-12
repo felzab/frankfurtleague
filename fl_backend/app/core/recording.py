@@ -1,10 +1,10 @@
 """
-CORE · the action log's write side
+The action log's write side.
 
-One act, one row, written by the act's own route inside the act's own transaction: `record_act` is the module's one
-writer of the log, and nothing here reads it (`app/api/action_log/` serves it). A row names who acted and what they did,
-never a person's name or any address but an administrator's and a grantee's, so nothing touches a row after the fact
-but `app/api/action_log/crud.py :: reattribute_administrator_in_session`.
+One act, one row, written by the act's own route inside the act's own transaction: `record_act` is the one writer of
+the log, and nothing here reads it. A row names who acted and what they did, never a person's name or any address but
+an administrator's and a grantee's, so nothing touches a row after the fact but the change or the erasure of such an
+address.
 """
 
 from contextvars import ContextVar
@@ -23,8 +23,8 @@ from app.core.logging import trace_id_var
 # no address equals it.
 ERASED_ACTOR_MARKER = "ERASED"
 
-# The folded address of the administrator this request acts for, set by `app/core/security.py :: bind_actor`, which
-# every admin router depends on. `None` everywhere else, so a route binding no administrator cannot record as one.
+# The folded address of the administrator this request acts for, set by `bind_actor`, which every admin router depends
+# on. `None` everywhere else, so a route binding no administrator cannot record as one.
 actor_var: ContextVar[str | None] = ContextVar("actor", default=None)
 
 
@@ -141,7 +141,7 @@ async def record_act(
     label: str | None = None,
     # How many records a page of a pass took, or the other records an act took with its own.
     count: int | None = None,
-    # REQUIRED: the act's own transaction, so a failed act leaves no row and a retried one leaves one.
+    # Required: the act's own transaction, so a failed act leaves no row and a retried one leaves one.
     session: AsyncClientSession,
 ) -> None:
     """Append the one row of an act, inside its transaction."""
@@ -150,7 +150,7 @@ async def record_act(
     await post_one_to_db(
         collection=collection.database[Collection.ACTION_LOG],
         document={
-            # A BSON date, the key a TTL index expires on (`app/core/constraints.py :: TTL_INDEXES`).
+            # A BSON date, the key a TTL index expires on.
             "at": clock.now(),
             "by": by if by is not None else _bound_administrator(),
             "team": team,

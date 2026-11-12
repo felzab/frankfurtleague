@@ -2,7 +2,7 @@ import type { onRequestError as logRequestErrorImpl } from "./core/instrumentati
 
 /**
  * Guarded wrapper, not a re-export: a static re-export drags the logger's `process.stdout` write
- * into the EDGE bundle. Conditional dynamic import is the documented shape
+ * into the Edge bundle. Conditional dynamic import is the documented shape
  * (https://nextjs.org/docs/app/guides/instrumentation).
  */
 export async function onRequestError(...args: Parameters<typeof logRequestErrorImpl>) {

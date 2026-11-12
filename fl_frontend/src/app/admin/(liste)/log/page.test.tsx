@@ -13,7 +13,7 @@ const state = vi.hoisted(() => ({ asked: [] as FLActionLogFilterPayload[], answe
 vi.mock("@/features/action-log/queries", () => ({
   getActionLog: (params: FLActionLogFilterPayload) => {
     state.asked.push(params);
-    return Promise.resolve(state.answer);
+    return state.answer instanceof Error ? Promise.reject(state.answer) : Promise.resolve(state.answer);
   },
 }));
 
@@ -63,5 +63,12 @@ describe("the Protokoll's reads", () => {
     expect(state.asked.map(({ by }) => by)).toStrictEqual([null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");
+  });
+
+  /* An outage answering „Noch keine Einträge.“ would read as a log with nothing in it. */
+  it("leaves a failed read to the boundary", async () => {
+    const failure = new Error("read failed");
+    state.answer = failure;
+    await expect(read({})).rejects.toBe(failure);
   });
 });

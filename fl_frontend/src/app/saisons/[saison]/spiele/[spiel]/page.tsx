@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 /**
  * A match's own page, on a direct load, a reload or „Zum Spiel“: its head, its five facts as tiles, the line-ups
  * folded side by side, and its goals and cards along the dotted line. Opened from a match card, the pop-up shows
- * instead (`app/@modal/(.)saisons/[saison]/spiele/[spiel]`).
+ * instead.
  */
 export default function SpielPage({ params }: Props) {
   return (
@@ -140,7 +140,7 @@ function tilesOf(spiel: FLSpielJoined, page: FLSpielPageResponse): readonly [Sta
 
 /**
  * The date's tile: the day as a match row writes it, „Mi., 28.10.“, over its year, so the tile is no wider than a fifth
- * of the column (`kit/StatTiles.tsx`'s `five`), as the Spieltag's number stands over its phase.
+ * of the column, as the Spieltag's number stands over its phase.
  */
 function dateTileOf(day: CalendarDay | null): StatTile {
   const { date } = COPY.spielplan.fact;

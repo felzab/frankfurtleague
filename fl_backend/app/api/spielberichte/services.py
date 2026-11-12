@@ -319,8 +319,7 @@ def vorschlag_matches(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[str
     if tore != (vorschlag.team1_tore, vorschlag.team2_tore) or spiel_raw.get("sonderereignis") != vorschlag.sonderereignis:
         return False
 
-    # `app/api/spiele/services.py :: apply_payload_to_spiel`'s rule: a level knockout keeps its shoot-out, so one saved
-    # without the proposed shoot-out is not the proposal.
+    # A level knockout keeps its shoot-out, so one saved without the proposed shoot-out is not the proposal.
     saved = spiel_raw.get("elfmeterschiessen")
 
     return (None if saved is None else FLSpielElfmeterschiessen.model_validate(saved)) == vorschlag.elfmeterschiessen
@@ -439,7 +438,7 @@ def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, sides: Mapp
     }
 
 
-# --- The STRIP once the season after the match ends: the remarks; the scorers, the cards and the proposed result stand
+# --- The strip once the season after the match ends: the remarks; the scorers, the cards and the proposed result stand
 # as the league's record of the match.
 
 

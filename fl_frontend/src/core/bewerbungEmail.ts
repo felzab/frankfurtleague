@@ -7,7 +7,7 @@ import { dayOf, formatDateLong } from "./format";
 import { kontaktConfirmationLink } from "./kontaktLink";
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
-import { TRIKOT_FARBEN } from "./teamVocabulary";
+import { TRIKOT_FARBEN } from "./trikotFarben";
 
 import type { Mail, Sentence } from "./emailShell";
 import type {

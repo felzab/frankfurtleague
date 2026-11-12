@@ -104,7 +104,6 @@ from app.core.crud import (
     VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
-    build_sort,
     composite_version,
     find_stale_save_refusal,
     patch_many_in_db,
@@ -320,7 +319,7 @@ async def get_teams_admin(
                 "austritt.type",
                 *[f"kontakte.{seat}.einwilligung.confirmed_at" for seat in KONTAKT_ROLLEN],
             ],
-            sort_by=build_sort(sort_by="name", order="asc"),
+            sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
         ),
         pull_whole_from_db(
@@ -328,7 +327,7 @@ async def get_teams_admin(
             db_filter={},
             what="the league's clubs",
             projection=["name", "shorthand", "inactive_since"],
-            sort_by=build_sort(sort_by="name", order="asc"),
+            sort_by=[("name", 1)],
             collation=GERMAN_COLLATION,
         ),
     )

@@ -1,8 +1,6 @@
-"""
-API · a line-up's document written, its entries of an erased pupil emptied, and removed
+"""One line-up document per club per fixture, so no club's save can touch another's.
 
-One document per club per fixture, so no club's save can touch another's, and a seat and an administrator saving one
-club's line-up write the same document: a refusal between them is a true conflict.
+A seat and an administrator saving one club's line-up write the same document: a refusal between them is a true conflict.
 """
 
 from collections.abc import Mapping, Sequence
@@ -39,17 +37,17 @@ async def write_aufstellung(
     team_id: ObjectId,
     spieler: Sequence[FLAufstellungEntry],
     # The stored line-up as the caller read it in `session`, None where none stands: the caller has judged the payload's
-    # `version` against it (`app/core/crud.py :: find_stale_first_save_refusal`).
+    # `version` against it.
     saved: Mapping[str, Any] | None,
-    # REQUIRED with no default: the `version` the screen was served, null where it showed no line-up.
+    # Required with no default: the `version` the screen was served, null where it showed no line-up.
     version: int | None,
     # Who saves, as `record_act` takes it: `ACT_BY_KONTAKT` beside the club's name at the save for a seat, and both null
     # on an administrator's route, whose request bound them.
     by: str | None,
     team: str | None,
-    # How the Protokoll names the fixture (`app/api/spiele/services.py :: spiel_label`).
+    # How the Protokoll names the fixture.
     label: str,
-    # REQUIRED: the save's own transaction, in which its caller judged the fixture, the squad and the lock.
+    # The save's own transaction, in which its caller judged the fixture, the squad and the lock.
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """One club's line-up for one fixture written whole and recorded, created by its first save or replaced, answering the document as written.
@@ -103,14 +101,14 @@ async def erase_pupil_from_aufstellungen_in_session(
     spieler_id: CustomObjectId,
     # The erasing request's clock, which judges each fixture played or still to come.
     now: datetime,
-    # REQUIRED: the erasure's own, so no line-up loses a name to an erasure that rolled back.
+    # The erasure's own, so no line-up loses a name to an erasure that rolled back.
     session: AsyncClientSession,
 ) -> None:
     """Empty this pupil's entries on the line-ups of played fixtures and remove their entries from the rest.
 
     A played match's entry stands naming nobody, as a report's does: the line-up is the record of whom the club
     fielded, and a removed entry would read as a place nobody filled. A match still to come loses the pupil, and its
-    club picks again. Judged once, here, by `app/api/teams/services.py :: is_played`.
+    club picks again.
     """
 
     naming = await aggregate_many_from_db(
@@ -162,7 +160,7 @@ async def drop_nameless_entries(
     *,
     aufstellungen_collection: AsyncCollection,
     spiel_id: ObjectId,
-    # REQUIRED: the fixture's save, whose re-dating is what puts the match back among those to come.
+    # The fixture's save, whose re-dating is what puts the match back among those to come.
     session: AsyncClientSession,
 ) -> None:
     """Remove every entry naming nobody from the fixture's line-ups, once a save has put the played match back among those to come.
@@ -188,7 +186,7 @@ async def remove_the_seasons_aufstellungen(
     saison_id: str,
     # One club's alone where it is named: a replaced club's line-ups go with its place in the season.
     team_id: ObjectId | None = None,
-    # REQUIRED: the removal is one half of what its caller does in its transaction.
+    # The removal is one half of what its caller does in its transaction.
     session: AsyncClientSession,
 ) -> int:
     """Remove the line-ups a draw's removal or a club's replacement leaves naming fixtures or a club the season no longer holds."""

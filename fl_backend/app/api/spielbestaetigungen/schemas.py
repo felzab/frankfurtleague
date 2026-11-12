@@ -35,7 +35,7 @@ FLSpielbestaetigungClosedReason = Literal[
     "spiel_past",
 ]
 
-# What a row reads as, the first state matching winning (`app/api/spielbestaetigungen/services.py :: state_of`).
+# What a row reads as, the first state matching winning (`state_of`).
 # `vorschlag`: the other club's decline proposes another date; `cancelled`: the fixture was called off, whatever was answered.
 FLSpielbestaetigungState = Literal["valid", "vorschlag", "agreed", "declined", "expired", "invalid", "cancelled"]
 
@@ -54,7 +54,7 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
     """The Ansetzung a row answers about: every input of `digest`, stored beside it.
 
     A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
-    rather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
+    rather than `digest`.
     """
 
     date: CustomDateString
@@ -97,8 +97,7 @@ class FLSpielbestaetigungAnswer(BaseModel):
     at: CustomDateString
     by: FLSpielbestaetigungBy
     vorschlag: FLSpielbestaetigungAppointment | None
-    # Its length and its one line are the payload's: the read keeps a ban reason's floor alone, as
-    # `app/api/ban_list/schemas.py`'s row does.
+    # Its ceiling and its pattern are the payload's: the read keeps the floor alone, so no stored reason fails a read.
     reason: CustomNonEmptyString | None
 
 
@@ -114,7 +113,7 @@ class _FLSpielbestaetigungFields(BaseModel):
     spiel_id: CustomObjectId
     party: FLSpielbestaetigungParty
     ansetzung: FLSpielbestaetigungAnsetzung
-    # STORED rather than derived from the fixture's date: raising the bound moves no request already sent.
+    # Stored rather than derived from the fixture's date: raising the bound moves no request already sent.
     deadline: CustomDateString
     # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
     asked_at: CustomOptionalDateString
@@ -128,7 +127,7 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFields):
     """One party's confirmation of one Ansetzung, as an administrator reads it.
 
     The close reaches an answered row too, so an agreement a move overtook records why it stopped
-    applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
+    applying.
     """
 
 
@@ -136,7 +135,7 @@ class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
     """One confirmation as `spielbestaetigungen` stores it, with the anchor no read serves."""
 
 
-# --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
+# --- The administrator: a row settled on its party's behalf.
 
 
 class FLSpielbestaetigungEnterPayload(BaseModel):
@@ -151,7 +150,7 @@ class FLSpielbestaetigungEnterPayload(BaseModel):
     reason: CustomSpielbestaetigungReason
 
 
-# --- A CLUB'S ANSWER, signed in on the person lane, and the fixture its pages state. Every payload forbids an undeclared
+# --- A club's answer, signed in on the person lane, and the fixture its pages state. Every payload forbids an undeclared
 # key. Nothing below names a person, a seat's address or a hash.
 
 
@@ -190,7 +189,7 @@ class FLSpielbestaetigungTeamAnswerPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
-    # Both required as KEYS and null where unused: an omitted key would read as a client that forgot it.
+    # Both required as keys and null where unused: an omitted key would read as a client that forgot it.
     vorschlag: FLSpielbestaetigungVorschlagPayload | None
     reason: Annotated[CustomSpielbestaetigungReason | None, BeforeValidator(parse_empty_string_to_none)]
 
@@ -225,11 +224,10 @@ class FLSpielbestaetigungAnswerResponse(BaseAPIResponse):
     vorschlag: FLSpielbestaetigungAppointment | None
 
 
-# --- A REFEREE'S OWN ROWS, answered signed in on the person lane. No deadline binds them: a referee answers until the
+# --- A referee's own rows, answered signed in on the person lane. No deadline binds them: a referee answers until the
 # fixture's kick-off, which the Einteilung states.
 
-# A referee's row as their own list reads it (`app/api/schiedsrichter/schemas.py :: FLSchiedsrichterSpiel`). Never
-# `vorschlag`, a referee proposing no date.
+# A referee's row as their own list reads it. Never `vorschlag`, a referee proposing no date.
 FLSpielbestaetigungSchiedsrichterState = Literal["valid", "agreed", "declined", "expired", "invalid", "cancelled"]
 
 
@@ -239,10 +237,10 @@ class FLSpielbestaetigungSchiedsrichterAnswerPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     answer: FLSpielbestaetigungAnswerKind
-    # Required as a KEY and null where unused, as the club's answer spells it.
+    # Required as a key and null where unused, as the club's answer spells it.
     reason: Annotated[CustomSpielbestaetigungReason | None, BeforeValidator(parse_empty_string_to_none)]
 
-    # On the reason's box, for the club's answer's reason: the panel offers no decline without a reason.
+    # On the reason's box rather than the body, which no box answers: the panel offers no decline without a reason.
     @field_validator("reason")
     @classmethod
     def a_decline_gives_a_reason_and_an_acceptance_none(cls, reason: str | None, info: ValidationInfo) -> str | None:
@@ -257,8 +255,8 @@ class FLSpielbestaetigungSchiedsrichterAnswerResponse(BaseAPIResponse):
     state: FLSpielbestaetigungAnswerKind
 
 
-# --- The PASS, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
-# link and no name (`READ-ANSETZUNG-002`).
+# --- The pass, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
+# link and no name.
 
 
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):

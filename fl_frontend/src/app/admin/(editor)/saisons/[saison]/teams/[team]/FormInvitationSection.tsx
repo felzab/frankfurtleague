@@ -33,7 +33,7 @@ const REPLACED = { verb: "replace", subject: LINK, consequence: WORDS.linkVoidCo
 
 /**
  * The team's registration link: where it stands and until when it holds, a first link minted or a live one mailed,
- * replaced or withdrawn, each an act of its own. **The minted link is held here alone**, in the page's state, since the
+ * replaced or withdrawn, each an act of its own. The minted link is held here alone, in the page's state, since the
  * store keeps its hash: it shows once, with its one copy button, and goes when the page is left.
  */
 export function FormInvitationSection({ team, saison, view }: { team: string; saison: string; view: InvitationView }) {

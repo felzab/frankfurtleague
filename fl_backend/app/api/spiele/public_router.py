@@ -34,7 +34,7 @@ async def get_spiel(
     if not spiele_raw:
         raise DocumentNotFoundError()
 
-    # The fixture's OWN season, after the read: a match of a season being drawn up then misses for
+    # The fixture's own season, after the read: a match of a season being drawn up then misses for
     # the same reason an id naming no match does.
     await resolve_public_saison(saisons_collection=saisons_collection, saison_id=str(spiele_raw[0]["saison_id"]))
 

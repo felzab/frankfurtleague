@@ -21,7 +21,6 @@ import {
 
 const SAISON = { saison_id: SaisonsSwapGruppenParams.shape.saison_id };
 
-/** An act naming its season alone. */
 const OfSaison = z.object(SAISON);
 
 /** An act on the passkey touch's list, naming its season and the address its page was drawn for. */

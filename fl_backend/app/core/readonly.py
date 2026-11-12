@@ -1,5 +1,5 @@
 """
-CORE · a collection that can only be read, so an operation writing nothing is one the type checker holds to it
+A collection that can only be read, so an operation writing nothing is one the type checker holds to it.
 
 A structural type (PEP 544): pymongo's `AsyncCollection` satisfies it as it stands, and it names the driver's reads
 alone, each cursor they return narrowed to its reads too, so a write called on it, on what it returns, or a write
@@ -7,13 +7,12 @@ helper handed it, is a type error rather than a convention. Least privilege insi
 holds; a second, read-only client is what the ratified `db` line refuses.
 
 What the types cannot hold, each a step outside them rather than a slip inside:
-- the request's snapshot session (`app/core/dependencies.py :: SnapshotSession`), whose `client` is the driver's
-  whole client: the one handle such an operation is handed that leads back to a write, kept because reading several
-  times at one moment needs a session;
+- the request's snapshot session, whose `client` is the driver's whole client: the one handle such an operation
+  is handed that leads back to a write, kept because reading several times at one moment needs a session;
 - an aggregation stage writing its output (`$out`, `$merge`), which a pipeline's type does not show;
 - a handle handed on through anything written `Any`, on which pyright checks nothing: a parameter left without a
-  type is refused in `app` (`pyproject.toml`'s `reportMissingParameterType`) unless it is named `_`, which that rule
-  exempts, and one typed `Any` is not;
+  type is refused in `app` by pyright's `reportMissingParameterType` unless it is named `_`, which that rule exempts,
+  and one typed `Any` is not;
 - a runtime narrowing to the driver's class (`isinstance`, a `match` class pattern, a `TypeIs` or `TypeGuard`), which
   holds, since the object handed is the driver's collection;
 - the client on `request.app.state`, for a handler or dependency taking the request;

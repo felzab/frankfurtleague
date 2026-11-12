@@ -1,6 +1,6 @@
 import { COPY } from "@/core/copy";
 import { FLSchulform } from "@/core/generated/client/types";
-import { TRIKOT_FARBEN } from "@/core/teamVocabulary";
+import { TRIKOT_FARBEN } from "@/core/trikotFarben";
 
 import type { FLGruppenNames, FLTeamGruppeOffer } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";

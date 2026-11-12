@@ -150,11 +150,9 @@ async def get_references(
     )
 
 
-# The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
-# it, and neither the hourly pass nor an activation's press holds a person's session here.
-# At most sixteen commands for a pupil a report and a played match's line-up name, each the round trip plus at most
-# 1.36 ms, timed locally 2026-11-11: this share, about 6.3 s with the call's own four, fits
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
+# The erasure pass is system-tier: the rule deletes whichever caller triggers it, and neither the hourly pass nor an
+# activation's press holds a person's session here. A share of pupils each named by a report and a played match's
+# line-up, at most sixteen commands apiece, fits the request's deadline.
 ERASURES_PER_PASS: Final = 10
 
 
@@ -245,30 +243,10 @@ async def sweep_erasure(
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureSweepResponse:
-    """
-    Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
+    """Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 
-    The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
-    in the latest `past` season, in any season with a greater id or in the running one, and no registration still `submitted`
-    at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `completed_saison_id`
-    is null. A pupil holding no address is never due: nothing else erases by a name.
-
-    Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
-    pending registration since this call read them, the two committing before that transaction writes included, or whom another
-    call deleted first, is counted `skipped` and left standing. A squad entry or a registration meeting that transaction's
-    writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
-    Two calls at once therefore delete each pupil once. Deleted are
-    the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
-    one included. A contact seat, a referee record, a grant and anything else held at the same address stand.
-
-    **A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call
-    answering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass
-    holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
-    `failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
-    the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
-    what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
-    call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
-    limit.
+    A pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering
+    `after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.
     """
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)
@@ -289,8 +267,7 @@ async def sweep_erasure(
     for row in share:
         reached = row["_id"]
 
-        # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
-        # a team's: a failure the session never saw leaves its transaction open.
+        # Caught outside the person's session: a failure the session never saw leaves its transaction open.
         try:
             erased = await _erase_one(
                 row["_id"],

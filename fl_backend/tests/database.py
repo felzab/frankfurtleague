@@ -68,7 +68,8 @@ def _release() -> None:
 
 # Each seed's bound. A rival a case runs inside a write that then waits on that write's own transaction deadlocks until
 # MongoDB aborts the transaction at its 60 s lifetime limit, and the retry that follows passes the case. Under that limit,
-# the case fails under its own name; the slowest seed of the tier takes about 3 s.
+# the case fails under its own name; above the slowest seeds of the tier, which wait out a whole request deadline, no
+# seed that would finish is cut.
 SEED_BOUND_S = 30.0
 
 _UNFINISHED = (

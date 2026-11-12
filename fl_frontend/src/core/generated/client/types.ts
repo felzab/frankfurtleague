@@ -508,7 +508,7 @@ export interface FLAccountErasureRegistrierung {
 }
 
 export interface FLAccountErasureSchiedsrichter {
-  name: string | null;
+  name: string;
 }
 
 /**
@@ -1166,8 +1166,7 @@ export interface FLAufstellungSpiel {
 /**
  * One club's line-up screen for one fixture: the squad to pick from, the stored line-up and what its save sends back.
  *
- * `saison_status` as the match editor's read serves it (`FLSpieleAdminSingleResponse`): a finished season's line-up
- * opens read-only, which the save refuses (`saison_past`).
+ * A finished season's line-up, which `saison_status` marks, is read-only.
  */
 export interface FLAufstellungResponse {
   kader: FLAufstellungSpieler[];
@@ -1386,7 +1385,7 @@ export interface FLEinwilligungEvidenceSet {
 }
 
 /**
- * How this person's record came to be held, and what they answered.
+ * The scope this person's record is held on, the day they were seated, and what they answered.
  *
  * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and a pupil's consent record holds
  * other values entirely.
@@ -2287,8 +2286,8 @@ export interface FLDeletionNoticeData {
 /**
  * What this person agreed may be published about them.
  *
- * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
- * consented, and no surface can tell that from one somebody gave.
+ * Its keys stand together: a scope with no confirmation date claims somebody consented, and no surface can tell
+ * that from one somebody gave.
  */
 export interface FLEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -2686,10 +2685,7 @@ export interface FLInvitationWriteResponse {
 }
 
 /**
- * One squad row as its team's seat holder reads it (`READ-KADER-001`).
- *
- * Declared from nothing rather than a public model unmasked, so the whole surname reaches no
- * base-tier model, and no address or telephone number reaches this one.
+ * One squad row as its team's seat holder reads it, the surname whole and no address or telephone number.
  */
 export interface FLKaderRow {
   /** @minLength 1 */
@@ -3747,9 +3743,6 @@ export interface FLPatchSchiedsrichterResponse {
 
 /**
  * A shoot-out as a save sends it: a key beside the two counts is refused, never dropped.
- *
- * Its own model, since a model's configuration reaches none nested in it, and the stored one stays lenient for the
- * documents it reads.
  */
 export interface FLSpielElfmeterschiessenPayload {
   /** @minimum 0 */
@@ -3850,13 +3843,10 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * Every fixture the save moved beyond its own edit, each with the result it destroyed.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the fixture's `version` after it.
  *
- * `version` is the fixture's own after the save, the one its next save sends. `recipients`, on a `dry_run` alone and
- * null on a save, is every party the confirmation pass mails about this fixture once it is saved so, and would not as
- * it stands: told of the move, of the referee taken off it, or of its call-off, each by its name.
- * `voided_results` is every later result among those fixtures the save deletes, each once, in their numbers' order:
- * the set a save names in its body to delete them.
+ * `voided_results` is the set a save names in its body to delete those results, and `recipients`, on a `dry_run` alone,
+ * every party the confirmation pass would mail of the change.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
@@ -3869,7 +3859,7 @@ export interface FLPatchSpielDataResponse {
 /**
  * The Spieler editor's one save: the person, and their squad row in the season the page stands under.
  *
- * Replaced wholesale, as `_KaderRowFields` is. No consent and no address: each is the person's own to change.
+ * Replaced wholesale, with no consent and no address, each being the person's own to change.
  */
 export interface FLPatchSpielerSaisonPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4582,10 +4572,9 @@ export interface FLSchiedsrichterConfirmationPayload {
 }
 
 /**
- * What the person just recorded, read back off the updated document.
+ * What the person just recorded, as their press sent it.
  *
- * Bounded by `READ-REFEREE-002` as the view above is: the page confirms the answer, and a
- * caller holding a leaked token learns nothing it did not already post.
+ * A caller holding a leaked token learns nothing it did not already post.
  */
 export interface FLSchiedsrichterConfirmationResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4604,9 +4593,9 @@ export const FLSchiedsrichterConfirmationState = {
 } as const;
 
 /**
- * What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
+ * What one confirmation link opens, and nothing that says who its person is.
  *
- * Never a name, the school, the contact details, the fee, the birthdate or the id.
+ * The link went to an address an administrator typed and nobody has confirmed, which behind a typo is a stranger's.
  */
 export interface FLSchiedsrichterConfirmationViewResponse {
   answered_at: string | null;
@@ -4735,8 +4724,8 @@ export const FLSpielberichtVorschlagSonderereignis = {
 /**
  * The referee's proposed result, which only the administrator's own save applies.
  *
- * Each count is the entries credited to that side, written by the report's save and sent by no form. Both null on a
- * no-show alone: the save composes its goals from the season's forfeit, which counted goals could never equal.
+ * Each count is the entries credited to that side, written by the report's save and sent by no form, and both are null
+ * on a no-show alone, whose goals the save composes from the season's forfeit.
  */
 export interface FLSpielberichtVorschlag {
   elfmeterschiessen: FLSpielElfmeterschiessen | null;
@@ -4833,9 +4822,8 @@ export interface FLSpielEditorSpielort {
 /**
  * A club a knockout fixture's Begegnung offers for either side, by the name and shorthand its season row holds.
  *
- * `on_spieltag`: the club stands on another fixture of this matchday, which a save fielding it here either moves it
- * off or is refused for. `fieldable`: a save fielding it on this fixture as it stands passes the write's eligibility
- * and occupancy rules (`find_eligibility_refusal`, `judge_spieltag_occupancy`), judged on the side it already holds.
+ * `on_spieltag` says the club stands on another fixture of this matchday, and `fieldable` whether a save fielding it
+ * here as the fixture stands would pass.
  */
 export interface FLSpielEditorTeam {
   fieldable: boolean;
@@ -4849,10 +4837,10 @@ export interface FLSpielEditorTeam {
 }
 
 /**
- * One pupil an entry names, as the base tier serves them; no record id (`READ-PUPIL-005`).
+ * One pupil an entry names, as the base tier serves them, without their record's id.
  *
- * The names where the pupil's consent publishes them, the surname as an initial (`READ-PUPIL-001`); both null where
- * it does not, and where the entry names nobody, which the two cases share.
+ * The names where the pupil's consent publishes them, the surname as an initial; both null where it does not, and
+ * where the entry names nobody, which the two cases share.
  */
 export interface FLSpielberichtSpielerPublic {
   first_name: string | null;
@@ -5053,7 +5041,7 @@ export interface FLSpielberichtSchiedsrichterResponse {
  * The Ansetzung a row answers about: every input of `digest`, stored beside it.
  *
  * A digest is opaque to an aggregation, so the public fixture's verdict compares these five values
- * rather than `digest` (`app/api/spielbestaetigungen/services.py :: ANSETZUNG_QUELLEN`).
+ * rather than `digest`.
  */
 export interface FLSpielbestaetigungAnsetzung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -5135,7 +5123,7 @@ export interface FLSpielbestaetigungClosed {
  * One party's confirmation of one Ansetzung, as an administrator reads it.
  *
  * The close reaches an answered row too, so an agreement a move overtook records why it stopped
- * applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
+ * applying.
  */
 export interface FLSpielbestaetigung {
   ansetzung: FLSpielbestaetigungAnsetzung;
@@ -5243,9 +5231,6 @@ export interface FLSpielbestaetigungViewAnsetzung {
 
 /**
  * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
- *
- * `saison_status` on the response rather than on the fixture: the editor alone asks it, to open a finished season's
- * match read-only, which the save refuses (`saison_past`), and a fixture carries no season-scoped state.
  */
 export interface FLSpieleAdminSingleResponse {
   aufstellungen: FLSpielEditorAufstellungen;
@@ -5322,10 +5307,7 @@ export interface FLSpielerAdminListResponse {
 }
 
 /**
- * One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
- *
- * `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
- * `stufe` is gone (`READ-PUPIL-002`), and the consent record with it.
+ * One squad row as an anonymous visitor may read it: the surname an initial, and no `stufe` or consent record.
  */
 export interface FLSpielerPublic {
   first_name: string | null;
@@ -5439,10 +5421,7 @@ export interface FLSpielerSaisonSelfResponse {
 }
 
 /**
- * One player as the BASE TIER serves them -- an allow-list of what this surface needs.
- *
- * Squad fields are season-scoped, and inventing a season would make the answer depend on a default
- * nobody stated. `last_name` is an INITIAL here (`READ-PUPIL-001`).
+ * One player as an anonymous visitor may read them, the surname an initial and no squad field of any season.
  */
 export interface FLSpielerSingleResponse {
   first_name: string | null;
@@ -5552,7 +5531,7 @@ export interface FLSubjectPayload {
 }
 
 /**
- * One referee record the mailbox names, carrying the id alone for `FLSubjectSpieler`'s reason.
+ * One referee record the mailbox names, by its id alone, so a machine read gets no fresh copy of somebody's own data.
  */
 export interface FLSubjectSchiedsrichter {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5562,8 +5541,7 @@ export interface FLSubjectSchiedsrichter {
 /**
  * One contact seat the mailbox holds on a season's junction row.
  *
- * Per seat and never per person, as the erasure's `FLAccountErasureSeat` is: one row seats one
- * person twice where `trainer_is_also` says so.
+ * Per seat and never per person: one row seats one person twice where `trainer_is_also` says so.
  */
 export interface FLSubjectSeat {
   rolle: FLKontaktRolle;

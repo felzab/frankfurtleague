@@ -86,7 +86,8 @@ export default function RegistrierungConfirmationPage({ searchParams }: Props) {
 }
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
+// arguments rather than the caller.
 const readView = cache(async (token: string): Promise<FLRegistrierungConfirmationViewResponse | null> =>
   runWithIncomingTrace(() => linkViewOf(registrierungenGetConfirmationView({ token }))),
 );
