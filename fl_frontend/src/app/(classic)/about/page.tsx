@@ -26,7 +26,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 export default function AboutPage() {
   return (
-    <ClassicPage width="reading">
+    <ClassicPage width="form">
       <PageHead
         title={COPY.page.about}
         lead={words.paragraphs}

@@ -17,8 +17,8 @@ const page = tv({
     // A form or a mailed page in the form column; a mailed page's question, one card as wide as a dialog holding a
     // form; one card centred on the page as a status page stands; the sign-in's column, which proportions its
     // full-width controls as Vercel's sign-in does; or, as wide as the header's and the footer's row, the landing,
-    // its sections farther apart than a form's, and a reading page, its text hanging from the logo's edge while a
-    // task stays centred.
+    // its sections farther apart than a form's, and a long legal text's `ReadingPage`, its text hanging from the
+    // logo's edge beside its contents list.
     width: {
       form: { column: "max-w-form" },
       mailed: { column: "max-w-dialog" },
@@ -87,7 +87,7 @@ export const mailedCard = tv({
   },
 });
 
-/** Landing sections under a reading page's head, as far apart as the landing's: 48 px on a phone and 64 px from `lg`. */
+/** Landing sections under a page's head, About's, as far apart as the landing's: 48 px on a phone and 64 px from `lg`. */
 export function ClassicSections({ children }: { children: ReactNode }) {
   return <div className="grid gap-12 lg:gap-16">{children}</div>;
 }
@@ -103,8 +103,8 @@ const head = tv({
 });
 
 /**
- * A reading page's head: its title at the page's rung, the lead under it, the page's own description or, on About, the
- * landing's paragraphs, and the day its words took effect where the page has one.
+ * A page's head where its title stands on the page: its title at the page's rung, the lead under it, the page's own
+ * description or, on About, the landing's paragraphs, and the day its words took effect where the page has one.
  */
 export function PageHead({ title, lead, date }: { title: Copy; lead: readonly Copy[]; date?: Copy }) {
   const slots = head();

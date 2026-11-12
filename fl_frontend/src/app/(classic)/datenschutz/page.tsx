@@ -1,5 +1,4 @@
-import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { Prose } from "@/kit/Prose";
+import { ReadingPage } from "@/kit/Prose";
 import { Table } from "@/kit/Table";
 
 import { ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT } from "@/core/addressChange";
@@ -18,8 +17,7 @@ import { REGISTRIERUNG_MIN_AGE } from "@/features/registrierungen/constants";
 import { SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS } from "@/features/schiedsrichter/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { Copy } from "@/core/copy";
-import type { ProseBlock, ProseText } from "@/kit/Prose";
+import type { ProseBlock, ProseSection, ProseText } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const words = SERVER_COPY.legal.privacyNotice;
@@ -27,7 +25,6 @@ const words = SERVER_COPY.legal.privacyNotice;
 /** The league's address as a link inside a sentence. */
 const MAIL: ProseText[number] = { href: KONTAKT_MAILTO, label: { record: KONTAKT_EMAIL } };
 
-const heading = (text: Copy): ProseBlock => ({ kind: "heading", text });
 const paragraph = (...text: ProseText): ProseBlock => ({ kind: "paragraph", text });
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -41,100 +38,118 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  */
 export default function PrivacyNoticePage() {
   const { firstLayer, retention, rights } = words;
-  const blocks: ReadonlyArray<ProseBlock> = [
-    heading(firstLayer.heading),
-    { kind: "list", items: [...firstLayer.items.map((item) => [item]), [firstLayer.contact.before, MAIL, firstLayer.contact.after]] },
-    heading(words.basis.heading),
-    paragraph(words.basis.text),
-    heading(words.website.heading),
-    paragraph(words.website.requests),
-    paragraph(words.website.browser),
-    heading(words.bewerbung.heading),
-    paragraph(words.bewerbung.form),
-    paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
-    heading(words.kader.heading),
-    paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS)),
-    heading(words.schiedsrichter.heading),
-    paragraph(words.schiedsrichter.text(SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS)),
-    heading(words.spiele.heading),
-    paragraph(words.spiele.text),
-    heading(words.account.heading),
-    paragraph(
-      words.account.signIn(
-        { minutes: CODE_VALIDITY_MINUTES },
-        { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
-        { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
-        SESSION_EXPIRES_IN_DAYS,
-      ),
-    ),
-    paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
-    paragraph(words.account.ban),
-    heading(words.mail.heading),
-    paragraph(words.mail.senders),
-    paragraph(words.mail.forwarding),
-    paragraph(words.mail.whatsapp),
-    heading(words.published.heading),
-    paragraph(words.published.record),
-    paragraph(words.published.names),
-    paragraph(words.published.consented(MEDIA_MIN_AGE)),
-    paragraph(words.published.never),
-    heading(words.recipients.heading),
-    paragraph(words.recipients.lead),
-    { kind: "list", items: words.recipients.items.map((item) => [item]) },
-    paragraph(words.recipients.transfers),
-    heading(retention.heading),
+  const sections: ReadonlyArray<ProseSection> = [
     {
-      kind: "table",
-      table: (
-        <Table
-          label={retention.heading}
-          nameLabel={retention.nameLabel}
-          columns={[
-            { key: "content", label: retention.content },
-            { key: "period", label: retention.period },
-          ]}
-          rows={retention.rows.map((row) => ({
-            id: row.name,
-            name: row.name,
-            cells: {
-              content: row.content,
-              period:
-                typeof row.period === "string"
-                  ? row.period
-                  : row.period({
-                      bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
-                      registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
-                      declinedDays: DECLINED_RETENTION_DAYS,
-                      schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
-                      addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
-                      code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
-                      sessionDays: SESSION_EXPIRES_IN_DAYS,
-                      banSaisons: BAN_DURATION_SAISONS,
-                    }),
-            },
-          }))}
-          // Its rows are fixed, so this state never shows; every table names one.
-          empty={{ kind: "none", plural: retention.nameLabel }}
-          prose
-        />
-      ),
+      heading: firstLayer.heading,
+      blocks: [
+        { kind: "list", items: [...firstLayer.items.map((item) => [item]), [firstLayer.contact.before, MAIL, firstLayer.contact.after]] },
+      ],
     },
-    heading(words.erasure.heading),
-    paragraph(words.erasure.text),
-    paragraph(words.erasure.log),
-    heading(rights.heading),
-    paragraph(rights.text.before, MAIL, rights.text.after),
-    { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
-    paragraph(rights.closing),
+    { heading: words.basis.heading, blocks: [paragraph(words.basis.text)] },
+    { heading: words.website.heading, blocks: [paragraph(words.website.requests), paragraph(words.website.browser)] },
+    {
+      heading: words.bewerbung.heading,
+      blocks: [
+        paragraph(words.bewerbung.form),
+        paragraph(words.bewerbung.confirmation(BEWERBUNG_CONFIRMATION_DEADLINE_DAYS, BEWERBUNG_MIN_AGE, SIGNATORY_MIN_AGE)),
+      ],
+    },
+    { heading: words.kader.heading, blocks: [paragraph(words.kader.text(REGISTRIERUNG_MIN_AGE, REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS))] },
+    { heading: words.schiedsrichter.heading, blocks: [paragraph(words.schiedsrichter.text(SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS))] },
+    { heading: words.spiele.heading, blocks: [paragraph(words.spiele.text)] },
+    {
+      heading: words.account.heading,
+      blocks: [
+        paragraph(
+          words.account.signIn(
+            { minutes: CODE_VALIDITY_MINUTES },
+            { idleDays: PERSON_LIFETIME.idle / DAY_MS, days: PERSON_WINDOW_DAYS },
+            { idleHours: ADMIN_IDLE_HOURS, hours: ADMIN_WINDOW_HOURS },
+            SESSION_EXPIRES_IN_DAYS,
+          ),
+        ),
+        paragraph(words.account.changes(ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAIT_DAYS, HOLDER_WAIT.administration, HOLDER_WAIT.owner)),
+        paragraph(words.account.ban),
+      ],
+    },
+    {
+      heading: words.mail.heading,
+      blocks: [paragraph(words.mail.senders), paragraph(words.mail.forwarding), paragraph(words.mail.whatsapp)],
+    },
+    {
+      heading: words.published.heading,
+      blocks: [
+        paragraph(words.published.record),
+        paragraph(words.published.names),
+        paragraph(words.published.consented(MEDIA_MIN_AGE)),
+        paragraph(words.published.never),
+      ],
+    },
+    {
+      heading: words.recipients.heading,
+      blocks: [
+        paragraph(words.recipients.lead),
+        { kind: "list", items: words.recipients.items.map((item) => [item]) },
+        paragraph(words.recipients.transfers),
+      ],
+    },
+    {
+      heading: retention.heading,
+      blocks: [
+        {
+          kind: "table",
+          table: (
+            <Table
+              label={retention.heading}
+              nameLabel={retention.nameLabel}
+              columns={[
+                { key: "content", label: retention.content },
+                { key: "period", label: retention.period },
+              ]}
+              rows={retention.rows.map((row) => ({
+                id: row.name,
+                name: row.name,
+                cells: {
+                  content: row.content,
+                  period:
+                    typeof row.period === "string"
+                      ? row.period
+                      : row.period({
+                          bewerbungDays: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
+                          registrierungDays: REGISTRIERUNG_CONFIRMATION_DEADLINE_DAYS,
+                          declinedDays: DECLINED_RETENTION_DAYS,
+                          schiedsrichterDays: SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS,
+                          addressChangeLinkHours: ADDRESS_CHANGE_VALID_HOURS,
+                          code: { minutes: CODE_VALIDITY_MINUTES, mailHours: CODE_MAIL_WINDOW_HOURS, failureHours: CODE_FAILURE_WINDOW_HOURS },
+                          sessionDays: SESSION_EXPIRES_IN_DAYS,
+                          banSaisons: BAN_DURATION_SAISONS,
+                        }),
+                },
+              }))}
+              // Its rows are fixed, so this state never shows; every table names one.
+              empty={{ kind: "none", plural: retention.nameLabel }}
+              prose
+            />
+          ),
+        },
+      ],
+    },
+    { heading: words.erasure.heading, blocks: [paragraph(words.erasure.text), paragraph(words.erasure.log)] },
+    {
+      heading: rights.heading,
+      blocks: [
+        paragraph(rights.text.before, MAIL, rights.text.after),
+        { kind: "callout", callout: { tone: "info", title: rights.objection.title, text: rights.objection.text } },
+        paragraph(rights.closing),
+      ],
+    },
   ];
   return (
-    <ClassicPage width="reading">
-      <PageHead
-        title={COPY.page.privacyNotice}
-        lead={[SERVER_COPY.description.privacyNotice]}
-        date={words.asOf(DATENSCHUTZ_AS_OF)}
-      />
-      <Prose blocks={blocks} />
-    </ClassicPage>
+    <ReadingPage
+      title={COPY.page.privacyNotice}
+      lead={[SERVER_COPY.description.privacyNotice]}
+      date={words.asOf(DATENSCHUTZ_AS_OF)}
+      sections={sections}
+    />
   );
 }
