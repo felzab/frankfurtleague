@@ -44,8 +44,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   `ReactElement`, which a bare string is not. An `as Copy` assertion outside the catalogue defeats
   that and is never written.
 - **A parameterised entry is a typed function** taking data or another entry, never a sentence or a
-  string to pass through: the plural of an empty state is the list's own entry, a date is a
-  stored `YYYY-MM-DD` day, a year a range ends on is `{ year }`. A name that may be the catalogue's
+  string to pass through. The plural of an empty state is the list's own entry, a date is a stored
+  `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
   every season's name through `COPY.shared.saisonName`**, and the current time is read through
@@ -62,9 +62,9 @@ other. The owner flags what they dislike on the screen it sits on.
 
 **If the sentence were deleted, would the reader do something wrong?** If not, delete it. Copy says
 what is so or what to expect, never why it is so, how to repair it or how the system works. A shared
-string replaces a detailed one wherever it can: a reason stands on its own only where the reader
-would not think of it and can act on it, in as few words as say it, and one sentence serves every
-place that means the same thing.
+string replaces a detailed one wherever it can, and one sentence serves every place that means the
+same thing. A reason stands on its own only where the reader would not think of it and can act on
+it, in as few words as say it.
 
 ## The voice is plain and says du
 
@@ -122,9 +122,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   rule refused the value, filled with the bounds the rule names („Höchstens 11“ under the Startelf's
   box). The address example is `field.exampleAddress`, a reserved domain, never a school's address.
 - **A refusal a person can cause knowingly from the screen** that one of `field`'s patterns words
-  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such refusal, about
-  the whole form or about a field no pattern can word, takes the status line in one short sentence
-  that fits its two lines on a phone and names its field itself where it has one; a field phrase
+  shows on its field's box, and the status line says `COPY.template.checkFields`. Every other such
+  refusal, about the whole form or a field no pattern words, takes the status line: one short
+  sentence that fits its two lines on a phone, naming its field where it has one. A field phrase
   never stands on the status line, since it has no subject there. Every other refusal takes a
   `failure` line: `stale` for a stale page, a concurrent change or a choice the screen had closed
   when it was read, `signInExpired` for an ended sign-in, `tooManyAttempts` for every limit on
@@ -157,7 +157,7 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
 a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
-score; a season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
+score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
 needs no formatting. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
@@ -199,5 +199,5 @@ A date field shows „tt.mm.jjjj“ and a time field „––:––“ while e
   lives outside the catalogue, in `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`,
   where new words are a new label beside it. The one exception is the paste the deploy of the
   current wordings owes, which re-points every stored record's label to its consent's current
-  wording, so a record stamped before that deploy cites words its person was not shown
+  wording. A record stamped before that deploy therefore cites words its person was not shown
   ([the `Fassung` entry](../glossary.md#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label)).
