@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Suspense, use, useContext } from "react";
+import { createContext, Suspense, use, useContext, useEffect, useState } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -108,11 +108,37 @@ export type FrameSaisons = SaisonFrame | TeamFrame;
 /** A frame's seasons with the season pages its menu lists. */
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
-const SaisonContext = createContext<SaisonScopeValue | null>(null);
+/** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
+const SaisonContext = createContext<(SaisonScopeValue & { chosen?: string }) | null>(null);
 
-/** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
+/**
+ * Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach, and holds the
+ * last season an address named for as long as the frame's layout stays mounted: React state alone, so a reload or a new
+ * sign-in starts at the standard season, and nothing is stored.
+ */
 export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
-  return <SaisonContext value={value}>{children}</SaisonContext>;
+  const [chosen, setChosen] = useState<string>();
+  return (
+    <SaisonContext value={{ ...value, chosen }}>
+      {/* Reads the address, which no prerender knows, so it waits in a boundary of its own, drawing nothing. */}
+      <Suspense fallback={null}>
+        <SaisonMemory choose={setChosen} />
+      </Suspense>
+      {children}
+    </SaisonContext>
+  );
+}
+
+/**
+ * Records the season the address names once the page showing it is committed. The record is read only on a page whose
+ * address names none, so the render after it changes nothing a person sees.
+ */
+function SaisonMemory({ choose }: { choose: (saison: string) => void }) {
+  const { saison } = useParams();
+  useEffect(() => {
+    if (typeof saison === "string") choose(saison);
+  }, [saison, choose]);
+  return null;
 }
 
 /** Whether the frame holds seasons at all, which it knows before they are read: a frame with none draws no season button. */
@@ -136,20 +162,34 @@ type FrameSaison = {
 };
 
 /**
- * The season the page works in: the one its address names where the frame holds it, else the frame's standard, in a
- * team's frame among the seasons of the team the address names; `null` where there is none.
+ * The season the page works in: the one its address names where the frame holds it; on a page whose address names
+ * none, the one the last address naming one named where the frame holds it; else the frame's standard. In a team's
+ * frame among the seasons of the team the address names; `null` where there is none.
  */
 export function useFrameSaison(): FrameSaison | null {
+  return useWorkingSaison(false) ?? null;
+}
+
+/**
+ * `useFrameSaison`, or, where `listless` and the address names the season, and in a team's frame the team too,
+ * `undefined` without waiting for the seasons' read: the address spells every page's address in that season.
+ */
+function useWorkingSaison(listless: boolean): FrameSaison | null | undefined {
   const frame = useContext(SaisonContext);
   const { saison, team } = useParams();
   if (frame === null) return null;
+  if (listless && typeof saison === "string" && (frame.teams === undefined || typeof team === "string")) return undefined;
+  // The season chosen before is sought only where the address names none: an address naming a season the frame does not
+  // hold, as a not-found page's, falls to the standard, as it would on the first page the frame shows.
+  const sought = typeof saison === "string" ? saison : frame.chosen;
+  const activeIn = (held: Saisons) => held.entries.find((entry) => entry.id === sought)?.id ?? held.standard;
 
   if (frame.teams !== undefined) {
     const held = use(frame.teams).find((each) => each.team === team);
     if (held === undefined) return null;
     return {
       entries: held.entries,
-      active: held.entries.find((entry) => entry.id === saison)?.id ?? held.standard,
+      active: activeIn(held),
       team: held.team,
       home: (to) => ROUTES[frame.home].path(held.team, to),
       pages: frame.pages.map((page) => (to) => ROUTES[page].path(held.team, to)),
@@ -160,7 +200,7 @@ export function useFrameSaison(): FrameSaison | null {
   if (saisons === null) return null;
   return {
     entries: saisons.entries,
-    active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard,
+    active: activeIn(saisons),
     home: (to) => ROUTES[frame.home].path(to),
     pages: frame.pages.map((page) => (to) => ROUTES[page].path(to)),
   };
@@ -214,10 +254,14 @@ export function counterpart({
  * there, and several led to one address are the place of none. A team the person does not hold keeps its pages in the
  * menu, each at the team and season the address spells and each answering with the same refusal, so the menu there is
  * the one every team's address shows.
+ *
+ * `listless`, the entries wait for no read where the address names the season, and a team's the team: each takes them
+ * as the address spells them, which `RailEntries` and `BarPlaces` stand until the read confirms or corrects them.
  */
-function useEntries(groups: ReadonlyArray<RailGroup>) {
+function useEntries(groups: ReadonlyArray<RailGroup>, listless = false) {
   const frame = useContext(SaisonContext);
-  const saison = useFrameSaison();
+  // `undefined` where the address spells what the entries need and they were asked not to wait.
+  const saison = useWorkingSaison(listless);
   const { team, saison: named } = useParams();
   const hrefOf = (entry: RailEntry): Route | undefined => {
     if (entry.href !== undefined) return entry.href;
@@ -226,6 +270,7 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
       const spelled = frame?.teams !== undefined && typeof team === "string" && typeof named === "string";
       return spelled ? ROUTES[entry.team].path(team, named) : undefined;
     }
+    if (saison === undefined) return typeof named === "string" ? ROUTES[entry.saison].path(named) : undefined;
     return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
   const led = groups.flatMap((group) => group.entries.map(hrefOf));
@@ -401,9 +446,28 @@ const railRule = tv({
   base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
 });
 
-/** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
-export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
-  const groups = useEntries(given);
+/**
+ * The rail's entries in their groups, the current one in the brand colour on the muted fill. Where the address names
+ * the season they stand at once as it spells them, and the seasons' read, landing, keeps them or, for a season the
+ * frame does not hold, leads them to its standard: the not-found page stands in the frame, and a menu following an
+ * unknown season would lead every entry to another not-found page.
+ */
+export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
+  return (
+    <Suspense
+      fallback={
+        <RailEntryList
+          {...props}
+          listless
+        />
+      }>
+      <RailEntryList {...props} />
+    </Suspense>
+  );
+}
+
+function RailEntryList({ groups: given, prefetch, listless }: { groups: ReadonlyArray<RailGroup>; prefetch?: true; listless?: true }) {
+  const groups = useEntries(given, listless);
   const current = useCurrent(groups.flatMap((group) => group.entries));
   return (
     // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
@@ -430,6 +494,7 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
                 label={entry.label}>
                 <NextLink
                   href={entry.href}
+                  prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
                   data-selected={entry === current || undefined}
                   data-kit-focus="inset"
@@ -452,9 +517,10 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
 }
 
 /**
- * The rail's entries while the season their addresses name is read: every group and entry as `RailEntries` draws it,
- * each heading's and name's words a bar as wide as they will stand and each glyph a bar of its size, so the entries
- * appear in their places. No entry is marked current, which the address decides once the read lands.
+ * The rail's entries while their addresses wait, in a prerendered shell for the address, on a page naming no season for
+ * the seasons' read: every group and entry as `RailEntries` draws it, each heading's and name's words a bar as wide as
+ * they will stand and each glyph a bar of its size, so the entries appear in their places. No entry is marked current,
+ * which the address decides once the wait ends.
  */
 export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
   return (
@@ -609,6 +675,8 @@ export type FrameMenu = {
   /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: AccountRead;
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep Next's default. */
+  prefetch?: true;
 };
 
 const MenuContext = createContext<FrameMenu | null>(null);
@@ -624,11 +692,22 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
-  return menu === null ? null : <Places {...menu} />;
+  // At once as the address spells them, as the rail's entries are (`RailEntries`).
+  return menu === null ? null : (
+    <Suspense
+      fallback={
+        <Places
+          {...menu}
+          listless
+        />
+      }>
+      <Places {...menu} />
+    </Suspense>
+  );
 }
 
-function Places({ groups: given, bar, extra, account }: FrameMenu) {
-  const groups = useEntries(given);
+function Places({ groups: given, bar, extra, account, prefetch, listless }: FrameMenu & { listless?: true }) {
+  const groups = useEntries(given, listless);
   const entries = groups.flatMap((group) => group.entries);
   const current = useCurrent(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
@@ -637,13 +716,15 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
     .filter((group) => group.entries.length > 0);
 
   return (
+    // At the column's foot, by its margin, whether a page stands above it or none does yet.
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
+      className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NextLink
           key={entry.id}
           href={entry.href}
+          prefetch={prefetch}
           aria-current={entry === current ? "page" : undefined}
           data-kit-focus="inset"
           className={barPlace({ current: entry === current, host: "link" })}>
@@ -681,6 +762,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                     <NextLink
                       key={entry.id}
                       href={entry.href}
+                      prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
@@ -742,8 +824,8 @@ function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
 }
 
 /**
- * The phone's bottom bar while the season its addresses name is read: every place `BarPlaces` will draw, the pages,
- * „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
+ * The phone's bottom bar while its addresses wait, as the rail's entries do: every place `BarPlaces` will draw, the
+ * pages, „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
  */
 export function BarPlacesPlaceholder() {
   const menu = useContext(MenuContext);
@@ -752,7 +834,7 @@ export function BarPlacesPlaceholder() {
   const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const more = entries.length > placed.length || menu.extra.length > 0;
   return (
-    <Placeholder layoutClass="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+    <Placeholder layoutClass="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
       {placed.map((entry) => (
         <PlacePlaceholder
           key={entry.id}

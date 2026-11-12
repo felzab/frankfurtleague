@@ -135,15 +135,18 @@
   }
 
   /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page live
-     beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
-     page scrolls under, would stay in the page beneath, and a fading part would show what scrolled under them over them:
-     each carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
-     the order their names were captured, and a name only in the new state is captured after every name of the old
-     one, so a part React's streamed reveal brings in would paint over them; `z-index` is what lifts the three over any
-     other group, the strip a step below the two, since on a phone it scrolls under the band. The classic band and the
-     rail's phone band share `band`, and the phone bar and an editor's bar, which takes its place, share `bar`, neither
-     pair ever standing on one page together. */
-  ::view-transition-group(strip) {
+     beneath them all. A frame's band, its phone bar, an editor's bar, a rail page's title strip and the page's title
+     standing on it, which the page scrolls under, would stay in the page beneath, and a fading part would show what
+     scrolled under them over them: each carries a `view-transition-name` of its own, `band`, `bar`, `strip` or `title`,
+     so it is pictured apart. The groups paint in the order their names were captured, and a name only in the new state
+     is captured after every name of the old one, so a part React's streamed reveal brings in would paint over them;
+     `z-index` is what lifts the four over any other group, the strip and the title a step below the band and the bar,
+     since on a phone the title scrolls under the band. The strip's ground precedes the title in the document, so of
+     the two at one step the title paints over it. The classic band and the rail's phone band share `band`, and the
+     phone bar and an editor's bar, which takes its place, share `bar`, neither pair ever standing on one page
+     together. */
+  ::view-transition-group(strip),
+  ::view-transition-group(title) {
     z-index: 1;
   }
 
@@ -372,8 +375,10 @@
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: 64 of the body face's figures, in rem so its fallback face draws the same box */
-  --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
+  --container-measure: 39.25rem; /* a line of running text on a legal or consent page, the width the owner judged those pages at: about 84 characters of German prose a line, as measured on the privacy notice; in rem so its fallback face draws the same box */
+  /* A floating panel: the page's width less its two 16-px gutters. `vw` is the viewport short of the scrollbar's track,
+     which the root always keeps, and the whole viewport where scrollbars overlay the page. */
+  --container-panel: calc(100vw - 2rem);
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a

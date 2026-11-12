@@ -82,6 +82,102 @@ describe("the entry marked as the current page", () => {
   });
 });
 
+/** A read of the seasons that has not landed, as the frame's is on a page's first load while the backend answers. */
+const PENDING = new Promise<never>(() => undefined);
+
+/** Where each link of the rail, the bar and its sheet leads. */
+const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+
+// The address alone spells every season page's address, so a menu that waits on the seasons' read draws placeholders a
+// load need not show, and nothing but a recording of a slow read shows it.
+describe("the entries on a page whose address names the season", () => {
+  it("lead to that season's pages while the seasons are still read", async () => {
+    address.path = ROUTES.adminSpiele.path("2026");
+    address.saison = "2026";
+    await act(async () =>
+      render(
+        <Suspense fallback={null}>
+          <SaisonScope value={{ saisons: PENDING, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+            <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
+              <RailEntries groups={GROUPS} />
+              <BarPlaces />
+            </MenuScope>
+          </SaisonScope>
+        </Suspense>,
+      ),
+    );
+
+    const rail = [
+      ROUTES.adminOverview.path("2026"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2026"),
+      ROUTES.adminTeams.path("2026"),
+    ];
+    // The rail's four, the bar's two places, and the sheet's two the bar leaves out.
+    expect(hrefs()).toEqual([...rail, ...rail.slice(0, 2), ...rail.slice(2)]);
+  });
+
+  it("lead to the team's pages in that season in a team's frame while the seats are still read", async () => {
+    address.path = ROUTES.teamKader.path("ahorn", "2026");
+    address.saison = "2026";
+    address.team = "ahorn";
+    onTestFinished(() => {
+      address.team = undefined;
+    });
+    await act(async () =>
+      render(
+        <Suspense fallback={null}>
+          <SaisonScope value={{ teams: PENDING, home: "teamOverview", pages: [] }}>
+            <RailEntries groups={TEAM_GROUPS} />
+          </SaisonScope>
+        </Suspense>,
+      ),
+    );
+
+    expect(hrefs()).toEqual([
+      ROUTES.teamOverview.path("ahorn", "2026"),
+      ROUTES.teamSpiele.path("ahorn", "2026"),
+      ROUTES.teamKader.path("ahorn", "2026"),
+      ROUTES.teamRegistrierungen.path("ahorn", "2026"),
+    ]);
+  });
+});
+
+// A page whose address names no season, such as the Spielorte, keeps the season the person last chose: one that fell back
+// to the standard would send their next press into another season's pages, which looks right on every page alone.
+describe("the season a page whose address names none works in", () => {
+  it("is the one the last address named, while the frame stays mounted", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.adminSpielorte.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2025"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2025"),
+      ROUTES.adminTeams.path("2025"),
+    ]);
+  });
+});
+
 const TEAM_GROUPS: RailGroup[] = [
   {
     entries: [
