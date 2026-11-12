@@ -128,6 +128,8 @@ DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
 THEIR_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00061")
 OTHER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00062")
+# Seeded by the one case that books them on a match still to come.
+TO_COME_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00064")
 THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
 # Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
 MOVING_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00081")
@@ -801,6 +803,52 @@ class TestOneTransaction:
         assert (seat, pending, naming_nobody) == (IDENTIFIER, IDENTIFIER, 0)
         # And no line: an erasure rolled back is no erasure a restore's step may repeat.
         assert not journal_records(caplog)
+
+    def test_a_refused_last_write_leaves_a_match_to_come_as_it_stood(self, mongo_replica_set_url: str):
+        """The case above holds the played match alone; a match still to come loses its booking and its entry by other writes.
+
+        Each of those writes outside the transaction would land though the erasure rolled back.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELE].insert_one(
+                spiel_document(
+                    spiel_id=TO_COME_SPIEL_OID,
+                    saison_id=SAISON_ID,
+                    spiel_nr=3,
+                    spieltag_id=SPIELTAG_OID,
+                    date="2126-04-22",
+                    time="14:00:00",
+                    schiedsrichter={"schiedsrichter_id": REFEREE_OID, "payment": PAYMENT},
+                )
+            )
+            await database[Collection.AUFSTELLUNGEN].insert_one(
+                aufstellung_document({"_id": TO_COME_SPIEL_OID, "saison_id": SAISON_ID}, HOME_TEAM_OID, starters=[PUPIL_OID])
+            )
+            await database.command(
+                "collMod",
+                Collection.ACTION_LOG.value,
+                validator={"$jsonSchema": {"bsonType": "object", "properties": {"action": {"not": {"enum": ["erasure.own"]}}}}},
+                validationLevel="strict",
+            )
+
+            with pytest.raises(OperationFailure) as failure:
+                await erased_by_the_handler(database, client)
+
+            return (
+                failure.value.code,
+                (await the_one(database, Collection.SPIELE, {"_id": TO_COME_SPIEL_OID}))["schiedsrichter"],
+                [
+                    entry["spieler_id"]
+                    for entry in (await the_one(database, Collection.AUFSTELLUNGEN, {"spiel_id": TO_COME_SPIEL_OID}))["spieler"]
+                ],
+            )
+
+        code, booking, line_up = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert code == DOCUMENT_VALIDATION_FAILED
+        assert booking == {"schiedsrichter_id": REFEREE_OID, "payment": PAYMENT}
+        assert line_up == [PUPIL_OID]
 
 
 class TestTheMail:
