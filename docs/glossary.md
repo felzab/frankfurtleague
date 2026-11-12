@@ -650,6 +650,7 @@ the row's own `state`. It is not a seat's `Stand`, which is what the person did.
 ### `area` — the address segment every signed-in person's pages sit under
 
 **Is:** `/area`, the first address segment of the pages a person reaches by signing in, which no
-screen word names; `team`, `spieler` and `schiedsrichter` follow it, each with a season. Its
+screen word names; `team`, `spieler` and `schiedsrichter` follow it, each with a season, and
+`roles`, the chooser between a person's places. Its
 `team` is a club's seats in one season, never the `Team` document.\
 **In code:** `fl_frontend/src/app/area/`; `fl_frontend/src/proxy.ts :: config`.

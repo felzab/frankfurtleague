@@ -100,12 +100,14 @@ because the rail opens and closes under one viewport, so only the box says how m
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
 42 rem (`@2xl`) and spread from it. A card's act row, `Facts` and `LinkRows` switch at 32 rem
 (`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
-(`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of block switch by the screen at `lg` instead:
+(`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of part switch by the screen at `lg` instead:
 
-- **A block, or a use of one, standing in the classic frame alone**, such as the landing's rows of
-  cards, its hero, the classic footer, and the tiles the landing and the sponsors page set with
-  `reads="screen"` (`fl_frontend/src/kit/TileGrid.tsx :: TilesReads`). On the landing every block
-  reads the screen, so the page switches as one.
+- **A frame, and a classic page's own layout, which no block's box holds**: the frames' bands, rail
+  and footer, a classic page's spacing, the landing's hero beside the season card, the gaps between
+  the landing's sections, and a reading page's contents list beside its text
+  (`fl_frontend/src/kit/ClassicPage.tsx`, `fl_frontend/src/kit/LandingPage.tsx`,
+  `fl_frontend/src/kit/Prose.tsx`). Every block inside a landing section reads its own box, as on a
+  rail page.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking
   across the width, the filters folding into a sheet, a read page's acts, and a row's taller touch
   height. The screen tells the device, and a box does not.
@@ -133,8 +135,9 @@ nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or `/account` carrying no
-session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
-proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
+session cookie before any read, as Next's and Better Auth's guidance has a proxy check. It sends a page load of
+`/signin` whose cookie names a stored session on to the sign-in's landing, which decides where that session goes, and
+judges nothing further. The session, its sign-in factor and the grant are judged where the data is read: no
 layout turns a session away, because Next renders a page whatever its layout decides.
 
 **A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
