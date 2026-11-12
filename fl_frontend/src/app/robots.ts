@@ -11,10 +11,10 @@ function firstSegment(row: RouteEntry): string {
 }
 
 export default function robots(): MetadataRoute.Robots {
-  // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each segment stands
+  // Turns a crawler back before the fetch; a page's noindex is read only after one. Each segment stands
   // unslashed, a prefix over the whole segment, so a new page under one takes no rule of its own. The
   // AI-training opt-out is asked by Cloudflare's managed robots.txt once that edge setting is switched on,
-  // which puts its list before this file (`docs/ops/spec.md` §1.8 records whether it is on).
+  // which puts its list before this file.
   const rows: readonly RouteEntry[] = Object.values(ROUTES);
   const disallowed = new Set(rows.filter((row) => row.crawl === "disallow").map(firstSegment));
 

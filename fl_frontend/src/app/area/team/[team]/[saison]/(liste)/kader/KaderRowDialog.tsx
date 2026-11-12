@@ -19,7 +19,7 @@ const WORDS = COPY.admin.spieler;
  * A live squad row's dialog, the record titled by the player's name: its four values one under another, Nummer,
  * Position, Stufe and Rolle, as the administration's player editor holds them, and „Austragen“ in its danger row.
  * A role another live row holds stands in its list locked, as the editor's does; the row's own role stays open, so its
- * holder may give it up. Its choices are the editor's own (`features/spieler/options.ts`).
+ * holder may give it up. Its choices are the editor's own.
  */
 export function KaderRowDialog({
   row,

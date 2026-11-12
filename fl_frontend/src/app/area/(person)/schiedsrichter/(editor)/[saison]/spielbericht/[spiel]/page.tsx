@@ -144,8 +144,8 @@ function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }
 /**
  * Each side's pupils to pick from: its live squad, then any pupil a stored row names on that side outside it, kept so
  * the row shows its name and not to be picked anew, which the write refuses. A side fielding another club since the
- * report was written offers its squad alone: its rows naming a pupil outside it have lost their player
- * (`./berichtValues.ts :: valuesOf`), and the departed club's pupils are no deregistration of the club playing.
+ * report was written offers its squad alone: its rows naming a pupil outside it have lost their player, and the
+ * departed club's pupils are no deregistration of the club playing.
  */
 function squadsOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide, Option[]> {
   const stored = read.bericht;

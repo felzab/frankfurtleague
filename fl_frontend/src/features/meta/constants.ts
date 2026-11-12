@@ -21,7 +21,7 @@ export const ORGANISERS: ReadonlyArray<{ name: string; role: OrganiserRole }> = 
 
 /**
  * The league's sponsors, each with its logo as the sponsor serves it, under `public/icons/sponsors/`, where the
- * icons' cache header covers it (`fl_frontend/next.config.ts`).
+ * icons' cache header covers it.
  */
 const SPONSOR_ENTRIES: ReadonlyArray<{ name: string; short?: string; logo: string; href: string }> = [
   { name: "Stiftung Polytechnische Gesellschaft", short: "SPTG", logo: "/icons/sponsors/sptg.svg", href: "https://sptg.de" },

@@ -18,7 +18,6 @@ const ids = AufstellungenPutAufstellungBody.shape.spieler.element.shape.spieler_
 /** What the line-up's editor sends: the club whose line-up it is, the fixture, and the half it changed. */
 const SaveAufstellung = z.object({
   team_id: AufstellungenPutAufstellungParams.shape.team_id,
-  // The fixture, the editor's record.
   id: AufstellungenPutAufstellungParams.shape.spiel_id,
   version: AufstellungenPutAufstellungBody.shape.version,
   changes: z.object({ picked: z.array(ids).readonly(), starters: z.array(ids).readonly() }).partial(),

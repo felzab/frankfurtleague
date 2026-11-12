@@ -117,8 +117,8 @@ function SeatBoxes({ seat, floor, box, rules }: { seat: FLKontaktRolle; floor: n
 }
 
 /**
- * The application's five boxes: the school, one per seat with the Trainer first, the team. A box posts under its dotted name, which `./application.ts :: applicationOf` reads. A colour a club of
- * the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
+ * The application's five boxes: the school, one per seat with the Trainer first, the team. A box posts under its
+ * dotted name, which `applicationOf` reads. A colour a club of the season wears stands listed, muted and closed. A person holding two seats clears the higher floor, which the
  * Trainer's box says once the second seat is chosen.
  */
 export function BewerbungFields({

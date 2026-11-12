@@ -56,8 +56,8 @@ export const adoptsBerichtOf = (proposal: Proposal | null, pressed: boolean, sav
 const figure = (value: number | null | undefined) => (value === null || value === undefined ? "" : String(value));
 
 /**
- * The editor's values as a stored fixture gives them. A no-show's goals are the award the write composed, never a
- * result anyone entered, so its result control rests unticked.
+ * A no-show's goals are the award the write composed, never a result anyone entered, so its result control rests
+ * unticked.
  */
 export function valuesOf(spiel: FLSpielJoinedAdmin): SpielValues {
   const hasResult = spiel.ergebnis !== null && !isNoShow(spiel.sonderereignis);

@@ -55,7 +55,6 @@ export type SaveQuestion = {
   confirm: string;
 };
 
-/** A code the catalogue words in a person's own terms: `SERVER_COPY.refusal`'s keys, and `SERVER_COPY.refusalLine`'s. */
 type WordedCode = keyof typeof SERVER_COPY.refusal | keyof typeof SERVER_COPY.refusalLine;
 
 /** Every row of a list, in a declared path: `scorers.*.minute` declares the minute of each of the list's records. */
@@ -166,9 +165,8 @@ type AdminLane<Schema extends z.ZodType, Value> = Declared<Schema> &
 /**
  * A person's write, by the claim it makes: a seat the session must hold at the team and season its input names; a
  * record of the person's own, which the backend authorises in its transaction; or an act only Konto's pages reach,
- * which the account's own guard admits too (`fl_frontend/src/core/auth/guards.ts :: getAccountSession`), handing the
- * body the session it judged, so a session an administrator's mailbox made changes nothing of that administrator's
- * account, their consents among it. An act of the account runs only for the address its page was drawn for.
+ * which the account's own guard admits too, handing the body the session it judged, so a session an administrator's
+ * mailbox made changes nothing of that administrator's account, their consents among it. An act of the account runs only for the address its page was drawn for.
  */
 type PersonLane<Schema extends z.ZodType, Value> = Declared<Schema> &
   Touched<Schema> & { readonly lane: "person" } & (
@@ -447,7 +445,6 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
 /** A sentence filled from the bounds its refusal carries, as `ruleMessage` fills a phrase: `undefined` where one is missing. */
 type BoundedSentence = (context: FLRefusedField["ctx"]) => Copy | undefined;
 
-/** One `SERVER_COPY.refusalLine` entry, of any of the three shapes its docstring names. */
 type LineEntry = Copy | Readonly<Record<string, Copy>> | BoundedSentence;
 
 /**
@@ -651,7 +648,7 @@ export function action<Schema extends z.ZodType, Value = undefined>(
 /**
  * The lane, its guards' own failures answered as the unexpected failure, as the body answers its own: a guard whose
  * lookup the backend could not answer has written nothing, while the browser's catch of a thrown action reads the page
- * again as though the press may have landed (`fl_frontend/src/kit/useFormAction.ts :: answering`).
+ * again as though the press may have landed.
  */
 async function answered<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value>, raw: unknown): Promise<ActionAnswer<Value>> {
   try {
