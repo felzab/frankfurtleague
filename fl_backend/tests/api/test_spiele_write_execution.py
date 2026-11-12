@@ -733,6 +733,40 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
 
+class TestAnEventOverAStoredResultIsSaved:
+    """A forfeit found after the match, an annulment or an abandonment replaces the score that stood, so none may be refused for it.
+
+    The dry run names the result the save destroys, which the editor confirms; refusing it would leave the record wrong.
+    """
+
+    @pytest.mark.parametrize(
+        ("sonderereignis", "tore", "ergebnis"),
+        [
+            # The season's forfeit award, whatever the scoreline the editor still shows.
+            pytest.param("nichtantreten_team1", (2, 1), "0:3", id="nichtantreten_team1"),
+            pytest.param("nichtantreten_team2", (2, 1), "3:0", id="nichtantreten_team2"),
+            pytest.param("abgebrochen", (2, 1), "2:1", id="abgebrochen"),
+            # No result at all: the editor clears the goals, which these events refuse.
+            pytest.param("ausgefallen", (None, None), None, id="ausgefallen"),
+            pytest.param("annulliert", (None, None), None, id="annulliert"),
+        ],
+    )
+    def test_the_event_lands_over_a_played_group_spiel(
+        self, mongo_replica_set_url: str, sonderereignis: str, tore: tuple[int | None, int | None], ergebnis: str | None
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            spiel_data = await payload_for(
+                database, GRUPPE_HELD, sonderereignis=sonderereignis, team1=side(ALPHA, tore[0]), team2=side(GAMMA, tore[1])
+            )
+            await call_patch(database, client, GRUPPE_HELD, spiel_data)
+
+            return await spiele_now(database)
+
+        spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_spiele())
+
+        assert (spiele[GRUPPE_HELD_NR]["sonderereignis"], spiele[GRUPPE_HELD_NR]["ergebnis"]) == (sonderereignis, ergebnis)
+
+
 class TestTheSpielRulesAreReachedThroughTheRoute:
     """That the wiring, the result-removal and the occupancy rules are WIRED: each is otherwise tested as a pure function alone."""
 
