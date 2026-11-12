@@ -84,7 +84,7 @@ export function ToastRegion({ frame }: { frame: "rail" | "classic" }) {
         <AriaToast
           toast={toast}
           data-kit-focus="ring"
-          className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-xl border border-border bg-bg-overlay px-4 py-3 text-sm font-medium whitespace-nowrap text-fg shadow-dialog transition-opacity duration-(--motion-in) starting:opacity-0">
+          className="pointer-events-auto flex min-h-11 max-w-full items-center gap-3 rounded-xl border border-border bg-bg-overlay px-4 py-3 text-sm font-medium text-pretty text-fg shadow-dialog transition-opacity duration-(--motion-in) starting:opacity-0">
           <span className={TONE_CLASSES[toast.content.tone]}>
             <Icon
               glyph={GLYPH[toast.content.tone]}
