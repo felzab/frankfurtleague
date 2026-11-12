@@ -46,8 +46,8 @@ function OpeningPlaque({ side }: { side: OpeningSide }) {
 
 /**
  * Where the season stands: before its start, a countdown to it and its opening match once one is dated; while
- * the league has no season on, the next one's application window; while it runs, its last result once there is
- * one and its next match; once decided, its places 1 to 4.
+ * the league has no season on, the next one's application window; while it runs, its last results and its next
+ * matches, each side nearest first, an empty side drawing nothing; once decided, its places 1 to 4.
  */
 type SaisonState =
   | {
@@ -57,7 +57,7 @@ type SaisonState =
       opening?: Opening;
     }
   | { kind: "window"; until: CalendarDay; apply: Route }
-  | { kind: "running"; last?: Shown; next?: Shown }
+  | { kind: "running"; last: readonly Shown[]; next: readonly Shown[] }
   | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
 /**
@@ -122,16 +122,16 @@ function Body({ state }: { state: SaisonState }) {
     case "running":
       return (
         <>
-          {state.last !== undefined && (
+          {state.last.length > 0 && (
             <SpielGroup
               head={SERVER_COPY.landing.saison.last}
-              spiel={state.last}
+              spiele={state.last}
             />
           )}
-          {state.next !== undefined && (
+          {state.next.length > 0 && (
             <SpielGroup
               head={SERVER_COPY.landing.saison.next}
-              spiel={state.next}
+              spiele={state.next}
             />
           )}
         </>

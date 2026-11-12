@@ -106,7 +106,7 @@ type TreeContent = {
 };
 
 /** One club's matches, each under its matchday's head, and why there are none. */
-type SpielGroupsContent = { groups: ReadonlyArray<ComponentProps<typeof SpielGroup>>; empty: EmptyStateProps };
+type SpielGroupsContent = { groups: ReadonlyArray<{ head: Copy; spiel: SpielRowProps & { id: string } }>; empty: EmptyStateProps };
 
 /** Matches the filters left, each with the words the search narrows them by, and why there are none. */
 type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: string }; words: string }>; empty: EmptyStateProps };
@@ -607,7 +607,8 @@ async function ListBody({ list }: { list: ListContent }) {
               key={group.spiel.id}
               className={SPIEL_CARD_CLASSES}>
               <SpielGroup
-                {...group}
+                head={group.head}
+                spiele={[group.spiel]}
                 columns="outer"
               />
             </div>

@@ -750,7 +750,7 @@ export const COPY = catalogue({
       lapsed: "Die Änderung ist abgelaufen.",
       /** The address on file's one act, on its link's page and on its mail's button. */
       stop: "Änderung stoppen",
-      /** A holder's own change, which waits whole: Konto's box and the mails to either address. */
+      /** A holder's own change, which waits whole: the mails to either address. */
       holderWait: (wait: Wait) => `Die neue Adresse gilt erst ${waitWords(wait).span}, nachdem beide Adressen sie bestätigt haben.`,
     },
     erasure: {
@@ -1198,8 +1198,7 @@ export const COPY = catalogue({
           ? "1\u00A0Team bekommt seinen Link per E-Mail."
           : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
-      /** The activation: the season the site shows, and its subject, „Auf Saison 2027 umstellen?“. */
-      isCurrent: "Die Website zeigt diese Saison.",
+      /** The activation: its subject, „Auf Saison 2027 umstellen?“, and the season the site shows from then on. */
       onto: (saison: string) => boundBy("Auf", saisonName(saison)),
       activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonName(saison))}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */

@@ -296,19 +296,11 @@ export interface FLAccountAddressChangePayload {
   email: string;
 }
 
-export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
-
-export const FLAdminTier = {
-  owner: "owner",
-  administration: "administration",
-} as const;
-
 /**
  * The change pending on the signed-in address.
  */
 export interface FLAccountAddressChangeResponse {
   open: FLAccountAddressChangeOpen | null;
-  wait_tier: FLAdminTier | null;
 }
 
 /**
@@ -526,6 +518,13 @@ export interface FLAccountErasureSpieler {
   first_name: string;
   last_name: string | null;
 }
+
+export type FLAdminTier = (typeof FLAdminTier)[keyof typeof FLAdminTier];
+
+export const FLAdminTier = {
+  owner: "owner",
+  administration: "administration",
+} as const;
 
 export interface FLAccountErasureViewResponse {
   /** @minimum 0 */
@@ -2988,7 +2987,9 @@ export interface FLLandingDecided {
 }
 
 /**
- * From its start date: the latest result and the next match, at most one of each, empty where there is none.
+ * From its start date: two matches where the season has two, each side nearest first.
+ *
+ * A latest result and a next match where both exist, else two of the side that has them.
  */
 export interface FLLandingRunning {
   id: string;

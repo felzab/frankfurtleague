@@ -99,9 +99,9 @@ async def get_frame(saisons_collection: SaisonsReadCollection) -> FLSaisonFrameR
     return FLSaisonFrameResponse(saisons=FLSaisonFrameEntryListAdapter.validate_python(saisons_raw), active_saison_id=active_saison_id)
 
 
-# How many of the latest results, and of the next matches, the landing shows while the season runs: its card holds one
-# of each.
-LANDING_SPIELE: Final = 1
+# How many matches the landing's card shows while the season runs: one of each side where both hold one, else this many
+# of the side that does. Each side reads this many, so a side alone can fill the card.
+LANDING_SPIELE: Final = 2
 
 
 def _opening_spiel_pipeline(saison_id: str) -> list[Mapping[str, Any]]:
@@ -273,6 +273,8 @@ async def _landing_saison(
                 teams=teams,
             )
         case _ if started:
+            if recent_raw and upcoming_raw:
+                recent_raw, upcoming_raw = recent_raw[:1], upcoming_raw[:1]
             return FLLandingRunning(
                 id=saison_id,
                 state="running",
