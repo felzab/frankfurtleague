@@ -158,7 +158,7 @@ the table, which scores the match as the draw it was.\
 
 **Is:** the closed set `A` through `P` on the `saison_teams` row; a season runs the first
 `rules.number_of_gruppen` of them.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLGruppenNames`.
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLGruppenNames`.
 
 ### `Spielplan` — a season's whole draw
 
@@ -179,8 +179,7 @@ writes carries a date. Whether a season is drawn is read off its stored fixtures
 ### `saison_phase` — stage of the season
 
 **Is:** the stored set `gruppenphase` · `achtelfinale` · `viertelfinale` · `halbfinale` · `finale`,
-in bracket order. `"playoffs"` is not one of them: it is a query alias for every phase but
-`gruppenphase`, on no stored document.\
+in bracket order.\
 **In code:** `fl_backend/app/api/spiele/schemas.py :: PHASE_ORDER`.
 
 ### `sonderereignis` — what happened to a fixture beyond being played
@@ -189,7 +188,7 @@ in bracket order. `"playoffs"` is not one of them: it is a query alias for every
 `annulliert`, or `null` where there is nothing to say. It is not a delete: the match keeps its row,
 its `spiel_nr` and its bracket slot, and a no-show still counts in the table through its awarded
 result.\
-**In code:** `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`.\
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLSonderereignis`.\
 **See:** [`domain.md`](domain.md#the-competitions-own-rules).
 
 ### `Paarung` — the two sides of one fixture and what they produced
@@ -330,7 +329,7 @@ area, so the tier is always `admin_tier`, and it is neither `rolle` nor the sess
 `saison_spieler` row, of which each season's `allowed_stufen` names those its squad form offers.
 It is not an age, and inside `oberstufengymnasium` and `stufengroesse` the word means something
 else.\
-**In code:** `fl_backend/app/api/spieler/schemas.py :: FLSpielerStufe`;
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLSpielerStufe`;
 `fl_backend/app/api/saisons/schemas.py :: FLSaisonRules`' `allowed_stufen`.\
 **See:** [`domain.md`](domain.md#where-the-german-misleads).
 
@@ -362,7 +361,7 @@ screen is no key to look the club up by.\
 **Is:** a closed set of school kinds on the season-independent `teams` document and on a new
 school's application, G8 and G9 being two values. Null means nobody recorded one, never a school
 of no kind.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLSchulform`; its German
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLSchulform`; its German
 `fl_frontend/src/core/copy.ts :: COPY.team.schulformOption`.
 
 ### `trikot_farbe` — the kit colour a club plays a season in
@@ -370,7 +369,7 @@ of no kind.\
 **Is:** one of the league's own colours as a slug, on the `saison_teams` row, assigned by an
 administrator or null before one is. An application's `trikot.wunschfarbe` is the same set as a
 wish, and nothing copies it into the assignment.\
-**In code:** `fl_backend/app/api/teams/schemas.py :: FLTrikotFarbe`; names and hex
+**In code:** `fl_backend/app/shared/schemas/literals.py :: FLTrikotFarbe`; names and hex
 `fl_frontend/src/core/trikotFarben.ts :: TRIKOT_FARBEN`.
 
 ### `kontakte` — the three people the league reaches a team through
@@ -491,7 +490,7 @@ tree its fixtures are drawn as.\
 | `base` / `system` / `admin` | The three API key tiers, not user roles. See [`backend/overview.md`](backend/overview.md#authorization)                                                                                                     |
 | `format`                    | The discriminator on the teams response (`list`, or `single` from `GET /teams/{team_id}`)                                                                                                                   |
 | `Aktion`                    | In code one entry is `action_log_entry` and the log is `action_log` ([its entry](#aktion--action_log_entry--one-recorded-act))                                                                              |
-| `Einladung`                 | In code `invitation` ([its entry](#einladung--invitation--the-link-one-team-registers-its-players-through))                                                                                                 |
+| `Einladung`                 | In code `invitation`, on screen „Registrierungslink“ ([its entry](#einladung--invitation--the-link-one-team-registers-its-players-through))                                                                 |
 | `aufnehmen`                 | In code `admit` ([its entry](#aufnehmen--admit--a-team-taking-one-registered-pupil-into-its-squad))                                                                                                         |
 | `Berechtigung`              | In code `grant` ([its entry](#berechtigung--grant--one-addresss-access-to-the-verwaltung-stored))                                                                                                           |
 | `Löschung`                  | In code `erasure` ([its entry](#löschung--erasure--deleting-what-the-league-holds-about-a-person-on-a-request-or-by-the-season-after-rule))                                                                 |
@@ -499,14 +498,14 @@ tree its fixtures are drawn as.\
 | `Sperrliste`                | In code `ban_list` ([its entry](#sperrliste--ban_list--the-addresses-barred-from-signing-in-and-from-the-leagues-mail))                                                                                     |
 | `Bestätigung`               | In code `confirmation` ([its entry](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee))                              |
 | `Widerspruch`               | In code `objection`, the seat's stamp `declined_at` ([its entry](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee)) |
-| `Adresswechsel`             | In code `address_change`, its collection `address_changes` ([its entry](#adresswechsel--address_change--a-change-of-the-address-a-person-signs-in-on-and-the-record-it-waits-in))                           |
+| `address_change`            | On screen „Adressänderung“, its collection `address_changes` ([its entry](#address_change--a-change-of-the-address-a-person-signs-in-on-and-the-record-it-waits-in))                                        |
 | `Fassung`                   | In code `wording`, the consent module `fl_frontend/src/core/consentWordings.ts` ([its entry](#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label))                             |
 | `Dublette`                  | In code `duplicate` ([its entry](#dublette--duplicate--two-open-applications-the-triage-marks-as-colliding))                                                                                                |
-| `Subjekt`                   | In code `subject` ([its entry](#subjekt--subject--the-data-protection-subject-one-mailbox-stands-for))                                                                                                      |
+| `subject`                   | The records one mailbox matches, composed per read ([its entry](#subject--the-data-protection-subject-one-mailbox-stands-for))                                                                              |
 | `austragen`                 | In code `retire`, as `stilllegen` is ([its entry](#inactive_since--the-day-something-left))                                                                                                                 |
 | `Funktion`                  | In code `role` ([its entry](#funktion--role--what-a-person-is-on-screen-the-record-that-admits-them-to-a-panel))                                                                                            |
 | `Konto`                     | In code `account`, and in its address, `/account` ([its entry](#konto--account--a-signed-in-persons-account-and-the-records-of-their-own-that-admit-one))                                                   |
-| `Vorgangsnummer`            | In code `trace_id` ([its entry](#vorgangsnummer--trace_id--the-id-joining-one-act-to-its-requests-lines))                                                                                                   |
+| `trace_id`                  | A request's id, stored on its action-log row; no screen word names it ([its entry](#trace_id--the-id-joining-one-act-to-its-requests-lines))                                                                |
 | `Zustellstand`              | In code `FLOutboxDeliveryState`, the row's `delivery.state` ([its entry](#zustellstand--floutboxdeliverystate--what-became-of-the-last-message-to-one-recipient))                                           |
 | `area`                      | The address segment a signed-in person's pages sit under, which no screen word names ([its entry](#area--the-address-segment-every-signed-in-persons-pages-sit-under))                                      |
 
@@ -524,7 +523,8 @@ address but an administrator's and a grant act's grantee's.\
 
 **Is:** one minted registration link for one team's season, a row of `invitations` holding the
 link's hashes and a revocation date, null while it stands; it names nobody. It is not a
-`Bestätigung`: it authorises submitting one `Registrierung`, which the team's seats then decide.\
+`Bestätigung`: it authorises submitting one `Registrierung`, which the team's seats then decide. On
+screen it is the „Registrierungslink“.\
 **In code:** `fl_backend/app/api/invitations/schemas.py :: FLInvitationRecord`, minted by
 `fl_backend/app/api/teams/admin_router.py :: post_invitation`.
 
@@ -580,19 +580,20 @@ alone, is the `Widerspruch`, which empties the entry: code says `objection` and 
 `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichterConfirmationRecord` and
 `fl_backend/app/api/teams/schemas.py :: FLSaisonTeamConfirmationRecord`.
 
-### `Adresswechsel` · `address_change` — a change of the address a person signs in on, and the record it waits in
+### `address_change` — a change of the address a person signs in on, and the record it waits in
 
-**Is:** a change of the address every record of one person is keyed on, „Änderung“ of the
-„E-Mail-Adresse“ on screen, waiting as a record of its own until it moves every record at that
-address at once. It starts on the person's account page (`account`) or by an administrator for a
-lost mailbox (`waiting_period`), and the new mailbox confirms it by a link.\
+**Is:** a change of the address every record of one person is keyed on, waiting as a record of its
+own until it moves every record at that address at once. On screen it is the „Änderung“ of the
+„E-Mail-Adresse“, and „Adressänderung“ in the administration. It starts on the person's account
+page (`account`) or by an administrator for a lost mailbox (`waiting_period`), and the new mailbox
+confirms it by a link.\
 **In code:** `fl_backend/app/api/address_change/services.py :: compose_record`, moved by
 `fl_backend/app/api/address_change/crud.py :: move_the_address_in_session`.
 
 ### `Fassung` · `wording` — one frozen consent wording a person was shown, under its label
 
 **Is:** the words of one consent under the label each choice's evidence stamps as `text_version`,
-„Fassung“ on screen. A label's words never change: new words are a new label.\
+A label's words never change: new words are a new label.\
 **In code:** `fl_frontend/src/core/consentWordings.ts :: CONSENT_WORDINGS`;
 `fl_backend/app/shared/schemas/einwilligung.py :: FLEinwilligungTextVersion`.
 
@@ -603,7 +604,7 @@ administrator to choose between, and stored nowhere. It is shown and never refus
 schools are never a Dublette.\
 **In code:** `fl_backend/app/api/bewerbungen/services.py :: is_duplicate`.
 
-### `Subjekt` · `subject` — the data-protection subject one mailbox stands for
+### `subject` — the data-protection subject one mailbox stands for
 
 **Is:** the league records one mailbox matches (its confirmed contact seats, pupil rows and referee
 rows) as three lists composed at read time, beside the flags `unconfirmed` and `barred` and the
@@ -629,10 +630,10 @@ a sign-in to it whether or not it grants a `Funktion`.\
 **In code:** `fl_backend/app/api/identity/services.py :: own_entries`;
 `fl_backend/app/api/identity/schemas.py :: FLSignInResponse`'s `account`.
 
-### `Vorgangsnummer` · `trace_id` — the id joining one act to its request's lines
+### `trace_id` — the id joining one act to its request's lines
 
 **Is:** the trace id of the request that made an act, stored on its action-log row, which nginx
-mints per request as thirty-two lowercase hex characters. Despite `-nummer` it is no number.\
+mints per request as thirty-two lowercase hex characters.\
 **In code:** `fl_backend/app/core/recording.py :: record_act` stamps it;
 `fl_backend/app/api/action_log/schemas.py :: FLActionLogRecord` holds it.
 
