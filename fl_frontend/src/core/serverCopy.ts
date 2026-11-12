@@ -1129,9 +1129,9 @@ export const SERVER_COPY = catalogue({
   bewerbung: {
     end: {
       /** The landing's band alike, so the two pages say one thing of an upcoming window. */
-      opensOn: (day: CalendarDay) => `Die Bewerbung öffnet ${boundBy("am", formatDateLong(day))}`,
+      opensOn: (day: CalendarDay) => `Das Bewerbungsfenster öffnet ${boundBy("am", formatDateLong(day))}`,
       /** A paused window alike, the visitor being able to do nothing about either, and the landing's band, as `opensOn`. */
-      closed: "Die Bewerbung ist gerade geschlossen",
+      closed: "Das Bewerbungsfenster ist gerade geschlossen",
       over: "Die Saison ist vorbei",
       none: "Keine Bewerbung für diese Saison",
       /** The outcome replacing the form, a replayed press alike. */

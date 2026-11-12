@@ -282,7 +282,7 @@ export const COPY = catalogue({
       copied: "Kopiert",
       linkSent: "Link gesendet",
       /** Every other device's session ended, this one's kept. */
-      othersSignedOut: "Alle abgemeldet",
+      othersSignedOut: "Alle anderen abgemeldet",
       /** A row leaving its list with its act done: a fixture's date agreed, in its chip's word, and a registration admitted. */
       agreed: ZUGESAGT,
       admitted: "Aufgenommen",
@@ -478,7 +478,7 @@ export const COPY = catalogue({
     /** A covered seat's box, in place of its fields. */
     seatCovered: "Übernimmt die Trainerin oder der Trainer.",
     /** Under the address: a promise the form makes, which the privacy record states. */
-    addressPublic: "Steht nach der Aufnahme öffentlich auf der Teamseite",
+    addressPublic: "Steht nach der Zusage öffentlich auf der Teamseite",
     trikotSetDescription: "Zum Beispiel 15\u00A0rote Trikots",
     goodSpielerDescription: "Aktiv, mindestens Verbandsliga",
     wunschgegnerDescription: `Für den ${spieltagName(1)}`,
@@ -1333,7 +1333,8 @@ export const COPY = catalogue({
       /** The chip of a row the check page's confirm refused. */
       shorthandTaken: "Kürzel vergeben",
       /** The title of the bulk's end card. */
-      acceptedCount: (count: number) => (count === 1 ? "1\u00A0Team aufgenommen" : `${boundBy(formatNumber(count), "Teams")} aufgenommen`),
+      acceptedCount: (count: number) =>
+        count === 1 ? "1\u00A0Bewerbung angenommen" : `${boundBy(formatNumber(count), "Bewerbungen")} angenommen`,
       /** The review page's facts of a decided application. */
       acceptedOn: "Angenommen am",
       declinedOn: "Abgelehnt am",
@@ -1472,7 +1473,7 @@ export const COPY = catalogue({
       /** The dialog's line once the ban stands, by what did not follow it. */
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
-        notice: "Die Sperre steht, aber die E-Mail ist nicht raus.",
+        notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
         both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
         /** The second press's note, once it ended what the first left running. */
         ended: "Die Anmeldungen sind beendet.",
@@ -1585,7 +1586,7 @@ export const COPY = catalogue({
         "spieler.changed": "Spieler geändert",
         "spieler.deregistered": "Spieler ausgetragen",
         "spieler.reactivated": "Spieler reaktiviert",
-        "registrierung.admitted": "Registrierung angenommen",
+        "registrierung.admitted": "Spieler aufgenommen",
         "registrierung.declined": "Registrierung abgelehnt",
         "schiedsrichter.created": "Schiedsrichter angelegt",
         "schiedsrichter.changed": "Schiedsrichter geändert",
