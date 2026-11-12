@@ -82,7 +82,6 @@ nginx/           reverse proxy configuration, local and production
 scripts/         the checks, and the deploy and operations scripts
 docs/            the documentation
 .github/         CI workflows and the issue forms
-.claude/         instructions and rules for the AI coding agents
 ```
 
 ## Who builds it

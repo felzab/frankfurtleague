@@ -22,11 +22,7 @@ fl_backend/openapi.json
 fl_frontend/src/core/generated/
 pnpm-lock.yaml
 
-# Each nested worktree is another branch's whole tree, with its own installs and builds; the fixtures
-# are what a gate run leaves when Ctrl-C skips its EXIT trap. Prettier lists every file before it reads
-# this file, so the worktrees are also a negated pattern in `fl_frontend/package.json`'s two format
-# scripts, which keeps its walk out of them: listing dozens of them ran it out of heap.
-.claude/worktrees/
+# The fixtures a gate run leaves when Ctrl-C skips its EXIT trap.
 .tmp-*/
 
 # Machine-local files. The two tracked workspace files are the exception -- a tracked file the format
@@ -34,7 +30,6 @@ pnpm-lock.yaml
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
-.claude/settings.local.json
 # A leftover copy of production's database, which this public repository must never take. Named here
 # as well as in .gitignore because `--ignore-path` replaces prettier's own .gitignore lookup, so
 # without this line the format scope fails on a dump's metadata and its remedy rewrites that dump.

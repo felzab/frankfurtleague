@@ -31,16 +31,3 @@ rest up when a question needs them.
 
 What is still open on the product, the toolchain and the documentation is a
 [GitHub issue](https://github.com/felzab/frankfurtleague/issues), labelled by kind.
-
-## The AI agents' folder
-
-`.claude/` holds the working rules of the AI agents that build this project, and nothing in the
-repository depends on it: deleting it leaves every check, CI job and build passing. Outside it, only
-these name it:
-
-- `fl_frontend/next.config.ts`'s `agentRules` setting
-- the `.claude/` entries of `.gitignore` and `.prettierignore`
-- the worktree pattern in `fl_frontend/package.json`'s `format` and `format:check` scripts
-- the root `README.md`'s tree line and its section "Who builds it"
-- `.github/workflows/ai-tooling.yml`, which tests the agents' own tools
-- this section, and [`writing.md`](writing.md)'s opening and commit scopes

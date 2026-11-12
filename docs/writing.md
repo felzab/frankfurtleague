@@ -4,11 +4,6 @@ How documents, names, comments, commit messages and pull requests are written he
 every Markdown file, markdownlint holds it to one style, and lychee resolves every link and
 `#fragment` inside the repository; the gate runs all three. This page holds what no tool checks.
 
-`docs/` describes the system. `.claude/` holds the working rules of the AI agents that build it, and
-nothing in the repository depends on it: deleting it leaves every check, CI job and build passing.
-No document outside `.claude/` addresses an agent, and only what [the map](README.md) lists names
-the folder.
-
 ## Documents
 
 - **Describe the tree as it is, in the present tense**, naming only what exists. Never narrate an
@@ -72,8 +67,8 @@ not obvious: the constraint, the trap, or the alternative that was rejected. Del
   most 72 characters, where GitHub truncates a title. It says what is true once the commit lands
   ("The list pages share one loader"): no imperative, no Conventional Commits. Two related changes
   may share a subject joined by ", and".
-- **The scope is one of** `Frontend`, `Backend`, `Docs`, `Repo` (the gate, the checks, their
-  configuration and `.claude/`), `Ops` (deployment, images, nginx), `CI` (`.github/workflows/`),
+- **The scope is one of** `Frontend`, `Backend`, `Docs`, `Repo` (the gate, the checks and their
+  configuration), `Ops` (deployment, images, nginx), `CI` (`.github/workflows/`),
   `Database` (the data or its constraints), `Frontend deps` and `Backend deps`. A change reaching
   several joins them (`Backend + Frontend`), and a rename takes its area's scope. Dependabot's
   prefixes add `Frontend image` and `Backend image` for each Dockerfile's base images.
