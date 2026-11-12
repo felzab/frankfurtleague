@@ -637,9 +637,10 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
     .filter((group) => group.entries.length > 0);
 
   return (
+    // At the column's foot, by its margin, whether a page stands above it or none does yet.
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
+      className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
         <NextLink
           key={entry.id}
@@ -752,7 +753,7 @@ export function BarPlacesPlaceholder() {
   const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const more = entries.length > placed.length || menu.extra.length > 0;
   return (
-    <Placeholder layoutClass="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
+    <Placeholder layoutClass="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
       {placed.map((entry) => (
         <PlacePlaceholder
           key={entry.id}
