@@ -28,10 +28,10 @@ const HEAD: TableHead = {
   nameLabel: COPY.signIn.address,
   columns: [
     { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
-    { key: "until", label: COPY.admin.banList.until, narrow: true, width: "date" },
+    { key: "until", label: COPY.admin.banList.until, hideOnPhone: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
-  acts: [COPY.shared.verb.remove],
+  sideAct: COPY.shared.verb.remove,
 };
 
 /** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
@@ -49,6 +49,7 @@ const rowOf = (ban: FLBanListRow, holder: string): TableRow => ({
     until: COPY.shared.saisonName(ban.barred_until_saison_id),
     enteredOn: { record: formatDate(dayOf(ban.created_at)) },
   },
+  sideActs: 1,
   acts: (
     <RowAct
       verb="remove"

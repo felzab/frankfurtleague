@@ -101,8 +101,7 @@ function FoldHeadPlaceholder({ title, open }: { title: Copy; open: boolean }) {
 
 /**
  * The open card of `ReadFolds`' `column` while it is read: its head and its table's placeholder; and with `folded`, the
- * cards folded under it, each its head alone, in the column `ReadFolds` sets them in. A folded card the page draws only
- * while it holds something is drawn here all the same, the taller of the page's two forms.
+ * cards folded under it, each its head alone, in the column `ReadFolds` sets them in.
  */
 export function OpenFoldPlaceholder({
   title,

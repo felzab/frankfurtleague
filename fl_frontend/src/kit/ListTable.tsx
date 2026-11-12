@@ -269,8 +269,9 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
       <Table
         {...table}
         rows={rows}
-        // A search that emptied the list says so, in the list's own plural.
-        empty={isSearching ? { ...table.empty, kind: "search" } : table.empty}
+        // A search that emptied the list says so, in the list's own plural; a list of what waits names none, and no
+        // search narrows it.
+        empty={isSearching && table.empty.kind !== "clear" ? { ...table.empty, kind: "search" } : table.empty}
       />
       {more !== undefined && (
         <div className="flex items-center gap-3">

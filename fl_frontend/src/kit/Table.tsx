@@ -25,7 +25,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { AddressText } from "./AddressWords";
 import type { ChipProps } from "./Chip";
-import type { EmptyStateProps } from "./EmptyState";
+import type { Clear, EmptyStateProps } from "./EmptyState";
 import type { RoleMarkProps } from "./RoleMark";
 import type { Plaque } from "./TeamPlaque";
 
@@ -181,8 +181,8 @@ export type TableProps = {
   state?: { label: Copy; delivery?: true };
   columns: ReadonlyArray<TableColumn>;
   rows: ReadonlyArray<TableRow>;
-  /** What stands in the rows' place when there are none. */
-  empty: EmptyStateProps;
+  /** What stands in the rows' place when there are none: a list's cause, or „Nichts offen.“ over a list of what waits. */
+  empty: EmptyStateProps | Clear;
   /** The rows alone, without the table's own box, inside a card's body, whose box already holds them. */
   bare?: boolean;
   /**
