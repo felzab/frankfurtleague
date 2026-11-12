@@ -10,7 +10,10 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { ApiCall } from "@/test-support/apiClientDouble";
 
-const link = vi.hoisted(() => ({ forget: vi.fn<(page: string) => Promise<void>>(async () => undefined) }));
+const link = vi.hoisted(() => ({
+  forget: vi.fn<(page: string) => Promise<void>>(async () => undefined),
+  token: vi.fn<() => Promise<string | null>>(),
+}));
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 // Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
@@ -18,7 +21,7 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 // Cloudflare's own verdict, which `core/turnstile.test.ts` judges.
 vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => null }));
 // The cookie the proxy set, which only Next's request scope holds.
-vi.mock("@/core/mailedLink", () => ({ forgetMailedLink: link.forget }));
+vi.mock("@/core/mailedLink", () => ({ forgetMailedLink: link.forget, mailedLinkToken: link.token }));
 
 const { calls, answerWith } = doubleApiAnswers(() => Promise.resolve({ registrierung_id: "6890a1b2c3d4e5f607190001" }));
 
@@ -32,7 +35,6 @@ const TOKEN = "not-a-real-token";
 /** The form as the browser posts it, the optional boxes left untouched. */
 const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
-  token: TOKEN,
   [REPLAY_FIELD]: KEY,
   [TURNSTILE_FIELD]: "token",
   first_name: "Mia",
@@ -73,6 +75,7 @@ const movedTo = (code: Code, view: FLInvitationViewResponse | null) =>
 
 beforeEach(() => {
   link.forget.mockClear();
+  link.token.mockResolvedValue(TOKEN);
 });
 
 describe("the registration a press sends", () => {
@@ -116,5 +119,22 @@ describe("a press the link's state refused since the page was read", () => {
     expect(await submitRegistrierung(posted(BOXES))).toStrictEqual({ ok: true, value: LINK_INVALID });
 
     expect(link.forget).not.toHaveBeenCalled();
+  });
+});
+
+// The harm: a token the page's markup carries outlives the address the proxy moved it out of, in a saved page or a
+// cache, and a token the form may post is one a forged post chooses.
+describe("the link a press registers through", () => {
+  it("is the one in the page's cookie, whatever the form posts", async () => {
+    await submitRegistrierung(posted({ ...BOXES, token: "a-forged-token" })).catch(() => undefined);
+
+    expect(requestsOf(calls)[0]?.body).toMatchObject({ token: TOKEN });
+  });
+
+  it("ends on the invalid link's card where the cookie holds none, sending nothing", async () => {
+    link.token.mockResolvedValue(null);
+
+    expect(await submitRegistrierung(posted(BOXES))).toStrictEqual({ ok: true, value: LINK_INVALID });
+    expect(calls).toStrictEqual([]);
   });
 });
