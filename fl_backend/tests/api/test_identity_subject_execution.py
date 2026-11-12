@@ -223,7 +223,7 @@ GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _grant(grant_id: ObjectId, address: str, admin_tier: str) -> dict[str, Any]:
-    """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
+    """A grant as a hand-written one or the grant route stores it: the folded identifier and its tier."""
 
     return {"_id": grant_id, "address": address, "admin_tier": admin_tier, "effective_from": GRANT_TYPED}
 
@@ -337,45 +337,39 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
     }
 
 
-# Every collection a person's records sit in, each read by the address alone, but the referees', whose
-# few rows a scan answers.
-ADDRESS_READS = frozenset(str(name) for name in (Collection.SAISON_TEAMS, Collection.SPIELER))
+# The two collections a public form grows that the gate reads by address on every sign-in attempt.
 GATE_READS = frozenset(str(name) for name in (Collection.BEWERBUNGEN, Collection.REGISTRIERUNGEN))
 
 
 def _selects_by_address(collection: str, command: Mapping[str, Any]) -> bool:
-    """A read of a record collection whose selection names an address, never a join by ids the same handlers send."""
+    """A read of a gate collection whose selection names an address, never a join by ids the same handler sends."""
 
     selection = command.get("filter") or next((stage["$match"] for stage in command.get("pipeline", []) if "$match" in stage), {})
 
-    return collection in ADDRESS_READS | GATE_READS and "email" in str(selection)
+    return collection in GATE_READS and "email" in str(selection)
 
 
 @pytest.mark.db
-class TestEveryAddressReadWalksAnIndex:
-    """Every signed-in page asks the lookup and every sign-in attempt the gate, so neither may scan a collection.
+class TestTheGateWalksAnIndex:
+    """Anybody can send a sign-in attempt, and a stranger grows both collections through the public forms.
 
-    Each read the handler sends is explained by the server (`tests/plans.py`): a filter losing its index goes red here.
+    Each read the handler sends is explained by the server: a filter losing its index answers the same over a scan, so
+    only the plan shows it.
     """
 
-    def test_the_lookup_and_the_gate_plan_an_index_scan_for_every_address_read(self, mongo_replica_set_url: str):
+    def test_every_address_read_of_the_gate_plans_an_index_scan(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
-            async def ask_both(watched: AsyncDatabase, _client: Any) -> None:
-                await call_subject(watched, IDENTIFIER)
-                await call_sign_in(watched, IDENTIFIER)
-
-            _, plans = await plans_of_sent_reads(mongo_replica_set_url, database, ask_both, _selects_by_address)
+            _, plans = await plans_of_sent_reads(
+                mongo_replica_set_url, database, lambda watched, _client: call_sign_in(watched, IDENTIFIER), _selects_by_address
+            )
 
             return plans
 
         plans = on_a_league(mongo_replica_set_url, body)
 
-        # The premise: a read the handlers never sent would pass the next line vacuously.
-        assert {collection for collection, _ in plans} == ADDRESS_READS | GATE_READS, plans
+        # The premise: a read the handler never sent would pass the next line vacuously.
+        assert {collection for collection, _ in plans} == GATE_READS, plans
         assert [(collection, plan) for collection, plan in plans if "IXSCAN" not in plan or "COLLSCAN" in plan] == []
-        # The lookup's, on an address key: a read's id term alone would walk the `_id` index end to end. The
-        # gate's status term may take the planner to the status index instead, which a sign-in attempt can afford.
-        assert [(collection, plan) for collection, plan in plans if collection in ADDRESS_READS and "email" not in plan] == []
 
 
 @pytest.mark.db

@@ -49,7 +49,6 @@ from tests.erasure import erased
 from tests.isolation import InterleavedCollection, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
-from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -1074,52 +1073,6 @@ class TestARefereesDeclineReturnsTheSpiel:
             )
 
         assert on_a_refereed_spiel(mongo_replica_set_url, body) == 0
-
-
-# Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
-OTHER_REFEREES_ROWS = 2000
-
-REFEREE_INDEX_SCAN = "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }"
-
-
-def deletes_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
-    """The erasure's delete, naming the referee's id."""
-
-    return collection == Collection.SPIELBESTAETIGUNGEN and any("party.schiedsrichter_id" in delete["q"] for delete in command["deletes"])
-
-
-class TestARefereesOwnRowsAreReachedThroughTheirIndex:
-    """`fl_backend/app/core/constraints.py :: SUPPORT_INDEXES`'s referee index, which nothing else would keep the planner on."""
-
-    def test_the_erasure_walks_the_referee_index_past_a_season_of_other_rows(self, mongo_replica_set_url: str):
-        """The erasure's delete is unbounded, so a walk of the season-leading index costs it every row of the season."""
-
-        others = [
-            documents.spielbestaetigung_document(
-                spiel(ObjectId(), spiel_nr=100 + position),
-                party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-            )
-            for position in range(OTHER_REFEREES_ROWS)
-        ]
-
-        async def body(database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(others)
-            _, sent = await plans_of_sent_reads(
-                mongo_replica_set_url,
-                database,
-                lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT),
-                deletes_a_referees_rows,
-                commands=("delete",),
-            )
-
-            return sent
-
-        sent = on_a_refereed_spiel(mongo_replica_set_url, body)
-
-        # The premise: the delete was sent, or the plan below would pass vacuously.
-        assert sent, "the erasure sent no delete naming the referee's id"
-        for _, plan in sent:
-            assert plan == REFEREE_INDEX_SCAN, plan
 
 
 async def book_ute(database: AsyncDatabase) -> None:

@@ -220,7 +220,7 @@ def on_a_person(
 
 
 async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: str = "administration") -> ObjectId:
-    """A grant at `address`, written as the Playground writes one, before the clock's first sight of it."""
+    """A grant at `address`, written as a hand-written grant is, before the clock's first sight of it."""
 
     grant_id = ObjectId()
     await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "address": address, "admin_tier": admin_tier})

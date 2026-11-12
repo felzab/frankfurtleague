@@ -1,4 +1,4 @@
-"""SPIELER · the consent table every spelling of `READ-PUPIL-003` and `READ-REFEREE-004` is joined against
+"""SPIELER · the consent table every spelling of the rule publishing a pupil's or a referee's name is joined against
 
 Hand-written rather than derived from either spelling: a table taken from one would compare that
 spelling with itself. One sheet rather than a table and two homes, so a spelling with no case
@@ -59,7 +59,7 @@ def _record(scope: Any, confirmed_at: Any) -> dict[str, Any]:
     return {key: value for key, value in record.items() if value is not ABSENT}
 
 
-# The three inputs `READ-PUPIL-003` names, closed over: the record's presence, its `scope`, and
+# The three inputs the rule reads, closed over: the record's presence, its `scope`, and
 # whether `confirmed_at` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[EinwilligungCase, ...]] = (
     EinwilligungCase("no record at all", None, False),
@@ -94,7 +94,7 @@ def _oid_for(case: EinwilligungCase) -> ObjectId:
 
 
 def _nummer_for(case: EinwilligungCase) -> str:
-    """The row's shirt, which is how the squad read's answer is told apart: it carries no record id (`READ-PUPIL-005`)."""
+    """The row's shirt, which is how the squad read's answer is told apart: it carries no record id."""
 
     return str(NAME_IS_PUBLIC.index(case) + 1)
 

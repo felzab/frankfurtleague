@@ -41,7 +41,7 @@ FORM = f"{PREFIX}/form/{OPEN_SAISON}"
 
 
 class TestTheClubList:
-    """`READ-BEWERBUNG-001`: an anonymous visitor picks from this, so every field is serialised into a public page."""
+    """An anonymous visitor picks from this, so every field is serialised into a public page."""
 
     def test_only_a_club_id_and_a_name_are_served(self, seeded_url: str):
         response = answered(seeded_url, FORM)

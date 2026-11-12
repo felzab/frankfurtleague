@@ -221,6 +221,46 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
 
 
 @pytest.mark.db
+class TestTheTeamReadCountsTheLeagueAlone:
+    def test_a_read_naming_no_scope_answers_the_group_phase_figures(self, mongo_replica_set_url: str):
+        """The site sends no scope, so a default counting the knockout would put a cup result into the club's league figures."""
+
+        async def body() -> dict[str, Any]:
+            async with a_clean_database(mongo_replica_set_url, BRACKET_DATABASE_NAME, constraints=True) as (_, database):
+                await database[Collection.SAISONS].insert_one(saison_document())
+                await database[Collection.TEAMS].insert_many(
+                    [team_document(key, shorthand, inactive_since=None) for key, shorthand in SHORTHANDS.items()]
+                )
+                await database[Collection.SAISON_TEAMS].insert_many([junction_row(key, shorthand) for key, shorthand in SHORTHANDS.items()])
+                group, finale = played_group(SAISON)[:3], played_group(SAISON)[3]
+                # Helmholtz wins the Finale, a result the group phase must not count.
+                played_finale = {**finale, "team1": side("Helmholtz", 3), "team2": side("Goethe", 0), "ergebnis": "3:0"}
+                await database[Collection.SPIELE].insert_many([*group, played_finale])
+
+                async def figures(**scope: Any) -> Any:
+                    filters = FLTeamSingleFilterParams(saison_id=SAISON, **scope)
+                    answered = await get_team(
+                        team_id=TEAM_OIDS["Helmholtz"],
+                        teams_collection=database[Collection.TEAMS],
+                        saisons_collection=database[Collection.SAISONS],
+                        filters=filters,
+                    )
+                    return answered.team.statistik
+
+                return {
+                    "named by no caller": await figures(),
+                    "gruppenphase": await figures(statistik_scope="gruppenphase"),
+                    "total": await figures(statistik_scope="total"),
+                }
+
+        figures = on_the_seed_loop(body())
+
+        # The premise: the Finale counts in the total, or the default could not be told from it.
+        assert figures["total"] != figures["gruppenphase"]
+        assert figures["named by no caller"] == figures["gruppenphase"]
+
+
+@pytest.mark.db
 class TestTheBaseTierReadsWithholdTheJunctionsContactRecords:
     """Three people's email, phone number and date of birth sit on the junction row, and both base-tier team reads join it."""
 

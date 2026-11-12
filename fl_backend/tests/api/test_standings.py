@@ -244,6 +244,23 @@ class TestDirekterVergleich:
 
         assert order(teams, cycle, DIREKTER_VERGLEICH) == ["Team 1", "Team 2", "Team 3"]
 
+    def test_a_pair_the_mini_table_leaves_level_goes_to_the_goal_keys_never_back_to_its_meeting(
+        self, a_team: TeamFactory, played: MatchFactory
+    ):
+        """The chain runs once: re-reading the head-to-head over the smaller set would reorder a band no new result touched.
+
+        Among the three, Team 3 leads on goals scored and Teams 1 and 2 stand level, though Team 1 won their meeting.
+        """
+
+        teams = [
+            a_team(1, punkte=6, scored=4, conceded=4),
+            a_team(2, punkte=6, scored=8, conceded=3),
+            a_team(3, punkte=6, scored=5, conceded=5),
+        ]
+        among_them = [played(1, 1, 2, 1, 0), played(2, 3, 1, 2, 1), played(3, 2, 3, 2, 1)]
+
+        assert order(teams, among_them, DIREKTER_VERGLEICH) == ["Team 3", "Team 2", "Team 1"]
+
     def test_a_band_missing_a_meeting_ranks_on_the_goal_keys(self, a_team: TeamFactory, played: MatchFactory):
         """Team 3 has met neither of the others, so no comparison exists to decide anything.
 
