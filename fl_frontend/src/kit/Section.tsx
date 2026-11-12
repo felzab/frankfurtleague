@@ -63,6 +63,13 @@ export const boxHead = tv({
 export const editorHead = tv({ base: "grid gap-1 text-sm text-fg-muted" });
 
 /**
+ * The lock line's place: one line at every width, the same height whether it names a lock, a closed record's reason or
+ * nothing, and in the editor's wait, so nothing under the title moves when the editor lands. `h-5` is `text-sm`'s
+ * 1.25-rem line; the words are chosen to fit a 360-px phone, and the cut with „…“ only guards a larger font.
+ */
+export const lockSlot = tv({ base: "h-5 truncate" });
+
+/**
  * A hairline between two parts of a section that one title holds, such as a match's score and its Sonderereignis:
  * across the box's whole width as the rule under the title, the fields' 16 px from the parts over and under it, which
  * is the box's own inset.

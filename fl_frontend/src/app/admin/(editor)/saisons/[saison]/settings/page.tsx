@@ -42,18 +42,6 @@ const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key:
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = <FieldPlaceholder key="select" />;
 
-/** The lock line of a running season whose draw stands and whose match has taken place, the longest the editor says. */
-const RUNNING_LOCK = COPY.template.lockLine([
-  ["takenPlace", WORDS.start],
-  ["sinceStart", WORDS.punkte],
-  ["sinceStart", WORDS.tiebreak],
-  ["byDraw", WORDS.gruppen],
-  ["byDraw", WORDS.teamsPerGruppe],
-  ["sinceStart", WORDS.qualifiers],
-  ["sinceStart", WORDS.gruppentausch],
-  ["sinceStart", WORDS.replacement],
-]);
-
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
   const { saison } = await params;
@@ -112,10 +100,9 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, s
 export default function SaisonSettingsPage({ params }: Props) {
   return (
     <EditorShell
-      // Each part in its fullest state, which no one season holds all at once: a running season's lock line, its draw
-      // standing, and the rows of a season not yet the site's. Only the read says which one it is.
+      // Each part in its fullest state, which no one season holds all at once: its draw standing, and the rows of a
+      // season not yet the site's. Only the read says which one it is.
       wait={{
-        lock: RUNNING_LOCK,
         sections: [
           [{ rows: 2, holds: "day" }],
           ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }],

@@ -52,11 +52,6 @@ export default function TeamEditorPage({ params }: Props) {
   return (
     <EditorShell
       wait={{
-        // A club that left, the longest lock line the editor says.
-        lock: COPY.template.lockLine([
-          ["departed", COPY.team.gruppe],
-          ["departed", COPY.team.trikotFarbe],
-        ]),
         sections: [
           [
             "field",

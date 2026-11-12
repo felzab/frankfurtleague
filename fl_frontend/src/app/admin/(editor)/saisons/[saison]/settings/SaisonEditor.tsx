@@ -22,12 +22,12 @@ import { formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonRequired } from "@/features/saisons/required";
 import type { ChipProps } from "@/kit/Chip";
-import type { DangerAct, EditorPart, EditorSection } from "@/kit/EditorPage";
+import type { DangerAct, EditorPart } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { TableHead, TableRow } from "@/kit/Table";
@@ -118,7 +118,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       <ComboBox
         label={WORDS.swapFirst}
         options={clubs.map((club) => optionOf(club, club.groupTakenPlace))}
-        isDisabled={locked}
+        isLocked={locked}
         value={first}
         onChange={(id) => {
           setFirst(id);
@@ -128,7 +128,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       <ComboBox
         label={WORDS.swapSecond}
         options={partners.map((club) => optionOf(club, club.groupTakenPlace))}
-        isDisabled={locked}
+        isLocked={locked}
         value={second}
         onChange={setSecond}
       />
@@ -174,14 +174,14 @@ function Replacement({
       <ComboBox
         label={WORDS.outgoing}
         options={clubs.map((club) => optionOf(club, club.takenPlace))}
-        isDisabled={locked}
+        isLocked={locked}
         value={out}
         onChange={setOut}
       />
       <ComboBox
         label={WORDS.incoming}
         options={incoming.map((club) => ({ id: club.id, label: { record: club.name } }))}
-        isDisabled={locked}
+        isLocked={locked}
         value={into}
         onChange={setInto}
         consequence={consequence}
@@ -252,32 +252,22 @@ export function SaisonEditor({
   const touch = { holder };
   const of = { saison_id: saison, holder };
 
-  // A draw fixes the three counts it was drawn from, and the start the qualifiers among them, each the write's own
-  // refusal: a started season with a draw holds its counts by the draw and its qualifiers by the start.
-  const gruppenLocks: EditorSection["locked"] =
-    facts.begun && drawn
-      ? [
-          { by: "byDraw", fields: [WORDS.gruppen, WORDS.teamsPerGruppe] },
-          { by: "sinceStart", fields: [WORDS.qualifiers] },
-        ]
-      : facts.begun
-        ? [{ by: "sinceStart", fields: [WORDS.qualifiers] }]
-        : drawn
-          ? [{ by: "byDraw" }]
-          : undefined;
+  // Each field locks off the write's own refusal: the start fixes the scoring, the qualifiers, the swap and the
+  // replacement; a draw the three counts it was drawn from; a stored result the start date. The line gives that last no
+  // reason of its own, a result standing in a begun season, so its reasons stay the two a phone's one line holds.
+  const locks: LockReason[] = [...(facts.begun ? (["sinceStart"] as const) : []), ...(drawn ? (["byDraw"] as const) : [])];
 
   const sections: [EditorPart, ...EditorPart[]] = [
     {
       id: "period",
       title: WORDS.period,
-      ...(facts.takenPlace ? { locked: [{ by: "takenPlace", fields: [WORDS.start] }] } : {}),
       fields: (
         <FieldRows>
           <DateField
             label={WORDS.start}
             name="start"
             isRequired={required.start}
-            isDisabled={facts.takenPlace}
+            isLocked={facts.takenPlace}
             value={draft.start}
             onChange={(day) => set("start", day)}
           />
@@ -297,8 +287,7 @@ export function SaisonEditor({
       id: "scoring",
       title: WORDS.scoring,
       help: WORDS.scoringHelp,
-      // The start fixes the points and the tiebreak; a no-show's goals stay open all season, so the lock names the two.
-      ...(facts.begun ? { locked: [{ by: "sinceStart", fields: [WORDS.punkte, WORDS.tiebreak] }] } : {}),
+      // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
       fields: (
         <>
           <FieldRows label={WORDS.punkte}>
@@ -308,7 +297,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.winPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.winPoints}
               onChange={(value) => set("winPoints", value)}
             />
@@ -318,7 +307,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.drawPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.drawPoints}
               onChange={(value) => set("drawPoints", value)}
             />
@@ -328,7 +317,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.lossPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.lossPoints}
               onChange={(value) => set("lossPoints", value)}
             />
@@ -338,7 +327,7 @@ export function SaisonEditor({
             name="tiebreak"
             options={TIEBREAK}
             isRequired={required.tiebreak}
-            isDisabled={facts.begun}
+            isLocked={facts.begun}
             value={draft.tiebreak}
             onChange={(id) => {
               if (id !== null) set("tiebreak", id);
@@ -371,7 +360,6 @@ export function SaisonEditor({
     {
       id: "gruppen",
       title: WORDS.gruppenAndKoRunde,
-      ...(gruppenLocks === undefined ? {} : { locked: gruppenLocks }),
       fields: (
         <FieldRows>
           <TextField
@@ -380,7 +368,7 @@ export function SaisonEditor({
             holds={2}
             kind="digits"
             isRequired={required.gruppen}
-            isDisabled={drawn}
+            isLocked={drawn}
             value={draft.gruppen}
             onChange={(value) => set("gruppen", value)}
           />
@@ -390,7 +378,7 @@ export function SaisonEditor({
             holds={2}
             kind="digits"
             isRequired={required.teamsPerGruppe}
-            isDisabled={drawn}
+            isLocked={drawn}
             value={draft.teamsPerGruppe}
             onChange={(value) => set("teamsPerGruppe", value)}
           />
@@ -401,7 +389,7 @@ export function SaisonEditor({
             holds={2}
             options={qualifiers}
             isRequired={required.qualifiers}
-            isDisabled={facts.begun || drawn}
+            isLocked={facts.begun || drawn}
             value={draft.qualifiers}
             onChange={(id) => {
               if (id !== null) set("qualifiers", id);
@@ -521,7 +509,6 @@ export function SaisonEditor({
     {
       id: "gruppentausch",
       title: WORDS.gruppentausch,
-      ...(facts.begun ? { locked: [{ by: "sinceStart" }] } : {}),
       fields: (
         <Swap
           saison={saison}
@@ -534,7 +521,6 @@ export function SaisonEditor({
     {
       id: "replacement",
       title: WORDS.replacement,
-      ...(facts.begun ? { locked: [{ by: "sinceStart" }] } : {}),
       fields: (
         <Replacement
           saison={saison}
@@ -658,6 +644,7 @@ export function SaisonEditor({
       chip={chip}
       editor={editor}
       closed={closed}
+      locks={locks}
       sections={sections}
       // Titled by what its rows are about: the draw's two acts, the switch onto the season, or both.
       danger={{ title: WORDS.dangerBox(drawn, !facts.isCurrent), acts: danger }}
