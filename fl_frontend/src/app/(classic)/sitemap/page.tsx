@@ -13,7 +13,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { LEGAL_LINKS, LIGA_LINKS } from "../frame";
 
-import type { ProseBlock } from "@/kit/Prose";
+import type { ProseSection } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -21,27 +21,25 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /** The footer's groups, which stand under the seasons. */
-const FRAME_GROUPS: ReadonlyArray<ProseBlock> = [
-  { kind: "heading", text: COPY.template.liga },
-  { kind: "links", links: LIGA_LINKS },
-  { kind: "heading", text: COPY.template.legal },
-  { kind: "links", links: LEGAL_LINKS },
+const FRAME_GROUPS: ReadonlyArray<ProseSection> = [
+  { heading: COPY.template.liga, blocks: [{ kind: "links", links: LIGA_LINKS }] },
+  { heading: COPY.template.legal, blocks: [{ kind: "links", links: LEGAL_LINKS }] },
 ];
 
 /**
- * Every season the public may read, the newest first, each with its pages, over the footer's groups: one text, so its
- * contents list names every group. Read on a request: the build reaches no backend.
+ * Every season the public may read, the newest first, each with its pages, over the footer's groups. Read on a
+ * request: the build reaches no backend.
  */
 async function Groups() {
   await connection();
   const { saisons } = await getSaisonFrame();
   return (
     <Prose
-      blocks={[
-        ...saisons.flatMap(({ id }): ProseBlock[] => [
-          { kind: "heading", text: COPY.shared.saisonName(id) },
-          { kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) },
-        ]),
+      sections={[
+        ...saisons.map(({ id }): ProseSection => ({
+          heading: COPY.shared.saisonName(id),
+          blocks: [{ kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) }],
+        })),
         ...FRAME_GROUPS,
       ]}
     />
@@ -55,7 +53,7 @@ async function Groups() {
  */
 export default function SitemapPage() {
   return (
-    <ClassicPage width="reading">
+    <ClassicPage width="form">
       <PageHead
         title={COPY.page.sitemap}
         lead={[SERVER_COPY.description.sitemap]}

@@ -1,24 +1,20 @@
-import { COPY } from "@/core/copy";
-
 import { Callout } from "./Callout";
-import { cardSurface, stacked } from "./cardStyles";
-import { ContentsRail } from "./Contents";
-import { Icon } from "./Icon";
+import { stacked } from "./cardStyles";
+import { ClassicPage, PageHead } from "./ClassicPage";
+import { Contents } from "./Contents";
 import { Link } from "./Link";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactElement, ReactNode } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import type { CalloutProps } from "./Callout";
-import type { ContentsEntry } from "./Contents";
 
 /** A run of text: catalogue words, with links set inside it, each named by the catalogue or by its own data, such as an address. */
 export type ProseText = ReadonlyArray<Copy | { href: Route; label: Words }>;
 
 export type ProseBlock =
-  | { kind: "heading"; text: Copy }
   | { kind: "paragraph"; text: ProseText }
   | { kind: "list"; items: ReadonlyArray<ProseText> }
   | { kind: "links"; links: ReadonlyArray<{ href: Route; label: Copy }> }
@@ -29,47 +25,19 @@ export type ProseBlock =
   | { kind: "table"; table: ReactElement }
   | { kind: "callout"; callout: CalloutProps };
 
-/**
- * A reading page's body: the text's column and, beside it from `lg`, the field the contents list stands in, empty on a
- * page of fewer than two sections, so every reading page's text hangs from the same edge at the same width. The column
- * is 43.5 rem, past the 39.25-rem line of running text, since the retention table takes its table form only from 42 rem
- * of its box: the text keeps its measure and the table the whole column, as GOV.UK's layout keeps running text to two
- * thirds and lets a table take the column. Below `lg` the contents list folds into one row over the text.
- */
-const reading = tv({
-  slots: {
-    root: "grid items-start gap-8 lg:grid-cols-[minmax(0,43.5rem)_minmax(0,1fr)] lg:gap-x-12",
-    column: "grid min-w-0 gap-8",
-    // A grid item stretched to the row, so the list sticking inside it has the text's height to travel.
-    field: "hidden self-stretch lg:block",
-  },
-});
+/** A section of a text: its heading and the blocks under it. */
+export type ProseSection = { heading: Copy; blocks: ReadonlyArray<ProseBlock> };
 
 // Each section under its 20-px heading, 48 px from the next with a hairline halfway, 16 px between its paragraphs; each
 // block of words at a line's measure, a table across the column.
 const prose = tv({
   slots: {
-    text: "grid gap-6 text-base text-fg",
-    // The blocks before any heading, under no hairline of their own.
-    opening: "grid gap-4",
+    text: "grid min-w-0 gap-6 text-base text-fg",
     section: `kit-section-target grid gap-4 ${stacked()} pt-6 first:pt-0`,
     heading: "max-w-measure text-xl font-semibold",
     paragraph: "max-w-measure",
     list: "grid max-w-measure list-disc gap-2 ps-6 marker:text-fg-muted",
     links: "grid max-w-measure gap-1",
-  },
-});
-
-const fold = tv({
-  slots: {
-    // A native disclosure, which needs no script; its summary holds no heading, which a summary would hide from some
-    // readers.
-    root: "lg:hidden",
-    details: cardSurface({ class: "group/fold" }),
-    summary: "flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-medium [&::-webkit-details-marker]:hidden",
-    chevron: "flex text-fg-muted transition-transform duration-(--motion-state) group-open/fold:rotate-180",
-    list: "grid border-t border-border py-2",
-    entry: "px-4 py-2.5",
   },
 });
 
@@ -88,7 +56,7 @@ function Run({ text }: { text: ProseText }) {
   );
 }
 
-function Block({ block }: { block: Exclude<ProseBlock, { kind: "heading" }> }) {
+function Block({ block }: { block: ProseBlock }) {
   const slots = prose();
   switch (block.kind) {
     case "paragraph":
@@ -138,167 +106,100 @@ function Block({ block }: { block: Exclude<ProseBlock, { kind: "heading" }> }) {
   }
 }
 
-/** A section: its heading, the id a contents entry and an address's fragment reach it by, and its blocks. */
-type Section = { entry: ContentsEntry; blocks: Array<Exclude<ProseBlock, { kind: "heading" }>> };
-
 /**
- * A heading's words as an address's fragment, its umlauts written out as German writes them without them: „Löschung“
- * is `loeschung`. A second heading of the same words takes its place's number.
+ * Each section with its id, which a contents entry and an address's fragment reach it by: its heading's words, its
+ * umlauts written out as German writes them without them, „Löschung“ as `loeschung`; a second heading of the same words
+ * takes its place's number.
  */
-function fragmentOf(text: string, taken: ReadonlySet<string>): string {
-  const base = text
-    .toLowerCase()
-    .replaceAll("ä", "ae")
-    .replaceAll("ö", "oe")
-    .replaceAll("ü", "ue")
-    .replaceAll("ß", "ss")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  let fragment = base;
-  for (let place = 2; taken.has(fragment); place += 1) fragment = `${base}-${String(place)}`;
-  return fragment;
-}
-
-/** The text's blocks in their sections, each heading opening one; the blocks before any heading stand untitled. */
-function sectionsOf(blocks: ReadonlyArray<ProseBlock>) {
-  const opening: Section["blocks"] = [];
-  const sections: Section[] = [];
+function identified(sections: ReadonlyArray<ProseSection>) {
   const taken = new Set<string>();
-  for (const block of blocks) {
-    if (block.kind === "heading") {
-      const id = fragmentOf(block.text, taken);
-      taken.add(id);
-      sections.push({ entry: { id, title: block.text }, blocks: [] });
-    } else {
-      (sections.at(-1)?.blocks ?? opening).push(block);
-    }
-  }
-  return { opening, sections };
+  return sections.map((section) => {
+    const base = section.heading
+      .toLowerCase()
+      .replaceAll("ä", "ae")
+      .replaceAll("ö", "oe")
+      .replaceAll("ü", "ue")
+      .replaceAll("ß", "ss")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    let id = base;
+    for (let place = 2; taken.has(id); place += 1) id = `${base}-${String(place)}`;
+    taken.add(id);
+    return { ...section, id };
+  });
 }
 
-/** The contents list on a phone: one row naming it, which opens on a link to each section. */
-function ContentsFold({ entries }: { entries: readonly ContentsEntry[] }) {
-  const slots = fold();
-  return (
-    <nav
-      aria-label={COPY.template.contents}
-      className={slots.root()}>
-      <details className={slots.details()}>
-        <summary className={slots.summary()}>
-          {COPY.template.contents}
-          <span className={slots.chevron()}>
-            <Icon
-              glyph="expand"
-              size={16}
-            />
-          </span>
-        </summary>
-        <ol className={slots.list()}>
-          {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className={slots.entry()}>
-              <Link
-                href={`#${entry.id}`}
-                placement="standalone"
-                label={entry.title}
-              />
-            </li>
-          ))}
-        </ol>
-      </details>
-    </nav>
-  );
-}
-
-/**
- * A reading page's content beside an empty field: what a reading page of no sections, Kontakt's rows or the sponsors'
- * tiles, shows in the text's column.
- */
-export function ReadingColumn({ children }: { children: ReactNode }) {
-  const slots = reading();
-  return (
-    <div className={slots.root()}>
-      <div className={slots.column()}>{children}</div>
-    </div>
-  );
-}
-
-/**
- * A legal or consent page's text under its head: sections under 20-px semibold headings, each over a hairline but the
- * first, paragraphs and bullet lists, each at a line's measure; the retention table, which the page places, across the
- * column; the objection box as the kit's `Callout`; a list of the site's pages as plain links. A text of two sections or
- * more takes the contents list, decided here from its sections: beside the text from `lg`, following the reader and
- * marking the section they are in, and folded into one row over the text below it.
- */
-export function Prose({ blocks }: { blocks: ReadonlyArray<ProseBlock> }) {
-  const { opening, sections } = sectionsOf(blocks);
-  const entries = sections.map((section) => section.entry);
-  const listed = entries.length >= 2;
+function Text({ sections }: { sections: ReturnType<typeof identified> }) {
   const slots = prose();
-  const layout = reading();
   return (
-    <div className={layout.root()}>
-      <div className={layout.column()}>
-        {listed && <ContentsFold entries={entries} />}
-        <div className={slots.text()}>
-          {opening.length > 0 && (
-            <div className={slots.opening()}>
-              {opening.map((block, index) => (
-                <Block
-                  key={index}
-                  block={block}
-                />
-              ))}
-            </div>
-          )}
-          {sections.map(({ entry, blocks: under }) => (
-            // Unnamed, so the sections stay out of the landmarks a reader lists: a text of fourteen would bury the page's own.
-            <section
-              key={entry.id}
-              id={entry.id}
-              className={slots.section()}>
-              <h2 className={slots.heading()}>{entry.title}</h2>
-              {under.map((block, index) => (
-                <Block
-                  key={index}
-                  block={block}
-                />
-              ))}
-            </section>
+    <div className={slots.text()}>
+      {sections.map(({ id, heading, blocks }) => (
+        // Unnamed, so the sections stay out of the landmarks a reader lists: a text of fourteen would bury the page's own.
+        <section
+          key={id}
+          id={id}
+          className={slots.section()}>
+          <h2 className={slots.heading()}>{heading}</h2>
+          {blocks.map((block, place) => (
+            <Block
+              key={place}
+              block={block}
+            />
           ))}
-        </div>
-      </div>
-      {listed && (
-        <div className={layout.field()}>
-          <ContentsRail entries={entries} />
-        </div>
-      )}
+        </section>
+      ))}
     </div>
+  );
+}
+
+/**
+ * A text's sections under 20-px semibold headings, each over a hairline but the first: paragraphs and bullet lists,
+ * each at a line's measure; a table, which the page places, across the column; a box as the kit's `Callout`; a list of
+ * the site's pages as plain links.
+ */
+export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
+  return <Text sections={identified(sections)} />;
+}
+
+/**
+ * A long legal text's page, which a page opts into: its head, then its sections in a 43.5-rem column hanging from the
+ * logo's edge, with the contents list beside them from `lg` and folded over them below. The column is past the
+ * 39.25-rem line of running text, since the retention table takes its table form only from 42 rem of its box: the
+ * text keeps its measure and the table the whole column, as GOV.UK's layout keeps running text to two thirds and lets
+ * a table take the column.
+ */
+export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<ProseSection> } & ComponentProps<typeof PageHead>) {
+  const text = identified(sections);
+  return (
+    <ClassicPage width="reading">
+      <PageHead {...head} />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,43.5rem)_minmax(0,1fr)] lg:gap-x-12">
+        {/* The rail takes the second column's first row, so the text, placed after it, takes the first column's. */}
+        <Contents entries={text.map(({ id, heading }) => ({ id, title: heading }))} />
+        <Text sections={text} />
+      </div>
+    </ClassicPage>
   );
 }
 
 /** One heading's links while a read names the heading: its line and each link's, in the words they will stand in. */
 export function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
   const slots = prose();
-  const layout = reading();
   return (
-    <div className={layout.root()}>
-      <Placeholder layoutClass={slots.section()}>
-        <PlaceholderLine
-          textClass={slots.heading()}
-          words={heading}
-        />
-        <div className={slots.links()}>
-          {links.map((link) => (
-            <PlaceholderLine
-              key={link}
-              textClass="text-base"
-              words={link}
-            />
-          ))}
-        </div>
-      </Placeholder>
-    </div>
+    <Placeholder layoutClass={slots.section()}>
+      <PlaceholderLine
+        textClass={slots.heading()}
+        words={heading}
+      />
+      <div className={slots.links()}>
+        {links.map((link) => (
+          <PlaceholderLine
+            key={link}
+            textClass="text-base"
+            words={link}
+          />
+        ))}
+      </div>
+    </Placeholder>
   );
 }
