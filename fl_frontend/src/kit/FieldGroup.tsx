@@ -10,7 +10,7 @@ const fieldGroup = tv({
   slots: {
     // `min-w-0`: a fieldset is at least as wide as its content by default, which would push a row of fields past the
     // dialog. 8 px more above it than between two fields, unless it opens the dialog's fields, as a box's subgroup sets
-    // itself off (`FieldRows.tsx :: subgroup`), and 16 px from its hairline to its fields, a box's own inset.
+    // itself off (`subgroup`), and 16 px from its hairline to its fields, a box's own inset.
     root: "grid w-full min-w-0 gap-4 not-first:mt-2",
     // A legend is drawn outside its box's flow; floated, it is an ordinary child (Bootstrap's reboot), so the grid lays it
     // out. Stretched out through the dialog's padding, which the box declares, its hairline meets both of the dialog's

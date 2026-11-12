@@ -219,7 +219,6 @@ export function useEditor<Values extends Record<string, EditorValue>, Version ex
   return {
     /** The values the fields show. */
     draft,
-    /** Sets one field's value. */
     set: <Key extends keyof Values & string>(key: Key, value: Values[Key]) =>
       setHeld((state) => ({ ...state, edits: { ...state.edits, [key]: value }, editCount: state.editCount + 1 })),
     /** The fields that differ from the stored record, with their draft values. */

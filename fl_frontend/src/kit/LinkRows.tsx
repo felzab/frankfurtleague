@@ -16,7 +16,7 @@ type LinkRow = { glyph?: IconName; label: Copy; value: Words; href: Route };
 /**
  * The ways to reach the league, one row each in one box, each row one link through its name, the address or
  * the profile it reaches and the chevron at its end, as a card's rows stand: Kontakt's page. The box is the container
- * its rows read, at a card's rows' width (`cardStyles.ts :: nameWithChips`): from 32 rem what a way reaches stands at
+ * its rows read, at a card's rows' width (`nameWithChips`): from 32 rem what a way reaches stands at
  * the right of its name's line, and in a narrower box, a phone's, on the line under the name, where the league's own
  * address stands whole at 360 px.
  */

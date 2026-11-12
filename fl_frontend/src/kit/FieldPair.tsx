@@ -5,7 +5,7 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
- * What a field holds, which sets its width on the kit's scale (`fieldStyles.ts :: fieldFrame`): a short value by its
+ * What a field holds, which sets its width on the kit's scale (`fieldFrame`): a short value by its
  * count and its unit, or a field's kind, a value whose length varies at the standard width by default.
  */
 type PlaceholderShape =

@@ -13,7 +13,7 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 // Explicit rendering, Cloudflare's way for a page whose forms mount after it loads; fetched from this exact
-// URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/, read 2026-10-04).
+// URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
 const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 // Cloudflare's own bound on a siteverify call: a press waits for a token being minted as long as the

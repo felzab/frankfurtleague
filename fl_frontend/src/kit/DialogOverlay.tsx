@@ -8,8 +8,7 @@ import type { ReactNode } from "react";
 import type { ModalOverlayProps } from "react-aria-components/Modal";
 
 /*
- * What a dialog (`Dialog.tsx`) and a question (`ConfirmDialog.tsx`) both stand on, in a module of its own, so each
- * reads it from here and neither imports the other for it.
+ * What a dialog and a question both stand on, in a module of its own, so neither imports the other for it.
  */
 
 /**
