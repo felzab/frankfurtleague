@@ -195,10 +195,11 @@ venv = ".venv"
 # Windows gate, on the same pyright, accepted it.
 pythonVersion = "3.14"
 include = ["app", "tests"]
-# `basic`, below pyright's `standard` default: at `standard`, every payload schema narrowing a base
-# model's field reports `reportIncompatibleVariableOverride` for the shape it exists for.
-# `strict` demands an annotation on every symbol, test locals too.
-typeCheckingMode = "basic"
+# `standard`, pyright's default. `strict` demands an annotation on every symbol, test locals too.
+typeCheckingMode = "standard"
+# Off alone: every payload schema narrowing a base model's field, the shape it exists for, would
+# report it.
+reportIncompatibleVariableOverride = false
 
 # The application's code names a type for every parameter: one left bare is `Any` to pyright, so a write through a
 # collection it is handed passes with nothing reported (`app/core/readonly.py`). Not the tests, which take fixtures and
