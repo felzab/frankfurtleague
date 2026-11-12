@@ -19,9 +19,8 @@ export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 export type ActorLane = "admin" | "person";
 
 /**
- * Who the request acts for, as `fl_frontend/src/core/api.ts :: sendToBackend` states them beside the admin
- * key: the folded address, when its session was made in whole seconds, and by which factor
- * (`fl_frontend/src/core/auth/guards.ts :: requestActorOf`).
+ * Who the request acts for, as a backend call states them beside the admin key: the folded address, when its
+ * session was made in whole seconds, and by which factor.
  */
 export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly authTime: number; readonly factor: AuthFactor };
 
@@ -98,8 +97,8 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its
-  // client's per-stage bounds (`fl_frontend/src/core/db.ts`) and never by this scope, and a stopping
-  // server waits on this promise, not the work.
+  // client's per-stage bounds and never by this scope, and a stopping server waits on this promise, not
+  // the work.
   const cut = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, AFTER_RESPONSE_DEADLINE_MS);
   });
@@ -110,7 +109,7 @@ export function runBehindTheResponse(traceId: string, work: () => Promise<void>)
 /**
  * Runs a background pass, the scheduler's or the Postausgang's drain, under its trace and no deadline: each call it sends
  * is bounded by its own bound alone, and a pass a stopping container cuts leaves what it held to the next. The writes
- * it sends drain nothing behind a response (`fl_frontend/src/core/api.ts :: sendToBackend`): the pass drains its own.
+ * it sends drain nothing behind a response: the pass drains its own.
  */
 export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Promise<T> {
   const scope: RequestScope = {
@@ -124,7 +123,6 @@ export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Pro
   return storage.run(scope, pass);
 }
 
-/** Whether this call runs inside a background pass. */
 export function inBackground(): boolean {
   return storage.getStore()?.background === true;
 }
@@ -154,11 +152,10 @@ export function boundCall(ownBoundMs: number): AbortSignal {
 
 /**
  * Records a write as it is sent, counted as standing until its own answer refuses it: one never answered may still
- * have landed. Answers the withdrawal, which takes that one write back and no other. Its one caller is
- * `fl_frontend/src/core/apiDispatch.ts :: dispatchRequest`, for every write the generated client sends. A write
- * through the sign-in store's own client is recorded by none: it moves nothing a cached read serves, so recorded it
- * would clear the site's cache tag for nothing, and an action changing that store calls Next's `refresh()` itself.
- * A no-op outside a scope.
+ * have landed. Answers the withdrawal, which takes that one write back and no other. Every write the generated client
+ * sends is recorded. A write through the sign-in store's own client is not: it moves nothing a cached read serves, so
+ * recorded it would clear the site's cache tag for nothing, and an action changing that store calls Next's `refresh()`
+ * itself. A no-op outside a scope.
  */
 export function recordWriteSent(): () => void {
   const store = storage.getStore();

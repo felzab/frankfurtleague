@@ -19,7 +19,6 @@ export type PasskeyRow = {
   readonly thisDevice: boolean;
 };
 
-/** The person's passkeys as Sicherheit lists them, and whether another may be set up. */
 export type HeldPasskeys = { readonly rows: readonly PasskeyRow[]; readonly canAdd: boolean };
 
 /** A stamp the adapter answered, a `Date` or its ISO text, or `null` where it holds none it can read. */
@@ -47,7 +46,7 @@ export async function heldPasskeysOf(served: {
     .map(({ row, created }): PasskeyRow => ({
       id: row.id,
       name: row.name ?? getAuthenticatorName(row.aaguid) ?? COPY.signIn.passkeyTitle,
-      // Not on the plugin's declared row: `fl_frontend/src/core/passkeyLastUse.ts` adds the field.
+      // Not on the plugin's declared row: the `passkeyLastUse` plugin adds the field.
       dates: COPY.account.passkeys.dates(created, dateOf(Reflect.get(row, "lastUsedAt"))),
       thisDevice: served.session.passkeyCredentialId === row.credentialID,
     }));

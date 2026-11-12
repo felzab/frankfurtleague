@@ -8,8 +8,8 @@ import { z } from "zod";
 import { BootRefusal } from "./bootRefusal";
 import { logger } from "./logging";
 
-// The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
-// without the space, which `secrets.compare_digest` there reads.
+// The class the backend's `INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII without the space, which
+// `secrets.compare_digest` there reads.
 const INTERNAL_API_KEY = z
   .string()
   .length(64)
@@ -123,13 +123,13 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
   return [...new Set(issues.map(({ path }) => (path.length > 0 ? String(path[0]) : "<unknown>")))].sort();
 }
 
-// The deployments this repository defines -- `docker-compose.yml` and `docker-compose.local.yml`.
-// A third member would name a stack nothing here deploys.
+// The deployments this repository defines, the production stack and the local one. A third member
+// would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: `docker-compose.yml` hands production each as a file secret,
-// never a variable.
+// production host alone. Files only: the production stack hands each as a file secret, never a
+// variable.
 const PRODUCTION_ONLY_REQUIRED = [
   "AUTH_RESEND_KEY",
   "RESEND_WEBHOOK_SECRET",
@@ -137,8 +137,8 @@ const PRODUCTION_ONLY_REQUIRED = [
   "BETTERSTACK_HEARTBEAT_URL",
 ] as const satisfies readonly SecretKey[];
 
-// Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
-// which moves without us: every published test key, site and secret alike, takes this shape.
+// Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, which moves
+// without us: every published test key, site and secret alike, takes this shape.
 const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
 
 /**
@@ -152,7 +152,7 @@ const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 // validation reads each variable off its keys.
 const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
-  // production host too, and an origin test would call a staging box production. `mail.ts` sends on
+  // production host too, and an origin test would call a staging box production. The mailer sends on
   // this value alone.
   APP_ENV: z.enum(APP_ENVIRONMENTS),
 
@@ -164,9 +164,9 @@ const environment = {
     return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
   }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
 
-  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth/library.ts` reads this
-  // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
-  // or neither.
+  // A stray http:// here ships a session cookie in plaintext: the sign-in library reads this value's
+  // scheme and gives the cookie the `__Host-` name prefix and the `secure` attribute together or
+  // neither.
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {
@@ -174,12 +174,12 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; unset under
-  // `next dev`, and empty, so read as unset, in a build handed none.
+  // The image's version from its build argument, which the start-up line logs; unset under `next dev`, and empty, so
+  // read as unset, in a build handed none.
   APP_VERSION: z.string().min(1).optional(),
 
-  // On for a restore's steps alone (`docs/ops/runbooks.md` §13): no pass is armed and no write's drain sends, so nothing
-  // acts on the restored state before those steps have. Off where the server sets nothing.
+  // On for a restore's steps alone: no pass is armed and no write's drain sends, so nothing acts on the restored state
+  // before those steps have. Off where the server sets nothing.
   RESTORE_HOLD: z
     .string()
     .transform((value) => value.toLowerCase())
@@ -270,7 +270,7 @@ type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
 
 /**
  * The settings, and no secret: any server module may import this, so each secret is handed out by its
- * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owners alone import.
+ * own reader below, which the lint lets its owners alone import.
  */
 export const frontend_config = Object.fromEntries(Object.entries(validated).filter(([name]) => !isSecretKey(name))) as Settings;
 

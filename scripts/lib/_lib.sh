@@ -64,7 +64,7 @@ VERBOSE="${VERBOSE:-0}"
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
 # the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed")
+_RANK_LABELS=("no verdict" "pass" "advisory" "refused" "failed")
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -168,7 +168,6 @@ _emit() {
 
 # One verb per meaning, each defined in `docs/ops/spec.md` §1.7.
 info() { _emit "$C_BLUE"   "   ·" "$*"; }
-skip() { _emit "$C_DIM"    "  --" "$*"; _escalate 1; }
 
 # An advisory, never a finding — use `fail` where the run must not stay green.
 warn() { _emit "$C_YELLOW" "  !!" "$*" >&2; _record_advisory; }
@@ -189,8 +188,7 @@ fail() {
   local s; s="$(_step_suffix)"
   if [[ "${1-}" == --summary ]]; then shift; else _annotate "$*"; fi
   _emit "$C_RED" "   ✗" "$*${s}" >&2
-  add_findings 1
-  _escalate 5
+  _record_finding
   _STEP_MS0=""
 }
 
@@ -200,7 +198,7 @@ die() {
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*${s}" >&2
   printf '\n' >&2
-  if (( _CHROME )); then add_findings 1; _escalate 5; _closing findings; fi
+  if (( _CHROME )); then _record_finding; _closing findings; fi
   exit 1
 }
 
@@ -221,7 +219,7 @@ ok() {
   local suffix=""
   if (( _CHROME )); then
     suffix="$(_step_suffix)"
-    _escalate 2
+    _escalate 1
   elif [[ -n "${_STEP_T0:-}" ]] && (( SECONDS - _STEP_T0 >= 3 )); then
     suffix=" ${C_DIM}($(fmt_duration $(( SECONDS - _STEP_T0 ))))${C_RESET}"
   fi
@@ -295,14 +293,13 @@ _escalate() {
   return 0
 }
 
-# For what a checker counted itself: findings reported in one block say so here rather than
-# counting as one. The run total is kept open section or not — `finish` tests it before green.
-add_findings() {
-  _RUN_FINDINGS=$(( _RUN_FINDINGS + $1 ))
-  if (( ! _CHROME || _SECTION_OPEN < 0 )); then return 0; fi
-  _SECTION_FINDINGS[_SECTION_OPEN]=$(( _SECTION_FINDINGS[_SECTION_OPEN] + $1 ))
-  if (( $1 > 0 )); then _escalate 5; fi
-  return 0
+# The run total is kept open section or not: `finish` tests it before green.
+_record_finding() {
+  _RUN_FINDINGS=$(( _RUN_FINDINGS + 1 ))
+  if (( _CHROME && _SECTION_OPEN >= 0 )); then
+    _SECTION_FINDINGS[_SECTION_OPEN]=$(( _SECTION_FINDINGS[_SECTION_OPEN] + 1 ))
+  fi
+  _escalate 4
 }
 
 _record_advisory() {
@@ -310,7 +307,7 @@ _record_advisory() {
   if (( _CHROME && _SECTION_OPEN >= 0 )); then
     _SECTION_ADVISORIES[_SECTION_OPEN]=$(( _SECTION_ADVISORIES[_SECTION_OPEN] + 1 ))
   fi
-  _escalate 3
+  _escalate 2
 }
 
 # Empty outside a section, and once the open step is closed: one verdict per step is what makes
@@ -368,9 +365,9 @@ _summary_table() {
   for (( i = 0; i < count; i++ )); do
     rank=${_SECTION_RANKS[i]}
     case "$rank" in
-      2) colour="$C_GREEN" ;;
-      3) colour="$C_YELLOW" ;;
-      4|5) colour="$C_RED" ;;
+      1) colour="$C_GREEN" ;;
+      2) colour="$C_YELLOW" ;;
+      3|4) colour="$C_RED" ;;
       *) colour="$C_DIM" ;;
     esac
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
@@ -427,15 +424,8 @@ finish() {
     fi
     if (( _SECTION_RANKS[i] > worst )); then worst=${_SECTION_RANKS[i]}; fi
   done
-  if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
-  if (( worst == 4 )); then _closing refused; exit 2; fi
-  # No row reached `pass`, so nothing judged anything and green would read as a run that did.
-  # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
-  # plainly opens no section at all.
-  if (( count > 0 && worst < 2 )); then
-    refuse "every section in this run was skipped, so nothing here judged the change and there is
-no verdict to report. Each skip above names what was not run and why."
-  fi
+  if (( _RUN_FINDINGS > 0 || worst >= 4 )); then _closing findings; exit 1; fi
+  if (( worst == 3 )); then _closing refused; exit 2; fi
   _closing green "$*"
   exit 0
 }
@@ -443,14 +433,15 @@ no verdict to report. Each skip above names what was not run and why."
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
 # a step that passed before the refusal cannot leave the row reading green.
 refuse() {
-  _escalate 4
+  _escalate 3
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
   _annotate "$*"
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
-  _closing refused
+  # As `die` and an interrupt: a script speaking the verbs plainly ends on its own sentence.
+  if (( _CHROME )); then _closing refused; fi
   # 2, not 1: a caller branching on the code has to tell "fix the change" from "the checker could
   # not judge it", and 1 is spoken for by findings.
   exit 2
@@ -463,7 +454,7 @@ on_error() {
   local where="${file##*/}"
   # The open section failed whatever its steps reached: a row reading `pass` beside a crash
   # statement misleads anyone scanning the table rather than the prose.
-  _escalate 5
+  _escalate 4
   # Outside the fold, for `refuse`'s reason.
   end_section
   _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
@@ -544,7 +535,6 @@ require_platform() {
   case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) have=windows ;;
     Linux)                have=linux   ;;
-    Darwin)               have=macos   ;;
     *)                    have=unknown ;;
   esac
   [[ "$have" == "$want" ]] || refuse "This script targets ${want}; this machine looks like ${have}.

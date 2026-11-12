@@ -43,7 +43,6 @@ export async function requireRole(kind: PersonKind, path: string): Promise<Subje
 /** One contact seat a person holds, the only Funktion a team's pages answer to. */
 export type TeamSeat = Extract<Role, { kind: "kontakt" }>;
 
-/** Every seat a person holds at one team page's address, at least one. */
 export type TeamSeats = readonly [TeamSeat, ...TeamSeat[]];
 
 /** A team page's own address, built from its route's segments as its folders name them, `[team]/[saison]` first. */
@@ -71,7 +70,7 @@ const FORBIDDEN_METADATA: Metadata = { ...NOT_FOUND_METADATA, title: SERVER_COPY
  * A team page's metadata off the page's own read, `read` for the seat the person holds at its address, memoised by the
  * page so the tab and the card share it: `metadataOf` what it found; the not-found title where it found nothing; and
  * the „Kein Zugang“ card's title where the person holds no seat there, or the backend finds the seat gone after the
- * session's check, so the tab says what the card says (`readAsSeatHolder`). It answers each miss rather than throwing
+ * session's check, so the tab says what the card says. It answers each miss rather than throwing
  * it, since a `notFound()` thrown from `generateMetadata` leaves the tab the layout's title, and a failed read as
  * `metadataFor` does.
  */
@@ -95,11 +94,10 @@ export async function teamMetadata<Segments extends { team: string; saison: stri
   return metadataFor(outcome, (known) => ("forbidden" in known ? FORBIDDEN_METADATA : metadataOf(known.found)));
 }
 
-/** Ends a team page's read on the card for a team the person holds no seat on. */
 function refuseWithoutSeat(): never {
   logRefused("/area/team/[team]/[saison]", "no_seat");
-  // The not-found boundary, which draws „Kein Zugang“ here (`fl_frontend/src/app/area/team/not-found.tsx`): Next's
-  // own interrupt for a refused page, `forbidden()`, is experimental. Once it is stable, the change is this throw and
+  // The team area's not-found boundary draws „Kein Zugang“ here: Next's own interrupt for a refused page,
+  // `forbidden()`, is experimental. Once it is stable, the change is this throw and
   // a `forbidden.tsx` beside that boundary.
   notFound();
 }

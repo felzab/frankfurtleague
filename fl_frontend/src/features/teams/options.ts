@@ -8,7 +8,6 @@ import type { Option } from "@/kit/OptionList";
 /** The empty box's entry: a club need name neither, and a value the record lacks stays choosable again. */
 const NONE: Option = { id: "", label: COPY.shared.notProvided };
 
-/** The school forms a club may name, in the published order. */
 export const schulformOptions = (): readonly Option[] => [
   NONE,
   ...Object.values(FLSchulform).map((id) => ({ id, label: COPY.team.schulformOption[id] })),

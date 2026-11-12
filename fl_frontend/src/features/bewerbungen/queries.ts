@@ -6,23 +6,15 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type { FLBewerbungenAdminListResponse, FLBewerbungSingleResponse } from "@/core/generated/client/types";
 
-/**
- * One season's applications, newest first, with what an acceptance into the season would meet: one read for its list and
- * its Sammel-Zusage, `null` for a season the league does not hold.
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not caller identity, so a cached read of
- * admin-tier data is a shared slot.
- */
-// `cache` memoizes per RENDER PASS, for the tab's title and the page, never `"use cache"`.
+/** One read serves the list and its Sammel-Zusage; `null` for a season the league does not hold. */
+// `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the arguments
+// rather than the caller, so a cached read of admin-tier data is a shared slot.
 export const getBewerbungenOfSaison = cache(async (saison: string): Promise<FLBewerbungenAdminListResponse | null> =>
   runAdminRead(() => orMissing(bewerbungenGetBewerbungenAdmin({ saison_id: saison }))),
 );
 
-/**
- * The one application the review page decides against, uncached for the reason above. `null` on a
- * 404, which the page turns into `notFound()`; everything else throws.
- */
-// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
+/** `null` on a 404, which the page turns into `notFound()`; everything else throws. */
+// `cache` memoizes per render pass. Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() => orMissing(bewerbungenGetBewerbung(bewerbungId))),
 );

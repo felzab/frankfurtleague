@@ -70,8 +70,7 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
   const { adapter } = await auth.$context;
 
   // The stamp ends them, and before any row is deleted: a deletion failing below leaves rows no guard
-  // serves, a lift of the ban included. Equality on the stored
-  // address, which every sign-in stores folded.
+  // serves, a lift of the ban included. Equality on the stored address, which every sign-in stores folded.
   const account = await adapter.update<{ id: string }>({
     model: "user",
     where: [{ field: "email", value: folded }],

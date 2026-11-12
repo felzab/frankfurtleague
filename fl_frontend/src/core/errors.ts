@@ -1,13 +1,12 @@
 import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
- * What a request was, a write that may have landed or a read that changed nothing, which
- * `fl_frontend/src/core/api.ts :: sendToBackend` judges every landed write's drain by. Required on every API error
- * rather than defaulted, since a failed write may have landed and a failed read changed nothing.
+ * What a request was, a write that may have landed or a read that changed nothing. Required on every API error rather
+ * than defaulted, since a failed write may have landed and a failed read changed nothing.
  */
 export type SentRequest = {
   method: string;
-  /** A call changing nothing whatever its method says, as its operation's contract states (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  /** A call changing nothing whatever its method says, as its operation's contract states. */
   readOnly: boolean;
 };
 
@@ -237,7 +236,7 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 /**
  * The refusals Resend's published error reference calls temporary, mirrored here because the token
  * decides whether a second attempt can succeed. **The source moves without us**
- * (<https://resend.com/docs/api-reference/errors>, read 2026-09-08).
+ * (<https://resend.com/docs/api-reference/errors>).
  */
 const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
   "concurrent_idempotent_requests",

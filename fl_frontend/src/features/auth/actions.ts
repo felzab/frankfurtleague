@@ -15,9 +15,8 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
  * action is public, so a distinguishable "not authorized" would be a membership oracle. The bot check answers
  * before the address is read; a malformed address is the box's, which a format check may say safely.
  *
- * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH, not this action: an action
- * resolves from a process-wide module map, so a POST to any page reaches it, metered there by the server-action
- * zone pair alone.
+ * Public by necessity. The edge's `/signin` limit bounds that path, not this action: an action resolves from a
+ * process-wide module map, so a POST to any page reaches it, metered there by the server-action zone pair alone.
  */
 export const handleSignIn = action({
   lane: "public",
@@ -29,7 +28,7 @@ export const handleSignIn = action({
     // Read once and closed over: the callback below runs after this action has answered.
     const requestHeaders = await headers();
 
-    // Folded HERE, which is the boundary: below this line the code row, the mailed recipient, the gate and the
+    // Folded here, at the boundary: below this line the code row, the mailed recipient, the gate and the
     // stored `user` row all carry one string. The library folds case alone and never trims, so the fold's trimmed
     // spelling is the one every sign-in of that person carries.
     const email = asSignInIdentifier(typed);

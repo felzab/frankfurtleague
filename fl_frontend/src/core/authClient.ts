@@ -12,15 +12,14 @@ const client = createAuthClient({ plugins: [passkeyClient(), emailOTPClient()] }
 type Client = typeof client;
 
 /**
- * A ceremony whose answer's body is typed `unknown`: `fl_frontend/src/core/auth/library.ts` replaces the body of every
- * answer that signs in, so the session and user the plugins type are never there, and a body is read through a parser
- * of the league's own answer (`fl_frontend/src/core/auth/assertionAnswer.ts`).
+ * A ceremony whose answer's body is typed `unknown`: the server replaces the body of every answer that signs in, so
+ * the session and user the plugins type are never there, and a body is read through a parser of the league's own
+ * answer.
  */
 type Rewritten<Ceremony> = Ceremony extends (...args: infer Args) => Promise<infer Answer>
   ? (...args: Args) => Promise<{ [Key in keyof Answer]: Key extends "data" ? unknown : Answer[Key] }>
   : never;
 
-/** `Base` with `Replaced`'s members in place of its own of those names. */
 type With<Base, Replaced> = Omit<Base, keyof Replaced> & Replaced;
 
 /** The client, its three ceremonies answering as the league's server answers them. */

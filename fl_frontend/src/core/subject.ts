@@ -28,8 +28,8 @@ type SubjectRecords = {
 };
 
 /**
- * `isAdmin` is the administrator's whole verdict (`fl_frontend/src/core/auth/guards.ts :: isAdminSession`),
- * so a control gated on it admits exactly the sessions the administrator's own lane admits.
+ * `isAdmin` is the administrator's whole verdict, so a control gated on it admits exactly the sessions the
+ * administrator's own lane admits.
  */
 export type SubjectSession = { readonly email: string; readonly isAdmin: boolean; readonly records: SubjectRecords };
 
@@ -49,11 +49,10 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // empty one is refused here rather than at the endpoint, which answers 422.
   if (email === "") return null;
 
-  // The records and the grant, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubject`).
+  // The records and the grant, never the parsed body.
   const records = await lookUpSubject(email);
 
-  // Built here rather than at the write: a person's route refuses a request naming no session
-  // (`fl_backend/app/api/ban_list/guard.py :: person_actor_binder`).
+  // Built here rather than at the write: a person's route refuses a request naming no session.
   const actor = requestActorOf(served, "person");
   if (actor === null) return null;
 
@@ -70,8 +69,9 @@ export async function getSubjectSession(): Promise<SubjectSession | null> {
   const judged = await judgeSubjectSession();
   if (judged === null) return null;
 
-  // On every call, outside the memo, for `judgeAdminRequest`'s reason. Both guards on one request is a
-  // programming error, so the second actor throws.
+  // On every call, outside the memo: a render's first read may precede every scope, and a later scope
+  // answered from the memo would name nobody. Both guards on one request is a programming error, so the
+  // second actor throws.
   setRequestActor(judged.actor);
 
   return judged.subject;
