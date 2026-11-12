@@ -107,6 +107,22 @@ or shared link opens. A server action, the sign-in's among them, whose id ships 
 metered at whatever path it is posted to. Which location carries which zone, and what carries none,
 is [`spec.md`](spec.md) §1.3.
 
+## The host and the accounts
+
+The server, at Hetzner, and every provider account are configured outside this repository, so what
+follows is what must be true there, a check the owner makes.
+
+- **The server installs its security updates itself.**
+  `apt-config dump APT::Periodic::Unattended-Upgrade` prints the value `"1"`.
+- **The server takes an SSH sign-in by key alone.**
+  `sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication) '` prints `no`
+  for both.
+- **Docker Engine updates with the system's packages**, from Docker's own repository:
+  `apt-cache policy docker-ce` names `download.docker.com`.
+- **Seven accounts sign in with a second factor**: Cloudflare, Hetzner, Resend, Better Stack, the
+  domain's registrar, GitHub and the password manager, 1Password. The codes come from Proton
+  Authenticator.
+
 ## Images and deployment
 
 **The builder stage has no reachable backend and no real environment**:
