@@ -35,7 +35,7 @@ for arg in "$@"; do
     --verbose) VERBOSE=1 ;;
     --help|-h) usage ;;
     # `refuse`, not `die`: an invocation nobody can carry out leaves this run with no verdict on
-    # the edge, which the exit contract spells 2 (`docs/ops/spec.md` §1.7).
+    # the edge, which the exit contract spells 2.
     *) refuse "Unknown option: ${arg}. Try --help." ;;
   esac
 done
@@ -54,7 +54,7 @@ PROD_CONTAINER="fl-edge-prod-$$"
 NETWORK="fl-edge-net-$$"
 # The stub's second copy, answering as `backend`.
 BACKEND_STUB="fl-edge-backend-$$"
-# Under the repo root because MSYS rewrites a POSIX-looking path (`scripts/README.md`), and named
+# Under the repo root because MSYS rewrites a POSIX-looking path, and named
 # for this run because two runs sharing a path would delete each other's stub.
 SCRATCH_NAME=".tmp-edge-$$"
 SCRATCH="${REPO_ROOT}/${SCRATCH_NAME}"
@@ -152,8 +152,8 @@ done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
 # The edge's image and privileges off the model Compose renders for the local stack, by the gate's
-# own `scripts/lib/_lib.sh :: render_compose_model`, so the release and the capabilities this serves
-# with are the ones the stacks start.
+# own `render_compose_model`, so the release and the capabilities this serves with are the ones the
+# stacks start.
 EDGE_PY="$(any_python || true)"
 if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
   refuse "no python at the checkers' floor, so the edge's image could not be read off its model."
@@ -314,8 +314,7 @@ read_headers() {
   done < "$1"
 }
 # The bot check's script and widget, which the sign-in and both public forms load: a policy losing
-# the origin from either directive breaks all three while every header still matches the file
-# (`docs/ops/spec.md` §1.4).
+# the origin from either directive breaks all three while every header still matches the file.
 BOT_CHECK_ORIGIN="https://challenges.cloudflare.com"
 grade_security_headers() { # $1 what the request was, the headers already read; $2 "link" for a link page's response
   local name directive pattern wanted
@@ -654,8 +653,8 @@ expect_action static-prefix some:429
 expect_action colon-id some:429
 expect_action refusal some:429
 
-# The sentence `nginx/shared/site.conf :: @edge_refusal` returns, read off the file so a rewording there
-# is graded too.
+# The sentence site.conf's `@edge_refusal` returns, read off the file so a rewording there is graded
+# too.
 REFUSAL_WRITTEN="$(sed -n 's/^[[:space:]]*return 429 "\(.*\)";$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf")"
 [[ -n "$REFUSAL_WRITTEN" ]] || refuse "nginx/shared/site.conf returns no 429 sentence this test can read."
 # "link" for a transfer to a link page, each of whose labels opens with `link-`.
@@ -678,7 +677,7 @@ grade_refusal() { # $1 the transfer's label, its files named for it
   fi
   grade_security_headers "the edge's own 429, $1" "$(link_label "$1")"
 }
-# The page `nginx/shared/site.conf :: @edge_refusal_page` returns, read off the file as nginx sends it:
+# The page site.conf's `@edge_refusal_page` returns, read off the file as nginx sends it:
 # the single-quoted string, its newlines kept.
 REFUSAL_PAGE="${SCRATCH}/refusal-page.html"
 awk "/^[[:space:]]*return 429 '/ { open = 1; sub(/^[[:space:]]*return 429 '/, \"\") }
@@ -869,11 +868,11 @@ fi
 # `nginx/shared/site.conf`, which is what they judge.
 BODY_FAILURES=0
 # Next's `serverActions.bodySizeLimit` at its default, `1024 * 1024` in
-# `next/dist/server/app-render/action-handler.js`, which `fl_frontend/next.config.ts` leaves standing.
+# `next/dist/server/app-render/action-handler.js`, which the frontend's config leaves standing.
 # Every page path takes a server action, so `/` stands for the server block's cap.
 ACTION_BODY_MAX=1048576
-# Room for the largest report `fl_frontend/src/app/api/client-error/route.ts :: ClientErrorReportSchema`
-# takes, as `nginx/shared/site.conf :: location = /api/client-error` reasons it.
+# Room for the largest report the client-error route's `ClientErrorReportSchema` takes, as site.conf's
+# `location = /api/client-error` reasons it.
 REPORT_BODY_MAX=32768
 # No application figure bounds these two: the edge's own headroom over an address and six digits, and
 # over a delivery event of about a kilobyte.
