@@ -16,9 +16,8 @@ import {
 import { Heading } from "react-aria-components/Heading";
 
 import { Segments } from "./dateParts";
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPopover, monthArrow } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
@@ -86,6 +85,7 @@ export function DateField({
   consequence,
   isRequired = false,
   isDisabled = false,
+  isLocked = false,
   name,
   value,
   defaultValue,
@@ -98,6 +98,8 @@ export function DateField({
   consequence?: Copy;
   isRequired?: boolean;
   isDisabled?: boolean;
+  /** Held fixed by its record: disabled, its label marked with the lock (`useFieldLock`). */
+  isLocked?: boolean;
   name?: string;
   value?: CalendarDay | null;
   defaultValue?: CalendarDay | null;
@@ -107,6 +109,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
+  const lock = useFieldLock(isDisabled, isLocked);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
@@ -119,10 +122,11 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}>
+      isDisabled={lock.isDisabled}>
       <FieldLabel
         label={label}
         isRequired={isRequired}
+        isLocked={lock.isMarked}
       />
       {/* One field rings as a whole, its calendar button included. */}
       <Group

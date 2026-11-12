@@ -4,9 +4,8 @@ import { Select as AriaSelect, Button, SelectValue } from "react-aria-components
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { OptionList } from "./OptionList";
@@ -29,6 +28,7 @@ export function Select({
   options,
   isRequired = false,
   isDisabled = false,
+  isLocked = false,
   name,
   value,
   defaultValue,
@@ -44,11 +44,14 @@ export function Select({
   options: readonly Option[];
   isRequired?: boolean;
   isDisabled?: boolean;
+  /** Held fixed by its record: disabled, its label marked with the lock (`useFieldLock`). */
+  isLocked?: boolean;
   name?: string;
   value?: string | null;
   defaultValue?: string | null;
   onChange?: (id: string | null) => void;
 }) {
+  const lock = useFieldLock(isDisabled, isLocked);
   return (
     <AriaSelect
       className={fieldRoot()}
@@ -59,7 +62,7 @@ export function Select({
       // Every option's id is a string, so the key handed back is one.
       onChange={onChange && ((key) => onChange(key === null ? null : String(key)))}
       isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}
+      isDisabled={lock.isDisabled}
       // Nothing while none is chosen, as an empty text field shows nothing: no field has a placeholder,
       // and React Aria's own, „Element wählen“, is words outside the catalogue.
       placeholder="">
@@ -67,6 +70,7 @@ export function Select({
         <FieldLabel
           label={label}
           isRequired={isRequired}
+          isLocked={lock.isMarked}
         />
       )}
       <Button
