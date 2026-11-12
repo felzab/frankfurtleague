@@ -134,7 +134,6 @@ async def post_schiedsrichter_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=JUDGED_VEREIN_FIELDS,
             session=session,
         )
@@ -186,7 +185,6 @@ async def post_schiedsrichter_answer(
                 spiele_collection=spiele_collection,
                 saison_teams_collection=saison_teams_collection,
                 spielbestaetigung_raw=row,
-                spiel_projection=None,
                 verein_projection=JUDGED_VEREIN_FIELDS,
                 session=None,
             )
@@ -244,7 +242,6 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=VEREIN_FIELDS,
             session=session,
         )
@@ -321,7 +318,6 @@ async def post_team_answer(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,
             spielbestaetigung_raw=row,
-            spiel_projection=None,
             verein_projection=VEREIN_FIELDS,
             session=None,
         )

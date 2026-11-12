@@ -24,7 +24,7 @@ from app.api.outbox.services import OwedMail
 from app.api.teams.schemas import FLPostTeamPayload, normalise_phone
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import build_sort, literal_pattern
+from app.core.crud import literal_pattern
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_evidence import TextVersions, compose_choices
@@ -35,7 +35,6 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     DECLINED_RETENTION_DAYS,
-    LIST_LIMIT_DEFAULT,
     SAISON_ID_LENGTH,
     SIGNATORY_MIN_AGE_YEARS,
 )
@@ -397,7 +396,10 @@ EINWILLIGUNG_ANSWER_FIELDS: Mapping[str, int] = {
 
 
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
-    """Every seat path, so the hash alone finds the seat. No status term: a reopened link shows its own state."""
+    """Every seat path, so the hash alone finds the seat, on an application or a team's season row alike.
+
+    No status term: a reopened link shows its own state.
+    """
 
     return {"$or": [{f"confirmations.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
 
@@ -568,12 +570,6 @@ def state_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBe
 
 # A contact seat an administrator typed into a team's season row is mailed its own link, resolved by the application's
 # two operations: the slots, the stamps and each seat's deadline are one shape.
-
-
-def build_saison_token_filter(*, token_hash: str) -> Mapping[str, Any]:
-    """Every seat path, so the hash alone finds the seat on whichever row holds it."""
-
-    return {"$or": [{f"confirmations.{seat}.token_hashes": token_hash} for seat in KONTAKT_ROLLEN]}
 
 
 # An inclusion: the rest of the row is what a base-tier read must not hold. The club's season name is the page's `schule`.
@@ -1297,10 +1293,6 @@ def deletion_was_announced(*, bewerbung_raw: Mapping[str, Any]) -> bool:
     return isinstance(bewerbung_raw.get("erasure_announced_at"), str)
 
 
-# One read's ceiling, and one past it tells a full page from a truncated one.
-SWEEP_PAGE: Final = LIST_LIMIT_DEFAULT
-
-
 # The terms `seat_reminder_is_due` asks of one seat, as a query, so a reminded seat or a closed chase leaves the read.
 def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     return {
@@ -1695,7 +1687,7 @@ def build_bewerbungen_sort(*, order: str) -> list[tuple[str, int]]:
     # match neither and scan the whole archive.
     direction = 1 if order == "asc" else -1
 
-    return build_sort(sort_by="submitted_at", order=order, chain=(("_id", direction),))
+    return [("submitted_at", direction), ("_id", direction)]
 
 
 def build_confirmed_seat_filter(*, saison_id: str) -> Mapping[str, Any]:
