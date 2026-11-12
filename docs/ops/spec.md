@@ -181,264 +181,160 @@ two application services alone, and only the private network reaches the backend
 
 ### 1.3 nginx routing
 
-Longest-prefix match. Order in the file is irrelevant; specificity decides.
+Both edges serve `nginx/shared/site.conf`, wrapped by `nginx/prod/prod.conf` for production and
+`nginx/local/local.conf` for the local stack. nginx picks an exact match first and then the longest
+prefix; order in the file decides nothing.
 
-| Location                            | Upstream        | Notes                                                                                                                                                                                            |
-| ----------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/api/auth`                         | `frontend:3000` | Every path the sign-in library mounts but the code check below, the passkey ceremony and the sign-out among them, metered on `authapi`/`authapi48` — a PREFIX, so no trailing-slash twin         |
-| `= /api/auth/sign-in/email-otp`     | `frontend:3000` | The sign-in library's own route, the typed sign-in code's check — paired `limit_req` `zone=confirmation burst=3` and `zone=confirmation48 burst=30`, and `client_max_body_size 8k`               |
-| `= /api/client-error`               | `frontend:3000` | Next route handler, paired `limit_req` — `zone=clienterr burst=3` and `zone=clienterr48 burst=30`, and `client_max_body_size 32k` ([`docs/logging/overview.md`](../logging/overview.md))         |
-| `= /api/mail/delivery`              | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=delivery burst=300` and `zone=delivery48 burst=3000`, and `client_max_body_size 8k`                          |
-| the `/` twins                       | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                      |
-| `= /api/v0/system/is_live`          | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (§3)                                                                                              |
-| `= /signin`                         | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                          |
-| `= /signin/continue`                | `frontend:3000` | Next route handler, the sign-in's landing — `/api/auth`'s `authapi`/`authapi48` pair, every method metered                                                                                       |
-| `/_next/static/`                    | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                            |
-| `/confirm/`                         | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkpage burst=440` and `zone=linkpage48 burst=4400` on every request, beside `/`'s ceiling and its action pair at `/`'s own bursts |
-| `= /registrierung` and `= /erasure` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/confirm/`'s lines, each with its twin                                                                          |
-| `/`                                 | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                          |
+| Location                            | Upstream   | Meter                                           | Body cap |
+| ----------------------------------- | ---------- | ----------------------------------------------- | -------- |
+| `= /signin/continue`                | `frontend` | `authapi`                                       | 1m       |
+| `= /api/client-error`               | `frontend` | `form`                                          | 32k      |
+| `= /api/auth/sign-in/email-otp`     | `frontend` | `authapi`, and `form`                           | 8k       |
+| `= /api/mail/delivery`              | `frontend` | none                                            | 8k       |
+| `/api/auth`                         | `frontend` | `authapi`                                       | 1m       |
+| `= /api/v0/system/is_live`          | `backend`  | none                                            | 1m       |
+| `= /api/v0/system/is_ready`         | `backend`  | `authapi`                                       | 1m       |
+| `/_next/static/`                    | `frontend` | `action`                                        | 1m       |
+| `/confirm/`                         | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
+| `= /registrierung` and `= /erasure` | `frontend` | `linkpage`, `action` and the connection ceiling | 1m       |
+| `/`                                 | `frontend` | `action` and the connection ceiling             | 1m       |
 
-**The edge reaches each upstream by its service name as it serves, never by an address read at
-load**. A container compose recreates or starts again comes back under its name at another
-address, and nginx asks Docker's embedded DNS again once its cached answer lapses
-(`nginx/shared/http.conf :: resolver`), so a restart outside a deploy needs no reload. Until that
-answer lapses, a worker that cached the old address still sends requests there, and each waits out
-nginx's connect timeout and answers 504 (measured 2026-10-18 on Docker Desktop's engine).
+**The four zones each price one kind of work, per visitor network** (`nginx/shared/http.conf`):
 
-**Every `/api/...` path but the liveness probe reaches Next** — some
-through a block naming it, the rest through the catch-all, which answers Next's HTML 404 where
-nothing routes the path (§3). The
-liveness location is exact-match precisely so that nothing can join it there; nothing in the
-application meets that 404, every application read of the API being a server-side fetch to `API_URL`
-([`../frontend/overview.md`](../frontend/overview.md)), so a browser or anything off this host is
-what meets it.
+- `form`, 6 a minute, POST alone: the two public writes a route handler answers, a typed sign-in
+  code's check and a crash report.
+- `authapi`, 30 a minute, every method: the sign-in library's routes, its landing and the readiness
+  probe, each reading a database. The code check spends it too, so a GET there meets a meter.
+- `linkpage`, 30 a minute, every method: every page a mailed or shared link opens.
+- `action`, 60 a minute: every server action, which Next 16.4.2 runs for a POST carrying a
+  `Next-Action` header or either form content type, at any path. Every other request's key is empty,
+  so it meters no page load, asset or JSON post.
 
-**Every route handler in the App Router tree is accounted for against these locations, public or
-not**: an exact-match location carrying `limit_req`, a prefix location covering it with a reason
-recorded at `scripts/checks/check_public_routes.py :: REASONS`, or `/api/auth` for the sign-in
-library's catch-all. **A handler under a dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
-URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
-selects those: nothing a handler imports or exports says whether it answers a visitor who is not signed in. A
-recorded reason covering no handler is a finding, as is a metered exact match standing without its
-trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
-as coverage — a path two exact matches declare included, which nginx refuses outright and which
-would otherwise leave one of the two standing for both. A named location an `error_page` of the same
-level sends to answers no request URI, so it is read as no route; one nothing sends to refuses, and so
-does an `error_page` naming a location nobody declares. **An exact-match location names something
-this repository answers or it is a finding too**: a route handler's URL, a page's, a metadata
-convention's, or a path recorded at `scripts/checks/check_public_routes.py :: ELSEWHERE`, which the
-liveness probe is the one entry of — a block the walk cannot place otherwise outlives the file that
-answered it, still metering a URL nothing serves. **That recorded path rots both ways** and either
-is a finding: it is named by no exact-match location, or a file in the tree has started answering
-it, so the row records what the accounting already reads. Pages are read for that direction and
-for the link pages' pair below, and a dynamic segment at the top level excuses nothing: its static
-head is the root, which would cover every exact match there is.
+**A zone is named in every limited location, never once at server level.** nginx inherits
+`limit_req` only where a level declares none, so a server-level zone would be dropped by each
+location naming one of its own: the rule `add_header` follows too. **A zone keyed on the method map
+limits no GET**, an empty key being exempt from `limit_req`, so the zones over a GET key on the
+network map alone; keyed otherwise they would read as limited and be unlimited.
 
-**Next's code-generated metadata conventions are accounted for beside the handlers and taken
-unmetered**: `/sitemap.xml`, `/robots.txt` and `/manifest.webmanifest` reach Next through the
-catch-all. `robots.txt` and the manifest each export a function reading no request and no live
-value, so Next prerenders them and a flood costs a static response; the sitemap renders at request
-time from the season pages' cached season list, so a flood costs a render and one backend read per
-cache lifetime. That decision is recorded at `scripts/checks/check_public_routes.py :: METADATA`; a
-reserved metadata name the checker cannot place refuses, the image conventions among them, whose
-generated URL carries a hash Next mints at build.
+**Every refusal is a `429`**, a zone's and the connection ceiling's alike, so one access line's
+`status` means the same thing whichever refused.
 
-**Exact-match binds the path nginx matched, not the URI FastAPI is handed**: nginx merges slashes
-and resolves dot segments before choosing a location, then `proxy_pass` with no URI part forwards
-the request line as written, so `/api/v0//system/is_live` is answered by FastAPI's own
-`{"detail":"Not Found"}` rather than by Next (measured 2026-08-28). No further route opens up — a
-URI this block matches decodes either to the probe or to nothing — but the error body fingerprints
-the framework the origin runs.
+**`$remote_addr` is the visitor rather than the connector**: nginx takes `CF-Connecting-IP` from the
+one address it trusts, the connector's, and from nothing else (`nginx/shared/http.conf ::
+set_real_ip_from`). Cloudflare's published ranges could never serve here, being every customer's
+egress rather than this account's. Where the header is absent or does not parse, the connector's own
+address stands, and every visitor shares one key.
 
-**`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
-that rewrite produced (`nginx/shared/http.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
-records it (`nginx/shared/http.conf :: log_format fl_json`). **The trusted set is one address,
-the connector's, on both edges** — nothing else reaches this origin (§1.1) — which is what
-Cloudflare's published ranges could never be, being every customer's egress rather than this
-account's; the local edge serves the same set, inert with no connector in front of it. **A
-fallback to the connector's own address is marked rather than silent**: the access line carries
-`realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
-running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address in `nginx/shared/http.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
+**The key is a network rather than an address**: the whole address on IPv4 and the /64 on IPv6
+(`nginx/shared/http.conf :: map $remote_addr $client_net`), since a /64 is the smallest block anyone
+is allocated. nginx compresses the longest run of zero groups wherever the host bits put it, so the
+map enumerates every shape a /64 can render in. A holder of a routed /48 holds 65,536 keys: the
+zones bound a household or a school, never such a holder.
 
-**A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
-`limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
-**The zones over a GET key on the network maps unconditionally**: the pair under `/api/auth` and
-the link pages' pair would otherwise read as limited and be unlimited.
+**`location /` takes a connection ceiling rather than a rate zone on every request**:
+`limit_conn conn 50` per network, which nginx counts from a request's header until its answer. A
+zone on every request would stall page loads, which fan out; behind a single connector, whose sockets
+no visitor controls, the ceiling is a backstop rather than a per-visitor control. `/_next/static/`
+takes none, the files every page load fetches at once
+(`scripts/checks/check_public_routes.py :: UNCEILINGED`).
 
-**Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
-`nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
-$client_net48` for the /48, the whole address on IPv4 either way. A /56 key is not expressible from
-these strings at all, nginx stripping a group's leading zeros.
+**No location raises the action burst.** Next runs a server action by its header at any page's path,
+so a block declaring a higher burst would raise every action's per-network ceiling, the sign-in's
+among them; `scripts/checks/check_public_routes.py :: loosened` finds one. The registration's send
+stays bounded by its Turnstile check and the confirmation's by its single-use token.
 
-**Both maps were verified against a RUNNING nginx** — their bodies extracted into a throwaway
-`nginx:1.31-alpine` answering with what it rendered, driven across every zero/non-zero group
-pattern and address class: no prefix split across two keys, no two prefixes shared one, no address
-reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
-2026-08-30), and both edges serve the one copy in `nginx/shared/http.conf`.
+**Every page a mailed or shared link opens is metered on every request and every method**, on
+`linkpage`: each request renders a page reading the database, or is the proxy's redirect into one
+(`fl_frontend/src/core/mailedLink.ts`). No page links to one, so a visit is one request or two, never
+a navigation's fan-out. **`/confirm/` is a prefix because every page under it is a link page**, so a
+page added there is metered the day it exists; a link page anywhere else needs an exact match, as
+`/registrierung` and `/erasure` have. **The burst of 440 is sized for the largest squad a season may
+set**, 50 (`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address
+in one break: each pupil opens the team's invite and their own link and sends each page's form, a
+retry each, 10N requests passing within two minutes at the zone's rate. That squad's 4N sends on the
+action key pass at `location /`'s burst in about three minutes, a send past it refused and sent
+again. `scripts/checks/check_public_routes.py :: unsized_links` holds the burst to that maximum.
 
-**Both zones are repeated inside every limited location rather than declared once at server
-level**: nginx inherits `limit_req` only where the level declares none — the
-replace-rather-than-extend rule `add_header` follows (§1.4), reaching a third directive.
-`limit_conn` inherits the same way, and `location /` and the link pages' blocks alone declare it.
+**A link page's location writes no error line at all** (`error_log /dev/null`). nginx writes every
+error line with the request line whole, the query and the referrer with it, and the open-source
+build has no switch over what a line carries, so a failing frontend or a body past the cap would
+write a live token. Its access line still carries the path, the status, both durations and the
+trace id. **A refusal writes no error line anywhere**, `limit_req_log_level` and
+`limit_conn_log_level` sitting below the error log's own level. **Every other error line repeats
+its request line**, an upstream failure's among them.
 
-**Each metered path has a trailing-slash twin carrying the same zones.** An exact match is exact,
-so the slashed form fell to the catch-all and reached Next unmetered before the twins existed. Next
-answers it with a 308 and no handler runs, so the twins change nothing a visitor sees; they proxy
-rather than `return 308`, which would be nginx deciding a trailing-slash policy that is Next's.
-Percent-encoded, double-slash and dot-segment forms need no twin: nginx decodes, merges and
-resolves each before matching, all three measured reaching their zone (measured 2026-08-30).
+**A link page withholds the referrer**: `Referrer-Policy` is `no-referrer` there and
+`strict-origin-when-cross-origin` elsewhere (`nginx/shared/http.conf :: map $uri $referrer_policy`).
+The header binds from the response's first byte, where the page's own meta tag arrives after the
+shell has asked for its assets.
 
-**Each pair is one narrow zone and one wide one, the wide at ten times the rate and the burst**, and
-the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
-share one pair. **That holds for a route handler and never for a server action**, which Next 16.4.2
-runs at whatever page path it is posted to, handing it inside its own process to the page holding it
-(`next/dist/server/app-render/action-handler.js :: createForwardedActionResponse`), so nginx meters
-the one request on the path the client chose. The answers six link pages take through a server
-action — a pupil's registration on `/registrierung` and the pupil's answer on `/confirm/spieler`, the
-referee's on `/confirm/schiedsrichter`, a contact seat's on `/confirm/kontakt`, an address link's on
-`/confirm/address` and the deletion link's on `/erasure` — are bounded by the action pair, 60 a
-minute per network and 30 at once wherever the post lands, and by the link pages' pair besides
-where it lands on a link page. **No location raises the action burst**: a script chooses the path it
-posts to, so a block declaring a higher one would raise the per-network ceiling of every server
-action, the sign-in's and the application's included, and
-`scripts/checks/check_public_routes.py :: raised_bursts` finds any block naming a burst above
-`location /`'s on a zone `/` meters. The registration's send stays bounded by its Turnstile check
-and the confirmation's by its single-use token. **The link pages' own pair is sized for the largest
-squad a season may set**, `max_kader_size`'s published maximum of 50
-(`fl_backend/app/shared/schemas/bounds.py :: KADER_SIZE_MAX`), behind one school's address in one
-break, each pupil opening the team's invite and their own link and sending each page's form, a retry
-each, passing within two minutes at the unchanged rate — 10N requests on the link pages' key, a burst
-of 10N - 60 (`nginx/shared/site.conf :: location /confirm/`), which
-`scripts/checks/check_public_routes.py :: unsized_links` holds to that maximum. The same squad's 4N
-sends on the action key, 200 for fifty, pass at `location /`'s burst and rate in about three
-minutes, a send past the burst refused with the edge's `429` and sent again by its pupil.
-The public application's submission is such an action too, on `/bewerbung/<saison>`:
-the action pair is its only meter, the bot check its gate. A pair for one action would key on its id, which Next recalculates between builds
-(`next/dist/docs/01-app/02-guides/data-security.md`).
+**The mail provider's webhook is metered by no zone**: its events land at once from a handful of the
+provider's addresses, and a refusal starts a retry schedule that, sustained, disables the endpoint.
+Its signature check is the gate (`scripts/checks/check_public_routes.py :: UNMETERED`). **The
+liveness probe carries no zone either**, which would throttle the uptime monitor before anything
+else; the readiness probe, a database round trip each, spends `authapi`.
 
-**`location /` takes a connection ceiling rather than a rate zone keyed on every request**,
-`limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
-as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
-`nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
-form content type, which is every post Next 16.4.2 runs as an action. Next takes an empty header for
-an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
-a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
-empty, so no page load or asset is metered by it; the pair is rated above any administrator's run of
-saves. `/_next/static/` carries it too, where a POST reaches no action (a 405 whose render fails as
-a 500, driven against Next 16.3.6 on 2026-09-27) but costs that render. **That
-makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
-the one line in `nginx/shared/site.conf` bounds whole connections locally.
+**Every route handler is accounted for against these locations, public or not**
+(`scripts/checks/check_public_routes.py`): an exact match metering it, a prefix recorded at
+`:: REASONS`, or a handler recorded unmetered at `:: UNMETERED`. No predicate selects the public
+handlers, since nothing a handler imports or exports says whether it answers a stranger. A handler
+under a dynamic segment is unmeterable unless a prefix covers it. Next's code-generated metadata
+routes are accounted for at `:: METADATA` and reach Next through `location /`. A location serving
+pages writes every meter line of the location it is carved out of.
 
-**Every page a mailed or shared link opens, its token in the query, is metered on every request
-and every method**, on `linkpage`/`linkpage48`: each GET renders a page reading the database,
-through the backend or the sign-in store, so one network reloading a link page spends database
-operations the whole league shares. No page links to one, so a visit is one request rather than a
-navigation's fan-out, which is what a zone at `location /` would refuse. **`/confirm/` is a
-prefix because every page under it is a link page**, so a page added there is metered the day it
-exists; a link page added anywhere else needs an exact match and its twin, as `/registrierung` and
-`/erasure` have. **`scripts/checks/check_public_routes.py :: LINK_ZONES` holds every link page to a
-location naming that pair, at its URL and at its twin's, each zone on one `limit_req` line in every
-block naming it**: a link page is one whose own module reads `token` from its search parameters or
-through the proxy's mailed-link reader (`fl_frontend/src/core/mailedLink.ts :: mailedLinkToken`), or
-one a module under `fl_frontend/src` mints a `?token=` link to, so a page reading the token through
-another module is found by its minter, and a `?token=` the checker cannot place refuses the run. Each block restates
-`location /`'s ceiling and action pair, the action pair at `location /`'s own burst on the same key,
-sets `$link_page`, and declares no `proxy_set_header`, `add_header` or `error_page`, each of which
-would replace an inherited set. `nginx/edge_test.sh` floods one link page past the burst, then fails
-any link page, twin, double slash, dot segment, percent-encoded letter, `HEAD` or JSON post that is
-not refused with the edge's own `429`, any refused load of a link page not answered with the edge's
-page, any block declaring an action burst above `location /`'s, and any link block whose action pair
-lets a server action past `location /`'s burst or answers it otherwise than with the sentence. It
-sends that pass to one curl as a config read from stdin (`curl -K -`), a pass growing with every burst it floods past and Windows capping one command line at 32,767 characters.
-
-**The server block's `client_max_body_size 1m` is Next's own bound on a server action's body**,
-`serverActions.bodySizeLimit` at its 1 MB default, which `fl_frontend/next.config.ts` leaves
-standing. A server action is posted at any page path, so the bound holds at every location, and
-nginx refuses at the edge a body the application would refuse rather than buffering it first; a cap
-at the page an action answers on bounds nothing a script cannot step around. **A route handler
-bounding its body tighter takes its own cap at its location**, its reason at the line: `8k` for the
-code check and the delivery webhook and `32k` for the crash report, while `/api/auth` keeps `1m`, the
-sign-in library bounding no ceremony's body.
-
-**A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
-A burst at a GET route handler was refused past the burst as `429` (not nginx's `503` default), the
-`fl_json` line carrying `"status":429` with an empty `upstream_duration_s` and the headers on the
-refusal being what `nginx/edge_test.sh` observes. No rate here is measured — the figures remain judgement calls, and
-the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (measured 2026-08-30).
+**The body cap is nginx's default 1m wherever no location sets one**, which is Next's own bound on a
+server action's body (`serverActions.bodySizeLimit`, left at its default in
+`fl_frontend/next.config.ts`). A server action is posted at any path, so the bound holds everywhere.
+A route handler bounding its body tighter takes its own cap at its location, its reason at the line.
 
 **Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`,
-but a link page's load**, the server block's `error_page 429` sending a zone's refusal and the
-connection ceiling's alike to `nginx/shared/site.conf :: @edge_refusal`. A `GET` or `HEAD` of a
-link page goes to `:: @edge_refusal_page` instead (`nginx/shared/http.conf :: $edge_refusal_target`):
-a branded page with its way back to the site, since a sentence alone, opened from a mail, is a dead
-end. The page is written inline in the configuration, because the deploy compares every file under
-`nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
-it withholds the referrer, as every link page does, since its URL carries the link's token; and its
-colours are the rebuilt site's, copied by hand from `fl_frontend/src/app/tokens.css` under its
-names. Next 16.4.2 hands a server action's caller the body of a failed answer that is not RSC as
-the error's message under that exact type alone, and the frontend reads that message as a press that
-wrote nothing. A `charset` makes the header
-`text/plain; charset=utf-8`, after which every refused press reads as an unclear save again. A route
-handler's caller reads the status alone, and a page load past the connection ceiling shows the
-sentence, a link page's the page. `nginx/edge_test.sh` grades a refused action's type, its body byte for byte against the
-file, and its security headers, asked with and without `Accept-Encoding: gzip`: nginx's gzip filter
-compresses a `200`, `403` or `404` alone, so the `429` leaves the origin plain either way. It
-grades a link page's refused load the same way against the page, and that page's referrer tag and its
-colours against `fl_frontend/src/app/tokens.css`, name by name, so a colour that drifts from the
-file it was copied off fails.
+but a page load's.** The server block's `error_page 429` sends a refusal by what the request asks
+for (`nginx/shared/http.conf :: $edge_refusal_target`): a request naming `text/html` gets a page
+with its way back to the site, written inline in `nginx/shared/site.conf`, and anything else the
+sentence. Next 16.4.2 hands a server action's caller a failed answer's body as the error only under
+exactly that type, and the frontend reads the sentence as a press that wrote nothing
+(`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as an
+unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its
+colours are the site's, copied by hand from `fl_frontend/src/app/tokens.css`, which
+`nginx/edge_test.sh` holds them to name by name.
 
-**A refusal writes no record to the error log**, `limit_req_log_level` and `limit_conn_log_level`
-both sitting below that log's own level. nginx puts the request line there WHOLE, query string and
-`Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
-line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
-([`docs/logging/overview.md`](../logging/overview.md)). Both records were driven against
-`nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
-query of a link page, where a refusal is routine, so this level is what keeps those tokens out of
-that log; `nginx/edge_test.sh` fails a token found there after a run of refused link pages. **What the pair does not close is every OTHER line about a request, at any level**, an
-upstream failure among them, which repeats the same request line
-([`docs/logging/overview.md`](../logging/overview.md)); and what it costs a reader is the name of the
-zone that refused, the access line carrying `status` alone.
+**The edge reaches each upstream by its service name as it serves**, never by an address read at
+load: each `proxy_pass` names a variable, and nginx asks Docker's DNS again once its answer is ten
+seconds old (`nginx/shared/http.conf :: resolver`). A recreated container comes back at another
+address with no reload; until the cached answer lapses, a request sent to the old address answers
+`502`.
 
-**The liveness location carries no `limit_req` zone, and that is a decision rather than an
-omission**: a zone would throttle the uptime monitor the path is published for (§3) before it
-throttled anything else.
+**Every `/api/...` path but the two probes reaches Next**, some through a location naming it and the
+rest through `location /`, which answers Next's 404 where nothing routes the path. The two probes are
+exact matches so that nothing joins them. nginx merges slashes and resolves dot segments before it
+picks a location, then forwards the request line as written, so `/api/v0//system/is_live` is
+answered by FastAPI's own not-found body: no further route opens, but the body names the framework.
 
-**The www block over HTTPS is not redundant with the port-80 redirect**: HSTS carries
-`includeSubDomains`, so a browser that has visited once never issues the plaintext request the
-port-80 block would have caught — without the block that request has its handshake rejected,
-observed 2026-08-01 as a public `525`. **A Cloudflare proxy sits in front of nginx** (see the
-[overview](overview.md)), so an origin-side failure can surface as a Cloudflare status code that
-names neither nginx nor the block responsible.
+**A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
+it.** That set mints the `traceparent` every upstream receives, a visitor's own discarded, so no
+location declares one, and `nginx/edge_test.sh` fails a frontend location handing Next a visitor's
+`traceparent`. **No upstream is handed the visitor's address**: neither application reads one, so the
+set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
 
-**A rule at that proxy may challenge a top-level navigation and never a server action's POST**: a navigation renders the interstitial, where a background POST can render nothing and is
-answered with markup the caller cannot read. **No rule checks the POST behind a challenged page**, so
-the clearance a navigation earns protects none of the writes there; the bot check judged on the
-server at the submit does.
-A Next server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
+**Production's edge holds three server blocks**, all plain HTTP on port 80: the connector carries
+the visitor's HTTPS from Cloudflare, so no certificate is held here (§1.8). An unknown `Host` is
+answered `421`. `www.frankfurtleague.de` redirects to the apex with the security headers, since
+HSTS's `includeSubDomains` makes a returning browser ask for it over HTTPS, which Cloudflare answers
+and the connector hands here. The apex tells Next its visitor's protocol is `https`, this hop's own
+being plain HTTP.
+
+**A rule at Cloudflare may challenge a top-level navigation and never a server action's POST.** A
+server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
 interstitial: the challenge's HTML reaches React where a Flight stream was expected, and the throw
-lands on the error boundary before any application code runs. A page arrives through `location /`
-unless a location names it, as `= /signin` and the link pages' blocks do, and the browser posts an
-action to the address of the page it is on, so the sign-in form's own POST lands on `= /signin`.
-**What that zone bounds is the PATH and never the action**: a server action resolves from a
-process-wide module map with no reference to the address it was posted to, so the same action posted
-to any other page reaches it, metered there by the server-action pair above and on a link page by
-the link pages' pair besides (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
-control that fits**, because a status code is an answer the caller can read; `limit_req` on these
-paths is that control at the origin.
-
-**A `location` declaring any `proxy_set_header` REPLACES that whole inherited set rather than
-extending it** — the mechanism `add_header` follows, and what decides whether the
-edge-controlled `traceparent` reaches an upstream
-(`nginx/shared/site.conf`). The liveness location restates the set in full
-so that FastAPI is addressed as the upstream `proxy_pass` names, as the frontend's own calls address
-it. It is the only location declaring one, and
-`nginx/edge_test.sh` fails any location proxying to the frontend that hands Next that header as
-a visitor sent it.
+lands on the error boundary before any application code runs. The browser posts an action to the
+address of the page it is on, and an action resolves from a process-wide module map with no
+reference to that address, so an action is metered wherever it lands, by the action zone and on a
+link page by `linkpage` besides. **A rate limit is the control that fits**, a status code being an
+answer the caller can read.
 
 ### 1.4 Security headers
 
-Every response carries five, each sent with `always`:
+Every response carries four, each sent with `always`, from `nginx/shared/security_headers.conf`:
 
 - `Strict-Transport-Security`
 - `X-Frame-Options`
