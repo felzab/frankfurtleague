@@ -401,12 +401,12 @@ hijacking, and `form-action 'self'` blocks exfiltration through a form post.
 `scripts/README.md` lists the scripts; each script's own header carries its usage and prints it with
 `--help`.
 
-| Environment | What it is                                             | Database                                                                       | Entry point                                                                                             |
-| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` |
-| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                |
-| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                          |
-| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                               |
+| Environment | What it is                                             | Database                                                                       | Entry point                                                                                                   |
+| ----------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| **dev**     | source with hot reload, no Docker                      | the one the URI files under `secrets/` name ([`runbooks.md`](runbooks.md) §16) | `pnpm dev` in `fl_frontend/` · `SECRETS_DIR=../secrets uv run uvicorn app.asgi:app --reload` in `fl_backend/` |
+| **local**   | the production images built from your tree, with nginx | its own, inside the stack (`docker-compose.local.yml :: mongo`)                | `./scripts/ops/local.sh`                                                                                      |
+| **e2e**     | the local stack again, for the Playwright journeys     | its own, with the made-up seed, new on every start (`docker-compose.e2e.yml`)  | `./scripts/ops/local.sh --e2e`                                                                                |
+| **prod**    | published images on the server, never built there      | the managed cluster                                                            | `./scripts/ops/deploy.sh`                                                                                     |
 
 **local is the only place a packaging problem is visible before a deploy**: a missing standalone
 file, a failing startup gate, a header nginx does not set. dev exercises none of that machinery, and
@@ -483,7 +483,8 @@ digest, so deleting one corrupts the tag it belongs to.
 
 `./scripts/gate/verify.sh --help` lists the scopes and their flags; a bare run starts every scope
 side by side and replays each one's output in the order below. `--quick` runs the scripts, backend
-and frontend scopes alone, none of which needs Docker.
+and frontend scopes alone, which need Docker only where shellcheck or actionlint is not on PATH at
+its pinned release.
 
 | Scope              | Runs                                                                                                                                                                                                               | Needs                                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -656,11 +657,10 @@ deliberately off.
   answers is inferred rather than read: Always Use HTTPS fits, and a redirect rule would answer the
   same. A browser ignores HSTS sent over plain HTTP, so this redirect is what moves a first visit
   typed as `http://` onto HTTPS.
-- **Email Routing receives every message sent to the domain and only forwards it**: the zone's MX
-  records name Cloudflare's routing servers, and each league address forwards to the personal
-  mailboxes of the organisers who answer it, the league holding no mailbox. The published privacy
-  notice at `/datenschutz` says exactly that, so a route aimed at a hosted mailbox changes that notice
-  in the same step.
+- **Cloudflare routes no mail.** The zone's MX records name Google Workspace, where the league's
+  mailbox receives every message to a league address. The published privacy notice at `/datenschutz`
+  names Google as that mailbox's processor, so a record moving the mail elsewhere changes that
+  notice in the same step.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed. An agent fetching a page for a person is a visitor; a crawler filling
   a training set is not.
@@ -761,7 +761,6 @@ be true there, a check the owner makes in its list of monitors:
 | A db-tier run reports a wall of failures naming unique indexes                                                                                                                     | A second `pytest -m db` ran beside it on the same machine                                                                                     | Trust neither verdict, the green one included. Re-run with nothing else on the tier                                                                                                                                  |
 | Container unhealthy, health log empty, `FailingStreak: 0`                                                                                                                          | The app died before the first probe                                                                                                           | Read `docker compose logs <service>`; a malformed `.env` value is the usual cause                                                                                                                                    |
 | A directory appeared named `something;C`                                                                                                                                           | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                             | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                                                                          |
-| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                                                                                                                           | Windows only, when the output is piped or redirected                                                                                          | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                                                                   |
 | A response without the security headers                                                                                                                                            | A `location` block set a header and dropped the inherited set                                                                                 | Include `nginx/shared/security_headers.conf` in that block                                                                                                                                                           |
 | Backend healthcheck fails after an API version bump                                                                                                                                | The healthcheck spells the API version itself                                                                                                 | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s two probe locations with it (§4)                                                                                      |
 | The uptime monitor 404s while the backend container reports healthy                                                                                                                | The liveness location still spells the old version, so the probe matches `location /` and Next answers it                                     | Move the path in `nginx/shared/site.conf`'s probe locations, then re-point the monitor (§4)                                                                                                                          |

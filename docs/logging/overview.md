@@ -104,9 +104,8 @@ nginx rate-limits it and the route caps every field. A failure rendered on the s
 
 `next dev` writes the frontend's line as `LEVEL message {fields as JSON}`, with a stack on the lines
 after it (`fl_frontend/src/core/logging.ts`). The backend writes
-`LEVEL timestamp module:line - message key=value…` to a terminal, as under `fastapi dev`, with no
-colour and the stack below it. With no nginx in front, whichever service receives the request mints
-the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
+`LEVEL timestamp module:line - message key=value…` to a terminal, with no colour and the stack
+below it. With no nginx in front, whichever service receives the request mints the trace. `./scripts/ops/local.sh` runs the whole stack with the production format.
 
 ## Read next
 

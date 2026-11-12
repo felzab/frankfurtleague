@@ -438,8 +438,8 @@ this section.
 
 **Every request arrives at the league's address**
 (`fl_frontend/src/core/brand.ts :: KONTAKT_EMAIL`, the address the notice and every message send a
-reader to), which Cloudflare forwards to the personal mailboxes of the organisers who answer it, and
-the answer goes back from the answering organiser's own address
+reader to). Its mailbox is the league's at Google Workspace, which a board member reads and which
+passes each message on to a board member
 ([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)). There is no ticket system: the mail thread is the
 record, and the action log records the writes you make rather than the request that asked for them.
 
@@ -687,12 +687,12 @@ agreed, the only reliable form it can take here is removing the data, which is t
 **Four things belong in every answer that touches a deletion.** Backups outlive it by the snapshot
 window and the person is told so
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); every mail the
-league sent them outlives it at the mail provider, and in that provider's backups, and Cloudflare
-keeps the sender, recipient and subject of every mail they sent the league, each for the period the
-notice states, no erasure reaching either
-([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); every organiser deletes
-the person's mail from their own personal mailbox, which the notice promises, while what a
-provider keeps in its own backups stays beyond reach; and an erasure is
+league sent them outlives it at the mail provider, and in that provider's backups, for the period
+the notice states, no erasure reaching it
+([`../datenschutz.md`](../datenschutz.md#7-processors-and-third-parties)); every mail they sent the
+league is deleted on request from the league's mailbox and from the board member's mailbox it was
+passed on to, while Google keeps it restorable for its own period and a private provider's backups
+stay beyond reach; and an erasure is
 keyed on an email address, so it clears every record that address holds, in every season and every
 collection. **The erasure takes the address typed, and reaches a record only where that record's
 address folds to the same spelling** once its capitals are lowered
@@ -831,6 +831,8 @@ seconds, and every container logs through `docker.service`, so all four share th
 of access lines can therefore cost `journal.act` lines, which is why a restore reads the mail
 threads beside them.
 
+### Reading a service's lines
+
 **Read a service's lines with Compose in the checkout**, which the `.env` pin points at the build
 that runs, or with `journalctl` by the container's name, which outlives a recreate:
 
@@ -877,7 +879,8 @@ it:
 docker compose logs --since 2h frontend | grep scheduler.pass
 ```
 
-**A half that did not finish says why in the frontend's log.** Each files its own failure line,
+**A half of the retention sweep that did not finish, the applications' or the registrations', says
+why in the frontend's log.** Each files its own failure line,
 `bewerbung.sweep_failed` and `registrierung.sweep_failed`, naming the season, so the event name is what names the
 half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
 `bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
@@ -991,10 +994,11 @@ each, and a mail it gives up is counted on the pass's line and reported to the
 heartbeat. A notice about a match already kicked off is owed nobody. A listing or a season's pass that fails
 ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
 that committed. No mail of the pass carries a link: a club answers on its Übersicht and a referee on
-theirs, signed in. The pass's lines:
+theirs, signed in. The pass's line holds its counts under the key `spielbestaetigungen`, and
+`scheduler.job_failed` names that job where it threw:
 
 ```bash
-docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
+docker compose logs --since 2h frontend | grep -E 'scheduler\.(pass|job_failed)'
 ```
 
 **The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
@@ -1380,8 +1384,8 @@ login at all**: its two database URI files name the local stack's database throu
 stack publishes on loopback, and the local stack itself hands its services an inline config naming
 its own database.
 
-On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
-`fastapi dev` and the local stack read, each readable by its writer alone, and prints nothing:
+On a development machine, in Git Bash at the checkout root, this writes every file both dev servers
+and the local stack read, each readable by its writer alone, and prints nothing:
 
 ```bash
 (umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
