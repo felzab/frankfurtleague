@@ -1,67 +1,116 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { apiClient } from "@/core/api";
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
+import {
+  saisonsGetFrame,
+  saisonsGetKoRunde,
+  saisonsGetSaisonAdmin,
+  saisonsGetSaisonOverview,
+  saisonsGetSaisonsAdmin,
+  saisonsGetSpiel,
+  saisonsGetSpielplan,
+  saisonsGetTabelle,
+  saisonsGetTeam,
+  saisonsGetTeams,
+} from "@/core/generated/client/sdk";
+import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLLoeschungVorschauResponseSchema, FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
-
-import type { FLLoeschungVorschauResponse, FLSaisonsListResponse, FLSaisonsSingleResponse } from "./schemas";
-import type { FLSaisonsFilterParams } from "./types";
-
-export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<FLSaisonsListResponse> {
-  "use cache";
-
-  // Base tag only: this read spans every season, so nothing narrower describes it.
-  cacheTag("saisons");
-  cacheLife("days");
-
-  return apiClient<FLSaisonsListResponse>("/saisons", FLSaisonsListResponseSchema, {
-    params: filters,
-    cacheFill: { name: "getSaisons", args: filters },
-  });
-}
+import type {
+  FLKoRundeResponse,
+  FLSaisonAdminResponse,
+  FLSaisonFrameResponse,
+  FLSaisonOverviewResponse,
+  FLSaisonsAdminListResponse,
+  FLSaisonTeamsResponse,
+  FLSpielPageResponse,
+  FLSpielplanResponse,
+  FLTabelleResponse,
+  FLTeamPageResponse,
+} from "@/core/generated/client/types";
 
 /**
- * Every season, the planned ones `getSaisons` withholds included. A club is entered into a season
- * only while it is still planned, so an admin surface that cannot see one cannot run the league.
+ * Every season, the planned ones every base-tier read withholds included, oldest first by id. A club is entered into a
+ * season only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
-// `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
-export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
-  runAdminRead(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
+// `cache` memoizes per render pass. Never `"use cache"`, which keys on the arguments rather than the caller.
+export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsAdmin()));
+
+/** `null` where no season holds the id. */
+// `cache` memoizes per render pass, so the tab's title and the page read it once.
+export const getAdminSaison = cache(async (saisonId: string): Promise<FLSaisonAdminResponse | null> =>
+  runAdminRead(() => orMissing(saisonsGetSaisonAdmin(saisonId))),
 );
 
-/**
- * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every
- * render: a count from before another season's activation names people who are already gone.
- */
-export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschungVorschauResponse> {
-  return runAdminRead(() =>
-    apiClient<FLLoeschungVorschauResponse>(`/saisons/${encodeURIComponent(saisonId)}/loeschung/vorschau`, FLLoeschungVorschauResponseSchema, {
-      authType: "admin",
-    }),
-  );
-}
+/** The season's open work, `null` where no season holds the id. */
+// `cache` memoizes per render pass, so the tab's title and the page read it once.
+export const getSaisonOverview = cache(async (saisonId: string): Promise<FLSaisonOverviewResponse | null> =>
+  runAdminRead(() => orMissing(saisonsGetSaisonOverview(saisonId))),
+);
 
-/**
- * `null` where no season is marked active: the backend answers that with a 404 rather than an
- * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`). A stored absence
- * clears on the next season write, which every activation is.
- */
-export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse | null> {
+/** Every season the public may read, the newest first. */
+export async function getSaisonFrame(): Promise<FLSaisonFrameResponse> {
   "use cache";
 
-  cacheTag("saisons");
-  cacheLife("days");
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
-    cacheFill: { name: "getCurrentSaisonOrNull", args: {} },
-  }).catch((error: unknown) => {
-    // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
-    // so a catch at the call site cannot recognise it
-    // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).
-    if (isRecordMissing(error)) return null;
-    throw error;
-  });
+  return saisonsGetFrame();
+}
+
+export async function getSpielplan(saisonId: string): Promise<FLSpielplanResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetSpielplan(saisonId));
+}
+
+/** None before the draw. */
+export async function getKoRunde(saisonId: string): Promise<FLKoRundeResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetKoRunde(saisonId));
+}
+
+/** Places as the backend numbers them. */
+export async function getTabelle(saisonId: string): Promise<FLTabelleResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetTabelle(saisonId));
+}
+
+export async function getSaisonTeams(saisonId: string): Promise<FLSaisonTeamsResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetTeams(saisonId));
+}
+
+export async function getTeamPage(saisonId: string, teamId: string): Promise<FLTeamPageResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetTeam(saisonId, teamId));
+}
+
+export async function getSpielPage(saisonId: string, spielId: string): Promise<FLSpielPageResponse | null> {
+  "use cache";
+
+  cacheTag(SITE_CACHE_TAG);
+  cacheLife("minutes");
+
+  return orMissing(saisonsGetSpiel(saisonId, spielId));
 }

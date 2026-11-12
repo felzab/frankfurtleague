@@ -2,16 +2,16 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-import { mintSpanId } from "./trace";
+import type { AuthFactor } from "./auth/sessionStamps";
 
-// Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
+// Under nginx's default `proxy_read_timeout` of 60 s by the proxy's session reads before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
-// times each gap between reads, not the response (`docs/frontend/spec.md :: I366`).
+// times each gap between reads, not the response.
 export const REQUEST_DEADLINE_MS = 30000;
 
 /**
  * As long as a request's own, counted from when `runBehindTheResponse` starts: its work is a request's half
- * moved behind the answer, sending the same calls. A stopping container waits out both (`docs/ops/spec.md :: I547`).
+ * moved behind the answer, sending the same calls. A stopping container waits out both.
  */
 export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 
@@ -19,43 +19,36 @@ export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 export type ActorLane = "admin" | "person";
 
 /**
- * Who the request acts for, and the signed token `fl_frontend/src/core/api.ts :: apiClient` sends in
- * their name (`fl_frontend/src/core/actorToken.ts :: mintRequestActor`).
+ * Who the request acts for, as a backend call states them beside the admin key: the folded address, when its
+ * session was made in whole seconds, and by which factor.
  */
-export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly token: string };
+export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly authTime: number; readonly factor: AuthFactor };
 
 interface RequestScope {
   traceId: string;
-  // This service's own span, minted per request: each hop mints one locally and only the trace id
-  // travels end to end (`docs/logging/spec.md :: L12`).
-  spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
   deadlineAt: number;
-  // Set where a call may have landed unanswered, which the spines read once the request's work is done.
-  outcomeUnknown: boolean;
-  // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
-  // answer leaves standing, where an action declaring it would repeat what each call already says.
-  writeSent: boolean;
-  // Set before a write that may end the session the request carries: the spine then renders no page again
-  // (`docs/frontend/spec.md :: I831`).
-  endsOwnSession: boolean;
-  // The cache tags this request's writes feed, declared before each write so a lost answer still drops them.
-  writeTags: Set<string>;
-  // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
-  // `runAnsweringOwnCut` derives shares it.
+  // The writes sent that may stand, each counted as it is sent and taken back once its own answer refuses it: the
+  // action builder clears the site's cache tag by it, where an action declaring its writes would repeat what each call
+  // already says.
+  standing: { writes: number };
+  // `oncePerRequest`'s reads, by the function each wraps.
   memo: Map<() => Promise<unknown>, Promise<unknown>>;
+  // Set on a background pass's scope, the scheduler's and the Postausgang's drain: its writes are drained by the pass
+  // itself, never behind a response it has not got.
+  background: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
 
 // React's per-request memo, a page's reads each opening a scope with no render-wide entry to anchor
 // on. Outside a render it memoizes nothing, so an action's or route handler's outermost scope starts
-// its request (`docs/frontend/spec.md :: I366`).
+// its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "spanId" | "actor">, fn: () => Promise<T>): Promise<T> {
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "actor">, fn: () => Promise<T>): Promise<T> {
   // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
   // own there would restart the deadline and drop the actor the guard recorded.
   if (storage.getStore() !== undefined) return fn();
@@ -64,11 +57,9 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
   render.scope ??= {
     ...scope,
     deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
-    outcomeUnknown: false,
-    writeSent: false,
-    endsOwnSession: false,
-    writeTags: new Set(),
+    standing: { writes: 0 },
     memo: new Map(),
+    background: false,
   };
 
   return storage.run(render.scope, fn);
@@ -94,27 +85,46 @@ export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
 
 /**
  * Runs `work` behind a response, under a deadline of its own from `AFTER_RESPONSE_DEADLINE_MS`: the request's
- * would leave it only what the request did not use (`docs/frontend/spec.md :: I546`). It keeps the trace, no actor.
+ * would leave it only what the request did not use. It keeps the trace, no actor.
  */
 export function runBehindTheResponse(traceId: string, work: () => Promise<void>): Promise<void> {
   const scope: RequestScope = {
     traceId,
-    spanId: mintSpanId(),
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
-    outcomeUnknown: false,
-    writeSent: false,
-    endsOwnSession: false,
-    writeTags: new Set(),
+    standing: { writes: 0 },
     memo: new Map(),
+    background: false,
   };
   let timer: ReturnType<typeof setTimeout> | undefined;
-  // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its own
-  // `timeoutMS` and never by this scope, and a stopping server waits on this promise, not the work.
+  // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its
+  // client's per-stage bounds and never by this scope, and a stopping server waits on this promise, not
+  // the work.
   const cut = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, AFTER_RESPONSE_DEADLINE_MS);
   });
 
   return Promise.race([storage.run(scope, work), cut]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Runs a background pass, the scheduler's or the Postausgang's drain, under its trace and no deadline: each call it sends
+ * is bounded by its own bound alone, and a pass a stopping container cuts leaves what it held to the next. The writes
+ * it sends drain nothing behind a response: the pass drains its own.
+ */
+export function runInBackground<T>(traceId: string, pass: () => Promise<T>): Promise<T> {
+  const scope: RequestScope = {
+    traceId,
+    deadlineAt: Infinity,
+    standing: { writes: 0 },
+    memo: new Map(),
+    background: true,
+  };
+
+  return storage.run(scope, pass);
+}
+
+export function inBackground(): boolean {
+  return storage.getStore()?.background === true;
 }
 
 /** What is left of the request's deadline: unbounded outside a scope, where a cache fill and a timer's pass run. */
@@ -125,111 +135,45 @@ export function requestTimeLeft(): number {
 }
 
 /**
- * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that
- * is shorter, and born aborted once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone.
+ * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that is nearer, and
+ * aborted from the start once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone. Either way
+ * it aborts with a `TimeoutError`, as `AbortSignal.timeout` does
+ * (https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static); one timer of the nearer bound is the
+ * signal `AbortSignal.any` would make of the two.
  */
-export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () => void } {
-  const controller = new AbortController();
+export function boundCall(ownBoundMs: number): AbortSignal {
   const store = storage.getStore();
   const left = requestTimeLeft();
 
-  if (store !== undefined && left <= 0) {
-    store.outcomeUnknown = true;
-    controller.abort();
+  if (store !== undefined && left <= 0) return AbortSignal.abort(new DOMException("The request's deadline had passed.", "TimeoutError"));
 
-    return { signal: controller.signal, clear: () => {} };
-  }
-
-  // Marked only where the deadline fired: a call its own bound ended is answered by its own error.
-  const byDeadline = left < ownBoundMs;
-  const handle = setTimeout(
-    () => {
-      if (store !== undefined && byDeadline) store.outcomeUnknown = true;
-      controller.abort();
-    },
-    Math.min(ownBoundMs, left),
-  );
-
-  return { signal: controller.signal, clear: () => clearTimeout(handle) };
+  return AbortSignal.timeout(store === undefined || ownBoundMs <= left ? ownBoundMs : left);
 }
 
 /**
- * For a call whose failure a caller settles rather than throws, where it may still have landed: a mail
- * the provider may have accepted before the connection broke. A no-op outside a scope.
+ * Records a write as it is sent, counted as standing until its own answer refuses it: one never answered may still
+ * have landed. Answers the withdrawal, which takes that one write back and no other. Every write the generated client
+ * sends is recorded. A write through the sign-in store's own client is not: it moves nothing a cached read serves, so
+ * recorded it would clear the site's cache tag for nothing, and an action changing that store calls Next's `refresh()`
+ * itself. A no-op outside a scope.
  */
-export function markOutcomeUnknown(): void {
+export function recordWriteSent(): () => void {
   const store = storage.getStore();
-  if (store !== undefined) store.outcomeUnknown = true;
+  if (store === undefined) return () => undefined;
+
+  store.standing.writes += 1;
+  return () => {
+    store.standing.writes -= 1;
+  };
 }
 
-/**
- * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request
- * (`docs/frontend/spec.md :: I366`). A write it sends still counts as sent. A no-op outside a scope.
- */
-export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
-  const store = storage.getStore();
-  if (store === undefined) return fn();
-
-  // A scope of its own rather than the flag reset afterwards, which would also clear a cut of a call running beside it.
-  const own: RequestScope = { ...store, outcomeUnknown: false };
-  try {
-    return await storage.run(own, fn);
-  } finally {
-    if (own.writeSent) store.writeSent = true;
-    if (own.endsOwnSession) store.endsOwnSession = true;
-  }
-}
-
-/** Whether the deadline cut a call of this request, or a settled call may have landed. `false` outside a scope. */
-export function requestOutcomeUnknown(): boolean {
-  return storage.getStore()?.outcomeUnknown === true;
-}
-
-/**
- * Called as a call that may write is sent: one never answered may still have landed. The API and mail
- * clients call it themselves, and a write through another client at the write. A no-op outside a scope.
- */
-export function recordWriteSent(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.writeSent = true;
-}
-
-/** Whether this request has dispatched a call that may write. `false` outside a scope. */
-export function requestWriteSent(): boolean {
-  return storage.getStore()?.writeSent === true;
-}
-
-/**
- * Called before a write that may end the session the request carries, answered or not: one never answered may
- * have ended it. A no-op outside a scope.
- */
-export function recordOwnSessionEnding(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.endsOwnSession = true;
-}
-
-/** Whether this request sent a write that may have ended its own session. `false` outside a scope. */
-export function requestEndsOwnSession(): boolean {
-  return storage.getStore()?.endsOwnSession === true;
-}
-
-/** Adds cache tags a write of this request feeds, for the spine to drop. A no-op outside a scope. */
-export function declareWriteTags(tags: readonly string[]): void {
-  const store = storage.getStore();
-  for (const tag of tags) store?.writeTags.add(tag);
-}
-
-/** The cache tags this request's writes declared, in declaration order. Empty outside a scope. */
-export function requestWriteTags(): readonly string[] {
-  return [...(storage.getStore()?.writeTags ?? [])];
+/** Whether a write this request sent may stand: sent, and not refused by its own answer. `false` outside a scope. */
+export function requestWriteMayStand(): boolean {
+  return (storage.getStore()?.standing.writes ?? 0) > 0;
 }
 
 export function getRequestTraceId(): string | undefined {
   return storage.getStore()?.traceId;
-}
-
-export function getRequestSpanId(): string | undefined {
-  return storage.getStore()?.spanId;
 }
 
 export function getRequestActor(): RequestActor | undefined {
@@ -243,12 +187,12 @@ export function setRequestActor(actor: RequestActor): void {
   if (!store) return;
 
   // A second guard on one request is a programming error: whichever landed last would name every
-  // write's actor (`docs/frontend/spec.md :: I272`). Compared by who and which lane, never by the
-  // token each mint makes afresh.
+  // write's actor. Compared by who and which lane, never by the
+  // sign-in time or factor, which each guard reads off the one session.
   if (store.actor !== undefined && (store.actor.email !== actor.email || store.actor.lane !== actor.lane)) {
     throw new Error("A second actor was set on one request scope.");
   }
 
-  // The first token stands: a guard answering from its memo hands back the one it already minted.
+  // The first actor stands: a guard answering from its memo hands back the one it already built.
   store.actor ??= actor;
 }

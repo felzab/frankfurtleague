@@ -1,77 +1,45 @@
 """
-CORE · database access, the query one list read runs, and the conventions a write keeps
+Database access, the query one list read runs, and the conventions a write keeps.
 
 One contract across the module, so no caller needs a `None` branch to reach a 404: a `*_one_*`
-helper raises `DocumentNotFoundException` on a miss and never returns `None`, and a `*_many_*`
+helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a `*_many_*`
 helper returns the empty result and never raises for absence.
 
-Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: a WRITE reaches the driver in this module alone, beside two that record
-no domain fact: the log's own row, which `app/core/recording.py :: record_write` inserts, and a
-person's count for the day, which `app/core/drosselung.py :: get_drossel` raises. Reads are a different matter --
-several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
-and a write shaped like one of those would escape the log.
+A write reaches the driver in this module alone. No helper here records anything: an act records itself, one line inside
+its own transaction.
 """
 
 import re
-from collections.abc import Mapping, Sequence, Set
-from contextvars import ContextVar
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from datetime import datetime
+from http import HTTPStatus
 from typing import Any, Final
 
-import bson
-from pydantic import BaseModel
-from pymongo import ReturnDocument
+from pydantic import BaseModel, Field
+from pymongo import ReturnDocument, UpdateOne
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal, WriteRefusalException
-from app.core.recording import record_write
+from app.core.codes import Code
+from app.core.collections import EDITED_COLLECTIONS
+from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
+from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
-# Section 1, the driver. Keyword-only throughout, so no call site can bind `db_filter` to `update`
-# by position, and `db_filter` is the one name a filter has here and at every caller.
+# Keyword-only throughout, so no call site can bind `db_filter` to `update` by position, and
+# `db_filter` is the one name a filter has here and at every caller.
 
-# What orders a NAME: „Ö“ sits beside „O“ and a lower-case initial beside its capital, where Mongo's
+# What orders a name: „Ö“ sits beside „O“ and a lower-case initial beside its capital, where Mongo's
 # binary default puts each after „Z“. Per read rather than a default: a collated operation cannot
 # use a simple-collation index on a string bound.
 GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
 
 
-@dataclass
-class WritesSent:
-    """Whether this request has handed the driver a write, which is what may leave one standing after its answer is lost."""
-
-    sent: bool = False
-
-
-# A RECORD rather than a flag: a task started inside the request copies this context, and marking a
-# shared record reaches the request where rebinding a flag would not. Bound per request by
-# `app/core/middlewares.py :: TraceContextMiddleware`.
-writes_sent_var: ContextVar[WritesSent | None] = ContextVar("writes_sent", default=None)
-
-
-def a_write_may_stand() -> bool:
-    """Whether a write this request sent may stand, the judgement `DB-FAIL-002` is answered on (`docs/backend/spec.md :: I321`)."""
-
-    record = writes_sent_var.get()
-    # Unbound is outside any request, where nothing says what was sent: unknown is the answer that
-    # never sends a person to repeat a write already standing.
-    return record is None or record.sent
-
-
-def _sending_a_write() -> None:
-    # Marked BEFORE the driver call: a write whose answer the deadline cut may have landed.
-    record = writes_sent_var.get()
-    if record is not None:
-        record.sent = True
-
-
 async def pull_one_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     projection: Mapping[str, Any] | list[str] | None = None,
     session: AsyncClientSession | None = None,
@@ -80,14 +48,14 @@ async def pull_one_from_db(
 
     doc = await collection.find_one(filter=db_filter, projection=projection or {}, session=session)
     if doc is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     return doc
 
 
 async def pull_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     db_filter: Mapping[str, Any],
     limit: int = LIST_LIMIT_DEFAULT,
     sort_by: Sequence[tuple[str, int]] | None = None,
@@ -108,61 +76,132 @@ async def pull_many_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
+async def pull_whole_from_db(
+    *,
+    collection: ReadCollection,
+    db_filter: Mapping[str, Any],
+    # What the read is, for the error alone: "season 2025's fixtures".
+    what: str,
+    sort_by: Sequence[tuple[str, int]] | None = None,
+    projection: Mapping[str, Any] | list[str] | None = None,
+    collation: Mapping[str, Any] | None = None,
+    session: AsyncClientSession | None = None,
+) -> list[Mapping[str, Any]]:
+    """Every document `db_filter` matches, for a judgement that must see them all, or a `ValueError`.
+
+    Read one over the cap, so a set past it is detected rather than judged on the page that fits: a dropped fixture or
+    row would read as one that is not there, and a rule judged without it answers wrongly in silence.
+    """
+
+    documents = await pull_many_from_db(
+        collection=collection,
+        db_filter=db_filter,
+        limit=LIST_LIMIT_DEFAULT + 1,
+        sort_by=sort_by,
+        projection=projection,
+        collation=collation,
+        session=session,
+    )
+    if len(documents) > LIST_LIMIT_DEFAULT:
+        raise ValueError(f"{what} number more than {LIST_LIMIT_DEFAULT}, which is more than one read can judge whole")
+
+    return documents
+
+
+# Every document of an `EDITED_COLLECTIONS` member carries this count: 0 when created, and raised by every update
+# through the two patch helpers below. A save passes the count its form was read at as `expected_version`, and matches
+# only while the count stands there: MongoDB's documented pattern, "include the expected current value in the update
+# filter" (the manual's write-operations atomicity page), Mongoose's `optimisticConcurrency`.
+#
+# The count is scoped by field, as that option is with `exclude`: it counts the writes to what a form shows and saves.
+# A write to a field no form saves goes through `patch_past_the_version_in_db` and leaves the count standing, so it
+# refuses no save of a form read before it.
+VERSION_FIELD: Final = "version"
+
+
+def composite_version(*documents: Mapping[str, Any]) -> int:
+    """The one count an editor saving two documents reads and saves on: theirs added.
+
+    Each only ever rises, so their sum stands exactly where none has moved, and a page holds one number for its one
+    save.
+    """
+
+    return sum(int(document[VERSION_FIELD]) for document in documents)
+
+
+def find_stale_save_refusal(*documents: Mapping[str, Any], version: int) -> WriteRefusal | None:
+    """`version_stale`: one of the documents an editor saves together has moved since it read them."""
+
+    if composite_version(*documents) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def find_stale_first_save_refusal(saved: Mapping[str, Any] | None, *, version: int | None) -> WriteRefusal | None:
+    """`version_stale` for the save of a document its form's first save creates.
+
+    A null `version` says the form showed no document, and matches only absence: a first save committed since refuses
+    it, as a number refuses once the document moved or went.
+    """
+
+    if (None if saved is None else int(saved[VERSION_FIELD])) == version:
+        return None
+
+    return WriteRefusal(error_code=Code.VERSION_STALE, status=HTTPStatus.CONFLICT)
+
+
+def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`update` raising the version, on a collection whose documents count their writes."""
+
+    if collection.name not in EDITED_COLLECTIONS:
+        return update
+
+    return {**update, "$inc": {**update.get("$inc", {}), VERSION_FIELD: 1}}
+
+
 async def patch_one_in_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
+    expected_version: int | None,
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
-    """`return_document` has no default, so every caller weighs the two images.
+    """`expected_version` and `return_document` have no default, so a caller weighs whether it checks a version and which state it answers.
 
-    `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
-    inside a transaction reads anyway and one outside it pays a round trip for.
+    `BEFORE` answers the state the write just replaced, `AFTER` the state it left, both from the one command. An
+    `expected_version` is refused `version_stale` once another write has raised the count; `None` checks nothing.
     """
 
-    _sending_a_write()
-    # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
-    # update's own is taken with the write (`docs/backend/spec.md :: I39`).
-    before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
-    if before is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
-    replaced_id = before["_id"]
+    if expected_version is not None:
+        if collection.name not in EDITED_COLLECTIONS:
+            raise ValueError(f"{collection.name} is in no EDITED_COLLECTIONS, so a write to it checks no {VERSION_FIELD}")
+        db_filter = {**db_filter, VERSION_FIELD: expected_version}
 
-    async def read_back() -> Mapping[str, Any]:
-        stored = await collection.find_one(filter={"_id": replaced_id}, projection=None, session=session)
-        if stored is None:
-            raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+    document = await collection.find_one_and_update(
+        filter=db_filter, update=_versioned(collection, update), session=session, return_document=return_document
+    )
+    if document is None:
+        # A removed document reads as a changed one, as no second read tells the two apart.
+        raise DocumentNotFoundError() if expected_version is None else APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
 
-        return stored
-
-    # Read back, never taken from the driver: `findAndModify` answers a match it left unchanged as one it
-    # rewrote (`docs/backend/spec.md :: I732`). Inside a transaction alone, where no rival writes between
-    # the two reads.
-    after = await read_back() if session is not None and session.in_transaction else None
-    if after is None or _as_stored(after, collection) != _as_stored(before, collection):
-        await record_write(
-            collection=collection,
-            operation="patch_one",
-            document_id=before.get("_id"),
-            before=before,
-            session=session,
-        )
-
-    if return_document is ReturnDocument.BEFORE:
-        return before
-
-    return after if after is not None else await read_back()
+    return document
 
 
-def _as_stored(document: Mapping[str, Any], collection: AsyncCollection) -> bytes:
-    """The document's BSON, encoded as the collection decoded it, so two images differ wherever a field's type or order does.
+def _changed_by(db_filter: Mapping[str, Any], update: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`db_filter` narrowed to the documents `update` changes, where a `$set` of plain paths alone says which.
 
-    Python's own equality takes 1, 1.0 and True for one value and a sub-document's keys in any order.
+    Without it the version's own `$inc` would change every document matched, and a fan-out repeated
+    would count and raise each again. Any other update keeps the filter it was given.
     """
 
-    return bson.encode(document, codec_options=collection.codec_options)
+    fields = update.get("$set")
+    if set(update) != {"$set"} or not fields or any("$" in path for path in fields):
+        return db_filter
+
+    return {"$and": [db_filter, {"$or": [{path: {"$ne": value}} for path, value in fields.items()]}]}
 
 
 async def patch_many_in_db(
@@ -170,30 +209,20 @@ async def patch_many_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
+    # The conditions `$[<identifier>]` paths in `update` select array elements by (the manual's
+    # "$[<identifier>]" page). Such an update keeps the caller's filter unnarrowed, so that filter
+    # has to match only the documents holding an element to change.
+    array_filters: Sequence[Mapping[str, Any]] | None = None,
     session: AsyncClientSession | None = None,
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
-    One log row with the filter and the count, never pre-images (`docs/backend/spec.md :: I40`).
+    On an edited collection a document the update would leave as it stands is not matched, so its version stays.
     """
 
-    _sending_a_write()
-    result = await collection.update_many(filter=db_filter, update=update, session=session)
+    matched = _changed_by(db_filter, update) if collection.name in EDITED_COLLECTIONS else db_filter
 
-    # A fan-out that changed nothing records nothing, as a removal that took nothing (`docs/backend/spec.md :: I744`): so a
-    # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
-    if not result.modified_count:
-        return result
-
-    await record_write(
-        collection=collection,
-        operation="patch_many",
-        db_filter=db_filter,
-        modified_count=result.modified_count,
-        session=session,
-    )
-
-    return result
+    return await collection.update_many(filter=matched, update=_versioned(collection, update), array_filters=array_filters, session=session)
 
 
 # The one field every anchor advances: one rather than one per rule, so a further rule decided on the
@@ -201,51 +230,95 @@ async def patch_many_in_db(
 ANCHOR_FIELD: Final = "bounded_writes"
 
 
+class Anchored(BaseModel):
+    """The stored field of every collection `anchor_in_db` writes, which that collection's record model inherits.
+
+    Absent until the first anchor, and withheld from every answer: it changes nothing a reader sees.
+    """
+
+    anchors: int = Field(default=0, validation_alias=ANCHOR_FIELD, exclude=True)
+
+
+async def is_held_elsewhere(
+    *,
+    collection: AsyncCollection,
+    key: str,
+    value: Any,
+    # The document the write saves, whose own value is no other's; `None` for a create.
+    own_id: Any,
+    # Required: asked in the write's transaction, so a retry asks it again.
+    session: AsyncClientSession,
+) -> bool:
+    """Whether another document holds `value` at `key`, a retired one included, as a unique index on it compares.
+
+    So a create or a save is refused on the field a person typed before its write meets the index, which answers only
+    a race between two writes, as `duplicate_key` with no field.
+    """
+
+    db_filter: dict[str, Any] = {key: value} if own_id is None else {key: value, "_id": {"$ne": own_id}}
+
+    return await collection.find_one(db_filter, projection={"_id": 1}, session=session) is not None
+
+
+async def patch_past_the_version_in_db(
+    *,
+    collection: AsyncCollection,
+    db_filter: Mapping[str, Any],
+    update: Mapping[str, Any],
+    # Required: the write's own transaction, in which its caller read what it judged, so two such writes to one
+    # document conflict and the later is judged again.
+    session: AsyncClientSession,
+) -> int:
+    """Write fields no form saves onto the documents the filter names, each one's `version` left standing, and answer how many it matched.
+
+    The one way past the count, for four kinds of write: an anchor, which changes nothing a reader sees; a link's
+    hash, minted when its mail is handed out; a person's own press on their own block, a consent moved or a seat
+    confirmed; and a job writing only bookkeeping no form saves, a reminder stamped or a chase closed or opened, so no
+    administrator's save is refused over mail bookkeeping. A press names the state it moves in `db_filter`, or judges
+    it on a read inside `session`, so a second press finds it moved: the count is not what holds a press.
+
+    Never for a field a form saves: a save read before such a write would then put the old value back unrefused. A
+    job or a fan-out changing what a form shows goes through `patch_one_in_db` or `patch_many_in_db`, which raise the
+    count.
+    """
+
+    return (await collection.update_many(filter=db_filter, update=update, session=session)).matched_count
+
+
 async def anchor_in_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
-    # REQUIRED: committed on its own, an anchor conflicts with nobody.
+    # Required: committed on its own, an anchor conflicts with nobody.
     session: AsyncClientSession,
 ) -> None:
-    """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts (`docs/backend/spec.md :: I53`).
+    """Write the documents a judgement inside this transaction is scoped by, so a rival writing them conflicts.
 
-    Logs no row: it changes nothing a reader sees, and the transaction's other writes are the action (`docs/backend/spec.md :: I40`).
+    It changes nothing a reader sees, and the transaction's other writes are the action.
     """
 
-    _sending_a_write()
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
-    await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
+    await patch_past_the_version_in_db(collection=collection, db_filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
 
-# When an anchor written by id was last written, the one field its collection's TTL index reads
-# (`app/core/constraints.py :: TTL_INDEXES`).
-ANCHOR_WRITTEN_AT: Final = "geschrieben_am"
-
-
-async def anchor_by_id_in_db(
+async def anchor_mailboxes_in_db(
     *,
     collection: AsyncCollection,
     ids: Sequence[str],
-    # REQUIRED, for `anchor_in_db`'s reason.
+    at: datetime,
+    # Required, as `anchor_in_db`'s is.
     session: AsyncClientSession,
 ) -> None:
-    """Write the document of each id, creating any not yet written, so a rival writing one conflicts (`docs/backend/spec.md :: I53`).
+    """`anchor_in_db` over documents nothing else creates: a press makes its own, and each lapses by the `at` last written."""
 
-    Logs no row, for `anchor_in_db`'s reason.
-    """
+    if not ids:
+        return
 
-    _sending_a_write()
-    # An upsert, as a document nobody has written joins no write set; two transactions upserting one meet as a
-    # write conflict, never a duplicate key. One command an id: `bulk_write` can remove, which
-    # `tests/core/test_unenforced.py` refuses.
-    for anchor_id in ids:
-        await collection.update_one(
-            filter={"_id": anchor_id},
-            update={"$inc": {ANCHOR_FIELD: 1}, "$currentDate": {ANCHOR_WRITTEN_AT: True}},
-            upsert=True,
-            session=session,
-        )
+    # One command, so a press naming three mailboxes pays one round trip.
+    await collection.bulk_write(
+        [UpdateOne({"_id": anchor_id}, {"$inc": {ANCHOR_FIELD: 1}, "$set": {"anchored_at": at}}, upsert=True) for anchor_id in ids],
+        session=session,
+    )
 
 
 async def post_one_to_db(
@@ -256,14 +329,7 @@ async def post_one_to_db(
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
-    _sending_a_write()
-    result = await collection.insert_one(document=document, session=session)
-
-    # No `before`: a create replaced nothing, and a null there is what tells the page this row offers
-    # a deletion to undo rather than a restore.
-    await record_write(collection=collection, operation="insert", document_id=result.inserted_id, session=session)
-
-    return result
+    return await collection.insert_one(document=_created(collection, document), session=session)
 
 
 async def post_many_to_db(
@@ -272,33 +338,24 @@ async def post_many_to_db(
     documents: Sequence[Mapping[str, Any]],
     session: AsyncClientSession | None = None,
 ) -> InsertManyResult:
-    """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent.
+    """The driver's result, unwrapped: `inserted_ids` is in input order, so a caller can pair an id back to what it sent."""
 
-    One log row carrying the count, never one per document: a generated season is a single action,
-    and a row per document would bury it.
-    """
-
-    _sending_a_write()
     try:
-        result = await collection.insert_many(documents=documents, session=session)
+        return await collection.insert_many(documents=[_created(collection, document) for document in documents], session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ORDERED and not atomic: a refused document leaves every one before it
-        # written, unlogged unless recorded here. Not inside a transaction, whose abort takes them back
-        # and where a second write would mask this error with its own.
+        # `insert_many` is ordered and not atomic: a refused document leaves every one before it written, which a
+        # 409 would deny. Inside a transaction its abort takes them back.
         landed = int((failure.details or {}).get("nInserted", 0))
         stands = landed > 0 and not (session is not None and session.in_transaction)
-        if stands:
-            await record_write(collection=collection, operation="insert_many", modified_count=landed, session=session)
-
         if not stands and (refusal := _duplicate_key_of(failure)) is not None:
             raise refusal from failure
         raise
 
-    # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
-    # The count goes where a fan-out puts its own, so one field answers "how many did this touch".
-    await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
 
-    return result
+def _created(collection: AsyncCollection, document: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`document` with its version at 0 where its collection is edited, so its first read serves one."""
+
+    return {**document, VERSION_FIELD: 0} if collection.name in EDITED_COLLECTIONS else document
 
 
 # The server's code for a unique index's refusal: the driver exports no name for it and compares the number itself.
@@ -306,7 +363,7 @@ DUPLICATE_KEY_ERROR = 11000
 
 
 def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
-    """So a batch answers 409 `DB-COMMON-002` as one insert does, asked only where nothing the batch wrote stands.
+    """So a batch answers 409 `duplicate_key` as one insert does, asked only where nothing the batch wrote stands.
 
     A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
     failure, which says more.
@@ -328,82 +385,17 @@ async def delete_many_from_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
+    # Required: a removal is one half of what the caller does in its transaction.
     session: AsyncClientSession,
 ) -> DeleteResult:
-    """Remove a set and keep every image, in one log row (`docs/backend/spec.md :: I48`).
+    """The driver's result, unwrapped: a caller recording a pass's removal reads `deleted_count`."""
 
-    Read first and unbounded: a cap would log fewer documents than the delete took, and the
-    shortfall would read as a smaller action rather than a lost record.
-    """
-
-    # `session` carries no default, unlike the helpers above: the read and the delete are two
-    # statements, so outside a transaction they see different sets and the images would then name a
-    # document this call never removed.
-    before = await collection.find(filter=db_filter, session=session).to_list(length=None)
-
-    _sending_a_write()
-    result = await collection.delete_many(filter=db_filter, session=session)
-
-    if result.deleted_count != len(before):
-        # Unreachable under snapshot isolation, which is what makes the pair safe. Kept because the
-        # cost of it being wrong is a log row nobody can trust, and the count is free to compare.
-        raise RuntimeError(f"{collection.name}: removed {result.deleted_count} documents against {len(before)} images")
-
-    # A removal that took nothing records nothing (`docs/backend/spec.md :: I744`): a cascade keyed on a
-    # season would otherwise log an empty row on every replace of a season holding none.
-    if not before:
-        return result
-
-    await record_write(
-        collection=collection,
-        operation="delete_many",
-        # The removed ids, so a person's erasure can select this row: its `(collection,
-        # document_id)` filter matches an array field on its members (`docs/backend/spec.md :: I42`).
-        document_id=[document["_id"] for document in before],
-        db_filter=db_filter,
-        before=before,
-        modified_count=result.deleted_count,
-        session=session,
-    )
-
-    return result
-
-
-async def erase_many_from_db(
-    *,
-    collection: AsyncCollection,
-    db_filter: Mapping[str, Any],
-    session: AsyncClientSession,
-) -> DeleteResult:
-    """Remove a set and keep NO image, the values themselves being what an erasure destroys.
-
-    Filter on IDS alone: the log stores a filter's values as text, so one naming a person would
-    preserve what this call destroys (`docs/backend/spec.md :: I48`).
-    """
-
-    _sending_a_write()
-    # `session` carries no default here for its own reason: an erasure is one transaction over the
-    # person, their squad rows and the log, and any one of the three alone leaves it defeated.
-    result = await collection.delete_many(filter=db_filter, session=session)
-
-    # A removal that took nothing records nothing, as `delete_many_from_db` (`docs/backend/spec.md :: I744`).
-    if not result.deleted_count:
-        return result
-
-    await record_write(
-        collection=collection,
-        operation="erase_many",
-        db_filter=db_filter,
-        modified_count=result.deleted_count,
-        session=session,
-    )
-
-    return result
+    return await collection.delete_many(filter=db_filter, session=session)
 
 
 async def aggregate_many_from_db(
     *,
-    collection: AsyncCollection,
+    collection: ReadCollection,
     pipeline: Sequence[Mapping[str, Any]],
     collation: Mapping[str, Any] | None = None,
     session: AsyncClientSession | None = None,
@@ -420,46 +412,6 @@ async def aggregate_many_from_db(
     return await cursor.to_list(length=limit)
 
 
-# Section 2, the query behind a read. One builder for every resource, because a term each resource
-# translated for itself is a term one of them translates differently.
-
-
-def build_query(
-    filters: BaseModel,
-    *,
-    terms: Set[str],
-    include_inactive: bool | None = None,
-    compiled: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """`keep_oid` is unconditional: an ObjectId term dumped to its string matches no document, and matching nothing looks empty, not wrong."""
-
-    query: dict[str, Any] = filters.model_dump(include=set(terms), exclude_none=True, context={"keep_oid": True})
-
-    # Translated, never dumped: its False means "add a term", so a dump by value would write the
-    # switch itself into the query as a field to match on.
-    if include_inactive is False:
-        query["inactive_since"] = None
-
-    # Last, so a term needing translation -- a phase widened to `$ne`, a boolean read as a record
-    # check -- replaces the raw value the dump wrote for it.
-    if compiled:
-        query.update(compiled)
-
-    return query
-
-
-def build_sort(*, sort_by: str, order: str, chain: Sequence[tuple[str, int]] = ()) -> list[tuple[str, int]]:
-    """The requested key, then the tie-break chain, each entry in the direction it names.
-
-    A chain entry equal to `sort_by` is skipped: pymongo builds a dict from this list, so a
-    repeated key would overwrite the requested direction.
-    """
-
-    direction = 1 if order == "asc" else -1
-
-    return [(sort_by, direction), *((field, tie_direction) for field, tie_direction in chain if field != sort_by)]
-
-
 def literal_pattern(value: str) -> str:
     """`value` as a `$regex` fragment matching exactly it.
 
@@ -470,10 +422,6 @@ def literal_pattern(value: str) -> str:
     return re.escape(value).replace("\x00", r"\x00")
 
 
-# Section 3, what a write does beyond the driver call: a refusal becomes the status its check chose, and a
-# retirement is a date on `inactive_since` rather than a state of its own (`docs/backend/spec.md :: I12`).
-
-
 def refuse(refusal: WriteRefusal | None) -> None:
     """One refusal, never varargs.
 
@@ -482,7 +430,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise WriteRefusalException(refusal)
+        raise refusal.error()
 
 
 async def set_inactive_since(
@@ -491,20 +439,29 @@ async def set_inactive_since(
     db_filter: Mapping[str, Any],
     when: str | None,
     session: AsyncClientSession | None = None,
-) -> Mapping[str, Any]:
+) -> Mapping[str, Any] | None:
     """Retire and revive in one helper: `inactive_since` is one nullable date, so they are one write in two directions.
 
-    `session` is carried, not dropped: a transactional caller would otherwise have the write and its
-    log row land outside the transaction.
+    Answers the row it moved, and `None` where the row already stood so, for which a caller records nothing: a press
+    that changes nothing is no act. A row that is not there is a 404 either way.
+
+    `session` is carried, not dropped: a transactional caller would otherwise have the write land outside it.
     """
 
-    return await patch_one_in_db(
-        collection=collection,
-        db_filter=db_filter,
-        update={"$set": {"inactive_since": when}},
-        session=session,
-        return_document=ReturnDocument.AFTER,
-    )
+    # The write matches a row it would move alone: the stamp is the day the row left, so a second retire, from a second
+    # open tab say, keeps that day and raises no version.
+    try:
+        return await patch_one_in_db(
+            collection=collection,
+            db_filter={**db_filter, "inactive_since": {"$ne": None} if when is None else None},
+            update={"$set": {"inactive_since": when}},
+            session=session,
+            expected_version=None,
+            return_document=ReturnDocument.AFTER,
+        )
+    except DocumentNotFoundError:
+        await pull_one_from_db(collection=collection, db_filter=db_filter, projection=["_id"], session=session)
+        return None
 
 
 async def insert_live(

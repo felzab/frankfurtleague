@@ -2,46 +2,42 @@ import "server-only";
 
 import { cache } from "react";
 
-import { mintRequestActor } from "./actorToken";
-import { isAdminSession, isWithinPersonLifetime, readRequestSession } from "./auth";
+import { isAdminSession, requestActorOf } from "./auth/guards";
+import { readRequestSession } from "./auth/session";
+import { isWithinPersonLifetime } from "./auth/sessionStamps";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
-import { lookUpSubjekt } from "./signInGate";
+import { lookUpSubject } from "./signInGate";
 
+import type { FLSubjectResponse, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
-import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
-  readonly sitze: readonly Readonly<FLSubjektSitz>[];
-  readonly spieler: readonly Readonly<FLSubjektSpieler>[];
-  readonly schiedsrichter: readonly Readonly<FLSubjektSchiedsrichter>[];
+  readonly seats: readonly Readonly<FLSubjectSeat>[];
+  readonly spieler: readonly Readonly<FLSubjectSpieler>[];
+  readonly schiedsrichter: readonly Readonly<FLSubjectSchiedsrichter>[];
   // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
   // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
-  readonly unbestaetigt: boolean;
-  // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
-  // carries it set, so only a caller of the lookup itself ever reads it `true`.
-  readonly gesperrt: boolean;
+  readonly unconfirmed: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
-  // `SubjectSession["admin"]`, which the session's factor and window narrow further.
-  readonly verwaltung: FLSubjektResponse["verwaltung"];
+  // `SubjectSession["isAdmin"]`, which the session's factor and window narrow further.
+  readonly admin_tier: FLSubjectResponse["admin_tier"];
   // When that grant took effect, which the same verdict holds the session's own making against.
-  readonly berechtigt_seit: FLSubjektResponse["berechtigt_seit"];
-  // When its `owner` tier took effect, which no panel reads: an owner's controls ask it of the session.
-  readonly inhaber_seit: FLSubjektResponse["inhaber_seit"];
+  readonly granted_since: FLSubjectResponse["granted_since"];
 };
 
 /**
- * `admin` is the administrator's whole verdict (`fl_frontend/src/core/auth.ts :: isAdminSession`),
- * so a control gated on it admits exactly the sessions the administrator's own lane admits.
+ * `isAdmin` is the administrator's whole verdict, so a control gated on it admits exactly the sessions the
+ * administrator's own lane admits.
  */
-export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
+export type SubjectSession = { readonly email: string; readonly isAdmin: boolean; readonly records: SubjectRecords };
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
-// a guard and a page of one render pass share one session read, one lookup and one signed actor.
+// a guard and a page of one render pass share one session read, one lookup and one actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await readRequestSession();
-  // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
+  // Both figures here as well as at `judgeAdminRequest`: a lane that skips them is a lane in which
   // the cap does not exist.
   if (!served || !isWithinPersonLifetime(served.session)) return null;
 
@@ -53,33 +49,29 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // empty one is refused here rather than at the endpoint, which answers 422.
   if (email === "") return null;
 
-  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubjekt`).
-  const subjekt = await lookUpSubjekt(email);
+  // The records and the grant, never the parsed body.
+  const records = await lookUpSubject(email);
 
-  // On every request rather than only at the ban: a session minted racing the ban, or one its ending
-  // missed, is no session here (`docs/frontend/spec.md :: I406`).
-  if (subjekt.gesperrt) return null;
-
-  // Minted here rather than at the write: a person's route refuses a request carrying no signed
-  // actor of this lane (`fl_backend/app/core/security.py :: person_actor_binder`).
-  const actor = await mintRequestActor(served, "person");
+  // Built here rather than at the write: a person's route refuses a request naming no session.
+  const actor = requestActorOf(served, "person");
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { subject: { email: email, admin: isAdminSession(served, subjekt), subjekt: subjekt }, actor: actor };
+  return { subject: { email, isAdmin: isAdminSession(served, records), records }, actor };
 });
 
 /**
- * `null` where no readable session stands, or its subject is barred; every backend failure throws,
+ * `null` where no readable session stands; every backend failure throws,
  * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
- * this wraps that throw (`docs/logging/spec.md :: L6`).
+ * this wraps that throw.
  */
 export async function getSubjectSession(): Promise<SubjectSession | null> {
   const judged = await judgeSubjectSession();
   if (judged === null) return null;
 
-  // On every call, outside the memo, for `getAdminSession`'s reason. Both guards on one request is a
-  // programming error, so the second actor throws (`docs/frontend/spec.md :: I272`).
+  // On every call, outside the memo: a render's first read may precede every scope, and a later scope
+  // answered from the memo would name nobody. Both guards on one request is a programming error, so the
+  // second actor throws.
   setRequestActor(judged.actor);
 
   return judged.subject;

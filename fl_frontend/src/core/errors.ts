@@ -1,13 +1,12 @@
-import type { FLRefusedField } from "./schemas";
+import type { Code, FLRefusedField } from "./generated/client/types";
 
 /**
- * What an error says about the request it answers. Required on every API error rather than defaulted:
- * a failed write may have landed and a failed read changed nothing, and
- * `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult` tells them apart by it.
+ * What a request was, a write that may have landed or a read that changed nothing. Required on every API error rather
+ * than defaulted, since a failed write may have landed and a failed read changed nothing.
  */
 export type SentRequest = {
   method: string;
-  /** A call changing nothing whatever its method says, declared where it is made (`fl_frontend/src/core/api.ts :: FetchOptions`). */
+  /** A call changing nothing whatever its method says, as its operation's contract states. */
   readOnly: boolean;
 };
 
@@ -36,8 +35,8 @@ export class RolledBackError extends Error {
 
 /**
  * An admin-tier call made with no actor recorded, refused before it is sent as the backend would refuse
- * it on arrival (`docs/backend/spec.md :: I41`). A programming error: the call opened outside
- * `runAdminRead` and outside an admin action's guard.
+ * it on arrival. A programming error: the call opened outside `runAdminRead`, an admin action's
+ * guard and a person read whose page checked the session first.
  */
 export class UnattributedAdminCallError extends Error {
   override name = "UnattributedAdminCallError";
@@ -59,196 +58,127 @@ export class UnreadGrantError extends Error {
   }
 }
 
-/**
- * A person-tier read made with no person signed in, or one barred: a caller outside a page's own seat
- * check, which reads the session before it reads anything.
- */
-export class PersonReadWithoutSubjectError extends Error {
-  override name = "PersonReadWithoutSubjectError";
-
-  constructor() {
-    super("A person-tier read was made with no person signed in.");
-  }
-}
-
-/**
- * A write the request's deadline refused before it was sent, too little being left to wait out its answer
- * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
- * MailUnsentError` says of a message. `FE-NET-001`, a call the network never answered.
- */
-export class ApiUnsentError extends Error {
-  readonly code = "FE-NET-001";
-  override name = "ApiUnsentError";
-
-  constructor(method: string) {
-    super(`Too little of the request's deadline was left to wait out this ${method}, so it was never sent.`);
-  }
-}
-
 export class APIBadStatusError extends Error {
-  readonly code = "FE-API-001";
   traceId: string;
   statusCode: number;
-  serverErrorCode?: string;
+  serverErrorCode?: Code;
   refusedFields: readonly FLRefusedField[];
-  url: string;
-  endpoint: string;
-  method: string;
-  readOnly: boolean;
 
   constructor({
     message,
-    url,
     statusCode,
     serverErrorCode,
     refusedFields = [],
-    endpoint,
-    method,
-    readOnly,
     traceId,
-    originalError,
-  }: SentRequest & {
+  }: {
     message: string;
-    url: string;
     statusCode: number;
-    serverErrorCode?: string;
+    serverErrorCode?: Code;
     refusedFields?: readonly FLRefusedField[];
-    endpoint: string;
     traceId: string;
-    originalError?: unknown;
   }) {
-    const errorCause = originalError
-      ? { originalError, traceId, statusCode, serverErrorCode, url, endpoint }
-      : { traceId, statusCode, serverErrorCode, url, endpoint };
-    super(message, { cause: errorCause });
+    super(message);
 
     this.name = "APIBadStatusError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.serverErrorCode = serverErrorCode;
     this.refusedFields = refusedFields;
-    this.url = url;
-    this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
   }
 }
 
 /**
- * The protocol's code families: a credential, a request the API cannot take, a route it does not serve, a person's
- * day ceiling. None is a rule refusing what was asked, and each family grows codes the backend adds to it.
+ * Every code that is no rule refusing what was asked: a credential, a request the API cannot take, a route it does
+ * not serve, the store answering, the server failing. Every other code is one a slice's mapper words, the unique
+ * index's `duplicate_key` among them.
  */
-export const PROTOCOL_FAMILIES: readonly string[] = ["AUTH", "VAL", "ROUTE", "DROSSELUNG"];
+const NOT_A_REFUSAL: ReadonlySet<Code> = new Set<Code>([
+  "access_key_refused",
+  "missing_actor",
+  "actor_not_admin",
+  "session_refused",
+  "payload_refused",
+  "body_unreadable",
+  "no_route",
+  "method_not_served",
+  "document_not_found",
+  "version_stale",
+  "no_database_client",
+  "database_failed",
+  "unknown_outcome",
+  "unhandled_crash",
+  "stored_data_invalid",
+]);
 
-const PROTOCOL_CLASS = new RegExp(`^REQ-(?:${PROTOCOL_FAMILIES.join("|")})-`);
+/** Whether a code is one a slice's mapper words, by the code alone, never its status. */
+export function isRefusalCode(code: Code | undefined): boolean {
+  return code !== undefined && !NOT_A_REFUSAL.has(code);
+}
 
 /**
- * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the
- * code's class alone, never its status: every other `DB-` code is the store answering, not a rule.
+ * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
  */
-export function isRefusalCode(code: string | undefined): boolean {
-  if (code === undefined) return false;
+export function isRefusal(error: unknown): error is APIBadStatusError {
+  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
 
-  return code === "DB-COMMON-002" || (code.startsWith("REQ-") && !PROTOCOL_CLASS.test(code));
+/**
+ * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
+ * fallback at any status, and a protocol code, a routing one included, never does.
+ */
+export function isRuleRefusal(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
 }
 
 /**
  * Whether the API answered that the record a read names does not exist. By the code, never the status:
- * any other 404 is a route the framework did not serve (`REQ-ROUTE-001`) or the edge's own, a failure.
+ * any other 404 is a route the framework did not serve (`no_route`) or the edge's own, a failure.
  */
-export function isRecordMissing(error: unknown): boolean {
-  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
-}
-
-export class APIMalformedDataError extends Error {
-  readonly code = "FE-API-002";
-  traceId: string;
-  statusCode: number;
-  url: string;
-  endpoint: string;
-  method: string;
-  readOnly: boolean;
-
-  constructor({
-    message,
-    url,
-    statusCode,
-    endpoint,
-    method,
-    readOnly,
-    traceId,
-    zodIssues,
-  }: SentRequest & {
-    message: string;
-    url: string;
-    statusCode: number;
-    endpoint: string;
-    traceId: string;
-    zodIssues?: unknown;
-  }) {
-    const errorCause = zodIssues ? { zodIssues, traceId, url } : { traceId, url };
-    super(message, { cause: errorCause });
-
-    this.name = "APIMalformedDataError";
-    this.traceId = traceId;
-    this.statusCode = statusCode;
-    this.url = url;
-    this.endpoint = endpoint;
-    this.method = method;
-    this.readOnly = readOnly;
-  }
+function isRecordMissing(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "document_not_found";
 }
 
 /**
+ * A read's answer, `null` where the API answered that the record it names does not exist, which its page says as not
+ * found. Called inside a `"use cache"` scope, never around one: an error thrown out of a scope reaches its caller
+ * redacted to a digest, which nothing can recognise.
+ */
+export const orMissing = <Read>(read: Promise<Read>): Promise<Read | null> =>
+  read.catch((error: unknown) => {
+    if (isRecordMissing(error)) return null;
+    throw error;
+  });
+
+/**
  * The backend answering against what this frontend was built for, such as a registry running no label
- * on a page this frontend serves. Only a deploy repairs it, so no page renders it as a failed read.
+ * on a page this frontend serves, or a sweep answering a place not past the one it was sent. Named,
+ * because a job's or a drain's failure line records an error's name alone, never its message: the name
+ * is what tells a broken contract from a crash. Only a deploy repairs it, so no page renders it as a
+ * failed read.
  */
 export class ContractBreakError extends Error {
   override name = "ContractBreakError";
 }
 
-/**
- * Whether an error says the backend answered against what this frontend was built for, never that
- * a read failed. Told apart only outside a `"use cache"` scope, whose throws lose their class in every
- * build (`docs/frontend/spec.md` §1.2).
- */
-export function isContractBreak(error: unknown): boolean {
-  return error instanceof ContractBreakError || error instanceof APIMalformedDataError;
-}
-
 export class APINetworkError extends Error {
-  readonly code = "FE-NET-001";
   traceId: string;
-  url: string;
-  isTimeout: boolean;
-  method: string;
-  readOnly: boolean;
 
-  constructor({
-    message,
-    url,
-    method,
-    readOnly,
-    traceId,
-    isTimeout,
-    originalError,
-  }: SentRequest & {
-    message: string;
-    url: string;
-    traceId: string;
-    isTimeout: boolean;
-    originalError?: unknown;
-  }) {
-    const errorCause = originalError ? { originalError, traceId, isTimeout, url, method } : { traceId, isTimeout, url, method };
-    super(message, { cause: errorCause });
+  constructor({ message, traceId, originalError }: { message: string; traceId: string; originalError?: unknown }) {
+    // The failure `fetch` threw, as the standard cause: the one place it appears in the error Next prints.
+    super(message, { cause: originalError });
 
     this.name = "APINetworkError";
     this.traceId = traceId;
-    this.url = url;
-    this.method = method;
-    this.readOnly = readOnly;
-    this.isTimeout = isTimeout;
   }
+}
+
+/**
+ * Whether the backend answered the call with a failure of its own, which its line records: a refusal on the access
+ * line, a 5xx with its stack. The frontend logs only what the backend never answered or answered unreadably.
+ */
+export function loggedByBackend(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.serverErrorCode !== undefined;
 }
 
 /**
@@ -258,7 +188,6 @@ export class APINetworkError extends Error {
 export function requestOf(error: unknown): { status?: number; server_error_code?: string; trace_id?: string } {
   if (error instanceof APIBadStatusError)
     return { status: error.statusCode, server_error_code: error.serverErrorCode, trace_id: error.traceId };
-  if (error instanceof APIMalformedDataError) return { status: error.statusCode, trace_id: error.traceId };
   if (error instanceof APINetworkError) return { trace_id: error.traceId };
   return {};
 }
@@ -266,7 +195,7 @@ export function requestOf(error: unknown): { status?: number; server_error_code?
 /**
  * The refusals Resend's published error reference calls temporary, mirrored here because the token
  * decides whether a second attempt can succeed. **The source moves without us**
- * (<https://resend.com/docs/api-reference/errors>, read 2026-09-08).
+ * (<https://resend.com/docs/api-reference/errors>).
  */
 const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
   "concurrent_idempotent_requests",
@@ -279,11 +208,9 @@ const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
 ]);
 
 export class MailSendError extends Error {
-  readonly code = "FE-MAIL-001";
   traceId: string;
   statusCode: number;
   providerErrorName?: string;
-  url: string;
 
   /**
    * Whether a second attempt could land. The token decides where the body carried one; the status
@@ -297,23 +224,20 @@ export class MailSendError extends Error {
 
   constructor({
     message,
-    url,
     statusCode,
     providerErrorName,
     traceId,
   }: {
     message: string;
-    url: string;
     statusCode: number;
     providerErrorName?: string;
     traceId: string;
   }) {
-    super(message, { cause: { traceId, statusCode, providerErrorName, url } });
+    super(message);
 
     this.name = "MailSendError";
     this.traceId = traceId;
     this.statusCode = statusCode;
     this.providerErrorName = providerErrorName;
-    this.url = url;
   }
 }

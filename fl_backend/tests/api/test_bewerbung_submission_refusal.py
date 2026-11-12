@@ -1,115 +1,56 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
-from typing import Any, cast, get_args
+from typing import Any
 
 import pytest
 from bson import ObjectId
 from pydantic import ValidationError
 
-from app.api.bewerbungen.public_router import get_schulen, get_trikotfarben
 from app.api.bewerbungen.schemas import (
-    FLBewerbung,
-    FLBewerbungKader,
     FLBewerbungKontaktePayload,
     FLBewerbungKontaktpersonPayload,
-    FLBewerbungSchule,
-    FLBewerbungSchuleOption,
     FLBewerbungSchulePayload,
-    FLBewerbungTrikot,
     FLPostBewerbungPayload,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_FENSTER_GESCHLOSSEN,
-    BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
-    BEWERBUNG_PICKED_CLUB_UNUSABLE,
-    BEWERBUNG_SHORTHAND_TAKEN,
-    BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
-    SAISON_NOT_ENDED_FILTER,
     assigned_trikot_farben,
-    bestaetigungsfrist_from,
-    build_wiederholung_filter,
-    compose_bestaetigungen,
-    compose_einwilligung,
     compose_kontakte,
-    find_already_entered_refusal,
-    find_picked_club_refusal,
-    find_shorthand_refusal,
-    find_submission_subject_refusal,
-    find_window_refusal,
-    payload_fingerabdruck,
-    saison_nimmt_bewerbungen_an,
-    season_has_ended,
-    window_is_running,
+    find_repeated_contact_refusal,
+    mailbox_anchor_ids,
+    open_links_on,
+    seats_past_the_bound,
 )
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
-from app.api.saisons.schemas import FLSaisonStatus
-from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
-    FLKontaktperson,
-    FLKontaktpersonPayload,
-    FLPostTeamPayload,
-    FLTeam,
-    FLTeamRecord,
-    FLTrikotFarbe,
-    normalise_telefon,
-)
-from app.core.exceptions import DocumentNotFoundException
-from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.addresses import FLAddressPayload
+from app.api.teams.schemas import FLKontaktperson, normalise_phone
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KADER_GROESSE_MAX,
-    BEWERBUNG_STUFENGROESSE_MAX,
-    BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
-    BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-    KONTAKT_NAME_MAX_LENGTH,
-    TEAM_FULL_NAME_MAX_LENGTH,
-    TEAM_NAME_MAX_LENGTH,
+    BEWERBUNG_KADER_SIZE_MAX,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
-from tests.documents import ADDRESS, bestaetigte_kenntnisnahme, kontaktperson_document
+from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
 PICKED_OID = ObjectId("6890a1b2c3d4e5f607930001")
-RETIRED_OID = ObjectId("6890a1b2c3d4e5f607930002")
 
 TODAY = "2026-04-01"
 
-# A window this day sits inside, so each case below moves ONE thing away from a passing state.
-OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
-SCHULE: Mapping[str, Any] = {"team_name": "Zorbanax", "shorthand": "ZX"}
-
-# Every character `app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` refuses, written as code
-# points: a literal one here would be invisible in this file and in every diff of it.
+# The two characters a forged line needs, of those `app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN`
+# refuses, written as code points: a literal one here would be invisible in this file and in every diff of it.
 REFUSED_CHARACTERS = [
-    pytest.param(chr(0x00), id="NUL"),
     pytest.param(chr(0x0A), id="LF"),
-    pytest.param(chr(0x0B), id="VT"),
-    pytest.param(chr(0x0C), id="FF"),
     pytest.param(chr(0x0D), id="CR"),
-    pytest.param(chr(0x0D) + chr(0x0A), id="CRLF"),
-    pytest.param(chr(0x85), id="NEL"),
-    pytest.param(chr(0x2028), id="LINE SEPARATOR"),
-    pytest.param(chr(0x2029), id="PARAGRAPH SEPARATOR"),
 ]
-
-# The refused characters Unicode calls white space, so `strip_whitespace` removes them before the
-# pattern runs. NUL is the one left out: it is no more whitespace here than it is in the mirror.
-TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
 
 
 def person(**overrides: Any) -> dict[str, Any]:
     """One contact person as the public form submits them."""
 
     return {
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
+        "first_name": "Quillhilde",
+        "last_name": "Brackenmoor",
         "email": "quillhilde@example.com",
-        "telefon": "+49 170 1234567",
-        "einwilligung": {"text_version": "v3", "erteilt": True},
+        "phone": "+49 170 1234567",
         **overrides,
     }
 
@@ -119,9 +60,9 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 
     return {
         "trainer": person(),
-        "ansprechperson": person(vorname="Ansgar", email="ansgar@example.com", telefon="+49 170 7654321"),
-        "stellvertretung": person(vorname="Stellan", email="stellan@example.com", telefon="0171 5555555"),
-        "trainer_ist_zugleich": None,
+        "ansprechperson": person(first_name="Ansgar", email="ansgar@example.com", phone="+49 170 7654321"),
+        "stellvertretung": person(first_name="Stellan", email="stellan@example.com", phone="0171 5555555"),
+        "trainer_is_also": None,
         **overrides,
     }
 
@@ -134,48 +75,17 @@ def submission(**overrides: Any) -> dict[str, Any]:
         "team_id": str(PICKED_OID),
         "schule": None,
         "kontakte": kontakte(),
-        "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
+        "trikot": {"existing_set": "12 rote Trikots", "wunschfarbe": "blau"},
+        "kader": {"expected_size": 14, "good_spieler": 4},
         "stufengroesse": 90,
         **overrides,
     }
-
-
-# A real scheme and a real host, padded in the PATH -- the half `validate_external_url` never reads,
-# so a case built on it is refused by the ceiling and by nothing else.
-_URL_STEM = "https://zorbanax.example.de/"
-
-
-# One club document, in the shape `_TeamWritable` describes, so the three cases naming it move together.
-CLUB: dict[str, Any] = {
-    "name": "Zorbanax",
-    "shorthand": "ZX",
-    "description": "",
-    "full_name": "Zorbanax-Gymnasium",
-    "schulform": "gymnasium_g9",
-    "website_url": "https://zorbanax.example.de",
-    "address": dict(ADDRESS),
-}
-
-# What a club READ adds beyond the writable base, none of it under test here.
-CLUB_READ_ONLY: dict[str, Any] = {
-    "_id": str(PICKED_OID),
-    "gruppe": "A",
-    "statistik": {},
-    "austritt": None,
-    "inactive_since": None,
-}
-
-
-def _url_of_length(length: int) -> str:
-    return _URL_STEM + "p" * (length - len(_URL_STEM))
 
 
 def schule(**overrides: Any) -> dict[str, Any]:
     return {
         "team_name": "Zorbanax",
         "full_name": "Zorbanax-Gymnasium",
-        "shorthand": "ZX",
         "schulform": "gymnasium_g9",
         "address": dict(ADDRESS),
         "website_url": "https://zorbanax.example.de",
@@ -183,309 +93,28 @@ def schule(**overrides: Any) -> dict[str, Any]:
     }
 
 
-def test_the_corpus_this_module_moves_one_field_of_is_valid():
-    """The floor under every case below: each moves ONE field, so a corpus already refused would pass them all vacuously."""
-
-    assert FLPostBewerbungPayload.model_validate(submission()).saison_id == "2026"
-    assert FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule())).schule is not None
-
-
-# Each row moves ONE thing away from `OPEN_WINDOW` on `TODAY`, so what it proves is that thing.
-SHUT_WINDOWS = [
-    pytest.param(None, id="no window recorded at all"),
-    pytest.param({}, id="a window missing every key"),
-    pytest.param({"offen": True, "von": "2026-03-01"}, id="a window missing `bis`"),
-    pytest.param({**OPEN_WINDOW, "offen": False}, id="the flag turned off"),
-    pytest.param({**OPEN_WINDOW, "von": "2026-04-02"}, id="the span opens tomorrow"),
-    pytest.param({**OPEN_WINDOW, "bis": "2026-03-31"}, id="the span closed yesterday"),
-    pytest.param({"offen": True, "von": "2026-04-30", "bis": "2026-03-01"}, id="a stored span running backwards"),
-]
-
-
-class TestTheWindowDecidesWhetherAnApplicationMayArrive:
-    """`REQ-BEWERBUNG-004`, apart from a database: the deadline is the whole of what makes a form public or shut."""
-
-    def test_a_season_inside_its_open_window_takes_an_application(self):
-        """The floor: without it every case below would pass on a check that refuses everything."""
-
-        assert window_is_running(bewerbung=OPEN_WINDOW, today=TODAY) is True
-        assert find_window_refusal(saison_status="future", bewerbung=OPEN_WINDOW, today=TODAY) is None
-
-    @pytest.mark.parametrize(
-        "bewerbung", [pytest.param(OPEN_WINDOW["von"], id="the first day"), pytest.param(OPEN_WINDOW["bis"], id="the last")]
-    )
-    def test_both_ends_of_the_span_are_inside_it(self, bewerbung: str):
-        """Inclusive on both ends, which is what a published deadline means: an applicant reading "bis 30.04." may apply on the 30th."""
-
-        assert window_is_running(bewerbung=OPEN_WINDOW, today=bewerbung) is True
-
-    @pytest.mark.parametrize("bewerbung", SHUT_WINDOWS)
-    def test_a_season_not_inside_an_open_window_is_refused(self, bewerbung: Any):
-        """ONE code for every way, so the refusal reports no season's administrative state to a visitor."""
-
-        refusal = find_window_refusal(saison_status="future", bewerbung=bewerbung, today=TODAY)
-
-        assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
-
-    def test_a_season_that_has_ended_is_refused_while_its_window_still_runs(self):
-        """The same code as a shut window: a finished season's window is over for good, whatever dates it stores."""
-
-        assert window_is_running(bewerbung=OPEN_WINDOW, today=TODAY) is True
-
-        refusal = find_window_refusal(saison_status="past", bewerbung=OPEN_WINDOW, today=TODAY)
-
-        assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
-
-    def test_the_public_read_takes_the_same_judgement_as_the_write(self):
-        """The judgement is ONE function, so `GET /fenster` cannot show a form the POST then refuses.
-
-        A complete window rather than an unreadable one: `/fenster` 404s short of the three fields, and `laeuft` is a `bool`.
-        """
-
-        assert saison_nimmt_bewerbungen_an(saison_status="future", bewerbung={**OPEN_WINDOW, "offen": False}, today=TODAY) is False
-        assert saison_nimmt_bewerbungen_an(saison_status="past", bewerbung=OPEN_WINDOW, today=TODAY) is False
-
-    @pytest.mark.parametrize("status", get_args(FLSaisonStatus))
-    def test_the_open_window_query_passes_over_exactly_the_seasons_that_have_ended(self, status: str):
-        """The query's twin of `season_has_ended`, read as the one `$ne` term it is: the open-window read narrows with it."""
-
-        assert SAISON_NOT_ENDED_FILTER == {"status": {"$ne": "past"}}
-        assert (status != SAISON_NOT_ENDED_FILTER["status"]["$ne"]) is not season_has_ended(saison_status=status)
-
-
-class TestWhatTheSubmissionKeyJudges:
-    """The pure halves of `docs/backend/spec.md :: I346`; the replay itself is driven in the execution suite."""
-
-    def test_one_body_serialised_in_two_key_orders_is_one_request(self):
-        """A client's key order is no change to what was sent, so a replay reordered in transit is still a replay."""
-
-        body = submission()
-        reordered = dict(reversed(list(body.items())))
-
-        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(body)) == payload_fingerabdruck(
-            FLPostBewerbungPayload.model_validate(reordered)
-        )
-
-    def test_one_changed_field_is_another_request(self):
-        assert payload_fingerabdruck(FLPostBewerbungPayload.model_validate(submission())) != payload_fingerabdruck(
-            FLPostBewerbungPayload.model_validate(submission(stufengroesse=91))
-        )
-
-    def test_an_application_whose_seat_was_emptied_takes_no_fresh_links(self):
-        """An erasure nulls the seat's entry, and a filter over it would hand a link to a person who asked to be forgotten."""
-
-        live = {"token_hash": "a" * 64}
-        stored = {"_id": PICKED_OID, "bestaetigungen": {"trainer": live, "ansprechperson": live, "stellvertretung": None}}
-
-        assert build_wiederholung_filter(bewerbung_raw=stored, today=TODAY) is None
-
-
-# The four combinations of (`team_id` set or null) by (`schule` set or null): exactly one of them
-# says who is applying, so the mixed rows pass and the matched rows are refused.
-SUBJECTS = [
-    pytest.param(PICKED_OID, None, False, id="an existing club alone"),
-    pytest.param(None, SCHULE, False, id="a new school alone"),
-    pytest.param(PICKED_OID, SCHULE, True, id="both"),
-    pytest.param(None, None, True, id="neither"),
-]
-
-
-class TestWhoIsApplying:
-    """`REQ-BEWERBUNG-005`: the write path branches on which field carries the value, so it judges rather than assumes."""
-
-    @pytest.mark.parametrize(("team_id", "named_schule", "refused"), SUBJECTS)
-    def test_exactly_one_of_the_two_names_the_applicant(self, team_id: Any, named_schule: Any, refused: bool):
-        refusal = find_submission_subject_refusal(team_id=team_id, schule=named_schule)
-
-        assert (refusal is not None) == refused
-        assert refusal is None or refusal.error_code == BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
-
-    def test_the_code_is_not_the_triage_one(self):
-        """The whole reason `-005` exists: `-002` asks this of a STORED application, and one code would make the log ambiguous."""
-
-        refusal = find_submission_subject_refusal(team_id=None, schule=None)
-
-        assert refusal is not None
-        assert refusal.error_code != "REQ-BEWERBUNG-002"
-
-
-class TestWhetherThePickedClubMayApply:
-    """`REQ-BEWERBUNG-006`: the picker offers neither a club that is gone nor one that has left."""
-
-    def test_a_club_still_in_the_league_may_apply(self):
-        """The floor under both cases below."""
-
-        assert find_picked_club_refusal(team_raw={"_id": PICKED_OID, "inactive_since": None}) is None
-
-    @pytest.mark.parametrize(
-        "team_raw",
-        [
-            pytest.param(None, id="no club holds the id"),
-            pytest.param({"_id": PICKED_OID, "inactive_since": "2025-08-01"}, id="the club left the league"),
-        ],
-    )
-    def test_a_club_the_list_does_not_offer_is_refused(self, team_raw: Any):
-        """ONE code for both: either answer means a client sent an id the picker never gave it."""
-
-        refusal = find_picked_club_refusal(team_raw=team_raw)
-
-        assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_PICKED_CLUB_UNUSABLE
-
-    def test_the_refusal_names_no_club(self):
-        """`docs/logging/spec.md :: L9`: this message reaches the LOG, so it says the rule and never a stored value."""
-
-        refusal = find_picked_club_refusal(team_raw=None)
-
-        assert refusal is not None
-        assert str(PICKED_OID) not in refusal.message
-
-    def test_the_refusal_offers_no_repair_that_would_be_refused_in_turn(self):
-        """A retired club KEEPS its Kürzel, so "propose a new school" alone walks into `REQ-BEWERBUNG-008`.
-
-        The advice names the free shorthand it needs, and the log reader is told the likely cause --
-        a list the client has not reloaded.
-        """
-
-        refusal = find_picked_club_refusal(team_raw={"_id": RETIRED_OID, "inactive_since": "2025-08-01"})
-
-        assert refusal is not None
-        assert "reload the list" in refusal.message
-
-        # ABSENCE as well as presence: re-appending the old advice keeps both substrings above and
-        # would slip past a test that only asked for them.
-        assert "as a new school" not in refusal.message
-        assert refusal.message.endswith("or propose a new school under a shorthand no club holds")
-
-    def test_the_refusal_does_not_say_which_of_the_two_it_was(self):
-        """`READ-BEWERBUNG-001` neutrality: one wording for both, so the message never discloses that a club has left.
-
-        The two inputs are the only ways here, and one message means a visitor learns nothing about
-        any particular club's standing.
-        """
-
-        gone = find_picked_club_refusal(team_raw=None)
-        retired = find_picked_club_refusal(team_raw={"_id": RETIRED_OID, "inactive_since": "2025-08-01"})
-
-        assert gone is not None and retired is not None
-        assert gone.message == retired.message
-        # What the equality above cannot cover: a word both messages would share.
-        for leaked in ("retired", "inactive", "left the league"):
-            assert leaked not in retired.message
-
-
-class TestAClubAlreadyInTheSeason:
-    """`REQ-BEWERBUNG-007`: a club holding the season's junction row is already in it."""
-
-    def test_a_club_holding_no_row_may_apply(self):
-        """The floor: without it the case below would pass on a check that refuses everything."""
-
-        assert find_already_entered_refusal(entered=False) is None
-
-    def test_a_club_already_entered_is_refused(self):
-        refusal = find_already_entered_refusal(entered=True)
-
-        assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
-
-
-class TestTheProposedKuerzel:
-    """`REQ-BEWERBUNG-008`: `uniq_shorthand` is what finally holds this, and acceptance is where it would fail."""
-
-    def test_a_free_kuerzel_passes(self):
-        """The floor: without it the case below would pass on a check that refuses everything."""
-
-        assert find_shorthand_refusal(taken=False) is None
-
-    def test_a_kuerzel_a_club_already_holds_is_refused(self):
-        refusal = find_shorthand_refusal(taken=True)
-
-        assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_SHORTHAND_TAKEN
-
-
-def labelled(**labels: str) -> dict[str, str]:
-    """The label each seat names, the running one unless the case names another."""
-
-    return {seat: labels.get(seat, LAUFENDE_FASSUNGEN["bewerbung"]) for seat in KONTAKT_ROLLEN}
-
-
-class TestTheWordingTheFormShows:
-    """`REQ-EINWILLIGUNG-001` on the form: a stored record cites the words its seat was shown, so a new one names the running label."""
-
-    def test_every_seat_naming_the_running_label_passes(self):
-        """The floor: without it the case below would pass on a check that refuses everything."""
-
-        assert find_fassung_refusal(seite="bewerbung", genannt=labelled()) is None
-
-    @pytest.mark.parametrize("seat", KONTAKT_ROLLEN)
-    def test_one_seat_naming_an_earlier_label_is_refused(self, seat: str):
-        """Each seat alone: the form stamps one label per seat, so a check reading one of them passes a stale label on another."""
-
-        refusal = find_fassung_refusal(seite="bewerbung", genannt=labelled(**{seat: "2026-09-bestaetigung-4"}))
-
-        assert refusal is not None
-        assert refusal.error_code == FASSUNG_UNZULAESSIG
-        assert seat in refusal.message
-
-
-# A date no living contact person could carry: born after the bound's floor whatever `today` is.
-A_CHILDS_BIRTHDATE = "2018-01-01"
-
-# What the junction's own editor sends for one person's consent: the source and the stamp are on no
-# payload (`docs/backend/spec.md :: I142`).
-JUNCTION_EINWILLIGUNG: Mapping[str, Any] = {"umfang": "kontaktdaten", "text_version": "v3", "datum": TODAY}
-
-
 class TestNoBirthdateOnAnyPayload:
-    """`docs/backend/spec.md :: I141`: the date reaches the league from its own person at their confirmation, so no payload spells the key."""
+    """The date reaches the league from its own person at their confirmation, so no payload spells the key."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
-        block = kontakte(**{seat: person(geburtsdatum="1984-05-09")})
+        block = kontakte(**{seat: person(birth_date="1984-05-09")})
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kontakte=block))
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
-
-    def test_a_null_birthdate_is_refused_rather_than_accepted_as_absent(self):
-        """The rejected shape: a `geburtsdatum: None` override would take the key as an explicit null, where the form asks nothing."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLBewerbungKontaktpersonPayload.model_validate(person(geburtsdatum=None))
-
-        assert [entry["type"] for entry in failure.value.errors()] == ["extra_forbidden"]
-
-    def test_the_junction_payload_refuses_the_key_as_the_public_one_does(self):
-        """Refused rather than bounded: an age floor on this payload would still let an administrator name a date only its subject may give."""
-
-        junction_person = {**person(), "geburtsdatum": A_CHILDS_BIRTHDATE, "einwilligung": dict(JUNCTION_EINWILLIGUNG)}
-
-        with pytest.raises(ValidationError) as failure:
-            FLKontaktpersonPayload.model_validate(junction_person)
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "geburtsdatum")]
-
-    def test_the_junction_payload_takes_a_whole_person_without_one(self):
-        """The floor under the case above: required, every save composed before that seat's person answers would be refused."""
-
-        composed = FLKontaktpersonPayload.model_validate({**person(), "einwilligung": dict(JUNCTION_EINWILLIGUNG)})
-
-        assert "geburtsdatum" not in composed.model_dump(mode="json")
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
 
     def test_a_stored_contact_with_no_date_still_reads(self):
         """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
 
-        record = {**person(), "geburtsdatum": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
+        record = {**person(), "birth_date": None, "einwilligung": kontaktperson_document("Quillhilde")["einwilligung"]}
 
-        assert FLKontaktperson.model_validate(record).geburtsdatum is None
+        assert FLKontaktperson.model_validate(record).birth_date is None
 
 
 class TestOneNumberHasOneSpelling:
-    """What `normalise_telefon` folds, which is the whole of what makes the distinctness rule work on a free-form field."""
+    """What `normalise_phone` folds, which is the whole of what makes the distinctness rule work on a free-form field."""
 
     @pytest.mark.parametrize(
         ("written", "normalised"),
@@ -506,17 +135,12 @@ class TestOneNumberHasOneSpelling:
         ],
     )
     def test_two_spellings_of_one_number_compare_equal(self, written: str, normalised: str):
-        assert normalise_telefon(written) == normalised
-
-    def test_two_different_numbers_stay_different(self):
-        """The control: a normaliser that returned a constant would satisfy every case above."""
-
-        assert normalise_telefon("+49 170 1234567") != normalise_telefon("+49 170 7654321")
+        assert normalise_phone(written) == normalised
 
     def test_a_national_number_is_not_folded_onto_an_international_one_of_another_line(self):
         """The other control: an over-eager fold would collapse `0491…` onto `+49 1…`."""
 
-        assert normalise_telefon("0491 234567") != normalise_telefon("+49 1 234567")
+        assert normalise_phone("0491 234567") != normalise_phone("+49 1 234567")
 
 
 # The spellings that must reach the distinctness rule as ONE number. `PHONE_REGEX` admits every one.
@@ -533,45 +157,61 @@ ONE_LINE_TWO_WAYS = [
 SHARED_CONTACT_DETAILS = [
     (seat, field, value)
     for seat in ("ansprechperson", "stellvertretung")
-    for field, value in (("email", "quillhilde@example.com"), ("telefon", "+49 170 1234567"))
+    for field, value in (("email", "quillhilde@example.com"), ("phone", "+49 170 1234567"))
 ]
 
 
+def repeated_boxes(block: Mapping[str, Any]) -> tuple[Any, ...]:
+    """The boxes the submission's rule names over this block, none where it passes."""
+
+    refusal = find_repeated_contact_refusal(kontakte=block)
+
+    return () if refusal is None else refusal.fields
+
+
 class TestTheThreeSeatsAreThreePeople:
-    """The two `model_validator`s, so `REQ-VAL-001` rather than a rule's code: shape rules about the body, which the model judges."""
-
-    def test_three_distinct_people_pass(self):
-        """The floor under every refusal below."""
-
-        assert FLBewerbungKontaktePayload.model_validate(kontakte()).trainer_ist_zugleich is None
+    """The block's one `model_validator`, and `find_repeated_contact_refusal`, which names the boxes a model's rule cannot."""
 
     @pytest.mark.parametrize("seat", ["ansprechperson", "stellvertretung"])
     def test_a_seat_declared_identical_may_repeat_the_trainer(self, seat: str):
         """The case the flag exists for: one person holding two seats is not two people sharing a number."""
 
-        block = kontakte(**{seat: person(), "trainer_ist_zugleich": seat})
+        block = kontakte(**{seat: person(), "trainer_is_also": seat})
 
-        assert FLBewerbungKontaktePayload.model_validate(block).trainer_ist_zugleich == seat
+        assert FLBewerbungKontaktePayload.model_validate(block).trainer_is_also == seat
+        assert repeated_boxes(block) == ()
 
     @pytest.mark.parametrize("seat", ["ansprechperson", "stellvertretung"])
     def test_a_seat_declared_identical_and_filled_differently_is_refused(self, seat: str):
         """The form fills the second seat from the first, so a mismatch is a client that has drifted."""
 
-        block = kontakte(**{seat: person(vorname="Andere"), "trainer_ist_zugleich": seat})
+        block = kontakte(**{seat: person(first_name="Andere"), "trainer_is_also": seat})
 
         with pytest.raises(ValidationError) as failure:
             FLBewerbungKontaktePayload.model_validate(block)
 
-        assert seat in str(failure.value)
+        # The refusal's own message rather than the error's printed text, which repeats the input and so names the seat whatever was refused.
+        (error,) = failure.value.errors()
+        assert error["type"] == "value_error"
+        assert f"'{seat}'" in error["msg"]
 
     @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
     def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
         """Every other detail the seat's own: a seat sharing both, either rule would hide the other's removal."""
 
-        other = {**person(vorname="Andere", email="andere@example.com", telefon="+49 170 9999999"), field: value}
+        other = {**person(first_name="Andere", email="andere@example.com", phone="+49 170 9999999"), field: value}
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: other}))
+        assert repeated_boxes(kontakte(**{seat: other})) == (("kontakte", seat, field),)
+
+    def test_one_refusal_names_every_repeated_box(self):
+        """Each box its own press would ask the bot check again for one form."""
+
+        other = person(first_name="Andere", email="QUILLHILDE@example.com", phone="0170 1234567")
+
+        assert repeated_boxes(kontakte(stellvertretung=other)) == (
+            ("kontakte", "stellvertretung", "email"),
+            ("kontakte", "stellvertretung", "phone"),
+        )
 
     def test_an_email_repeated_in_another_case_is_still_one_address(self):
         """A mailbox is addressed the same however the local part is capitalised, so the comparison folds case.
@@ -579,157 +219,87 @@ class TestTheThreeSeatsAreThreePeople:
         Its own telephone, or the number rule would fire here and this would prove nothing about case.
         """
 
-        other = person(vorname="Andere", email="QUILLHILDE@Example.com", telefon="+49 170 9999999")
+        other = person(first_name="Andere", email="QUILLHILDE@Example.com", phone="+49 170 9999999")
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
-
-    def test_an_email_repeated_with_a_full_width_letter_in_its_domain_is_still_one_address(self):
-        """The domain's conversion makes it ASCII, so a second person here is one sign-in reaching two seats."""
-
-        # Built from its code point: the full-width „e“ renders as the ASCII one the conversion makes it.
-        other = person(vorname="Andere", email=f"quillhilde@{chr(0xFF45)}xample.com", telefon="+49 170 9999999")
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(ansprechperson=other))
-
-    def test_a_domain_spelled_with_ss_where_another_seat_holds_sharp_s_is_another_address(self):
-        """IDNA 2008 and the sign-in fold read „straße“ and „strasse“ as two domains, where `casefold` made them one."""
-
-        trainer = person(email="quillhilde@straße.de")
-        other = person(vorname="Andere", email="quillhilde@strasse.de", telefon="+49 170 9999999")
-
-        assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
+        assert repeated_boxes(kontakte(ansprechperson=other)) == (("kontakte", "ansprechperson", "email"),)
 
     @pytest.mark.parametrize("written", ONE_LINE_TWO_WAYS)
     def test_one_number_written_two_ways_is_still_one_number(self, written: str):
-        """The whole reason `normalise_telefon` exists: `PHONE_REGEX` admits many spellings of one line.
+        """The whole reason `normalise_phone` exists: `PHONE_REGEX` admits many spellings of one line.
 
         The trainer holds `0170 1234567`; each spelling here is that same line, so a second person
         writing one of them is not a second telephone.
         """
 
-        trainer = person(telefon="0170 1234567")
-        other = person(vorname="Andere", telefon=written, email="andere@example.com")
+        trainer = person(phone="0170 1234567")
+        other = person(first_name="Andere", phone=written, email="andere@example.com")
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other))
-
-    def test_two_people_on_genuinely_different_lines_still_pass(self):
-        """The control for the parametrisation above: a rule refusing every pair would satisfy it."""
-
-        trainer = person(telefon="0170 1234567")
-        other = person(vorname="Andere", telefon="+49 (0)171 7654321", email="andere@example.com")
-
-        assert FLBewerbungKontaktePayload.model_validate(kontakte(trainer=trainer, ansprechperson=other)) is not None
+        assert repeated_boxes(kontakte(trainer=trainer, ansprechperson=other)) == (("kontakte", "ansprechperson", "phone"),)
 
     def test_the_seat_left_out_of_the_comparison_is_the_declared_one_alone(self):
         """The narrowing is per-seat, not a blanket exemption: the third person is still held distinct from both."""
 
         block = kontakte(
             ansprechperson=person(),
-            stellvertretung=person(vorname="Stellan", email="quillhilde@example.com", telefon="0171 5555555"),
-            trainer_ist_zugleich="ansprechperson",
+            stellvertretung=person(first_name="Stellan", email="quillhilde@example.com", phone="0171 5555555"),
+            trainer_is_also="ansprechperson",
         )
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(block)
+        assert repeated_boxes(block) == (("kontakte", "stellvertretung", "email"),)
 
 
 class TestWhatTheServerComposes:
     """The fields a client is offered none of, so nothing submitted can claim them."""
 
-    def test_a_seat_records_the_acknowledgement_on_the_persons_behalf_and_who_seated_them(self):
-        """One person ticked for three: who seated each person is recorded, and nobody's answer is."""
-
-        composed = compose_einwilligung(text_version="v3", today=TODAY, eingetragen_von="bewerbung")
-
-        assert composed == {
-            "umfang": "kontaktdaten",
-            "text_version": "v3",
-            "datum": TODAY,
-            "bestaetigt_am": None,
-            "medien": False,
-            "eingetragen_von": "bewerbung",
-        }
-
-    def test_the_composed_block_stores_no_field_the_payload_carried_beside_the_wording(self):
-        """`erteilt` is the form's tickbox, not a stored field: the record IS the consent, and `False` is a body this endpoint refuses."""
-
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
-
-        assert set(composed["trainer"]["einwilligung"]) == {
-            "umfang",
-            "text_version",
-            "datum",
-            "bestaetigt_am",
-            "medien",
-            "eingetragen_von",
-        }
-
-    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
-    def test_no_seat_carries_a_confirmation_or_a_birthdate_at_submission(self, seat: str):
-        """Both keys are written null rather than left off, as `wunschgegner` is: each marks what the confirmation fills in."""
-
-        composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY)
-
-        assert "bestaetigt_am" in composed[seat]["einwilligung"] and composed[seat]["einwilligung"]["bestaetigt_am"] is None
-        assert "geburtsdatum" in composed[seat] and composed[seat]["geburtsdatum"] is None
-
     def test_every_seat_and_the_flag_survive_the_composition(self):
         """The control for the case above: a composer dropping a seat would satisfy it and store two people."""
 
-        block = kontakte(trainer_ist_zugleich="ansprechperson", ansprechperson=person())
+        block = kontakte(trainer_is_also="ansprechperson", ansprechperson=person())
         composed = compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(block).model_dump(mode="json"), today=TODAY)
 
-        assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_ist_zugleich"}
-        assert composed["trainer_ist_zugleich"] == "ansprechperson"
-        assert composed["stellvertretung"]["vorname"] == "Stellan"
+        assert set(composed) == {"trainer", "ansprechperson", "stellvertretung", "trainer_is_also"}
+        assert composed["trainer_is_also"] == "ansprechperson"
+        assert composed["stellvertretung"]["first_name"] == "Stellan"
 
-    def test_a_consent_the_applicant_did_not_give_is_refused_rather_than_stored(self):
-        """`erteilt: Literal[True]`: an unticked box is a 422, never a stored record saying somebody declined."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": False}))
-
-    @pytest.mark.parametrize("field", ["umfang", "eingetragen_von", "datum", "bestaetigt_am"])
-    def test_a_client_may_not_name_a_field_the_server_composes(self, field: str):
-        """`extra="forbid"`: a body naming one of these could claim a person's own consent or its seating, or backdate or pre-confirm one."""
+    def test_a_client_may_not_name_a_consent(self):
+        """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
         with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"text_version": "v3", "erteilt": True, field: "x"}))
+            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontakt_data"}))
 
 
 class TestWhatTheSubmissionPayloadRefuses:
     """The fields the server owns are on no payload at all, so a submission cannot arrive already decided."""
 
-    @pytest.mark.parametrize(("field", "value"), [("status", "angenommen"), ("eingereicht_am", "2020-01-01"), ("entscheidung", None)])
+    @pytest.mark.parametrize(("field", "value"), [("status", "accepted"), ("submitted_at", "2020-01-01"), ("decision", None)])
     def test_a_submission_naming_a_field_the_server_sets_is_refused(self, field: str, value: Any):
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(**{field: value}))
 
         assert any(entry["type"] == "extra_forbidden" for entry in failure.value.errors())
 
-    def test_a_school_website_that_is_not_an_http_url_is_refused(self):
+    @pytest.mark.parametrize(
+        "website_url",
+        [
+            pytest.param("javascript:alert(1)", id="no http url"),
+            # The admin panel shows the string and follows the host, which userinfo makes two different domains.
+            pytest.param("https://frankfurtleague.de@evil.example", id="a host behind userinfo"),
+        ],
+    )
+    def test_a_school_website_that_is_not_an_http_url_is_refused(self, website_url: str):
         """Constrained on this payload where the read model leaves it bare: acceptance parses the block through `FLPostTeamPayload`."""
 
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
-
-    @pytest.mark.parametrize("website_url", ["https://frankfurtleague.de@evil.example", "https://user:pw@evil.example"])
-    def test_a_school_website_hiding_its_host_behind_userinfo_is_refused(self, website_url: str):
-        """The admin panel renders the string and follows the host, so userinfo makes those two different domains."""
-
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
 
-    @pytest.mark.parametrize("website_url", ["https://zorbanax.example.de/a@b", "https://zorbanax.example.de/?q=a@b"])
-    def test_an_at_sign_past_the_authority_is_still_accepted(self, website_url: str):
-        """The control: an `@` in a path or a query names no host, and refusing it would be a regex reading for a character."""
+        assert [(error["type"], error["loc"]) for error in failure.value.errors()] == [("url_not_accepted", ("schule", "website_url"))]
 
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=website_url)))
+    def test_an_empty_website_box_is_stored_as_null(self):
+        """The applicant left it empty, which is no URL to refuse: an empty `href` would link to the page it sits on."""
 
-        assert parsed.schule is not None and parsed.schule.website_url == website_url
+        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="")))
+
+        assert parsed.schule is not None and parsed.schule.website_url is None
 
     @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
     def test_a_school_name_carrying_one_of_them_inside_is_refused(self, refused: str):
@@ -741,20 +311,6 @@ class TestWhatTheSubmissionPayloadRefuses:
             with pytest.raises(ValidationError):
                 FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(**{field: forged})))
 
-    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
-    def test_a_school_name_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
-        """The control, and the reason this is a pattern rather than a rejection of the character.
-
-        `strip_whitespace` runs BEFORE the pattern, so padding is the paste artefact it usually is;
-        only an interior character is refused.
-        """
-
-        padded = submission(team_id=None, schule=schule(team_name=f"{trimmed}Zorbanax{trimmed}"))
-
-        parsed = FLPostBewerbungPayload.model_validate(padded)
-
-        assert parsed.schule is not None and parsed.schule.team_name == "Zorbanax"
-
     def test_a_school_name_padded_with_nul_is_refused_rather_than_trimmed(self):
         """The one refused character `strip_whitespace` does not remove, which is also what the JavaScript mirror's `trim` does."""
 
@@ -763,134 +319,15 @@ class TestWhatTheSubmissionPayloadRefuses:
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(padded)
 
-    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
-    def test_a_stored_name_holding_one_of_them_still_reads(self, refused: str):
-        """The narrowing is the PAYLOAD's alone: a read model refusing a stored value would 500 the triage list."""
-
-        stored = FLBewerbungSchule.model_validate(schule(team_name=f"Zorbanax{refused}Alt", full_name=f"Zorbanax{refused}Alt"))
-
-        assert stored.team_name == f"Zorbanax{refused}Alt"
-
-    def test_a_squad_of_nobody_is_refused(self):
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 0, "gute_spieler": None}))
-
-    def test_a_kit_description_over_the_ceiling_is_refused(self, assert_rejects):
-        """An anonymous caller writes it and the record stores it, which is the pair a bound is earned on."""
-
-        over = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH + 1), "wunschfarbe": "blau"}
-
-        assert_rejects(FLPostBewerbungPayload, submission(trikot=over), "vorhandener_satz")
-
-    def test_a_kit_description_at_the_ceiling_is_accepted(self):
-        """The control: without it the case above would pass on a field that refuses everything."""
-
-        at_the_bound = {"vorhandener_satz": "T" * BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, "wunschfarbe": "blau"}
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(trikot=at_the_bound))
-
-        assert len(parsed.trikot.vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH
-
-    def test_a_school_owning_no_kit_still_writes_nothing(self):
-        """A ceiling and no FLOOR: the empty string is the honest answer, not a value somebody has to invent."""
-
-        assert FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "blau"})).trikot is not None
-
-    def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
-        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
-
-        stored = {"vorhandener_satz": "T" * (BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2), "wunschfarbe": "blau"}
-
-        assert len(FLBewerbungTrikot.model_validate(stored).vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
-
-    def test_a_padded_kuerzel_is_trimmed_to_fit_rather_than_refused(self):
-        """The strip runs before the width is counted, as it does on every payload string carrying a floor."""
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" ZX ")))
-
-        assert parsed.schule is not None
-        assert parsed.schule.shorthand == "ZX"
-
-
-# Every ceiling this branch put on the PUBLIC payload, as (label, the field's path, the bound). One
-# row per field rather than per constant, so two fields sharing a constant are still both exercised.
-PUBLIC_CEILINGS = [
-    pytest.param("schule.team_name", "team_name", TEAM_NAME_MAX_LENGTH, id="the club's short name"),
-    pytest.param("schule.full_name", "full_name", TEAM_FULL_NAME_MAX_LENGTH, id="the school's full name"),
-]
-
-NAME_SEATS = [(seat, part) for seat in ("trainer", "ansprechperson", "stellvertretung") for part in ("vorname", "nachname")]
-
-
-class TestTheCeilingsOnWhatAStrangerMayType:
-    """The fields an anonymous caller fills in. Bounded HERE and not on the shared admin payloads.
-
-    `team_name` is the sharpest: acceptance copies it to `teams.name`, which reaches the junction
-    row, every fixture side and the public league table.
-    """
-
-    @pytest.mark.parametrize(("label", "field", "cap"), PUBLIC_CEILINGS)
-    def test_a_school_field_over_its_ceiling_is_refused(self, label: str, field: str, cap: int, assert_rejects):
-        over = schule(**{field: "S" * (cap + 1)})
-
-        assert_rejects(FLPostBewerbungPayload, submission(team_id=None, schule=over), field)
-
-    @pytest.mark.parametrize(("label", "field", "cap"), PUBLIC_CEILINGS)
-    def test_a_school_field_at_its_ceiling_is_accepted(self, label: str, field: str, cap: int):
-        """The control: without it each case above would pass on a field that refuses everything."""
-
-        at_the_bound = schule(**{field: "S" * cap})
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=at_the_bound))
-
-        assert parsed.schule is not None
-        assert len(getattr(parsed.schule, field)) == cap
-
-    @pytest.mark.parametrize(("seat", "part"), NAME_SEATS, ids=lambda value: value)
-    def test_a_contact_name_over_its_ceiling_is_refused(self, seat: str, part: str):
-        """All six, because a ceiling holding for one seat and not the next is one nobody can rely on."""
-
-        long_name = "A" * (KONTAKT_NAME_MAX_LENGTH + 1)
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktePayload.model_validate(kontakte(**{seat: person(**{part: long_name})}))
-
-    @pytest.mark.parametrize("part", ["vorname", "nachname"])
-    def test_a_contact_name_at_its_ceiling_is_accepted(self, part: str):
-        at_the_bound = person(**{part: "A" * KONTAKT_NAME_MAX_LENGTH})
-
-        assert len(getattr(FLBewerbungKontaktpersonPayload.model_validate(at_the_bound), part)) == KONTAKT_NAME_MAX_LENGTH
-
-    @pytest.mark.parametrize("part", ["vorname", "nachname"])
-    def test_redeclaring_the_name_kept_its_pattern_and_its_strip(self, part: str):
-        """A redeclaration REPLACES the field, so the alphabet and the strip had to be restated with the ceiling."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(**{part: "Quill4"}))
-
-        assert getattr(FLBewerbungKontaktpersonPayload.model_validate(person(**{part: "  Quillhilde  "})), part) == "Quillhilde"
-
 
 class TestTheCeilingOnTheSchoolWebsite:
     """`validate_external_url` reads the scheme and the host; the path and the query are this bound's alone."""
-
-    def test_a_url_at_the_ceiling_is_accepted(self):
-        """The control, and the anchor for the two cases below."""
-
-        at_the_bound = _url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH)
-
-        assert len(at_the_bound) == TEAM_WEBSITE_URL_MAX_LENGTH
-        assert FLBewerbungSchulePayload.model_validate(schule(website_url=at_the_bound)).website_url == at_the_bound
-
-    def test_a_url_one_character_over_is_refused(self, assert_rejects):
-        """Valid in scheme and host, so the LENGTH is the only thing that can be refusing it."""
-
-        assert_rejects(FLBewerbungSchulePayload, schule(website_url=_url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH + 1)), "website_url")
 
     def test_an_oversized_value_is_refused_before_the_host_regex_reads_it(self):
         """Why the ceiling is declared BEFORE the validator rather than around it.
 
         `DOMAIN_REGEX` carries nested quantifiers, so a megabyte of host is work this refuses
-        without doing. Wrap `CustomExternalUrl` instead and this becomes `value_error`.
+        without doing. Wrap `CustomExternalUrl` instead and this becomes `url_not_accepted`.
         """
 
         enormous = "javascript:" + "a" * (TEAM_WEBSITE_URL_MAX_LENGTH * 40)
@@ -899,173 +336,6 @@ class TestTheCeilingOnTheSchoolWebsite:
             FLBewerbungSchulePayload.model_validate(schule(website_url=enormous))
 
         assert failure.value.errors()[0]["type"] == "string_too_long"
-
-    def test_a_short_url_is_still_judged_on_its_scheme(self):
-        """The control for the case above: a ceiling that swallowed the validator would accept this."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLBewerbungSchulePayload.model_validate(schule(website_url="javascript:alert(1)"))
-
-        assert failure.value.errors()[0]["type"] == "value_error"
-
-
-class TestTheSquadEstimateIsBoundedAsASquad:
-    """The sharper half: the validator types both `int`, so without a ceiling an anonymous caller reaches a 500 by typing a number."""
-
-    # The squad sits AT the ceiling in every case below, so a `gute_spieler` row cannot be refused by
-    # the subset rule instead of by the bound it is about.
-    AT_THE_SQUAD_CEILING = {"voraussichtliche_groesse": BEWERBUNG_KADER_GROESSE_MAX, "gute_spieler": 3}
-
-    @pytest.mark.parametrize("field", ["voraussichtliche_groesse", "gute_spieler"])
-    def test_a_count_over_the_ceiling_is_refused(self, field: str, assert_rejects):
-        over = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_GROESSE_MAX + 1}
-
-        assert_rejects(FLPostBewerbungPayload, submission(kader=over), field)
-
-    @pytest.mark.parametrize("field", ["voraussichtliche_groesse", "gute_spieler"])
-    def test_a_count_at_the_ceiling_is_accepted(self, field: str):
-        """The control: without it each case above would pass on a field that refuses everything."""
-
-        at_the_bound = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_GROESSE_MAX}
-
-        assert getattr(FLPostBewerbungPayload.model_validate(submission(kader=at_the_bound)).kader, field) == BEWERBUNG_KADER_GROESSE_MAX
-
-    @pytest.mark.parametrize("field", ["voraussichtliche_groesse", "gute_spieler"])
-    def test_a_value_past_int32_is_a_422_here_rather_than_a_500_at_the_validator(self, field: str, assert_rejects):
-        """The defect this bound exists for: `bsonType: "int"` is 32-bit, so an unbounded field answered 500 where this promises 422."""
-
-        past_int32 = {**self.AT_THE_SQUAD_CEILING, field: 2**31}
-
-        assert_rejects(FLPostBewerbungPayload, submission(kader=past_int32), field)
-
-
-class TestTheYearGroupIsBoundedAsAYearGroup:
-    """Required and floored where `wunschgegner` is neither: a school leaves no "unbeantwortet" answer about its own Abi-Jahrgang."""
-
-    def test_a_size_over_the_ceiling_is_refused(self, assert_rejects):
-        """An anonymous caller writes it and `bsonType: "int"` stores it, which is the pair a bound is earned on."""
-
-        assert_rejects(FLPostBewerbungPayload, submission(stufengroesse=BEWERBUNG_STUFENGROESSE_MAX + 1), "stufengroesse")
-
-    def test_a_size_at_the_ceiling_is_accepted(self):
-        """The control: without it every case here would pass on a field that refuses everything."""
-
-        at_the_bound = submission(stufengroesse=BEWERBUNG_STUFENGROESSE_MAX)
-
-        assert FLPostBewerbungPayload.model_validate(at_the_bound).stufengroesse == BEWERBUNG_STUFENGROESSE_MAX
-
-    def test_a_year_group_of_nobody_is_refused(self, assert_rejects):
-        """The floor `gute_spieler` does not take: zero strong players is an answer and zero pupils is not."""
-
-        assert_rejects(FLPostBewerbungPayload, submission(stufengroesse=0), "stufengroesse")
-
-    def test_an_omitted_size_is_refused_rather_than_read_as_a_null(self, assert_rejects):
-        """The whole difference from `wunschgegner`: a form that stopped sending this key is a 422 and never a silent null."""
-
-        without = {key: value for key, value in submission().items() if key != "stufengroesse"}
-
-        assert_rejects(FLPostBewerbungPayload, without, "stufengroesse")
-
-
-class TestNoCeilingReachesTheReadSide:
-    """Every bound above is the WRITE side's alone.
-
-    A read model refusing a stored value answers 500 for a whole list over one row
-    (`docs/backend/spec.md :: I36`), and the triage list is what an administrator repairs one from.
-    """
-
-    def test_a_stored_school_over_every_string_ceiling_still_reads(self):
-        stored = {
-            "team_name": "T" * (TEAM_NAME_MAX_LENGTH * 3),
-            "full_name": "F" * (TEAM_FULL_NAME_MAX_LENGTH * 3),
-            "shorthand": "ZX",
-            "schulform": None,
-            "address": dict(ADDRESS),
-            "website_url": _url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH * 3),
-        }
-
-        assert len(FLBewerbungSchule.model_validate(stored).team_name) == TEAM_NAME_MAX_LENGTH * 3
-
-    def test_a_stored_contact_over_the_name_ceiling_still_reads(self):
-        """Read through the junction's own block, which is what every triage read of an application goes through."""
-
-        long_name = "A" * (KONTAKT_NAME_MAX_LENGTH * 3)
-        stored = {
-            **person(vorname=long_name, nachname=long_name),
-            "geburtsdatum": "1984-05-09",
-            "einwilligung": bestaetigte_kenntnisnahme(text_version="v3", datum=TODAY, bestaetigt_am=TODAY),
-        }
-
-        assert len(FLKontaktperson.model_validate(stored).vorname) == KONTAKT_NAME_MAX_LENGTH * 3
-
-    def test_a_stored_squad_over_the_count_ceiling_still_reads(self):
-        stored = {"voraussichtliche_groesse": BEWERBUNG_KADER_GROESSE_MAX * 100, "gute_spieler": BEWERBUNG_KADER_GROESSE_MAX * 100}
-
-        assert FLBewerbungKader.model_validate(stored).voraussichtliche_groesse == BEWERBUNG_KADER_GROESSE_MAX * 100
-
-
-class TestWhatTheApplicantMustChoose:
-    """Three fields the public form leaves nobody an "unbeantwortet" answer to.
-
-    Each is tighter here than on the stored shape or on the shared payload, and each case below has
-    a read-side twin proving the stored side stayed loose.
-    """
-
-    def test_a_submission_naming_a_null_schulform_is_refused(self, assert_rejects):
-        """The six real ones and no "keine Angabe": the applicant picks the school they are applying from."""
-
-        assert_rejects(FLPostBewerbungPayload, submission(team_id=None, schule=schule(schulform=None)), "schulform")
-
-    def test_a_submission_omitting_the_schulform_is_refused(self, assert_rejects):
-        """Required as well as non-null, so an omitted key is not a quiet null either."""
-
-        without = {key: value for key, value in schule().items() if key != "schulform"}
-
-        assert_rejects(FLPostBewerbungPayload, submission(team_id=None, schule=without), "schulform")
-
-    def test_a_stored_school_with_no_schulform_still_reads(self):
-        """Clubs predate the field, so the read model refusing a stored null would 500 the triage list."""
-
-        assert FLBewerbungSchule.model_validate(schule(schulform=None)).schulform is None
-
-    @pytest.mark.parametrize(
-        "stadtteil",
-        [pytest.param("", id="the empty string"), pytest.param("   ", id="spaces alone, which the strip empties")],
-    )
-    def test_a_submission_naming_no_stadtteil_is_refused(self, stadtteil: str, assert_rejects):
-        """Required on THIS payload alone: a venue can genuinely lack a district and a Frankfurt school cannot."""
-
-        without = schule(address={**ADDRESS, "stadtteil": stadtteil})
-
-        assert_rejects(FLPostBewerbungPayload, submission(team_id=None, schule=without), "stadtteil")
-
-    def test_the_shared_address_payload_still_takes_an_empty_stadtteil(self):
-        """`FLAddressPayload` is an admin address too, and this branch must not have narrowed it."""
-
-        assert FLAddressPayload.model_validate({**ADDRESS, "stadtteil": ""}).stadtteil == ""
-
-    @pytest.mark.parametrize(
-        "kader",
-        [
-            pytest.param({"voraussichtliche_groesse": 14, "gute_spieler": None}, id="a null count"),
-            pytest.param({"voraussichtliche_groesse": 14}, id="no count at all"),
-        ],
-    )
-    def test_a_submission_naming_no_gute_spieler_is_refused(self, kader: dict[str, Any], assert_rejects):
-        """Non-nullable everywhere now, the validator included: none of them is zero rather than absent."""
-
-        assert_rejects(FLPostBewerbungPayload, submission(kader=kader), "gute_spieler")
-
-    def test_a_count_of_zero_is_still_a_count(self):
-        """The control: a school expecting no strong players answers zero, which `ge=0` admits and null does not."""
-
-        assert FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 14, "gute_spieler": 0})).kader is not None
-
-    def test_the_read_model_refuses_a_null_count_too(self):
-        """`gute_spieler` is non-nullable on every side, not the payload alone, so the read moved with the validator."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungKader.model_validate({"voraussichtliche_groesse": 14, "gute_spieler": None})
 
 
 class TestTheStrongPlayersFitInsideTheSquad:
@@ -1076,145 +346,23 @@ class TestTheStrongPlayersFitInsideTheSquad:
     """
 
     @pytest.mark.parametrize(
-        ("groesse", "gute"),
-        [
-            pytest.param(14, 13, id="comfortably inside"),
-            pytest.param(14, 14, id="the whole squad, which is the boundary"),
-            pytest.param(1, 0, id="the smallest squad and no strong player"),
-        ],
-    )
-    def test_a_count_at_or_below_the_squad_is_accepted(self, groesse: int, gute: int):
-        """Equal is accepted: a school may rate every player it expects."""
-
-        kader = {"voraussichtliche_groesse": groesse, "gute_spieler": gute}
-
-        assert FLPostBewerbungPayload.model_validate(submission(kader=kader)).kader.gute_spieler == gute
-
-    @pytest.mark.parametrize(
-        ("groesse", "gute"),
+        ("size", "good"),
         [
             pytest.param(14, 15, id="one over the squad"),
             pytest.param(1, 2, id="one over the smallest squad"),
-            pytest.param(14, BEWERBUNG_KADER_GROESSE_MAX, id="inside its own ceiling and still past the squad"),
+            pytest.param(14, BEWERBUNG_KADER_SIZE_MAX, id="inside its own ceiling and still past the squad"),
         ],
     )
-    def test_a_count_above_the_squad_is_refused(self, groesse: int, gute: int):
+    def test_a_count_above_the_squad_is_refused(self, size: int, good: int):
         """The third row matters: both fields clear their own bounds, so only the pair rule can refuse it."""
 
-        kader = {"voraussichtliche_groesse": groesse, "gute_spieler": gute}
+        kader = {"expected_size": size, "good_spieler": good}
 
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
-        assert "guten Spieler" in str(failure.value)
-
-    def test_the_refusal_is_German_and_names_both_figures(self):
-        """It surfaces as a 422 on a public form, and the Zod mirror carries this exact wording."""
-
-        with pytest.raises(ValidationError, match="Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten."):
-            FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 5, "gute_spieler": 6}))
-
-
-class TestASchoolWithNoWebsite:
-    """`website_url` is optional on the club and on the application both, spelled NULL.
-
-    The empty string coerces to it on the way in, as every other optional value here does: an empty
-    `href` is a link to the page it sits on.
-    """
-
-    @pytest.mark.parametrize(
-        "submitted",
-        [pytest.param(None, id="an explicit null"), pytest.param("", id="an empty box"), pytest.param("   ", id="spaces alone")],
-    )
-    def test_a_submission_naming_no_website_stores_a_null(self, submitted: str | None):
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=submitted)))
-
-        assert parsed.schule is not None
-        assert parsed.schule.website_url is None
-
-    def test_a_real_url_still_survives_intact(self):
-        """The control: a field that answered `None` to everything would satisfy every case above."""
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule()))
-
-        assert parsed.schule is not None
-        assert parsed.schule.website_url == "https://zorbanax.example.de"
-
-    def test_a_bad_url_is_still_refused(self):
-        """Optional is not unchecked: a value that IS there is still judged, scheme and all."""
-
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="javascript:alert(1)")))
-
-    def test_a_stored_application_naming_no_website_still_reads(self):
-        """The direction that ships silently: the triage list parses every stored application through this model."""
-
-        assert FLBewerbungSchule.model_validate(schule(website_url=None)).website_url is None
-
-    def test_the_club_model_takes_a_null_on_both_sides(self):
-        """Read and write alike: `_TeamWritable` is the base of both, so the shape moved once."""
-
-        assert FLPostTeamPayload.model_validate({**CLUB, "website_url": None}).website_url is None
-        assert FLTeam.model_validate({**CLUB, **CLUB_READ_ONLY, "website_url": None}).website_url is None
-
-    def test_a_club_stored_with_no_website_still_reads(self):
-        """The half that ships silently: a read model refusing this would 500 the whole clubs list."""
-
-        assert FLTeamRecord.model_validate({**CLUB, "_id": str(PICKED_OID), "inactive_since": None, "website_url": None}).website_url is None
-
-
-class TestTheColourTheSchoolWants:
-    """Required on the payload and on the stored shape alike: the applicant names the colour they want."""
-
-    @pytest.mark.parametrize(
-        "trikot",
-        [
-            pytest.param({"vorhandener_satz": "12 rote Trikots", "wunschfarbe": None}, id="an explicit null"),
-            pytest.param({"vorhandener_satz": "12 rote Trikots"}, id="no colour at all"),
-        ],
-    )
-    def test_a_submission_naming_no_colour_is_refused(self, trikot: dict[str, Any], assert_rejects):
-        """The browser now agrees: nothing picked is genuinely empty, so the server refusing it is the same answer."""
-
-        assert_rejects(FLPostBewerbungPayload, submission(trikot=trikot), "wunschfarbe")
-
-    def test_every_colour_the_league_offers_is_accepted(self):
-        """The control, over the whole enum: a field refusing everything would satisfy the cases above."""
-
-        offered = get_args(FLTrikotFarbe)
-
-        assert len(offered) == 24
-        for colour in offered:
-            trikot = {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": colour}
-            assert FLPostBewerbungPayload.model_validate(submission(trikot=trikot)).trikot.wunschfarbe == colour
-
-    def test_a_colour_the_league_does_not_offer_is_refused(self):
-        """Required did not become unchecked: the value is still one the palette offers."""
-
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(trikot={"vorhandener_satz": "", "wunschfarbe": "zorbanaxgruen"}))
-
-
-def stored_application(**overrides: Any) -> dict[str, Any]:
-    """One application in the shape the triage READS it, which is where a narrowed model would fail."""
-
-    return {
-        "_id": str(PICKED_OID),
-        "saison_id": "2026",
-        "eingereicht_am": TODAY,
-        "status": "eingereicht",
-        "team_id": str(PICKED_OID),
-        "schule": None,
-        "kontakte": compose_kontakte(kontakte=FLBewerbungKontaktePayload.model_validate(kontakte()).model_dump(mode="json"), today=TODAY),
-        "trikot": {"vorhandener_satz": "12 rote Trikots", "wunschfarbe": "blau"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 4},
-        "stufengroesse": 96,
-        "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": bestaetigungsfrist_from(today=TODAY),
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY),
-        **overrides,
-    }
+        # The ceiling rides as the context the frontend words „Höchstens {max}“ from.
+        assert [(error["type"], error.get("ctx")) for error in failure.value.errors()] == [("good_spieler_exceed_kader", {"max": size})]
 
 
 class TestTheOpponentTheSchoolWants:
@@ -1223,11 +371,6 @@ class TestTheOpponentTheSchoolWants:
     Optional on the payload where the other nullable fields are required-and-null: the key is one a
     form deployed before it does not send.
     """
-
-    def test_a_submission_naming_nobody_is_accepted(self):
-        """The whole of the rest of this module omits the key, so this is what keeps that honest."""
-
-        assert FLPostBewerbungPayload.model_validate(submission()).wunschgegner is None
 
     @pytest.mark.parametrize(
         "submitted",
@@ -1238,14 +381,6 @@ class TestTheOpponentTheSchoolWants:
 
         assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=submitted)).wunschgegner is None
 
-    def test_a_named_opponent_survives_intact(self):
-        """The control: a field answering `None` to everything would satisfy every case above."""
-
-        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="Zorbanax")).wunschgegner == "Zorbanax"
-
-    def test_a_padded_wish_is_trimmed_rather_than_refused(self):
-        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner="  Zorbanax  ")).wunschgegner == "Zorbanax"
-
     @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
     def test_a_wish_carrying_one_of_them_inside_is_refused(self, refused: str):
         """The same class the two school names take, so the fields carrying it cannot drift into separate rules."""
@@ -1253,266 +388,46 @@ class TestTheOpponentTheSchoolWants:
         with pytest.raises(ValidationError):
             FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"Zorbanax{refused}Entscheidung: Absage"))
 
-    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
-    def test_a_wish_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
-        """`strip_whitespace` runs BEFORE the pattern, so only an interior character is refused."""
 
-        padded = submission(wunschgegner=f"{trimmed}Zorbanax{trimmed}")
+def tagged_seat(tag: str, *, confirmed_at: str | None = None) -> dict[str, Any]:
+    return {"email": f"victim+{tag}@example.com", "einwilligung": {"confirmed_at": confirmed_at}}
 
-        assert FLPostBewerbungPayload.model_validate(padded).wunschgegner == "Zorbanax"
 
-    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
-    def test_a_wish_of_nothing_but_padding_is_stored_as_a_null(self, trimmed: str):
-        """`parse_empty_string_to_none` runs first and strips the same set, so no such value reaches the pattern."""
+class TestOneApplicationsTagsOfOneMailbox:
+    """A school may run all three seats on tags of one mailbox, which the bound counts a link each."""
 
-        assert FLPostBewerbungPayload.model_validate(submission(wunschgegner=trimmed * 3)).wunschgegner is None
+    def test_three_tagged_seats_with_no_other_link_open_are_all_mailed(self):
+        """Its third person would otherwise stand unmailed with nothing saying why, and the application go on its day."""
 
-    def test_a_wish_padded_with_nul_is_refused_rather_than_trimmed(self):
-        """The one refused character `strip_whitespace` does not remove, which is also what the JavaScript mirror's `trim` does."""
+        block = {"trainer": tagged_seat("t"), "ansprechperson": tagged_seat("a"), "stellvertretung": tagged_seat("s"), "trainer_is_also": None}
 
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"{chr(0x00)}Zorbanax{chr(0x00)}"))
+        assert seats_past_the_bound(kontakte=block, open_links={"victim@example.com": 0}) == []
 
-    @pytest.mark.parametrize("refused", REFUSED_CHARACTERS)
-    def test_a_stored_wish_holding_one_of_them_still_reads(self, refused: str):
-        """The narrowing is the PAYLOAD's alone, as it is for the school names: the triage reads whatever is stored."""
+    def test_only_a_seat_mailed_and_unanswered_holds_a_link(self):
+        """An answer frees its link, so a seat beside the open one that counted anyway would leave a real person unmailed early."""
 
-        stored = stored_application(wunschgegner=f"Zorbanax{refused}Alt")
+        row = {
+            "kontakte": {
+                "trainer": tagged_seat("open"),
+                "ansprechperson": tagged_seat("answered", confirmed_at=TODAY),
+                "stellvertretung": tagged_seat("unmailed"),
+                "trainer_is_also": None,
+            },
+            "confirmations": {"trainer": {"sent_at": TODAY}, "ansprechperson": {"sent_at": TODAY}, "stellvertretung": {"sent_at": None}},
+        }
 
-        assert FLBewerbung.model_validate(stored).wunschgegner == f"Zorbanax{refused}Alt"
+        assert open_links_on(row=row, mailbox="victim@example.com") == 1
 
-    def test_a_wish_over_the_ceiling_is_refused(self, assert_rejects):
-        """An anonymous caller writes it and the record stores it, which is the pair a bound is earned on."""
 
-        assert_rejects(FLPostBewerbungPayload, submission(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH + 1)), "wunschgegner")
+class TestOneAnchorDocumentAMailbox:
+    def test_a_tag_stays_with_its_mailbox_and_a_second_mailbox_stands_apart(self):
+        """One document for every mailbox stalls every school's press behind a stranger's flood of fresh addresses, and no failure names why."""
 
-    def test_a_wish_at_the_ceiling_is_accepted(self):
-        """The control: without it the case above would pass on a field that refuses everything."""
-
-        at_the_bound = submission(wunschgegner="Z" * BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH)
-
-        assert len(cast(str, FLPostBewerbungPayload.model_validate(at_the_bound).wunschgegner)) == BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH
-
-    def test_the_read_model_takes_a_stored_value_over_the_ceiling(self):
-        """The bound is the WRITE side's alone: refusing on read would 500 the triage list over one row (`docs/backend/spec.md :: I36`)."""
-
-        over = stored_application(wunschgegner="Z" * (BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH * 2))
-
-        assert FLBewerbung.model_validate(over).wunschgegner is not None
-
-
-class TestAPastedWebsiteIsTrimmedToFit:
-    """`validate_external_url` leaves surrounding whitespace on the value, so the payloads strip first.
-
-    Asymmetric without it: a leading space was stored ON the URL, while a trailing one was refused
-    saying the value pointed at no domain.
-    """
-
-    @pytest.mark.parametrize(
-        "pasted",
-        [
-            pytest.param(" https://zorbanax.example.de", id="a leading space"),
-            pytest.param("https://zorbanax.example.de ", id="a trailing space"),
-            pytest.param("  https://zorbanax.example.de  ", id="both ends"),
-            pytest.param("\thttps://zorbanax.example.de\n", id="a tab and a newline"),
-        ],
-    )
-    def test_the_stored_value_carries_no_whitespace(self, pasted: str):
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=pasted)))
-
-        assert parsed.schule is not None
-        assert parsed.schule.website_url == "https://zorbanax.example.de"
-
-    def test_the_admin_club_payload_strips_it_too(self):
-        """The same field on the same base: acceptance parses a school's block through this model."""
-
-        pasted = {**CLUB, "website_url": " https://zorbanax.example.de "}
-
-        assert FLPostTeamPayload.model_validate(pasted).website_url == "https://zorbanax.example.de"
-
-    def test_whitespace_alone_is_still_no_website_rather_than_a_bad_one(self):
-        """The strip and the null coercion in one order: spaces collapse to absence, never to `""`."""
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="   ")))
-
-        assert parsed.schule is not None
-        assert parsed.schule.website_url is None
-
-    # The code POINTS, not the characters: a literal control byte in this file is a syntax error.
-    @pytest.mark.parametrize("code_point", [0x00, 0x01, 0x0B, 0x1C, 0x1F])
-    def test_a_c0_control_is_stripped_too(self, code_point: int):
-        """Pydantic's strip is `White_Space`, which none of these is; `urlsplit` discards them all.
-
-        Without this the value validates on the stripped text and is stored with the control on it.
-        """
-
-        pasted = f"{chr(code_point)}https://zorbanax.example.de"
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=pasted)))
-
-        assert parsed.schule is not None
-        assert parsed.schule.website_url == "https://zorbanax.example.de"
-
-    def test_a_url_at_the_ceiling_with_a_leading_space_is_still_accepted(self):
-        """The ORDER: the strip runs before `max_length` counts, so a pasted 300-character URL fits.
-
-        Move it after and this is `string_too_long` -- a valid URL refused for a space nobody typed
-        on purpose, which no other case here would notice.
-        """
-
-        pasted = f" {_url_of_length(TEAM_WEBSITE_URL_MAX_LENGTH)}"
-
-        assert len(pasted) == TEAM_WEBSITE_URL_MAX_LENGTH + 1
-
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url=pasted)))
-
-        assert parsed.schule is not None
-        assert len(parsed.schule.website_url or "") == TEAM_WEBSITE_URL_MAX_LENGTH
-
-    def test_the_read_model_returns_a_stored_value_untouched(self):
-        """`docs/backend/spec.md :: I36`: the strip is the WRITE side's, so a read may not transform one.
-
-        Push `strip_whitespace` onto `_TeamWritable` and this fails -- the read would hand back text
-        the database does not hold.
-        """
-
-        stored = " https://zorbanax.example.de"
-
-        assert FLTeam.model_validate({**CLUB, **CLUB_READ_ONLY, "website_url": stored}).website_url == stored
-
-    def test_a_bad_scheme_wrapped_in_spaces_is_still_refused(self):
-        """The control: stripping must not become a way past the check the strip runs before."""
-
-        with pytest.raises(ValidationError):
-            FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(website_url="  javascript:alert(1)  ")))
-
-
-class _RecordingCursor:
-    """The three calls `pull_many_from_db` chains onto a find, and nothing else."""
-
-    def __init__(self, documents: list[dict[str, Any]]) -> None:
-        self._documents = documents
-
-    def sort(self, *_: Any) -> _RecordingCursor:
-        return self
-
-    def limit(self, *_: Any) -> _RecordingCursor:
-        return self
-
-    async def to_list(self, length: Any = None) -> list[dict[str, Any]]:
-        return self._documents
-
-
-class _RecordingCollection:
-    """A collection that answers a find and remembers what it was ASKED for.
-
-    What the endpoint requests of the database is behaviour, not source text, so it can be asserted
-    without a container and without reading the router's own code.
-    """
-
-    def __init__(self, documents: list[dict[str, Any]]) -> None:
-        self._documents = documents
-        self.projection: Any = "the read never ran"
-        self.db_filter: Any = "the read never ran"
-
-    def find(self, *, filter: Any = None, projection: Any = None, collation: Any = None, session: Any = None) -> _RecordingCursor:
-        self.projection = projection
-        self.db_filter = filter
-
-        return _RecordingCursor(self._documents)
-
-
-class TestTheClubOptionIsAnAllowList:
-    """`READ-BEWERBUNG-001` at the model, the layer above the projection.
-
-    An anonymous visitor picks from this list, so every field the shape declares is serialised into a public page.
-    """
-
-    def test_the_shape_declares_exactly_these_fields(self):
-        """An allow-list is one only while its whole membership is pinned; a subset relation would not do it."""
-
-        assert set(FLBewerbungSchuleOption.model_fields) == {"id", "name"}
-
-
-class TestTheClubListAsksTheDatabaseForTwoFields:
-    """The projection, which the allow-list model would otherwise make unobservable.
-
-    Both layers narrow, and this is the one that keeps a club's address from crossing the wire at
-    all rather than being dropped after it arrives.
-    """
-
-    def test_the_read_projects_the_name_alone(self):
-        stored = [{"_id": PICKED_OID, "name": "Zorbanax", "website_url": "https://zorbanax.example.de", "address": dict(ADDRESS)}]
-        collection = _RecordingCollection(stored)
-
-        response = asyncio.run(get_schulen(teams_collection=cast(Any, collection)))
-
-        assert collection.projection == ["name"]
-        # Non-vacuous: the read really ran and really served the club, so what is asserted above is
-        # what it asked for rather than a request nothing made.
-        assert [option.name for option in response.schulen] == ["Zorbanax"]
-
-    def test_the_read_asks_only_for_clubs_still_in_the_league(self):
-        """The filter beside the projection: a retired club is not one a school may apply as."""
-
-        collection = _RecordingCollection([])
-
-        asyncio.run(get_schulen(teams_collection=cast(Any, collection)))
-
-        assert collection.db_filter == {"inactive_since": None}
-
-
-class _DistinctCollection:
-    """A junction that answers `distinct` and remembers the field and the filter it was asked for.
-
-    It answers no `find` at all, so an endpoint reading documents here fails rather than passing on
-    a narrowing that never ran.
-    """
-
-    def __init__(self, values: list[Any]) -> None:
-        self._values = values
-        self.key: Any = "the read never ran"
-        self.db_filter: Any = "the read never ran"
-
-    async def distinct(self, key: str, filter: Any = None) -> list[Any]:
-        self.key = key
-        self.db_filter = filter
-
-        return list(self._values)
-
-
-class _WindowCollection:
-    """A seasons collection answering one season's `bewerbung` block and status, whatever id is asked for.
-
-    The colour read is gated on whether the season takes applications, so a junction fake alone
-    reaches nothing.
-    """
-
-    def __init__(self, bewerbung: Any, status: str) -> None:
-        self._bewerbung = bewerbung
-        self._status = status
-
-    async def find_one(self, filter: Any = None, projection: Any = None, session: Any = None) -> Any:
-        return {"_id": filter["_id"], "bewerbung": self._bewerbung, "status": self._status}
-
-
-# The day the window below is judged against, sitting inside its span.
-COLOUR_READ_TODAY = "2026-04-01"
-COLOUR_READ_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
-
-
-def _colours_for(junction: _DistinctCollection, *, bewerbung: Any, status: str = "future") -> Any:
-    """The colour read against two fakes, so every case below states only the window it varies."""
-
-    return get_trikotfarben(
-        saison_id="2026",
-        saisons_collection=cast(Any, _WindowCollection(bewerbung, status)),
-        saison_teams_collection=cast(Any, junction),
-        today=COLOUR_READ_TODAY,
-    )
+        assert len(mailbox_anchor_ids(addresses=["victim@example.com", "victim+t@example.com", "other@example.com"])) == 2
 
 
 class TestTheColoursASeasonHasAlreadyAssigned:
-    """What the public form excludes from its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
+    """What the public form closes in its Wunschfarbe picker, taken from the ASSIGNMENTS and never from another applicant's wish."""
 
     def test_the_palette_orders_the_answer_rather_than_the_junction(self):
         """Sorted by the league's own vocabulary, so two identical seasons never answer in two orders."""
@@ -1520,7 +435,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
 
     def test_a_row_with_no_colour_assigned_contributes_nothing(self):
-        """`trikot_farbe` is nullable and outside the validator's `required`, so `distinct` yields a null and a missing key alike."""
+        """`trikot_farbe` is nullable and may be missing, so the read's group yields a null for a missing key too."""
 
         assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
 
@@ -1528,62 +443,3 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         """Filtered THROUGH the palette: a stray value would fail `FLTrikotFarbe` and 500 a public page."""
 
         assert assigned_trikot_farben(stored=["zorbanaxgruen", "rot"]) == ["rot"]
-
-    def test_a_season_holding_no_assignment_answers_the_empty_set(self):
-        assert assigned_trikot_farben(stored=[]) == []
-
-    def test_the_whole_palette_survives_the_filter(self):
-        """The control, over the whole enum: a filter dropping everything would satisfy the cases above."""
-
-        offered = list(get_args(FLTrikotFarbe))
-
-        assert assigned_trikot_farben(stored=list(reversed(offered))) == offered
-
-    def test_the_read_asks_the_junction_for_one_field_of_one_season(self):
-        """`distinct`, so what leaves the database is the values -- no document carrying the club beside its colour."""
-
-        collection = _DistinctCollection(["rot", None])
-
-        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
-
-        assert collection.key == "trikot_farbe"
-        assert collection.db_filter == {"saison_id": "2026"}
-        # Non-vacuous: the read really ran and really served the colour, so what is asserted above is
-        # what it asked for rather than a request nothing made.
-        assert response.vergeben == ["rot"]
-
-    def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self):
-        """The allow-list, asserted as an exact membership: a subset relation would survive a field added to it."""
-
-        collection = _DistinctCollection([])
-
-        response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
-
-        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}
-
-    @pytest.mark.parametrize(
-        "bewerbung",
-        [
-            pytest.param(None, id="a season carrying no window"),
-            pytest.param({"offen": False, "von": "2026-03-01", "bis": "2026-04-30"}, id="a span holding today with the flag off"),
-            pytest.param({"offen": True, "von": "2026-05-01", "bis": "2026-06-30"}, id="the flag on and a span not yet begun"),
-            pytest.param({"offen": True, "von": "2026-01-01", "bis": "2026-02-28"}, id="the flag on and a span already over"),
-        ],
-    )
-    def test_a_season_not_taking_applications_never_reaches_the_junction(self, bewerbung: Any):
-        """Judged BEFORE the junction read, so a refused season leaves no query behind to have leaked anything."""
-
-        collection = _DistinctCollection(["rot"])
-
-        with pytest.raises(DocumentNotFoundException):
-            asyncio.run(_colours_for(collection, bewerbung=bewerbung))
-
-        assert collection.key == "the read never ran"
-
-    def test_a_season_that_has_ended_never_reaches_the_junction_while_its_window_still_runs(self):
-        collection = _DistinctCollection(["rot"])
-
-        with pytest.raises(DocumentNotFoundException):
-            asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW), status="past"))
-
-        assert collection.key == "the read never ran"

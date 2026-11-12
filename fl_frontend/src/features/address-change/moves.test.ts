@@ -1,0 +1,51 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { FLAddressChangeMovesDonePayload, FLAddressChangeMovesResponse } from "@/core/generated/client/types.ts";
+
+/** The owed carries the backend lists, page after page; a case sets them. */
+let pages: FLAddressChangeMovesResponse["moves"][] = [];
+/** Every pair `carryAccount` was handed, in order. */
+const carried: [string, string][] = [];
+/** Every list of ids reported carried, in order. */
+const reported: string[][] = [];
+
+// Replaced at the module boundary: the real client reaches a backend no test process runs.
+doubleApiClient((call) => {
+  if (call.method === "GET") return { moves: pages.shift() ?? [] } satisfies FLAddressChangeMovesResponse;
+  const { ids } = JSON.parse(call.body ?? "{}") as FLAddressChangeMovesDonePayload;
+  reported.push(ids);
+  return { reported: ids.length };
+});
+
+vi.doMock("@/core/auth/accounts.ts", () => ({
+  carryAccount: (oldAddress: string, newAddress: string) => {
+    carried.push([oldAddress, newAddress]);
+    return Promise.resolve("moved");
+  },
+}));
+
+const { runAddressChangeMoves } = await import("./moves.ts");
+
+const move = (n: number) => ({ id: n.toString(16).padStart(24, "0"), old: `alt${String(n)}@schule.de`, new: `neu${String(n)}@schule.de` });
+
+beforeEach(() => {
+  carried.length = 0;
+  reported.length = 0;
+});
+
+/* Owed on the ended record and listed until reported: a carry never reported is listed, and carried, every pass. */
+describe("the owed carries", () => {
+  it("carries every listed account, reports each page carried, and ends once the list is empty", async () => {
+    pages = [[move(1), move(2)], [move(3)]];
+
+    await runAddressChangeMoves();
+
+    expect(carried).toStrictEqual([
+      ["alt1@schule.de", "neu1@schule.de"],
+      ["alt2@schule.de", "neu2@schule.de"],
+      ["alt3@schule.de", "neu3@schule.de"],
+    ]);
+    expect(reported).toStrictEqual([[move(1).id, move(2).id], [move(3).id]]);
+  });
+});

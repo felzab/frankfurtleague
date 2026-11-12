@@ -1,0 +1,84 @@
+"""
+API · the season-after rule decided from the statuses and rows handed in
+
+Each case judges arguments alone, so the default tier holds it; the run against a real mongod is
+`tests/api/test_identity_erasure_sweep.py`'s.
+"""
+
+from typing import Any
+
+import pytest
+
+from app.api.identity.services import completed_saison_id, erasure_due, kept_saison_ids, open_addresses
+from app.shared.schemas.literals import FLSaisonStatus
+
+LEAGUE: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "past", "2025": "past", "2026": "active", "2027": "future"}
+ADDRESS = "thessaly.okonkwo@beispielschule.de"
+
+
+def due_for_erasure(
+    kader: list[str], *, statuses: dict[str, FLSaisonStatus] = LEAGUE, pending_addresses: frozenset[str] = frozenset(), email: Any = ADDRESS
+) -> bool:
+    return erasure_due(email=email, kader_saison_ids=kader, pending_addresses=pending_addresses, kept=kept_saison_ids(statuses))
+
+
+class TestTheKeptSeasons:
+    def test_the_latest_ended_season_and_every_one_not_ended_are_kept(self):
+        assert kept_saison_ids(LEAGUE) == {"2025", "2026", "2027"}
+
+    def test_the_latest_ended_season_is_the_greatest_id_whatever_order_the_seasons_are_read_in(self):
+        assert completed_saison_id({"2025": "past", "2026": "active", "2023": "past"}) == "2025"
+
+    def test_while_no_season_has_ended_nobody_is_due(self):
+        """Even a pupil holding no squad row at all: the rule counts from a season's end, and none has come."""
+
+        statuses: dict[str, FLSaisonStatus] = {"2026": "active", "2027": "future"}
+
+        assert (kept_saison_ids(statuses), completed_saison_id(statuses)) == (None, None)
+        assert not due_for_erasure([], statuses=statuses)
+
+    def test_a_planned_season_below_the_one_just_ended_keeps_nobody(self):
+        """Never activated, it stays planned for good, and a status rule would keep its pupils for ever."""
+
+        statuses: dict[str, FLSaisonStatus] = {"2023": "past", "2024": "future", "2025": "past", "2026": "active"}
+
+        assert kept_saison_ids(statuses) == {"2025", "2026"}
+        assert due_for_erasure(["2024"], statuses=statuses)
+
+    def test_a_running_season_below_the_one_just_ended_still_keeps_its_pupils(self):
+        """Activation refuses no lower id, so the running season is kept by its status whatever its id."""
+
+        statuses: dict[str, FLSaisonStatus] = {"2024": "active", "2025": "past", "2026": "future"}
+
+        assert kept_saison_ids(statuses) == {"2024", "2025", "2026"}
+        assert not due_for_erasure(["2024"], statuses=statuses)
+
+
+class TestTheDueJudgement:
+    @pytest.mark.parametrize(
+        ("kader", "due"),
+        [
+            pytest.param(["2023", "2024"], True, id="rows only in seasons ended before the latest"),
+            pytest.param([], True, id="no squad row at all"),
+            # The plan's own rule, keyed on the running season alone, deletes this pupil a season early.
+            pytest.param(["2024", "2025"], False, id="a row in the season just ended"),
+            pytest.param(["2026"], False, id="a row in the running season"),
+            pytest.param(["2027"], False, id="a row in a planned season"),
+        ],
+    )
+    def test_a_row_in_a_kept_season_keeps_its_pupil(self, kader: list[str], due: bool):
+        assert due_for_erasure(kader) is due
+
+    def test_a_pending_registration_keeps_its_pupil(self):
+        pending_addresses = open_addresses([{"status": "submitted", "email": ADDRESS}])
+
+        assert pending_addresses == {ADDRESS}
+        assert not due_for_erasure([], pending_addresses=pending_addresses)
+
+    def test_a_declined_registration_keeps_nobody(self):
+        assert open_addresses([{"status": "declined", "email": ADDRESS}]) == frozenset()
+
+    def test_a_pupil_holding_no_address_is_never_due(self):
+        """The registry erases by address, and nothing else may erase by a name."""
+
+        assert not due_for_erasure([], email=None)

@@ -1,55 +1,34 @@
 import { logger } from "./logging";
 import { readTraceparent, TRACEPARENT_HEADER } from "./trace";
 
-interface NextRequestContext {
-  routePath: string;
-  digest?: string;
-  [key: string]: unknown;
-}
+import type { Instrumentation } from "next";
 
-interface NextRequestInfo {
-  path?: string;
-  method?: string;
-  headers?: Record<string, string | string[] | undefined> | Headers;
-  [key: string]: unknown;
-}
+/** An error and the fields this line reads where it carries them: a call error's trace and status, Next's digest. */
+type Thrown = Error & { traceId?: unknown; statusCode?: unknown; digest?: unknown };
 
-interface WebError extends Error {
-  traceId?: string;
-  code?: string;
-  cause?: {
-    traceId?: string;
-    statusCode?: number;
-    [key: string]: unknown;
-  };
-}
+const stringOf = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
 
-function traceIdOf(request: NextRequestInfo): string | undefined {
-  const headers = request.headers;
-  if (!headers) return undefined;
-
-  const raw = headers instanceof Headers ? headers.get(TRACEPARENT_HEADER) : headers[TRACEPARENT_HEADER];
-  const value = Array.isArray(raw) ? raw[0] : (raw ?? undefined);
-  return readTraceparent(value)?.traceId;
-}
-
-export async function onRequestError(err: Error, request: unknown, context: NextRequestContext) {
-  const webErr = err as WebError;
-  const cause = webErr.cause || {};
+// Whatever the server threw arrives here, `undefined` included, so it is narrowed before any field is read: a throw of
+// this hook's own reaches Next's plain-text report, and the line joining the crash to its request is lost.
+export const onRequestError: Instrumentation.onRequestError = (err, request, context) => {
+  const failed: Thrown | undefined = err instanceof Error ? err : undefined;
 
   // Two different jobs: `trace_id` names the page request that failed, `fetch_trace_id` the
-  // outbound call -- distinct whenever the fetch ran as a cache fill (docs/logging/spec.md).
-  const requestId = traceIdOf((request ?? {}) as NextRequestInfo);
-  const fetchId = cause.traceId || webErr.traceId;
+  // outbound call -- distinct whenever the fetch ran as a cache fill.
+  const raw = request.headers[TRACEPARENT_HEADER];
+  const requestId = readTraceparent(Array.isArray(raw) ? raw[0] : raw);
+  const fetchId = stringOf(failed?.traceId);
 
-  logger.error("Next.js Server Component Crash", err, {
-    error_code: "FE-RSC-001",
+  // The name and the join keys, never the stack: Next prints the error itself beside this hook.
+  logger.error("system.request_crashed", undefined, {
+    name: failed?.name ?? "unknown",
     trace_id: requestId,
     fetch_trace_id: fetchId !== requestId ? fetchId : undefined,
-    digest: context.digest,
+    // Set on the error, never on the context: the key joining this line to the error Next prints beside it.
+    digest: stringOf(failed?.digest),
     route: context.routePath,
     // The failing call's own status, and none where it carries none: Next hands this hook no response
     // status, so a default here would be a figure nothing answered.
-    status: cause.statusCode,
+    status: typeof failed?.statusCode === "number" ? failed.statusCode : undefined,
   });
-}
+};

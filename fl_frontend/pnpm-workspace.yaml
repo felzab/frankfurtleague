@@ -3,6 +3,10 @@ allowBuilds:
   # optional native binding and the cpu-features probe it builds with serve nothing, and protobufjs's
   # script only prints a version notice.
   cpu-features: false
+  # Orval's, which bundles the transport only to read its parameters. Its binary comes from the
+  # `@esbuild/*` package the lockfile pins; its script only checks for it and, finding none, installs
+  # one through npm, past the lockfile and this file's policies. Refused, a missing binary fails loudly.
+  esbuild: false
   protobufjs: false
   # Its native code comes from the prebuilt @img packages the lockfile pins; pnpm lists it only for
   # the source build its binding.gyp offers, which nothing here needs.
@@ -18,16 +22,31 @@ trustPolicy: no-downgrade
 # line publishes from CI: read in the registry's publish history before excepting it, never after.
 trustPolicyExclude:
   - eslint-import-resolver-typescript@3.10.1
-  - semver@6.3.1
 # Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
-# An out-of-range peer fails a resolving `pnpm install`: HeroUI uses the app's copy of its peers,
-# which a HeroUI upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only
-# warn; `scripts/gate/verify.sh :: do_peers` refuses theirs.
+# The scripts set variables in the POSIX `NAME=value command` form, which Windows' cmd.exe, pnpm's
+# default shell there, refuses. `node --run` bypasses this and runs them in that shell: use `pnpm run`.
+shellEmulator: true
+# An out-of-range peer fails a resolving `pnpm install`: a package uses the app's copy of its peers,
+# which an upgrade raising a range would outgrow unseen. `pnpm add` and `pnpm update` only warn;
+# `scripts/gate/verify.sh :: scope_frontend` refuses theirs.
 strictPeerDependencies: true
 # A release younger than a day is refused, the day `.github/dependabot.yml`'s cooldown waits. Strict
 # because pnpm 11's own default of the same age installs a younger release asked for by hand and
 # writes it into `minimumReleaseAgeExclude` here.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+# Each entry is keyed to one exact version, because pnpm fails an install when a patch applies to
+# nothing (`allowUnusedPatches` stays at its default, false): a bump stops here and someone reads the
+# patch. The comment above an entry names its upstream issue and what removes it, which
+# `scripts/tests/test_patched_dependencies.py` holds.
+patchedDependencies:
+  # https://github.com/adobe/react-spectrum/issues/10937 -- an enter frame at the viewport's edge
+  # reports ratio 0 while intersecting, and a sheet resting below ratio 1 hears nothing more, so it
+  # never counts as entered. A release that no longer reads `intersectionRatio > 0` there removes
+  # this. A sheet as tall as the viewport would never finish its exit under this patch, since it
+  # rests edge-adjacent at scroll 0; `fl_frontend/src/kit/Sheet.tsx` stops every sheet at 92%. Read
+  # the next release before moving the key: `skipOffscreenTravel` (adobe/react-spectrum#10815) jumps
+  # onto that frame, which may make the defect more frequent.
+  react-aria-components@1.22.1: patches/react-aria-components@1.22.1.patch

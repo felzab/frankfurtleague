@@ -1,0 +1,125 @@
+"""The value lists more than one slice reads, each published once as its own schema in the document.
+
+`type` statements rather than plain assignments: Pydantic publishes a named alias as one component that
+every field referencing it points at, where a plain alias is inlined into each. `typing.get_args` returns
+`()` for one of these, so a reader takes the values from `X.__value__`.
+"""
+
+from typing import Final, Literal, get_args
+
+# --- The season and its fixtures
+
+type FLSaisonStatus = Literal["past", "active", "future"]
+
+type FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
+
+# Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker to read
+# them, so widening the set is arithmetic rather than a choice.
+type FLGruppenNames = Literal["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
+
+# The two sides of one fixture, as its document's fields name them.
+type FLSpielSide = Literal["team1", "team2"]
+
+# What happened to a fixture beyond being played. Nullable rather than total where a fixture carries it:
+# `null` is "nothing to say", so no read site spells an ordinary fixture out.
+type FLSonderereignis = Literal["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]
+
+# A withdrawal is not a sanction, so the two routes out of a season are told apart rather than both filed
+# as one.
+type FLAustrittType = Literal["disqualifikation", "rueckzug"]
+
+# --- The club
+
+# Slugs rather than the German the league's CI document spells: the value also has a label, and a stored German word
+# would be a second spelling for it to drift from.
+type FLSchulform = Literal["gymnasium_g8", "gymnasium_g9", "gesamtschule", "privatschule_g8", "privatschule_g9", "oberstufengymnasium"]
+
+# The league's kit palette, slugged as the school forms are. A slug is never renamed or dropped: stored rows hold it.
+type FLTrikotFarbe = Literal[
+    "schwarz",
+    "weiss",
+    "grau",
+    "braun",
+    "bordeaux",
+    "rot",
+    "koralle",
+    "orange",
+    "gold",
+    "gelb",
+    "limette",
+    "hellgruen",
+    "gruen",
+    "smaragd",
+    "tuerkis",
+    "cyan",
+    "hellblau",
+    "meerblau",
+    "blau",
+    "dunkelblau",
+    "flieder",
+    "violett",
+    "magenta",
+    "rosa",
+]
+
+# --- The contact seats
+
+# The three seats as a closed set, in the order a season team's contact block declares them.
+type FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
+
+# The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
+KONTAKT_ROLLEN: Final[tuple[FLKontaktRolle, ...]] = get_args(FLKontaktRolle.__value__)
+
+# A season row as a link minted on it sees it: open, or closed by its season ending, which outranks its
+# team having left it.
+type FLKontaktRow = Literal["open", "saison_past", "exited"]
+
+# Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
+# confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
+# would transcribe one.
+type FLKontaktKenntnisnahmeScope = Literal["kontakt_data", "kontakt_data_whatsapp"]
+
+# --- The pupils
+
+# In the order a squad sheet lists them. `sort_by="position"` sorts the string, so a public squad list is
+# alphabetical instead.
+type FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
+
+# The Hessen Oberstufe, both phases. E2 is offered although no row holds it: a set stopping at what a
+# season contains would refuse an entry as the year turns.
+type FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
+
+# What a pupil or a referee agreed may be published about them.
+type FLEinwilligungScope = Literal["kader_public", "internal"]
+
+# Two members and not three: an admission deletes the row, its content having become the person and the
+# squad row, so a state naming an admitted registration would be one no document is ever read in.
+type FLRegistrierungStatus = Literal["submitted", "declined"]
+
+# --- A person's own link
+
+# What a reopened confirmation link shows. A token nothing opens is a refusal rather than a state, and an
+# unreadable one never reaches the backend.
+type FLConfirmationState = Literal["valid", "confirmed", "expired"]
+
+# --- The Verwaltung and an address's change
+
+# `owner` holds every power `administration` does, and is reached only by a handover, never by a grant.
+type FLAdminTier = Literal["owner", "administration"]
+
+# How an address change takes effect: the person's own start, confirmed at the address on file and then at the new
+# one, or an administrator's for a person who lost the address on file, waiting after its
+# confirmation. No third: whoever can still sign in at the address on file changes it themselves.
+type FLAddressChangeWay = Literal["account", "waiting_period"]
+
+# Why the address tool refuses this reader an address's change: `own_address` their own address, `admin_address`
+# a grant holder's without an owner's power.
+type FLAddressChangeViewableDenied = Literal["own_address", "admin_address"]
+
+# What the change waits on: the address on file's confirmation of the person's own change through the link it was
+# mailed, the new mailbox's link, or its waiting time.
+type FLAddressChangeWaitsOn = Literal["previous_address", "new_address", "waiting_period"]
+
+# How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
+# nothing left to move, and an erasure's.
+type FLAddressChangeEndKind = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]

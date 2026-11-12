@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAuthMiddleware, isAPIError } from "better-auth/api";
 
+import { now } from "./clock";
 import { logger } from "./logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 
@@ -18,7 +19,7 @@ export const passkeyLastUse = () =>
     // passkey plugin's own `schema` option only renames the fields it already has.
     schema: {
       passkey: {
-        // `input: false`, as `authFactor` on the session: no caller's body may write a use.
+        // `input: false`: no caller's body may write a use.
         fields: { lastUsedAt: { type: "date", required: false, input: false } },
       },
     },
@@ -40,13 +41,12 @@ export const passkeyLastUse = () =>
               await ctx.context.adapter.update({
                 model: "passkey",
                 where: [{ field: "credentialID", value: credentialID }],
-                update: { lastUsedAt: new Date() },
+                update: { lastUsedAt: now() },
               });
             } catch (failed) {
               // Logged and left: the sign-in is verified and its session committed, and a card's date
               // is no reason to answer it as a failure.
               logger.warn("auth.passkey_last_use_failed", {
-                error_code: "FE-AUTH-007",
                 name: failed instanceof Error ? failed.name : "unknown",
               });
             }

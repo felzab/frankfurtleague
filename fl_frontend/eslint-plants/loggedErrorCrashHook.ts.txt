@@ -1,6 +1,0 @@
-// Linted as src/core/instrumentation.ts.
-// Next's crash hook may hand the log the error it was given, and every other ban still reaches it.
-export function planted(error: Error): void {
-  logger.error("Next.js Server Component Crash", error, { error_code: "FE-RSC-001" });
-}
-export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load

@@ -1,0 +1,38 @@
+import "server-only";
+
+import { ContractBreakError } from "@/core/errors";
+
+import { runAddressChangeMoves } from "./moves";
+import { postAddressChangeSweep } from "./mutations";
+
+import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types";
+
+/**
+ * Every pending change whose step lapsed, and every one whose waiting time ended, then every account's carry still
+ * owed. A failure rejects, for the heartbeat to name; the pass resolves to what it did, `remaining` the lapsed changes
+ * it could not end.
+ */
+export async function sweepAddressChange(): Promise<Omit<FLAddressChangeSweepResponse, "after">> {
+  let removed = 0;
+  let effective = 0;
+  let discarded = 0;
+  let antwort: FLAddressChangeSweepResponse;
+  let after: string | null = null;
+  do {
+    antwort = await postAddressChangeSweep(after);
+    removed += antwort.removed;
+    discarded += antwort.discarded;
+    effective += antwort.effective;
+    // The pass's one end, and its guard against a place not past the one sent.
+    if (after !== null && antwort.after !== null && antwort.after <= after) {
+      throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
+    }
+    after = antwort.after;
+  } while (after !== null);
+
+  // An effect of this pass, or one whose press lost its answer, owes its account's carry.
+  await runAddressChangeMoves();
+
+  // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
+  return { removed, effective, discarded, remaining: antwort.remaining };
+}

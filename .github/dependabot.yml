@@ -5,21 +5,22 @@ version: 2
 # The governing constraint is noise, not coverage: ungrouped weekly updates across the ecosystems
 # below would open dozens of pull requests a month, each triggering the full `verify` gate, and none
 # would be read. Monthly and grouped per ecosystem for minor and patch bumps; a major stays its own
-# pull request, because those are the ones that need a changelog read. `github-actions` is weekly,
-# and is the only ecosystem here that is — the reason is written at that ecosystem below.
+# pull request, because those are the ones that need a changelog read. `github-actions`, `docker`
+# and `docker-compose` are weekly, being the three no security update reaches; the reason is written
+# at `github-actions` and `docker` below.
 #
 # Invariants:
-# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule
-#   (`docs/_git/spec.md`, Repository settings); `github-actions`, `docker` and `docker-compose` get
-#   none.
+# - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule;
+#   `github-actions`, `docker` and `docker-compose` get none.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
-#   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`
-#   (`docs/ops/spec.md` §1.1). A security update is exempt from it.
-# - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
-# - No ecosystem below reads an image a script or a test names in a string, so these are kept by
-#   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
-#   `scripts/ops/local.sh`, `fl_backend/tests/conftest.py :: MONGO_IMAGE` and
-#   `fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet`.
+#   before a pull request proposes it — where its registry dates it, unlike `ghcr.io`. A security
+#   update is exempt from it.
+# - Each ecosystem sets a commit prefix, so messages keep `docs/writing.md`'s shape.
+# - No ecosystem below reads an image a script, a workflow's step or a test names in a string, so
+#   these are kept by hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, lychee in
+#   `scripts/gate/verify.sh`, Playwright's and BuildKit's in `.github/workflows/verify.yml`'s
+#   `journeys` and `images` jobs, and mongo in `fl_backend/tests/conftest.py`'s `MONGO_IMAGE` and
+#   `fl_frontend/src/test-support/expiredTransactions.ts`.
 
 updates:
   # --- GitHub Actions -------------------------------------------------------------------------
@@ -58,8 +59,11 @@ updates:
 
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
-  # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it
-  # (`docs/ops/spec.md :: I512`).
+  # update, and `ARG PNPM_VERSION` moves with it.
+
+  # A package `patchedDependencies` keys to its version cannot move
+  # here: pnpm refuses the update with ERR_PNPM_UNUSED_PATCH, which Dependabot reports in its log
+  # under Insights -> Dependency graph -> Dependabot. The move is by hand, once the patch is re-read.
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -73,6 +77,19 @@ updates:
       frontend-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Three majors held by hand; an entry goes when its reason does.
+      # typescript-eslint's peer range ends below TypeScript 7, which ships without the API it reads.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # eslint-plugin-react, -import and -jsx-a11y, which eslint-config-next brings, end their peer
+      # ranges at ESLint 9.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # 4.x takes its merge configuration only through an entry that ships tailwind-merge's table
+      # compiler to the browser, about 14 KB gzip on every page.
+      - dependency-name: tailwind-variants
+        update-types: ["version-update:semver-major"]
 
   # --- Backend (uv) ---------------------------------------------------------------------------
 
@@ -98,6 +115,19 @@ updates:
       # `fl_backend/app/shared/schemas/custom.py` imports pydantic_core.
       - dependency-name: pydantic-core
 
+  # --- Gate tooling (pip) ---------------------------------------------------------------------
+
+  # zizmor alone: `run_zizmor` runs the release this requirements file
+  # pins, so a bump here is what the ops scope runs next, locally and in CI alike.
+  - package-ecosystem: pip
+    directory: /scripts/gate/zizmor
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 1
+    commit-message:
+      prefix: "Repo"
+
   # --- Base images ----------------------------------------------------------------------------
 
   # Both Dockerfiles pin their base image, and the backend's `FROM ghcr.io/astral-sh/uv ... AS uv`
@@ -105,15 +135,14 @@ updates:
   # `images` CI job on the pull request itself (.github/workflows/verify.yml), so a base-image bump
   # proves both images build before it merges.
 
-  # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
+  # Each `FROM` names a tag and its digest, and this ecosystem rewrites the
   # two together; the compose ecosystem below does the same for every image either stack names.
 
-  # It moves the `FROM` line alone, so its pull request for a new Node or uv, or a Python outside
-  # `fl_backend/.python-version`'s series, stays red until the pin moves on the same branch
-  # (`docs/ops/spec.md :: I511`, `:: I657`, `:: I513`).
+  # It moves the `FROM` line alone, so its pull request for a new Node or uv stays red until the pin
+  # moves on the same branch.
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
-  # schedule and its cooldown: weekly, so eight days at worst (`docs/ops/spec.md` §4).
+  # schedule and its cooldown: weekly, so eight days at worst.
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
@@ -126,6 +155,10 @@ updates:
       frontend-image-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # A new major moves the whole frontend, `devEngines` and the lockfile with it, by hand.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /fl_backend
@@ -140,11 +173,10 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Python's release-candidate tags (`3.15.0rc2`) arrive as ordinary minor updates, and production
-      # runs final releases only. A Bundler-syntax range, as this ecosystem reads one: move it to the
-      # next minor's candidates once this one ships.
+      # A new series moves the whole backend, `fl_backend/.python-version` with it, by hand; a release
+      # candidate's tag (`3.15.0rc2`) reads as a minor update, so this keeps it out too.
       - dependency-name: python
-        versions: [">= 3.16.0.a, < 3.16.0"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # --- Stack images ---------------------------------------------------------------------------
 
@@ -153,7 +185,9 @@ updates:
   # the image the stacks put in front of the application is watched like any other dependency.
 
   # An image whose tag carries no version yields nothing here -- there is no comparison to make --
-  # so a floating tag is a silent opt-out rather than an update nobody sees.
+  # so a floating tag is a silent opt-out rather than an update nobody sees. This repository's own
+  # two images are such, their tag being the `${TAG:?…}` the deploy sets, so no bot proposes a
+  # deploy.
   - package-ecosystem: docker-compose
     directory: /
     schedule:
@@ -166,11 +200,3 @@ updates:
       stack-images-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
-    ignore:
-      # This repository's own published images. `publish.yml` moves those tags, and a bot
-      # proposing to bump either would be proposing a deploy.
-
-      # Written WITHOUT the `ghcr.io/` the compose files spell, and that is not a typo: a
-      # dependency's name in this ecosystem is the image path alone, because the registry is parsed
-      # into a separate field. A name carrying the registry matches nothing and says nothing.
-      - dependency-name: felzab/frankfurtleague-*

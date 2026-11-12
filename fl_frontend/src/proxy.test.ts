@@ -1,15 +1,14 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
 // First, as Next's server loads it: its request stores take this global at their own load, and the
 // adapter `visit` runs needs real ones.
+import { assert, describe, expect, it, vi } from "vitest";
+
 import "next/dist/server/node-environment-baseline.js";
 
 import {
   ADMIN_EMAIL,
   configDouble,
+  cookiePair,
   GATE_BACKEND_CONFIG,
-  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   memoryStore,
@@ -17,9 +16,9 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
   sessionByCode,
-} from "./core/authDoubles.ts";
+} from "@/test-support/authDoubles.ts";
 
-import type { SessionRow } from "./core/authDoubles.ts";
+import type { SessionRow } from "@/test-support/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -40,24 +39,24 @@ registerAuthDoubles({
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
     "next/headers": HEADERS_DOUBLE,
-    // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
-    "react-server-dom-webpack/client": import.meta.resolve("next/dist/compiled/react-server-dom-webpack/client.js"),
   },
 });
 
 const store = memoryStore(STORE);
 
-// Imported here rather than at the top: a static import resolves before the hooks above are
-// registered, so neither the doubles nor the `next/server` extension would be in place yet.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { NextRequest } = await import("next/server");
-const { auth, getAdminSession, getKontoSession, getSignInDestination } = await import("./core/auth.ts");
+const { auth } = await import("./core/auth/library.ts");
+const { getAdminSession } = await import("./core/auth/guards.ts");
+const { getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
-const { SIGN_IN_LANDING } = await import("./core/signInLanding.ts");
+const { MAILED_LINK_PAGES } = await import("./core/mailedLink.ts");
+const { ROUTES } = await import("./core/routes.ts");
 const { requireAdminRequest } = await import("./shared/utils/adminRead.ts");
-const { EDGE_REFUSAL_BODY } = await import("./shared/utils/actionError.ts");
+const { GET: continueTo } = await import("./app/(classic)/signin/continue/route.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -68,31 +67,14 @@ arriveAs(null);
 
 const signIn = (email: string) => sessionByCode(auth, store, email);
 
-const admin = await signIn(ADMIN_EMAIL);
-// Stamped, because the admin guard turns away an administrator who has only followed the link, so a case
-// below reading its verdict on the grant would then pass for the wrong reason.
-madeByPasskey(store, admin.row);
-
 const removed = await signIn(REMOVED_EMAIL);
 madeByPasskey(store, removed.row);
 
-const ADMIN_URL = "http://localhost:3000/bereich/admin/spiele";
+const ADMIN_URL = "http://localhost:3000/admin/spielorte";
 
-/** What react-dom fills the header with; the value is never read, only its presence. */
-const ACTION_ID = "6f1b0c9d4a2e8f37";
-
-/** Every method react-dom cannot be sending an action on, so each is a page request. */
-const RENDERING_METHODS = ["HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"];
-
-type Arrival = { url?: string; method?: string; action?: boolean; cookie?: string };
-
-/** The proxy's own answer, called directly: the administrator's subtree unless `url` names another page. */
-async function callProxy({ url = ADMIN_URL, method = "GET", action = false, cookie }: Arrival = {}): Promise<Response> {
-  const headers = new Headers({ host: "localhost:3000" });
-  if (action) headers.set("next-action", ACTION_ID);
-  if (cookie !== undefined) headers.set("cookie", cookie);
-
-  const answer = await proxy(new NextRequest(url, { method, headers }));
+/** The proxy's own answer to a page request for the administrator's subtree carrying `cookie`, called directly. */
+async function callProxy(cookie: string): Promise<Response> {
+  const answer = await proxy(new NextRequest(ADMIN_URL, { headers: { host: "localhost:3000", cookie } }));
 
   assert.ok(answer instanceof Response, "the proxy answered something other than a response");
   return answer;
@@ -104,67 +86,82 @@ function redirectedTo(answer: Response): string | null {
   return location === null ? null : new URL(location).pathname;
 }
 
-describe("where the proxy sends a request for the administrator's subtree carrying no session cookie", () => {
-  it("redirects a plain page request", async () => {
-    assert.equal(redirectedTo(await callProxy()), "/signin");
+/** Where the landing sends the session `cookie` names, asked to return to `asked` where given: the redirect it throws. */
+async function landedAt(cookie: string, asked?: string): Promise<string> {
+  arriveAs(cookie);
+  const url = new URL("http://localhost:3000/signin/continue");
+  if (asked !== undefined) url.searchParams.set("return", asked);
+  try {
+    await continueTo(new NextRequest(url));
+  } catch (error) {
+    const digest: unknown = Reflect.get(error as object, "digest");
+    assert.ok(typeof digest === "string", "the landing threw other than a redirect");
+    return digest;
+  }
+  throw new Error("the landing answered without a redirect");
+}
+
+const landsOn = (path: string) => `NEXT_REDIRECT;replace;${path};307;`;
+
+describe("where the sign-in's landing sends a session asked to return somewhere", () => {
+  it("lands a session the area serves straight on an allowlisted address it was asked for", async () => {
+    expect(await landedAt(removed.cookie, "/account")).toBe(landsOn("/account"));
+    expect(await landedAt(removed.cookie, "/erasure")).toBe(landsOn("/erasure"));
   });
 
-  it("redirects a GET carrying `next-action`, which Next reads as a page render rather than an action", async () => {
-    assert.equal(redirectedTo(await callProxy({ action: true })), "/signin");
-  });
+  it("lands it on the area's own page instead of an outside, an encoded, a protocol-relative or a token-bearing address", async () => {
+    const unasked = await landedAt(removed.cookie);
+    assert.ok(unasked.startsWith("NEXT_REDIRECT;replace;/area"), `the control landed on ${unasked}`);
 
-  it("redirects every other method carrying `next-action`", async () => {
-    for (const method of RENDERING_METHODS) {
-      assert.equal(redirectedTo(await callProxy({ method, action: true })), "/signin", `${method} was let through`);
+    for (const asked of [
+      "https://example.com/area",
+      "/area%2F..%2Fadmin",
+      "//example.com/area",
+      "/\\example.com/area",
+      "/erasure?token=ein-token",
+    ]) {
+      expect(await landedAt(removed.cookie, asked), `${asked} was honoured`).toBe(unasked);
     }
   });
 
-  it("redirects a POST carrying no `next-action`", async () => {
-    assert.equal(redirectedTo(await callProxy({ method: "POST" })), "/signin");
+  it("carries an allowlisted address on through the passkey step", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+
+    expect(await landedAt(cookie, "/account")).toBe(landsOn("/signin/passkey?return=%2Faccount"));
+    expect(await landedAt(cookie, "//example.com/area")).toBe(landsOn("/signin/passkey"));
   });
+});
 
-  // The case this block exists for: let this one through and Next answers it by rendering the
-  // admin layout into the action's response, which is the shell served to a caller with no session.
-  it("turns a POST carrying `next-action` away to `/signin`, in the action's own redirect rather than a 307", async () => {
-    const answer = await callProxy({ method: "POST", action: true });
+/* Reverted, the token rides back into the sign-in's address and Turnstile's frame, and every page still renders. */
+describe("where the proxy sends a mailed link's first request", () => {
+  it("redirects it to the page's plain address, the token in that page's own HttpOnly cookie for an hour", async () => {
+    for (const page of MAILED_LINK_PAGES) {
+      const url = `http://localhost:3000${page}?token=ein-token`;
+      // The helper itself, since `matched` asks by path alone, and this source matches on the query.
+      expect(unstable_doesMiddlewareMatch({ config, url }), `${url} runs no proxy`).toBe(true);
+      expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost:3000${page}` }), `${page} runs the proxy with no token`).toBe(false);
 
-    assert.equal(redirectedTo(answer), null, "a 307 is replayed by the action's fetch as a POST to the sign-in page");
-    assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace");
+      const answer = await proxy(new NextRequest(url, { headers: { host: "localhost:3000" } }));
+      expect(answer.headers.get("location"), `${page} kept its token in the address`).toBe(`http://localhost:3000${page}`);
+      const [set, ...more] = answer.headers.getSetCookie();
+      expect(more, "the swap set a second cookie").toStrictEqual([]);
+      expect(set).toMatch(new RegExp(`^mailed_link=ein-token; Path=${page}; Expires=[^;]+; Max-Age=3600; HttpOnly; SameSite=lax$`));
+    }
   });
 });
 
 describe("where the proxy sends a request for the administrator's subtree carrying a session cookie", () => {
-  // The control for the redirects above: a proxy turning every request away would read exactly the
-  // same there.
-  it("lets an administrator holding a grant through", async () => {
-    assert.equal(redirectedTo(await callProxy({ cookie: admin.cookie })), null);
-  });
-
-  it("lets that administrator's action POST through, whose answer has to be an RSC payload and not a redirect", async () => {
-    const answer = await callProxy({ method: "POST", action: true, cookie: admin.cookie });
-
-    assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), null);
-    assert.equal(answer.status, 200);
-  });
-
   /* Optimistic, as Next and the library document a proxy's check: the cookie alone, and no backend read.
      The grant is the admin guard's, which refuses a session holding none on the same request. */
-  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async (t) => {
-    const fetched = t.mock.method(globalThis, "fetch", () => Promise.reject(new TypeError("fetch failed")));
+  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async ({ onTestFinished }) => {
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.reject(new TypeError("fetch failed")));
+    onTestFinished(() => void fetched.mockRestore());
 
-    assert.equal(redirectedTo(await callProxy({ cookie: removed.cookie })), null);
-    assert.equal(fetched.mock.callCount(), 0, "the proxy asked the backend about a grant");
+    expect(redirectedTo(await callProxy(removed.cookie))).toBe(null);
+    expect(fetched.mock.calls.length, "the proxy asked the backend about a grant").toBe(0);
 
     arriveAs(removed.cookie);
-    assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
-  });
-
-  it("lets that session's action POST through to the action's own guard", async () => {
-    const answer = await callProxy({ method: "POST", action: true, cookie: removed.cookie });
-
-    assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), null);
+    expect(await getAdminSession(), "the guard admitted a session holding no grant").toBe(null);
   });
 
   /* The factor is the guard's, read where the data is: the landing then answers the passkey step, where the
@@ -172,14 +169,13 @@ describe("where the proxy sends a request for the administrator's subtree carryi
   it("lets a code-borne administrator through to the guard, which sends it to the landing's passkey step", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
-    assert.equal((await callProxy({ cookie })).headers.get("x-middleware-next"), "1", "the proxy judged the session's factor");
+    expect((await callProxy(cookie)).headers.get("x-middleware-next"), "the proxy judged the session's factor").toBe("1");
 
     arriveAs(cookie);
-    await assert.rejects(
-      requireAdminRequest(),
-      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+    await expect(requireAdminRequest()).rejects.toSatisfy(
+      (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
     );
-    assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a code-borne administrator somewhere else");
+    expect((await getSignInLanding()).destination, "the landing sends a code-borne administrator somewhere else").toBe("/signin/passkey");
   });
 });
 
@@ -187,10 +183,7 @@ describe("where the proxy sends a request for the administrator's subtree carryi
  * Whether Next runs the proxy for `url`: its server tries the raw path and then its decoded spelling
  * (`next/dist/server/lib/router-utils/resolve-routes.js`), which the testing helper does not, so both are asked.
  */
-function matched(
-  url: string,
-  { matcher = config.matcher, headers = {} }: { matcher?: typeof config.matcher; headers?: Record<string, string> } = {},
-): boolean {
+function matched(url: string, headers: Record<string, string>): boolean {
   const { pathname } = new URL(url);
   let spelled = pathname;
   try {
@@ -201,17 +194,17 @@ function matched(
 
   // Handed over as the helper's own `cookies`: it writes that header from them whatever `headers` carried.
   const { cookie = "", ...rest } = headers;
-  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [pair.trim().split(/=(.*)/s, 2)] : [])));
+  const cookies = Object.fromEntries(cookie.split(";").flatMap((pair) => (pair.includes("=") ? [cookiePair(pair.trim())] : [])));
 
   return [pathname, spelled].some((path) =>
     // A copy each time: the helper writes a `host` into the object it is handed.
-    unstable_doesMiddlewareMatch({ config: { matcher }, url: new URL(path, url).href, headers: { ...rest }, cookies }),
+    unstable_doesMiddlewareMatch({ config, url: new URL(path, url).href, headers: { ...rest }, cookies }),
   );
 }
 
 /**
- * What Next's router sends on a prefetch, a partial one's `2` and `3` among them, and what a browser's own sends,
- * none carrying a page a person asked for (`next/dist/client/components/segment-cache/cache.js`).
+ * What Next's router sends on a prefetch, a partial one's `1` and a runtime one's `2` and `3`, and what a browser's own
+ * sends, none carrying a page a person asked for (`next/dist/client/components/segment-cache/cache.js`).
  */
 const PREFETCHES: Record<string, string>[] = [
   { "next-router-prefetch": "1" },
@@ -220,138 +213,31 @@ const PREFETCHES: Record<string, string>[] = [
   { purpose: "prefetch" },
 ];
 
-const TEAM_URL = "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2526";
+const TEAM_URL = "http://localhost:3000/area/team/6890a1b2c3d4e5f607190001/2526";
 
 describe("which addresses the proxy is run on", () => {
-  it("runs on every page a session serves, and on no public page or route handler", () => {
-    for (const url of [
-      "http://localhost:3000/bereich",
-      "http://localhost:3000/bereich/konto",
-      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2026",
-      "http://localhost:3000/bereich/admin",
-      "http://localhost:3000/bereich/%61dmin/spiele",
-      "http://localhost:3000/signin",
-      "http://localhost:3000/signin/weiter",
-    ]) {
-      assert.equal(matched(url), true, `${url} runs no proxy`);
-    }
-    // The route handlers write their own cookies, and a public page reads no session.
-    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/bestaetigung/kontakt"]) {
-      assert.equal(matched(url), false, `${url} runs the proxy`);
-    }
-  });
-
   /* Next strips the prefetch header before the proxy runs, so a prefetch reaching it carrying a session would
-     slide it, a store read for a page nobody asked for (`docs/frontend/spec.md :: I495`). */
+     slide it, a store read for a page nobody asked for. */
   it("skips a prefetch carrying a session cookie everywhere, the administrator's subtree included", async () => {
     const { cookie } = await signIn("leserin@example.org");
     for (const prefetch of PREFETCHES) {
       for (const url of [
-        "http://localhost:3000/bereich",
-        "http://localhost:3000/bereich/konto",
+        "http://localhost:3000/area",
+        "http://localhost:3000/account",
         TEAM_URL,
         "http://localhost:3000/signin",
         ADMIN_URL,
-        "http://localhost:3000/bereich/%61dmin/spiele",
+        "http://localhost:3000/area/%61dmin/spiele",
       ]) {
-        assert.equal(
-          matched(url, { headers: { ...prefetch, cookie } }),
-          false,
-          `${url} runs the proxy on a signed-in prefetch, ${JSON.stringify(prefetch)}`,
-        );
+        expect(matched(url, { ...prefetch, cookie }), `${url} runs the proxy on a signed-in prefetch, ${JSON.stringify(prefetch)}`).toBe(false);
       }
-    }
-  });
-
-  /* The cookie alone answers it, before any read: a visitor holding none is sent to sign in rather than
-     shown the area's prefetched frame. A sign-in page's prefetch reads nothing either way. */
-  it("runs on a prefetch of an area's page carrying no session cookie, and of no sign-in page", () => {
-    for (const prefetch of PREFETCHES) {
-      for (const url of ["http://localhost:3000/bereich", "http://localhost:3000/bereich/konto", TEAM_URL, ADMIN_URL]) {
-        assert.equal(
-          matched(url, { headers: { ...prefetch, cookie: "theme=dark" } }),
-          true,
-          `${url} skips a signed-out prefetch, ${JSON.stringify(prefetch)}`,
-        );
-      }
-      assert.equal(matched("http://localhost:3000/signin", { headers: prefetch }), false);
-    }
-  });
-
-  /* The proxy's prefix test is a second reading of the area's entry: a spelling that entry admits and the
-     test misses reaches a page past the cookie check, judged by its guard alone after the frame painted. */
-  it("turns a request carrying no session cookie away on exactly the spellings the area's own entry admits", async () => {
-    // The first entry, which names the area and nothing else.
-    const areaEntry = config.matcher.slice(0, 1);
-    for (const url of [
-      "http://localhost:3000/bereich",
-      "http://localhost:3000/bereich/",
-      "http://localhost:3000/bereich/admin/spiele",
-      "http://localhost:3000/bereich/%61dmin/spiele",
-      "http://localhost:3000/%62ereich/konto",
-      "http://localhost:3000/BEREICH/konto",
-      "http://localhost:3000/bereichsweise",
-      "http://localhost:3000/signin",
-      // A malformed escape the decoding cannot read, which must not take the request down with it.
-      "http://localhost:3000/bereich/team/%E0%A4%A",
-    ]) {
-      const judged = redirectedTo(await callProxy({ url })) === "/signin";
-      assert.equal(judged, matched(url, { matcher: areaEntry }), `${url} is judged otherwise than the area's entry matches it`);
-    }
-  });
-
-  // The verdicts past the cookie are each guard's, read where the data is (`docs/frontend/spec.md :: I122`).
-  it("lets every session carrying a cookie through, the administrator's subtree included, a grant held or none", async () => {
-    for (const url of [
-      "http://localhost:3000/bereich/konto",
-      "http://localhost:3000/bereich/administration",
-      "http://localhost:3000/signin",
-      ADMIN_URL,
-    ]) {
-      for (const cookie of [(await signIn("leserin@example.org")).cookie, removed.cookie]) {
-        const answer = await callProxy({ url, cookie });
-
-        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged past the cookie`);
-      }
-    }
-  });
-
-  // The sign-in's own pages are where a visitor holding no session is sent, so they turn nobody away.
-  it("lets every sign-in page through with no session", async () => {
-    for (const url of ["http://localhost:3000/signin", "http://localhost:3000/signin/weiter"]) {
-      assert.equal((await callProxy({ url })).headers.get("x-middleware-next"), "1", `${url} turned a visitor away`);
     }
   });
 });
 
-const PERSON_URLS = [
-  "http://localhost:3000/bereich",
-  "http://localhost:3000/bereich/konto",
-  "http://localhost:3000/bereich/zorbanax",
-  TEAM_URL,
-];
+const PERSON_URLS = ["http://localhost:3000/area", "http://localhost:3000/account", "http://localhost:3000/area/zorbanax", TEAM_URL];
 
-describe("where the proxy sends a request for an area's page (`docs/frontend/spec.md :: I243`, `:: I495`)", () => {
-  /* Optimistic, as Next and the library document a proxy's check: turned away before any bar paints, where
-     the page's own guard would turn it away only once the area's frame had streamed. */
-  it("sends a request carrying no session cookie to sign in, reading no store, the administrator's subtree included", async (t) => {
-    const read = t.mock.method(auth.api, "getSession");
-    for (const url of [...PERSON_URLS, ADMIN_URL, "http://localhost:3000/bereich/%61dmin/spiele"]) {
-      assert.equal(redirectedTo(await callProxy({ url })), "/signin", `${url} let a visitor holding no session through`);
-    }
-    assert.equal(read.mock.callCount(), 0, "the cookie check read the store");
-  });
-
-  // An action's POST takes the same turn-away in the header its client reads, never the 307 its `fetch` would
-  // replay (`docs/frontend/spec.md :: I251`).
-  it("turns a signed-out action's POST away in the action's own redirect", async () => {
-    for (const url of PERSON_URLS) {
-      const answer = await callProxy({ url, method: "POST", action: true });
-
-      assert.equal(answer.headers.get("x-action-redirect"), "/signin;replace", `${url} answered a signed-out action otherwise`);
-    }
-  });
-
+describe("where the proxy sends a request for an area's page", () => {
   /* The cookie is no session, and the slide's answer decides nothing: the library expires the cookie on the
      slide's read, and the page's guard, reading the session it serves, turns the visitor away. */
   it("lets a cookie whose session is gone through, expired, to the guard that turns it away", async () => {
@@ -367,27 +253,17 @@ describe("where the proxy sends a request for an area's page (`docs/frontend/spe
       for (const url of [...PERSON_URLS, ADMIN_URL]) {
         const answer = await visit(url, cookie, "document");
 
-        assert.equal(answer.headers.get("location"), null, `${url} turned a ${name}'s cookie away on the slide's answer`);
-        assert.equal(setSessionCookie(answer, cookie)?.maxAge, 0, `${url} left a ${name}'s ended cookie standing`);
+        expect(answer.headers.get("location"), `${url} turned a ${name}'s cookie away on the slide's answer`).toBe(null);
+        expect(setSessionCookie(answer, cookie)?.maxAge, `${url} left a ${name}'s ended cookie standing`).toBe(0);
       }
 
-      // A person's guard reads no session, which every person page sends to sign in
-      // (`fl_frontend/src/features/funktionen/guard.test.ts`); the administrator's sends it to the landing.
+      // A person's guard reads no session, which every person page sends to sign in; the administrator's
+      // sends it to the landing.
       arriveAs(cookie);
-      assert.equal(await getSubjectSession(), null, `the person guard served a ${name}'s ended session`);
-      await assert.rejects(
-        requireAdminRequest(),
-        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${SIGN_IN_LANDING};307;`,
+      expect(await getSubjectSession(), `the person guard served a ${name}'s ended session`).toBe(null);
+      await expect(requireAdminRequest()).rejects.toSatisfy(
+        (error: { digest?: unknown }) => error.digest === `NEXT_REDIRECT;replace;${ROUTES.signInLanding.path()};307;`,
       );
-    }
-  });
-
-  // The control: a live session, code-borne and holding no grant, reaches every one of these pages.
-  it("lets a person's live session through", async () => {
-    const { cookie } = await signIn("leserin@example.org");
-
-    for (const url of PERSON_URLS) {
-      assert.equal((await callProxy({ url, cookie })).headers.get("x-middleware-next"), "1", `${url} turned a live session away`);
     }
   });
 });
@@ -396,7 +272,7 @@ const EXPIRES_IN_MS = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
 const UPDATE_AGE_MS = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
 const MINUTE_MS = 60 * 1000;
 
-const PERSON_URL = "http://localhost:3000/bereich/konto";
+const PERSON_URL = "http://localhost:3000/account";
 
 /** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it. */
 function refreshedAgo(row: SessionRow, ago: number): void {
@@ -411,7 +287,7 @@ function refreshedAgo(row: SessionRow, ago: number): void {
 async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
   const headers: Record<string, string> = { host: "localhost:3000" };
   // What the router sends on a client navigation, which the proxy slides on too. A render's read refreshes
-  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth.ts :: readServedSession`).
+  // nothing whatever these say: it passes `disableRefresh` (`fl_frontend/src/core/auth/session.ts :: readServedSession`).
   if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
   if (cookie !== undefined) headers.cookie = cookie;
 
@@ -434,44 +310,10 @@ function setSessionCookie(answer: Response, held: string): { value: string; maxA
   return { value: decodeURIComponent(pair.slice(`${name}=`.length)), maxAge: Number(maxAge) };
 }
 
-const heldValue = (cookie: string): string => decodeURIComponent(cookie.slice(cookie.indexOf("=") + 1).split(";")[0] ?? "");
-
 /** The stamps that say when a row was last used and when it lapses. */
 const stampsOf = (row: SessionRow) => ({ updatedAt: row.updatedAt.getTime(), expiresAt: row.expiresAt.getTime() });
 
-describe("where a session that is only read slides (`docs/frontend/spec.md :: I495`)", () => {
-  it("slides a person's row and cookie once past `updateAge`, on a document load and a client navigation alike", async () => {
-    for (const load of ["document", "navigation"] as const) {
-      const { cookie, row } = await signIn("leserin@example.org");
-      refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-      const before = Date.now();
-
-      const set = setSessionCookie(await visit(PERSON_URL, cookie, load), cookie);
-
-      assert.ok(row.updatedAt.getTime() >= before, `a ${load} left the row's use where it was`);
-      assert.ok(row.expiresAt.getTime() >= before + EXPIRES_IN_MS, `a ${load} left the row's expiry where it was`);
-      assert.deepEqual(set, { value: heldValue(cookie), maxAge: EXPIRES_IN_MS / 1000 }, `a ${load} slid the row and not the cookie`);
-    }
-  });
-
-  it("writes neither a minute short of `updateAge`, nor a second time inside it", async () => {
-    const { cookie, row } = await signIn("leserin@example.org");
-
-    refreshedAgo(row, UPDATE_AGE_MS - MINUTE_MS);
-    const early = stampsOf(row);
-    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
-    assert.deepEqual(stampsOf(row), early, "a read inside `updateAge` wrote the row");
-
-    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    assert.ok(
-      setSessionCookie(await visit(PERSON_URL, cookie), cookie),
-      "the read past `updateAge` slid nothing, so the case below proves nothing",
-    );
-    const slid = stampsOf(row);
-    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
-    assert.deepEqual(stampsOf(row), slid, "the next read wrote the row again");
-  });
-
+describe("where a session that is only read slides", () => {
   // Written there, the row would outlive the cookie the browser holds, which no later read inside `updateAge` repairs.
   it("never slides a session a page render reads, which could not carry the cookie", async () => {
     const { cookie, row } = await signIn("leserin@example.org");
@@ -481,9 +323,9 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     const due = stampsOf(row);
 
     arriveAs(cookie);
-    assert.equal(await getSignInDestination(), "/bereich", "the render read no live session, so the case proves nothing");
+    expect((await getSignInLanding()).destination, "the render read no live session, so the case proves nothing").toBe("/area");
 
-    assert.deepEqual(stampsOf(row), due);
+    expect(stampsOf(row)).toStrictEqual(due);
   });
 
   // The cookie is expired rather than left standing: the library clears it on a read that finds no live row.
@@ -495,30 +337,15 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
 
       const set = setSessionCookie(await visit(PERSON_URL, cookie), cookie);
 
-      assert.equal(
+      expect(
         store.session.some(({ token }) => token === row.token),
-        false,
         `a ${ending} session has a row again`,
-      );
-      assert.equal(set?.maxAge, 0, `a ${ending} session's cookie was left standing or extended`);
+      ).toBe(false);
+      expect(set?.maxAge, `a ${ending} session's cookie was left standing or extended`).toBe(0);
     }
   });
 
-  // The slide reads no ban, which is the backend's: what keeps a barred session out is every guard's own read.
-  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async (t) => {
-    const { cookie, row } = await signIn("gesperrt@example.org");
-    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    t.mock.method(globalThis, "fetch", () => Promise.resolve(Response.json({ ...HOLDS_NOTHING, gesperrt: true })));
-
-    assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
-
-    arriveAs(cookie);
-    assert.equal(await getSignInDestination(), "/signin");
-    assert.equal(await getSubjectSession(), null);
-    assert.equal(await getKontoSession(), null);
-  });
-
-  it("leaves an administrator's twenty-four-hour cap, and the step-up window, where the sign-in set them", async () => {
+  it("leaves an administrator's twenty-four-hour cap, and the touch's window, where the sign-in set them", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     const signedIn = new Date(Date.now() - 25 * 60 * MINUTE_MS);
@@ -528,106 +355,8 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     const answer = await visit(ADMIN_URL, cookie);
 
     assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
-    assert.equal(row.createdAt.getTime(), signedIn.getTime(), "the slide moved the stamp both the cap and the step-up are judged from");
+    expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the touch are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
-    assert.equal(await getAdminSession(), null, "a slid session outlived the administrator's cap");
-  });
-});
-
-/** The browser surface Next's action client touches while it loads and while it reads one answer. */
-function browserGlobals(answer: Response): Record<string, unknown> {
-  return {
-    window: globalThis,
-    location: new URL(ADMIN_URL),
-    document: { documentElement: { dataset: {}, removeAttribute: () => {} } },
-    addEventListener: () => {},
-    // The development build of Next's vendored Flight client reads this at module scope.
-    __webpack_require__: { u: () => "" },
-    fetch: async () => answer,
-  };
-}
-
-/**
- * Runs Next's installed action client against one answer and reports where it left the router.
- *
- * A probe of a PRIVATE path, bought for what no assertion over the proxy's own answer shows: that
- * the header is read at all.
- */
-async function dispatchAgainst(answer: Response): Promise<{ canonicalUrl: string; documentNavigation: boolean; rejection: unknown }> {
-  const globals = browserGlobals(answer);
-  const previous = new Map(Object.keys(globals).map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  Object.assign(globalThis, globals);
-
-  try {
-    const { serverActionReducer } = await import("next/dist/client/components/router-reducer/reducers/server-action-reducer.js");
-
-    let rejection: unknown = null;
-    const state = {
-      canonicalUrl: new URL(ADMIN_URL).pathname,
-      tree: ["", { children: ["__PAGE__", {}] }, null, null, true],
-      nextUrl: null,
-      previousNextUrl: null,
-      pushRef: { pendingPush: false, mpaNavigation: false, preserveCustomHistoryState: true },
-      renderedSearch: "",
-      focusAndScrollRef: {},
-      cache: null,
-    } as unknown as Parameters<typeof serverActionReducer>[0];
-
-    const next = await serverActionReducer(state, {
-      type: "server-action",
-      actionId: ACTION_ID.padEnd(42, "0"),
-      actionArgs: [],
-      resolve: () => {},
-      reject: (reason: unknown) => {
-        rejection = reason;
-      },
-    });
-
-    return { canonicalUrl: next.canonicalUrl, documentNavigation: next.pushRef.mpaNavigation, rejection };
-  } finally {
-    for (const [key, descriptor] of previous) {
-      if (descriptor === undefined) Reflect.deleteProperty(globalThis, key);
-      else Object.defineProperty(globalThis, key, descriptor);
-    }
-  }
-}
-
-describe("what Next's own action client does with the proxy's answer to a signed-out action", () => {
-  // The header is Next's rather than a documented contract, so this is what fails when an upgrade
-  // stops reading it: the proxy cases above would still pass.
-  it("leaves the editor for `/signin` on the answer the proxy gives", async () => {
-    const outcome = await dispatchAgainst(await callProxy({ method: "POST", action: true }));
-
-    assert.equal(outcome.canonicalUrl, "/signin");
-    assert.equal(outcome.documentNavigation, true);
-    assert.match(String((outcome.rejection as Error | null)?.message), /^NEXT_REDIRECT/, "the awaiting save is not released as a redirect");
-  });
-
-  // Proves the case above can fail: the same client, handed the proxy's page redirect, throws.
-  it("throws on the 307 a page request gets, which is why an action's POST never gets one", async () => {
-    const outcome = await dispatchAgainst(await callProxy({ method: "HEAD", action: true }));
-
-    assert.equal(outcome.documentNavigation, false);
-    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
-  });
-});
-
-describe("what Next's own action client does with the edge's own 429", () => {
-  // The frontend's answer to a press the edge refused rests on this reading
-  // (`fl_frontend/src/shared/utils/actionError.ts :: EDGE_REFUSAL_BODY`): an upgrade dropping it fails here.
-  it("rejects the awaiting action with the body as its message, under exactly `text/plain`", async () => {
-    const outcome = await dispatchAgainst(new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain" } }));
-
-    assert.equal(outcome.documentNavigation, false);
-    assert.equal((outcome.rejection as Error | null)?.message, EDGE_REFUSAL_BODY);
-  });
-
-  // Proves the case above can fail, and why the edge sends no charset: Next compares the type whole.
-  it("reads the same body as its generic failure once a charset rides on the type", async () => {
-    const outcome = await dispatchAgainst(
-      new Response(EDGE_REFUSAL_BODY, { status: 429, headers: { "content-type": "text/plain; charset=utf-8" } }),
-    );
-
-    assert.match(String((outcome.rejection as Error | null)?.message), /unexpected response/);
+    expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
   });
 });

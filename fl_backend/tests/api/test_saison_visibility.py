@@ -4,12 +4,10 @@ from typing import Any
 import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import get_saisons_for_admin
-from app.api.saisons.router import get_saison, get_saisons
-from app.api.saisons.schemas import FLSaisonsFilterParams
-from app.api.saisons.services import base_tier_status_term
+from app.api.saisons.public_router import get_frame, get_saison
+from app.api.saisons.visibility import resolve_public_saison
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
@@ -21,25 +19,11 @@ DATABASE_NAME = worker_database("fl_saison_visibility_test")
 ARCHIVED = "2024"
 RUNNING = "2025"
 PLANNED = "2026"
+# An id naming no season at all: what the withheld one has to be indistinguishable from.
+UNKNOWN = "2099"
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
-
-
-class TestTheTermItselfWithholdsThePlannedSeason:
-    """No database: what a real `mongod` does with these two operators is the class below."""
-
-    def test_an_unfiltered_read_excludes_the_planned_status(self):
-        assert base_tier_status_term() == {"status": {"$ne": "future"}}
-
-    @pytest.mark.parametrize("requested", ["past", "active"])
-    def test_a_requested_status_keeps_the_exclusion_beside_it(self, requested):
-        assert base_tier_status_term(requested) == {"status": {"$eq": requested, "$ne": "future"}}
-
-    def test_asking_for_the_planned_status_outright_yields_a_term_nothing_can_satisfy(self):
-        """`$eq` and `$ne` on one value: the request is answered with an empty list rather than dropped."""
-
-        assert base_tier_status_term("future") == {"status": {"$eq": "future", "$ne": "future"}}
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -70,34 +54,11 @@ def on_a_league(url: str, body: Body) -> Any:
 
 @pytest.mark.db
 class TestAPlannedSeasonIsWithheldFromTheBaseTier:
-    def test_the_list_serves_the_finished_and_the_running_season_only(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
-
-        response = on_a_league(seeded_league, body)
-
-        assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING]
-
-    def test_asking_for_the_planned_status_answers_an_empty_list(self, seeded_league: str):
-        """The compound term is what makes this empty rather than the whole season list."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
-
-        assert on_a_league(seeded_league, body).saisons == []
-
-    @pytest.mark.parametrize("saison_id", [ARCHIVED, RUNNING])
-    def test_a_readable_season_is_still_served_by_id(self, saison_id: str, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saison(saison_id=saison_id, saisons_collection=database[Collection.SAISONS])
-
-        assert on_a_league(seeded_league, body).saison.id == saison_id
-
     def test_the_planned_season_is_a_404_and_never_a_403(self, seeded_league: str):
         """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException) as refusal:
+            with pytest.raises(DocumentNotFoundError) as refusal:
                 await get_saison(saison_id=PLANNED, saisons_collection=database[Collection.SAISONS])
 
             return refusal.value
@@ -106,19 +67,27 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
 
 
 @pytest.mark.db
-class TestTheAdminTierReadsEverySeason:
-    def test_the_planned_season_is_listed_beside_the_others(self, seeded_league: str):
-        """An admin who cannot select a planned season cannot enter a club into one, which is the only window there is."""
+class TestThePublicSeasonResolver:
+    """The one resolve every base-tier read scoped by a season makes, and the two refusals it answers alike."""
 
+    @pytest.mark.parametrize("saison_id", [pytest.param(PLANNED, id="withheld"), pytest.param(UNKNOWN, id="unknown")])
+    def test_it_misses_a_season_this_tier_may_not_read_as_one_nobody_created(self, saison_id: str, seeded_league: str):
         async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams())
+            with pytest.raises(DocumentNotFoundError) as refusal:
+                await resolve_public_saison(saisons_collection=database[Collection.SAISONS], saison_id=saison_id)
 
-        response = on_a_league(seeded_league, body)
+            return refusal.value
 
-        assert [saison.id for saison in response.saisons] == [ARCHIVED, RUNNING, PLANNED]
+        assert on_a_league(seeded_league, body).status_code == 404
 
-    def test_it_still_honours_a_status_filter(self, seeded_league: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await get_saisons_for_admin(saisons_collection=database[Collection.SAISONS], filters=FLSaisonsFilterParams(status="future"))
 
-        assert [saison.id for saison in on_a_league(seeded_league, body).saisons] == [PLANNED]
+async def frame_read(database: AsyncDatabase) -> Any:
+    return await get_frame(saisons_collection=database[Collection.SAISONS])
+
+
+@pytest.mark.db
+class TestTheFrame:
+    def test_it_lists_the_readable_seasons_newest_first_beside_the_active_one(self, seeded_league: str):
+        response = on_a_league(seeded_league, frame_read)
+
+        assert ([saison.id for saison in response.saisons], response.active_saison_id) == ([RUNNING, ARCHIVED], RUNNING)

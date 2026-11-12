@@ -1,0 +1,77 @@
+"use client";
+
+import { SwitchButton, SwitchField } from "react-aria-components/Switch";
+
+import { MessageLine } from "./FieldParts";
+import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { useDisabled } from "./formClosed";
+import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { useEarlyEdit } from "./useEarlyEdit";
+
+import type { Copy } from "@/core/copy";
+
+/** A switch while its record is read: the track as a bar, and its label as lines, wrapping as the label will. */
+export function SwitchPlaceholder({ label }: { label: string }) {
+  return (
+    <div className={toggleField()}>
+      <span className={toggleRow({ in: "field" })}>
+        {/* The track's own box alone: either state's fill and edge would stand over the bar's. */}
+        <span className={placeholderBar(switchTrack.base)} />
+        <PlaceholderSentence
+          textClass=""
+          words={label}
+        />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A yes or no that takes effect at once, or reveals an optional part of a saved form beneath it. Its
+ * label names the action the switch performs, never the state it shows.
+ */
+export function Switch({
+  label,
+  description,
+  isDisabled = false,
+  name,
+  isSelected,
+  onChange,
+}: {
+  label: Copy;
+  description?: Copy;
+  isDisabled?: boolean;
+  name?: string;
+  isSelected?: boolean;
+  onChange?: (isSelected: boolean) => void;
+}) {
+  const root = useEarlyEdit();
+  return (
+    <SwitchField
+      ref={root}
+      className={toggleField()}
+      name={name}
+      isSelected={isSelected}
+      onChange={onChange}
+      isDisabled={useDisabled(isDisabled)}>
+      <SwitchButton className={toggleRow({ in: "field" })}>
+        {({ isSelected: selected }) => (
+          <>
+            {/* The ring goes around the track alone, so the track is the button's direct child. */}
+            <span
+              data-kit-focus="box"
+              className={switchTrack({ selected })}>
+              <span className={switchThumb({ selected })} />
+            </span>
+            {label}
+          </>
+        )}
+      </SwitchButton>
+      {description !== undefined && (
+        <div className={toggleLine()}>
+          <MessageLine description={description} />
+        </div>
+      )}
+    </SwitchField>
+  );
+}

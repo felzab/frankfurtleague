@@ -1,0 +1,61 @@
+# The local stack again, as a stack of its own for the Playwright journeys: its own compose project, database volume, sign-in store,
+# keys, settings and made-up data, sharing nothing with the developer's local stack but the two host
+# ports, 3000 and 27017, which is why only one of the two runs at a time. Started by
+# `./scripts/ops/local.sh --e2e` on a development machine and by the journeys' CI job on Linux.
+#
+# Invariants:
+# - An override merged over docker-compose.yml and docker-compose.local.yml, in that order, never a
+#   stack on its own: everything this file does not write is the local stack's, so every key below IS
+#   a difference from it (https://docs.docker.com/reference/compose-file/merge/).
+# - Paths resolve against docker-compose.yml's directory, as the local file's do.
+# - Nothing here is a credential. The keys are files a start generates under `.tmp-e2e/`, which
+#   `.gitignore` covers, fresh on every start and generated rather than copied, so no machine's own
+#   keys ever reach this stack.
+
+# A project name of its own, so its containers, its volume and its networks are never the local
+# stack's, whichever checkout either runs from.
+name: frankfurtleague-e2e
+
+services:
+  frontend:
+    # Named here, where the local file leaves the built image unnamed, so the journeys' CI job can
+    # tag the image the images job built under the one name `up --no-build` looks for.
+    image: frankfurtleague-e2e-frontend
+    # The developer's `fl_frontend/.env` stays the local stack's.
+    env_file: !reset null
+    # The mail sink inside `.tmp-e2e/`, so the journeys read this stack's codes and never the local stack's.
+    volumes: !override
+      - ./.tmp-e2e/mail:/app/.tmp-mail
+    # Cloudflare's address refuses at once inside this container, so a journey's bot check contacts no
+    # third party and passes as `turnstileRefusal` passes a
+    # submission while Cloudflare is unreachable.
+    extra_hosts:
+      - challenges.cloudflare.com=127.0.0.1
+
+  backend:
+    # Named for the same reason as the frontend's.
+    image: frankfurtleague-e2e-backend
+    # The developer's `fl_backend/.env` stays the local stack's: every setting this stack takes is below.
+    env_file: !reset null
+    environment:
+      # The made-up seed's database, on this stack's own server.
+      - DB_BASE_NAME=fl_e2e
+
+  nginx:
+    # nginx/e2e in nginx/local's place, which it includes from the path beside it: the local edge,
+    # its limits counting and refusing nothing (`nginx/e2e/e2e.conf`).
+    volumes: !override
+      - ./nginx/e2e:/etc/nginx/conf.d:ro
+      - ./nginx/local:/etc/nginx/local:ro
+      - ./nginx/shared:/etc/nginx/shared:ro
+
+# The local stack's four files, each one this stack's start generated.
+secrets: !override
+  auth_secret:
+    file: ./.tmp-e2e/secrets/auth_secret
+  internal_api_key_base:
+    file: ./.tmp-e2e/secrets/internal_api_key_base
+  internal_api_key_system:
+    file: ./.tmp-e2e/secrets/internal_api_key_system
+  internal_api_key_admin:
+    file: ./.tmp-e2e/secrets/internal_api_key_admin

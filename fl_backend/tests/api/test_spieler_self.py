@@ -1,0 +1,566 @@
+import functools
+from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+from bson import ObjectId
+from fastapi import FastAPI
+from httpx2 import AsyncClient
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.api.spieler.admin_router import get_spieler_saison, patch_spieler_saison
+from app.api.spieler.schemas import FLPatchSpielerSaisonPayload
+from app.core.codes import Code
+from app.core.collections import Collection
+from app.core.config import API_VERSION
+from app.core.recording import actor_var
+from app.main import create_app
+from app.shared.einwilligung_evidence import EVIDENCE, evidence_state_of
+from tests.app_client import app_client
+from tests.config import ADMIN_KEY
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import (
+    SPIELER_TEXT_VERSIONS,
+    aufstellung_document,
+    own_einwilligung_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    spiel_document,
+    spieler_document,
+    team_document,
+)
+from tests.session_headers import StampedHeaders
+from tests.worker import worker_database
+
+from .conftest import config_for
+
+DATABASE_NAME = worker_database("fl_spieler_self_test")
+
+CONFIG = config_for(DATABASE_NAME)
+
+PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
+# The account page's read, which serves the consent and the evidence a press echoes.
+ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
+
+NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
+
+PAST_SAISON = "2025"
+ACTIVE_SAISON = "2026"
+
+# Stored folded, as every pupil row stores its address.
+IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
+YOUNG = "jonas.jungspund@schule.de"
+BYSTANDER = "baldur.krautzberger@example.com"
+NOBODY = "niemand@schule.de"
+# The administrator saving the Spieler editor.
+EDITOR = "admin@frankfurtleague.de"
+
+# Fixed, so a failure names the same row every run.
+# The pupil's club A above B: a join over `uniq_aufstellung_spiel_id_team_id` meets a fixture's two line-ups B's first,
+# so a read taking the fixture's first line-up rather than its club's reads B's.
+TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607840002")
+TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607840001")
+PUPIL_OID = ObjectId("6890a1b2c3d4e5f607840011")
+YOUNG_OID = ObjectId("6890a1b2c3d4e5f607840013")
+BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607840019")
+
+# The name each season row was entered under, apart from the club's current one, so serving the
+# club's own would be observable.
+ROW_NAME_A_PAST = "Helmholtz"
+ROW_NAME_A_ACTIVE = "Helmholtz-Gymnasium"
+CLUB_NAME_A_NOW = "Helmholtzschule Frankfurt"
+ROW_NAME_B = "Lessing"
+
+ADULT_BIRTHDATE = "2000-05-09"
+
+# A fixture the pupil's team plays this season: the document a consent verdict would be denormalised onto.
+SPIEL = spiel_document(
+    spiel_id=ObjectId("6890a1b2c3d4e5f607840041"),
+    saison_id=ACTIVE_SAISON,
+    spiel_nr=1,
+    spieltag_id=ObjectId("6890a1b2c3d4e5f607840042"),
+    team1={"team_id": TEAM_A_OID, "tore": None},
+    team2={"team_id": TEAM_B_OID, "tore": None},
+)
+
+# `NOW` in UTC, as evidence spells its instant.
+NOW_UTC = "2026-10-03T10:00:00+00:00"
+
+# The evidence the record already carries: the scope granted on the account page, the media answer
+# at the confirmation. Two acts, so a press is seen to restamp the choice it moves and no other.
+EARLIER_EVIDENCE = {
+    "scope": {"at": "2026-09-20T17:30:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["scope"]},
+    "media": {"at": "2026-09-02T08:00:00+00:00", "text_version": SPIELER_TEXT_VERSIONS["media"]},
+}
+# Seventeen on `NOW`, eighteen a day later: the floor is judged on the day, not the year.
+SEVENTEEN_BIRTHDATE = "2008-10-04"
+
+
+# The instant each seeded record's own confirmation was pressed.
+CONFIRMED_AT = "2026-09-02T08:00:00+00:00"
+
+
+def _einwilligung(**fields: Any) -> dict[str, Any]:
+    return own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-09-02", at=CONFIRMED_AT, **fields)
+
+
+# What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
+MEDIA_GRANTED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
+
+
+# What a page served that record echoes.
+EARLIER_STATE = evidence_state_of(blocks=[{**_einwilligung(), EVIDENCE: EARLIER_EVIDENCE}])
+
+
+def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
+    """The block without its evidence, which the cases on a press assert by themselves."""
+
+    return {key: value for key, value in einwilligung.items() if key != EVIDENCE}
+
+
+def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """A press from a page served the record as the suite seeds it, unless `state` says otherwise."""
+
+    return {
+        "scope": scope,
+        "media": media,
+        "text_versions": dict(SPIELER_TEXT_VERSIONS),
+        "evidence_state": dict(state) if state is not None else evidence_state_of(blocks=[_einwilligung()]),
+    }
+
+
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
+
+
+async def _seed(database: AsyncDatabase) -> None:
+    await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
+    await database[Collection.TEAMS].insert_many(
+        [team_document(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), team_document(TEAM_B_OID, ROW_NAME_B, "LEX")]
+    )
+    await database[Collection.SAISON_TEAMS].insert_many(
+        [
+            saison_team_document(PAST_SAISON, TEAM_A_OID, ROW_NAME_A_PAST, "HEX"),
+            saison_team_document(ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HEX"),
+            saison_team_document(ACTIVE_SAISON, TEAM_B_OID, ROW_NAME_B, "LEX"),
+        ]
+    )
+
+    def pupil(oid: ObjectId, first_name: str, last_name: str, email: str, **fields: Any) -> dict[str, Any]:
+        return spieler_document(
+            oid, first_name, last_name, email=email, **{"birth_date": ADULT_BIRTHDATE, "einwilligung": _einwilligung(), **fields}
+        )
+
+    await database[Collection.SPIELER].insert_many(
+        [
+            pupil(PUPIL_OID, "Ortrud", "Zwiebelmayer", IDENTIFIER),
+            pupil(YOUNG_OID, "Jonas", "Jungspund", YOUNG, birth_date=SEVENTEEN_BIRTHDATE),
+            pupil(BYSTANDER_OID, "Baldur", "Krautzberger", BYSTANDER),
+        ]
+    )
+    await database[Collection.SPIELE].insert_one(dict(SPIEL))
+    await database[Collection.SAISON_SPIELER].insert_many(
+        [
+            saison_spieler_document(PUPIL_OID, PAST_SAISON, TEAM_A_OID, nummer="7", inactive_since="2025-06-30"),
+            saison_spieler_document(PUPIL_OID, ACTIVE_SAISON, TEAM_A_OID, nummer="07", rolle="kapitaen", is_nachnominiert=True),
+            saison_spieler_document(BYSTANDER_OID, ACTIVE_SAISON, TEAM_B_OID, nummer="9"),
+        ]
+    )
+
+
+@functools.cache
+def _app() -> FastAPI:
+    """Built once for the module: a build per case would be about half of what a case here costs."""
+
+    return create_app(CONFIG)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _built_before_any_case() -> None:
+    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
+
+    _app()
+
+
+def served[T](url: str, steps: Callable[[AsyncClient, AsyncDatabase], Awaitable[T]]) -> T:
+    """`steps` against a freshly seeded database, served on the clock `NOW` reads."""
+
+    async def _run() -> T:
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_client, database):
+            await _seed(database)
+            async with app_client(url, app=_app(), now=NOW) as http:
+                return await steps(http, database)
+
+    return on_the_seed_loop(_run())
+
+
+async def _records(database: AsyncDatabase) -> dict[Any, Any]:
+    return {row["_id"]: row async for row in database[Collection.SPIELER].find({}, {"einwilligung": 1})}
+
+
+def _read(email: str, *, path: str) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
+    async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
+        return await http.get(path, headers=_person(email))
+
+    return steps
+
+
+def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDatabase], Awaitable[None]] | None = None):
+    """One PATCH, with the records as they stood before it and after it, and every fixture as it stands after it."""
+
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> tuple[Any, dict[Any, Any], dict[Any, Any], list[Any]]:
+        if before is not None:
+            await before(database)
+        stored = await _records(database)
+        response = await http.patch(PATCH_PATH, json=payload, headers=_person(email))
+        return response, stored, await _records(database), await database[Collection.SPIELE].find({}).to_list()
+
+    return steps
+
+
+@pytest.mark.db
+class TestTheAccountEntry:
+    @pytest.mark.parametrize(("email", "offered"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
+    def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, offered: bool):
+        assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is offered
+
+
+SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
+FUTURE_SAISON = "2027"
+# The two matchdays of the active season's group phase.
+SPIELTAG_1_OID = SPIEL["spieltag_id"]
+SPIELTAG_2_OID = ObjectId("6890a1b2c3d4e5f607840043")
+
+
+def _saison_path(saison_id: str) -> str:
+    return f"/api/v{API_VERSION}/spieler/self/{saison_id}"
+
+
+def _club_spiel(spiel_nr: int, team1: ObjectId, team2: ObjectId | None, *, spieltag_id: ObjectId = SPIELTAG_2_OID) -> dict[str, Any]:
+    return spiel_document(
+        spiel_id=ObjectId(f"6890a1b2c3d4e5f6078400{50 + spiel_nr}"),
+        saison_id=ACTIVE_SAISON,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        team1={"team_id": team1, "tore": None},
+        team2=None if team2 is None else {"team_id": team2, "tore": None},
+    )
+
+
+# Club A's fixtures beside the seeded first, each placing the pupil apart in A's line-up: benched, unnamed, none stored.
+BENCHED, UNNAMED, NONE_STORED = (
+    _club_spiel(2, TEAM_B_OID, TEAM_A_OID),
+    _club_spiel(3, TEAM_A_OID, TEAM_B_OID),
+    _club_spiel(4, TEAM_B_OID, TEAM_A_OID),
+)
+# Club B's alone, its other side still empty.
+NOT_THE_CLUBS = _club_spiel(5, TEAM_B_OID, None)
+
+
+async def _seed_the_season(database: AsyncDatabase) -> None:
+    """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
+
+    await database[Collection.SAISONS].insert_one(saison_document(FUTURE_SAISON, "future"))
+    await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(YOUNG_OID, FUTURE_SAISON, TEAM_B_OID))
+    await database[Collection.SPIELTAGE].insert_many(
+        [
+            {
+                "_id": oid,
+                "start": None,
+                "end": None,
+                "position": position,
+                "saison_phase": "gruppenphase",
+                "saison_id": ACTIVE_SAISON,
+                "version": 0,
+            }
+            for oid, position in ((SPIELTAG_1_OID, 1), (SPIELTAG_2_OID, 2))
+        ]
+    )
+    await database[Collection.SPIELE].insert_many([BENCHED, UNNAMED, NONE_STORED, NOT_THE_CLUBS])
+    await database[Collection.AUFSTELLUNGEN].insert_many(
+        [
+            aufstellung_document(SPIEL, TEAM_A_OID, starters=[PUPIL_OID]),
+            aufstellung_document(BENCHED, TEAM_A_OID, bench=[PUPIL_OID]),
+            # The other club's line-up for the same fixture, starting the pupil, so a read keyed by the fixture alone shows.
+            aufstellung_document(BENCHED, TEAM_B_OID, starters=[PUPIL_OID]),
+            aufstellung_document(UNNAMED, TEAM_A_OID, starters=[BYSTANDER_OID]),
+        ]
+    )
+
+
+def _read_after_seeding(email: str, *, path: str) -> Callable[[AsyncClient, AsyncDatabase], Awaitable[Any]]:
+    async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+        await _seed_the_season(database)
+        return await http.get(path, headers=_person(email))
+
+    return steps
+
+
+@pytest.mark.db
+class TestTheOwnSeasons:
+    def test_the_seasons_are_those_a_row_stands_in_the_newest_first_a_future_one_among_them(self, mongo_replica_set_url: str):
+        def saisons(email: str) -> list[str]:
+            response = served(mongo_replica_set_url, _read_after_seeding(email, path=SAISONS_PATH))
+            assert response.status_code == 200, response.text
+            return [saison["id"] for saison in response.json()["saisons"]]
+
+        # The past season's row is deregistered, and still a season the pupil played.
+        assert saisons(IDENTIFIER) == [ACTIVE_SAISON, PAST_SAISON]
+        assert saisons(YOUNG) == [FUTURE_SAISON]
+
+    @pytest.mark.parametrize("path", [SAISONS_PATH, _saison_path(ACTIVE_SAISON)], ids=["saisons", "saison"])
+    def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
+        response = served(mongo_replica_set_url, _read(NOBODY, path=path))
+
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
+
+
+@pytest.mark.db
+class TestTheOwnSeason:
+    def test_the_row_and_the_clubs_fixtures_each_with_where_its_line_up_puts_the_pupil(self, mongo_replica_set_url: str):
+        response = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(ACTIVE_SAISON)))
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["kader"]["team_name"], body["kader"]["nummer"], body["kader"]["rolle"]) == (ROW_NAME_A_ACTIVE, "07", "kapitaen")
+        assert [
+            (spiel["spiel_nr"], spiel["spieltag_position"], spiel["count_spieltage_in_phase"], spiel["starts"]) for spiel in body["spiele"]
+        ] == [
+            (1, 1, 2, True),
+            (2, 2, 2, False),
+            (3, 2, 2, None),
+            (4, 2, 2, None),
+        ]
+
+    def test_a_past_row_reads_its_seasons_name_and_a_season_without_one_reads_nothing(self, mongo_replica_set_url: str):
+        past = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(PAST_SAISON))).json()
+        unheld = served(mongo_replica_set_url, _read_after_seeding(BYSTANDER, path=_saison_path(PAST_SAISON))).json()
+
+        assert (past["kader"]["team_name"], past["kader"]["inactive_since"]) == (ROW_NAME_A_PAST, "2025-06-30")
+        assert (unheld["kader"], unheld["spiele"]) == (None, [])
+
+
+@pytest.mark.db
+class TestTheTwoChoices:
+    def test_moving_the_scope_moves_this_record_alone_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
+        """With the next case, the pair that goes red the day the handler writes the payload wholesale."""
+
+        response, before, after, spiele = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal")))
+
+        assert response.status_code == 204, response.text
+        assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "scope": "internal"}
+        assert {key: value for key, value in after.items() if key != PUPIL_OID} == {
+            key: value for key, value in before.items() if key != PUPIL_OID
+        }
+        # No copy of the verdict on any fixture, the seeded one held byte for byte.
+        assert spiele == [SPIEL]
+
+    def test_moving_the_media_answer_leaves_the_scope_and_the_confirmation(self, mongo_replica_set_url: str):
+        """The confirmation day is what the panel and the publication mask read."""
+
+        response, before, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(media=True)))
+
+        assert response.status_code == 204, response.text
+        assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
+
+    def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
+            return response, await _records(database)
+
+        response, after = served(mongo_replica_set_url, steps)
+
+        assert response.status_code == 204, response.text
+        assert after[PUPIL_OID]["einwilligung"] == _einwilligung()
+
+
+@pytest.mark.db
+class TestAnEditorReadBeforeThePress:
+    def test_the_editors_save_lands_and_the_press_stands(self, mongo_replica_set_url: str):
+        """The press moves no field the Spieler editor saves, so a count it raised would refuse that editor's next save for nothing."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            read = await get_spieler_saison(
+                spieler_id=PUPIL_OID,
+                saison_id=ACTIVE_SAISON,
+                spieler_collection=database[Collection.SPIELER],
+                saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                saisons_collection=database[Collection.SAISONS],
+            )
+            pressed = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
+            # The administrator `bind_actor` would bind, since the editor's save is called here rather than served.
+            token = actor_var.set(EDITOR)
+            try:
+                await patch_spieler_saison(
+                    spieler_id=PUPIL_OID,
+                    saison_id=ACTIVE_SAISON,
+                    spieler_data=FLPatchSpielerSaisonPayload(
+                        first_name="Ortrun",
+                        last_name="Zwiebelmayer",
+                        birth_date=ADULT_BIRTHDATE,
+                        nummer="07",
+                        position=None,
+                        stufe=None,
+                        rolle="kapitaen",
+                        version=read.version,
+                    ),
+                    spieler_collection=database[Collection.SPIELER],
+                    saison_spieler_collection=database[Collection.SAISON_SPIELER],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=database.client,
+                )
+            finally:
+                actor_var.reset(token)
+            return pressed, await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
+
+        pressed, stored = served(mongo_replica_set_url, steps)
+
+        assert pressed.status_code == 204, pressed.text
+        assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
+
+
+@pytest.mark.db
+class TestARecordNotHeld:
+    def test_an_address_holding_no_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(scope="internal")))
+
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
+        assert after == before
+
+
+@pytest.mark.db
+class TestTheMediaAge:
+    def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        response, before, after, _ = served(mongo_replica_set_url, _press(YOUNG, _payload(media=True)))
+
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
+        assert after == before
+
+    def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
+        """A record stamped while the switch was offered from sixteen: judging the unchanged answer would lock the other switch."""
+
+        async def granted_under_an_earlier_label(database: AsyncDatabase) -> None:
+            await database[Collection.SPIELER].update_one({"_id": YOUNG_OID}, {"$set": {"einwilligung.media": True}})
+
+        response, _, after, _ = served(
+            mongo_replica_set_url,
+            _press(YOUNG, _payload(scope="internal", media=True, state=MEDIA_GRANTED_STATE), before=granted_under_an_earlier_label),
+        )
+
+        assert response.status_code == 204, response.text
+        assert (after[YOUNG_OID]["einwilligung"]["scope"], after[YOUNG_OID]["einwilligung"]["media"]) == ("internal", True)
+
+
+@pytest.mark.db
+class TestTheEvidence:
+    """Each press restamps the choice it moves and no other (Art. 7(1) DSGVO)."""
+
+    @staticmethod
+    async def _earlier_evidence(database: AsyncDatabase) -> None:
+        await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
+
+    def test_a_withdrawal_keeps_the_grant_it_ended_and_leaves_the_other_choices_evidence(self, mongo_replica_set_url: str):
+        """The case that goes red the day a write sets the block, or its evidence, whole."""
+
+        response, _, after, _ = served(
+            mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal", state=EARLIER_STATE), before=self._earlier_evidence)
+        )
+
+        assert response.status_code == 204, response.text
+        assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == {
+            "scope": {"at": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["scope"], "given_before": EARLIER_EVIDENCE["scope"]},
+            "media": EARLIER_EVIDENCE["media"],
+        }
+
+    def test_a_grant_after_a_withdrawal_is_its_own_evidence(self, mongo_replica_set_url: str):
+        """Seeded with evidence, so the withdrawal names the grant it ended and the re-grant is seen to drop it."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await self._earlier_evidence(database)
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=EARLIER_STATE), headers=_person(IDENTIFIER))
+            between = (await _records(database))[PUPIL_OID]["einwilligung"][EVIDENCE]["scope"]
+            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", state=served_state), headers=_person(IDENTIFIER))
+            return withdrawn, between, granted, await _records(database)
+
+        withdrawn, between, granted, after = served(mongo_replica_set_url, steps)
+
+        assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
+        assert between["given_before"] == EARLIER_EVIDENCE["scope"], "the withdrawal named no earlier grant, so this case proves nothing"
+        # Bounded at one act per choice: the grant standing drops the withdrawal's earlier grant.
+        assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == {
+            "scope": {"at": NOW_UTC, "text_version": SPIELER_TEXT_VERSIONS["scope"]},
+            "media": EARLIER_EVIDENCE["media"],
+        }
+        assert _block(after[PUPIL_OID]["einwilligung"]) == _block(_einwilligung())
+
+    def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
+        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(state=EARLIER_STATE), before=self._earlier_evidence))
+
+        assert response.status_code == 204, response.text
+        assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == EARLIER_EVIDENCE
+
+
+@pytest.mark.db
+class TestAStalePage:
+    """`choices_stale`: a press answers the evidence its page was served, or is refused and writes nothing."""
+
+    def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
+        """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.media": True}})
+            first_tab = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(media=False, state=first_tab["evidence_state"]), headers=_person(IDENTIFIER))
+            before = await _records(database)
+            stale = await http.patch(
+                PATCH_PATH, json=_payload(scope="internal", media=True, state=first_tab["evidence_state"]), headers=_person(IDENTIFIER)
+            )
+            return withdrawn, stale, before, await _records(database)
+
+        withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
+
+        assert withdrawn.status_code == 204, withdrawn.text
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
+        assert after == before
+        assert after[PUPIL_OID]["einwilligung"]["media"] is False
+
+    def test_the_state_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
+        """The round trip the page makes: echoed as served, over a record carrying evidence, and read again after the press."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
+            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            response = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=served_state), headers=_person(IDENTIFIER))
+            served_after = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            return served_state, response, served_after, await _records(database)
+
+        served_state, response, served_after, after = served(mongo_replica_set_url, steps)
+
+        assert served_state == EARLIER_STATE
+        assert response.status_code == 204, response.text
+        # The stand the page serves after the press is what a next press from it echoes: the moved choice's alone moved.
+        assert served_after == evidence_state_of(blocks=[after[PUPIL_OID]["einwilligung"]])
+        assert served_after["media"] == EARLIER_STATE["media"]
+        assert served_after["scope"] != EARLIER_STATE["scope"]
+
+    def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
+        """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""
+
+        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
+            between = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", state=between), headers=_person(IDENTIFIER))
+            before = await _records(database)
+            stale = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=between), headers=_person(IDENTIFIER))
+            return withdrawn, granted, stale, before, await _records(database)
+
+        withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
+
+        assert (withdrawn.status_code, granted.status_code) == (204, 204), granted.text
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
+        assert after == before

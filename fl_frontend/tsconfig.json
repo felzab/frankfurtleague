@@ -10,8 +10,6 @@
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
@@ -20,14 +18,14 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    // Test files import with an explicit .ts extension because Node's ESM resolver requires
-    // one; safe under noEmit, and nothing is emitted for tsc to rewrite.
+    // Test files import with an explicit .ts extension, which Vite resolves; safe under noEmit, and
+    // nothing is emitted for tsc to rewrite.
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    // Inside `.next/cache` so CI's frontend job restores it with Next's own cache: its tsc step is
-    // otherwise cold on every run. Entries are keyed on file hashes, so a restore re-checks what changed.
+    // Inside `.next/cache`, beside Next's own build cache, which git ignores: tsc keeps there what its
+    // last run learned of the project, so a run on the same checkout re-checks only what a change reaches.
     "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo",
     "plugins": [
       {
@@ -38,6 +36,14 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

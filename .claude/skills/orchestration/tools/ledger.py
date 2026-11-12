@@ -85,7 +85,7 @@ STILL_ACTIVE: Final = 259
 @functools.cache
 def _kernel32() -> ctypes.CDLL:
     # CDLL rather than WinDLL: x64 Windows has one calling convention, and pyright types WinDLL only
-    # inside a branch on `sys.platform`, which `docs/ops/spec.md` PLAT-1 refuses.
+    # inside a branch on `sys.platform`, which would hide the body from the checker on Linux.
     kernel32 = ctypes.CDLL("kernel32")
     kernel32.OpenProcess.restype = ctypes.c_void_p
     kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)

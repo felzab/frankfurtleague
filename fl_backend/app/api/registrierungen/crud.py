@@ -1,113 +1,154 @@
-"""
-API · what a registration is read and judged by, and the erasure's removal of an address's registrations
-
-Here rather than in `services.py`, which decides from its arguments and names no handle
-(`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
-"""
+"""The registrations' database reads and writes, kept apart from `services.py`, which decides from its arguments."""
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from datetime import datetime
+from typing import Any, Final, NamedTuple
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.bewerbungen.services import OPEN_LINKS_PER_MAILBOX, mailbox_anchor_ids
 from app.api.registrierungen.services import (
     PERSON_IDENTITY_FIELDS,
-    SUBMITTED,
     WITHOUT_TOKEN_HASHES,
-    build_adressen_filter,
-    build_offene_filter,
+    build_addresses_filter,
+    build_confirmed_open_filter,
+    build_open_link_filter,
     build_registrierungen_sort,
+    build_unconfirmed_open_filter,
+    find_unknown_registrierung_refusal,
 )
-from app.api.spieler.services import build_real_spieler_filter
-from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
-from app.core.recording import build_redaction_filter, build_redaction_update
-from app.shared.folding import sign_in_identifier
+from app.core.crud import aggregate_many_from_db, anchor_mailboxes_in_db, delete_many_from_db, refuse
+from app.core.readonly import ReadCollection
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
-PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "email")
-
-# What a confirmation link reads of a person: who they are and whether they confirmed, for the page,
-# and the birthdate the returning page takes as given. Never a choice: no link read serves one.
-PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
-    *PERSON_IDENTITY_FIELDS,
-    "geburtsdatum",
-    "einwilligung.bestaetigt_am",
-)
+PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "birth_date", "email")
 
 
-async def person_at_the_address(
-    *, spieler_collection: AsyncCollection, registrierung_raw: Mapping[str, Any], session: AsyncClientSession | None
-) -> Mapping[str, Any] | None:
-    """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
-
-    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and the date the press takes.
-    return await spieler_collection.find_one(
-        build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
-        projection=list(PERSON_ANSICHT_FIELDS),
-        session=session,
-    )
-
-
-async def pull_offene_registrierung(
+async def pull_registrierung(
     *, registrierungen_collection: AsyncCollection, registrierung_id: Any, session: AsyncClientSession
 ) -> Mapping[str, Any]:
-    """The pending registration this id names, or a 404: an admitted one is gone, and a declined one is decided."""
+    """The registration this id names, of any status, or `role_not_held` where no row holds it.
 
-    return await pull_one_from_db(
-        collection=registrierungen_collection,
-        db_filter={"_id": registrierung_id, "status": SUBMITTED},
-        projection=dict(WITHOUT_TOKEN_HASHES),
+    Never a 404, which would answer before the caller judges the seat: an unknown id and another team's row answer alike,
+    so nobody learns which ids exist. An admitted row is gone, so its id is one no row holds.
+    """
+
+    row = await registrierungen_collection.find_one({"_id": registrierung_id}, projection=dict(WITHOUT_TOKEN_HASHES), session=session)
+    refuse(find_unknown_registrierung_refusal(found=row is not None))
+    assert row is not None
+
+    return row
+
+
+async def judge_the_mailbox_in_session(
+    *,
+    registrierungen_collection: AsyncCollection,
+    mailbox_anchors_collection: AsyncCollection,
+    saison_id: str,
+    address: str,
+    # The row being mailed where it stands already, which takes no place from itself.
+    excluding_id: Any,
+    at: datetime,
+    session: AsyncClientSession,
+) -> bool:
+    """Whether the season may mail this address's mailbox another confirmation link, anchoring the mailbox where it may.
+
+    Below `OPEN_LINKS_PER_MAILBOX` unanswered mailed links, as the application's press judges it: the anchor puts two
+    writes mailing one mailbox in one write set, so neither passes on a count the other is about to raise.
+    """
+
+    waiting = await registrierungen_collection.count_documents(
+        {**build_open_link_filter(saison_id=saison_id, address=address), **({} if excluding_id is None else {"_id": {"$ne": excluding_id}})},
+        limit=OPEN_LINKS_PER_MAILBOX,
         session=session,
     )
+    if waiting >= OPEN_LINKS_PER_MAILBOX:
+        return False
+
+    await anchor_mailboxes_in_db(collection=mailbox_anchors_collection, ids=mailbox_anchor_ids(addresses=[address]), at=at, session=session)
+
+    return True
 
 
-async def pull_offene_registrierungen(
-    *, registrierungen_collection: AsyncCollection, saison_id: str, team_id: Any, limit: int, order: str, session: AsyncClientSession
-) -> list[Mapping[str, Any]]:
-    """One row past `limit`, so the caller tells a whole list from a cut one without counting."""
+# The most pending rows one read serves a team: the collection is written by anybody holding a team's link, so the read
+# is bounded whatever the form stored.
+OPEN_REGISTRIERUNGEN_CAP: Final = LIST_LIMIT_DEFAULT
 
-    return await aggregate_many_from_db(
-        collection=registrierungen_collection,
-        pipeline=[
-            {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(sort_by="eingereicht_am", order=order))},
-            {"$limit": limit + 1},
-            # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
-            # the join runs on reaches this handler, let alone the wire.
-            {
-                "$project": {
-                    **{field: 1 for field in ("eingereicht_am", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.bestaetigt_am")},
-                }
-            },
-        ],
-        session=session,
-    )
+
+class OpenRegistrierungen(NamedTuple):
+    rows: list[Mapping[str, Any]]
+    # Whether every pending row of the team's season is among `rows`, the cap having cut none.
+    complete: bool
+
+
+async def pull_open_registrierungen(
+    *, registrierungen_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession
+) -> OpenRegistrierungen:
+    """One team's pending rows, newest first, `OPEN_REGISTRIERUNGEN_CAP` at most, the confirmed ones taken first.
+
+    Anybody holding the team's link writes an unconfirmed row with every press, so a cap taking the newest alone lets one
+    flood of them bury every row a pupil confirmed. A confirmed row costs more: its own bot-checked submission and a
+    mailed link opened and answered, a mailbox holding `OPEN_LINKS_PER_MAILBOX` unanswered at a time. Rows past the cap
+    stay unread, as on the administration's list, and `complete` says so. Two reads, each newest first, the second only
+    for the room the first left.
+    """
+
+    rows: list[Mapping[str, Any]] = []
+    # Each on its own index, so neither fetches a row of the other kind to discard it.
+    for db_filter in (build_confirmed_open_filter, build_unconfirmed_open_filter):
+        room = OPEN_REGISTRIERUNGEN_CAP - len(rows)
+        # One row past the room, so a cut is known rather than guessed from a full page.
+        read = await aggregate_many_from_db(
+            collection=registrierungen_collection,
+            pipeline=[
+                {"$match": db_filter(saison_id=saison_id, team_id=team_id)},
+                {"$sort": dict(build_registrierungen_sort())},
+                {"$limit": room + 1},
+                # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
+                # the join runs on reaches this handler, let alone the wire.
+                {
+                    "$project": {
+                        **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
+                        **{field: 1 for field in ("email", "birth_date", "einwilligung.confirmed_at")},
+                    }
+                },
+            ],
+            session=session,
+        )
+        rows += read[:room]
+        if len(read) > room:
+            return OpenRegistrierungen(rows=_newest_first(rows), complete=False)
+
+    return OpenRegistrierungen(rows=_newest_first(rows), complete=True)
+
+
+def _newest_first(rows: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """The served rows in `build_registrierungen_sort`'s order, whichever read took each."""
+
+    return sorted(rows, key=lambda row: (row["submitted_at"], row["_id"]), reverse=True)
 
 
 async def persons_at(
-    *, spieler_collection: AsyncCollection, adressen: Sequence[str], session: AsyncClientSession | None
+    *, spieler_collection: ReadCollection, addresses: Sequence[str], session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
     """The stored persons these folded addresses resolve to, one per address under `uniq_spieler_email`."""
 
-    if not adressen:
+    if not addresses:
         return []
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, the admission writes the
-    # registration's person onto it.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_real_spieler_filter(build_adressen_filter(adressen))}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_addresses_filter(addresses)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
 
 async def nummern_rows(
-    *, saison_spieler_collection: AsyncCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
+    *, saison_spieler_collection: ReadCollection, saison_id: str, team_id: Any, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
-    """The live squad's shirt numbers, as `app/api/spieler/services.py :: build_live_squad_filter` counts the squad."""
+    """The live squad's shirt numbers, a nominee's among them: the cap's filter leaves those out, and a nominee wears one too."""
 
     return await aggregate_many_from_db(
         collection=saison_spieler_collection,
@@ -116,37 +157,40 @@ async def nummern_rows(
     )
 
 
+async def kader_rows_of(
+    *, saison_spieler_collection: ReadCollection, saison_id: str, spieler_ids: Sequence[Any], session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """These persons' rows of one season, whichever team holds each: one per person under `uniq_spieler_id_saison_id`."""
+
+    if not spieler_ids:
+        return []
+
+    return await aggregate_many_from_db(
+        collection=saison_spieler_collection,
+        pipeline=[
+            {"$match": {"saison_id": saison_id, "spieler_id": {"$in": list(spieler_ids)}}},
+            {"$project": {"spieler_id": 1, "is_nachnominiert": 1}},
+        ],
+        session=session,
+    )
+
+
 async def erase_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
-    aktionen_collection: AsyncCollection,
-    # Each carrying its `_id` and `saison_id`, as the erasure's subject read them.
+    # Each carrying its `_id`, as the erasure's subject read them.
     registrierungen: Sequence[Mapping[str, Any]],
-    stamp: str,
-    # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one
-    # (`docs/backend/spec.md :: I52`).
+    # Required, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
 ) -> int:
-    """Remove these registrations whole, then empty every log image of them, answering how many went: the document is the person's own."""
+    """Remove these registrations whole, answering how many went: the document is the person's own."""
 
-    # No command for none: the removal and the redaction below would each still reach the server.
+    # No command for none.
     if not registrierungen:
         return 0
 
-    ids = [row["_id"] for row in registrierungen]
-    # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
-    # keep what this removal destroys (`docs/backend/spec.md :: I48`).
-    erased = await erase_many_from_db(
-        collection=registrierungen_collection,
-        db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
-        session=session,
-    )
-    # A delivery record and every pre-image a confirmation or a decline filed go with the document.
-    await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, ids)]),
-        update=build_redaction_update(at=stamp),
-        session=session,
+    erased = await delete_many_from_db(
+        collection=registrierungen_collection, db_filter={"_id": {"$in": [row["_id"] for row in registrierungen]}}, session=session
     )
 
     return erased.deleted_count

@@ -1,0 +1,53 @@
+import { connection } from "next/server";
+
+import { RailFrame } from "@/kit/RailFrame";
+import { RailFrameBoundary } from "@/kit/RailFrameBoundary";
+
+import { COPY } from "@/core/copy";
+import { dayOf, formatPeriod } from "@/core/format";
+import { ROUTES, SAISON_PAGES } from "@/core/routes";
+import { getSaisonFrame } from "@/features/saisons/queries";
+
+import type { Saisons } from "@/kit/FrameNav";
+import type { ReactNode } from "react";
+
+const GROUPS = [{ entries: SAISON_PAGES.map((page) => ({ id: page, label: ROUTES[page].title, saison: page, icon: page })) }];
+
+/**
+ * The season button's seasons: every season the public may read, the newest first, and the one the site is on
+ * as the standard; `null` while the league has none. Read at request time, so the frame's prerendered shell holds
+ * none: the image's build reaches no backend.
+ */
+async function readSeasons(): Promise<Saisons | null> {
+  await connection();
+  const { saisons, active_saison_id: active } = await getSaisonFrame();
+  if (active === null) return null;
+  return {
+    entries: saisons.map((saison) => ({ id: saison.id, span: formatPeriod(dayOf(saison.start_date), dayOf(saison.end_date)) })),
+    standard: active,
+  };
+}
+
+/**
+ * The public season pages' frame. It stands above the `[saison]` segment, whose subtree Next keys on the
+ * season, so a season switch remounts the page alone and keeps the frame; the frame reads the season from
+ * the address on the client, so nothing here waits.
+ */
+export default function SaisonsLayout({ children }: { children: ReactNode }) {
+  return (
+    // A failed read of the frame's own is answered in the rail frame: this segment's `error.tsx` stands inside this layout.
+    <RailFrameBoundary
+      groups={GROUPS}
+      bar={SAISON_PAGES}
+      next={{ label: COPY.shared.end.toHome, href: ROUTES.home.path() }}
+      signIn={ROUTES.signIn.path()}>
+      <RailFrame
+        groups={GROUPS}
+        bar={SAISON_PAGES}
+        saison={{ saisons: readSeasons(), home: "spielplan" }}
+        foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
+        {children}
+      </RailFrame>
+    </RailFrameBoundary>
+  );
+}

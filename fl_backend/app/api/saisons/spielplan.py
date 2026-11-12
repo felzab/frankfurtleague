@@ -1,4 +1,4 @@
-"""SAISONS · the documents a season's draw inserts, composed and never written.
+"""The documents a season's draw inserts, composed and never written.
 
 Pure by construction: the caller owns the reads that supply the clubs and the writes that follow.
 Nothing here judges the draw against the season, because a half-written draw is all such a rule
@@ -13,16 +13,16 @@ from bson import ObjectId
 
 from app.api.saisons.schedule import knockout_phases_for, qualifier_count
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import FLSaisonPhase, FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
-from app.api.teams.schemas import FLGruppenNames
+from app.api.spiele.schemas import FLSpielQuelleGruppe, FLSpielQuelleSpiel, FLSpielTeamField
 from app.api.teams.services import offered_gruppen
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
 @dataclass(frozen=True)
 class EnteredTeam:
     """One club as its `saison_teams` row holds it.
 
-    `name` and `shorthand` come off the ROW, which is what the season is played under. `row_id` is
+    `name` and `shorthand` come off the row, which is what the season is played under. `row_id` is
     the entry order, and no edit to either name redraws it.
     """
 
@@ -44,7 +44,7 @@ class Spielplan:
 def circle_rounds(teams: int) -> tuple[tuple[tuple[int, int], ...], ...]:
     """Every round of one group's round robin, as index pairs into its ordered team list.
 
-    A pair's FIRST index is `team1`. Position 0 is pinned while the rest rotate, so its pair flips
+    A pair's first index is `team1`. Position 0 is pinned while the rest rotate, so its pair flips
     on odd rounds -- otherwise that club is listed first in every round.
     """
 
@@ -66,7 +66,7 @@ def circle_rounds(teams: int) -> tuple[tuple[tuple[int, int], ...], ...]:
                 continue
             pairs.append((other, one) if offset == 0 and index % 2 else (one, other))
         rounds.append(tuple(pairs))
-        # Position 0 stays put while the rest rotate: rotating the WHOLE list maps this pairing onto
+        # Position 0 stays put while the rest rotate: rotating the whole list maps this pairing onto
         # itself, so every round would repeat the first.
         field = [field[0], field[-1], *field[1:-1]]
 
@@ -88,52 +88,51 @@ def _seed_at_slot(field: int) -> tuple[int, ...]:
     return seeds
 
 
-def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tuple[tuple[FLGruppenNames, int], ...]:
+def bracket_seeding(*, number_of_gruppen: int, qualifiers_per_gruppe: int) -> tuple[tuple[FLGruppenNames, int], ...]:
     """Which qualifier stands in each slot of the first knockout round, left to right.
 
     Constructed rather than searched: the placements grow factorially in the group count, so a search
     cannot follow a widened `FLGruppenNames`.
     """
 
-    field = number_of_groups * qualifiers_per_group
+    field = number_of_gruppen * qualifiers_per_gruppe
     # The product alone settles both factors, every divisor of a power of two being one.
     if field < 1 or field & (field - 1):
         raise ValueError(
-            f"{number_of_groups} group(s) of {qualifiers_per_group} qualifier(s) is {field} teams; a knockout bracket has no shape for it"
+            f"{number_of_gruppen} group(s) of {qualifiers_per_gruppe} qualifier(s) is {field} teams; a knockout bracket has no shape for it"
         )
 
-    offered = offered_gruppen(number_of_groups)
+    offered = offered_gruppen(number_of_gruppen)
     # `offered_gruppen` slices a closed set, so it answers short rather than raising, and a short
     # answer would seed one group's qualifier into another group's slot.
-    if len(offered) != number_of_groups:
-        raise ValueError(f"a season of {number_of_groups} groups needs that many names, and the closed set holds {len(offered)}")
+    if len(offered) != number_of_gruppen:
+        raise ValueError(f"a season of {number_of_gruppen} groups needs that many names, and the closed set holds {len(offered)}")
 
-    placing_at = _seed_at_slot(qualifiers_per_group)
+    placing_at = _seed_at_slot(qualifiers_per_gruppe)
     # `max`, or the draw repeats one pair and leaves another out. A divisor that also fits scores the
-    # same and ships a different row, which is what `tests/bracket_reference.py :: BRACKET_SEEDING` fixes.
-    shift_of = max(number_of_groups, qualifiers_per_group)
+    # same and ships a different row, so the seeding is this one and no other.
+    shift_of = max(number_of_gruppen, qualifiers_per_gruppe)
 
-    # One qualifier of every group per block of `number_of_groups` slots, the latest a bracket can
-    # push two qualifiers of one group into meeting (`docs/backend/spec.md :: I199`). Pairing
-    # partnered groups alone fixes who meets
-    # and not where (`tests/api/test_spielplan.py :: TestTheConstructionBeatsTheObviousRuntimeRule`).
-    return tuple((offered[(slot % number_of_groups) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_group]) for slot in range(field))
+    # One qualifier of every group per block of `number_of_gruppen` slots, the latest a bracket can
+    # push two qualifiers of one group into meeting. Pairing partnered groups alone fixes who meets
+    # and not where.
+    return tuple((offered[(slot % number_of_gruppen) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_gruppe]) for slot in range(field))
 
 
 def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGruppenNames, tuple[EnteredTeam, ...]]:
     """Each offered group's clubs in entry order, the groups in the order the closed set names them."""
 
-    squads: dict[FLGruppenNames, list[EnteredTeam]] = {gruppe: [] for gruppe in offered_gruppen(rules.number_of_groups)}
+    squads: dict[FLGruppenNames, list[EnteredTeam]] = {gruppe: [] for gruppe in offered_gruppen(rules.number_of_gruppen)}
     for team in sorted(entered, key=lambda row: row.row_id):
         if team.gruppe not in squads:
-            raise ValueError(f"{team.name} stands in group {team.gruppe}, which a season of {rules.number_of_groups} group(s) does not offer")
+            raise ValueError(f"{team.name} stands in group {team.gruppe}, which a season of {rules.number_of_gruppen} group(s) does not offer")
         squads[team.gruppe].append(team)
 
     # Raised rather than drawn as it stands: a group off its size shortens one round robin while
-    # every matchday's `anzahl_spiele` goes on expecting the full one.
-    wrong = {gruppe: len(squad) for gruppe, squad in squads.items() if len(squad) != rules.teams_per_group}
+    # every matchday's `count_spiele` goes on expecting the full one.
+    wrong = {gruppe: len(squad) for gruppe, squad in squads.items() if len(squad) != rules.teams_per_gruppe}
     if wrong:
-        raise ValueError(f"this season plays groups of {rules.teams_per_group}; these hold otherwise: {wrong}")
+        raise ValueError(f"this season plays groups of {rules.teams_per_gruppe}; these hold otherwise: {wrong}")
 
     return {gruppe: tuple(squad) for gruppe, squad in squads.items()}
 
@@ -141,11 +140,11 @@ def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGrup
 def _side(team: EnteredTeam) -> dict[str, Any]:
     """One side of a group fixture, composed through the model every read validates against.
 
-    `keep_oid` holds `team_id` as an ObjectId: dumped to its string, the `spiele` validator refuses
-    the whole document.
+    `keep_oid` holds `team_id` as an ObjectId: dumped to its string, every filter naming the club by
+    its id would miss the fixture.
     """
 
-    return FLSpielTeamField(team_id=team.team_id, tore=None, name=team.name, shorthand=team.shorthand).model_dump(context={"keep_oid": True})
+    return FLSpielTeamField(team_id=team.team_id, tore=None).model_dump(context={"keep_oid": True})
 
 
 def _spieltag(*, saison_id: str, phase: FLSaisonPhase, position: int) -> dict[str, Any]:
@@ -155,8 +154,8 @@ def _spieltag(*, saison_id: str, phase: FLSaisonPhase, position: int) -> dict[st
         "_id": ObjectId(),
         # Null because dating a matchday is a separate operation: the draw settles the round and its
         # place, and `PATCH /spieltage/{id}` -- a dates-only payload -- is where a person sets these.
-        "beginn": None,
-        "ende": None,
+        "start": None,
+        "end": None,
         "saison_phase": phase,
         "saison_id": saison_id,
         "position": position,
@@ -174,23 +173,22 @@ def _spiel(
     team1_quelle: dict[str, Any] | None = None,
     team2_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """One fixture carrying every key `app/core/constraints.py :: COLLECTION_VALIDATORS` requires.
+    """One fixture carrying every key the fixture's record model requires.
 
     Nothing is scheduled and nothing has happened, so the rest is null: a date, a venue and a
     referee are the admin's, and a drawn season states none of them.
     """
 
     return {
-        # Real ObjectIds, never their strings: both id fields are declared `objectId`, so a
-        # `mode="json"` dump of this document fails the validator on four fields at once.
+        # Real ObjectIds, never their strings, which no filter or join on these ids would match.
         "_id": ObjectId(),
         "team1": team1,
         "team2": team2,
         "team1_quelle": team1_quelle,
         "team2_quelle": team2_quelle,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
+        "date": None,
+        "time": None,
+        "spielort": None,
         "schiedsrichter": None,
         "ergebnis": None,
         "elfmeterschiessen": None,
@@ -206,6 +204,7 @@ def _spiel(
 def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> Spielplan:
     """Every document one season's draw inserts, `spiel_nr` contiguous from 1 in playing order.
 
+    Every bracket also plays for third place, on the Finale's matchday before the final.
     No document carries a date: the draw settles who plays whom and in what order, and every date is
     set afterwards, one matchday and one fixture at a time.
     """
@@ -218,7 +217,7 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
 
     # Round k of every group is matchday k: the groups play in step, so no club stands twice on one
     # matchday and every group finishes its round robin on the same one.
-    for index, pairs in enumerate(circle_rounds(rules.teams_per_group)):
+    for index, pairs in enumerate(circle_rounds(rules.teams_per_gruppe)):
         spieltag = _spieltag(saison_id=saison_id, phase="gruppenphase", position=index + 1)
         spieltage.append(spieltag)
         for squad in squads.values():
@@ -239,7 +238,7 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
     knockout = knockout_phases_for(remaining)
     # Asked of the phases and not of the count: `knockout_phases_for` is what answers empty for a
     # field no bracket halves, and `bracket_seeding` raises on one.
-    seeding = bracket_seeding(number_of_groups=rules.number_of_groups, qualifiers_per_group=rules.qualifiers_per_group) if knockout else ()
+    seeding = bracket_seeding(number_of_gruppen=rules.number_of_gruppen, qualifiers_per_gruppe=rules.qualifiers_per_gruppe) if knockout else ()
 
     # The round already drawn, left to right; empty before the first, which reads the standings
     # instead -- the one round whose sides no earlier fixture can name.
@@ -247,6 +246,25 @@ def draw_spielplan(*, saison_id: str, rules: FLSaisonRules, entered: Sequence[En
     for phase in knockout:
         spieltag = _spieltag(saison_id=saison_id, phase=phase, position=1)
         spieltage.append(spieltag)
+
+        # The match for third place. No bracket opens narrower than the semi-finals (`MIN_QUALIFIERS`),
+        # so `feeding` is then the two semi-finals, whose losers meet here. Ahead of the final, so the
+        # matchday is played in the order its numbers read, and under the Finale's phase rather than one
+        # of its own, which appended past `finale` would double `MAX_QUALIFIERS`.
+        if phase == "finale":
+            losers = [FLSpielQuelleSpiel(type="spiel", spiel_nr=nr, ausgang="verlierer").model_dump() for nr in feeding]
+            spiele.append(
+                _spiel(
+                    saison_id=saison_id,
+                    phase=phase,
+                    spieltag_id=spieltag["_id"],
+                    spiel_nr=spiel_nr,
+                    team1_quelle=losers[0],
+                    team2_quelle=losers[1],
+                )
+            )
+            spiel_nr += 1
+
         drawn: list[int] = []
         for slot in range(0, remaining, 2):
             sides = (

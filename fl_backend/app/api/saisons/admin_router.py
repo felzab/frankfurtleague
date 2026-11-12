@@ -1,5 +1,7 @@
+import asyncio
 from collections.abc import Mapping, Sequence
-from typing import Annotated, Any, NamedTuple
+from datetime import datetime
+from typing import Annotated, Any, Literal, NamedTuple
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import AsyncMongoClient, ReturnDocument
@@ -8,28 +10,32 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
-from app.api.bewerbungen.services import mint_token
-from app.api.einladungen.schemas import (
-    FLEinladungVersandPayload,
-    FLEinladungVersandResponse,
-    FLEinladungVersandVorschauResponse,
-    FLEinladungVersandVorschauZeile,
-    FLEinladungVersandZeile,
+from app.api.aufstellungen.crud import remove_the_seasons_aufstellungen
+from app.api.grants.guard import verify_actor_is_admin
+from app.api.invitations.crud import owed_invitation_mails
+from app.api.invitations.schemas import (
+    FLInvitation,
+    FLInvitationDispatchResponse,
+    FLInvitationLinkRow,
 )
-from app.api.einladungen.services import (
-    LIVE_EINLADUNG,
+from app.api.invitations.services import (
+    LIVE_INVITATION,
     WITHOUT_TOKEN_HASH,
-    bestaetigte_empfaenger,
+    InvitationDispatchPlan,
     build_live_team_filter,
-    compose_einladung,
-    compose_widerruf_update,
-    find_saison_vorbei_refusal,
-    plan_einladung_versand,
+    compose_invitation,
+    compose_revocation_update,
+    find_invitation_saison_past_refusal,
+    plan_invitation_dispatch,
 )
-from app.api.identitaet.crud import faellige_anzahl, saison_statuses
-from app.api.identitaet.schemas import FLLoeschungVorschauResponse
-from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
-from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.outbox.services import enqueue_mails
+from app.api.saisons.crud import (
+    count_spiele_by_saison,
+    count_teams_by_saison,
+    pull_create_state,
+    pull_finale_by_saison,
+    saisons_with_a_spiel_taken_place,
+)
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -38,11 +44,16 @@ from app.api.saisons.schemas import (
     FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
-    FLSaison,
-    FLSaisonListAdapter,
+    FLSaisonActRefusals,
+    FLSaisonAdmin,
+    FLSaisonAdminIncomingTeam,
+    FLSaisonAdminListAdapter,
+    FLSaisonAdminResponse,
+    FLSaisonAdminTeam,
+    FLSaisonDrawn,
     FLSaisonRules,
-    FLSaisonsFilterParams,
-    FLSaisonsListResponse,
+    FLSaisonsAdminListResponse,
+    FLSaisonsAdminRefusals,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
@@ -51,122 +62,84 @@ from app.api.saisons.schemas import (
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
     as_the_draw_answers,
+    decided_podium,
     find_activation_refusal,
     find_berichte_refusal,
+    find_rules_freeze_refusal,
     find_rules_refusal,
+    find_saison_create_refusal,
     find_saison_span_refusal,
+    find_saison_start_austritt_refusal,
+    find_saison_start_refusal,
     find_spielplan_refusal,
     find_undraw_refusal,
+    has_started,
     holds_a_recorded_fact,
     unplayed_spiel_nrs,
     with_schedule,
+    workable_shapes,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
-from app.api.spielberichte.crud import anchor_the_season_reported_in, count_eingereichte_berichte
-from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
-from app.api.teams.schemas import FLGruppenNames
+from app.api.spielberichte.crud import anchor_the_season_reported_in, count_submitted_berichte
+from app.api.spiele.schemas import FLSpielListAdapter
+from app.api.spieler.services import CAPPED_SQUAD_ROW
 from app.api.teams.services import (
+    TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
-    fixtures_newly_fielding_a_departed_club,
     has_taken_place,
 )
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    build_query,
-    build_sort,
+    VERSION_FIELD,
+    anchor_in_db,
     delete_many_from_db,
-    erase_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
     post_one_to_db,
     pull_many_from_db,
     pull_one_from_db,
+    pull_whole_from_db,
     refuse,
 )
 from app.core.dependencies import (
+    AufstellungenCollection,
+    BanListCollection,
     DBClient,
-    EinladungenCollection,
-    RegistrierungenCollection,
+    InvitationsCollection,
+    InvitationsReadCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SaisonsReadCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
+    SaisonTeamsReadCollection,
     SpielberichteCollection,
+    SpielberichteReadCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
-    SpielerCollection,
+    SpieleReadCollection,
     SpieltageCollection,
-    TeamsCollection,
+    SpieltageReadCollection,
+    TeamsReadCollection,
     get_german_date_str,
+    get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import WriteRefusal
 from app.core.logging import fl_logger
-from app.core.security import (
-    StepUpCheck,
-    bind_actor,
-    get_actor_email,
-    get_step_up_check,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_step_up,
-)
+from app.core.readonly import ReadCollection
+from app.core.recording import ACT_BY_SYSTEM, record_act
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.literals import FLGruppenNames
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-# No `tore`: goals belong to whoever scored them, and `has_taken_place` leaves none to move.
-SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
-
-
-def _spieltag_clashes(
-    *,
-    team_ids: Sequence[Any],
-    gruppenphase_spiele: Sequence[Mapping[str, Any]],
-    knockout_spiele: Sequence[Mapping[str, Any]],
-) -> int:
-    """How many Spieltage would double one of these clubs once they exchange (`REQ-SWAP-005`).
-
-    A bijection over the Gruppenphase, so afterwards a club stands in its OWN knockout fixtures plus
-    the OTHER's group ones.
-    """
-
-    other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
-
-    # Split by whether the rewrite moves the fixture: a group side becomes the other club's and a
-    # bracket side stays put, which is the whole arithmetic below.
-    moved: dict[tuple[Any, Any], int] = {}
-    fixed: dict[tuple[Any, Any], int] = {}
-
-    for spiele, counted in ((gruppenphase_spiele, moved), (knockout_spiele, fixed)):
-        for spiel in spiele:
-            spieltag_id = spiel.get("spieltag_id")
-            if spieltag_id is None:
-                continue
-            for slot in ("team1", "team2"):
-                occupant = (spiel.get(slot) or {}).get("team_id")
-                if occupant in other_of:
-                    counted[(occupant, spieltag_id)] = counted.get((occupant, spieltag_id), 0) + 1
-
-    offending: set[Any] = set()
-    for club in team_ids:
-        other = other_of[club]
-        for spieltag_id in {day for held, day in fixed if held == club} | {day for held, day in moved if held == other}:
-            before = fixed.get((club, spieltag_id), 0) + moved.get((club, spieltag_id), 0)
-            after = fixed.get((club, spieltag_id), 0) + moved.get((other, spieltag_id), 0)
-            # Only a Spieltag the exchange BREAKS, never one already broken.
-            if after > 1 and before <= 1:
-                offending.add(spieltag_id)
-
-    return len(offending)
 
 
 async def _rewrite_gruppenphase_sides(
@@ -174,30 +147,15 @@ async def _rewrite_gruppenphase_sides(
     spiele: Sequence[Mapping[str, Any]],
     team_ids: Sequence[Any],
     spiele_collection: AsyncCollection,
-    teams_collection: AsyncCollection,
     session: AsyncClientSession,
 ) -> int:
-    """Rewrite each club's side of these fixtures to the other.
+    """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
-    Named by `_id` from a snapshot read BEFORE any write: filtering on the club would let the second
-    pass match what the first just wrote and swap it back.
+    Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
+    whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
+    read before any write: filtering on the club would let the second pass match what the first just wrote and swap it
+    back.
     """
-
-    identities = await pull_many_from_db(
-        collection=teams_collection,
-        db_filter={"_id": {"$in": list(team_ids)}},
-        # `teams`, while `app/api/spiele/services.py :: _composed_side` reads the season's
-        # `saison_teams` row: they differ only in a `past` season, which `REQ-SWAP-003` refuses.
-        # Spelled out, not sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
-        projection=["name", "shorthand"],
-        session=session,
-    )
-    identity_of = {row["_id"]: row for row in identities}
-
-    # Raising here aborts the transaction rather than writing half an exchange.
-    for team_id in team_ids:
-        if team_id not in identity_of:
-            raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -210,12 +168,10 @@ async def _rewrite_gruppenphase_sides(
                 by_pass.setdefault((slot, occupant), []).append(spiel["_id"])
 
     for (slot, occupant), spiel_ids in by_pass.items():
-        target = other_of[occupant]
-        identity = identity_of[target]
         await patch_many_in_db(
             collection=spiele_collection,
             db_filter={"_id": {"$in": spiel_ids}},
-            update={"$set": {f"{slot}.{key}": (target if key == "team_id" else identity[key]) for key in SWAPPED_SIDE_KEYS}},
+            update={"$set": {f"{slot}.team_id": other_of[occupant]}},
             session=session,
         )
 
@@ -225,28 +181,210 @@ async def _rewrite_gruppenphase_sides(
 
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
-# one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them
-# (`docs/backend/spec.md :: I37`).
-@router.get("/list/admin", response_model=FLSaisonsListResponse, summary="Every Saison for the admin surfaces")
-async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
+# one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
+@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+async def get_saisons_admin(
+    saisons_collection: SaisonsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLSaisonsAdminListResponse:
+    """Every season, the `future` ones included, each with its start, play and decision states and its counts.
+
+    `next_saison_id` is the id the next create mints, and `refusals.create` the code that create would be refused with
+    now, or null.
     """
-    List every season, the `future` ones `GET /saisons` withholds included.
 
-    The admin surfaces read here because a season is created `future` and clubs are entered while it
-    still is, so an admin who cannot see one cannot run the league.
-    """
+    # Oldest first: a season's id is its starting year.
+    saisons_raw = await pull_many_from_db(collection=saisons_collection, db_filter={}, sort_by=[("_id", 1)])
 
-    db_filter = build_query(filters, terms={"status"})
-    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
+    saison_ids = [str(raw["_id"]) for raw in saisons_raw]
+    taken_place, finale_by_saison, teams_by_saison, spiele_by_saison, create_state = await asyncio.gather(
+        saisons_with_a_spiel_taken_place(spiele_collection=spiele_collection, saison_ids=saison_ids, session=None),
+        pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
+        count_teams_by_saison(saison_teams_collection=saison_teams_collection, saison_ids=saison_ids),
+        count_spiele_by_saison(spiele_collection=spiele_collection, saison_ids=saison_ids),
+        pull_create_state(saisons_collection=saisons_collection),
+    )
+    create_refusal = find_saison_create_refusal(future_stands=create_state.future_stands)
+    saisons = [
+        {
+            **with_schedule(raw),
+            "begun": has_started(start_date=str(raw["start_date"]), today=today),
+            "taken_place": raw["_id"] in taken_place,
+            "decided": decided_podium(finale_by_saison.get(str(raw["_id"]), [])) is not None,
+            "count_teams": teams_by_saison.get(str(raw["_id"]), 0),
+            "count_spiele": spiele_by_saison.get(str(raw["_id"]), 0),
+        }
+        for raw in saisons_raw
+    ]
 
-    saisons_raw = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter=db_filter,
-        limit=filters.limit,
-        sort_by=db_sort,
+    return FLSaisonsAdminListResponse(
+        saisons=FLSaisonAdminListAdapter.validate_python(saisons),
+        next_saison_id=create_state.saison_id,
+        refusals=FLSaisonsAdminRefusals(create=None if create_refusal is None else create_refusal.error_code),
     )
 
-    return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
+
+# Declared after `/list/admin`, which it would otherwise answer with `list` as a season id; a static suffix rather than
+# a second `GET /{saison_id}`, which the public router owns at this same prefix.
+@router.get("/{saison_id}/admin", response_model=FLSaisonAdminResponse, summary="One Saison for the admin editor")
+async def get_saison_admin(
+    saison_id: str,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    spiele_collection: SpieleReadCollection,
+    spieltage_collection: SpieltageReadCollection,
+    teams_collection: TeamsReadCollection,
+    spielberichte_collection: SpielberichteReadCollection,
+    invitations_collection: InvitationsReadCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLSaisonAdminResponse:
+    """What the season editor shows in one read: its season, clubs, shapes and matchdays, its acts' states and its links.
+
+    The season is served a `future` one included, and every flag and every refusal is judged as the write it stands for
+    judges it, so an act is offered exactly where its write takes it.
+    """
+
+    # Outside a transaction: a write landing between this read and a press is judged by the press. First and alone: a
+    # season id naming nothing raises the 404 here, and the activation is judged on the status read.
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id})
+    saison_status = str(saison_raw["status"])
+
+    # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
+    (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
+        asyncio.gather(
+            # Each whole, as the bracket's advance reads its season: a truncated
+            # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
+            # refuses as entered.
+            pull_whole_from_db(
+                collection=saison_teams_collection,
+                db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s clubs",
+                projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
+                sort_by=[("name", 1)],
+                collation=GERMAN_COLLATION,
+            ),
+            pull_whole_from_db(
+                collection=spiele_collection,
+                db_filter={"saison_id": saison_id},
+                what=f"season {saison_id}'s fixtures",
+                projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+            ),
+            spieltage_collection.count_documents({"saison_id": saison_id}),
+            pull_whole_from_db(
+                collection=teams_collection,
+                db_filter={"inactive_since": None},
+                what="the league's clubs",
+                projection=["name", "shorthand"],
+                sort_by=[("name", 1)],
+                collation=GERMAN_COLLATION,
+            ),
+            pull_finale_by_saison(spiele_collection=spiele_collection, saison_ids=[saison_id]),
+        ),
+        asyncio.gather(
+            _judge_the_activation(
+                saison_id=saison_id,
+                target_status=saison_status,
+                saisons_collection=saisons_collection,
+                spiele_collection=spiele_collection,
+                spieltage_collection=spieltage_collection,
+                session=None,
+            ),
+            _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=None),
+            count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None),
+            _plan_the_dispatch(
+                saison_id=saison_id,
+                saison_teams_collection=saison_teams_collection,
+                invitations_collection=invitations_collection,
+            ),
+        ),
+    )
+    recorded_spiele = sum(1 for spiel in recorded_rows if holds_a_recorded_fact(spiel))
+    # The rows a first draw refuses on, and the undraw and the replace remove: the season is drawn exactly while it holds
+    # one, whatever its watermark says, so the editor offers the draw's acts where their writes take them.
+    watermark = saison_raw.get("spielplan")
+    spielplan = (
+        None
+        if count_spieltage == 0 and not recorded_rows
+        else FLSaisonDrawn(
+            spieltage=count_spieltage,
+            spiele=len(recorded_rows),
+            generated_at=None if watermark is None else FLSaisonSpielplan.model_validate(watermark).generated_at,
+        )
+    )
+
+    def code_of(refusal: WriteRefusal | None) -> Code | None:
+        return None if refusal is None else refusal.error_code
+
+    played = [spiel for spiel in spiele if has_taken_place(spiel)]
+
+    def has_played(team_id: Any, *, group_only: bool) -> bool:
+        return any(
+            team_id in ((spiel.get("team1") or {}).get("team_id"), (spiel.get("team2") or {}).get("team_id"))
+            for spiel in played
+            if not group_only or spiel.get("saison_phase") == "gruppenphase"
+        )
+
+    entered = {row["team_id"] for row in rows}
+    saison = FLSaisonAdmin.model_validate(
+        {
+            **with_schedule(saison_raw),
+            "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
+            "taken_place": bool(played),
+            "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
+        }
+    )
+
+    # Withdrawn rows included, as the draw counts them: a club that left keeps its place.
+    occupancy: dict[FLGruppenNames, int] = {}
+    for row in rows:
+        occupancy[row["gruppe"]] = occupancy.get(row["gruppe"], 0) + 1
+
+    def draw_refusal(*, replace: bool) -> WriteRefusal | None:
+        return find_spielplan_refusal(
+            saison_status=saison_status,
+            spiele_drawn=len(recorded_rows),
+            spieltage_held=count_spieltage,
+            rules=saison.rules,
+            occupancy_by_gruppe=occupancy,
+            replace=replace,
+            recorded_spiele=recorded_spiele,
+        )
+
+    return FLSaisonAdminResponse(
+        saison=saison,
+        teams=[
+            FLSaisonAdminTeam.model_validate(
+                {
+                    **row,
+                    "group_spiel_taken_place": has_played(row["team_id"], group_only=True),
+                    "spiel_taken_place": has_played(row["team_id"], group_only=False),
+                }
+            )
+            for row in rows
+        ],
+        incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
+        shapes=workable_shapes(saison.rules),
+        spielplan=spielplan,
+        refusals=FLSaisonActRefusals(
+            activate=code_of(activation[1]),
+            # The draw's own judgement of the stored rules, the ones both presses draw, over the clubs entered.
+            create=code_of(draw_refusal(replace=False)),
+            recreate=code_of(draw_refusal(replace=True) or find_berichte_refusal(berichte=berichte)),
+            undraw=code_of(_find_undraw_refusal_of(saison_status=saison_status, recorded_spiele=recorded_spiele, berichte=berichte)),
+        ),
+        invitations=[
+            FLInvitationLinkRow(
+                team_id=team.team["team_id"],
+                team_name=team.team["name"],
+                skipped=team.plan.skipped,
+                has_link=team.live is not None,
+                sent_at=None if team.live is None else FLInvitation.model_validate(team.live).sent_at,
+            )
+            for team in planned
+        ],
+    )
 
 
 @router.post(
@@ -254,73 +392,60 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     response_model=FLPostSaisonResponse,
     status_code=201,
     summary="Create a Saison",
-    responses={409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
     db: DBClient,
 ) -> FLPostSaisonResponse:
+    """Create the next season, always `future`, from its two days, answering the id it minted.
+
+    Its id follows the newest stored season's and its rules carry on from it, its two windows start closed, and a league
+    holds at most one planned season.
     """
-    Create a season, always `future`.
-
-    The id is supplied rather than generated -- it is the string every `saison_id` elsewhere
-    references, so reusing one comes back 409. Making the season live is a separate step.
-    """
-
-    refuse(
-        find_rules_refusal(
-            saison_status="future",
-            stored=None,
-            proposed=saison_data.rules,
-            occupancy_by_gruppe={},
-            highest_wired_platz=0,
-        )
-    )
-
-    # After the rules: an impossible bracket makes the implied matchday count meaningless.
-    refuse(
-        find_saison_span_refusal(
-            start_date=saison_data.start_date,
-            end_date=saison_data.end_date,
-            rules=saison_data.rules,
-            spieltag_spans=[],
-        )
-    )
 
     async def enter_the_season(session: AsyncClientSession) -> InsertOneResult:
-        return await post_one_to_db(
+        # Inside the transaction, so the id, the rules and the planned season are judged on one snapshot.
+        state = await pull_create_state(saisons_collection=saisons_collection, session=session)
+        refuse(find_saison_create_refusal(future_stands=state.future_stands))
+        refuse(find_rules_refusal(stored=None, proposed=state.rules, occupancy_by_gruppe={}, highest_wired_platz=0))
+        # After the rules: an impossible bracket makes the implied matchday count meaningless.
+        refuse(
+            find_saison_span_refusal(
+                start_date=saison_data.start_date,
+                end_date=saison_data.end_date,
+                rules=state.rules,
+                spieltag_spans=[],
+            )
+        )
+        created = await post_one_to_db(
             collection=saisons_collection,
-            # `_id` rather than `id`: this payload's `id` IS the document key.
-            document={**saison_data.model_dump(mode="json", exclude={"id"}), "_id": saison_data.id, "status": "future"},
+            document={
+                **saison_data.model_dump(mode="json"),
+                "rules": state.rules.model_dump(mode="json"),
+                "bewerbung": None,
+                "registrierung": None,
+                "_id": state.saison_id,
+                "status": "future",
+            },
             session=session,
         )
+        await record_act(collection=saisons_collection, action="saison.created", label=state.saison_id, session=session)
 
-    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            post_operation = await session.with_transaction(enter_the_season)
+        return created
+
+    async with transaction_session(db) as session:
+        post_operation = await session.with_transaction(enter_the_season)
 
     return FLPostSaisonResponse(
-        acknowledged=1 if post_operation.acknowledged else 0,
         created_id=str(post_operation.inserted_id),
     )
-
-
-class MovableFigures(NamedTuple):
-    """What `patch_saison` judges on and does not write, read once through its transaction and once outside it (I118)."""
-
-    largest_squad: int
-    spieltag_spans: Sequence[tuple[str, str]]
-    played_knockout: int
 
 
 @router.patch(
     "/{saison_id}",
     response_model=FLPatchSaisonResponse,
     summary="Update a Saison's dates and rules",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_saison(
     saison_id: str,
@@ -331,32 +456,35 @@ async def patch_saison(
     spieltage_collection: SpieltageCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLPatchSaisonResponse:
-    """
-    Update a season's dates and rules. `status` is on no payload.
+    """Save a season's dates and rules on the `version` it was read at, answering the version stored.
 
-    Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+    What a started or drawn season has fixed is refused, as is a rule narrowed below what it holds; the start date is
+    fixed once a fixture has taken place, and moves later only while no club's exit is stored.
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
-        """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it (I118)."""
+        """Judge, then write the season's dates and rules. Every figure is read in-session."""
 
-        # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
+        # Through the session, and first: this opens the snapshot the update below is judged
         # against, so a rival writing `saisons` under the judgement conflicts instead of being
         # overwritten. A season id naming nothing raises the 404 here.
         stored_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # Disqualified rows included: a team never leaves a season.
+        # Disqualified rows included: a team never leaves a season. The same read says whether any club's exit is
+        # stored, which a start moved later must not leave on a season reading as unstarted.
         occupancy: dict[Any, int] = {}
-        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1}, session=session):
+        austritt_stored = False
+        async for row in saison_teams_collection.find({"saison_id": saison_id}, {"gruppe": 1, "austritt": 1}, session=session):
             gruppe = row.get("gruppe")
             if gruppe is not None:
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
+            austritt_stored = austritt_stored or row.get("austritt") is not None
 
         # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
-        # the snapshot and never re-read below: `REQ-RULES-004`, the only refusal that reads it,
-        # cannot be reached at all (`docs/backend/spec.md` section 4).
+        # the snapshot and never re-read below: `rules_qualifiers_below_wiring`, the only refusal that reads it,
+        # cannot be reached at all.
         highest_platz = 0
         async for spiel in spiele_collection.find(
             {"saison_id": saison_id, "$or": [{"team1_quelle.type": "gruppe"}, {"team2_quelle.type": "gruppe"}]},
@@ -368,28 +496,22 @@ async def patch_saison(
                 if isinstance(quelle, dict) and quelle.get("type") == "gruppe":
                     highest_platz = max(highest_platz, int(quelle.get("platz", 0)))
 
-        # The fullest matchday of a phase, not the total, and keyed on the MATCHDAY's phase, which the
+        # The fullest matchday of a phase, not the total, and keyed on the matchday's phase, which the
         # fixture's can disagree with. Judged on the snapshot for `highest_platz`'s reason, the
-        # unreachable refusal here being `REQ-RULES-006`.
+        # unreachable refusal here being `rules_spieltag_over_its_phase`.
         attached_by_phase: dict[Any, int] = {}
         phase_of_spieltag: dict[Any, Any] = {}
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
             phase_of_spieltag[spieltag["_id"]] = spieltag["saison_phase"]
 
-        # `RECORDED_FACT_FIELDS` beside `spieltag_id`, so ONE read answers `REQ-RULES-011`'s freeze
-        # and weighs the window its repair runs in: counted apart, the two could disagree about the
-        # same season and compose a repair for a window that is shut.
         per_spieltag: dict[Any, int] = {}
-        recorded_fixtures = 0
-        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id", *RECORDED_FACT_FIELDS], session=session):
+        async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id"], session=session):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
-            if holds_a_recorded_fact(spiel):
-                recorded_fixtures += 1
 
-        # Every fixture, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the draw, and
+        # Every fixture, whichever matchday it hangs on: what `rules_shape_after_spielplan` freezes is the draw, and
         # one on another season's matchday came out of this season's rules too. Only a draw or an
         # undraw moves the count, and both write `saisons`, so both conflict.
-        drawn_fixtures = sum(per_spieltag.values())
+        drawn_spiele = sum(per_spieltag.values())
 
         for spieltag_id, attached in per_spieltag.items():
             phase = phase_of_spieltag.get(spieltag_id)
@@ -397,187 +519,223 @@ async def patch_saison(
             if phase is not None:
                 attached_by_phase[phase] = max(attached_by_phase.get(phase, 0), attached)
 
-        async def movable_figures(figures_session: AsyncClientSession | None) -> MovableFigures:
-            """The three judged figures a rival can move without conflicting on `saisons`, read through the session or outside it.
+        largest_squad_rows = await (
+            await saison_spieler_collection.aggregate(
+                [
+                    {"$match": {"saison_id": saison_id, **CAPPED_SQUAD_ROW}},
+                    {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
+                    {"$sort": {"held": -1}},
+                    {"$limit": 1},
+                ],
+                session=session,
+            )
+        ).to_list(length=1)
+        largest_squad = int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0
 
-            Occupancy stays out on `app/api/teams/admin_router.py :: post_saison_team`'s concession
-            -- a planning bound the draw reports.
-            """
+        # Dated rows only, filtered in the query rather than after `str()`: a generated matchday carries
+        # no span until somebody sets one, and a null stringified to "None" sorts above every date and
+        # would be reported as falling outside the season.
+        spieltag_spans = [
+            (str(row["start"]), str(row["end"]))
+            async for row in spieltage_collection.find(
+                {"saison_id": saison_id, "start": {"$ne": None}, "end": {"$ne": None}}, {"start": 1, "end": 1}, session=session
+            )
+        ]
 
-            largest_squad_rows = await (
-                await saison_spieler_collection.aggregate(
-                    [
-                        {"$match": {"saison_id": saison_id, "inactive_since": None}},
-                        {"$group": {"_id": "$team_id", "held": {"$sum": 1}}},
-                        {"$sort": {"held": -1}},
-                        {"$limit": 1},
-                    ],
-                    session=figures_session,
-                )
-            ).to_list(length=1)
+        taken_place = saison_id in await saisons_with_a_spiel_taken_place(
+            spiele_collection=spiele_collection, saison_ids=[saison_id], session=session
+        )
 
-            # Dated rows only, filtered in the QUERY rather than after `str()`: a generated matchday carries
-            # no span until somebody sets one, and a null stringified to "None" sorts above every date and
-            # would be reported as falling outside the season.
-            spieltag_spans = [
-                (str(row["beginn"]), str(row["ende"]))
-                async for row in spieltage_collection.find(
-                    {"saison_id": saison_id, "beginn": {"$ne": None}, "ende": {"$ne": None}}, {"beginn": 1, "ende": 1}, session=figures_session
-                )
-            ]
-
-            # The FIXTURE's own phase, never its matchday's: the bracket was seeded from the
-            # placings `REQ-RULES-012` protects. The phase narrows the query and `has_taken_place`
-            # reads whole documents, so nothing here restates the predicate and drifts from it.
-            played_knockout = 0
-            async for spiel in spiele_collection.find(
-                {"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-                # Every key the predicate reads is fetched: one left out reads `None` on every
-                # fixture, so the branch deciding this count is the one nobody sees fail
-                # (`docs/backend/spec.md` section 4).
-                {"ergebnis": 1, "elfmeterschiessen": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
-                session=figures_session,
-            ):
-                if has_taken_place(spiel):
-                    played_knockout += 1
-
-            return MovableFigures(
-                largest_squad=int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0,
+        # Validated, not read raw: a season missing a rules key fails here rather than comparing
+        # against a default nobody chose.
+        stored_rules = FLSaisonRules.model_validate(stored_raw["rules"])
+        # First: a start that cannot move is a fact about the payload's own date, whatever its rules ask.
+        refuse(
+            find_saison_start_refusal(
+                stored_start_date=str(stored_raw["start_date"]),
+                proposed_start_date=saison_data.start_date,
+                taken_place=taken_place,
+            )
+        )
+        refuse(
+            find_saison_start_austritt_refusal(
+                stored_start_date=str(stored_raw["start_date"]),
+                proposed_start_date=saison_data.start_date,
+                austritt_stored=austritt_stored,
+            )
+        )
+        # The stored start, in this transaction's snapshot: the date on the payload is what the edit
+        # proposes, and a freeze lifted by the same save that changes the rules would be no freeze. A season started
+        # too early is unlocked by one save moving its start and a second changing its rules.
+        refuse(
+            find_rules_freeze_refusal(
+                saison_status=str(stored_raw["status"]),
+                started=has_started(start_date=str(stored_raw["start_date"]), today=today),
+                stored=stored_rules,
+                proposed=saison_data.rules,
+            )
+        )
+        refuse(
+            find_rules_refusal(
+                stored=stored_rules,
+                proposed=saison_data.rules,
+                occupancy_by_gruppe=occupancy,
+                highest_wired_platz=highest_platz,
+                largest_squad=largest_squad,
+                attached_by_phase=attached_by_phase,
+                drawn_spiele=drawn_spiele,
+            )
+        )
+        refuse(
+            find_saison_span_refusal(
+                start_date=saison_data.start_date,
+                end_date=saison_data.end_date,
+                rules=saison_data.rules,
                 spieltag_spans=spieltag_spans,
-                played_knockout=played_knockout,
             )
+        )
 
-        def judge(figures: MovableFigures) -> None:
-            refuse(
-                find_rules_refusal(
-                    saison_status=str(stored_raw["status"]),
-                    # Validated, not read raw: a season missing a rules key fails here rather than comparing
-                    # against a default nobody chose.
-                    stored=FLSaisonRules.model_validate(stored_raw["rules"]),
-                    proposed=saison_data.rules,
-                    occupancy_by_gruppe=occupancy,
-                    highest_wired_platz=highest_platz,
-                    largest_squad=figures.largest_squad,
-                    attached_by_phase=attached_by_phase,
-                    drawn_fixtures=drawn_fixtures,
-                    recorded_fixtures=recorded_fixtures,
-                    played_knockout_fixtures=figures.played_knockout,
-                )
-            )
-            refuse(
-                find_saison_span_refusal(
-                    start_date=saison_data.start_date,
-                    end_date=saison_data.end_date,
-                    rules=saison_data.rules,
-                    spieltag_spans=figures.spieltag_spans,
-                )
-            )
-
-        judge(await movable_figures(session))
-
-        updated_document_raw = await patch_one_in_db(
+        # `AFTER`, read back inside the transaction at no extra round trip: the version answered is the one this commit stores.
+        patched = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
-            update={"$set": saison_data.model_dump(mode="json")},
+            update={"$set": saison_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=saison_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+        await record_act(collection=saisons_collection, action="saison.changed", label=saison_id, session=session)
 
-        # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
-        # knockout result raises no conflict, where a squad entry or a matchday re-dating advances
-        # `bounded_writes` and does (I53). One landing after this read still slips.
-        judge(await movable_figures(None))
+        # A result is a write to `spiele` alone, so a moved start writes the fixtures it was judged on:
+        # a result landing under the judgement conflicts, and the retry refuses on it. A squad entry
+        # and a matchday re-dating anchor `saisons` themselves, so the season write above is theirs.
+        if saison_data.start_date != stored_raw["start_date"]:
+            await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
+        return FLPatchSaisonResponse(version=patched[VERSION_FIELD])
 
     # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
-    # season as that rival left it (I53).
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            patched = await session.with_transaction(judge_and_write_the_rules)
+    # season as that rival left it.
+    async with transaction_session(db) as session:
+        patched = await session.with_transaction(judge_and_write_the_rules)
 
     return patched
+
+
+async def _judge_the_activation(
+    *,
+    saison_id: str,
+    target_status: str,
+    saisons_collection: ReadCollection,
+    spiele_collection: ReadCollection,
+    spieltage_collection: ReadCollection,
+    session: AsyncClientSession | None,
+) -> tuple[list[Any], WriteRefusal | None]:
+    """The seasons activating this one would close, and why it must be refused, or `None`.
+
+    Read by the activation in its transaction and by the editor's read outside one, so the act the editor offers is the act
+    the write takes.
+    """
+
+    # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
+    outgoing = await pull_many_from_db(
+        collection=saisons_collection,
+        db_filter={"status": "active", "_id": {"$ne": saison_id}},
+        projection={"_id": 1},
+        session=session,
+    )
+    outgoing_ids = [row["_id"] for row in outgoing]
+
+    # Empty where nothing but the target holds `active` -- a fresh league, or a re-activation.
+    unplayed: list[int] = []
+    if outgoing_ids:
+        unplayed = unplayed_spiel_nrs(
+            FLSpielListAdapter.validate_python(
+                await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
+            )
+        )
+
+    # One call, so which of the two refusals an admin is shown stays the service's decision.
+    # The target's own fixtures, not the outgoing season's: a league going live with nothing drawn
+    # has no repair, activation writing `status` one way only.
+    target_spiele = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
+
+    # In-session where the caller holds a session, so a retry re-judges it, and `start` alone: `end` is dated with it, and a
+    # matchday half-dated is a shape no write here produces.
+    undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "start": None}, session=session)
+
+    return outgoing_ids, find_activation_refusal(
+        target_status=target_status,
+        target_spiele=target_spiele,
+        undated_spieltage=undated_spieltage,
+        outgoing_unplayed=unplayed,
+    )
+
+
+async def _pull_recorded_fact_rows(
+    *, spiele_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None
+) -> list[Mapping[str, Any]]:
+    """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
+
+    The predicate's own fields, so the projection cannot fall behind what it reads: a venue, a referee or an admin's note
+    is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
+    refused past it: a truncated list counts fewer records than the season holds, and the window opens on work the
+    removal would destroy.
+    """
+
+    return await pull_whole_from_db(
+        collection=spiele_collection,
+        db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s fixtures",
+        projection=list(RECORDED_FACT_FIELDS),
+        session=session,
+    )
+
+
+def _find_undraw_refusal_of(*, saison_status: str, recorded_spiele: int, berichte: int) -> WriteRefusal | None:
+    """The undraw's whole judgement, in its order: its window, then the reports it would delete."""
+
+    return find_undraw_refusal(saison_status=saison_status, recorded_spiele=recorded_spiele) or find_berichte_refusal(berichte=berichte)
 
 
 @router.post(
     "/{saison_id}/activate",
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
 async def activate_saison(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
-    sperrliste_collection: SperrlisteCollection,
+    ban_list_collection: BanListCollection,
     db: DBClient,
 ) -> FLActivateSaisonResponse:
-    """
-    Make this the active season, moving whichever holds `active` to `past` in one transaction.
+    """Make this the active season, moving whichever holds `active` to `past`.
 
-    The only path to `status: "active"`. The outgoing season must be finished, a `past` target is
-    refused, and every matchday of the target carries a date (`docs/backend/spec.md :: I18`).
+    The outgoing season must be finished, and every matchday of the target dated.
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, the status again outside it (I118)."""
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session."""
 
-        async def the_targets_status(status_session: AsyncClientSession | None) -> str:
-            """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
-
-            A season id naming nothing raises the 404 here, before any demotion.
-            """
-
-            target = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=status_session
-            )
-
-            return str(target["status"])
-
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
-        # league as it stands then.
-        target_status = await the_targets_status(session)
-
-        # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
-        outgoing = await pull_many_from_db(
-            collection=saisons_collection,
-            db_filter={"status": "active", "_id": {"$ne": saison_id}},
-            projection={"_id": 1},
+        # Through the session, as the draw's reads are: a retry after a write conflict judges the
+        # league as it stands then. A season id naming nothing raises the 404 here, before any demotion.
+        target_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+        )
+        outgoing_ids, refusal = await _judge_the_activation(
+            saison_id=saison_id,
+            target_status=str(target_raw["status"]),
+            saisons_collection=saisons_collection,
+            spiele_collection=spiele_collection,
+            spieltage_collection=spieltage_collection,
             session=session,
         )
-        outgoing_ids = [row["_id"] for row in outgoing]
+        refuse(refusal)
 
-        # Empty where nothing BUT the target holds `active` -- a fresh league, or a re-activation.
-        unplayed: list[int] = []
-        if outgoing_ids:
-            unplayed = unplayed_spiel_nrs(
-                FLSpielListAdapter.validate_python(
-                    await pull_many_from_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
-                )
-            )
-
-        # One call, so which of the two refusals an admin is shown stays the service's decision.
-        # The target's OWN fixtures, not the outgoing season's: a league going live with nothing drawn
-        # has no repair, activation writing `status` one way only.
-        target_fixtures = await spiele_collection.count_documents({"saison_id": saison_id}, session=session)
-
-        # In-session for `target_status`'s reason, and `beginn` alone: `ende` is dated with it, and a
-        # matchday half-dated is a shape no write here produces.
-        undated_spieltage = await spieltage_collection.count_documents({"saison_id": saison_id, "beginn": None}, session=session)
-
-        refuse(
-            find_activation_refusal(
-                target_status=target_status,
-                target_fixtures=target_fixtures,
-                undated_spieltage=undated_spieltage,
-                outgoing_unplayed=unplayed,
-            )
-        )
-
-        # BEFORE the promotion: `uniq_saison_active` is checked at each write rather than at the
+        # Before the promotion: `uniq_saison_active` is checked at each write rather than at the
         # commit, so promoting first meets the incumbent and aborts the rollover.
         demoted = await patch_many_in_db(
             collection=saisons_collection,
@@ -586,57 +744,51 @@ async def activate_saison(
             session=session,
         )
 
-        activated_raw = await patch_one_in_db(
+        # Raises the target's version even where it is already `active`, so a rival demoting it under
+        # this rollover conflicts with the write and the retry judges it `past`.
+        await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$set": {"status": "active"}},
             session=session,
-            return_document=ReturnDocument.AFTER,
+            expected_version=None,
+            return_document=ReturnDocument.BEFORE,
         )
 
-        # A target already `active` joins no write set, so a rival demoting it raises no conflict to
-        # retry on (`docs/backend/spec.md :: I117` and `:: I53`). Re-judged outside the session; the window to the
-        # commit is the residue.
+        # A fixture's save judges `saison_past` on a status it only reads, so the rollover writes what it writes:
+        # one judged before this commit then conflicts, and its retry reads `past`. The club rows stay unanchored,
+        # so a consent press committing across the rollover is not retried: the club move, the one row write
+        # judging `saison_past`, and the club rename, which rewrites the rows of every season it reads as open, anchor
+        # the season documents this demotion writes.
+        if outgoing_ids:
+            await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": {"$in": outgoing_ids}}, session=session)
 
-        # The STATUS alone, because it is the only input a rival can move here: an undraw and a
-        # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
-        # only from a rollover that demotes this target.
-
-        # Dated-ness rides on the in-session count for the same reason: this branch re-promotes a
-        # season that is already live, so a matchday drawn under it cannot make the league go live
-        # undated.
-        if target_status == "active":
-            refuse(
-                find_activation_refusal(
-                    target_status=await the_targets_status(None),
-                    target_fixtures=target_fixtures,
-                    undated_spieltage=undated_spieltage,
-                    outgoing_unplayed=unplayed,
-                )
-            )
-
-        # ERASED rather than deleted (`docs/backend/spec.md :: I274`): a retention period
-        # ended, which is I48's distinction between the two helpers, and a `before` image would
-        # outlive the bound by the log's own twelve months.
+        await record_act(collection=saisons_collection, action="saison.activated", label=saison_id, session=session)
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
-        # lapses on the activation of the season AFTER it.
-        await erase_many_from_db(
-            collection=sperrliste_collection,
-            db_filter={"gesperrt_bis_saison_id": {"$lt": saison_id}},
+        # lapses on the activation of the season after it.
+        lapsed = await delete_many_from_db(
+            collection=ban_list_collection,
+            db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
         )
+        if lapsed.deleted_count:
+            await record_act(
+                collection=ban_list_collection,
+                action="retention.bans",
+                by=ACT_BY_SYSTEM,
+                label=saison_id,
+                count=lapsed.deleted_count,
+                session=session,
+            )
 
-        activated = FLSaison.model_validate(with_schedule(activated_raw))
-
-        return FLActivateSaisonResponse(updated_document=activated, deactivated=demoted.modified_count)
+        return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 
     # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
+    async with transaction_session(db) as session:
+        rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     return rolled_over
 
@@ -645,7 +797,6 @@ async def activate_saison(
     "/{saison_id}/gruppen/swap",
     response_model=FLSwapGruppenResponse,
     summary="Exchange two teams' groups",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def swap_gruppen(
     saison_id: str,
@@ -653,14 +804,13 @@ async def swap_gruppen(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     spiele_collection: SpieleCollection,
-    teams_collection: TeamsCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSwapGruppenResponse:
-    """
-    Exchange the groups of two clubs entered in this season, as one write.
+    """Exchange the groups of two clubs entered in this season, as one write.
 
-    Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
-    so each group stays a round robin. Neither `tore` nor `austritt` moves.
+    Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
+    `tore` nor `austritt` moves.
     """
 
     # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
@@ -674,26 +824,25 @@ async def swap_gruppen(
 
         both_ids = [swap_data.team1_id, swap_data.team2_id]
 
-        # THROUGH the session: a retry after a write conflict has to judge these rows as they are
+        # Through the session: a retry after a write conflict has to judge these rows as they are
         # then, not as this request first saw them.
         rows = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": {"$in": both_ids}},
-            projection=["team_id", "gruppe", "austritt"],
+            projection=["team_id", "gruppe"],
             session=session,
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
 
-        # The same rows as the groups, so `REQ-SWAP-006` cannot judge against a stale record.
-        departed_since = {row["team_id"]: (row.get("austritt") or {}).get("datum") for row in rows}
-
-        # Again in-session, because `activate_saison` moves `status` in a transaction of its own.
         saison_raw = await pull_one_from_db(
-            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1, "start_date": 1}, session=session
         )
+        # Anchored, so the start and the status this is judged on belong to its write set: `PATCH /saisons/{saison_id}`
+        # moves the one and `activate_saison` the other, each writing this document, so either landing under the
+        # judgement conflicts and the retry judges the season it left.
+        await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # LISTED rather than counted: one read answers `REQ-SWAP-004` and supplies what the rewrite
-        # moves, so the two cannot disagree.
+        # The fixtures the rewrite moves, read once for the refusal below too, so the two cannot disagree.
         gruppenphase_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={
@@ -701,35 +850,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=[
-                "spieltag_id",
-                "datum",
-                "team1.team_id",
-                "team1.tore",
-                "team2.team_id",
-                "team2.tore",
-                "ergebnis",
-                "elfmeterschiessen",
-                "sonderereignis",
-            ],
-            session=session,
-        )
-
-        # Listed too, so both windows are decided by `has_taken_place` rather than by one predicate
-        # here and a `$or` filter there.
-        knockout_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=[
-                "spieltag_id",
-                "team1.team_id",
-                "team1.tore",
-                "team2.team_id",
-                "team2.tore",
-                "ergebnis",
-                "elfmeterschiessen",
-                "sonderereignis",
-            ],
+            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             session=session,
         )
 
@@ -738,19 +859,8 @@ async def swap_gruppen(
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
-                played_knockout_fixtures=sum(1 for spiel in knockout_spiele if has_taken_place(spiel)),
-                played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if has_taken_place(spiel)),
-                clashing_spieltage=_spieltag_clashes(
-                    team_ids=both_ids,
-                    gruppenphase_spiele=gruppenphase_spiele,
-                    knockout_spiele=knockout_spiele,
-                ),
-                departed_fixtures=fixtures_newly_fielding_a_departed_club(
-                    team1_id=swap_data.team1_id,
-                    team2_id=swap_data.team2_id,
-                    departed_since=departed_since,
-                    gruppenphase_spiele=gruppenphase_spiele,
-                ),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+                taken_place=any(has_taken_place(spiel) for spiel in gruppenphase_spiele),
             )
         )
 
@@ -758,11 +868,10 @@ async def swap_gruppen(
             spiele=gruppenphase_spiele,
             team_ids=both_ids,
             spiele_collection=spiele_collection,
-            teams_collection=teams_collection,
             session=session,
         )
 
-        # Built BEFORE the junction writes and then written FROM: the model refuses a stored group
+        # Built before the junction writes and then written from: the model refuses a stored group
         # outside the closed set before anything lands, and the echo cannot disagree with what did.
         swapped = FLSwapGruppenResponse(
             saison_id=saison_id,
@@ -781,8 +890,10 @@ async def swap_gruppen(
                 db_filter={"saison_id": saison_id, "team_id": team_id},
                 update={"$set": {"gruppe": target_gruppe}},
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
+        await record_act(collection=saisons_collection, action="saison.gruppen_swapped", label=saison_id, session=session)
 
         return swapped
 
@@ -797,9 +908,8 @@ async def swap_gruppen(
     response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
-async def generate_spielplan(
+async def post_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -807,25 +917,18 @@ async def generate_spielplan(
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
     today: str = Depends(get_german_date_str),
 ) -> FLGenerateSpielplanResponse:
-    """
-    Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
+    """Draw the whole season at once, every matchday and every fixture undated, from the stated `shape` or the season's rules.
 
-    `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s
-    window and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused
-    `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
-    the removed rows back.
+    A stated `shape` is stored in the rules, and `replace` first deletes what a planned season holds, its fixtures'
+    confirmations, reports and line-ups with it; nothing writes the removed rows back.
     """
-
-    if spielplan_data.replace:
-        refuse_unconfirmed()
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -833,75 +936,52 @@ async def generate_spielplan(
     async def draw_the_whole_season(session: AsyncClientSession) -> FLGenerateSpielplanResponse:
         """Judge, then write both collections and the watermark. Everything judged is read in-session."""
 
-        # THROUGH the session, as the group swap's callback is: a retry after a write conflict has to
+        # Through the session, as the group swap's callback is: a retry after a write conflict has to
         # judge the season as it stands then, not as this request first saw it.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
         stored_rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
-        # ONE object judged, drawn and stored, so every refusal below weighs the numbers this draw
+        # One object judged, drawn and stored, so every refusal below weighs the numbers this draw
         # runs from. `model_copy` skips validation and safely: `FLSpielplanShape` declares the three
         # under `FLSaisonRules`' own types.
         rules = stored_rules if spielplan_data.shape is None else stored_rules.model_copy(update=spielplan_data.shape.model_dump())
 
-        entered_rows = await pull_many_from_db(
+        # Whole: a truncated entry list draws a season short of teams and weighs a group occupancy no group holds.
+        entered_rows = await pull_whole_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
-            # `name` and `shorthand` off the JUNCTION: that is the name the season is played under,
-            # and `teams` may since have been renamed (`docs/backend/spec.md :: I19`).
+            what=f"season {saison_id}'s clubs",
+            # `name` and `shorthand` off the junction: that is the name the season is played under,
+            # and `teams` may since have been renamed.
             projection=["team_id", "gruppe", "name", "shorthand"],
-            limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
         )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
-        # (`docs/backend/spec.md :: I45`): a truncated entry list draws a season short of teams and
-        # weighs a group occupancy no group holds.
-        if len(entered_rows) > LIST_LIMIT_DEFAULT:
-            raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} entry rows, which is more than one read can draw from")
 
         occupancy: dict[FLGruppenNames, int] = {}
         for row in entered_rows:
             gruppe = row["gruppe"]
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
-        # LISTED rather than counted, as the group swap's callback lists its own: one read answers
-        # `REQ-SPIELPLAN-001` and supplies what `REQ-SPIELPLAN-005` weighs, so the two cannot
+        # Listed rather than counted, as the group swap's callback lists its own: one read answers
+        # `spielplan_already_drawn` and supplies what `spielplan_replace_outside_its_window` weighs, so the two cannot
         # disagree about what a replace would destroy.
-        stored_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            # The predicate's own fields, so the projection cannot fall behind what it reads: a
-            # venue, a referee or an admin's note is work a replace would destroy, and
-            # `REQ-SPIELPLAN-005`'s window closes on one exactly as on a result.
-            projection=list(RECORDED_FACT_FIELDS),
-            limit=LIST_LIMIT_DEFAULT + 1,
-            session=session,
-        )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
-        # (`docs/backend/spec.md :: I45`): a truncated list counts fewer records than the season holds,
-        # and `REQ-SPIELPLAN-005`'s window opens on work a replace would then destroy.
-        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-            raise ValueError(
-                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
-            )
+        stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         refuse(
             find_spielplan_refusal(
                 saison_status=str(saison_raw["status"]),
-                fixtures_drawn=len(stored_spiele),
+                spiele_drawn=len(stored_spiele),
                 spieltage_held=await spieltage_collection.count_documents({"saison_id": saison_id}, session=session),
-                watermark=saison_raw.get("spielplan"),
                 rules=rules,
                 occupancy_by_gruppe=occupancy,
                 replace=spielplan_data.replace,
-                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
+                recorded_spiele=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
             )
         )
         if spielplan_data.replace:
             refuse(
                 find_berichte_refusal(
-                    berichte=await count_eingereichte_berichte(
+                    berichte=await count_submitted_berichte(
                         spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
                     )
                 )
@@ -910,17 +990,14 @@ async def generate_spielplan(
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
         # skipped, each of those weighing a draw about to cease to exist.
-        shape_stated = spielplan_data.shape is not None
         refuse(
             as_the_draw_answers(
                 find_rules_refusal(
-                    saison_status=str(saison_raw["status"]),
                     stored=None,
                     proposed=rules,
                     occupancy_by_gruppe=occupancy,
                     highest_wired_platz=0,
                 ),
-                shape_stated=shape_stated,
             )
         )
 
@@ -935,12 +1012,11 @@ async def generate_spielplan(
                     rules=rules,
                     spieltag_spans=[],
                 ),
-                shape_stated=shape_stated,
             )
         )
 
         # `find_wiring_refusal`, `judge_spieltag_occupancy`, `find_clash_refusal` and
-        # `find_eligibility_refusal` are all unasked: each judges ONE payload against a stored season,
+        # `find_eligibility_refusal` are all unasked: each judges one payload against a stored season,
         # and would see a draw half written. The construction is what is verified instead.
         drawn = draw_spielplan(
             saison_id=saison_id,
@@ -957,21 +1033,20 @@ async def generate_spielplan(
             ],
         )
 
-        # Both collections together (`docs/backend/spec.md :: I46`), fixtures first for
-        # `undraw_spielplan`'s reason.
+        # Both collections together, fixtures first, the reverse of the draw's write order, as the undraw removes them.
         removed_spieltage = 0
         removed_spiele = 0
 
         # The counts go to the response: they are what the admin confirmed deleting, and the flag
         # alone cannot say whether anything was there to delete.
         if spielplan_data.replace:
-            # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
-            # nothing on a same-day redraw, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+            # The season every report write anchors, so the two conflict: the watermark's `$set` below can change
+            # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
-            # (`.claude/CLAUDE.md` §3).
+            # Not extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+            await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
             removed_spiele = (
                 await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
             ).deleted_count
@@ -991,45 +1066,48 @@ async def generate_spielplan(
         shape_written = {} if shape is None else {f"rules.{rule}": value for rule, value in shape.model_dump().items()}
 
         if spielplan_data.replace:
-            # Counted again outside the transaction (`docs/backend/spec.md :: I118`): a report's first write conflicts
-            # with this one on the season (`:: I833`), and a correction on the report, but a document no write made does not.
+            # Counted again outside the transaction: a report's first write conflicts
+            # with this one on the season, and a correction on the report, but a document no write made does not.
             refuse(
                 find_berichte_refusal(
-                    berichte=await count_eingereichte_berichte(
+                    berichte=await count_submitted_berichte(
                         spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None
                     )
                 )
             )
 
-        watermark = FLSaisonSpielplan(generiert_am=today, spieltage=len(drawn.spieltage), spiele=len(drawn.spiele))
-        # ONE `$set` inside the transaction: the shape and the draw it produced are one fact, so one
-        # write carries one pre-image -- the season before either moved. Two would log a `before`
-        # holding rules that were never the season's.
+        watermark = FLSaisonSpielplan(generated_at=today)
+        # One `$set` inside the transaction: the shape and the draw it produced are one fact.
         await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$set": {**shape_written, "spielplan": watermark.model_dump(mode="json")}},
             session=session,
             # Nothing here reads the result, and `AFTER` would re-read the whole season inside the
-            # transaction to build one. The log takes its pre-image from the update itself either
-            # way (`docs/backend/spec.md :: I39`).
+            # transaction to build one.
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
+        )
+        await record_act(
+            collection=saisons_collection,
+            action="saison.spielplan_recreated" if spielplan_data.replace else "saison.spielplan_created",
+            label=saison_id,
+            session=session,
         )
 
         return FLGenerateSpielplanResponse(
             saison_id=saison_id,
-            spieltage=watermark.spieltage,
-            spiele=watermark.spiele,
-            generiert_am=watermark.generiert_am,
+            spieltage=len(drawn.spieltage),
+            spiele=len(drawn.spiele),
+            generated_at=watermark.generated_at,
             removed_spieltage=removed_spieltage,
             removed_spiele=removed_spiele,
         )
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            drawn_response = await session.with_transaction(draw_the_whole_season)
+    async with transaction_session(db) as session:
+        drawn_response = await session.with_transaction(draw_the_whole_season)
 
     return drawn_response
 
@@ -1038,94 +1116,72 @@ async def generate_spielplan(
     "/{saison_id}/spielplan",
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
-async def undraw_spielplan(
+async def delete_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     db: DBClient,
 ) -> FLUndrawSpielplanResponse:
-    """
-    Return the season to undrawn: matchdays, fixtures and watermark, in one transaction.
+    """Return the season to undrawn: its matchdays and fixtures, their confirmations, reports and line-ups, and the draw's day.
 
-    Every fixture's confirmations go with it.
-
-    The replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it
-    (`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
-    an entry.
+    Undoing the draw reopens the shape rules to an edit and the groups to an entry.
     """
 
     async def undraw_the_whole_season(session: AsyncClientSession) -> FLUndrawSpielplanResponse:
         """Judge, then remove both collections and the watermark. Everything judged is read in-session."""
 
-        # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
+        # Through the session, as the draw's reads are: a retry after a write conflict judges the
         # season as it stands then. A season id naming nothing raises the 404 here.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
 
         # The stored rows, never the watermark: a season drawn outside this API carries none, and its
         # fixtures are as much a record as one this endpoint wrote.
-        stored_spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id},
-            projection=list(RECORDED_FACT_FIELDS),
-            limit=LIST_LIMIT_DEFAULT + 1,
-            session=session,
-        )
-
-        # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
-        # (`docs/backend/spec.md :: I45`): a truncated list counts fewer records than the season holds,
-        # and `REQ-SPIELPLAN-006`'s window opens on a result the removals below would destroy.
-        if len(stored_spiele) > LIST_LIMIT_DEFAULT:
-            raise ValueError(
-                f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"
-            )
+        stored_spiele = await _pull_recorded_fact_rows(spiele_collection=spiele_collection, saison_id=saison_id, session=session)
 
         refuse(
-            find_undraw_refusal(
+            _find_undraw_refusal_of(
                 saison_status=str(saison_raw["status"]),
-                recorded_fixtures=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
-            )
-        )
-        refuse(
-            find_berichte_refusal(
-                berichte=await count_eingereichte_berichte(
+                recorded_spiele=sum(1 for spiel in stored_spiele if holds_a_recorded_fact(spiel)),
+                berichte=await count_submitted_berichte(
                     spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=session
-                )
+                ),
             )
         )
 
-        # The season a report's first write anchors, so the two conflict: the `$unset` below changes nothing on a season
-        # holding no watermark, and the report's insert meets no delete here (`docs/backend/spec.md :: I833`).
+        # The season every report write anchors, so the two conflict: the `$unset` below changes nothing on a season
+        # holding no watermark, and the report's insert meets no delete here.
         await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
 
-        # Fixtures first, the reverse of the draw's write order: neither the log's rows nor a restore
-        # replaying them then holds a fixture whose matchday is already gone. Confirmations and reports
-        # go first for that reason (`app/core/domain.py :: REFERENCES`).
+        # Fixtures first, the reverse of the draw's write order. Confirmations, reports and line-ups go first of
+        # all, each naming the fixture it is about.
         await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
         await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
+        await remove_the_seasons_aufstellungen(aufstellungen_collection=aufstellungen_collection, saison_id=saison_id, session=session)
         removed_spiele = await delete_many_from_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
         removed_spieltage = await delete_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, session=session)
 
-        # INSIDE the transaction holding both removals (`docs/backend/spec.md :: I46` and `:: I110`): a season
-        # keeping its watermark while its fixtures are gone reads as drawn, and `$unset` is the shape
-        # a season nobody has drawn carries.
+        # Inside the transaction holding both removals: a season keeping its watermark while its fixtures
+        # are gone would date a draw it no longer holds, and `$unset` is the shape a season nobody has drawn carries.
         before = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$unset": {"spielplan": ""}},
             session=session,
+            expected_version=None,
             return_document=ReturnDocument.BEFORE,
         )
+        await record_act(collection=saisons_collection, action="saison.spielplan_deleted", label=saison_id, session=session)
 
-        # The replace's reason (`docs/backend/spec.md :: I118`).
+        # Counted again outside the transaction: a report's write conflicts with this one, but a document no write made
+        # does not.
         refuse(
             find_berichte_refusal(
-                berichte=await count_eingereichte_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
+                berichte=await count_submitted_berichte(spielberichte_collection=spielberichte_collection, saison_id=saison_id, session=None)
             )
         )
 
@@ -1133,344 +1189,231 @@ async def undraw_spielplan(
             saison_id=saison_id,
             spieltage=removed_spieltage.deleted_count,
             spiele=removed_spiele.deleted_count,
-            # The update's OWN pre-image, so nothing lands between reading the watermark and clearing
+            # The update's own pre-image, so nothing lands between reading the watermark and clearing
             # it. A season holding one with no fixtures behind it reports the only thing removed.
             watermark_cleared=before.get("spielplan") is not None,
         )
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            undrawn = await session.with_transaction(undraw_the_whole_season)
+    async with transaction_session(db) as session:
+        undrawn = await session.with_transaction(undraw_the_whole_season)
 
     return undrawn
 
 
-async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id: str) -> list[Mapping[str, Any]]:
+async def _entered_teams(*, saison_teams_collection: ReadCollection, saison_id: str) -> list[Mapping[str, Any]]:
     """Every team this season holds, ordered as its other lists are.
 
-    Read one over the cap and refused past it (`app/api/spiele/crud.py :: advance_bracket_winners`'s
-    reason): a truncated list silently leaves teams unmailed, which is what this press exists to stop.
+    Read one over the cap and refused past it: a truncated list silently leaves teams unmailed, which is what this press
+    exists to stop.
     """
 
-    entered = await pull_many_from_db(
+    return await pull_whole_from_db(
         collection=saison_teams_collection,
         db_filter={"saison_id": saison_id},
+        what=f"season {saison_id}'s clubs",
         projection=["team_id", "name", "kontakte", "austritt"],
-        sort_by=build_sort(sort_by="name", order="asc"),
+        sort_by=[("name", 1)],
         collation=GERMAN_COLLATION,
-        limit=LIST_LIMIT_DEFAULT + 1,
     )
 
-    if len(entered) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} teams, which is more than one read can mail in one press")
 
-    return entered
+class _PlannedTeam(NamedTuple):
+    """One team as a press made now would treat it, beside the live link it holds."""
+
+    team: Mapping[str, Any]
+    live: Mapping[str, Any] | None
+    plan: InvitationDispatchPlan
 
 
-async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
-    """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
+async def _plan_the_dispatch(
+    *,
+    saison_id: str,
+    saison_teams_collection: ReadCollection,
+    invitations_collection: ReadCollection,
+) -> list[_PlannedTeam]:
+    """Every team of the season planned by `plan_invitation_dispatch`, the function the press decides each team by.
 
-    adressen = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
+    Read outside any transaction, for the editor's read: the press plans each team again in its own.
+    """
 
-    return await adressen_gesperrt(sperrliste, adressen) if adressen else set()
+    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+    team_ids = [team["team_id"] for team in entered]
+
+    # Keyed on the teams just read rather than on the season alone: `uniq_invitation_live` makes that
+    # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
+    live = await pull_many_from_db(
+        collection=invitations_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_INVITATION},
+        limit=len(team_ids) or 1,
+        projection=dict(WITHOUT_TOKEN_HASH),
+    )
+    by_team = {row["team_id"]: row for row in live}
+
+    planned: list[_PlannedTeam] = []
+    for team in entered:
+        invitation_raw = by_team.get(team["team_id"])
+        plan = plan_invitation_dispatch(
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            invitation_raw=invitation_raw,
+        )
+        planned.append(_PlannedTeam(team=team, live=invitation_raw, plan=plan))
+
+    return planned
+
+
+# What one team's share of the press came to, which the press's answer counts.
+type _PressOutcome = Literal["mailed", "skipped", "failed"]
 
 
 async def _mail_one_team(
     *,
-    einladungen_collection: AsyncCollection,
+    invitations_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     db: AsyncMongoClient,
     saison_id: str,
     team: Mapping[str, Any],
-    erneut: bool,
-    gesperrt: set[str],
-    erstellt_von: str,
+    records_the_press: bool,
     today: str,
-) -> FLEinladungVersandZeile:
-    """One team's whole share of the press, in a transaction of its own.
+    now: datetime,
+) -> _PressOutcome:
+    """One team's whole share of the press, its revoke, its fresh row and the mails it owes, in a transaction of its own.
 
     Per team rather than one for all: a season's worth of mints in one transaction would take back
-    the teams already done on a write conflict.
+    the teams already done on a write conflict. A team's commit holds its fresh row and every mail
+    owed about it together, so no team is left holding a link nobody is owed.
     """
 
-    # Outside the callback, for `app/api/teams/admin_router.py :: post_einladung`'s reason.
-    raw_token, token_hash = mint_token()
+    async def mint_where_the_team_qualifies(session: AsyncClientSession) -> _PressOutcome:
+        """Plan this team, then revoke, insert and owe where the plan says to.
 
-    # What the callback's last run read and planned, kept for a transaction that raises: whether the
-    # team held a link, and whether that commit may have revoked it, is what its row then tells the admin.
-    ersetzt_link = False
-    hatte_link: bool | None = None
-
-    async def mint_where_the_team_qualifies(session: AsyncClientSession) -> FLEinladungVersandZeile:
-        """Plan this team, then revoke and mint where the plan says to.
-
-        The INVITE alone is read in-session: the withdrawal and the contacts come from the read
-        before the loop, so a retry re-decides on those as they stood then.
+        The invite and its mails alone are read in-session: the withdrawal and the contacts come from
+        the read before the loop, so a retry re-decides on those as they stood then.
         """
 
-        nonlocal ersetzt_link, hatte_link
-        # Reset before the read: a retry raising ahead of it would otherwise report the previous
-        # attempt's link, which a rival's press may have revoked since.
-        ersetzt_link, hatte_link = False, None
-
         live = await pull_many_from_db(
-            collection=einladungen_collection,
+            collection=invitations_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
             limit=1,
             projection=dict(WITHOUT_TOKEN_HASH),
             session=session,
         )
-        plan = plan_einladung_versand(
+        # A link already sent is read off the day stored on it, never off the Postausgang, whose row is erased a retention
+        # after it settles: pressing twice mails nobody twice.
+        plan = plan_invitation_dispatch(
             austritt=team.get("austritt"),
             kontakte=team.get("kontakte"),
-            einladung_raw=live[0] if live else None,
-            erneut=erneut,
-            gesperrt=gesperrt,
+            invitation_raw=live[0] if live else None,
         )
-        ersetzt_link, hatte_link = plan.ersetzt_link, bool(live)
 
-        if plan.uebersprungen is not None:
-            return FLEinladungVersandZeile(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                einladung_id=None,
-                token=None,
-                empfaenger=[],
-                uebersprungen=plan.uebersprungen,
-                ersetzt_link=plan.ersetzt_link,
-                hatte_link=bool(live),
-            )
+        if plan.skipped is not None:
+            return "skipped"
 
         # Only where the read above found one: a team holding no link is spared the command.
         if live:
             await patch_many_in_db(
-                collection=einladungen_collection,
+                collection=invitations_collection,
                 db_filter=build_live_team_filter(saison_id=saison_id, team_id=team["team_id"]),
-                update=compose_widerruf_update(today=today),
+                update=compose_revocation_update(today=today),
                 session=session,
             )
 
         post_operation = await post_one_to_db(
-            collection=einladungen_collection,
-            document=compose_einladung(
-                saison_id=saison_id,
-                team_id=team["team_id"],
-                token_hash=token_hash,
-                erstellt_von=erstellt_von,
-                today=today,
-            ),
+            collection=invitations_collection,
+            # No link of its own: each mail below mints one at its hand-out.
+            document=compose_invitation(saison_id=saison_id, team_id=team["team_id"], token_hashes=[], sent_at=today),
             session=session,
         )
-
-        return FLEinladungVersandZeile(
-            team_id=team["team_id"],
-            team_name=team["name"],
-            einladung_id=post_operation.inserted_id,
-            token=raw_token,
-            empfaenger=plan.empfaenger,
-            uebersprungen=None,
-            ersetzt_link=plan.ersetzt_link,
-            hatte_link=bool(live),
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=owed_invitation_mails(
+                invitation_id=post_operation.inserted_id,
+                team_id=team["team_id"],
+                team_name=team["name"],
+                saison_id=saison_id,
+                recipient=plan.recipient,
+                occasion="dispatch",
+            ),
+            now=now,
         )
+        if records_the_press:
+            await record_act(collection=invitations_collection, action="saison.invitations_dispatched", label=saison_id, session=session)
+
+        return "mailed"
 
     # Caught outside the session: a failure the session never sees leaves the transaction open on the
-    # server (`docs/backend/spec.md :: I539`).
+    # server.
     try:
         async with transaction_session(db) as session:
             return await session.with_transaction(mint_where_the_team_qualifies)
     except PyMongoError as failure:
-        # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
-        # list. A commit sent and never answered may have revoked this team's link too, so its
-        # row says unknown rather than failed.
-        ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
+        # Per team: every team already done is committed with its mails. A commit sent and never answered may have revoked
+        # this team's link and owed its mails too, so its line says unknown rather than failed.
+        uncertain = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
-            f"The registration link for team {team['team_id']} in season {saison_id} was "
-            f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-            extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+            "saisons.invitation_unminted",
+            extra={
+                "error_code": Code.UNKNOWN_OUTCOME if uncertain else Code.DATABASE_FAILED,
+                "team_id": str(team["team_id"]),
+                "saison_id": saison_id,
+                "exception": type(failure).__name__,
+            },
         )
 
-        return FLEinladungVersandZeile(
-            team_id=team["team_id"],
-            team_name=team["name"],
-            einladung_id=None,
-            token=None,
-            empfaenger=[],
-            uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
-            # A failed commit replaced nothing; an unanswered one may have replaced the link the
-            # plan found, and a team that held none must not read about one.
-            ersetzt_link=ungewiss and ersetzt_link,
-            hatte_link=hatte_link,
-        )
-
-
-@router.get(
-    "/{saison_id}/einladungen/versand/vorschau",
-    response_model=FLEinladungVersandVorschauResponse,
-    summary="Who the send would reach",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-)
-async def preview_einladungen_versand(
-    saison_id: str,
-    saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste: SperrlisteLookup,
-    erneut: bool = False,
-) -> FLEinladungVersandVorschauResponse:
-    """
-    Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
-
-    Decided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own
-    switch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with
-    `erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.
-
-    **`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
-    link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
-    so a page offering the press reads that fact here or nowhere.
-
-    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
-    delivery record and `erneut` is false. A season holding
-    no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
-    """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-
-    entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
-    team_ids = [team["team_id"] for team in entered]
-
-    # Keyed on the teams just read rather than on the season alone: `uniq_einladung_live` makes that
-    # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
-    live = await pull_many_from_db(
-        collection=einladungen_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}, **LIVE_EINLADUNG},
-        limit=len(team_ids) or 1,
-        projection=dict(WITHOUT_TOKEN_HASH),
-    )
-    by_team = {row["team_id"]: row for row in live}
-    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
-
-    zeilen: list[FLEinladungVersandVorschauZeile] = []
-    for team in entered:
-        plan = plan_einladung_versand(
-            austritt=team.get("austritt"),
-            kontakte=team.get("kontakte"),
-            einladung_raw=by_team.get(team["team_id"]),
-            erneut=erneut,
-            gesperrt=gesperrt,
-        )
-        zeilen.append(
-            FLEinladungVersandVorschauZeile(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                empfaenger=plan.empfaenger,
-                uebersprungen=plan.uebersprungen,
-                ersetzt_link=plan.ersetzt_link,
-            )
-        )
-
-    return FLEinladungVersandVorschauResponse(saison_id=saison_id, zeilen=zeilen)
-
-
-@router.get(
-    "/{saison_id}/loeschung/vorschau",
-    response_model=FLLoeschungVorschauResponse,
-    summary="How many pupils activating this season would delete",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-)
-async def preview_loeschung(
-    saison_id: str,
-    saisons_collection: SaisonsCollection,
-    spieler_collection: SpielerCollection,
-    registrierungen_collection: RegistrierungenCollection,
-) -> FLLoeschungVorschauResponse:
-    """
-    How many pupils `POST /identitaet/loeschung/lauf` deletes once this season is activated, and which season that activation closes.
-
-    Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
-    `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
-    refusals, and the people it counts are those due at this moment: a squad row or a registration arriving before the run
-    keeps its pupil, and a pupil whose stored address no request matches is counted though the run passes them over.
-    `abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
-    """
-
-    await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
-
-    statuses = await saison_statuses(saisons_collection=saisons_collection)
-    spieler = await faellige_anzahl(
-        statuses_after_activating(statuses, saison_id),
-        spieler_collection=spieler_collection,
-        registrierungen_collection=registrierungen_collection,
-    )
-
-    return FLLoeschungVorschauResponse(abgeschlossene_saison_id=geschlossen_durch(statuses, saison_id), spieler=spieler)
+        return "failed"
 
 
 @router.post(
-    "/{saison_id}/einladungen/versand",
-    response_model=FLEinladungVersandResponse,
+    "/{saison_id}/invitations/dispatch",
+    response_model=FLInvitationDispatchResponse,
     summary="Mint every admitted team a link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
-async def post_einladungen_versand(
+async def post_invitations_dispatch(
     saison_id: str,
-    versand_data: Annotated[FLEinladungVersandPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
+    invitations_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    sperrliste: SperrlisteLookup,
+    outbox_collection: OutboxCollection,
     db: DBClient,
-    erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
-) -> FLEinladungVersandResponse:
-    """
-    Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLInvitationDispatchResponse:
+    """Give every admitted team of this season a fresh registration link, revoking any it held, mailed to its confirmed seats.
 
-    **Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in
-    somebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been
-    made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
-    press. A team this skips is left exactly as it was.
-
-    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
-    record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
-    holds rather than losing it to a press that mails nobody. **The fifth is read off
-    the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
-    never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
-    passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
-
-    The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
-    404 where no season holds that id; a season holding no team answers an empty list.
-
-    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
-    carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
-    mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
-    delivery record yet.
+    A team that has left the season, holds no confirmed seat or was already sent its live link is skipped and left as it
+    was, so pressing twice mails nobody twice.
     """
 
     saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"])
-    refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
+    refuse(find_invitation_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
-    # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
-    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
-    zeilen = [
-        await _mail_one_team(
-            einladungen_collection=einladungen_collection,
-            db=db,
-            saison_id=saison_id,
-            team=team,
-            erneut=versand_data.erneut,
-            gesperrt=gesperrt,
-            erstellt_von=erstellt_von,
-            today=today,
+    outcomes: list[_PressOutcome] = []
+    for team in entered:
+        outcomes.append(
+            await _mail_one_team(
+                invitations_collection=invitations_collection,
+                outbox_collection=outbox_collection,
+                db=db,
+                saison_id=saison_id,
+                team=team,
+                # One press across a transaction per team is one act, its row in the first team's that mails: a write
+                # after the loop would meet the deadline the loop spent, and answer 500 over teams already mailed.
+                records_the_press="mailed" not in outcomes,
+                today=today,
+                now=germany_now,
+            )
         )
-        for team in entered
-    ]
 
-    return FLEinladungVersandResponse(saison_id=saison_id, zeilen=zeilen)
+    return FLInvitationDispatchResponse(
+        saison_id=saison_id,
+        mailed=outcomes.count("mailed"),
+        skipped=outcomes.count("skipped"),
+        failed=outcomes.count("failed"),
+    )

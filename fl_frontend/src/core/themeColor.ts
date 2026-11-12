@@ -1,0 +1,7 @@
+/**
+ * The browser bar's colour in each theme: the token `--bg-surface` per theme, copied because a `<meta>` colour
+ * resolves no `var()`. Not `--bg`: the bar under the chrome is `bg-surface` on both frames, and a `--bg` chrome sits
+ * off it, a stripe. Nor the brand fill the manifest opens an installed app on: this bar is on every screen at once,
+ * and the brand budget is salience.
+ */
+export const THEME_COLOR = { light: "#ffffff", dark: "#121212" } as const;

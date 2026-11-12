@@ -1,45 +1,51 @@
-import { withSaisonId } from "./saisonHref";
+import { COPY, textOf } from "@/core/copy";
 
-import type { Metadata } from "next";
+import type { Copy, Words } from "@/core/copy";
+import type { RouteEntry } from "@/core/routes";
+import type { Metadata, ResolvingMetadata } from "next";
+
+/** The preview fields every page shares, which the root layout declares beside the share image. */
+export const SITE_OPEN_GRAPH = { siteName: COPY.brand.name, locale: "de_DE", type: "website" } as const;
 
 /**
- * `saisonId` is `resolveSaisonId`'s answer, never the raw parameter (`docs/frontend/spec.md` §1.13).
- *
- * **A URL naming the RUNNING season canonicalises to the bare address**, which serves that same
- * page: two self-canonicalising addresses split one page's indexing.
+ * A page's metadata from its route's row and its address: the title, the description, the address as the
+ * preview's, and either the address as the canonical, on a page search engines list, or `noindex`, on one they
+ * do not: a canonical names the address to list, which a page kept out of the index has none of, so it declares
+ * none, as Yoast leaves it off a noindex page. A row titled by its record or its teams takes that title as
+ * `title`; a listed page takes its description from the server catalogue, which holds one for a listed row alone.
+ * Call it from `generateMetadata`, handing on the `parent` Next passes there.
  */
-export function seasonScopedMetadata(
+export function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry & { readonly title: Copy },
   path: string,
-  saisonId: string | undefined,
-  runningSaisonId: string | undefined,
-): Pick<Metadata, "alternates" | "openGraph"> {
-  const url = withSaisonId(path, saisonId === runningSaisonId ? undefined : saisonId);
-
-  return { openGraph: openGraphFor(url), alternates: { canonical: url } };
-}
-
-/** The season a description names, from the same answer: a past season's page never calls itself the running one. */
-export function saisonPhrase(saisonId: string | undefined): string {
-  return saisonId === undefined ? "der laufenden Saison" : `der Saison ${saisonId}`;
+  words?: { readonly description?: Copy },
+): Promise<Metadata>;
+export function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry,
+  path: string,
+  words: { readonly title: Words; readonly description?: Copy },
+): Promise<Metadata>;
+export async function pageMetadata(
+  parent: ResolvingMetadata,
+  row: RouteEntry,
+  path: string,
+  words: { readonly title?: Words; readonly description?: Copy } = {},
+): Promise<Metadata> {
+  return {
+    title: words.title === undefined ? (typeof row.title === "string" ? row.title : undefined) : textOf(words.title),
+    description: words.description,
+    openGraph: await openGraphFor(parent, path),
+    ...(row.crawl === "index" ? { alternates: { canonical: path } } : { robots: { index: false, follow: false } }),
+  };
 }
 
 /**
- * Call it with the path the route gives `alternates.canonical`. **No route declares a bare `openGraph` object**:
- * Next replaces the parent's whole when a child defines one, so `openGraph: { url }` silently drops the image.
+ * A page's preview fields, its address among them as og:url, which Meta's scraper takes as the shared object's
+ * identity. Next replaces the parent's whole `openGraph` once a page declares one, image included, so the image
+ * the root layout set is carried over from `parent`.
  */
-export function openGraphFor(path: string): NonNullable<Metadata["openGraph"]> {
-  return {
-    url: path,
-    siteName: "Frankfurt League",
-    images: [
-      {
-        url: "/icons/opengraph/opengraph.png",
-        width: 1200,
-        height: 630,
-        alt: "Frankfurt League, die Oberstufenliga: Schriftzug neben dem Pokal",
-      },
-    ],
-    locale: "de_DE",
-    type: "website",
-  };
+async function openGraphFor(parent: ResolvingMetadata, path: string): Promise<NonNullable<Metadata["openGraph"]>> {
+  return { ...SITE_OPEN_GRAPH, url: path, images: (await parent).openGraph?.images };
 }

@@ -1,115 +1,293 @@
+import asyncio
+import secrets
+from collections import Counter
 from collections.abc import Mapping
-from typing import Annotated, Any, Final
+from datetime import datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
-    FLAblehnenBewerbungPayload,
-    FLAblehnenBewerbungResponse,
-    FLAnnehmenBewerbungPayload,
-    FLAnnehmenBewerbungResponse,
+    FLAcceptBewerbungPayload,
+    FLAcceptBewerbungResponse,
     FLBewerbung,
-    FLBewerbungEinwilligungErneutResponse,
-    FLBewerbungKontaktEmailPayload,
-    FLBewerbungKontaktEmailResponse,
-    FLBewerbungKontaktSitzPayload,
-    FLBewerbungKontaktSitzResponse,
-    FLKontaktRolle,
+    FLBewerbungEinwilligungResendResponse,
+    FLBewerbungenAdminListResponse,
+    FLBewerbungEntry,
+    FLBewerbungEntryOffer,
+    FLBewerbungGruppeOffer,
+    FLBewerbungKontaktSeatPayload,
+    FLBewerbungKontaktSeatResponse,
+    FLBewerbungListRow,
+    FLBewerbungSingleResponse,
+    FLDeclineBewerbungPayload,
+    FLDeclineBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
-    bestaetigungsfrist_from,
-    build_erneut_filter,
+    BEWERBUNG_LIST_FIELDS,
+    WITHOUT_TOKEN_HASHES,
+    assigned_trikot_farben,
+    bewerbung_list_row,
+    build_bewerbungen_sort,
+    build_confirmed_seat_filter,
+    build_duplicates_pipeline,
+    build_entry_offer_pipeline,
+    build_resend_filter,
     claimed_pair_seat,
-    compose_erneut_update,
-    compose_kontakt_email_update,
     compose_kontakt_seat_update,
     compose_new_club,
+    compose_resend_update,
+    confirmation_deadline_from,
+    find_acceptance_code_refusal,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
-    find_kontakt_email_refusal,
-    find_kontakt_gesperrt_refusal,
+    find_already_entered_refusal,
     find_new_club_refusal,
-    find_reseat_refusal,
-    find_sitz_inhaber_refusal,
+    find_seat_contact_refusal,
+    find_seat_write_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
-    mint_token,
-    mit_vorenthaltener_entscheidung,
+    is_duplicate,
+    mailed_seats,
+    owed_link,
     paired_seat,
     parse_new_club,
+    people_with_address,
+    schule_name,
     seat_named,
+    seats_confirmed_of,
+    with_delivery,
 )
-from app.api.einwilligung.services import find_fassung_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.grants.guard import verify_actor_is_admin
+from app.api.outbox.crud import states_of
+from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData, FLOutboxClub
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
-from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
-from app.api.teams.services import find_club_entry_refusal
-from app.core.adressanker import anchor_the_addresses
+from app.api.teams.crud import pull_a_club_to_enter, pull_team_names_and_codes, refuse_a_full_gruppe, refuse_a_taken_colour
+from app.api.teams.services import find_club_entry_refusal, find_shorthand_refusal, offered_gruppen
+from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
-from app.core.dependencies import (
-    AdressankerCollection,
-    BewerbungenCollection,
-    DBClient,
-    SaisonsCollection,
-    SaisonTeamsCollection,
-    TeamsCollection,
-    get_german_date_str,
+from app.core.crud import (
+    aggregate_many_from_db,
+    insert_live,
+    is_held_elsewhere,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.dependencies import (
+    BewerbungenCollection,
+    BewerbungenReadCollection,
+    DBClient,
+    OutboxCollection,
+    OutboxReadCollection,
+    SaisonsCollection,
+    SaisonsReadCollection,
+    SaisonTeamsCollection,
+    SaisonTeamsReadCollection,
+    TeamsCollection,
+    TeamsReadCollection,
+    get_german_date_str,
+    get_germany_now,
+)
+from app.core.exceptions import DocumentNotFoundError
+from app.core.readonly import ReadCollection
+from app.core.recording import record_act
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.literals import FLKontaktRolle
 
+# Admin-guarded, not base: an application carries three people's names, addresses, telephone numbers and dates of
+# birth, and says which schools asked and were turned down. The public router shares this prefix at base tier and
+# serves no person's details.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
-def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
+async def _entry_offer(*, saison_id: str, saisons_collection: SaisonsReadCollection) -> FLBewerbungEntryOffer:
+    """What an acceptance into this season would meet, by the bounds an entry's refusal judges."""
+
+    seasons = await aggregate_many_from_db(collection=saisons_collection, pipeline=build_entry_offer_pipeline(saison_id=saison_id))
+    if not seasons:
+        raise DocumentNotFoundError()
+
+    saison_raw = seasons[0]
+    rules = FLSaisonRules.model_validate(saison_raw["rules"])
+    occupied = Counter(row["gruppe"] for row in saison_raw["rows"])
+
+    return FLBewerbungEntryOffer(
+        status=saison_raw["status"],
+        gruppen=[
+            FLBewerbungGruppeOffer(gruppe=gruppe, free=max(rules.teams_per_gruppe - occupied[gruppe], 0))
+            for gruppe in offered_gruppen(rules.number_of_gruppen)
+        ],
+        taken=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in saison_raw["rows"]]),
+    )
+
+
+async def _entry_of(bewerbung_raw: Mapping[str, Any], *, saison_teams_collection: SaisonTeamsReadCollection) -> FLBewerbungEntry | None:
+    """Where the accepted application's club stands in its season, `None` for an application no acceptance entered."""
+
+    if bewerbung_raw["status"] != "accepted":
+        return None
+
+    row = await saison_teams_collection.find_one(
+        {"saison_id": bewerbung_raw["saison_id"], "team_id": bewerbung_raw.get("team_id")}, {"gruppe": 1, "trikot_farbe": 1}
+    )
+
+    return None if row is None else FLBewerbungEntry.model_validate(row)
+
+
+async def _doubled_clubs(*, saison_id: str, bewerbungen_collection: ReadCollection) -> set[Any]:
+    """The clubs the season's `Dublette`n collide on, which `is_duplicate` asks of a stored application."""
+
+    cells = await aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_duplicates_pipeline(saison_id=saison_id))
+
+    return {cell["_id"] for cell in cells}
+
+
+# Two static segments, matching `GET /saisons/list/admin`.
+@router.get("/list/admin", response_model=FLBewerbungenAdminListResponse, summary="One Saison's Bewerbungen for its list")
+async def get_bewerbungen_admin(
+    bewerbungen_collection: BewerbungenReadCollection,
+    teams_collection: TeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_id: Annotated[str, Query()],
+) -> FLBewerbungenAdminListResponse:
+    """The season's applications, newest first, holding nothing of a person, and what an acceptance would meet there.
+
+    A long list is cut, as `complete` says, but every application with a confirmed seat is served past the cut.
+    """
+
+    # Cut rather than refused: an anonymous public form writes these rows, so a tripwire would hand whoever writes them
+    # the power to 500 this page.
+    async def newest_of(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+        return await pull_many_from_db(
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            # One past the cap, so `complete` is answered without counting.
+            limit=LIST_LIMIT_DEFAULT + 1,
+            sort_by=build_bewerbungen_sort(order="desc"),
+            projection=BEWERBUNG_LIST_FIELDS,
+        )
+
+    offer, clubs, read, confirmed = await asyncio.gather(
+        _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
+        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
+        newest_of({"saison_id": saison_id}),
+        newest_of(build_confirmed_seat_filter(saison_id=saison_id)),
+    )
+    # Sliced before validation, so neither probe row is ever parsed or reaches the wire.
+    newest = read[:LIST_LIMIT_DEFAULT]
+    shown = {row["_id"] for row in newest}
+    # Past the newest rows, so the two reads' one order holds without a sort here.
+    served = [*newest, *(row for row in confirmed[:LIST_LIMIT_DEFAULT] if row["_id"] not in shown)]
+    club_names, club_codes = await pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[row.get("team_id") for row in served])
+
+    return FLBewerbungenAdminListResponse(
+        saison=offer,
+        bewerbungen=[
+            FLBewerbungListRow.model_validate(bewerbung_list_row(row=row, club_names=club_names, club_codes=club_codes, doubled=clubs))
+            for row in served
+        ],
+        complete=len(read) <= LIST_LIMIT_DEFAULT,
+    )
+
+
+@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung for its review page")
+async def get_bewerbung(
+    bewerbung_id: CustomRouteObjectId,
+    bewerbungen_collection: BewerbungenReadCollection,
+    teams_collection: TeamsReadCollection,
+    saisons_collection: SaisonsReadCollection,
+    saison_teams_collection: SaisonTeamsReadCollection,
+    outbox_collection: OutboxReadCollection,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungSingleResponse:
+    """One application, each seat's state judged today and `duplicate` taken over every open application of the season."""
+
+    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
+    states = await states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[bewerbung_raw["_id"]])
+    served = with_delivery(bewerbung_raw, states, today=today)
+
+    team_id = bewerbung_raw.get("team_id")
+    saison_id = str(bewerbung_raw["saison_id"])
+    offer, (club_names, club_codes), entry, clubs = await asyncio.gather(
+        _entry_offer(saison_id=saison_id, saisons_collection=saisons_collection),
+        pull_team_names_and_codes(teams_collection=teams_collection, team_ids=[team_id]),
+        _entry_of(bewerbung_raw, saison_teams_collection=saison_teams_collection),
+        _doubled_clubs(saison_id=saison_id, bewerbungen_collection=bewerbungen_collection),
+    )
+
+    return FLBewerbungSingleResponse(
+        bewerbung=FLBewerbung(**served),
+        entry=entry,
+        name=schule_name(bewerbung_raw=bewerbung_raw, club_names=club_names),
+        shorthand=club_codes.get(team_id),
+        seats_confirmed=seats_confirmed_of(kontakte=bewerbung_raw.get("kontakte")),
+        duplicate=is_duplicate(row=bewerbung_raw, doubled=clubs),
+        saison=offer,
+    )
+
+
+def _decision(*, today: str, reason: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"getroffen_am": today, "von": von, "grund": grund}
+    return {"made_at": today, "reason": reason}
 
 
-# What a decision's own answer withholds: the actor check admits no barred holder
-# (`docs/backend/spec.md :: I463`), so the administrator it just wrote is served as written.
-_KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
+async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
+    """The school a mail names: as submitted, or the picked club as the league holds it."""
+
+    schule = bewerbung_raw.get("schule")
+    if isinstance(schule, Mapping):
+        return str(schule.get("team_name") or "")
+
+    club = await teams_collection.find_one({"_id": bewerbung_raw.get("team_id")}, {"name": 1}, session=session)
+
+    return str((club or {}).get("name") or "")
 
 
+def _key(bewerbung_id: Any, *parts: str) -> str:
+    return "/".join([str(Collection.BEWERBUNGEN), str(bewerbung_id), *parts])
+
+
+# One application a call, the bulk accept calling it once per card, so a refusal lands on its card and nothing already
+# done is undone: one request over a season's applications would outrun `REQUEST_DEADLINE_S`.
 @router.post(
-    f"{by_id('bewerbung_id')}/annehmen",
-    response_model=FLAnnehmenBewerbungResponse,
+    f"{by_id('bewerbung_id')}/accept",
+    response_model=FLAcceptBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
-async def annehmen_bewerbung(
+async def accept_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    annahme_data: Annotated[FLAnnehmenBewerbungPayload, Body()],
+    acceptance_data: Annotated[FLAcceptBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    von: str = Depends(get_actor_email),
-) -> FLAnnehmenBewerbungResponse:
-    """
-    Accept an application, creating the school's club where the applicant proposed a new one.
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLAcceptBewerbungResponse:
+    """Accept an application once every contact person confirmed their seat, entering its club into the season and creating it for a new school.
 
-    IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
-    `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
-    confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
+    It cannot be undone, as an entered club leaves only by an `austritt`, and every person of the application is mailed
+    the acceptance.
     """
 
-    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
+    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAcceptBewerbungResponse:
         """Judge everything, then write. Everything judged is read in-session, so a retry re-judges it.
 
         One transaction over every write: a club created without its junction row is a school in no
@@ -126,10 +304,11 @@ async def annehmen_bewerbung(
         # the retry rather than lost, and the block copied into `saison_teams` below then carries
         # every person's own date and stamp.
         refuse(find_unconfirmed_kontakte_refusal(kontakte=bewerbung_raw.get("kontakte")))
+        refuse(find_acceptance_code_refusal(new_school=schule is not None, shorthand=acceptance_data.shorthand))
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
-        # transaction of its own, and entry is refused outside `future` (`REQ-ENTER-001`).
+        # transaction of its own, and entry is refused outside `future` (`entry_saison_not_future`).
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "rules"], session=session
         )
@@ -139,27 +318,31 @@ async def annehmen_bewerbung(
         picked_club: Any = None
         new_club: dict[str, Any] | None = None
 
-        # Read before the count, as `post_saison_team` reads it: a club's standing in the league is
+        # Read before the count, as `enter_a_club` reads it: a club's standing in the league is
         # not repaired by picking another group, so nobody is handed a capacity figure first. A
-        # school being created cannot have left, so only a PICKED club is checked.
+        # school being created cannot have left, so only a picked club is checked.
         if schule is None:
             team_raw = await pull_a_club_to_enter(teams_collection=teams_collection, team_id=picked_team_id, session=session)
             refuse(find_club_entry_refusal(inactive_since=team_raw.get("inactive_since")))
-            # The club's OWN `_id`, never the application's copy of it: this read is what proves the
+            # The club's own `_id`, never the application's copy of it: this read is what proves the
             # club exists, so the id the junction row carries comes from the document it resolved.
             picked_club = team_raw["_id"]
+            # Two applications may name one club, so the first's acceptance reaches the second here: on the status
+            # line by this code, ahead of the junction's unique index, which answers only a race.
+            entered = await saison_teams_collection.count_documents({"saison_id": saison_id, "team_id": picked_club}, limit=1, session=session)
+            refuse(find_already_entered_refusal(entered=entered > 0))
             name, shorthand = str(team_raw["name"]), str(team_raw["shorthand"])
         else:
             # Composed beside the guard that judges it, and reaching for no field of the application
             # itself: nothing here may raise before the refusal below has had its say.
-            new_club = compose_new_club(schule=schule)
+            new_club = compose_new_club(schule=schule, shorthand=acceptance_data.shorthand)
             # Asked where the picked club's standing is asked, and for that reason: a school whose
             # own details make no club is not repaired by picking another group.
             refuse(find_new_club_refusal(club_document=new_club))
-            # PARSED before it is stored, so this path and `POST /teams` put one document in `teams`
+            # Parsed before it is stored, so this path and `POST /teams` put one document in `teams`
             # for one school; the guard above has already proved it validates.
             new_club = parse_new_club(club_document=new_club)
-            # Read off the document the write STORES rather than the school a second time, so no
+            # Read off the document the write stores rather than the school a second time, so no
             # field is composed twice and differently.
             name, shorthand = new_club["name"], new_club["shorthand"]
 
@@ -170,13 +353,26 @@ async def annehmen_bewerbung(
             saison_teams_collection=saison_teams_collection,
             saisons_collection=saisons_collection,
             saison_id=saison_id,
-            gruppe=annahme_data.gruppe,
+            gruppe=acceptance_data.gruppe,
             saison_status=str(saison_raw["status"]),
             # Validated, not read raw: a season missing the capacity keys fails here rather than
             # admitting a school against a bound nobody chose.
             rules=FLSaisonRules.model_validate(saison_raw["rules"]),
             session=session,
         )
+        await refuse_a_taken_colour(
+            saison_teams_collection=saison_teams_collection,
+            saisons_collection=saisons_collection,
+            saison_id=saison_id,
+            trikot_farbe=acceptance_data.trikot_farbe,
+            own_id=None,
+            session=session,
+        )
+
+        # On the box a person typed it in, before the write meets `uniq_shorthand`, which answers only a race.
+        if new_club is not None:
+            taken = await is_held_elsewhere(collection=teams_collection, key="shorthand", value=shorthand, own_id=None, session=session)
+            refuse(find_shorthand_refusal(taken=taken))
 
         # Every refusal is behind us, so the writes follow with nothing left to judge.
         if new_club is None:
@@ -190,419 +386,350 @@ async def annehmen_bewerbung(
             document={
                 "saison_id": saison_id,
                 "team_id": team_id,
-                "gruppe": annahme_data.gruppe,
+                "gruppe": acceptance_data.gruppe,
                 "austritt": None,
-                "trikot_farbe": annahme_data.trikot_farbe,
-                # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
-                # confirmed by its own person before acceptance was allowed (`REQ-BEWERBUNG-013`).
+                "trikot_farbe": acceptance_data.trikot_farbe,
+                # The three people arrive with the row rather than in a later write: they are what the
+                # application was, and the team editor reads them from here. Copied whole, each seat
+                # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
                 "kontakte": bewerbung_raw["kontakte"],
-                # Copied rather than joined on read (`docs/backend/spec.md :: I95`).
+                # Copied rather than joined on read.
                 "name": name,
                 "shorthand": shorthand,
             },
             session=session,
         )
 
-        updated_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=bewerbungen_collection,
             # By `_id` alone: a decision landing after the read above conflicts with this write, and the
-            # retry's read refuses it, so no status term is reached. Held by
-            # `TestADeclineLandingInsideAnAcceptance` and, the read being in-session,
-            # `TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction`.
+            # retry's read refuses it, so no status term is reached.
             db_filter={"_id": bewerbung_id},
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _decision(today=today, reason=None)}},
             session=session,
-            return_document=ReturnDocument.AFTER,
+            expected_version=acceptance_data.version,
+            return_document=ReturnDocument.BEFORE,
+        )
+        await record_act(collection=bewerbungen_collection, action="bewerbung.accepted", record_id=bewerbung_id, label=name, session=session)
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    key=_key(bewerbung_id, "zusage", seats[0]),
+                    to=email,
+                    data=FLBewerbungZusageData(
+                        kind="bewerbung_zusage",
+                        team=name,
+                        shorthand=shorthand,
+                        saison_id=saison_id,
+                        rollen=seats,
+                        gruppe=acceptance_data.gruppe,
+                        trikot_farbe=acceptance_data.trikot_farbe,
+                    ),
+                    # To the season row's seats written above, so the hand-out drops it once its person left the seat.
+                    club=FLOutboxClub(saison_id=saison_id, team_id=team_id),
+                )
+                for email, seats in people_with_address(kontakte=bewerbung_raw.get("kontakte"))
+            ],
+            now=germany_now,
         )
 
-        return FLAnnehmenBewerbungResponse(
-            updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)),
+        return FLAcceptBewerbungResponse(
             team_id=team_id,
             created_team=schule is not None,
             saison_id=saison_id,
-            gruppe=annahme_data.gruppe,
-            trikot_farbe=annahme_data.trikot_farbe,
+            gruppe=acceptance_data.gruppe,
+            trikot_farbe=acceptance_data.trikot_farbe,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache
-    # (`docs/backend/spec.md :: I131`).
-    with dropping_the_saison_cache():
-        # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
-        # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-        async with transaction_session(db) as session:
-            accepted = await session.with_transaction(accept_and_enter_the_school)
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
+    async with transaction_session(db) as session:
+        accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/ablehnen",
-    response_model=FLAblehnenBewerbungResponse,
+    f"{by_id('bewerbung_id')}/decline",
+    response_model=FLDeclineBewerbungResponse,
     summary="Decline a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
-async def ablehnen_bewerbung(
+async def decline_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
+    decline_data: Annotated[FLDeclineBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
+    teams_collection: TeamsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-    von: str = Depends(get_actor_email),
-) -> FLAblehnenBewerbungResponse:
-    """
-    Decline an application, recording who decided and the reason they gave.
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLDeclineBewerbungResponse:
+    """Decline an application with the reason given, mailed verbatim to each person the application mailed.
 
-    The submission itself is untouched: a decline moves `status` and `entscheidung` and nothing else,
-    so what the school wrote stays the record the decision was taken against.
+    What the school submitted stays as it was, the record the decision was taken against.
     """
 
-    async def decline_the_application(session: AsyncClientSession) -> Mapping[str, Any]:
+    async def decline_the_application(session: AsyncClientSession) -> None:
         stored_raw = await pull_one_from_db(
-            collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=["status"], session=session
+            collection=bewerbungen_collection,
+            db_filter={"_id": bewerbung_id},
+            projection=["status", "saison_id", "schule", "team_id", "kontakte", "confirmations"],
+            session=session,
         )
         refuse(find_triage_refusal(status=str(stored_raw["status"])))
 
         # By `_id` alone: a decision landing after the read conflicts with this write, and the retry's
-        # read refuses it (`TestTwoDeclinesAtOnce`), so no status term is reached.
-        return await patch_one_in_db(
+        # read refuses it, so no status term is reached.
+        await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            update={"$set": {"status": "declined", "decision": _decision(today=today, reason=decline_data.reason)}},
             session=session,
-            return_document=ReturnDocument.AFTER,
+            expected_version=decline_data.version,
+            return_document=ReturnDocument.BEFORE,
+        )
+        team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
+        await record_act(collection=bewerbungen_collection, action="bewerbung.declined", record_id=bewerbung_id, label=team, session=session)
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    key=_key(bewerbung_id, "absage", seats[0]),
+                    to=email,
+                    data=FLBewerbungAbsageData(
+                        kind="bewerbung_absage",
+                        team=team,
+                        saison_id=str(stored_raw["saison_id"]),
+                        rollen=seats,
+                        reason=decline_data.reason,
+                    ),
+                )
+                for email, seats in people_with_address(
+                    kontakte=stored_raw.get("kontakte"), seats=mailed_seats(confirmations=stored_raw.get("confirmations"))
+                )
+            ],
+            now=germany_now,
         )
 
     async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(decline_the_application)
+        await session.with_transaction(decline_the_application)
 
-    return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)))
+    return FLDeclineBewerbungResponse(id=bewerbung_id)
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
-    response_model=FLBewerbungEinwilligungErneutResponse,
+    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/resend",
+    response_model=FLBewerbungEinwilligungResendResponse,
     summary="Re-send one seat's confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
 )
-async def erneut_einwilligung(
+async def resend_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
-    sperrliste: SperrlisteLookup,
+    teams_collection: TeamsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLBewerbungEinwilligungErneutResponse:
-    """
-    Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLBewerbungEinwilligungResendResponse:
+    """Void one seat's link and mail its person a fresh one, that seat's deadline and reminder starting again from today.
 
-    Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
-    The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
-    The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
-    is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
-    decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
-    holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
+    Where one person holds two seats both are replaced and one link answers both, and the answer names the address and
+    seats as the write found them.
     """
 
     db_filter = {"_id": bewerbung_id}
-    judged = ["status", "kontakte", "bestaetigungen"]
+    judged = ["status", "kontakte", "confirmations"]
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
-
-    async def refuse_a_barred_address(
-        stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...], *, massgebliche_saison_id: str | None, session: AsyncClientSession
-    ) -> None:
-        """Every address the seats the link answers hold, judged as the correction judges the one it writes."""
-
-        kontakte = stored.get("kontakte")
-        # Both seats of a pair, which no write path lets hold two addresses: the submission requires the
-        # pair's details equal and the correction moves both. Only a hand edit could part them.
-        slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
-        adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
-        gesperrt = await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
     rolle = seat_named(seat)
     if rolle is None:
-        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktRolle, ...]:
         """Refuse, or answer every seat the fresh link will open: the pressed one and the mirror the confirmation also answers."""
 
-        kontakte, bestaetigungen = stored.get("kontakte"), stored.get("bestaetigungen")
+        kontakte, confirmations = stored.get("kontakte"), stored.get("confirmations")
         refuse(find_triage_refusal(status=str(stored["status"])))
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=rolle))
 
         # One entry left standing would keep the replaced address's link alive. The mirror is judged
-        # as the correction judges it: `paired_seat` adds a seat that merely STANDS.
-        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
+        # too: `paired_seat` adds a seat that merely stands.
+        other = paired_seat(kontakte=kontakte, confirmations=confirmations, seat=rolle)
         if other is None:
             return (rolle,)
 
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=confirmations, seat=other))
 
         return (rolle, other)
 
     seats = seats_judged_on(bewerbung_raw)
-    # Outside the callback, for `post_einladung`'s reason: a retry minting afresh would answer a link
-    # whose hash is not the one the winning attempt stored.
-    raw, token_hash = mint_token()
-    bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+    confirmation_deadline = confirmation_deadline_from(today=today)
+    # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
+    nonce = secrets.token_hex(8)
 
-    # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
+    # The judgement is in the filter, so a decision or an answer landing after the read leaves the row
     # untouched rather than overwritten.
     async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
-        async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
-            """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
-
-            massgebliche_saison_id = await sperrliste_saison(sperrliste, session=session)
+        async def mint(session: AsyncClientSession) -> Mapping[str, Any]:
+            # In-session, as the seat write reads them: the filter holds the pressed seats alone, and the deletion day is every seat's.
+            stored = await pull_one_from_db(
+                collection=bewerbungen_collection, db_filter=db_filter, projection=["kontakte", "confirmations"], session=session
+            )
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
-                db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+                db_filter=build_resend_filter(bewerbung_id=bewerbung_id, seats=seats),
+                update=compose_resend_update(
+                    seats=seats, today=today, kontakte=stored.get("kontakte"), confirmations=stored.get("confirmations")
+                ),
                 session=session,
+                expected_version=None,
                 return_document=ReturnDocument.BEFORE,
             )
-            # Asked of what the write found, so a correction landing after the first read is judged at the
-            # address this link is mailed to.
-            await refuse_a_barred_address(matched, seats, massgebliche_saison_id=massgebliche_saison_id, session=session)
+            await enqueue_mails(
+                outbox_collection=outbox_collection,
+                session=session,
+                mails=[
+                    owed_link(
+                        bewerbung_id=bewerbung_id,
+                        kontakte=matched["kontakte"],
+                        seats=seats,
+                        saison_id=str(matched["saison_id"]),
+                        schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
+                        deadline=confirmation_deadline,
+                        key=_key(bewerbung_id, "resend", seats[0], nonce),
+                    )
+                ],
+                now=germany_now,
+            )
 
             return matched
 
         async with transaction_session(db) as session:
-            return await session.with_transaction(mint_unless_gesperrt)
+            return await session.with_transaction(mint)
 
     try:
         matched = await mint_on(seats)
-    except DocumentNotFoundException:
+    except DocumentNotFoundError:
         # The judgement above was read outside the write's transaction, so a decision or an answer
         # landing between them leaves the filter matching nothing. Judged again rather than answered as
         # a miss, so the refusal names what moved.
         reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
         seats = seats_judged_on(reread)
-        # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
+        # A re-read that passes is a row that moved back between the two, a decline and then a seat write:
         # one more write, whose own miss is the only one answering 404.
         matched = await mint_on(seats)
 
-    return FLBewerbungEinwilligungErneutResponse(
-        token=raw, rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist
+    return FLBewerbungEinwilligungResendResponse(
+        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=confirmation_deadline
     )
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
-    response_model=FLBewerbungKontaktEmailResponse,
-    summary="Correct one contact person's email address and re-send their link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
+    f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
+    response_model=FLBewerbungKontaktSeatResponse,
+    summary="Write the person one contact seat holds and mail them a fresh link",
 )
-async def korrigiere_kontakt_email(
+async def post_kontakt_seat(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
-    email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
+    seat_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
-    sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
+    teams_collection: TeamsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLBewerbungKontaktEmailResponse:
-    """
-    Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLBewerbungKontaktSeatResponse:
+    """Write a person into one seat, whatever its state, and mail them a fresh link; an acceptance waits on their answer.
 
-    **The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save
-    answers one it takes off a seat; null where the corrected address is the one the seat held.
-
-    The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
-    record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
-    deadline restarts from today exactly as a re-send restarts it.
-
-    The seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day
-    deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
-    for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
-    write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
-    — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
-    caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
-    application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
-    no seat is a 404.
+    Where one person holds two seats both are written, the last holder's link opens nothing afterwards, and the seat's
+    deadline starts again from today.
     """
 
-    # Outside the transaction, whose callback may run again, as the referee editor reads both
-    # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    gehasht = sperrliste.hash_of(email_data.email)
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
+    # Outside the callback, so a retried transaction owes the press's one mail and a second press its own.
+    nonce = secrets.token_hex(8)
 
-    async def correct_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
+    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSeatResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
         db_filter = {"_id": bewerbung_id}
         bewerbung_raw = await pull_one_from_db(
-            collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"], session=session
+            collection=bewerbungen_collection,
+            db_filter=db_filter,
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
+            session=session,
         )
 
         # A 404 rather than a 422, as the re-send's is: the segment names no seat any application has.
         rolle = seat_named(seat)
         if rolle is None:
-            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
-        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
-        refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
-        # After the answered check, which names an emptied seat more plainly than a holder that moved would.
-        refuse(find_sitz_inhaber_refusal(kontakte=kontakte, seat=rolle, bisherige_email=email_data.bisherige_email))
-
-        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
-        seats = (rolle,) if other is None else (rolle, other)
-
-        # The MIRROR is judged too: `paired_seat` adds a seat that merely STANDS, and a confirmed one
-        # would be re-addressed and handed a link the person's own answer has already spent.
-        if other is not None:
-            refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
-
-        # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
-        # together is not refused for sharing it with itself.
-        refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
-        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
-
-        raw, token_hash = mint_token()
-        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
-
-        before = await patch_one_in_db(
-            collection=bewerbungen_collection,
-            db_filter=db_filter,
-            update=compose_kontakt_email_update(
-                seats=seats, email=email_data.email, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist
-            ),
-            session=session,
-            return_document=ReturnDocument.BEFORE,
-        )
-        # Off the image this write replaced, never the read above it: the address the link left is the one the write moved.
-        alt = str(before["kontakte"][rolle]["email"])
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
-        await anchor_the_addresses(
-            [email_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
-        )
-
-        return FLBewerbungKontaktEmailResponse(
-            email=email_data.email,
-            rollen=list(seats),
-            token=raw,
-            bestaetigungsfrist=bestaetigungsfrist,
-            # Both the stored fold (`docs/backend/spec.md :: I332`).
-            abgang_email=None if alt == email_data.email else alt,
-        )
-
-    # A transaction where the re-send beside it takes none: this write moves an address as well as a
-    # credential, so a decision landing mid-request must leave neither half standing.
-    async with transaction_session(db) as session:
-        return await session.with_transaction(correct_and_mint)
-
-
-@router.post(
-    f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
-    response_model=FLBewerbungKontaktSitzResponse,
-    summary="Seat another person where a contact person stepped out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
-    dependencies=[Depends(verify_step_up)],
-)
-async def besetze_kontakt_sitz(
-    bewerbung_id: CustomRouteObjectId,
-    seat: str,
-    sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
-    bewerbungen_collection: BewerbungenCollection,
-    sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
-    db: DBClient,
-    today: str = Depends(get_german_date_str),
-) -> FLBewerbungKontaktSitzResponse:
-    """
-    Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.
-
-    It runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.
-    The record written is administrative and confirms nothing: the new person's own link is what asks them, and an
-    acceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled
-    from one press and one link answers both, and both must be empty for either to be written.
-
-    The link the seat's last holder was sent stops opening anything, and the application's confirmation deadline
-    restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
-    nothing, seating them for a confirmation they cannot give.
-
-    Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
-    stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
-    (`REQ-BEWERBUNG-011`); and on an address another
-    contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
-    (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
-    seated being a new acceptance. A path naming no seat is a 404.
-    """
-
-    # Outside the transaction, as the correction reads both.
-    gehasht = sperrliste.hash_of(sitz_data.email)
-    massgebliche_saison_id = await sperrliste_saison(sperrliste)
-
-    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSitzResponse:
-        """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
-
-        db_filter = {"_id": bewerbung_id}
-        bewerbung_raw = await pull_one_from_db(
-            collection=bewerbungen_collection, db_filter=db_filter, projection=["status", "kontakte", "bestaetigungen"], session=session
-        )
-
-        # A 404 rather than a 422, as the correction's is: the segment names no seat any application has.
-        rolle = seat_named(seat)
-        if rolle is None:
-            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
-
-        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
+        kontakte, confirmations = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
 
-        # The pair is claimed rather than read off the slots, so it is composed BEFORE the refusal
-        # and judged with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.
+        # The pair is claimed rather than read off the slots, so it holds on the emptied seats too, and it is judged
+        # with the pressed seat: `claimed_pair_seat` adds a mirror in any state at all.
         other = claimed_pair_seat(kontakte=kontakte, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)
 
-        refuse(find_reseat_refusal(bestaetigungen=bestaetigungen, seats=seats))
+        refuse(find_seat_write_refusal(confirmations=confirmations, seats=seats))
 
-        # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
-        # is one person, and comparing them against each other would refuse every such reseat.
-        refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
-        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
-        # A new acceptance on every seat it fills: the person seated holds no label of their own to keep.
-        refuse(find_fassung_refusal(seite="bewerbung", genannt=dict.fromkeys(seats, sitz_data.text_version)))
+        # Asked over the seats this write does not reach: a mirrored pair is one person, and comparing them against
+        # each other would refuse every such write.
+        refuse(find_seat_contact_refusal(kontakte=kontakte, seats=seats, email=seat_data.email, phone=seat_data.phone))
 
-        raw, token_hash = mint_token()
-        bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        # Restarted even where it had passed: left where it was, the person would be handed a link that opens nothing.
+        confirmation_deadline = confirmation_deadline_from(today=today)
 
-        await patch_one_in_db(
+        after = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
             update=compose_kontakt_seat_update(
                 seats=seats,
-                # The label is excluded rather than dropped by the composer: everything left is the
-                # person as the slot stores them, so a sixth field added here reaches storage.
-                person=sitz_data.model_dump(mode="json", exclude={"text_version"}),
-                text_version=sitz_data.text_version,
-                token_hash=token_hash,
+                # The person as the slot stores them, so a sixth field added here reaches storage.
+                person=seat_data.model_dump(mode="json", exclude={"version"}),
                 today=today,
-                bestaetigungsfrist=bestaetigungsfrist,
+                kontakte=kontakte,
+                confirmations=confirmations,
             ),
             session=session,
-            return_document=ReturnDocument.BEFORE,
+            expected_version=seat_data.version,
+            return_document=ReturnDocument.AFTER,
         )
-        # The address entering here, which an erasure of it running now never read (`docs/backend/spec.md :: I719`).
-        await anchor_the_addresses(
-            [sitz_data.email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
+        schule = await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session)
+        await record_act(
+            collection=bewerbungen_collection, action="bewerbung.seat_changed", record_id=bewerbung_id, label=schule, session=session
+        )
+        await enqueue_mails(
+            outbox_collection=outbox_collection,
+            session=session,
+            mails=[
+                owed_link(
+                    bewerbung_id=bewerbung_id,
+                    kontakte=after["kontakte"],
+                    seats=seats,
+                    saison_id=str(bewerbung_raw["saison_id"]),
+                    schule=schule,
+                    deadline=confirmation_deadline,
+                    key=_key(bewerbung_id, "seat", seats[0], nonce),
+                )
+            ],
+            now=germany_now,
         )
 
-        return FLBewerbungKontaktSitzResponse(email=sitz_data.email, rollen=list(seats), token=raw, bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktSeatResponse(email=seat_data.email)
 
-    # A transaction for the correction's reason: this write seats a person as well as a credential,
-    # so a decision landing mid-request must leave neither half standing.
+    # A transaction where the re-send beside it takes none: this write moves a person as well as a credential, so a
+    # decision landing mid-request must leave neither half standing.
     async with transaction_session(db) as session:
         return await session.with_transaction(seat_and_mint)

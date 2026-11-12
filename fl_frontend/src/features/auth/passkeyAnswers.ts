@@ -1,22 +1,10 @@
-import { KONTAKT_EMAIL } from "@/core/brand";
-import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
-import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
+import { COPY } from "@/core/copy";
+import { SIGN_IN_REFUSED } from "@/core/passkeyRefusal";
 
-/**
- * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
- * it, so a passkey with no PIN and no biometric is offered by the browser and refused here.
- */
-const OHNE_BESTAETIGUNG =
-  "Dieser Passkey hat nicht bestätigt, dass Du es bist. Nimm einen Passkey mit PIN, Fingerabdruck oder Gesichtserkennung.";
+import type { Copy } from "@/core/copy";
 
-/**
- * Named plainly: only the holder of the authenticator can reach this refusal, and the ban's own mail
- * has already told them.
- */
-export const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
-
-/** An address holding no record of its own in the league, which a retry would not change. */
-export const OHNE_EINTRAG = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
+/** An address holding no record of its own in the league, or a barred one, which a retry would not change. */
+const WITHOUT_ENTRY = COPY.signIn.refusal.noRecord;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>
@@ -27,19 +15,35 @@ export const refusalStatus = (error: unknown): number | undefined =>
   typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : undefined;
 
 /** Every refusal a retry of the same press would meet again, by its code. */
-const WORDED: ReadonlyMap<string, string> = new Map([
-  [USER_VERIFICATION_REFUSED, OHNE_BESTAETIGUNG],
-  [SIGN_IN_BARRED, GESPERRT],
-  [SIGN_IN_HOLDS_NOTHING, OHNE_EINTRAG],
-]);
+const WORDED: ReadonlyMap<string, Copy> = new Map([[SIGN_IN_REFUSED, WITHOUT_ENTRY]]);
 
 /**
- * A cancelled prompt, a refused one and a backend that did not answer are one answer; the refusals
- * above are the exceptions, because retrying repeats them.
+ * A cancelled prompt, a refused one, an authenticator that did not verify its user and a backend that did not answer
+ * are one answer, the shared failure line; the refusal above is the exception, because retrying repeats it.
  */
-export function describeCeremonyRefusal(error: unknown): string {
-  return WORDED.get(refusalCode(error) ?? "") ?? VERSUCHE_ES_ERNEUT_SATZ;
+export function describeCeremonyRefusal(error: unknown): Copy {
+  return WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.failure.unexpected;
 }
 
 /** Another ceremony took this one's place, which is no failure a reader made. */
 export const CEREMONY_ABORTED = "ERROR_CEREMONY_ABORTED";
+
+/** The library's refusal of an enrolment from a session older than its `freshAge`. */
+export const SESSION_NOT_FRESH = "SESSION_NOT_FRESH";
+
+/**
+ * The browser's refusal to set up a passkey on an authenticator already holding one of the person's, which the
+ * plugin client's `registerPasskey` answers by this code: the options name the person's passkeys as
+ * `excludeCredentials`.
+ */
+const PREVIOUSLY_REGISTERED = "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED";
+
+/** Every refusal of a further passkey's set-up a retry would meet again, by the plugin's own code. */
+const SET_UP_WORDED: ReadonlyMap<string, Copy> = new Map([
+  [SESSION_NOT_FRESH, COPY.account.passkeys.signInTooOld],
+  [PREVIOUSLY_REGISTERED, COPY.account.passkeys.alreadyOnDevice],
+]);
+
+export function describeSetUpRefusal(error: unknown): Copy {
+  return SET_UP_WORDED.get(refusalCode(error) ?? "") ?? COPY.shared.failure.unexpected;
+}

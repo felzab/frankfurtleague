@@ -1,0 +1,247 @@
+import { COPY, textOf } from "@/core/copy";
+import { formatDateWithWeekday, formatOrdinal, formatTime } from "@/core/format";
+
+import { cardSurface } from "./cardStyles";
+import { Chip } from "./Chip";
+import { SPIELORT_WORDS } from "./Facts";
+import { Link } from "./Link";
+import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
+import { RecordFigures } from "./Table";
+import { tv } from "./tv";
+
+import type { Copy, Words } from "@/core/copy";
+import type { Route } from "next";
+import type { ReactNode } from "react";
+import type { ChipProps } from "./Chip";
+import type { Counts } from "./Table";
+import type { TilesReads } from "./TileGrid";
+
+/**
+ * One tile: what it counts over its value and a line under it where one is due. The value is a figure, such
+ * as a place, a score or a date, or `words`, a short text such as a venue, set smaller; a value standing on
+ * another site, such as a venue on a map, or on a page of this one, such as a club's, is a link to it.
+ */
+export type StatTile = {
+  label: Copy;
+  value: Words;
+  /** The line under the value: its own words, or a club's won, drawn and lost counts as the Tabelle draws them. */
+  line?: Words | { counts: Counts };
+  words?: true;
+  href?: `https://${string}` | Route;
+  /** The value's status, directly after it, as a squad row's „Nachnominiert“ after the club a pupil plays for. */
+  chip?: ChipProps;
+};
+
+/**
+ * The grids a page may lay its tiles in, each fixing how many it holds, so a page cannot hand a layout the
+ * wrong count: `four` for a club's standing or a season's counts, two a row in a column narrower than 42 rem and all
+ * four in one row from it, a tile then at least 159 px; `five` for a match's facts, two a row with the fifth, such as
+ * the venue, wide across both, and all five in one row once the column they stand in holds its full width. Every column
+ * of a grid is as wide as the next, and every tile a rectangle as tall as its label, value and line, at every width:
+ * one shape for every set of figures on the site.
+ *
+ * Both follow their column's width rather than the screen's, since the rail beside the column takes 256 px of the
+ * screen while it stands open and 72 px while it is collapsed. The five's widest figure is a short date,
+ * „Mo., 28.10.“, about 114 px at the value's size, and its widest label „Schiedsrichter“ about 102 px: a fifth of the full form
+ * column (`--container-form`, 760 px) less the gaps is 142 px, which holds either inside its 12-px insets, and a fifth
+ * of any narrower column, such as 1024 px beside the open rail, would not. Two columns hold them at every phone width.
+ * The landing's four read the screen instead, as every block of the landing does (`reads`, `TilesReads`).
+ */
+type Layout =
+  | { layout: "four"; items: readonly [StatTile, StatTile, StatTile, StatTile]; reads?: TilesReads }
+  | { layout: "five"; items: readonly [StatTile, StatTile, StatTile, StatTile, StatTile]; reads?: never };
+
+const tiles = tv({
+  slots: {
+    root: "grid gap-3",
+    // Each tile takes three of the list's rows as its own, the label's, the value's and the line's, so the tiles
+    // standing side by side share those rows and set their values on one baseline, a figure's and a venue's
+    // words alike, and stand one height.
+    tile: "row-span-3 grid grid-rows-subgrid items-baseline gap-y-0.5 px-4 py-3",
+    // One line inside its tile, set without the capitals' tracking so „Schiedsrichter“, the longest label, takes the
+    // least room; never cut, since a label is what its value is read by, each layout's columns being wide enough.
+    label: "text-xs font-medium whitespace-nowrap text-fg-muted uppercase",
+    // A figure never breaks inside itself and is never cut, so no figure shows short of a digit.
+    value: "font-numeric text-xl font-semibold whitespace-nowrap",
+    line: "text-xs text-fg-muted",
+    chipped: "flex flex-wrap items-center gap-x-2 gap-y-1",
+  },
+  variants: {
+    layout: {
+      four: { root: "grid-cols-2" },
+      // Five from the form column's full width, 47.5rem (`--container-form`), which a container query spells as a figure,
+      // since it reads no variable. The 12-px insets leave the widest figure room in a fifth of it.
+      five: { root: "grid-cols-2 @min-[47.5rem]:grid-cols-5", tile: "px-3" },
+    },
+    // Words wrap between themselves, a word longer than its tile at a hyphenation point, and only past that
+    // anywhere, so a venue's name never runs over a narrow tile's edge.
+    words: {
+      true: { value: "text-base break-words hyphens-auto whitespace-normal" },
+    },
+    // The five's fifth tile runs across both columns, and takes its one place once the five stand in one row.
+    wide: {
+      true: { tile: "col-span-2 @min-[47.5rem]:col-span-1" },
+    },
+    reads: {
+      box: {},
+      screen: {},
+    },
+  },
+  compoundVariants: [
+    { layout: "four", reads: "box", class: { root: "@2xl:grid-cols-4" } },
+    { layout: "four", reads: "screen", class: { root: "lg:grid-cols-4" } },
+  ],
+  defaultVariants: { reads: "box" },
+});
+
+const { fact } = COPY.spielplan;
+
+/**
+ * A match's five tiles while it is read, at typical words set unseen, so the value's row takes its baselines, a line
+ * under a value its height, and the venue wraps where a real one does.
+ */
+const MATCH_WAIT = [
+  { label: fact.spieltag, value: formatOrdinal(2), line: COPY.shared.phase.gruppenphase },
+  { label: fact.date, value: formatDateWithWeekday("2027-03-06"), line: "2027" },
+  { label: fact.time, value: formatTime("14:00") },
+  { label: fact.schiedsrichter, value: COPY.shared.noValue, words: true },
+  { label: fact.spielort, value: SPIELORT_WORDS, words: true },
+] as const satisfies ReadonlyArray<{ label: string; value: string; line?: string; words?: true }>;
+
+/**
+ * The container a grid of tiles reading its box takes its columns from, the column the tiles stand in, since a query
+ * reads an ancestor; `w-full`, since a container's width counts none of its content. A grid reading the screen needs none.
+ */
+function TilesColumn({ reads = "box", children }: { reads?: TilesReads; children: ReactNode }) {
+  return reads === "box" ? <div className="@container w-full">{children}</div> : children;
+}
+
+/** A match's tiles while it is read, `five`'s own grid at `MATCH_WAIT`'s words. */
+function MatchTilesPlaceholder() {
+  return (
+    <TilesColumn>
+      <div className={tiles({ layout: "five" }).root()}>
+        {MATCH_WAIT.map((item, index) => {
+          const words = "words" in item;
+          const slots = tiles({ layout: "five", words, wide: index === 4 });
+          return (
+            <div
+              key={item.label}
+              className={slots.tile({ class: cardSurface() })}>
+              <PlaceholderLine
+                textClass={slots.label()}
+                words={item.label}
+              />
+              <PlaceholderSentence
+                textClass={slots.value()}
+                words={item.value}
+                lines={words ? 2 : 1}
+              />
+              {"line" in item && (
+                <PlaceholderLine
+                  textClass={slots.line()}
+                  words={item.line}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </TilesColumn>
+  );
+}
+
+/**
+ * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
+ * value's and, unless `line` says these tiles carry none, the line under it as bars, at a tile's size.
+ */
+export function StatTilesPlaceholder({
+  layout,
+  line = true,
+  reads,
+}: { line?: boolean } & ({ layout: "four"; reads?: TilesReads } | { layout: "five"; reads?: never })) {
+  if (layout === "five") return <MatchTilesPlaceholder />;
+  return (
+    <TilesColumn reads={reads}>
+      <div className={tiles({ layout, reads }).root()}>
+        {Array.from({ length: 4 }, (_, index) => {
+          const slots = tiles({ layout, reads });
+          return (
+            <div
+              key={index}
+              className={slots.tile({ class: cardSurface() })}>
+              <PlaceholderLine
+                textClass={slots.label()}
+                widthClass="w-2/3"
+              />
+              <PlaceholderLine
+                textClass={slots.value()}
+                widthClass="w-1/2"
+              />
+              {line && (
+                <PlaceholderLine
+                  textClass={slots.line()}
+                  widthClass="w-1/3"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </TilesColumn>
+  );
+}
+
+/** A tile's value: its words, or the link to where it stands, another site's or a page of this one. */
+function TileValue({ item }: { item: StatTile }) {
+  if (item.href === undefined) return textOf(item.value);
+  return (
+    <Link
+      href={item.href}
+      placement="standalone"
+      label={item.value}
+    />
+  );
+}
+
+/**
+ * A record's figures at a glance, each in its own tile with its name over it: a club's standing, a match's
+ * facts. A page states each fact once, in a tile or elsewhere, never both. A definition list, each tile a
+ * term and its values, so a reader hears the label with its value.
+ */
+export function StatTiles({ layout, items, reads }: Layout) {
+  return (
+    <TilesColumn reads={reads}>
+      <dl className={tiles({ layout, reads }).root()}>
+        {items.map((item, index) => {
+          const slots = tiles({ layout, reads, words: item.words, wide: layout === "five" && index === 4 });
+          return (
+            <div
+              key={item.label}
+              // On the card's own surface, read from its recipe, so a ruling on the card's fill moves the tiles with it.
+              className={slots.tile({ class: cardSurface() })}>
+              <dt className={slots.label()}>{item.label}</dt>
+              <dd className={slots.value()}>
+                {item.chip === undefined ? (
+                  <TileValue item={item} />
+                ) : (
+                  // The chip on the value's line where both fit, else on the next, as a row's chip after a name: the
+                  // value is never cut for it.
+                  <span className={slots.chipped()}>
+                    <TileValue item={item} />
+                    <Chip {...item.chip} />
+                  </span>
+                )}
+              </dd>
+              {item.line !== undefined && (
+                <dd className={slots.line()}>
+                  {typeof item.line === "object" && "counts" in item.line ? <RecordFigures counts={item.line.counts} /> : textOf(item.line)}
+                </dd>
+              )}
+            </div>
+          );
+        })}
+      </dl>
+    </TilesColumn>
+  );
+}

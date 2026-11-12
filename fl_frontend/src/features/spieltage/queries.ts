@@ -1,61 +1,11 @@
-import { cache } from "react";
-import { cacheLife, cacheTag } from "next/cache";
-
-import { apiClient } from "@/core/api";
-import { isRecordMissing } from "@/core/errors";
+import { orMissing } from "@/core/errors";
+import { spieltageGetSpieltagAdmin } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
+import type { FLSpieltagAdminResponse } from "@/core/generated/client/types";
 
-import type { FLSpieltageListResponse, FLSpieltageSingleResponse } from "./schemas";
-import type { FLSpieltageFilterParams } from "./types";
-
-export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
-  "use cache";
-
-  // Base tag only: one matchday write moves both the season-scoped admin list and the public
-  // Spielplan's default-season entry, so no granular tag describes it.
-  cacheTag("spieltage");
-  cacheLife("days");
-
-  return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
-    params: filters,
-    cacheFill: { name: "getSpieltage", args: filters },
-  });
+/** A planned season's included; `null` where no matchday holds the id, which the editor answers with its not-found page. */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
+export async function getAdminSpieltag(spieltagId: string): Promise<FLSpieltagAdminResponse | null> {
+  return runAdminRead(() => orMissing(spieltageGetSpieltagAdmin(spieltagId)));
 }
-
-/** One in-flight admin matchday read per filter set, held for the length of one render pass. */
-const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResponse>> => new Map());
-
-/**
- * A season's matchdays for the admin surfaces, a planned season's included — `getSpieltage` refuses
- * that season, though a matchday is dated before it. **Uncached**: `docs/frontend/spec.md` §1.2.
- */
-export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
-  // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
-  const key = JSON.stringify(filters, Object.keys(filters).sort());
-  const held = adminSpieltageInFlight().get(key);
-  if (held !== undefined) return held;
-
-  const started = runAdminRead(() =>
-    apiClient<FLSpieltageListResponse>("/spieltage/list/admin", FLSpieltageListResponseSchema, { authType: "admin", params: filters }),
-  );
-  adminSpieltageInFlight().set(key, started);
-
-  return started;
-}
-
-/**
- * The one matchday the editor loads, admin-tier for `getAdminSpieltage`'s reason. `null` on a 404,
- * which the editor turns into `notFound()`. **Uncached**: `docs/frontend/spec.md` §1.2.
- */
-export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
-  runAdminRead(() =>
-    apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}/admin`, FLSpieltageSingleResponseSchema, { authType: "admin" }).catch(
-      (error: unknown) => {
-        if (isRecordMissing(error)) return null;
-        throw error;
-      },
-    ),
-  ),
-);

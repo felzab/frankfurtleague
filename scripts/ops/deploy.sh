@@ -1,1378 +1,171 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · put a published version live, or report what is live.
+# SCRIPTS · put one published build live by its tag, and go back to the build before it if it fails.
 #
-# It only pulls what `.github/workflows/publish.yml` already built: a server that builds
-# is a server that can fail a build with the site down and nothing to fall back to. What is live is
-# read by image ID during preflight, so a failed deploy has a rollback target the pull cannot have
-# moved -- and a build that never becomes healthy is put back to it without waiting for anybody.
-#
-#   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
-#   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
-#   ./scripts/ops/deploy.sh --status           report what is running and what the edge serves, change nothing
-#   ./scripts/ops/deploy.sh --check-env        run the deploy's Docker-free checks of the .env files alone, change nothing
-#   ./scripts/ops/deploy.sh --verbose          stream each command's own output instead of capturing it
+#   ./scripts/ops/deploy.sh                  deploy the build of the checkout's HEAD, sha-<first 7 hex>
+#   ./scripts/ops/deploy.sh sha-1a2b3c4      deploy one published build, or go back to one
+#   ./scripts/ops/deploy.sh --no-rollback    on a failure, stop and leave the stack as it stands, for a
+#                                            build the one before must never run after, such as one
+#                                            whose migration has already changed the data; it is
+#                                            pinned before it starts, so no later run goes back past it
 #   ./scripts/ops/deploy.sh --help
+#
+# Exit 0 deployed; 1 failed, and the last line says whether the stack went back; 2 refused, with
+# the stack unchanged; 130 interrupted, the stack as far as compose took it. The last build judged
+# healthy is pinned as TAG= in the .env beside the compose file, which compose reads for every
+# command, so `docker compose ps` and `logs` typed by hand reach the stack, and a later run that
+# fails goes back to it.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
-COMPOSE="docker-compose.yml"
+# The tag CI pushes a build under: docker/metadata-action's `type=sha`, seven hex digits by default.
+TAG_RE='^sha-[0-9a-f]{7}$'
 
-# One spelling for the deploy's check of the edge and `--status`'s alike: `docs/ops/spec.md` §4 lists
-# every site an API version bump has to reach, and a second copy here would be one more.
-PROBE_URL="https://frankfurtleague.de/api/v0/system/is_live"
+# Above the healthchecks' start period plus three failed probes, so a service is judged by its own
+# healthcheck before the wait gives up on it.
+WAIT_S=180
 
-# An older engine REFUSES the create rather than ignoring `start_interval:`, and `--force-recreate`
-# has stopped what was running by then — so preflight asks, rather than the deploy.
-ENGINE_MIN=25
-
-# One shape, for what the operator types and for a label read off a running image.
-PIN_RE='^sha-[0-9a-f]{7,40}$'
-
-# The host directory the log copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
-# their age, and it bounds the DIRECTORY rather than a name — so a suffix below cannot escape it.
-LOG_DIR="/var/log/frankfurtleague"
-# One stamp for the whole run, so the rollback's copies sit beside the ones taken before it. It
-# carries the time of day: two deploys on one day would otherwise overwrite each other's.
-LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
-
-# Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it; the
-# two lists move together (`scripts/checks/check_compose_model.py :: edge_mounts`). Every file in
-# them must be one nginx loads: any other, a README included, fails every deploy as absent.
-EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
-# Where `docker-compose.yml :: nginx` starts its Control API, the one address that answers whether a
-# reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
-# the two spellings move together (`scripts/checks/check_compose_model.py :: control_socket`).
-EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
-# The reload through that socket as an operator types it, printing nginx's reply and then its status:
-# 200 applied, 422 refused, its own lines in the reply.
-EDGE_RELOAD_TYPED="docker compose -f ${COMPOSE} exec -T nginx curl -s -w '\n%{http_code}\n' -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
-# How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
-EDGE_START_POLLS=50
-
-# Every wait on a service's health, in seconds: `docs/ops/runbooks.md` §1's outage bounds sum these
-# with the stops' grace periods and the copies' and the reload's own bounds, so a change here
-# moves them.
-HEALTH_WAIT_BACKEND="150"
-HEALTH_WAIT_FRONTEND="180"
-# Every production service `.github/workflows/publish.yml` does not build, held to
-# `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES` by
-# `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
-EDGE_IMAGE_SERVICES=(nginx cloudflared)
-
-# Where a reader is handed its package's environment file, read-only, as `.env`: the name the backend's
-# settings class takes from the directory it is built in.
-ENV_MOUNTS="/run/fl-env"
-
-PIN=""; STATUS_ONLY=0; ENV_ONLY=0
-# shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
+ROLLBACK=1
+tag=""
 for arg in "$@"; do
   case "$arg" in
-    --status)  STATUS_ONLY=1 ;;
-    --check-env) ENV_ONLY=1 ;;
-    --verbose) VERBOSE=1 ;;
+    --no-rollback) ROLLBACK=0 ;;
     --help|-h) usage ;;
-    # 2 throughout this block, never `die`'s 1: an argument this script cannot read is "the input
-    # could not be judged", and 1 is spoken for by findings. Every prerequisite below answers alike.
-    --*)       refuse "Unknown option: ${arg}. Try --help." ;;
+    -*) refuse "Unknown option: ${arg}. Try --help." ;;
     *)
-      # A second tag would silently win over the first, and which one deploys becomes a matter of
-      # argument order. Stop instead.
-      [[ -z "$PIN" ]] || refuse "Two tags given: '${PIN}' and '${arg}'. Deploy pins exactly one build."
-      PIN="$arg" ;;
+      [[ -z "$tag" ]] || refuse "Two tags given, ${tag} and ${arg}. A deploy puts one build live."
+      tag="$arg" ;;
   esac
 done
 
-if (( STATUS_ONLY )) && [[ -n "$PIN" ]]; then
-  refuse "--status reports what is running and changes nothing; it does not take a tag.
-To deploy ${PIN}, drop --status."
+# `cut` rather than `git rev-parse --short`, which lengthens a prefix another object shares.
+if [[ -z "$tag" ]]; then
+  head="$(git rev-parse HEAD)" || refuse "git could not name the checkout's HEAD, so there is no tag to deploy.
+Name one:  ./scripts/ops/deploy.sh sha-1a2b3c4"
+  tag="sha-$(printf '%s' "$head" | cut -c1-7)"
 fi
+[[ "$tag" =~ $TAG_RE ]] || refuse "${tag} is not a tag CI publishes, which is sha- and seven hex digits, as sha-1a2b3c4."
 
-if (( ENV_ONLY )) && { [[ -n "$PIN" ]] || (( STATUS_ONLY )); }; then
-  refuse "--check-env reads the two .env files and nothing else; it takes neither a tag nor --status.
-Run it alone, then the deploy or the report you meant."
-fi
-
-# Validated with the other argument handling: without it the registry answers "manifest unknown"
-# after a platform and Docker check, instead of a sentence naming the problem.
-if [[ -n "$PIN" && ! "$PIN" =~ $PIN_RE ]]; then
-  refuse "'${PIN}' does not look like a published tag.
-Expected sha-<commit>, for example sha-1a2b3c4.
-See what is available:  ./scripts/ops/deploy.sh --status"
-fi
-
+# On a development machine the base file alone is production's stack, which `up --remove-orphans`
+# would put in place of the local one's containers.
 require_platform linux
 
-# Before the daemon is asked anything, so a host's files are judged ahead of the deploy that would
-# refuse them: every check of them the deploy makes without Docker, in its order.
-if (( ENV_ONLY )); then
-  section "environment files"
-  step "fl_frontend/.env and fl_backend/.env, as the preflight judges them"
-  refuse_compose_dotenv
-  require_file "fl_frontend/.env"
-  require_file "fl_backend/.env"
-  judge_env_files "fl_frontend/.env" "fl_backend/.env"
-  ok "0 lines refused: no credential, and every line is a comment, blank, or NAME=VALUE in the characters every reader takes alike"
-  finish
+# The last build judged healthy, which only this script writes. A first run finds none and rolls
+# nothing back: the build it replaces is then the one from before this script, which never runs again.
+prev=""
+if [[ -f .env ]]; then prev="$(sed -n 's/^TAG=//p' .env | tail -n 1)"; fi
+# Any other shape was written by hand, and may name images from before this script.
+if [[ -n "$prev" && ! "$prev" =~ $TAG_RE ]]; then
+  warn ".env pins TAG=${prev}, which is no build's tag, so no build is pinned to go back to."
+  prev=""
 fi
 
-require_docker
-require_file "$COMPOSE"
-refuse_compose_dotenv
+# Every compose call below takes the tag from here, over any TAG the operator's shell exports.
+export TAG="$tag"
 
-# `version`, never `revision`: the version label is the tag the build was pushed under, and the
-# revision is the full commit, which no tag spells.
-published_tag() {
-  local value=""
-  # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
-  # label" from "nothing answered" — only the first may skip a comparison.
-  value="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null)" \
-    || return 1
-  [[ "$value" == "<no value>" ]] && value=""
-  printf '%s' "$value"
-}
+# Before the pull, whose images no container references yet: `-a` removes every image but those a
+# container references, so this keeps the running build. The one this run replaces then stays on
+# this host until the next deploy, and going back to it by hand needs no registry.
+step "Images nothing runs"
+if quietly docker image prune -af; then ok "removed"; else warn "the prune failed, and its account is above."; fi
 
-# An ID cannot move. `.Config.Image` is the REFERENCE it was created with, and every tag in this
-# script's vocabulary moves.
-running_image() {
-  docker inspect --format '{{.Image}}' "$1"
-}
+# `missing`, because every image this stack names is one build for good: a sha- tag is one commit's,
+# and the edge's images are pinned by digest. A build already on this host is taken as it is.
+step "Pulling every image ${tag} runs with"
+quietly docker compose pull --policy missing \
+  || refuse "the pull failed, and compose's own account is above: a tag CI never pushed, the registry, or this
+host's network. The stack has not changed."
+ok "every image is on this host"
 
-# The status is the caller's to read: a failure and an answer of "nothing" are both empty output,
-# and reading the first as the second prints "not running" about a stack this never asked.
-service_cid() {
-  docker compose -f "$COMPOSE" ps -q "$1" 2>/dev/null
-}
+# Through a second file and a rename, so the pin is never half written.
+pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 
-# `service_cid` with a container that exited counted too, which `ps` leaves out without `--all`: a
-# failed build's backend is often one, and a recreate discards its stream alike. One restarting is
-# running to the engine, so `service_cid` already lists it.
-service_cid_any() {
-  docker compose -f "$COMPOSE" ps --all -q "$1" 2>/dev/null
-}
-
-# Asked before the pull rather than at the recreate: an `up` that cannot parse this touches no
-# container, so the recreate, the health read and the rollback behind it all fail on one unread file.
-check_compose_config() {
-  local rc=0
-  # Both streams discarded, `--verbose` included: without `--quiet` this prints every resolved
-  # value, and with it the parse error still quotes the line it could not read.
-  docker compose -f "$COMPOSE" config --quiet >/dev/null 2>&1 || rc=$?
-  if (( rc )); then
-    refuse "compose could not read its configuration (exit ${rc}), so this deploy stopped here rather than
-at the recreate, where the same failure reads as a build that broke.
-NOTHING has been pulled or recreated, and the site is untouched.
-The three files it reads are ${COMPOSE}, fl_frontend/.env and fl_backend/.env.
-Its own message is not printed here: a parse error quotes the line it could not read, and in an
-environment file that line is a value. Ask it yourself, where the answer is not being captured:
-  docker compose -f ${COMPOSE} config --quiet"
-  fi
-  ok "compose parses ${COMPOSE} and the two environment files it names"
-}
-
-# Before either application image moves: the `up` that reloads nginx would otherwise fetch a missing
-# edge image after the pair was replaced, and a fetch failing there leaves nginx unreloaded, on the
-# configuration it had rather than the pull's.
-fetch_edge_images() {
-  local rc=0
-  # `missing`, the policy `up` applies, so a tag this host holds is not refreshed under a running
-  # edge. Never `--include-deps`: it would refresh the application's `:latest` over a pin.
-  quietly docker compose -f "$COMPOSE" pull --policy missing "${EDGE_IMAGE_SERVICES[@]}" || rc=$?
-  if (( rc )); then
-    refuse "compose could not fetch the images ${EDGE_IMAGE_SERVICES[*]} run (exit ${rc}), so this deploy
-stopped here rather than at the reload, after the application containers were replaced.
-No application image has been pulled, NOTHING has been recreated, and the site is untouched.
-Compose's own output is above."
-  fi
-  ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
-}
-
-# `read_environment`, never `BackendEnvironment()`: pydantic renders `input_value=` on its own
-# ValidationError, and everything below reaches this script's output. The environment half alone:
-# this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
-ENV_NAME_CHECK='
-# No single quote anywhere in this program: the shell string holding it would end there.
-import os
-import sys
-
-try:
-    from app.core.config import EnvironmentValidationError, read_environment
-except Exception as unavailable:
-    # Guarded apart, and never inside the block below: an except clause naming a class the import
-    # never bound raises a NameError of its own, which is the traceback this arm exists to prevent.
-    print(type(unavailable).__name__, file=sys.stderr)
-    raise SystemExit(4)
-
-try:
-    # Imported from the image working directory, then read from the one the file is mounted in:
-    # the settings class takes its file from wherever it is built.
-    os.chdir(sys.argv[1])
-    read_environment()
-except EnvironmentValidationError as refusal:
-    print(refusal, file=sys.stderr)
-    raise SystemExit(3)
-except Exception as unexpected:
-    # The TYPE alone rather than a re-raise: a settings source quotes the value it could not read
-    # into its own message.
-    print(type(unexpected).__name__, file=sys.stderr)
-    raise SystemExit(4)
-'
-
-# One mount, one user and one filter for either package's reader: the two judge different things and
-# each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
-read_env_names() {
-  # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
-  local -
-  set +x
-  local package="$1" image="$2"; shift 2
-  local rc=0 said=""
-  # The caller's own identity, never the image's user, whose uid this host does not have: the files
-  # are readable by whoever runs this script. `--network none` because a reader reaching one would
-  # reach it holding the files.
-  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
-    -v "${PWD}/${package}/.env:${ENV_MOUNTS}/.env:ro" "$image" "$@" 2>&1)" || rc=$?
-  # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
-  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
-  # The reader names its mount, which is no path on this host.
-  if [[ "$said" == *line* ]]; then
-    detail "A line number above counts lines of ${package}/.env, the file to open."
-  fi
-  return "$rc"
-}
-
-# The one place the environment files are read AS FILES, and so the only place a name nothing declares
-# can be seen: compose hands the container its keys as variables instead
-# (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
-check_env_names() {
-  local rc=0
-  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_MOUNTS" || rc=$?
-  if (( rc == 3 )); then
-    refuse "the backend refuses this host's fl_backend/.env, and the line above is its own answer: the
-variables it declares and could not accept, by name; the lines declaring a name it does not, by
-number alone; or the type of a read that failed before it reached one. No value is printed, and no
-name the backend does not declare. A named variable is a value to correct; a numbered line is one
-to open, then delete or answer with a field in the settings class, nothing in that class reading
-its name -- so it reads as omitted and the shipped default serves production.
-NOTHING has been recreated, and the site is untouched."
-  elif (( rc )); then
-    # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
-    # that could not be made leaves the deploy exactly where it stood before it was added.
-    warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
-here says whether the backend accepts what it holds. Its own answer is above."
-  else
-    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses them"
+# The services' own healthchecks decide, and their last lines say why.
+show_failure() {
+  local IFS=' '
+  local -a failing=()
+  info "compose's own account of each service:"
+  docker compose ps --all 2>&1 | detail || true
+  mapfile -t failing < <(docker compose ps --all --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null \
+    | awk '$2 != "running" || ($3 != "" && $3 != "healthy") { print $1 }')
+  if (( ${#failing[@]} )); then
+    info "the last 60 lines of ${failing[*]}:"
+    docker compose logs --tail=60 "${failing[@]}" 2>&1 | detail || true
   fi
 }
 
-# Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
-# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
-check_frontend_env_names() {
-  local rc=0
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_MOUNTS}/.env" || rc=$?
-  if (( rc == 3 )); then
-    refuse "the frontend refuses this host's fl_frontend/.env, and the lines above give each undeclared
-variable by its line number alone, never by name, and each missing one by name. An undeclared name
-is one nothing in the schema reads, so the line reads as omitted and the shipped default serves
-production -- open the line, then delete it, correct its spelling, or declare it in the schema. A missing
-name is one the frontend requires that the file omits, which the boot gate would meet instead,
-after the recreate and behind an edge already answering 502 -- write it into the file with its
-value. Whether a value, an empty one included, is accepted is the boot gate's to judge, in the step
-below.
-NOTHING has been recreated, and the site is untouched."
-  elif (( rc )); then
-    # An advisory rather than a refusal, for the reason `check_env_names` carries.
-    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether it holds every name the frontend requires and none it does not declare.
-Its own answer is above."
-  else
-    ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
-  fi
-}
+# `--remove-orphans`, so a service deleted from the compose file leaves no container running.
+up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orphans; }
 
-# Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
-# another account can read passes every check here, while any login on this host could mint an actor.
-signing_key_mode_advisory() {
-  local mode=""
-  if ! mode="$(stat -c '%a' "$SIGNING_KEY_FILE" 2>/dev/null)" || [[ ! "$mode" =~ ^[0-7]+$ ]]; then
-    warn "the mode of ${SIGNING_KEY_FILE} could not be read, so nothing here says whether another account on this host can read it."
-  # A warning rather than a refusal: the stack runs either way, and the exposure is already there.
-  elif (( 8#$mode & 8#077 )); then
-    warn "${SIGNING_KEY_FILE} has mode ${mode}, so an account other than its owner can reach it, and with it mint
-any actor the backend trusts. Give it to the frontend's user alone (docs/ops/runbooks.md §16):
-  sudo chown 1001:1001 ${SIGNING_KEY_FILE} && sudo chmod 400 ${SIGNING_KEY_FILE}"
-  fi
-}
-
-# nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is.
-edge_control() {
-  docker compose -f "$COMPOSE" exec -T nginx curl -sS --max-time 30 --unix-socket "$EDGE_CONTROL_SOCKET" "$@"
-}
-
-# One `<sha256> <path>` line per file in `GET /1/control/config`'s dump: what the master holds in
-# memory, not what its mounts show. Read as bytes, so no locale decodes a non-ASCII line into
-# another sum.
-EDGE_LOADED_SUMS='
-import hashlib
-import json
-import sys
-
-for entry in json.loads(sys.stdin.buffer.read()):
-    print(hashlib.sha256(entry["content"].encode()).hexdigest(), entry["name"])
-'
-
-# The lines a refused reload's `{"logs": [...]}` carries, as nginx wrote them.
-EDGE_RELOAD_LOGS='
-import json
-import sys
-
-for line in json.loads(sys.stdin.buffer.read())["logs"]:
-    print(line.rstrip("\n"))
-'
-
-# Stdin decoded by the program `$1`, in the backend image's interpreter: the one JSON reader this host
-# is sure to hold, having pulled that image. `--pull never`, because `--status` changes nothing, and
-# `--network none`, because it reads nothing but stdin.
-decode_json() {
-  docker run -i --rm --pull never --network none "$IMAGE_BACKEND" python -c "$1" 2>/dev/null
-}
-
-# 0 once the Control API answers, polling a freshly started nginx that has not yet opened its socket;
-# 1 where it never does in time, which the read after it reports.
-edge_control_opened() {
-  for _ in $(seq 1 "$EDGE_START_POLLS"); do
-    if edge_control --fail http://localhost/1/control/config >/dev/null 2>&1; then return 0; fi
-    sleep 0.2
+# `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
+# keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
+# `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
+# output, says which: `start worker processes` at notice, the image's nginx.conf level, or the reason.
+# Matched as an error-log line from its start, which no request can write.
+reload_nginx() {
+  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said refused i
+  quietly docker compose exec -T nginx nginx -s reload || return 1
+  failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
+  for (( i = 0; i < 15; i++ )); do
+    sleep 1
+    said="$(docker compose logs --no-log-prefix --since "$since" nginx 2>&1)" \
+      || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
+    refused="$(grep -E '^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ' <<<"$said" || true)"
+    if [[ -n "$refused" ]]; then
+      failure="$refusal"
+      info "nginx's running master refused the configuration nginx -t passed, which a restart of nginx, a
+reboot included, loads afresh:"
+      detail <<<"$refused"
+      return 1
+    fi
+    if grep -Eq '^[0-9/]+ [0-9:]+ \[notice\] [0-9]+#[0-9]+: start worker processes$' <<<"$said"; then return 0; fi
   done
+  info "nginx logged neither new workers nor a refusal within 15 seconds of the reload."
   return 1
 }
 
-# What nginx LOADED against this checkout (`docs/ops/spec.md :: I355`): its mounts show what a pull
-# wrote whether or not anything reloaded it since. 1 where the two differ, 2 where either went unread.
-edge_reads_checkout() {
-  local pair host_dir edge_dir file sum path dump="" listed="" rc=0
-  local -A want=() got=()
-  local -a differ=()
-  for pair in "${EDGE_CONFIG_DIRS[@]}"; do
-    host_dir="${pair%%:*}"
-    edge_dir="${pair#*:}"
-    for file in "$host_dir"/*; do
-      [[ -f "$file" ]] || continue
-      rc=0
-      sum="$(sha256sum -- "$file")" || rc=$?
-      if (( rc )); then
-        warn "${file} could not be read here (exit ${rc}), so nothing says whether nginx is running this
-checkout's configuration."
-        return 2
-      fi
-      want["${edge_dir}/${file##*/}"]="${sum%% *}"
-    done
-  done
-  rc=0
-  # Stdout alone: it is the document parsed below, and compose warns on stderr.
-  dump="$(edge_control --fail http://localhost/1/control/config 2>/dev/null)" || rc=$?
-  if (( rc )); then
-    warn "the running nginx could not be asked for the configuration it holds (exit ${rc}), so nothing
-here says whether it is running this checkout's.
-Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
-    return 2
-  fi
-  rc=0
-  listed="$(printf '%s' "$dump" | decode_json "$EDGE_LOADED_SUMS")" || rc=$?
-  if (( rc )); then
-    warn "nginx answered with its configuration, and ${IMAGE_BACKEND} could not read it back (exit ${rc}),
-so nothing here says whether nginx is running this checkout's."
-    return 2
-  fi
-  while IFS=' ' read -r sum path; do
-    # The image's own `nginx.conf` and `mime.types` sit outside every mount, and are not compared.
-    for pair in "${EDGE_CONFIG_DIRS[@]}"; do
-      if [[ "$path" == "${pair#*:}/"* ]]; then got["$path"]="$sum"; fi
-    done
-  done <<< "$listed"
-  for path in "${!want[@]}"; do
-    if [[ -z "${got[$path]:-}" ]]; then differ+=("${path}  absent from the running nginx")
-    elif [[ "${got[$path]}" != "${want[$path]}" ]]; then differ+=("${path}  differs from this checkout's")
-    fi
-  done
-  for path in "${!got[@]}"; do
-    [[ -n "${want[$path]:-}" ]] || differ+=("${path}  in the running nginx and not in this checkout")
-  done
-  if (( ${#differ[@]} )); then
-    fail "nginx holds a configuration that is not this checkout's. One not reloaded since a pull holds
-what it last loaded, and one created while its configuration was mounted as a file keeps that file
-whatever a pull put in its place. What differs, by the path nginx read:"
-    printf '%s\n' "${differ[@]}" | sort | detail
-    detail "Recreate it, which loads the checkout as it stands:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 1
-  fi
-  ok "nginx holds this checkout's ${#want[@]} configuration files in memory, byte for byte"
-  return 0
-}
-
-# Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
-# act -- which a caller has to be able to tell from a definite "the edge is not serving this build".
-serve_through_nginx() {
-  local before after rc=0
-  before="$(service_cid nginx)" || rc=$?
-  if (( rc )); then
-    warn "compose could not say whether nginx is running (exit ${rc}), so nothing here establishes that
-the site serves this build.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-    return 2
-  fi
-  # Everything recreating the application pair left alone: an nginx that was not running, a change to
-  # its own service definition, and a container belonging to no service this compose file defines.
-  if ! quietly docker compose -f "$COMPOSE" up -d --remove-orphans; then
-    # A compose that could not act is not a problem the run survives: nothing below it ran, so the
-    # edge is unreloaded and unread, and `warn` would close that green (`docs/ops/spec.md` §1.7).
-    warn "compose could not bring the rest of the stack up, so nothing here says whether nginx is even
-running, let alone serving this build. It was NOT reloaded. Its own output is above."
-    return 2
-  fi
-  rc=0
-  after="$(service_cid nginx)" || rc=$?
-  if (( rc )); then
-    # The answer the `before` read gives, for the same reason: this function's 1 is a definite "the
-    # edge is not serving this build", and a compose that declined to answer establishes neither.
-    warn "compose could not say whether nginx is running after the rest of the stack came up (exit ${rc}),
-so nothing here establishes that the site serves this build. It was NOT reloaded, and whether the up
-above replaced it — which would need no reload — is exactly what could not be read.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-    return 2
-  fi
-  if [[ -z "$after" ]]; then
-    fail "nginx is NOT running — the site is unreachable even though the application is healthy."
-    detail "Check:  docker compose -f ${COMPOSE} logs nginx"
-    return 1
-  fi
-  # A container compose replaced loaded the checkout's configuration as it started, so it has nothing
-  # to re-read.
-  if [[ "$before" != "$after" ]]; then
-    ok "started, so it loaded the checkout's configuration as it came up"
-    # The `up` returns before nginx opens its socket; an answer never arriving is the read's to report.
-    edge_control_opened || true
-    edge_reads_checkout
-    return
-  fi
-  # A running nginx finds the recreated pair by name without this (`docs/ops/spec.md :: I9`): the
-  # reload applies what the pull changed under `nginx/prod/` and `nginx/shared/`, and its new workers
-  # hold no address cached from before the recreate.
-
-  # The Control API rather than `nginx -s reload`, which answers 0 once the signal is sent: this answers
-  # 200 once the configuration applied, and 422 with nginx's own lines where the master rolled it back.
-  local reply="" reload_rc=0 status="" body=""
-  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
-  status="${reply##*$'\n'}"
-  body="${reply%$'\n'*}"
-  if (( reload_rc )); then
-    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
-whether it applied the configuration.
-Recreate it, which loads the checkout:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 2
-  fi
-  case "$status" in
-    200)
-      # An applied reload's lines are warnings, replayed under `--verbose` as every command's own
-      # output is (`docs/ops/spec.md` §1.7).
-      if verbose && [[ -n "$body" ]]; then printf '%s\n' "$body" | detail; fi
-      ok "reloaded onto the checkout's configuration"
-      edge_reads_checkout
-      ;;
-    422)
-      # The reply undecoded where it cannot be decoded: nginx's reason is worth more escaped than lost.
-      printf '%s' "$body" | decode_json "$EDGE_RELOAD_LOGS" | detail || printf '%s\n' "$body" | detail
-      fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, which
-is not this checkout's. Its own lines are above."
-      detail "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-      return 1
-      ;;
-    *)
-      warn "nginx's Control API answered the reload with '${status}', which is neither applied nor
-refused, so nothing here says which it did. Its reply:
-${body}
-Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
-      return 2
-      ;;
-  esac
-}
-
-# How many streams the last call wrote, because the callers' sentence about NONE of them differs:
-# before the recreate that is a first deploy, and inside the rollback it is compose not answering.
-COPIED_STREAMS=0
-# Counted beside it, because zero copies has two causes and only one of them has already been
-# printed: no container answered at all, or every container's copy failed with its own warning.
-ATTEMPTED_STREAMS=0
-# What the last call stopped, for the verb that starts it again.
-STOPPED_SERVICES=()
-
-# One loop for both calls, so the path taken only by a failed deploy cannot drift from the path
-# every deploy takes. `--force-recreate` discards a container's `json-file` stream, and a failed
-# deploy recreates the pair twice (`docs/logging/spec.md` §1.2).
-copy_streams() { # $1 what the copies carry beside the stamp, $2 the verb a failure takes, $3 what that verb says of the run
-  local suffix="$1" on_failure="$2" consequence="$3" svc cid target partial copy_rc mv_rc stop_rc=0
-  local -a held=() to_stop=()
-  COPIED_STREAMS=0
-  ATTEMPTED_STREAMS=0
-  STOPPED_SERVICES=()
-  for svc in frontend backend; do
-    # Only a service with a container has a stream: a first deploy has nothing to copy, and an empty
-    # file would read as a build that logged nothing.
-    cid="$(service_cid_any "$svc")" || cid=""
-    if [[ -n "$cid" ]]; then held+=("$svc"); fi
-    # The running ones alone are stopped and started again: a container found stopped stays so.
-    cid="$(service_cid "$svc")" || cid=""
-    if [[ -n "$cid" ]]; then to_stop+=("$svc"); fi
-  done
-  ATTEMPTED_STREAMS=${#held[@]}
-  if (( ! ATTEMPTED_STREAMS )); then return 0; fi
-  # Asked before the stop: an unwritable directory is the failure a copy most often meets, and asked
-  # here it refuses with the site untouched.
-  if [[ ! -d "$LOG_DIR" || ! -w "$LOG_DIR" ]]; then
-    "$on_failure" "${LOG_DIR} is missing or not writable by $(id -un), so no stream was copied and no
-container stopped. ${consequence}"
-    return 0
-  fi
-  # Stopped first, `stop` keeping the stream: a line written in the seconds before the recreate, an
-  # erasure's journal line a restore replays among them, is otherwise in no copy. Never bare, which
-  # stops the whole project.
-  if (( ${#to_stop[@]} )); then
-    # Recorded before the stop is asked for: an interrupt during it reaches the EXIT trap with the
-    # stop half done, and starting one still running changes nothing.
-    STOPPED_SERVICES=("${to_stop[@]}")
-    quietly docker compose -f "$COMPOSE" stop "${to_stop[@]}" || stop_rc=$?
-  fi
-  if (( stop_rc )); then
-    warn "compose could not stop the containers before their copy (exit ${stop_rc}), so a line written
-between the copy and the recreate is in no file. The copy is taken all the same."
-  fi
-  for svc in "${held[@]}"; do
-    target="${LOG_DIR}/${LOG_STAMP}-${svc}${suffix}.log"
-    # Written beside the target and moved in once the copy succeeded: a copy failing midway would
-    # otherwise leave a short `.log` reading as the build's whole stream.
-    partial="${target}.partial"
-    copy_rc=0
-    # Bounded, as every `curl` here is: both calls run with the pair stopped and the site answering
-    # 502, and a stalled daemon would hold that open (`docs/ops/runbooks.md` §1). 120s is the
-    # `docker-compose.yml :: x-logging` cap at a 256 KB/s floor.
-    timeout 120 docker compose -f "$COMPOSE" logs --no-color --timestamps "$svc" > "$partial" 2>/dev/null || copy_rc=$?
-    if (( copy_rc )); then
-      rm -f "$partial" 2>/dev/null || true
-      "$on_failure" "the ${svc} log could not be copied to ${target} (exit ${copy_rc}). ${consequence}
-Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-      # Reached under `warn` alone -- the refusing verb has ended the run by here -- and the other service's
-      # stream is worth copying whatever this one did.
-      continue
-    fi
-    mv_rc=0
-    mv "$partial" "$target" 2>/dev/null || mv_rc=$?
-    if (( mv_rc )); then
-      rm -f "$partial" 2>/dev/null || true
-      "$on_failure" "the ${svc} log was copied but could not be moved into place at ${target} (exit ${mv_rc}).
-${consequence}
-Copy it by hand:  docker compose -f ${COMPOSE} logs --no-color --timestamps ${svc} > ${target}"
-      continue
-    fi
-    detail "${svc}: ${target}"
-    COPIED_STREAMS=$(( COPIED_STREAMS + 1 ))
-  done
-}
-
-# Puts back what the copy before the recreate stopped, each step worded by its own answer: 0 where
-# every one answered well, 1 where one answered badly, 2 where one went unanswered.
-start_stopped_again() {
-  local named svc limit start_rc=0 reload_rc=0 reply="" status="" worst=0
-  named="$(IFS=' '; printf '%s' "${STOPPED_SERVICES[*]}")"
-  # Never `up`: the pull has moved `:latest` by here, so `up` would recreate the pair from the new build
-  # with no copy taken. `start` resumes each on the build it was running, its stream whole.
-  quietly docker compose -f "$COMPOSE" start "${STOPPED_SERVICES[@]}" || start_rc=$?
-  if (( start_rc )); then
-    warn "the containers stopped for the copy could NOT be started again (exit ${start_rc}), so the site
-is DOWN. Compose's own output is above.
-Start them:  docker compose -f ${COMPOSE} start ${named}
-Then reload the edge:  ${EDGE_RELOAD_TYPED}"
-    return 1
-  fi
-  ok "${named} started again, on the build they were running"
-  # nginx finds the pair started again by name (`docs/ops/spec.md :: I9`): the reload applies what the
-  # pull left under nginx/prod/ and nginx/shared/, and its new workers hold no address from before
-  # the stop.
-  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
-  status="${reply##*$'\n'}"
-  if (( reload_rc )); then
-    worst=2
-    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
-whether it holds the configuration the pull left in nginx/prod/ and nginx/shared/.
-Reload it:  ${EDGE_RELOAD_TYPED}"
-  elif [[ "$status" == 200 ]]; then
-    ok "nginx reloaded onto the checkout's configuration"
-  elif [[ "$status" == 422 ]]; then
-    worst=1
-    warn "nginx refused the configuration the pull left in nginx/prod/ or nginx/shared/ and kept the one it
-had, which is not this checkout's. Its own lines:
-${reply%$'\n'*}
-Fix what they name, then reload it:  ${EDGE_RELOAD_TYPED}"
-  else
-    worst=2
-    warn "nginx's Control API answered the reload with '${status}', which is neither applied nor refused,
-so nothing here says which configuration it holds.
-Reload it:  ${EDGE_RELOAD_TYPED}"
-  fi
-  for svc in "${STOPPED_SERVICES[@]}"; do
-    limit="$HEALTH_WAIT_FRONTEND"
-    if [[ "$svc" == backend ]]; then limit="$HEALTH_WAIT_BACKEND"; fi
-    if ! wait_healthy "$COMPOSE" "$svc" "$limit"; then
-      # A wait compose never answered says nothing of the service, so it cannot outrank a bad answer.
-      if [[ "$WAIT_HEALTHY_REASON" != unasked ]]; then worst=1; elif (( ! worst )); then worst=2; fi
-    fi
-  done
-  return "$worst"
-}
-
-# The verb of the copy before the recreate. Graded as `scripts/lib/_lib.sh` ranks a section holding
-# both: a pair left out of service is a finding and outranks the copy's refusal, which ends the run
-# alone wherever nothing answered badly.
-start_again_and_end() { # $1 what failed, and what that leaves
-  local rc=0
-  if (( ${#STOPPED_SERVICES[@]} )); then start_stopped_again || rc=$?; fi
-  # Lifted only now, so an interrupt during the start above still has the trap put the pair back.
-  trap - EXIT
-  # Nothing stopped, nothing to start: a bare `start` starts the whole project.
-  if (( ! ${#STOPPED_SERVICES[@]} )); then refuse "$1"; fi
-  case "$rc" in
-    0) refuse "$1
-The containers stopped for the copy were started again on the build they were running, nginx was
-reloaded onto them, and each answered healthy." ;;
-    2) refuse "$1
-The containers stopped for the copy were started again on the build they were running; what could
-not be asked after that is named above." ;;
-    *) die "$1
-The containers stopped for the copy are NOT serving the site again: the lines above say which step
-answered badly." ;;
-  esac
-}
-
-# Set from just before the copy to just before the recreate: an interrupt, a hangup or a crash there
-# would leave the pair stopped, `restart: unless-stopped` never restarting a container `stop` stopped.
-restart_on_exit() {
-  if (( ! ${#STOPPED_SERVICES[@]} )); then return 0; fi
-  # Best effort to its last line: a write that fails, every one after a hangup or stdout's on a full
-  # disk, would otherwise end this before the `start`, through `set -e` or the error trap.
-  set +e
-  trap - ERR
-  info "putting back the containers this run stopped for its copy"
-  start_stopped_again
-}
-
-# Called only with both previous image ids held: a rollback restoring one service and not the other
-# leaves the mismatched pair `--status` refuses to call live.
-roll_back() { # $1 how the build being restored is named on screen
-  local name="$1" tag_rc=0 up_rc=0 healthy=1 edge_rc=0 unasked=0
-  step "Stopping the failed build and copying its logs off before it is replaced"
-  # Interrupted here, the failed pair stays stopped rather than put back: it has just failed its
-  # health wait, so starting it restores no service, and the rollback is finished by tag
-  # (`docs/ops/runbooks.md` §1).
-
-  # `warn` where the copy before the recreate refuses, and this is the only difference between the
-  # two calls: the site is already down by here, so a refusal would trade the outage for a log file.
-  copy_streams "-failed" warn "The rollback goes on without the copy, and the recreate below discards
-what it would have kept."
-  if (( COPIED_STREAMS )); then
-    ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
-  elif (( ATTEMPTED_STREAMS )); then
-    # Told apart from the branch below, because the two ask for different things: a copy that failed
-    # has already printed its own reason, and no container answering has printed nothing at all.
-    warn "${ATTEMPTED_STREAMS} container(s) answered and not one copy was made -- the warnings above say
-why -- so the failed build's own streams go with the recreate below and the excerpt printed above is
-all there is of why it failed."
-  else
-    warn "no container answered, so the failed build's own streams go with the recreate below and the
-excerpt printed above is all there is of why it failed."
-  fi
-
-  step "Rolling back to ${name}"
-  quietly docker tag "$PREV_FE_IMG" "$IMAGE_FRONTEND" || tag_rc=1
-  quietly docker tag "$PREV_BE_IMG" "$IMAGE_BACKEND"  || tag_rc=1
-  if (( tag_rc )); then
-    fail "the images this deploy replaced could not be re-tagged, so the rollback never started and
-this host is still holding the build that failed. One of the two tags may have moved before the
-other refused, which leaves a mismatched pair."
-    detail "What is published:  ./scripts/ops/deploy.sh --status"
-    return 1
-  fi
-  quietly docker compose -f "$COMPOSE" up -d --force-recreate frontend backend || up_rc=$?
-  if (( up_rc )); then
-    fail "compose could not recreate the application containers from the restored images (exit ${up_rc}),
-so the site is down. Compose's own output is above."
-    return 1
-  fi
-  wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || healthy=0
-  if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
-  wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || healthy=0
-  if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then unasked=1; fi
-  if (( ! healthy )); then
-    if (( unasked )); then
-      # `warn`, not `fail`: the run is already a finding from the build that failed, and a second one
-      # would name something to fix where nothing here reached a verdict to name.
-      warn "compose stopped answering while the restored build was waited on, so nothing here says
-whether it is healthy. Both images were re-tagged and both containers recreated.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-      return 1
-    fi
-    fail "THE RESTORED BUILD IS NOT HEALTHY EITHER, so the site is down and nothing here can lift it."
-    detail "Both services' logs:  docker compose -f ${COMPOSE} logs frontend backend"
-    return 1
-  fi
-  # Passed up rather than folded into 1: 2 is "the edge's state could not be established", and a
-  # caller told the restored build is not being served has been told something nothing here knows.
-  serve_through_nginx || edge_rc=$?
-  if (( edge_rc )); then return "$edge_rc"; fi
-  # Not "the site is back", which neither read above establishes: the edge is answered by --status.
-  ok "rolled back — ${name} is healthy again and nginx is proxying to it"
-  rollback_advice
-  return 0
-}
-
-# Nothing here reaches the registry, so its `:latest` still resolves to the build that just failed
-# and a bare re-run fetches it, fails again, and pays the whole outage a second time.
-rollback_advice() {
-  if [[ -n "$PREV_PIN" ]]; then
-    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
-           "script bare. Deploy by tag until a good build is published:" \
-           "  ./scripts/ops/deploy.sh ${PREV_PIN}"
-  else
-    detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
-           "script bare. Publish a good build (gh workflow run publish.yml --ref main), or deploy one by tag:" \
-           "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
-  fi
-}
-
-# --- --status: answer "what is actually running?" ----------------------------------------------------
-
-if (( STATUS_ONLY )); then
-  section "status"
-  step "Currently running"
-  running=0
-  # Set wherever the host declined to answer: a question nobody answered leaves this report stating
-  # nothing, and the refusal below is that ending.
-  UNANSWERED=0
-  RUNNING_FE=""; RUNNING_BE=""
-  for svc in frontend backend; do
-    ps_rc=0
-    cid="$(service_cid "$svc")" || ps_rc=$?
-    if (( ps_rc )); then
-      warn "${svc}: compose could not answer (exit ${ps_rc}), which is not the same as not running.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-      UNANSWERED=1
-      continue
-    fi
-    if [[ -z "$cid" ]]; then
-      # A finding, not an advisory: a mismatched pair below is `fail` and a 404 edge is `fail`, and
-      # nothing running is worse than either. The edge can answer 200 from a worker that outlived
-      # this, so the probe below is no second opinion on it.
-      fail "${svc}: not running, so nothing on this host is serving it.
-Bring the published pair back up:  ./scripts/ops/deploy.sh"
-      continue
-    fi
-    # The container can be removed between `ps` and `inspect`, and an unguarded read takes the error
-    # trap, turning a report that changes nothing into a crash.
-    img_id="$(running_image "$cid")" || img_id=""
-    if [[ -z "$img_id" ]]; then
-      warn "${svc}: the container compose named is already gone, so nothing about it could be read"
-      UNANSWERED=1
-      continue
-    fi
-    running=$(( running + 1 ))
-    short_id="${img_id#sha256:}"
-    tag_rc=0
-    tag="$(published_tag "$img_id")" || tag_rc=1
-    # An unread label is not an absent one, and this row is what a registry is pruned from.
-    if (( tag_rc )); then
-      UNANSWERED=1
-      tag_cell="could not be read"
-    else
-      tag_cell="${tag:-unlabelled (not built by publish.yml)}"
-    fi
-    case "$svc" in frontend) RUNNING_FE="$tag" ;; backend) RUNNING_BE="$tag" ;; esac
-    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")" || state="unreadable"
-    detail "$(printf '%-9s %s' "${svc}:" "$state")" \
-           "$(printf '%-9s image    %s' "" "${short_id:0:12}")" \
-           "$(printf '%-9s tag      %s' "" "$tag_cell")" \
-           "$(printf '%-9s commit   %s' "" "$(image_revision_display "$img_id")")" \
-           "$(printf '%-9s built    %s' "" "$(image_created_display "$img_id")")"
-  done
-  if (( running )); then ok "${running} service(s), read from the image each container is running"; fi
-
-  # The two packages move independently, so a host can serve a pair no single build names — and
-  # each service is healthy against its own half, so these rows are the only place it shows.
-  if [[ -n "$RUNNING_FE" && -n "$RUNNING_BE" && "$RUNNING_FE" != "$RUNNING_BE" ]]; then
-    fail "the two services are running different builds: frontend ${RUNNING_FE}, backend ${RUNNING_BE}.
-Deploy the build both packages have:  ./scripts/ops/deploy.sh ${RUNNING_BE}"
-  fi
-
-  step "The site, as the internet reaches it"
-  # Every row above is read from a container, and a healthy pair says nothing about whether the edge
-  # reaches it. This asks the edge.
-  status_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
-  if [[ "$status_code" == "200" ]]; then
-    ok "the edge answers the liveness probe"
-  elif [[ "$status_code" == "000" || -z "$status_code" ]]; then
-    # `000` is what curl writes where no HTTP response arrived at all — DNS, TCP, TLS and timeout
-    # alike; empty is curl itself not running. An advisory, not the refusal below, which speaks
-    # for the container rows either way.
-    warn "curl reached no HTTP status at all, which is not the same as the site being down: this script
-runs on the server, so this is the host asking for its own public hostname, and its DNS, its egress,
-whether the network routes 443 back to it and its TLS trust all sit between the two.
-Ask from somewhere else before acting."
-  else
-    fail "the edge answered ${PROBE_URL} with ${status_code}, not 200, so whatever is running above is
-not what a visitor is being served."
-    detail "Reload the edge:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-  fi
-
-  # The edge's other half: a probe answered 200 by a configuration no pull reached reads as current.
-  step "The edge's configuration, against this checkout"
-  NGINX_RC=0
-  nginx_cid="$(service_cid nginx)" || NGINX_RC=$?
-  if (( NGINX_RC )); then
-    warn "nginx: compose could not answer (exit ${NGINX_RC}), which is not the same as not running.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-    UNANSWERED=1
-  elif [[ -z "$nginx_cid" ]]; then
-    # A finding for the application rows' reason: an edge that is not running serves nobody.
-    fail "nginx: not running, so nothing on this host is serving the site.
-Bring it back up:  docker compose -f ${COMPOSE} up -d nginx"
-  else
-    EDGE_CONFIG_RC=0
-    edge_reads_checkout || EDGE_CONFIG_RC=$?
-    if (( EDGE_CONFIG_RC == 2 )); then UNANSWERED=1; fi
-  fi
-
-  step "Published builds available to roll back to"
-  # Two calls: `docker image ls` accepts at most one repository argument. Matched on the tag, not a
-  # `-sha-` substring — the tag carries no service prefix, so that would report "none" forever.
-
-  # Read on its own, not in one brace group whose status is its LAST command's: `docs/ops/spec.md`
-  # §1.5 prunes the registry from this list under "never delete what is live", and a short list with
-  # no marker makes an operator delete a live build.
-  LS_RC=0
-  # `2>&1` so a failure's complaint reaches `detail` below instead of leaking raw.
-  listed_fe="$(docker image ls "$REPO_FRONTEND" --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}' 2>&1)" || LS_RC=$?
-  listed_be="$(docker image ls "$REPO_BACKEND"  --format '{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}' 2>&1)" || LS_RC=$?
-  local_tags="$(printf '%s\n%s\n' "$listed_fe" "$listed_be" | sort)"
-  # Never `grep -q` in a pipeline: it closes the pipe on its first match, so under `pipefail` the
-  # writer's SIGPIPE fails the pipeline exactly when there WAS a match.
-  pinned="$(printf '%s\n' "$local_tags" | grep -E ':sha-' || true)"
-  if (( LS_RC )); then
-    warn "this host's images could not be listed (exit ${LS_RC}), so whatever stands below is not
-the whole rollback list. Ask directly:  docker image ls '${REPO_FRONTEND}'"
-    printf '%s\n%s\n' "$listed_fe" "$listed_be" | detail
-    UNANSWERED=1
-  elif [[ -n "$pinned" ]]; then
-    printf '%s\n' "$pinned" | detail
-    ok "$(printf '%s\n' "$pinned" | wc -l | tr -d ' ') pinned build(s) on this host"
-  else
-    info "none pinned locally — pull one first: docker pull ${REPO_FRONTEND}:sha-XXXXXXX"
-    ok "the registry still has them: https://github.com/felzab?tab=packages"
-  fi
-  if (( UNANSWERED )); then
-    refuse "This is not a statement of what is live: something above could not be asked, and an
-unasked service reads exactly like a stopped one. Registry pruning is decided from this
-report (docs/ops/spec.md §1.5), so delete nothing until it answers."
-  fi
-  finish
+# Moved by a healthy verdict alone, so a run ending without one, an interrupt included, leaves it on
+# the last build that came up. --no-rollback's build retires the one before as it starts.
+if (( ! ROLLBACK )); then
+  pin "$tag" || refuse "the .env could not be written, so ${tag} was not started. The stack has not changed."
 fi
-
-# --- preflight --------------------------------------------------------------------------------------
-
-section "preflight"
-
-# Everything the stack mounts or reads, before the pull rather than after: each failure below is
-# instant to detect, and a half-deployed stack is not.
-step "Files and directories the stack mounts, before anything is stopped or pulled"
-require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
-require_file "fl_backend/.env"  "The backend cannot start without it."
-judge_env_files "fl_frontend/.env" "fl_backend/.env"
-# Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
-# loads no server of this site's or refuses the include, the edge serving its previous
-# configuration until it restarts.
-require_file "nginx/prod/prod.conf" "nginx loads it from the nginx/prod mount; without it nginx serves none of this site."
-require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
-require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
-require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
-require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
-require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
-signing_key_mode_advisory
-# Each file once, the two services sharing the internal keys.
-for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
-  require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
-done
-require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
-ok "all present"
-
-step "Docker Engine version"
-# The status is read, never dropped with `|| true`: a daemon that stopped answering since the guard
-# above left ENGINE empty, which parsed as "not a number" and printed "Upgrade the engine" — a
-# definite verdict about a question nobody answered.
-ENGINE_RC=0
-# `2>&1` so docker's own complaint is what the refusal quotes.
-ENGINE="$(docker version --format '{{.Server.Version}}' 2>&1)" || ENGINE_RC=$?
-if (( ENGINE_RC )); then
-  refuse "the Docker daemon stopped answering between the check above and this one (exit
-${ENGINE_RC}), so this host's engine version is unknown and nothing was compared against
-${ENGINE_MIN}. NOTHING has been stopped or pulled. Docker's own answer:
-${ENGINE}"
-fi
-ENGINE_MAJOR="${ENGINE%%.*}"
-if [[ ! "$ENGINE_MAJOR" =~ ^[0-9]+$ ]]; then
-  refuse "this host reports its Docker Engine version as '${ENGINE}', which does not begin with a
-number, so nothing here compared it against ${ENGINE_MIN}. NOTHING has been stopped or pulled."
-fi
-if (( ENGINE_MAJOR < ENGINE_MIN )); then
-  # A prerequisite this host does not meet, so 2 rather than 1: there is nothing in the change to
-  # correct, and the deploy was never attempted.
-  refuse "This host reports Docker Engine '${ENGINE}', and ${COMPOSE} needs ${ENGINE_MIN} or newer.
-An older engine refuses a healthcheck start_interval outright, and the refusal arrives at
-container-create time — which is after the running containers would have been stopped.
-NOTHING has been stopped or pulled: the site is still serving what it was serving.
-Upgrade the engine, or drop the start_interval lines from both compose files."
-fi
-ok "engine ${ENGINE}, which is ${ENGINE_MIN} or newer"
-
-# Above the read below rather than at the end of preflight: that read asks compose what is running,
-# fails for this reason too, and warns of nothing to roll back to — about a run this one ends.
-step "The configuration compose reads, before anything is pulled or recreated"
-check_compose_config
-
-# --- the build now live, read before anything moves --------------------------------------------------
-
-step "The build now live"
-PREV_PIN=""
-# The rollback re-tags by IMAGE ID rather than by the pin: an id cannot move, and a no-argument
-# deploy pulls `:latest` alone — so the build it replaces usually carries no `:sha-` tag on this host
-# for `:latest` to be pointed back at.
-PREV_FE_IMG=""
-PREV_BE_IMG=""
-PS_RC=0
-RECORDED=1
-# An empty answer from a compose that FAILED would otherwise print "nothing is running" and discard
-# the rollback target on the one run that needs it.
-prev_cid="$(service_cid frontend)" || PS_RC=$?
-if (( PS_RC )); then
-  RECORDED=0
-  warn "compose could not say what is running (exit ${PS_RC}), so this deploy has nothing to roll back to.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-elif [[ -z "$prev_cid" ]]; then
-  info "nothing is running here yet, so this deploy has nothing to roll back to"
-else
-  # Guarded for the same reason as the `--status` read: the container can go between `ps` and
-  # `inspect`, and an unread image is not an unlabelled one.
-  prev_img="$(running_image "$prev_cid")" || prev_img=""
-  if [[ -z "$prev_img" ]]; then
-    RECORDED=0
-    warn "the running container's image could not be read, so this deploy has nothing to roll back to"
-  else
-    PREV_FE_IMG="$prev_img"
-    PREV_RC=0
-    PREV_PIN="$(published_tag "$prev_img")" || PREV_RC=1
-    info "commit $(image_revision_display "$prev_img"), built $(image_created_display "$prev_img")"
-    # Only what the rollback is CALLED rests on the label; the image it restores is already held.
-    if (( PREV_RC )); then
-      PREV_PIN=""
-      warn "the running image's build label could not be read, so a rollback can restore it but cannot name it"
-    elif [[ ! "$PREV_PIN" =~ $PIN_RE ]]; then
-      PREV_PIN=""
-      warn "the running image carries no published-tag label, so a rollback can restore it but cannot name it"
-    fi
+step "Starting ${tag}"
+failure="${tag} did not come up"
+if up; then
+  ok "every service is running and healthy"
+  # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
+  step "nginx's configuration"
+  failure="nginx did not take this checkout's configuration and still runs the one it had"
+  if ! quietly docker compose exec -T nginx nginx -t; then
+    # Going back moves the images alone, and nginx reads the checkout's files at any restart.
+    warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
+reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
+  elif reload_nginx; then
+    ok "tested, and its new workers started"
+    pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
+Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
+    ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
+    exit 0
   fi
 fi
 
-# The backend's half, read the same way and for the same reason.
-BE_PS_RC=0
-prev_be_cid="$(service_cid backend)" || BE_PS_RC=$?
-if (( BE_PS_RC )); then
-  RECORDED=0
-  warn "compose could not say which image the backend is running (exit ${BE_PS_RC}), so this deploy has
-nothing to roll back to"
-elif [[ -z "$prev_be_cid" ]]; then
-  # Silent where the frontend was not running either: the branch above has already said so.
-  if [[ -n "$PREV_FE_IMG" ]]; then
-    RECORDED=0
-    warn "the frontend is running and the backend is not, so this deploy has no matched pair to roll back to"
-  fi
-else
-  PREV_BE_IMG="$(running_image "$prev_be_cid")" || PREV_BE_IMG=""
-  if [[ -z "$PREV_BE_IMG" ]]; then
-    RECORDED=0
-    warn "the backend container's image could not be read, so this deploy has nothing to roll back to"
-  elif [[ -n "$PREV_PIN" ]]; then
-    # A name for the PAIR, so it may not come from one half: the two packages move independently, and
-    # a rollback offered under a tag the backend was never running names a build nobody was running.
-    PREV_BE_PIN="$(published_tag "$PREV_BE_IMG")" || PREV_BE_PIN=""
-    if [[ "$PREV_BE_PIN" != "$PREV_PIN" ]]; then
-      warn "the two running services carry different build labels, so a rollback can restore this exact
-pair but cannot name it: frontend ${PREV_PIN}, backend ${PREV_BE_PIN:-unreadable or unlabelled}."
-      PREV_PIN=""
-    fi
-  fi
+show_failure
+if (( ! ROLLBACK )); then
+  die "${failure}. --no-rollback leaves the stack as it stands, .env pinning ${tag}.${prev:+
+The build before it was ${prev}.}"
+fi
+# Never to the tag that has just failed.
+if [[ -z "$prev" || "$prev" == "$tag" ]]; then
+  die "${failure}, and no other build is pinned to go back to, so the stack stands as it is."
 fi
 
-# Announced once both halves have been read: the name belongs to the PAIR, and printing the
-# frontend's label as it is read announces a target the backend's can still take away.
-if [[ -n "$PREV_PIN" ]]; then info "rollback target: ${PREV_PIN}"; fi
-
-# Both halves or neither: `roll_back` restores a pair or does not run.
-ROLLBACK_READY=0
-if [[ -n "$PREV_FE_IMG" && -n "$PREV_BE_IMG" ]]; then ROLLBACK_READY=1; fi
-
-# Only where something was read. A verdict on the branch above that recorded nothing is a pass
-# printed directly beneath the line saying the opposite.
-if (( RECORDED )); then ok "recorded before anything is pulled or recreated"; fi
-
-# --- pull -------------------------------------------------------------------------------------------
-
-# What each `:latest` named before a bare run's pull, read by `image ls`: `inspect` answers an absent
-# image and a dead daemon alike. A pinned run leaves them empty, its tags moving only once the pair
-# is accepted.
-LATEST_BEFORE_FE=""
-LATEST_BEFORE_BE=""
-LATEST_BEFORE_RC=0
-
-# A pair this run refuses leaves the host's tags as it found them: an `up` reaching the application
-# recreates it from whatever `:latest` names, a refused pair included.
-put_latest_back() {
-  local rc=0
-  if (( LATEST_BEFORE_RC )); then
-    warn "what the :latest tags named before this run could not be read (exit ${LATEST_BEFORE_RC}), so
-they cannot be put back, and this host's pair may be the refused one until a deploy pulls both again:
-  ./scripts/ops/deploy.sh --status"
-    return 0
-  fi
-  [[ -z "$LATEST_BEFORE_FE" ]] || quietly docker tag "$LATEST_BEFORE_FE" "$IMAGE_FRONTEND" || rc=1
-  [[ -z "$LATEST_BEFORE_BE" ]] || quietly docker tag "$LATEST_BEFORE_BE" "$IMAGE_BACKEND"  || rc=1
-  if (( rc )); then
-    warn "the :latest tags could not both be put back, so this host's pair may be the refused one until
-a deploy pulls both again:  ./scripts/ops/deploy.sh --status"
-  elif [[ -n "$LATEST_BEFORE_FE$LATEST_BEFORE_BE" ]]; then
-    info "the :latest tags were put back to the images they named before this run"
-  fi
-}
-
-# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
-# rather than two, because a label nobody could read is not an absent one.
-compare_pulled_pair() { # $1 the frontend image as pulled, $2 the backend's
-  local fe="" be="" fe_rc=0 be_rc=0
-  fe="$(published_tag "$1")" || fe_rc=1
-  be="$(published_tag "$2")" || be_rc=1
-  if (( fe_rc || be_rc )); then
-    put_latest_back
-    refuse "the pulled images' build labels could not be read, so nothing says whether these two
-packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
-  elif [[ -z "$fe" || -z "$be" ]]; then
-    # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
-    # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
-    # names the pair itself, which keeps an unlabelled build reachable for a rollback.
-    if [[ -z "$PIN" ]]; then
-      put_latest_back
-      refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
-packages are the same build. NOTHING has been recreated. Publish a build, which labels both:
-  gh workflow run publish.yml --ref main
-or pin one:  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
-    fi
-    info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
-  elif [[ "$fe" != "$be" && -n "$PIN" ]]; then
-    # Each label names the tag its image was pushed under, so one of these was pushed under a tag
-    # that is not its own, and no deploy of this pin runs the build it names.
-    die "The two images tagged ${PIN} carry different build labels: frontend ${fe}, backend ${be}.
-NOTHING has been recreated, and neither :latest tag has moved. Deploy a build both packages
-carry under its own label:  ./scripts/ops/deploy.sh <tag>  (https://github.com/felzab?tab=packages)"
-  elif [[ "$fe" != "$be" ]]; then
-    put_latest_back
-    die "The two :latest tags are different builds: frontend ${fe}, backend ${be}.
-A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
-sees it: each service is healthy against its own half. NOTHING has been recreated.
-Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
-  fi
-}
-
-pull_latest_pair() {
-  LATEST_BEFORE_FE="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
-  LATEST_BEFORE_BE="$(docker image ls --quiet --no-trunc "$IMAGE_BACKEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
-  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
-The packages are public, so this server needs no login. An authentication or
-'not found' error almost always means the package was left PRIVATE after a
-first push — check https://github.com/felzab?tab=packages"
-  if ! docker pull "$IMAGE_BACKEND"; then
-    # A new frontend beside an old backend is a pair no build names.
-    put_latest_back
-    die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
-  fi
-  ok "both packages pulled"
-}
-
-section "pull"
-
-step "The edge's images, before anything the application runs moves"
-fetch_edge_images
-
-if [[ -n "$PIN" ]]; then
-  step "Pinning to ${PIN}"
-  info "pulling ${REPO_FRONTEND}:${PIN} and ${REPO_BACKEND}:${PIN}"
-  # Refusals, not findings: the tag is the operator's input and the registry is not this repository,
-  # so neither names a change to fix. A tag that does not exist and an unreachable registry both
-  # land here; docker's line above tells them apart.
-  docker pull "${REPO_FRONTEND}:${PIN}" || refuse "could not pull ${REPO_FRONTEND}:${PIN} — docker's
-own reason is above. NOTHING has been recreated, and the site is untouched.
-List what exists locally: docker image ls '${REPO_FRONTEND}'
-Published builds are at https://github.com/felzab?tab=packages"
-  docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
-own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
-  compare_pulled_pair "${REPO_FRONTEND}:${PIN}" "${REPO_BACKEND}:${PIN}"
-  # Only now, with both pulls behind us and the pair accepted, do the moving tags compose reads by
-  # name move.
-  quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
-  quietly docker tag "${REPO_BACKEND}:${PIN}"  "$IMAGE_BACKEND"  || die "could not point ${IMAGE_BACKEND} at ${PIN}.
-The frontend tag has already moved, so this host's pair is mismatched: re-run this command."
-  ok "both :latest tags now point at ${PIN} locally"
-else
-  step "Pulling the current published images"
-  pull_latest_pair
-  compare_pulled_pair "$IMAGE_FRONTEND" "$IMAGE_BACKEND"
+# The images alone go back: the checkout's compose file and nginx's configuration stay as pulled.
+# nginx is not reloaded, so unless the start above recreated it, it runs the configuration it had
+# before this run.
+step "Going back to ${prev}"
+export TAG="$prev"
+if up; then
+  die "${failure}, so the stack went back to ${prev}, which is live."
 fi
-
-info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
-info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
-
-# What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
-# second full outage ending where this run started, so it is read here rather than reasoned about.
-NEW_FE_IMG="$(docker image inspect --format '{{.Id}}' "$IMAGE_FRONTEND" 2>/dev/null || true)"
-NEW_BE_IMG="$(docker image inspect --format '{{.Id}}' "$IMAGE_BACKEND"  2>/dev/null || true)"
-SAME_BUILD=0
-if [[ -n "$NEW_FE_IMG" && "$NEW_FE_IMG" == "$PREV_FE_IMG" && "$NEW_BE_IMG" == "$PREV_BE_IMG" ]]; then
-  SAME_BUILD=1
-fi
-
-# Asked of the builds about to run rather than of the ones being replaced: the field set is each
-# pulled image's, so a variable this release renamed is a variable only this release can judge.
-step "The environment files, read by the builds about to run"
-check_env_names
-check_frontend_env_names
-
-step "Each service's settings and secret files, as its own boot builds them"
-# Through compose: only the service's own container holds its variables, mounts and the user its files
-# are handed to (`docs/ops/spec.md :: I510`). `run` publishes no port or alias, so nothing reaches the
-# frontend's one-off server.
-check_frontend_boot_config "NOTHING has been recreated, and the site is untouched." production \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T
-check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T
-
-step "The actor token's key pair"
-# After the frontend's boot, which has refused a key it cannot read where its environment points it.
-check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
-
-# --- the streams the recreate destroys, copied off first ---------------------------------------------
-
-section "logs"
-
-step "Stopping the application containers and copying their logs off"
-# `nginx/` is created here rather than left to the `up` below, which would invent it root-owned:
-# `docker-compose.yml` bind-mounts it for the edge's two logs, and one refusal covers the
-# copies and the directory `logrotate` bounds by age (docs/ops/runbooks.md §7).
-MKDIR_RC=0
-mkdir -p "$LOG_DIR" "${LOG_DIR}/nginx" 2>/dev/null || MKDIR_RC=$?
-if (( MKDIR_RC )); then
-  refuse "${LOG_DIR} could not be created (exit ${MKDIR_RC}), so the application logs could not be
-copied off before the recreate destroys them, and nginx has nowhere to write its access log.
-NOTHING has been recreated.
-Create them once, owned by the deploying user (docs/ops/runbooks.md §7):
-  sudo install -d -o \"\$USER\" -g \"\$USER\" ${LOG_DIR} ${LOG_DIR}/nginx"
-fi
-trap restart_on_exit EXIT
-# A refusal here, and `warn` at the rollback's copy: nothing is recreated yet, so the deploy can
-# simply be re-run once this path can be written.
-copy_streams "" start_again_and_end "NOTHING has been recreated."
-if (( COPIED_STREAMS )); then
-  ok "${COPIED_STREAMS} stream(s) copied to ${LOG_DIR}"
-else
-  info "nothing is running here yet, so there is no stream to copy"
-fi
-
-# --- recreate ---------------------------------------------------------------------------------------
-
-section "deploy"
-
-# The application pair alone: `--force-recreate` over the whole project tears down an nginx nothing
-# changed, and its `service_healthy` gate then holds the edge closed until both are healthy — or for
-# good, where the new build never is.
-step "Recreating the application containers"
-
-# Lifted here and not later: an ending from here on meets containers the recreate replaced, or is
-# replacing, and starting those again would serve neither build.
-trap - EXIT
-
-# Guarded, not bare: a service that cannot be created exits `up` non-zero, and an unguarded call
-# would skip the diagnostics and the rollback below.
-UP_RC=0
-quietly docker compose -f "$COMPOSE" up -d --force-recreate frontend backend || UP_RC=$?
-if (( UP_RC )); then
-  fail "compose could not recreate the application containers (exit ${UP_RC}); each service is asked what happened below"
-else
-  ok "frontend and backend recreated"
-fi
-
-step "Waiting for health"
-HEALTHY=1
-# Set where a wait ENDED on a question compose declined: asking again afterwards is a different
-# question at a different moment, and a compose that recovered by then would hand this deploy a
-# rollback of a build nothing judged.
-UNASKED=0
-# Both are waited on even when the first fails: chaining them means one deploy reports one problem,
-# and the second is discovered by deploying again.
-wait_healthy "$COMPOSE" backend "$HEALTH_WAIT_BACKEND"   || HEALTHY=0
-if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
-wait_healthy "$COMPOSE" frontend "$HEALTH_WAIT_FRONTEND" || HEALTHY=0
-if [[ "$WAIT_HEALTHY_REASON" == "unasked" ]]; then UNASKED=1; fi
-if (( UP_RC )); then HEALTHY=0; fi
-
-# `wait_healthy` answers 1 for "reports UNHEALTHY" and "could not ask compose" alike, and only the
-# first is a verdict on this build. `UNASKED` and one more question separate them.
-if (( ! HEALTHY && ! UP_RC )); then
-  # Not where `up` itself exited non-zero: the recreate was attempted and did not complete, so this
-  # deploy has a verdict whether or not the daemon answered afterwards.
-  ASK_RC=0
-  service_cid backend  >/dev/null || ASK_RC=$?
-  service_cid frontend >/dev/null || ASK_RC=$?
-  if (( ASK_RC || UNASKED )); then
-    ASKED="compose cannot be asked about this stack (exit ${ASK_RC})"
-    (( ASK_RC )) || ASKED="compose stopped answering while this deploy waited for health"
-    # Nothing is rolled back from here even where preflight held a target: putting a build back acts
-    # on a verdict about the new one, and this run reached none.
-    refuse "${ASKED}, so nothing here says whether
-the new version is healthy — and the containers WERE recreated, so the site's state is unknown too.
-nginx has NOT been reloaded, so it may not hold the configuration the pull left in nginx/prod/ and
-nginx/shared/, though it finds whichever containers are running by name.
-No rollback runs on that: it would be undoing a build nothing here has judged.
-Reload the edge first, which answers 200 once applied:
-  ${EDGE_RELOAD_TYPED}
-Then ask what is running:  docker compose -f ${COMPOSE} ps
-And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
-  fi
-fi
-
-if (( HEALTHY )); then
-  ok "both services are healthy"
-
-  section "checks"
-  SITE_VERIFIED=1
-
-  # First, because the two checks below read the site through this edge: this step establishes that
-  # nginx applied a configuration and that it is this checkout's, and those two that the site
-  # answers through it.
-  step "nginx"
-  EDGE_RC=0
-  serve_through_nginx || EDGE_RC=$?
-  if (( EDGE_RC == 2 )); then
-    refuse "the edge's state could not be established — the line above says what compose declined to
-answer or to do — so nothing here says that the site serves this build, and the application
-containers WERE recreated.
-Ask it directly:  docker compose -f ${COMPOSE} ps"
-  elif (( EDGE_RC )); then
-    SITE_VERIFIED=0
-  fi
-
-  step "Security headers, as served over HTTPS"
-  # Asked again before it is graded: a reply the edge composes while nginx is still reloading is the
-  # edge's own and carries none of nginx's headers, which a steady site serves on every reply.
-  head_out="" headers=""
-  for _ in 1 2 3 4; do
-    # No `-f`: it discards the reply for any status past 399, so an edge answering 502 with every
-    # header set reads exactly like an edge that answered nothing at all. Read first, then graded.
-    head_out="$(curl -sSI --max-time 10 https://frankfurtleague.de 2>/dev/null || true)"
-    headers="$(printf '%s\n' "$head_out" | grep -iE "content-security-policy|strict-transport-security" || true)"
-    if [[ -n "$headers" || -z "$head_out" ]]; then break; fi
-    sleep 3
-  done
-  if [[ -n "$headers" ]]; then
-    printf '%s\n' "$headers" | detail
-    ok "the edge is serving them"
-  elif [[ -z "$head_out" ]]; then
-    SITE_VERIFIED=0
-    # An advisory for `--status`'s reason: nothing came back at all, and this host asking for its
-    # own public hostname is not the front door a visitor reaches.
-    warn "No reply came back over HTTPS at all, so nothing here says whether the headers are served.
-This host's own DNS, egress and TLS trust sit between the two. Ask from somewhere else."
-  else
-    SITE_VERIFIED=0
-    fail "the edge replied over HTTPS carrying neither Content-Security-Policy nor
-Strict-Transport-Security, so every visitor is being served without them."
-    detail "Check nginx/shared/security_headers.conf, nginx/prod/prod.conf and the certificates in certs/."
-  fi
-
-  # The container healthcheck calls this from inside, so it stays green while the edge answers a
-  # monitor 404 or 400 (docs/ops/spec.md I13). The version is spelled here -- §4 names the sites a
-  # version left behind breaks.
-  step "The liveness probe, through the edge"
-  probe_code="$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 --max-time 10 "$PROBE_URL" 2>/dev/null || true)"
-  if [[ "$probe_code" == "200" ]]; then
-    ok "the edge answers it"
-  elif [[ "$probe_code" == "000" || -z "$probe_code" ]]; then
-    SITE_VERIFIED=0
-    warn "curl reached no HTTP status at all, which is not the same as the site being down: this is the
-host asking for its own public hostname, and its DNS, its egress and its TLS trust sit between the
-two. Ask from somewhere else before acting."
-  else
-    # `fail`, not `warn`: `--status` calls this same observation a finding, and an advisory closes
-    # the run green over an edge no visitor is being served by (`docs/ops/spec.md` §1.7).
-    SITE_VERIFIED=0
-    fail "the edge answered /api/v0/system/is_live with ${probe_code}, not 200, so what is running
-above is not what a visitor is being served. An uptime monitor watching it sees the same thing."
-    detail "Check nginx's liveness location, api_trusted_hosts, and whether anything in front is" \
-           "redirecting."
-  fi
-
-  end_section
-  detail "What is live:  ./scripts/ops/deploy.sh --status" \
-         "Follow logs:   docker compose -f ${COMPOSE} logs -f frontend"
-  # The sentence is a claim about the live site, so neither `curl` nor the nginx query above may
-  # leave it unqualified.
-  if (( SITE_VERIFIED )); then finish "The pulled build is live."; else finish; fi
-else
-  fail "THE NEW VERSION IS NOT HEALTHY."
-  detail "This deploy did not tear nginx down, so where it was running the site is answering 502" \
-         "rather than refusing the connection." \
-         "If a log above says 'Invalid environment variables: <NAMES>', a startup gate is doing its" \
-         "job -- the frontend and the backend word it identically, so the container that printed it" \
-         "names the env file to fix." \
-         "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
-         "could not parse at all, naming the failure's type where it has no variable to name." \
-         "'Invalid secret files: <FILES>' names a secret file that is missing or holds a value the" \
-         "gate refuses, and 'Unreadable secret files: <PATH> (<ERRNO>)' one the service's user cannot" \
-         "read; both services word them identically." \
-         "A line opening 'backend_mongodb_uri:' is the backend's other refusal, and its continuation says" \
-         "which of three: the value yielded no server to connect to, the server refused to" \
-         "authenticate it, or the server could not be reached." \
-         "Neither gate prints a value, so the .env file, or the file under secrets/ the line names," \
-         "is what to read, and the log is not."
-  if (( SAME_BUILD )); then
-    detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
-              "back: a rollback would restore the build that just failed and cost a second outage" \
-              "to arrive back where this run started. Deploy a different build instead:" \
-              "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
-  elif (( ROLLBACK_READY )); then
-    # Read rather than discarded: the rollback's own failures are already findings, but its 2 says
-    # the restored build's edge could not be established, which no finding above it states.
-    RB_RC=0
-    roll_back "${PREV_PIN:-the build that was running before this deploy}" || RB_RC=$?
-    if (( RB_RC == 2 )); then
-      detail "" "The restored pair is healthy, but nothing here establishes that the edge is serving it."
-    fi
-    detail "" "What is live:  ./scripts/ops/deploy.sh --status"
-  else
-    detail "" "This deploy recorded no rollback target, so nothing here can put a previous build back." \
-              "Published builds on this host:  docker image ls '${REPO_FRONTEND}'"
-  fi
-  finish
-fi
+show_failure
+die "${failure}, and ${prev} did not come up either when the stack went back to it. .env pins ${prev}."

@@ -2,25 +2,34 @@ import "./globals.css";
 
 import { Anton, Inter, Raleway } from "next/font/google";
 
+import { BrandSprite } from "@/kit/BrandSprite";
+import { RootProviders } from "@/kit/RootProviders";
+import { ThemeColor } from "@/kit/ThemeColor";
+
 import { SITE_URL } from "@/core/brand";
-import { RootProviders } from "@/core/providers/RootProviders";
-import { openGraphFor } from "@/shared/utils/metadata";
+import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
+import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
 
-import type { Metadata, Viewport } from "next";
+import shareImage from "./share-image.png";
 
+import type { Metadata } from "next";
+
+// Its stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
   display: "swap",
   variable: "--font-anton",
+  adjustFontFallback: false,
+  fallback: ["Anton Fallback"],
 });
 
 // No `weight`, so the whole variable axis loads: pinning one would leave every other weight the
-// tree spells to the browser to fake, with nothing reporting it. The italic is loaded rather
-// than faked: `fl_frontend/src/app/globals.css` turns font synthesis off.
+// tree spells to the browser to fake, with nothing reporting it. No italic either: with font
+// synthesis off in the global styles, an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
-  style: ["normal", "italic"],
   display: "swap",
   variable: "--font-raleway",
 });
@@ -36,53 +45,49 @@ const inter = Inter({
 });
 
 /**
- * `metadataBase` lets every route spell its canonical as a PATH, and one declaring none inherits
- * this file's. Next replaces `openGraph` WHOLE rather than merging, which is why every route
- * builds one through `openGraphFor(path)`.
+ * What every page inherits, so nothing here names one page: a description, a canonical or an og:url set
+ * here would stand on every page declaring none, a signed-in one or one a mail opens among them. Each page
+ * names its own title part, its description and its address through `pageMetadata`; `metadataBase` lets it spell
+ * them as a path.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    template: "%s | Frankfurt League",
-    default: "Frankfurt League | Die Oberstufenliga",
+    template: `%s | ${COPY.brand.name}`,
+    // Next requires it beside a template; a page naming no title of its own shows the league's name alone.
+    default: COPY.brand.name,
   },
-  description:
-    "Bei der Frankfurt League treten Frankfurter Oberstufen gegeneinander an, um herauszufinden, welche von ihnen die Beste ist. Hier gibt's alle Infos.",
-  alternates: {
-    canonical: "/",
+  // The share image as a static import: its address under `/_next/static/media/` carries a hash of the file's own
+  // bytes, so a redrawn image is a new URL a preview fetches anew. A generated `opengraph-image` route's hash is its
+  // source's, and the static file convention takes its alt from a `.txt` outside the catalogue.
+  openGraph: {
+    ...SITE_OPEN_GRAPH,
+    images: [{ url: shareImage.src, width: shareImage.width, height: shareImage.height, alt: SERVER_COPY.shareImage.alt }],
   },
-  openGraph: openGraphFor("/"),
   // Without this X falls back to a small square thumbnail; the rest is inherited.
   twitter: {
     card: "summary_large_image",
   },
 };
 
-/**
- * Not the brand fill the manifest opens an installed app on: this bar is on every screen at once,
- * and the brand budget is salience (`docs/frontend/spec.md :: I164`). A splash is the one screen
- * that can afford the fill.
- */
-export const viewport: Viewport = {
-  // `--bg-surface` rather than `--bg-base`: the bar under the chrome is `bg-surface` on both
-  // shells, and a `--bg-base` chrome sits 1.09:1 off it, so the navbar reads as a stripe rather
-  // than as the top of the page.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#121212" },
-  ],
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
+export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
     <html
       lang="de"
       suppressHydrationWarning
+      // The viewport's scroll container is `<html>`, never `<body>`: its gutter is reserved, so a scrollbar
+      // appearing on a page that grows leaves the content's width alone.
       className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
-      {/* No containing-block trigger on either root (`docs/frontend/spec.md :: I29`): one would make
+      {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
-      <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
-        <RootProviders>{children}</RootProviders>
+      <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">
+        <BrandSprite />
+        <RootProviders>
+          <ThemeColor />
+          {children}
+          {modal}
+        </RootProviders>
       </body>
     </html>
   );

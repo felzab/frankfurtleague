@@ -1,68 +1,29 @@
-from pymongo.asynchronous.collection import AsyncCollection
+from typing import NamedTuple
 
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
-from app.api.saisons.services import WITHHELD_FROM_BASE_TIER
-from app.core.crud import pull_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.api.saisons.crud import CURRENT_SAISON_FILTER
+from app.api.saisons.schemas import FLSaisonRules
+from app.api.saisons.services import base_tier_status_term
+from app.core.crud import pull_one_from_db
+from app.core.readonly import ReadCollection
+from app.shared.schemas.literals import FLSaisonStatus
 
 
-async def saison_is_withheld(*, saisons_collection: AsyncCollection, saison_id: str) -> bool:
-    """Whether this season's contents are closed to a caller with no admin scope.
+class PublicSaison(NamedTuple):
+    """The season a base-tier read is scoped by, with what its reads derive from: the scoring rules and the status."""
 
-    `base_tier_status_term` narrows the season LIST on `WITHHELD_FROM_BASE_TIER`; a read scoped BY
-    one season resolves an id, so it asks here instead.
+    id: str
+    rules: FLSaisonRules
+    status: FLSaisonStatus
+
+
+async def resolve_public_saison(*, saisons_collection: ReadCollection, saison_id: str | None) -> PublicSaison:
+    """The season named, else the `active` one; 404 where none is, and where the one named is withheld from this tier.
+
+    One read: the withheld status is a term of the filter, so a season being drawn up misses exactly as an id naming
+    none does, and no 403 confirms that it exists.
     """
 
-    saison_raw = read_cached_saison(saison_id)
+    db_filter = CURRENT_SAISON_FILTER if saison_id is None else {"_id": saison_id, **base_tier_status_term()}
+    saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter=db_filter, projection=["_id", "rules", "status"])
 
-    if saison_raw is None:
-        generation = saison_cache_generation()
-        found = await saisons_collection.find_one(filter={"_id": saison_id})
-        # A STORED status is the only thing that withholds, so an id naming no season is not
-        # withheld -- and every caller already answers a season it cannot resolve.
-        if found is None:
-            return False
-
-        # The whole document into the cache `pull_saison_id_and_rules` shares, never a projection:
-        # a season resolved here is one the next read of it would have fetched anyway.
-        saison_raw = dict(found)
-        store_cached_saison(saison_id, saison_raw, generation=generation)
-
-    return saison_raw["status"] == WITHHELD_FROM_BASE_TIER
-
-
-async def refuse_withheld_saison(*, saisons_collection: AsyncCollection, saison_id: str) -> None:
-    """The 404 an id naming no season already answers, for one this tier may not read.
-
-    Matching that answer is what leaves a season being drawn up indistinguishable from one nobody
-    created; a 403 here would confirm it exists.
-    """
-
-    if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=saison_id):
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
-
-
-async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[str]:
-    """Every season id closed to this tier -- `saison_is_withheld` asked of all of them at once.
-
-    The SET form, for a read that resolves no season and joins rows from every one: it holds no id
-    to ask about, so it narrows on the whole set instead.
-    """
-
-    # Uncached, where the per-id form above caches: the cache is keyed by season id, so it can hold
-    # no set -- and a miss there is a fresh read, where a missing set would read as an empty one.
-    withheld = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={"status": WITHHELD_FROM_BASE_TIER},
-        projection={"_id": 1},
-        limit=LIST_LIMIT_DEFAULT + 1,
-    )
-
-    # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks
-    # (`docs/backend/spec.md :: I45`): a truncated set narrows on fewer seasons than exist, which is a
-    # LEAK rather than a short answer.
-    if len(withheld) > LIST_LIMIT_DEFAULT:
-        raise ValueError(f"more than {LIST_LIMIT_DEFAULT} seasons are withheld, which is more than one read can narrow on")
-
-    return [str(saison_raw["_id"]) for saison_raw in withheld]
+    return PublicSaison(id=str(saison_raw["_id"]), rules=FLSaisonRules.model_validate(saison_raw["rules"]), status=saison_raw["status"])

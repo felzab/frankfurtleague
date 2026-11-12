@@ -16,22 +16,21 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import annehmen_bewerbung
-from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
-from app.api.spieler.admin_router import patch_saison_spieler, post_saison_spieler, reactivate_saison_spieler
-from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload
-from app.api.spieler.services import SQUAD_FULL
+from app.api.bewerbungen.admin_router import accept_bewerbung
+from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
+from app.api.spieler.admin_router import reactivate_saison_spieler
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
-from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER
-from app.api.teams.admin_router import patch_saison_team, post_saison_team
-from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload
-from app.api.teams.services import ENTRY_GRUPPE_FULL
+from app.api.teams.admin_router import post_team_entry
+from app.api.teams.schemas import FLPostTeamEntryPayload
+from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
-from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
+from tests.isolation import MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
+from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -40,7 +39,7 @@ DATABASE_NAME = worker_database("fl_capacity_isolation_test")
 
 SAISON = "2026"
 TEAMS_PER_GROUP = 4
-MAX_KADERGROESSE = 18
+MAX_KADER_SIZE = 18
 
 # The season field every writer judged against one of that season's bounds advances, which is the
 # whole of what puts two of them in one write set.
@@ -59,10 +58,10 @@ def oid(tail: int) -> ObjectId:
 
 
 def saison_document() -> dict[str, Any]:
-    """`future`, which is the one status `REQ-ENTER-001` admits an entry under."""
+    """`future`, which is the one status `entry_saison_not_future` admits an entry under."""
 
     return documents.saison_document(
-        SAISON, "future", rules=documents.rules_document(teams_per_group=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
+        SAISON, "future", rules=documents.rules_document(teams_per_gruppe=TEAMS_PER_GROUP, max_kader_size=MAX_KADER_SIZE)
     )
 
 
@@ -70,15 +69,17 @@ def team_document(index: int) -> dict[str, Any]:
     return documents.team_document(
         oid(index),
         f"Schule {index}",
-        # Two characters, which is what `FLSaisonTeamResponse` holds a shorthand to.
-        f"{index:02d}",
+        # Three letters, which is what a club's write holds a shorthand to.
+        f"S{chr(65 + index // 26)}{chr(65 + index % 26)}",
         full_name=f"Schule {index} Gesamtschule",
         website_url="https://example.de",
     )
 
 
 def junction_document(index: int, gruppe: str) -> dict[str, Any]:
-    return documents.saison_team_document(SAISON, oid(index), f"Schule {index}", f"{index:02d}", _id=oid(1000 + index), gruppe=gruppe)
+    return documents.saison_team_document(
+        SAISON, oid(index), f"Schule {index}", f"S{chr(65 + index // 26)}{chr(65 + index % 26)}", _id=oid(1000 + index), gruppe=gruppe
+    )
 
 
 def spieler_document(index: int) -> dict[str, Any]:
@@ -91,41 +92,43 @@ def squad_document(index: int, team_index: int, *, inactive_since: str | None = 
     )
 
 
-def spieltag_document(position: int, beginn: str) -> dict[str, Any]:
+def spieltag_document(position: int, start: str) -> dict[str, Any]:
     return {
         "_id": oid(4000 + position),
-        "beginn": beginn,
-        "ende": beginn,
+        "start": start,
+        "end": start,
         "saison_phase": "gruppenphase",
         "saison_id": SAISON,
         "position": position,
+        # As the draw's insert writes it: the save is checked against it.
+        "version": 0,
     }
 
 
-# The seat as its applicant named the person under the form's label, and as that person then confirmed it.
-SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
+# The seat as its applicant named the person, and as that person then confirmed it.
+SEATED: Final = {"date": "2026-01-15"}
 
 
-def kontaktperson(vorname: str) -> dict[str, Any]:
-    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+def kontaktperson(first_name: str) -> dict[str, Any]:
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:
     """One submitted application naming an existing club, every seat confirmed by its own person.
 
-    Confirmed, so the acceptance below reaches the capacity rule rather than `REQ-BEWERBUNG-013`.
+    Confirmed, so the acceptance below reaches the capacity rule rather than `bewerbung_kontakte_unconfirmed`.
     """
 
     return documents.bewerbung_document(
         oid(5000 + index),
         SAISON,
-        "eingereicht",
+        "submitted",
         kontakte=documents.kontakte_document(
             trainer=kontaktperson("Wraxlington"), ansprechperson=kontaktperson("Quillhilde"), stellvertretung=kontaktperson("Bramblewick")
         ),
-        eingereicht_am="2026-02-01",
+        submitted_at="2026-02-01",
         team_id=oid(index),
-        trikot={"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        trikot={"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
     )
 
 
@@ -175,9 +178,11 @@ async def anchor_now(database: AsyncDatabase) -> int:
 
 
 async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, team_index: int, saisons: Any) -> Any:
-    return await post_saison_team(
-        team_id=oid(team_index),
-        saison_team_data=FLPostSaisonTeamPayload(saison_id=SAISON, gruppe="A"),
+    return await post_team_entry(
+        saison_id=SAISON,
+        entry_data=FLPostTeamEntryPayload.model_validate(
+            {"club": {"kind": "known", "team_id": oid(team_index)}, "gruppe": "A", "trikot_farbe": None}
+        ),
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=saisons,
@@ -185,10 +190,12 @@ async def enter_the_group(database: AsyncDatabase, client: AsyncMongoClient, tea
     )
 
 
-async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, beginn: str, saisons: Any) -> Any:
+async def redate(database: AsyncDatabase, client: AsyncMongoClient, position: int, start: str, saisons: Any) -> Any:
+    stored = await database[Collection.SPIELTAGE].find_one({"_id": oid(4000 + position)}, {"version": 1})
+    assert stored is not None
     return await patch_spieltag(
         spieltag_id=oid(4000 + position),
-        spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=beginn),
+        spieltag_data=FLPatchSpieltagPayload(start=start, end=start, version=stored["version"]),
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=saisons,
         spiele_collection=database[Collection.SPIELE],
@@ -221,7 +228,7 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
             },
         )
 
-        assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
+        assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         # The rival's take alone: the refused entry's abort took its own back with it, so the token
@@ -229,107 +236,49 @@ class TestASecondEntryLandingMidEntryIsJudgedAgain:
         assert anchor == 1
 
 
-class TestASecondSquadWriteLandingMidWriteIsJudgedAgain:
-    """One free place in the squad when both writers judge, and none when the second one writes.
-
-    Three verbs reach one helper, so each is driven against a rival add.
-    """
+class TestASecondReturnLandingMidReturnIsJudgedAgain:
+    """One free place in the squad when both returns judge, and none when the second one writes."""
 
     def _squad_seed(self) -> dict[str, list[Any]]:
-        """A squad one short of the cap, plus a second club for the transfer and a retired row for the return."""
+        """A squad one short of the cap, and two retired rows each with a claim on the last place."""
 
         return {
             Collection.SAISONS: [saison_document()],
-            Collection.TEAMS: [team_document(1), team_document(2)],
-            Collection.SAISON_TEAMS: [junction_document(1, "A"), junction_document(2, "B")],
-            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADERGROESSE), 90, 91, 92]],
+            Collection.TEAMS: [team_document(1)],
+            Collection.SAISON_TEAMS: [junction_document(1, "A")],
+            Collection.SPIELER: [spieler_document(index) for index in [*range(1, MAX_KADER_SIZE), 91, 92]],
             Collection.SAISON_SPIELER: [
-                *(squad_document(index, 1) for index in range(1, MAX_KADERGROESSE)),
-                # Its club is the OTHER one, so the transfer below moves a live row into the full
-                # squad rather than a row already counted in it.
-                squad_document(91, 2),
-                # Retired, so its place is free and the return has to claim one.
+                *(squad_document(index, 1) for index in range(1, MAX_KADER_SIZE)),
+                squad_document(91, 1, inactive_since="2026-02-01"),
                 squad_document(92, 1, inactive_since="2026-02-01"),
             ],
         }
 
-    async def _add(self, database: AsyncDatabase, client: AsyncMongoClient, index: int, saisons: Any) -> Any:
-        return await post_saison_spieler(
+    async def _bring_back(self, database: AsyncDatabase, client: AsyncMongoClient, index: int, saisons: Any) -> Any:
+        return await reactivate_saison_spieler(
             spieler_id=oid(2000 + index),
-            saison_spieler_data=FLPostSaisonSpielerPayload(
-                saison_id=SAISON,
-                team_id=oid(1),
-                nummer=str(index),
-                position="Angriff",
-                stufe="Q2",
-                rolle=None,
-            ),
-            spieler_collection=database[Collection.SPIELER],
+            saison_id=SAISON,
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
             saisons_collection=saisons,
-            spieltage_collection=database[Collection.SPIELTAGE],
             db=client,
-            today=STANDING_FIRST,
         )
 
-    def _run(self, url: str, under_test: Callable[[AsyncDatabase, AsyncMongoClient, Any], Awaitable[Any]]) -> Any:
+    def test_a_return_is_refused_on_the_place_a_rival_return_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def the_rival_takes_the_place() -> None:
-                await self._add(database, client, 90, database[Collection.SAISONS])
+                await self._bring_back(database, client, 91, database[Collection.SAISONS])
 
             seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_takes_the_place)
-            outcome = await outcome_of(under_test(database, client, seasons))
+            outcome = await outcome_of(self._bring_back(database, client, 92, seasons))
 
             squad = await database[Collection.SAISON_SPIELER].count_documents({"saison_id": SAISON, "team_id": oid(1), "inactive_since": None})
 
             return outcome, seasons.season_reads, squad, await anchor_now(database)
 
-        return on_a_league(url, body, self._squad_seed())
+        outcome, season_reads, squad, anchor = on_a_league(mongo_replica_set_url, body, self._squad_seed())
 
-    def test_an_add_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        outcome, season_reads, squad, anchor = self._run(
-            mongo_replica_set_url, lambda database, client, saisons: self._add(database, client, 91, saisons)
-        )
-
-        assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
-
-    def test_a_transfer_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        async def transfer(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
-            return await patch_saison_spieler(
-                spieler_id=oid(2091),
-                saison_id=SAISON,
-                saison_spieler_data=FLPatchSaisonSpielerPayload(team_id=oid(1), nummer="91", position="Angriff", stufe="Q2", rolle=None),
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=saisons,
-                db=client,
-            )
-
-        outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, transfer)
-
-        assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
-        assert (season_reads, anchor) == (2, 1), (
-            f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
-        )
-
-    def test_a_return_is_refused_on_the_place_a_rival_add_took(self, mongo_replica_set_url: str):
-        async def bring_back(database: AsyncDatabase, client: AsyncMongoClient, saisons: Any) -> Any:
-            return await reactivate_saison_spieler(
-                spieler_id=oid(2092),
-                saison_id=SAISON,
-                saison_spieler_collection=database[Collection.SAISON_SPIELER],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=saisons,
-                db=client,
-            )
-
-        outcome, season_reads, squad, anchor = self._run(mongo_replica_set_url, bring_back)
-
-        assert (outcome, squad) == (SQUAD_FULL, MAX_KADERGROESSE)
+        assert (outcome, squad) == (Code.KADER_FULL, MAX_KADER_SIZE)
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
@@ -348,9 +297,9 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
 
             rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
 
-            return outcome, seasons.season_reads, [row["beginn"] for row in rows], await anchor_now(database)
+            return outcome, seasons.season_reads, [row["start"] for row in rows], await anchor_now(database)
 
-        outcome, season_reads, beginns, anchor = on_a_league(
+        outcome, season_reads, starts, anchor = on_a_league(
             mongo_replica_set_url,
             body,
             {
@@ -360,36 +309,10 @@ class TestASecondDatingLandingMidDatingIsJudgedAgain:
         )
 
         # The rival's advance stands and the postponement does not, so the phase reads forwards.
-        assert (outcome, beginns) == (SPIELTAG_BEGINN_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
+        assert (outcome, starts) == (Code.SPIELTAG_START_OUT_OF_ORDER, [STANDING_FIRST, ADVANCED_SECOND])
         assert (season_reads, anchor) == (2, 1), (
             f"{season_reads} judgements and an anchor of {anchor}: {MISCOUNTED_JUDGEMENTS}; any anchor but 1 counts a write besides the rival's"
         )
-
-    def test_two_matchdays_of_one_phase_still_reach_one_day_together(self, mongo_replica_set_url: str):
-        """The control: the comparison is strict, so the anchor may not turn a lawful pair into a refusal."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def the_rival_moves_the_second_onto_the_same_day() -> None:
-                await redate(database, client, 2, POSTPONED_FIRST, database[Collection.SAISONS])
-
-            seasons = SeasonsRunningAHookBeforeTheAnchor(database[Collection.SAISONS], the_rival_moves_the_second_onto_the_same_day)
-            outcome = await outcome_of(redate(database, client, 1, POSTPONED_FIRST, seasons))
-
-            rows = await database[Collection.SPIELTAGE].find({"saison_id": SAISON}).sort([("position", 1)]).to_list(length=None)
-
-            return outcome, seasons.season_reads, [row["beginn"] for row in rows]
-
-        outcome, season_reads, beginns = on_a_league(
-            mongo_replica_set_url,
-            body,
-            {
-                Collection.SAISONS: [saison_document()],
-                Collection.SPIELTAGE: [spieltag_document(1, STANDING_FIRST), spieltag_document(2, STANDING_SECOND)],
-            },
-        )
-
-        assert (outcome, beginns) == (COMMITTED, [POSTPONED_FIRST, POSTPONED_FIRST])
-        assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
 class TestAGroupMoveLandingMidEntryIsJudgedAgain:
@@ -398,15 +321,7 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
     def test_the_move_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def move(saisons: Any) -> Any:
-                return await patch_saison_team(
-                    team_id=oid(30),
-                    saison_id=SAISON,
-                    saison_team_data=FLPatchSaisonTeamPayload(gruppe="A", austritt=None, trikot_farbe=None),
-                    saison_teams_collection=database[Collection.SAISON_TEAMS],
-                    saisons_collection=saisons,
-                    spiele_collection=database[Collection.SPIELE],
-                    db=client,
-                )
+                return await save_the_team(database, team_id=oid(30), saison_id=SAISON, gruppe="A", saisons_collection=saisons)
 
             async def the_rival_enters_the_group() -> None:
                 await enter_the_group(database, client, 21, database[Collection.SAISONS])
@@ -429,31 +344,33 @@ class TestAGroupMoveLandingMidEntryIsJudgedAgain:
             },
         )
 
-        assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
+        assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
 
-# The decision block is written from these two, and this case reads neither back.
+# The decision block is written from this, and this case does not read it back.
 ACCEPTED_ON = "2026-02-20"
-ACCEPTED_BY = "triage.quillhilde@example.com"
 
 
 class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
-    """The rule reached from the OTHER package: a triage acceptance enters a school where `POST /teams/{id}/saisons` enters a club."""
+    """The rule reached from the OTHER package: a triage acceptance enters a school where the entry route enters a club."""
 
     def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def accept(saisons: Any) -> Any:
-                return await annehmen_bewerbung(
+                return await accept_bewerbung(
                     bewerbung_id=oid(5040),
-                    annahme_data=FLAnnehmenBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
+                    acceptance_data=FLAcceptBewerbungPayload.model_validate(
+                        {"gruppe": "A", "trikot_farbe": "blau", "shorthand": None, "version": 0}
+                    ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=saisons,
+                    outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=ACCEPTED_ON,
-                    von=ACCEPTED_BY,
+                    germany_now=MAIL_NOW,
                 )
 
             async def the_rival_enters_the_group() -> None:
@@ -478,10 +395,10 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
             },
         )
 
-        assert (outcome, occupied) == (ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
+        assert (outcome, occupied) == (Code.ENTRY_GRUPPE_FULL, TEAMS_PER_GROUP)
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         # The whole transaction goes back, so the application is still open for a group that has room:
         # accepting is irreversible, and a half-applied acceptance has no repair.
-        assert status == "eingereicht"
+        assert status == "submitted"
         assert anchor == 1

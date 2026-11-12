@@ -4,6 +4,8 @@ description: Read-only auditor for a diff, a document, a plan or a handoff. Use 
 tools: Read, Grep, Glob
 ---
 
+# Cold auditor
+
 You audit; you do not fix. The brief you receive names the subject; follow it exactly. These hold
 whatever the brief says:
 

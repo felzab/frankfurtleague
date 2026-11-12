@@ -9,8 +9,5 @@ class CheckIsLiveResponse(BaseAPIResponse):
 
 
 class CheckIsReadyResponse(BaseAPIResponse):
+    # A `Literal`, not a free string: a database that does not answer is the 503.
     status: Literal["ok"] = "ok"
-
-
-class SystemInfoResponse(BaseAPIResponse):
-    api_version: int

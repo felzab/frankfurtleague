@@ -1,19 +1,18 @@
 from http import HTTPStatus
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
-from pymongo.asynchronous.database import AsyncDatabase
+from pymongo import AsyncMongoClient
+from pymongo.errors import PyMongoError
 
-from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse, SystemInfoResponse
+from app.api.system.schemas import CheckIsLiveResponse, CheckIsReadyResponse
+from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.db import get_database
-from app.core.exception_handlers import refusal_response
-from app.core.exceptions import DATABASE_UNREACHABLE, DatabaseUnavailableException
-from app.core.security import verify_access_system
+from app.core.db import RETRY_AFTER, get_db_client
+from app.core.exceptions import APIError
 
-# The one router without a blanket guard, because `/is_live` must be reachable by the container
-# healthcheck -- so an endpoint added here is PUBLIC unless it declares otherwise.
+# The one router without a blanket guard, because its probes must be reachable by the container
+# healthcheck and by a monitor outside -- so an endpoint added here is public unless it declares otherwise.
 router = APIRouter(prefix=f"/api/v{API_VERSION}/system")
 
 
@@ -25,34 +24,20 @@ async def check_is_live() -> JSONResponse:
     Unauthenticated, and it does not touch the database: it must not fail for reasons a restart
     cannot fix.
     """
-    return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
+    return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)
 
 
-@router.get(
-    "/is_ready",
-    dependencies=[Depends(verify_access_system)],
-    response_model=CheckIsReadyResponse,
-    summary="Readiness probe",
-    responses={503: refusal_response(HTTPStatus.SERVICE_UNAVAILABLE, {DATABASE_UNREACHABLE})},
-)
-async def check_is_ready(db: Annotated[AsyncDatabase, Depends(get_database)]):
+@router.get("/is_ready", response_model=CheckIsReadyResponse, summary="Readiness probe")
+async def check_is_ready(client: AsyncMongoClient = Depends(get_db_client)) -> JSONResponse:
     """
-    Readiness: can this process reach its database?
+    Readiness: whether this process reaches its database, 503 where a ping does not return within the request's deadline.
 
-    Pings MongoDB and returns 503 with `DB-CONN-002` if it cannot. Requires the system key.
+    Unauthenticated, for a monitor outside.
     """
     try:
-        await db.command("ping")
-        return JSONResponse(content={"acknowledged": 1, "status": "ok"}, status_code=status.HTTP_200_OK)
-    except Exception as unknown_error:
-        raise DatabaseUnavailableException(error_code=DATABASE_UNREACHABLE) from unknown_error
-
-
-@router.get("/info", dependencies=[Depends(verify_access_system)], response_model=SystemInfoResponse, summary="Service metadata")
-async def system_info() -> JSONResponse:
-    """Report the running API version. Requires the system key; not intended for public consumption."""
-
-    return JSONResponse(
-        content={"acknowledged": 1, "api_version": API_VERSION},
-        status_code=status.HTTP_200_OK,
-    )
+        await client.admin.command("ping")
+    except PyMongoError:
+        # The code a failed read answers, and nothing of the driver's error, which names the hosts
+        # it tried: the status is the whole answer a stranger gets.
+        raise APIError(HTTPStatus.SERVICE_UNAVAILABLE, Code.DATABASE_FAILED, headers=RETRY_AFTER) from None
+    return JSONResponse(content={"status": "ok"}, status_code=status.HTTP_200_OK)

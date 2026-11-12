@@ -1,433 +1,275 @@
-import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { after, beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
+/** Everything the scheduler started, in order: each job by its name, then the drain. */
+const ran: string[] = [];
 
-import type { TestContext } from "node:test";
+/** What one job did, as the scheduler reads it. */
+type JobRun = { count: Record<string, number | string | null>; open: number; error?: unknown };
 
-/** One line the boot wrote, as the logger was handed it. */
-type Line = { level: string; event: string; fields: unknown };
+/** Each job's own answer, which a case replaces; every job resolves at once to nothing done otherwise. */
+const answers = new Map<string, () => Promise<JobRun | void>>();
 
-const lines: Line[] = [];
+const lines: { level: string; event: string; fields: unknown }[] = [];
+const schedulerLines = () => lines.filter(({ event }) => event.startsWith("scheduler."));
 
-/** Where a refused boot's own files go, removed after the run. */
-const KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-boot-key-"));
-after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
+/** The monitor's address the boot reads, absent where a case sets none, as on every stack but production. */
+let heartbeat: string | undefined;
+const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 
-/** The key file the doubled config names, which a case sets; every other boot reads the run's own key. */
-let keyFile = ACTOR_KEY_FILE;
+/** What every drain since the last pass settled, which a case sets and the pass takes. */
+let drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
 
-/** The account sweep's switch as the doubled config answers it, which a case sets; off, as a local stack sets it. */
-let kontoSweep: string | undefined = "off";
+/** The hold on the background jobs the boot reads, off unless a case sets it. */
+const settings = { APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
 
-// Every level records, so a case counting a line never rests on the level its writer chose.
-const record =
-  (level: string) =>
-  (event: string, ...rest: unknown[]): void =>
-    void lines.push({ level, event, fields: rest.at(-1) });
-const LOGGING_DOUBLE = {
-  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
+/** Each ping, as the monitor received it. */
+const pings: { url: string; method: string; body: string | undefined }[] = [];
+let monitor: () => Promise<Response> = () => Promise.resolve(new Response(null, { status: 200 }));
+
+const job = (name: string) => () => {
+  ran.push(name);
+  return (answers.get(name) ?? (() => Promise.resolve()))();
 };
 
-// A getter, so each case sets what the one registry entry reads.
-const CONFIG_DOUBLE = {
-  frontend_config: {
-    LOG_FORMAT: "console",
-    BEWERBUNG_SWEEP: "off",
-    get KONTO_SWEEP() {
-      return kontoSweep;
-    },
-    get ACTOR_SIGNING_KEY_FILE() {
-      return keyFile;
-    },
+vi.doMock("@/core/config.ts", () => ({
+  frontend_config: settings,
+  heartbeatUrl: () => heartbeat,
+}));
+vi.doMock("@/core/logging.ts", () => ({
+  logger: {
+    info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
+    warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
+    error: (event: string, _message: unknown, fields?: unknown) => void lines.push({ level: "error", event, fields }),
   },
-};
-
-/** How often the account sweep listed the store, which is what shows a pass ran. */
-let accountLists = 0;
-
-// An empty store, so a pass asks the backend nothing and deletes nothing: only whether one ran is asked here.
-const AUTH_DOUBLE = {
-  listAccounts: () => {
-    accountLists += 1;
-    return Promise.resolve([]);
+}));
+// A production boot builds the sign-in store's indexes too, over a client this suite never configures.
+vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
+/** Each boot's connect of the sign-in store, which never opens: the boot must not wait on it. */
+let storeConnects = 0;
+vi.doMock("@/core/db.ts", () => ({
+  connectSignInStore: () => {
+    storeConnects += 1;
+    return new Promise<void>(() => undefined);
   },
-};
-
-/** How often a boot asked for the sign-in store's indexes. */
-let indexBuilds = 0;
-
-// A build that never settles, standing in for a store that never answers: a boot awaiting it never ends.
-const INDEXES_DOUBLE = {
-  buildAuthIndexes: () => {
-    indexBuilds += 1;
-    return new Promise(() => undefined);
+}));
+vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
+vi.doMock("@/features/roles/sweep.ts", () => ({ runAccountSweep: job("account") }));
+vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
+vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
+vi.doMock("@/features/grants/sweep.ts", () => ({ runHandoverPass: job("grants") }));
+vi.doMock("@/core/mail.ts", () => ({
+  drainOutbox: async () => {
+    ran.push("outbox");
   },
-};
-
-registerDoubles({
-  modules: {
-    "core/logging.ts": LOGGING_DOUBLE,
-    "core/config.ts": CONFIG_DOUBLE,
-    "core/authIndexes.ts": INDEXES_DOUBLE,
-    "core/auth.ts": AUTH_DOUBLE,
+  takeDrainCounts: () => {
+    const taken = drains;
+    drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
+    return taken;
   },
-});
+}));
 
 const { register } = await import("./instrumentation.ts");
 
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+
+const EVERY_JOB = ["bewerbungen", "account", "erasure", "spielbestaetigungen", "grants", "outbox"];
+
+/** Lets every pending promise settle: a tick starts the pass, which finishes on the microtask queue. */
+const settle = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+// Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
+// environment: the arm under test is exactly the one only a test can move.
+const env = process.env as Record<string, string | undefined>;
+const nodeEnvBefore = env.NODE_ENV;
+
 beforeEach(() => {
+  ran.length = 0;
   lines.length = 0;
-});
-
-describe("a boot with nothing to report", () => {
-  /* Every line a boot writes is one an operator reads in the container log, so a line written on every
-     clean boot buries the one that matters. */
-  it("writes no log line", async () => {
-    await register();
-
-    assert.deepEqual(lines, []);
+  answers.clear();
+  heartbeat = undefined;
+  drains = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
+  settings.RESTORE_HOLD = "off";
+  pings.length = 0;
+  monitor = () => Promise.resolve(new Response(null, { status: 200 }));
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    pings.push({ url: String(url), method: init?.method ?? "GET", body: init?.body === undefined ? undefined : String(init.body) });
+    return monitor();
   });
+  vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
 });
 
-describe("the pass announcing each change to who administers", () => {
-  const MINUTE_MS = 60 * 1000;
-  const env = process.env as Record<string, string | undefined>;
+afterEach(() => {
+  vi.useRealTimers();
+  if (nodeEnvBefore === undefined) delete env.NODE_ENV;
+  else env.NODE_ENV = nodeEnvBefore;
+});
 
-  /** Passes run so far: each claim fails here, which is what shows a pass ran. */
-  const passes = (): number => lines.filter(({ event }) => event === "berechtigung.abgleich_failed").length;
-
-  /** One boot under `nodeEnv`, then each step of `steps` in turn, answering the passes run after each. */
-  async function bootAndStep(t: TestContext, nodeEnv: string, steps: readonly number[]): Promise<number[]> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
-    const counted: number[] = [];
-    try {
-      await register();
-      for (const step of steps) {
-        t.mock.timers.tick(step);
-        // The pass's claim and its failure settle on the queue behind the tick.
-        await new Promise((resolve) => setImmediate(resolve));
-        await new Promise((resolve) => setImmediate(resolve));
-        counted.push(passes());
-      }
-    } finally {
-      t.mock.timers.reset();
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
-
-    return counted;
+/** One boot under `nodeEnv`, then each step, answering what had started by the end of each. */
+async function bootAndStep(nodeEnv: string, steps: readonly number[]): Promise<string[][]> {
+  env.NODE_ENV = nodeEnv;
+  const seen: string[][] = [];
+  await register();
+  for (const step of steps) {
+    vi.advanceTimersByTime(step);
+    await settle();
+    seen.push([...ran]);
   }
 
-  /* Never behind the application sweep's switch, which this boot has off: a local stack sets it off, and
-     a change to who administers is announced wherever a production build runs. */
-  it("arms under a production build whatever the application sweep's switch says", async (t) => {
-    assert.deepEqual(await bootAndStep(t, "production", [MINUTE_MS]), [1], "no pass ran a minute after a production boot");
-  });
+  return seen;
+}
 
-  /* A minute first, as a deploy recreates this container before the backend answers; then every five
-     minutes from the boot. */
-  it("waits its minute, then runs every five minutes", async (t) => {
-    const SEKUNDE_MS = 1000;
-    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, 4 * MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, 5 * MINUTE_MS];
+/* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
+   sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. */
+it("starts the sign-in store's connect at a production boot without waiting on it", async () => {
+  storeConnects = 0;
+  await bootAndStep("production", []);
 
-    assert.deepEqual(await bootAndStep(t, "production", steps), [0, 1, 1, 2, 3]);
-  });
-
-  it("arms nothing under a development build", async (t) => {
-    assert.deepEqual(await bootAndStep(t, "development", [10 * MINUTE_MS]), [0]);
-  });
+  expect(storeConnects).toBe(1);
 });
 
-describe("the account sweep", () => {
-  const SEKUNDE_MS = 1000;
-  const MINUTE_MS = 60 * SEKUNDE_MS;
-  const HOUR_MS = 60 * MINUTE_MS;
-  const env = process.env as Record<string, string | undefined>;
+/* The start line names the image's version, so the log of every boot says which build started. */
+it("logs one start line naming the image's version", async () => {
+  await bootAndStep("production", []);
 
-  /** One boot under `nodeEnv` with the switch reading `value`, then each step of `steps`, answering the passes run after each. */
-  async function bootAndStep(t: TestContext, nodeEnv: string, value: string | undefined, steps: readonly number[]): Promise<number[]> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    kontoSweep = value;
-    accountLists = 0;
-    t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
-    const counted: number[] = [];
-    try {
-      await register();
-      for (const step of steps) {
-        t.mock.timers.tick(step);
-        await new Promise((resolve) => setImmediate(resolve));
-        counted.push(accountLists);
-      }
-    } finally {
-      t.mock.timers.reset();
-      kontoSweep = "off";
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
+  expect(lines.filter(({ event }) => event === "system.started")).toStrictEqual([
+    { level: "info", event: "system.started", fields: { version: "sha-1234567" } },
+  ]);
+});
 
-    return counted;
-  }
+describe("the one scheduler", () => {
+  /* Nothing at the boot, where the backend may not answer yet after a deploy; the first pass a minute in, so a
+     container recreated daily still runs one; then hourly. Every job each pass, the drain last, sending what they owed. */
+  it("runs every job and then the drain a minute after a production boot, and again each hour", async () => {
+    const seen = await bootAndStep("production", [0, MINUTE_MS, HOUR_MS - MINUTE_MS - SECOND_MS, SECOND_MS]);
 
-  /* A minute first, as a deploy recreates this container before the backend answers; then hourly from the boot. */
-  it("waits its minute after a production boot reading on, then runs hourly", async (t) => {
-    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
-
-    assert.deepEqual(await bootAndStep(t, "production", "on", steps), [0, 1, 1, 2]);
+    expect(seen).toStrictEqual([[], EVERY_JOB, EVERY_JOB, [...EVERY_JOB, ...EVERY_JOB]]);
   });
 
-  it("arms nothing where the switch is off", async (t) => {
-    assert.deepEqual(await bootAndStep(t, "production", "off", [3 * HOUR_MS]), [0]);
+  /* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people. */
+  it("arms nothing under a development build", async () => {
+    expect(await bootAndStep("development", [3 * HOUR_MS])).toStrictEqual([[]]);
   });
 
-  // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
-  it("arms nothing where the value is missing", async (t) => {
-    assert.deepEqual(await bootAndStep(t, "production", undefined, [3 * HOUR_MS]), [0]);
+  /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
+     pupils' deletion, mail to people not yet erased again. */
+  it("arms nothing under the hold, and says so", async () => {
+    settings.RESTORE_HOLD = "on";
+
+    expect(await bootAndStep("production", [MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);
+    expect(schedulerLines().map(({ event }) => event)).toStrictEqual(["scheduler.held"]);
   });
 
-  /* `next dev` reaches whatever sign-in store the developer's own environment names, and deletes from it. */
-  it("arms nothing under a development build, whatever the switch says", async (t) => {
-    assert.deepEqual(await bootAndStep(t, "development", "on", [3 * HOUR_MS]), [0]);
+  /* A job that threw is a job that stopped, and the ones behind it still owe what they owe. */
+  it("runs every job behind one that threw, and names it on a line", async () => {
+    answers.set("account", () => Promise.reject(new TypeError("the store went away")));
+
+    const [seen] = await bootAndStep("production", [MINUTE_MS]);
+
+    expect(seen).toStrictEqual(EVERY_JOB);
+    expect(lines.filter(({ level }) => level === "error")).toStrictEqual([
+      { level: "error", event: "scheduler.job_failed", fields: { job: "account", name: "TypeError" } },
+    ]);
+  });
+
+  /* A pass slower than the hour would otherwise run beside itself over the same rows. */
+  it("skips an hour that finds the pass still running, with one line", async () => {
+    let release = () => {};
+    answers.set("bewerbungen", () => new Promise<void>((resolve) => (release = resolve)));
+
+    const [, second] = await bootAndStep("production", [MINUTE_MS, HOUR_MS]);
+    release();
+    await settle();
+
+    expect(second, "the second hour started a pass beside the first").toStrictEqual(["bewerbungen"]);
+    expect(schedulerLines().map(({ event }) => event)).toStrictEqual(["scheduler.pass_skipped"]);
+    expect(ran).toStrictEqual(EVERY_JOB);
   });
 });
 
-describe("the boot building the sign-in store's indexes (`docs/frontend/spec.md :: I498`)", () => {
-  const env = process.env as Record<string, string | undefined>;
+describe("the pass's one line", () => {
+  /* The heartbeat says a pass ran, so a line for an hour in which nothing happened is noise every reader skips. */
+  it("writes nothing for an idle pass", async () => {
+    await bootAndStep("production", [MINUTE_MS]);
 
-  /** One boot under `nodeEnv`: whether it finished while its build never settled, and the builds it asked for. */
-  async function boot(nodeEnv: string): Promise<{ booted: boolean; builds: number }> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    indexBuilds = 0;
-    try {
-      const outcome = await Promise.race([
-        register().then(() => "booted"),
-        new Promise((resolve) => setTimeout(resolve, 2000, "held").unref()),
-      ]);
-      return { booted: outcome === "booted", builds: indexBuilds };
-    } finally {
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
-  }
-
-  it("asks for them under a production build and serves without waiting for them", async () => {
-    assert.deepEqual(await boot("production"), { booted: true, builds: 1 });
+    expect(ran).toStrictEqual(EVERY_JOB);
+    expect(schedulerLines()).toStrictEqual([]);
   });
 
-  // `next dev` reaches a developer's own store, whose indexes are that developer's.
-  it("asks for nothing under a development build", async () => {
-    assert.deepEqual(await boot("development"), { booted: true, builds: 0 });
-  });
-});
+  /* One line per pass where anything happened, every job's counts and every drain's in it, the drains a write started
+     among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
+  it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
+    answers.set("spielbestaetigungen", () => Promise.resolve({ count: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 }, open: 0 }));
+    drains = { ...drains, sent: 3 };
+    await bootAndStep("production", [MINUTE_MS]);
 
-describe("the boot reading the actor's signing key", () => {
-  /**
-   * The boot under `file`: what it threw, what it wrote, and the code it would have exited with. The
-   * exit is recorded rather than taken, so the runner's own process lives.
-   */
-  async function refusedBoot(t: TestContext, file: string): Promise<{ thrown: unknown; written: string; exited: number | undefined }> {
-    const chunks: string[] = [];
-    let exited: number | undefined;
-    const write = process.stdout.write.bind(process.stdout) as (...args: unknown[]) => boolean;
-    t.mock.method(process.stdout, "write", (chunk: unknown, ...rest: unknown[]) => {
-      // The runner reports each case to its parent over this stream in binary frames, and one swallowed
-      // here is a case the run never counts: only text is the boot's.
-      if (typeof chunk !== "string") return write(chunk, ...rest);
-      // Refused past the exit: a line written after it would never reach the stream.
-      assert.equal(exited, undefined, "a line was written after the process ended");
-      chunks.push(chunk);
-      const done = rest.at(-1);
-      if (typeof done === "function") (done as () => void)();
-      return true;
-    });
-    t.mock.method(process, "exit", () => {
-      exited = Number(process.exitCode ?? 0);
-    });
-    keyFile = file;
-    try {
-      const thrown = await register().then(
-        () => undefined,
-        (error: unknown) => error,
-      );
-      return { thrown: thrown, written: chunks.join(""), exited: exited };
-    } finally {
-      keyFile = ACTOR_KEY_FILE;
-      process.exitCode = undefined;
-      t.mock.restoreAll();
-    }
-  }
+    answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 0 }, open: 0, error: new TypeError("cut") }));
+    answers.delete("spielbestaetigungen");
+    vi.advanceTimersByTime(HOUR_MS);
+    await settle();
 
-  /* Refused before anything is served: past the boot, every signed-in page would fail its guard. */
-  it("refuses to boot without the file, naming its path on a CRITICAL line and then ending the process", async (t) => {
-    const missing = path.join(KEY_DIRECTORY, "absent.pem");
-
-    const { thrown, written, exited } = await refusedBoot(t, missing);
-
-    assert.ok(thrown instanceof Error && thrown.message.includes(missing), "the boot went on, or its error named no path");
-    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
-    assert.match(written, /CRITICAL/);
-    assert.match(written, /FE-BOOT-003/);
-    assert.ok(written.includes(missing), "the line named no path");
-  });
-
-  it("refuses to boot on a file holding no key, never writing what it holds", async (t) => {
-    // One short mark repeated, so any fragment of the file seven characters long carries it whole.
-    const mark = "Q7xZ";
-    const held = mark.repeat(40);
-    const file = path.join(KEY_DIRECTORY, "garbage.pem");
-    writeFileSync(file, held);
-
-    const { thrown, written, exited } = await refusedBoot(t, file);
-
-    assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
-    assert.equal(exited, 3, "the process was left serving, or ended on a fault's code rather than a refusal's");
-    assert.match(written, /FE-BOOT-003/);
-    assert.ok(!written.includes(mark) && !String(thrown.stack).includes(mark), "the refusal quoted the file");
-  });
-
-  it("boots on a readable Ed25519 key, writing nothing and ending nothing", async (t) => {
-    const { thrown, written, exited } = await refusedBoot(t, ACTOR_KEY_FILE);
-
-    assert.equal(thrown, undefined);
-    assert.equal(written, "");
-    assert.equal(exited, undefined);
+    expect(schedulerLines()).toStrictEqual([
+      {
+        level: "info",
+        event: "scheduler.pass",
+        fields: {
+          spielbestaetigungen: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 },
+          outbox: { sent: 3, repeated: 0, abandoned: 0, held: 0, ignored: 0 },
+        },
+      },
+      { level: "error", event: "scheduler.job_failed", fields: { job: "erasure", name: "TypeError" } },
+      {
+        level: "warn",
+        event: "scheduler.pass",
+        fields: {
+          erasure: { spieler: 4, failed: 0 },
+          outbox: { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 },
+          failures: ["erasure failed"],
+        },
+      },
+    ]);
   });
 });
 
-/* The real modules in a process of their own, as `scripts/lib/_lib.sh :: check_frontend_boot_config` runs
-   the image: the exit code is the whole of what the deploy reads, and only a process that ends has one. */
-describe("the boot the deploy's preflight runs, and the code it ends on", () => {
-  const FRONTEND_DIR = path.join(import.meta.dirname, "..");
+describe("the heartbeat after each pass", () => {
+  /* The monitor alerts on a pass that did not ping and on one that pinged `/fail`, so what a pass left is the line an
+     owner reads first: a job that threw, the deletions a job left, the mails the drain gave up. */
+  it("pings the monitor after a pass that did all it owed, and `/fail` naming each job that did not", async () => {
+    heartbeat = HEARTBEAT;
+    await bootAndStep("production", [MINUTE_MS]);
 
-  // `package.json :: scripts`' own way of running a server module outside Next: `server-only` resolves
-  // to the module that throws without the condition, and Node reads no `@/` alias without the hook.
-  const NODE_FLAGS = [
-    "--conditions=react-server",
-    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
-    "--import",
-    "./scripts/tsconfig-alias-hook.mjs",
-  ];
+    answers.set("account", () => Promise.reject(new TypeError("the store went away")));
+    answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 3 }, open: 3 }));
+    // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
+    drains = { ...drains, abandoned: 2 };
+    vi.advanceTimersByTime(HOUR_MS);
+    await settle();
 
-  // Next catches the hook's rejection and serves on, so this does too: the code read is the boot's own.
-  // A hook that returns is one Next goes on to serve behind, which the last line says.
-  const BOOT = [
-    'const { register } = await import("./src/instrumentation.ts");',
-    "await register().catch(() => undefined);",
-    'process.stdout.write("serving\\n");',
-  ].join("\n");
-
-  /** A production host's settings, of values nobody could mistake for real ones. */
-  const SETTINGS: Readonly<Record<string, string>> = {
-    APP_ENV: "production",
-    API_URL: "http://backend:8000",
-    API_VERSION: "0",
-    AUTH_URL: "https://frankfurtleague.de",
-    LOG_FORMAT: "json",
-    TURNSTILE_SITE_KEY: "fabricated-site-key",
-  };
-
-  // Production's whole set, each value one the schema takes, so a case changes exactly the file it is about.
-  const SIGN_IN_SECRET = "fabricated-not-a-credential-xxxx";
-  const FILES: Readonly<Record<string, string>> = {
-    frontend_mongodb_uri: "mongodb://mongo:27017/?directConnection=true",
-    auth_secret: SIGN_IN_SECRET,
-    auth_resend_key: "resend-probe",
-    resend_webhook_secret: "whsec_probe",
-    internal_api_key_base: "b".repeat(64),
-    internal_api_key_system: "s".repeat(64),
-    internal_api_key_admin: "a".repeat(64),
-    turnstile_secret_key: "fabricated-turnstile-secret",
-  };
-
-  type Case = {
-    settings?: Record<string, string | undefined>;
-    files?: Record<string, string | undefined>;
-    checkedAs?: string;
-  };
-
-  /** One boot in a process of its own: its exit code, and everything it wrote. */
-  function boot({ settings = {}, files = {}, checkedAs = "production" }: Case): {
-    code: number | null;
-    said: string;
-  } {
-    const secrets = mkdtempSync(path.join(KEY_DIRECTORY, "secrets-"));
-    for (const [name, content] of Object.entries({ ...FILES, ...files })) {
-      if (content !== undefined) writeFileSync(path.join(secrets, name), content);
-    }
-
-    // Built rather than inherited, so no variable of the runner's own, `SKIP_ENV_VALIDATION` above all,
-    // decides a case. Not production, under which a hook left returning would arm the sweeps and never end.
-    const environment: NodeJS.ProcessEnv = { NODE_ENV: "test", SECRETS_DIR: secrets, ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE };
-    for (const name of ["PATH", "Path", "SystemRoot"]) {
-      const value = process.env[name];
-      if (value !== undefined) environment[name] = value;
-    }
-    for (const [name, value] of Object.entries({ ...SETTINGS, ...settings })) if (value !== undefined) environment[name] = value;
-    if (checkedAs !== "") environment.BOOT_CHECK = checkedAs;
-
-    const done = spawnSync(process.execPath, [...NODE_FLAGS, "--input-type=module", "-e", BOOT], {
-      cwd: FRONTEND_DIR,
-      env: environment,
-      encoding: "utf8",
-    });
-
-    return { code: done.status, said: `${done.stdout}${done.stderr}` };
-  }
-
-  /** The one refusal a boot wrote: the code it ended on, and its CRITICAL documents' codes and names. */
-  function refused(setup: Case): { code: number | null; lines: string[] } {
-    const { code, said } = boot(setup);
-    const lines = said
-      .split("\n")
-      .filter((line) => line.startsWith("{"))
-      .map((line) => JSON.parse(line) as Record<string, unknown>)
-      .filter((document) => document.level === "CRITICAL")
-      .map((document) => `${String(document.error_code)} ${String(document.variables ?? document.files ?? document.path)}`);
-
-    return { code, lines };
-  }
-
-  it("ends on 0 having written nothing, where every gate passes", () => {
-    assert.deepEqual(boot({}), { code: 0, said: "" });
+    expect(pings).toStrictEqual([
+      { url: HEARTBEAT, method: "GET", body: undefined },
+      { url: `${HEARTBEAT}/fail`, method: "POST", body: "account failed\nerasure left 3\noutbox gave up 2" },
+    ]);
   });
 
-  // The local stack holds none of production's own files, and its preflight names its own deployment.
-  it("ends on 0 for the local stack's deployment, which production's files are not demanded of", () => {
-    const local = boot({
-      settings: { APP_ENV: "local" },
-      files: { auth_resend_key: undefined, resend_webhook_secret: undefined, turnstile_secret_key: undefined },
-      checkedAs: "local",
-    });
+  /* The ping is the report, never part of the pass: a monitor that does not answer stops no later pass. */
+  it("writes a line where the monitor did not answer, and runs the next pass all the same", async () => {
+    heartbeat = HEARTBEAT;
+    monitor = () => Promise.reject(new TypeError("fetch failed"));
 
-    assert.deepEqual(local, { code: 0, said: "" });
+    await bootAndStep("production", [MINUTE_MS, HOUR_MS]);
+
+    expect(ran).toStrictEqual([...EVERY_JOB, ...EVERY_JOB]);
+    expect(schedulerLines().map(({ event, fields }) => [event, fields])).toStrictEqual([
+      ["scheduler.heartbeat_failed", { name: "TypeError" }],
+      ["scheduler.heartbeat_failed", { name: "TypeError" }],
+    ]);
   });
 
-  /* The schema demands production's files on `APP_ENV`'s word alone, so a production host whose file says
-     `local` would pass with none of them and its bot check on the published test secret. */
-  it("refuses with 3 a deployment its APP_ENV does not name, judging the files that deployment is held to", () => {
-    const production = { files: { turnstile_secret_key: undefined }, settings: { APP_ENV: "local" } };
+  it("pings nothing where the boot holds no address, as every stack but production", async () => {
+    await bootAndStep("production", [MINUTE_MS]);
 
-    assert.deepEqual(refused(production), { code: 3, lines: ["FE-BOOT-001 APP_ENV"] });
-    assert.deepEqual(refused({ ...production, checkedAs: "local" }), { code: 0, lines: [] });
-  });
-
-  /* The process's environment carries names of the platform's own beside the file's, so no boot can tell a
-     typo from them: `fl_frontend/scripts/check-environment-names.mjs` reads the file itself for that. */
-  it("boots past a name nothing declares", () => {
-    assert.deepEqual(boot({ settings: { TURNSTILE_SITEKEY: "a typo of a declared name" } }), { code: 0, said: "" });
-  });
-
-  // A refusal is one code wherever the boot runs, so a restarting container reads alike under either.
-  it("ends a serving boot's refusal on 3 too", () => {
-    assert.equal(boot({ files: { auth_secret: undefined }, checkedAs: "" }).code, 3);
+    expect(ran).toStrictEqual(EVERY_JOB);
+    expect(pings).toStrictEqual([]);
   });
 });

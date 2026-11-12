@@ -17,7 +17,7 @@ graph TB
         connector["cloudflared<br/>dials out; the host publishes nothing"]
     end
 
-    nginx["nginx<br/>:80 and :443, on both networks and no host port"]
+    nginx["nginx<br/>:80, on both networks and no host port"]
 
     subgraph appnet["Docker network: frankfurtleague-app"]
         fe["frontend :3000<br/>Next.js standalone, user nextjs"]
@@ -29,8 +29,8 @@ graph TB
     internet --> cf
     cf --> connector
     connector --> nginx
-    nginx -->|"/api/v0/system/is_live"| be
-    nginx -->|"every path but the liveness probe"| fe
+    nginx -->|"the two probes, is_live and is_ready"| be
+    nginx -->|"every path but the two probes"| fe
     fe -->|"server-side fetch"| be
     fe -->|"auth database only"| mongo
     be --> mongo
@@ -38,9 +38,9 @@ graph TB
 
 **The diagram is production's** — the local stack adds its own database service to the application
 network and points both application services at it ([`spec.md`](spec.md) §1.5). **nginx alone
-joins both networks** ([`spec.md`](spec.md) I471), so the connector reaches nothing else.
+joins both networks**, so the connector reaches nothing else.
 
-**The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
+**The host publishes no port at all**: the connector dials out, so nginx's
 routing table is the whole of what the internet can address on this host, and there is no address to
 reach it at otherwise.
 
@@ -49,31 +49,32 @@ reach it at otherwise.
 alone. No file here records either grant — the backend's was read from the cluster's users
 2026-08-02, and the sign-in store's is made by hand in the Atlas console. **Never give the two a
 shared login** — that makes the boundary a matter of trust rather than of configuration. The backend's
-user also needs `collMod`, and the replay after a restore `listCollections`, which `readWrite` carries;
-`python -m app.core.constraints --check` asks for both ([`../backend/spec.md`](../backend/spec.md) §4).
+user needs `readWrite` and nothing beyond it: the boot builds indexes, an action `readWrite` carries.
 
 ## The Cloudflare proxy
 
 Nothing here manages the Cloudflare account, its DNS or its SSL mode, and none of what follows is
 visible from a configuration file in this repository.
 
-- **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
-  settings and OCSP stapling in `nginx/prod/prod.conf` govern the hop from the tunnel connector to
-  nginx inside the compose network, not what a browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
-  ([`spec.md`](spec.md) §1.3).
-- **The headers a visitor receives are whatever survives the proxy.** They matched `prod.conf` when
-  verified 2026-08-01, which makes them a property to re-verify rather than assume.
+- **A visitor's TLS session terminates at Cloudflare.** The connector hands each request to nginx
+  as plain HTTP over the stack's own network, so nginx holds no certificate, and an origin failure
+  can surface as a Cloudflare error code ([`spec.md`](spec.md) §1.8).
+- **The headers a visitor receives are whatever survives the proxy**, so they are a property to
+  re-verify against `nginx/shared/security_headers.conf` rather than assume.
 - **Cloudflare compresses only what arrives uncompressed**, and its own compression measured _worse_
-  than the origin's on the same file (2026-08-01), so the origin keeps compressing and brotli is never
-  precompressed at build time ([`../../.claude/rules/ops.md`](../../.claude/rules/ops.md)).
-- **The AI-crawler opt-out is a request here and an enforcement there.**
-  `fl_frontend/src/app/robots.ts` disallows a named list of AI crawlers, which each crawler chooses
-  whether to obey; what the edge does about them is [`spec.md`](spec.md) §1.8. **The failure to
-  watch for is a link preview that silently stops rendering**, because previews are fetched by
-  `facebookexternalhit`, which that list does not name: consolidation moving preview fetching behind
-  an agent it does name would break every WhatsApp and Facebook preview with nothing here to explain
-  it. `curl -A` against the live site, one agent at a time, separates an edge block from a markup
-  problem.
+  than the origin's on the same file (2026-08-01), so Next keeps compressing at the origin, nginx
+  passing its answers on as they are, and brotli is never precompressed at build time
+  (`docs/decisions.md`).
+- **The AI-crawler opt-out is an enforcement in one edge setting, and a request as well once a
+  second is switched on.** Cloudflare's AI-bot controls block the AI-training crawlers. Once its
+  managed `robots.txt` is switched on, it puts their list before the rules
+  `fl_frontend/src/app/robots.ts` writes, which each crawler chooses whether to obey; while it is off,
+  nothing asks them ([`spec.md`](spec.md#18-the-edges-declared-state) records whether each is on).
+  **The failure to watch for is a link preview that
+  silently stops rendering**, because previews are fetched by `facebookexternalhit`, an agent
+  neither setting is aimed at: consolidation moving preview fetching behind one they name would break every
+  WhatsApp and Facebook preview with nothing here to explain it. `curl -A` against the live site,
+  one agent at a time, separates an edge block from a markup problem.
 
 **Edge settings deliberately off**, each looking like free performance:
 
@@ -88,32 +89,49 @@ Cloudflare can promote to a 103. What is actually set is readable only in the Cl
 
 ## Routing
 
-A backend route is unreachable from the internet unless an nginx location publishes it
-([`spec.md`](spec.md) I13); **a frontend route runs the other way round** — the catch-all carries every
+A backend route is unreachable from the internet unless an nginx location publishes it; **a frontend route runs the other way round** — the catch-all carries every
 path nginx does not name to Next, so a route handler is reachable the moment it exists, and its own
-authorization is all that stands in front of it ([`spec.md`](spec.md) I133).
+authorization is all that stands in front of it.
 
-FastAPI's Swagger UI sits at the app root (`/docs`), which the catch-all sends to Next, so the API
-documentation is a development and in-network tool ([`spec.md`](spec.md) I134).
+The API's documentation is the committed `fl_backend/openapi.json`: `fl_backend/app/main.py` builds
+the app with FastAPI's `openapi_url=None`, so the running app serves neither the document nor its
+`/docs` and `/redoc` pages.
 
 ## Security posture
 
-**The origin is hardened even though a proxy sits above it** — TLS 1.2/1.3 only, the header set at
-[`spec.md`](spec.md) §1.4, and I3's `default_server` rejecting an unknown `Host` at TLS time.
+**The origin is hardened even though a proxy sits above it**: the header set at
+[`spec.md`](spec.md) §1.4, and a default server answering an unknown `Host` with `421`.
 
-**The published unauthenticated writes are rate-limited at the edge**, the sign-in POST among them,
-whose action id ships in a client chunk, and so is every page a mailed or shared link opens. Which paths carry a zone, their pairing and what carries no
-zone at all are [`spec.md`](spec.md) §1.3.
+**The published unauthenticated writes are rate-limited at the edge**, and so is every page a mailed
+or shared link opens. A server action, the sign-in's among them, whose id ships in a client chunk, is
+metered at whatever path it is posted to. Which location carries which zone, and what carries none,
+is [`spec.md`](spec.md) §1.3.
+
+## The host and the accounts
+
+The server, at Hetzner, and every provider account are configured outside this repository, so what
+follows is what must be true there, a check the owner makes.
+
+- **The server installs its security updates itself.**
+  `apt-config dump APT::Periodic::Unattended-Upgrade` prints the value `"1"`.
+- **The server takes an SSH sign-in by key alone.**
+  `sudo sshd -T | grep -E '^(passwordauthentication|kbdinteractiveauthentication) '` prints `no`
+  for both.
+- **Docker Engine updates with the system's packages**, from Docker's own repository:
+  `apt-cache policy docker-ce` names `download.docker.com`.
+- **Seven accounts sign in with a second factor**: Cloudflare, Hetzner, Resend, Better Stack, the
+  domain's registrar, GitHub and the password manager, 1Password. The codes come from Proton
+  Authenticator.
 
 ## Images and deployment
 
-**The builder stage has no reachable backend and no real environment** ([`spec.md`](spec.md) I5):
+**The builder stage has no reachable backend and no real environment**:
 anything reaching the API or constructing a URL from `AUTH_URL` at module scope fails the image build
 rather than at runtime.
 
-A deploy pulls, recreates the two application containers in place and reloads nginx across the swap
-([`spec.md`](spec.md) I6 and I9). What a failed health wait puts back, what it costs, and what to
-deploy afterwards are [`runbooks.md`](runbooks.md) §1.
+A deploy pulls the build's images, lets Compose recreate each service whose image or definition
+moved, and reloads nginx, which keeps serving across the swap. What each ending leaves running, and
+how to go back to an earlier build, are [`runbooks.md`](runbooks.md) §1.
 
 ## Read next
 

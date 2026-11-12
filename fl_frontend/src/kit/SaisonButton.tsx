@@ -1,0 +1,165 @@
+"use client";
+
+import { useParams, usePathname } from "next/navigation";
+
+import { Button as AriaButton } from "react-aria-components/Button";
+
+import { COPY } from "@/core/copy";
+
+import { counterpart, useFrameSaison, useHoldsSaison } from "./FrameNav";
+import { hoverLook } from "./hoverStyles";
+import { Icon } from "./Icon";
+import { Menu } from "./Menu";
+import { useRailCollapsed } from "./RailState";
+import { railFade } from "./railStyles";
+import { Placeholder, placeholderBar, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
+import { tv } from "./tv";
+
+const trigger = tv({
+  slots: {
+    place: "",
+    // Under the pointer and pressed, the one hover layer, on the rail and on the band alike.
+    root: `inline-flex items-center justify-between gap-2 rounded-lg border text-sm whitespace-nowrap ${hoverLook({ host: "aria" })}`,
+    lines: "grid min-w-0 gap-1 text-start",
+    name: "truncate",
+    span: "font-numeric text-xs font-normal text-fg-muted",
+    arrow: "flex",
+    glyph: "",
+  },
+  variants: {
+    // In the rail on the page's ground: outlined, no fill, two lines (the name over the season's span), 58 px
+    // tall with 16 px at the sides, 8 above and below and 4 between the lines.
+    // Collapsed, the lines and the arrow fade, clipped by the box, and the season glyph fades in over the
+    // box's 16-px inset, where the place's 12 px and that inset centre a 16-px glyph in the 72-px rail.
+    // On the phone's dark-green band: one line, as tall as a touch target, since the span does not fit beside
+    // the wordmark.
+    placement: {
+      rail: {
+        place: "px-3 pt-3 pb-1",
+        root: "relative min-h-14 w-full overflow-hidden border-border bg-transparent px-4 py-2 font-semibold text-fg",
+        lines: railFade(),
+        arrow: railFade({ class: "text-fg-muted" }),
+        glyph:
+          "absolute inset-y-0 left-4 flex items-center text-fg-muted opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
+      },
+      band: {
+        place: "ms-auto shrink-0",
+        root: "h-8 border-on-brand/45 bg-transparent px-3 font-medium text-on-brand pointer-coarse:h-10",
+        arrow: "text-on-brand/80",
+      },
+    },
+    // With one season there is nowhere to switch to, yet it stays a menu: its arrow is dimmed.
+    single: {
+      true: { arrow: "opacity-45" },
+    },
+  },
+});
+
+/**
+ * The season button while the seasons are read: the button's own box, outlined, its name and its span (in the rail)
+ * or its one line (on the band) as bars, so the entries under it never move when it lands. Collapsed, the season's
+ * glyph alone, as the button shows it.
+ */
+export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "band" }) {
+  const holds = useHoldsSaison();
+  const { place, root, lines, arrow, glyph } = trigger({ placement });
+  if (!holds) return null;
+  return (
+    <Placeholder layoutClass={place()}>
+      <span className={root()}>
+        {placement === "rail" ? (
+          <>
+            <span className={glyph()}>
+              <span className={placeholderBar("size-4")} />
+            </span>
+            <span className={lines({ class: "w-full" })}>
+              <PlaceholderLine
+                textClass="text-sm"
+                words={SAISON_WORDS}
+              />
+              <PlaceholderLine
+                textClass="text-xs"
+                widthClass="w-3/4"
+              />
+            </span>
+          </>
+        ) : (
+          <PlaceholderLine
+            textClass="text-sm"
+            words={SAISON_WORDS}
+          />
+        )}
+        <span className={arrow()}>
+          <span className={placeholderBar("size-4")} />
+        </span>
+      </span>
+    </Placeholder>
+  );
+}
+
+/**
+ * Switching season, at the top of the rail or in the phone's top band: always a menu, even with one
+ * season, and nothing where the frame holds no season. Each entry is the page shown, in that season, read
+ * from the address on the client, so the layout placing the frame need not know the page beneath it. In a
+ * team's frame the seasons are those of the team the address names, and each entry is that team's page.
+ */
+export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
+  const saison = useFrameSaison();
+  const collapsed = useRailCollapsed();
+  const path = usePathname();
+  const params = useParams();
+  if (saison === null) return null;
+
+  const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: saison.entries.length < 2 });
+  const active = saison.entries.find((entry) => entry.id === saison.active);
+  return (
+    <div className={place()}>
+      <Menu
+        label={COPY.shared.saison}
+        placement="below"
+        // In the collapsed rail the list opens beside the button, at the rail's edge.
+        beside={placement === "rail" && collapsed}
+        // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
+        width={placement === "rail" ? "trigger" : "content"}
+        groups={[
+          saison.entries.map(({ id }) => ({
+            kind: "link" as const,
+            label: COPY.shared.saisonName(id),
+            href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
+            isCurrent: id === saison.active,
+            // The browser's Back skips a season switch, returning to the page before the season's pages.
+            replace: true,
+          })),
+        ]}
+        trigger={
+          <AriaButton
+            data-kit-focus="ring"
+            className={root()}>
+            {placement === "rail" ? (
+              <>
+                <span className={glyph()}>
+                  <Icon
+                    glyph="saison"
+                    size={16}
+                  />
+                </span>
+                <span className={lines()}>
+                  <span className={name()}>{COPY.shared.saisonName(saison.active)}</span>
+                  <span className={span()}>{active?.span}</span>
+                </span>
+              </>
+            ) : (
+              COPY.shared.saisonName(saison.active)
+            )}
+            <span className={arrow()}>
+              <Icon
+                glyph="expand"
+                size={16}
+              />
+            </span>
+          </AriaButton>
+        }
+      />
+    </div>
+  );
+}

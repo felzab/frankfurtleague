@@ -1,25 +1,18 @@
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from pydantic import ValidationError
-from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.router import FLBewerbungenFilters, get_bewerbungen
-from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
-from app.api.bewerbungen.services import dubletten_schluessel_of
+from app.api.bewerbungen.admin_router import get_bewerbung, get_bewerbungen_admin
+from app.api.bewerbungen.services import saison_state_of, with_delivery
+from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests import documents
-from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
@@ -28,27 +21,26 @@ SAISON_ID = "2026"
 BEWERBUNG_ID = "6890a1b2c3d4e5f60793{:04d}"
 
 KONTAKTPERSON = {
-    "vorname": "Anke",
-    "nachname": "Koerner",
+    "first_name": "Anke",
+    "last_name": "Koerner",
     "email": "a.koerner@example.de",
-    "telefon": "+49 170 1234567",
-    "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "phone": "+49 170 1234567",
+    "birth_date": "1984-05-09",
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 
 def bewerbung_document(
     index: int,
-    status: str = "eingereicht",
+    status: str = "submitted",
     saison_id: str = SAISON_ID,
     *,
-    shorthand: str = "SG",
-    eingereicht_am: str = "2026-02-01",
+    submitted_at: str = "2026-02-01",
     team_id: ObjectId | None = None,
 ) -> dict[str, Any]:
     """One stored application. Validated by the route, so every required field is here.
 
-    A `team_id` empties `schule`: the two are exclusive (`docs/backend/spec.md :: I16`), and a row
+    A `team_id` empties `schule`: the two are exclusive, and a row
     naming both collides on neither.
     """
 
@@ -57,641 +49,228 @@ def bewerbung_document(
         saison_id,
         status,
         kontakte=documents.kontakte_document(trainer=dict(KONTAKTPERSON)),
-        eingereicht_am=eingereicht_am,
+        submitted_at=submitted_at,
         team_id=team_id,
         schule=None
         if team_id is not None
-        else documents.neue_schule_document(
-            f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+        else documents.new_schule_document(
+            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
-        trikot={"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+        trikot={"existing_set": "16 rote Trikots", "wunschfarbe": "rot"},
     )
 
 
-def archive_of(count: int) -> list[dict[str, Any]]:
-    return [bewerbung_document(index) for index in range(1, count + 1)]
+VIEW_DATABASE = worker_database("fl_bewerbungen_view_test")
+
+VIEW_SAISON = "2027"
+PICKED_CLUB = ObjectId("6890a1b2c3d4e5f600009998")
+PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED, ANOTHER_SEASON = 9101, 9102, 9103, 9104, 9105
 
 
-def at(document: Mapping[str, Any], reference: str) -> Any:
-    """A `$field.sub` reference, which is every expression the tally's group key composes."""
+async def on_the_view_corpus(mongo_replica_set_url: str, read: Any) -> Any:
+    """A `future` season with one full group and one with room, a pair naming one club, a new school, a declined row and another season's."""
 
-    held: Any = document
-
-    for step in reference.removeprefix("$").split("."):
-        held = held.get(step) if isinstance(held, Mapping) else None
-
-    return held
-
-
-def matches(document: Mapping[str, Any], db_filter: Mapping[str, Any]) -> bool:
-    """Equality, `$in` and `$ne`, which is every operator this endpoint composes."""
-
-    for field, term in db_filter.items():
-        held = document.get(field)
-        if field == "_id" and isinstance(term, dict) and "$lt" in term:
-            if not held < term["$lt"]:
-                return False
-        elif isinstance(term, dict) and "$ne" in term:
-            if held == term["$ne"]:
-                return False
-        elif isinstance(term, dict):
-            if held not in term["$in"]:
-                return False
-        elif held != term:
-            return False
-
-    return True
-
-
-class _ArchiveCollection:
-    """One collection, called as `pull_many_from_db` calls the driver: `find`, `sort`, `limit`, `to_list`."""
-
-    def __init__(self, documents: list[dict[str, Any]]) -> None:
-        self.documents = documents
-        # The archive as it stands, because `find` narrows `documents` in place and the counts are
-        # answered against everything stored rather than against what one read left.
-        self.stored = list(documents)
-        # What the route ASKED for, kept because the answer alone cannot tell a read bounded at the
-        # cap from one bounded a document past it.
-        self.requested_limit: int | None = None
-        # The cursor is a FILTER term, so a page of the right length off the wrong filter would
-        # satisfy every assertion about its contents.
-        self.requested_filter: Any = None
-        # A `$limit` or a `$sort` reaching the tally would answer for a page, which is the whole
-        # defect the pass exists to close, and its stages are the only place that shows.
-        self.requested_pipeline: list[Mapping[str, Any]] = []
-
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _ArchiveCollection:
-        self.requested_filter = filter
-        # Applied rather than recorded: a fake serving every row whatever it was asked for would let
-        # a case about what one status's page holds pass over rows of all three.
-        self.documents = [document for document in self.documents if matches(document, filter or {})]
-        return self
-
-    async def count_documents(self, filter: Any) -> int:
-        return len([document for document in self.stored if matches(document, filter or {})])
-
-    def sort(self, sort_by: Any) -> _ArchiveCollection:
-        # Applied rather than accepted: a fake that ignores the sort hands back insertion order, and
-        # a keyset walk over it would look total while paging the wrong end of the queue.
-        for field, direction in reversed(list(sort_by)):
-            self.documents.sort(key=lambda document: document[field], reverse=direction < 0)
-        return self
-
-    def limit(self, count: int) -> _ArchiveCollection:
-        self.requested_limit = count
-        # Truncating rather than answering everything: this IS the silent loss under test.
-        self.documents = self.documents[:count]
-        return self
-
-    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        return self.documents if length is None else self.documents[:length]
-
-    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _Cells:
-        # Grouped rather than answered from a canned list: cells of the reader's own shape would pass
-        # a pipeline narrowed to the page. Which keys MongoDB really answers is the db tier's.
-        self.requested_pipeline = list(pipeline)
-        stages = {name: body for stage in self.requested_pipeline for name, body in stage.items()}
-        grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
-
-        for document in self.stored:
-            if not matches(document, stages.get("$match", {})):
-                continue
-
-            cell_id = {name: at(document, reference) for name, reference in stages["$group"]["_id"].items()}
-            held = grouped.setdefault(tuple(cell_id.values()), {"_id": cell_id, "anzahl": 0})
-            held["anzahl"] += 1
-
-        return _Cells(list(grouped.values()))
-
-
-class _Cells:
-    """What `aggregate` answers with, `aggregate_many_from_db` asking the cursor for its own list."""
-
-    def __init__(self, cells: list[dict[str, Any]]) -> None:
-        self.cells = cells
-
-    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        return self.cells if length is None else self.cells[:length]
-
-
-class _NothingStored:
-    """The ban list and the seasons, holding nothing: the archive's own double answers what these cases are about."""
-
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _NothingStored:
-        return self
-
-    def limit(self, count: int) -> _NothingStored:
-        return self
-
-    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        return []
-
-    async def find_one(self, filter: Any, projection: Any = None, session: Any = None) -> None:
-        return None
-
-
-def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
-    """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured."""
-
-    return asyncio.run(
-        get_bewerbungen(
-            bewerbungen_collection=cast(AsyncCollection, collection),
-            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
-            filters=FLBewerbungenFilterParams.model_validate(filters),
+    async with a_clean_database(mongo_replica_set_url, VIEW_DATABASE, constraints=True) as (_, database):
+        rules = documents.rules_document(teams_per_gruppe=2, number_of_gruppen=2)
+        await database[Collection.SAISONS].insert_one(documents.saison_document(VIEW_SAISON, "future", rules=rules))
+        await database[Collection.TEAMS].insert_one(documents.team_document(PICKED_CLUB, "Adlerhorst", "ADX"))
+        await database[Collection.SAISON_TEAMS].insert_many(
+            [
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Fremd", "FRX", gruppe="A", trikot_farbe="blau"),
+                documents.saison_team_document(VIEW_SAISON, ObjectId(), "Anders", "ANX", gruppe="A", trikot_farbe=None),
+            ]
         )
+        await database[Collection.BEWERBUNGEN].insert_many(
+            [
+                bewerbung_document(PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(ALSO_PICKED, saison_id=VIEW_SAISON, team_id=PICKED_CLUB),
+                bewerbung_document(NEW_SCHOOL, saison_id=VIEW_SAISON),
+                bewerbung_document(DECLINED, "declined", VIEW_SAISON, team_id=PICKED_CLUB),
+                # Its seat confirmed as every row here is, so the list's second read must keep it out by its season.
+                bewerbung_document(ANOTHER_SEASON),
+            ]
+        )
+
+        return await read(database)
+
+
+async def view_list(database: Any) -> Any:
+    return await get_bewerbungen_admin(
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_id=VIEW_SAISON,
     )
 
 
-class TestTheListDegradesRatherThanRefusing:
-    """A tripwire would let an anonymous writer choose when this page 500s.
-
-    The reason it does not sits at `app/api/bewerbungen/router.py :: get_bewerbungen`.
-    """
-
-    def test_an_archive_past_the_cap_is_served_short(self):
-        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 25)))
-
-        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
-        assert answered.vollstaendig is False
-
-    def test_an_archive_past_the_cap_raises_nothing(self):
-        """The whole point of the change: the old guard answered 500 here, and 500 is the attack."""
-
-        run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT * 3)))
-
-    def test_an_archive_under_the_cap_is_whole(self):
-        answered = run_list(_ArchiveCollection(archive_of(7)))
-
-        assert len(answered.bewerbungen) == 7
-        assert answered.vollstaendig is True
-
-    def test_an_archive_exactly_at_the_cap_is_whole(self):
-        """The boundary the probe row exists for: the largest complete answer must not call itself short."""
-
-        answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT)))
-
-        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
-        assert answered.vollstaendig is True
-
-    def test_one_row_past_the_cap_is_the_first_incomplete_answer(self):
-        """The other side of the same boundary, so the flag cannot be a constant."""
-
-        assert run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))).vollstaendig is False
-
-    def test_the_read_asks_one_row_past_what_it_serves(self):
-        """Non-vacuity: a read bounded AT the cap could never tell a full list from a truncated one."""
-
-        collection = _ArchiveCollection(archive_of(3))
-        run_list(collection)
-
-        assert collection.requested_limit == LIST_LIMIT_DEFAULT + 1
-
-    def test_the_probe_row_is_never_served(self):
-        answered = run_list(_ArchiveCollection(archive_of(9)), limit=4)
-
-        assert len(answered.bewerbungen) == 4
-        assert answered.vollstaendig is False
-
-
-class TestTheCallersOwnBoundIsCappedRatherThanObeyed:
-    """`limit` is the operator's recovery path under a flood, and it is bounded on both sides."""
-
-    @pytest.mark.parametrize("named", [1, 7, LIST_LIMIT_MAX])
-    def test_a_named_bound_is_the_bound_served(self, named: int):
-        collection = _ArchiveCollection(archive_of(LIST_LIMIT_MAX + 10))
-        answered = run_list(collection, limit=named)
-
-        assert len(answered.bewerbungen) == named
-        assert collection.requested_limit == named + 1
-
-    def test_a_named_bound_that_covers_the_archive_reports_it_whole(self):
-        """A caller who asked for ten and got seven was not truncated, and must not be told they were."""
-
-        assert run_list(_ArchiveCollection(archive_of(7)), limit=10).vollstaendig is True
-
-    @pytest.mark.parametrize("refused", [0, -1, LIST_LIMIT_MAX + 1, 999999])
-    def test_a_bound_outside_the_range_is_refused(self, refused: int):
-        """The CAP, not just the default: a caller naming a larger read must not be served it."""
-
-        with pytest.raises(ValidationError):
-            FLBewerbungenFilterParams.model_validate({"limit": refused})
-
-
-class TestTheFiltersStillNarrowTheRead:
-    """Season and status are what an operator reaches for under a flood, so they reach the query."""
-
-    def test_the_filters_named_reach_the_db_filter(self):
-        collection = _ArchiveCollection(archive_of(3))
-        run_list(collection, saison_id="2026", status=["eingereicht"])
-
-        assert collection.requested_filter == {"saison_id": "2026", "status": {"$in": ["eingereicht"]}}
-
-    def test_two_statuses_reach_the_read_as_one_term(self):
-        """The whole reason the parameter is a list: `$in` is what a multi-select facet's second click composes."""
-
-        collection = _ArchiveCollection(archive_of(3))
-        run_list(collection, status=["angenommen", "abgelehnt"])
-
-        assert collection.requested_filter == {"status": {"$in": ["angenommen", "abgelehnt"]}}
-
-    def test_an_unfiltered_read_narrows_on_nothing(self):
-        """The control: a filter built from absent parameters would narrow to rows nobody asked about."""
-
-        collection = _ArchiveCollection(archive_of(3))
-        run_list(collection)
-
-        assert collection.requested_filter == {}
-
-
-DUBLETTEN_DATABASE = worker_database("fl_bewerbungen_dubletten_test")
-
-# The two ends of the queue, with the cap's worth of rows between them.
-NEUESTE = 9001
-AELTESTE = 9002
-KUERZEL_PAAR = f"{SAISON_ID} kuerzel GG"
-
-
-def straddling_archive() -> list[dict[str, Any]]:
-    """One row past the cap, the colliding pair at the newest and the oldest end of the queue.
-
-    Rebuilt per call: `insert_many` writes `_id` into every mapping it is handed.
-    """
-
-    # A club of its own per row between them, so the seeded pair is the only collision.
-    filler = [
-        bewerbung_document(index, eingereicht_am="2026-02-15", team_id=ObjectId(f"6890a1b2c3d4e5f60700{index:04d}"))
-        for index in range(1, LIST_LIMIT_DEFAULT)
-    ]
-
-    return [
-        *filler,
-        bewerbung_document(NEUESTE, eingereicht_am="2026-02-28", shorthand="gg"),
-        bewerbung_document(AELTESTE, eingereicht_am="2026-02-01", shorthand="GG"),
-    ]
-
-
-def mixed_archive() -> list[dict[str, Any]]:
-    """Five open, three accepted, two declined, and the accepted ones in another season."""
-
-    return [
-        *(bewerbung_document(index) for index in range(1, 6)),
-        *(bewerbung_document(index, status="angenommen", saison_id="2025") for index in range(6, 9)),
-        *(bewerbung_document(index, status="abgelehnt") for index in range(9, 11)),
-    ]
-
-
-class TestTheCountsAreTheServersRatherThanTheRowsOnHand:
-    """What the narrowing would otherwise cost: a caller counting the rows it was served.
-
-    Narrowed to one status, that count is zero for every other status -- which is what the triage
-    bar disables an option on.
-    """
-
-    def test_every_status_is_counted_though_the_page_holds_one(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), status=["eingereicht"])
-
-        assert [row.status for row in answered.bewerbungen] == ["eingereicht"] * 5
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 3, "abgelehnt": 2}
-
-    def test_a_page_holding_no_rows_still_says_what_the_others_hold(self):
-        """The case that decides the shape: the counts cannot ride on the rows, because there need be none."""
-
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, status=["angenommen"])
-
-        assert answered.bewerbungen == []
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
-
-    def test_each_count_keeps_every_term_but_the_status_it_answers_for(self):
-        """A count taken with the request's own status term applied would read zero for every status nobody asked for."""
-
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id="2026", status=["eingereicht"])
-
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
-
-    def test_the_counts_name_all_three_states_whatever_is_stored(self):
-        """An option missing from the answer is an option the bar has no number for, which reads as zero."""
-
-        assert sorted(run_list(_ArchiveCollection(archive_of(2))).anzahl_je_status) == ["abgelehnt", "angenommen", "eingereicht"]
-
-
-class TestTheSeasonRelationIsATermTheReadNarrowsOn:
-    """The queue's season facet opens narrowed, so a per-status count taken over every season lies.
-
-    The state it counts elsewhere is offered, pressed, and lands on an empty list.
-    """
-
-    def test_the_opening_relation_narrows_the_read_to_the_season_named(self):
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["eingereicht"])
-
-        assert collection.requested_filter == {"saison_id": SAISON_ID, "status": {"$in": ["eingereicht"]}}
-
-    def test_a_status_whose_rows_all_sit_in_another_season_is_counted_zero(self):
-        """The defect this closes: three applications stand accepted, none of them in the season the bar opens on."""
-
-        # Non-vacuity: unnarrowed, the same archive counts three -- which is the number the queue was
-        # told while it sent no season term at all.
-        assert run_list(_ArchiveCollection(mixed_archive())).anzahl_je_status["angenommen"] == 3
-
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["eingereicht"])
-
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
-
-    def test_the_complement_serves_every_other_season(self):
-        collection = _ArchiveCollection(mixed_archive())
-        answered = run_list(collection, saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["angenommen"])
-
-        assert collection.requested_filter == {"saison_id": {"$ne": SAISON_ID}, "status": {"$in": ["angenommen"]}}
-        assert [row.saison_id for row in answered.bewerbungen] == ["2025"] * 3
-
-    def test_both_relations_at_once_narrow_on_no_season(self):
-        """Every option picked is the facet turned off, and it has to reach the archive rather than nothing."""
-
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["diese_saison", "andere_saison"], status=["eingereicht"])
-
-        assert collection.requested_filter == {"status": {"$in": ["eingereicht"]}}
-
-    def test_a_relation_naming_no_season_narrows_on_nothing(self):
-        """A relation to no season composes no term, and an empty page in its place would hide the queue."""
-
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saisonbezug=["diese_saison"])
-
-        assert collection.requested_filter == {}
-
-    def test_the_season_alone_still_means_that_season(self):
-        """The parameter's older meaning: a caller naming no relation asked for that season's queue."""
-
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID)
-
-        assert collection.requested_filter == {"saison_id": SAISON_ID}
-
-    def test_the_collision_pass_covers_the_seasons_the_relation_selects(self):
-        """A collision key carries its own season, so the complement parts no pair that the season term left whole."""
-
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["eingereicht"])
-
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": {"$ne": SAISON_ID}, "status": "eingereicht"}}
-
-
-class TestBothSidesOfTheSeasonRelationAreCounted:
-    """The mirror of the status counts: narrowed to one side, the rows of the other are unserved.
-
-    A page counting the rows on hand would read zero there and offer no way across.
-    """
-
-    def test_the_side_the_read_left_out_is_counted_all_the_same(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["angenommen"])
-
-        assert answered.bewerbungen == []
-        assert answered.anzahl_je_saisonbezug == {"diese_saison": 0, "andere_saison": 3}
-
-    def test_each_side_keeps_the_status_term_and_ignores_the_relation(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["eingereicht"])
-
-        assert answered.anzahl_je_saisonbezug == {"diese_saison": 5, "andere_saison": 0}
-
-    def test_a_request_naming_no_season_files_every_row_under_the_other_side(self):
-        """No season named is no season to stand in, which is what a served row's own flag answers too."""
-
-        assert run_list(_ArchiveCollection(mixed_archive())).anzahl_je_saisonbezug == {"diese_saison": 0, "andere_saison": 10}
-
-
-class TestTheCollisionIsAskedOverTheWholeQueue:
-    """The pass the marking rests on. Narrowed the way the page is, a pair the cap parted is a group of one at each end."""
-
-    def test_the_pass_ignores_the_status_the_page_was_narrowed_to(self):
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, status=["angenommen"])
-
-        assert collection.requested_pipeline[0] == {"$match": {"status": "eingereicht"}}
-
-    def test_the_pass_keeps_the_season_the_request_named(self):
-        collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, status=["eingereicht"])
-
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "eingereicht"}}
-
-    def test_the_pass_carries_no_bound_of_its_own(self):
-        collection = _ArchiveCollection(archive_of(2))
-        run_list(collection)
-
-        assert [name for stage in collection.requested_pipeline for name in stage] == ["$match", "$group"]
-
-    def test_the_answer_carries_the_keys_the_pass_found(self):
-        """Read off the ANSWER: the fold's own cases below build cells by hand, which a router dropping the field would still satisfy."""
-
-        collection = _ArchiveCollection([bewerbung_document(1, shorthand="gg"), bewerbung_document(2, shorthand="GG")])
-
-        assert run_list(collection).dubletten_schluessel == [KUERZEL_PAAR]
-
-
-class TestWhatCountsAsOneCollisionKey:
-    """The fold and the pair rule, over cells of the shape the tally's `$group` answers with."""
-
-    def test_two_cells_parted_by_the_kuerzels_case_are_one_collision(self):
-        """Why the fold cannot move into the pipeline: MongoDB parts `gg` from `GG`, leaving two cells of one."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "gg"}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GG "}, "anzahl": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == [KUERZEL_PAAR]
-
-    def test_a_key_one_application_holds_is_named_by_nothing(self):
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_cell_naming_neither_a_club_nor_a_kuerzel_is_passed_over(self):
-        """The row `REQ-BEWERBUNG-002` refuses, and two of them are not a pair."""
-
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "anzahl": 4}]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_the_season_parts_two_cells_sharing_a_kuerzel(self):
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1},
-            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GG"}, "anzahl": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_and_a_kuerzel_spelling_one_text_are_two_keys(self):
-        """`GG` as a club id is nothing a school could propose, and the words in the key are what keep them apart."""
-
-        cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": "GG", "shorthand": None}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1},
-        ]
-
-        assert dubletten_schluessel_of(cells) == []
-
-    def test_a_club_key_spells_the_id_as_the_served_row_carries_it(self):
-        """The frontend composes its half from a row's `team_id` string, so the two only meet on that spelling."""
-
-        club = ObjectId("6890a1b2c3d4e5f600009999")
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": club, "shorthand": None}, "anzahl": 2}]
-
-        assert dubletten_schluessel_of(cells) == [f"{SAISON_ID} team {club}"]
-
-
-class TestTheCollisionSurvivesTheReadsCap:
-    """Only MongoDB's own `$group` proves the tally's keys are the names `dubletten_schluessel_of` reads them by.
-
-    The double above answers cells of that reader's own shape, so it cannot fail that way.
-    """
+async def view_one(database: Any, bewerbung_id: ObjectId) -> Any:
+    return await get_bewerbung(
+        bewerbung_id=bewerbung_id,
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        outbox_collection=database[Collection.OUTBOX],
+        today="2026-02-02",
+    )
+
+
+class TestTheReviewPagesRead:
+    pytestmark = pytest.mark.db
+
+    def test_it_says_what_the_list_says_of_a_duplicate(self, mongo_replica_set_url: str):
+        """A row's one chip can hide the Dublette, so this read is where an administrator deciding on it learns of the collision."""
+
+        async def read(database: Any) -> Any:
+            listed = await view_list(database)
+            return {row.id: row.duplicate for row in listed.bewerbungen}, {
+                row.id: (await view_one(database, row.id)).duplicate for row in listed.bewerbungen
+            }
+
+        listed, reviewed = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read))
+
+        assert (
+            reviewed
+            == listed
+            == {ObjectId(BEWERBUNG_ID.format(index)): index in (PICKED, ALSO_PICKED) for index in (PICKED, ALSO_PICKED, NEW_SCHOOL, DECLINED)}
+        )
+
+
+class TestTheSeasonsListRead:
+    """The list page's one read: what its rows and its dialogs need, off one request, and no person's details."""
 
     pytestmark = pytest.mark.db
 
-    def test_a_pair_at_the_two_ends_of_a_cut_queue_is_named(self, mongo_url: str):
-        async def read() -> Any:
-            async with a_clean_database(mongo_url, DUBLETTEN_DATABASE, constraints=True) as (_, database):
-                collection = database[Collection.BEWERBUNGEN]
-                await collection.insert_many(straddling_archive())
+    def test_a_row_holds_the_list_and_nobody_s_details(self, mongo_replica_set_url: str):
+        """The list shows counts, so an address here is personal data served to a page that never shows it."""
 
-                return await get_bewerbungen(
-                    bewerbungen_collection=collection,
-                    sperrliste=ban_list(database),
-                    filters=FLBewerbungenFilterParams.model_validate({}),
-                )
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, view_list))
 
-        answered = on_the_seed_loop(read())
-        served = {row.id for row in answered.bewerbungen}
+        assert KONTAKTPERSON["email"] not in answered.model_dump_json()
+        assert {row.name for row in answered.bewerbungen} == {"Adlerhorst", f"Schule {NEW_SCHOOL}"}
+        assert [row.new_school for row in answered.bewerbungen if row.id == ObjectId(BEWERBUNG_ID.format(NEW_SCHOOL))] == [True]
 
-        # Non-vacuity: the cap has to have cut the queue and kept exactly one half of the pair, or a
-        # whole-queue answer and one taken over the page agree by accident.
-        assert answered.vollstaendig is False
-        assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
-        assert ObjectId(BEWERBUNG_ID.format(NEUESTE)) in served
-        assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
+    def test_a_row_says_it_holds_a_seat_never_mailed(self, mongo_replica_set_url: str):
+        """The sweep erases that application on its day, so the list must say so; a seat an erasure cleared and a decided row ask nothing."""
 
-        assert answered.dubletten_schluessel == [KUERZEL_PAAR]
+        def row_id(index: int) -> ObjectId:
+            return ObjectId(BEWERBUNG_ID.format(index))
 
+        async def read(database: Any) -> Any:
+            for index, update in (
+                (PICKED, {"confirmations.stellvertretung.sent_at": None}),
+                (NEW_SCHOOL, {"confirmations.trainer": None}),
+                (DECLINED, {"confirmations.trainer.sent_at": None}),
+            ):
+                await database[Collection.BEWERBUNGEN].update_one({"_id": row_id(index)}, {"$set": update})
+            return await view_list(database)
 
-# The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
-# the real router's admin guard and collection would only stand between the query string and it.
-_probe = FastAPI()
+        served = {row.id: row.unmailed for row in on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read)).bewerbungen}
 
+        assert served == {row_id(PICKED): True, row_id(ALSO_PICKED): False, row_id(NEW_SCHOOL): False, row_id(DECLINED): False}
 
-# The router's own alias and never a second spelling of it: the filling is what these cases judge.
-@_probe.get("/probe")
-def _read_filters(filters: FLBewerbungenFilters) -> dict[str, Any]:
-    return {"limit": filters.limit, "status": filters.status, "saisonbezug": filters.saisonbezug}
+    def test_a_flood_past_the_cap_says_it_is_cut_and_cuts_no_confirmed_row(self, mongo_replica_set_url: str):
+        """The queue an anonymous form can flood: served short rather than refused, saying so, and with the season's confirmed rows."""
 
+        flood = range(1, LIST_LIMIT_DEFAULT + 2)
 
-class TestNoQueryStringReachesAnUnboundedRead:
-    """The cap is the whole bound, so a caller able to forge it past the ceiling would disarm it."""
+        async def read(database: Any) -> Any:
+            await database[Collection.BEWERBUNGEN].insert_many(
+                [
+                    {**bewerbung_document(index, saison_id=VIEW_SAISON, submitted_at="2026-03-01"), "kontakte": documents.kontakte_document()}
+                    for index in flood
+                ]
+            )
+            return await view_list(database)
 
-    def test_an_omitted_bound_arrives_as_the_default(self):
-        with TestClient(_probe) as client:
-            assert client.get("/probe").json()["limit"] == LIST_LIMIT_DEFAULT
+        answered = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, read))
+        served = [row.id for row in answered.bewerbungen]
 
-    def test_a_named_bound_arrives_as_the_number(self):
-        with TestClient(_probe) as client:
-            assert client.get("/probe?limit=10").json()["limit"] == 10
+        assert answered.complete is False
+        assert ObjectId(BEWERBUNG_ID.format(flood[0])) not in served
+        assert served[LIST_LIMIT_DEFAULT:] == [ObjectId(BEWERBUNG_ID.format(index)) for index in (DECLINED, NEW_SCHOOL, ALSO_PICKED, PICKED)]
 
-    @pytest.mark.parametrize("value", ["", "null", "none", "0", "-1", str(LIST_LIMIT_MAX + 1), "999999"])
-    def test_no_query_string_reaches_a_larger_read(self, value: str):
-        """Empty, unparseable or past either bound is a 422 -- never a read the caller sized."""
+    def test_the_offer_marks_the_group_an_acceptance_would_be_refused_on(self, mongo_replica_set_url: str):
+        """The dialog's greyed entry and `entry_gruppe_full` read one bound, so a page offers nothing the write refuses."""
 
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?limit={value}").status_code == 422
+        offer = on_the_seed_loop(on_the_view_corpus(mongo_replica_set_url, view_list)).saison
 
-
-class TestTheQueueOffersOneOrderAlone:
-    """Why one order is all this endpoint offers sits at `app/api/bewerbungen/schemas.py :: FLBewerbungenSortOptions`."""
-
-    # 422 rather than 404: the value arrives in the query string, and the routing clause in
-    # `.claude/rules/backend.md` keeps 404 for a path id.
-    @pytest.mark.parametrize("value", ["saison_id", "status", "eingereicht_am_desc"])
-    def test_an_unoffered_sort_key_is_refused(self, value: str):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?sort_by={value}").status_code == 422
-
-    def test_the_offered_sort_key_is_served(self):
-        """Non-vacuity: a model refusing every value would pass the case above without offering anything."""
-
-        with TestClient(_probe) as client:
-            assert client.get("/probe?sort_by=eingereicht_am").status_code == 200
+        assert (offer.status, [(row.gruppe, row.free) for row in offer.gruppen]) == ("future", [("A", 0), ("B", 2)])
+        # The boxes the dialog disables, which `trikot_farbe_taken` would refuse: a row holding no colour takes none.
+        assert offer.taken == ["blau"]
 
 
-class TestWhatAStatusSelectionMayBeSpelledAs:
-    """A `list` field on a `Depends()` model publishes no query parameter and answers `None` whatever the query string holds.
+class TestEachSeatServesWhereItStands:
+    """The state the triage's page chips and offers a re-send on: a state served wrong there asks an administrator to chase an answered seat."""
 
-    Silently, which is why `FLBewerbungenFilters` names `Query()` and why these cases drive the
-    filling rather than the model.
-    """
+    LIVE = {"deadline": "2026-04-20", "declined_at": None}
 
-    @pytest.mark.parametrize(
-        ("query", "picked"),
-        [
-            ("status=eingereicht", ["eingereicht"]),
-            ("status=eingereicht&status=abgelehnt", ["eingereicht", "abgelehnt"]),
-            ("status=eingereicht,abgelehnt", ["eingereicht", "abgelehnt"]),
-            ("status=angenommen,abgelehnt&status=eingereicht", ["angenommen", "abgelehnt", "eingereicht"]),
-        ],
-    )
-    def test_repeating_the_parameter_and_joining_its_values_are_one_selection(self, query: str, picked: list[str]):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["status"] == picked
+    def read(self, *, status: str = "submitted", **confirmations: Any) -> dict[str, Any]:
+        row = {
+            "_id": "bewerbung",
+            "status": status,
+            "kontakte": {
+                "trainer": documents.kontaktperson_document("Anke", confirmed_at="2026-04-02"),
+                "ansprechperson": documents.kontaktperson_document("Berta"),
+                "stellvertretung": None,
+                "trainer_is_also": None,
+            },
+            "confirmations": {"trainer": self.LIVE, "ansprechperson": self.LIVE, "stellvertretung": None, **confirmations},
+        }
 
-    @pytest.mark.parametrize("query", ["", "status="])
-    def test_an_absent_or_emptied_parameter_narrows_on_nothing(self, query: str):
-        """`null` and never `[]`: the queue's off-switch is the empty parameter, and `$in: []` would answer it with nothing."""
+        return with_delivery(row, {}, today="2026-04-10")["confirmations"]
 
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["status"] is None
+    def test_a_stamp_a_decline_and_a_running_link_each_read_as_their_link_does(self):
+        served = self.read(stellvertretung={"deadline": "2026-04-20", "declined_at": "2026-04-05"})
 
-    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
-    @pytest.mark.parametrize("value", ["erfunden", "EINGEREICHT", "eingereicht,erfunden", "null", "0"])
-    def test_a_status_outside_the_set_is_refused(self, value: str):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?status={value}").status_code == 422
+        assert [served[seat]["state"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == ["confirmed", "valid", "declined"]
 
-    def test_the_parameter_is_published_as_a_query_parameter(self):
-        """What `Depends()` failed silently at: a body field publishes nothing here and is never filled from a URL."""
+    def test_a_link_past_its_day_is_spent(self):
+        assert self.read(ansprechperson={"deadline": "2026-04-09", "declined_at": None})["ansprechperson"]["state"] == "expired"
 
-        with TestClient(_probe) as client:
-            published = client.get("/openapi.json").json()["paths"]["/probe"]["get"]["parameters"]
+    def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
+        assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
 
-        assert "status" in [parameter["name"] for parameter in published]
+    def test_an_erased_seat_serves_no_entry(self):
+        assert self.read()["stellvertretung"] is None
+
+    def test_a_row_its_season_stripped_serves_as_it_stands(self):
+        """The strip nulls the block, and the review page still opens the application it leaves."""
+
+        stripped = {"_id": "bewerbung", "kontakte": None, "confirmations": None}
+
+        assert with_delivery(stripped, {}, today="2026-04-10") == stripped
+
+    def test_a_season_row_s_confirmed_seat_reads_confirmed_and_offers_its_link_no_press(self):
+        """Read off anything but the row's block, its link asks a person who answered to confirm again."""
+
+        row = {
+            "kontakte": {"trainer": documents.kontaktperson_document("Anke", confirmed_at="2026-04-02")},
+            "confirmations": {"trainer": self.LIVE},
+        }
+
+        assert saison_state_of(row=row, seat="trainer", today="2026-04-10", saison_status="active") == "confirmed"
 
 
-class TestWhatASeasonRelationMayBeSpelledAs:
-    """The relation rides the same splitter as the status, so both are filled from one query string the same way."""
+class TestEachSeatReadsItsLastMail:
+    """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
 
-    @pytest.mark.parametrize(
-        ("query", "picked"),
-        [
-            ("saisonbezug=diese_saison", ["diese_saison"]),
-            ("saisonbezug=diese_saison,andere_saison", ["diese_saison", "andere_saison"]),
-            ("saisonbezug=diese_saison&saisonbezug=andere_saison", ["diese_saison", "andere_saison"]),
-        ],
-    )
-    def test_repeating_the_parameter_and_joining_its_values_are_one_selection(self, query: str, picked: list[str]):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["saisonbezug"] == picked
+    def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
+        """Served wrong, the bounce chip goes, the administrator's one sign that nobody was reached."""
 
-    @pytest.mark.parametrize("query", ["", "saisonbezug="])
-    def test_an_absent_or_emptied_parameter_asks_for_no_relation(self, query: str):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["saisonbezug"] is None
+        sent = FLOutboxStatus(state="sent", delivery=None)
+        abandoned = FLOutboxStatus(state="abandoned", delivery=None)
+        row = {
+            "_id": "bewerbung",
+            "kontakte": {"trainer_is_also": "ansprechperson"},
+            "confirmations": {
+                "trainer": {"sent_at": "2026-04-01"},
+                "ansprechperson": {"sent_at": "2026-04-01"},
+                "stellvertretung": None,
+            },
+        }
 
-    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
-    @pytest.mark.parametrize("value", ["erfunden", "DIESE_SAISON", "diese_saison,erfunden", "2026"])
-    def test_a_relation_outside_the_set_is_refused(self, value: str):
-        with TestClient(_probe) as client:
-            assert client.get(f"/probe?saisonbezug={value}").status_code == 422
+        served = with_delivery(row, {("bewerbung", "ansprechperson"): sent, ("bewerbung", "trainer"): abandoned}, today="2026-03-01")
 
-    def test_the_parameter_is_published_as_a_query_parameter(self):
-        with TestClient(_probe) as client:
-            published = client.get("/openapi.json").json()["paths"]["/probe"]["get"]["parameters"]
-
-        assert "saisonbezug" in [parameter["name"] for parameter in published]
+        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == sent
+        assert served["confirmations"]["stellvertretung"] is None

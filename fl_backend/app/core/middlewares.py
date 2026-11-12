@@ -2,6 +2,7 @@ import re
 import secrets
 import time
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Final
 
 import pymongo
@@ -9,24 +10,64 @@ from fastapi import FastAPI
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.crud import WritesSent, writes_sent_var
-from app.core.logging import fl_logger, span_id_var, trace_id_var
+from app.core.config import API_VERSION
+from app.core.logging import fl_logger, trace_id_var
 
 # W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
 # as the frontend's mirror is, with `\A` and `\Z`: `$` admits a trailing newline onto a line.
 TRACEPARENT = re.compile(r"\A00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\Z")
 # Each is invalid by the standard, and a validator admitting one hands every request the same id.
 ZERO_TRACE_ID = "0" * 32
-ZERO_SPAN_ID = "0" * 16
+ZERO_PARENT_ID = "0" * 16
 
-# Under `fl_frontend/src/core/api.ts :: BASE_FETCH_TIMEOUT_MS` by what the page's clock counts and
-# this one cannot: the hop in, the queue before this runs, the answer's way back
-# (`docs/backend/spec.md :: I320`).
+# The two probes, whose answers would outnumber every other line: Docker's healthcheck asks the first
+# every 30 seconds, a monitor outside asks the second on a schedule of its own, and the edge logs
+# every request from outside. A failed answer is still logged: it marks when the probe began failing.
+PROBE_PATHS: Final = frozenset({f"/api/v{API_VERSION}/system/is_live", f"/api/v{API_VERSION}/system/is_ready"})
+
+# Under the frontend's fetch timeout by what the page's clock counts and this one cannot: the hop
+# in, the queue before this runs, the answer's way back.
 REQUEST_DEADLINE_S: Final = 10.0
 
-# Where the request's deadline falls, which pymongo holds and publishes no getter for: every abort
-# the request sends past it shares one grace after this instant (`docs/backend/spec.md :: I539`).
-request_deadline_var: ContextVar[float | None] = ContextVar("request_deadline", default=None)
+
+@dataclass
+class RequestDeadline:
+    """Where the request's deadline falls, which pymongo holds and publishes no getter for, and what its aborts spent past it.
+
+    The aborts' grace (`ABORT_GRACE_S`) is the time the request's aborts may
+    run past `at`, all of them together, charged after each abort: the first abort past the deadline
+    gets the whole grace, and each later one what the earlier ones left. Never time counted from `at`:
+    the request reaches an abort only when its next database operation meets the deadline, however
+    long after it, and every moment between would come out of the abort that frees the transaction's
+    documents. Never a grace apiece either: a loop of cut transactions would wait one out per
+    transaction.
+    """
+
+    at: float
+    aborting_s: float = 0.0
+
+
+# A mutable record set fresh per request, as `answer_var` is: an abort run in a copy of the context
+# still counts against the request's own grace.
+request_deadline_var: ContextVar[RequestDeadline | None] = ContextVar("request_deadline", default=None)
+
+
+@dataclass
+class _Answer:
+    error_code: str | None = None
+
+
+# A mutable record set fresh per request rather than a value set per call: a handler run in a copy
+# of the context still writes into the request's own.
+answer_var: ContextVar[_Answer | None] = ContextVar("answer", default=None)
+
+
+def record_error_code(code: str) -> None:
+    """The code of the failure body this request answers, which its access line carries; outside a request it records nothing."""
+
+    answer = answer_var.get()
+    if answer is not None:
+        answer.error_code = code
 
 
 def resolve_trace_id(header_value: str | None) -> str:
@@ -34,19 +75,15 @@ def resolve_trace_id(header_value: str | None) -> str:
     if header_value is not None:
         # `fullmatch` besides the pattern's own anchors, so neither alone is the guard.
         match = TRACEPARENT.fullmatch(header_value)
-        if match and match.group(1) != ZERO_TRACE_ID and match.group(2) != ZERO_SPAN_ID:
+        if match and match.group(1) != ZERO_TRACE_ID and match.group(2) != ZERO_PARENT_ID:
             return match.group(1)
     return secrets.token_hex(16)
-
-
-def mint_span_id() -> str:
-    return secrets.token_hex(8)
 
 
 # Pure ASGI, never Starlette's `BaseHTTPMiddleware`: that runs the app in an anyio task group, where a
 # request cancelled once is cancelled again at every await, its cleanup's included.
 class TraceContextMiddleware:
-    """Binds a trace id and this hop's own span id to every request context and writes the per-request access line."""
+    """Binds the trace id to every request context and writes the request's one access line."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -57,18 +94,11 @@ class TraceContextMiddleware:
             return
 
         request = Request(scope)
-        # The incoming span is read for validity and discarded: this hop's lines carry its OWN span,
-        # the trace id being what joins them to the edge's and the frontend's (L12).
-        trace_id = resolve_trace_id(request.headers.get("traceparent"))
-        span_id = mint_span_id()
-
-        trace_token = trace_id_var.set(trace_id)
-        span_token = span_id_var.set(span_id)
-        # Fresh per request, as the ids are: a record inherited from the context this runs in would
-        # answer another request's write as this one's.
-        writes_token = writes_sent_var.set(WritesSent())
+        trace_token = trace_id_var.set(resolve_trace_id(request.headers.get("traceparent")))
+        answer = _Answer()
+        answer_token = answer_var.set(answer)
         started = time.perf_counter()
-        deadline_token = request_deadline_var.set(time.monotonic() + REQUEST_DEADLINE_S)
+        deadline_token = request_deadline_var.set(RequestDeadline(time.monotonic() + REQUEST_DEADLINE_S))
 
         status: int | None = None
 
@@ -89,34 +119,37 @@ class TraceContextMiddleware:
         except Exception:
             # Reached by every crash, which Starlette answers and raises again for the server to log;
             # the access line carries the status the client was sent, 500 where none had started.
-            self._log_access(request, 500 if status is None else status, started, trace_id, span_id)
+            self._log_access(request, 500 if status is None else status, started, answer)
             raise
         else:
             # An app returning without a response is answered 500 by the server.
-            self._log_access(request, 500 if status is None else status, started, trace_id, span_id)
+            self._log_access(request, 500 if status is None else status, started, answer)
         finally:
-            # Reset, or the ids bleed onto the log lines of whichever request the loop runs next.
+            # Reset, or the id bleeds onto the log lines of whichever request the loop runs next.
             request_deadline_var.reset(deadline_token)
-            writes_sent_var.reset(writes_token)
-            span_id_var.reset(span_token)
+            answer_var.reset(answer_token)
             trace_id_var.reset(trace_token)
 
     @staticmethod
-    def _log_access(request: Request, status: int, started: float, trace_id: str, span_id: str) -> None:
+    def _log_access(request: Request, status: int, started: float, answer: _Answer) -> None:
+        if request.url.path in PROBE_PATHS and status < 400:
+            return
         # The query string is logged too: on this API it carries ids and filters, never personal
         # data, which travels in bodies and is never logged.
         path = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        # INFO for a refusal as for a success: a refused request is the API working, and only a
+        # 5xx adds a line of its own.
         fl_logger.info(
-            f"{request.method} {path} -> {status}",
+            "http.answered",
             extra={
-                # Explicit as well as filter-injected, so a handler without `TraceContextFilter`
-                # still sees both ids on this record.
-                "trace_id": trace_id,
-                "span_id": span_id,
+                # Explicit as well as filter-stamped, so a handler without `TraceContextFilter`
+                # still reads the request's id on this record.
+                "trace_id": trace_id_var.get(),
                 "method": request.method,
                 "path": path,
                 "status": status,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                **({"error_code": answer.error_code} if answer.error_code is not None else {}),
             },
         )
 
@@ -124,7 +157,7 @@ class TraceContextMiddleware:
 class TracedApp(FastAPI):
     """`add_middleware` places a layer inside `ServerErrorMiddleware`, which runs the catch-all handler once that layer returned.
 
-    The handler's line and body would then read ids already reset (`docs/logging/spec.md :: L4`).
+    The handler's line and body would then read ids already reset.
     """
 
     def build_middleware_stack(self) -> ASGIApp:

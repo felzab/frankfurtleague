@@ -1,0 +1,196 @@
+"use client";
+
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import Script from "next/script";
+
+import { useTheme } from "next-themes";
+
+import { COPY } from "@/core/copy";
+import { CONFIRM_HUMAN } from "@/core/turnstileToken";
+import { postClientError } from "@/shared/utils/clientError";
+
+import type { Copy } from "@/core/copy";
+import type { ReactNode } from "react";
+
+// Explicit rendering, Cloudflare's way for a page whose forms mount after it loads; fetched from this exact
+// URL, never proxied (https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
+const TURNSTILE_API = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+// Cloudflare's own bound on a siteverify call: a press waits for a token being minted as long as the
+// server would wait for its verdict, and is then answered rather than posting a token the server refuses.
+const TOKEN_WAIT_MS = 10_000;
+
+/**
+ * A press past `TOKEN_WAIT_MS` with no token minted, or on a check that did not load: nothing the visitor does repairs
+ * either, so neither says a reason, and the widget's failure is reported once.
+ */
+const UNCHECKED = COPY.shared.failure.unexpected;
+
+/** The calls of Cloudflare's script this hook makes, as its client-side rendering page documents them. */
+type TurnstileApi = {
+  render: (container: HTMLElement, options: Record<string, unknown>) => string | undefined;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+
+const turnstileApi = (): TurnstileApi | undefined => (window as Window & { turnstile?: TurnstileApi }).turnstile;
+
+/** Minting, holding a token, showing Cloudflare's click, or failed until Cloudflare's own retry mints one. */
+type CheckState = "loading" | "ready" | "interactive" | "failed";
+
+/** A press's token, or the sentence it is answered with instead: a press never posts an empty token. */
+type TokenRequest = { readonly token: string } | { readonly sentence: Copy };
+
+/**
+ * Cloudflare's widget sizes this form takes: `compact`, 150 pixels wide, since `normal` and `flexible` take 300 at least,
+ * wider than the sign-in card's content at a 375-pixel phone; `flexible` as wide as a form column holding it.
+ */
+type BotCheckSize = "compact" | "flexible";
+
+/**
+ * One form's bot check: `widget` stands before the submit, where Cloudflare's example places it, and each
+ * press awaits `takeToken`. With no `siteKey` the form asks no check: nothing is loaded and `widget` is empty.
+ */
+export function useBotCheck({ siteKey, size }: { siteKey: string | null; size: BotCheckSize }): {
+  widget: ReactNode;
+  takeToken: () => Promise<TokenRequest>;
+} {
+  const [state, setRenderedState] = useState<CheckState>("loading");
+  // Read by a press, which can run between a callback and the render it causes.
+  const stateNow = useRef<CheckState>("loading");
+  const setState = (next: CheckState): void => {
+    stateNow.current = next;
+    setRenderedState(next);
+  };
+
+  // State rather than a ref, so a container the form mounts anew is an effect's dependency.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  // Already there after a client navigation, whose `onReady` would only confirm it.
+  const [isScriptReady, setIsScriptReady] = useState(() => typeof window !== "undefined" && turnstileApi() !== undefined);
+  const widgetId = useRef<string | null>(null);
+  const token = useRef<string | null>(null);
+  /** The presses waiting on the next callback, handed its token or `null` where it brought none. */
+  const waiting = useRef(new Set<(minted: string | null) => void>());
+  const reported = useRef(false);
+
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
+
+  const settle = (minted: string | null): void => {
+    for (const waiter of [...waiting.current]) waiter(minted);
+  };
+
+  // Reported once per form: Cloudflare retries by itself, calling back again for the one fault.
+  const fail = (code: string): void => {
+    token.current = null;
+    setState("failed");
+    settle(null);
+    if (reported.current) return;
+    reported.current = true;
+    postClientError(`turnstile.widget_failed ${code}`);
+  };
+
+  const onToken = useEffectEvent((minted: string) => {
+    token.current = minted;
+    setState("ready");
+    settle(minted);
+  });
+  const onExpired = useEffectEvent(() => {
+    token.current = null;
+    setState("loading");
+  });
+  const onError = useEffectEvent((code: string) => fail(code));
+  const onInteractive = useEffectEvent(() => {
+    setState("interactive");
+    settle(null);
+  });
+  const onInteractiveDone = useEffectEvent(() => {
+    if (stateNow.current === "interactive") setState(token.current === null ? "loading" : "ready");
+  });
+
+  // One widget per container and theme, removed with them: a second render into a container is a second
+  // widget, minting and loading Cloudflare's frame of its own.
+  useEffect(() => {
+    const api = turnstileApi();
+    if (siteKey === null || container === null || !isScriptReady || api === undefined) return;
+
+    const id = api.render(container, {
+      sitekey: siteKey,
+      appearance: "interaction-only",
+      // A token lives 300 seconds, and the application form takes longer than that to fill in.
+      "refresh-expired": "auto",
+      // The token is handed over at the press, and no form here posts its own fields.
+      "response-field": false,
+      language: "de",
+      size,
+      // A widget takes its theme at render alone, so the site's toggle renders it anew.
+      theme,
+      callback: (minted: string) => onToken(minted),
+      "expired-callback": () => onExpired(),
+      // True tells Cloudflare the failure is handled; without the callback its script throws into the page.
+      "error-callback": (code: unknown) => {
+        onError(String(code));
+        return true;
+      },
+      "before-interactive-callback": () => onInteractive(),
+      "after-interactive-callback": () => onInteractiveDone(),
+    });
+    if (id === undefined) return;
+    widgetId.current = id;
+
+    return () => {
+      widgetId.current = null;
+      // Minting again with the token: a press before the new widget mints waits for it, never answers at once.
+      token.current = null;
+      setState("loading");
+      api.remove(id);
+    };
+  }, [container, isScriptReady, siteKey, size, theme]);
+
+  const takeToken = (): Promise<TokenRequest> => {
+    const handOver = (minted: string): TokenRequest => {
+      // A token is spent by the check it reaches, so the next press's starts being minted now.
+      token.current = null;
+      setState("loading");
+      if (widgetId.current !== null) turnstileApi()?.reset(widgetId.current);
+      return { token: minted };
+    };
+    const withoutToken = (): TokenRequest => {
+      return { sentence: stateNow.current === "interactive" ? CONFIRM_HUMAN : UNCHECKED };
+    };
+
+    if (token.current !== null) return Promise.resolve(handOver(token.current));
+    if (stateNow.current !== "loading") return Promise.resolve(withoutToken());
+
+    return new Promise((resolve) => {
+      const waiter = (minted: string | null): void => {
+        clearTimeout(timer);
+        waiting.current.delete(waiter);
+        resolve(minted === null ? withoutToken() : handOver(minted));
+      };
+      const timer = setTimeout(() => waiter(null), TOKEN_WAIT_MS);
+      waiting.current.add(waiter);
+    });
+  };
+
+  return {
+    widget: siteKey !== null && (
+      <>
+        <div
+          ref={setContainer}
+          // Spacing alone follows the callbacks: Cloudflare shows and hides the widget itself, so a missed
+          // callback costs a margin and never the challenge.
+          className={state === "interactive" ? "pb-4" : undefined}
+        />
+        {/* `onReady` rather than `onLoad`: it runs again on every mount, a client navigation back included. */}
+        <Script
+          src={TURNSTILE_API}
+          onReady={() => setIsScriptReady(true)}
+          // A blocked script calls no callback of Cloudflare's, so its failure is the page's to report.
+          onError={() => fail("script")}
+        />
+      </>
+    ),
+    takeToken,
+  };
+}

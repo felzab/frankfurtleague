@@ -1,291 +1,173 @@
 """
-CORE · the action log's write side
+The action log's write side.
 
-Every write in the application funnels through `app/core/crud.py`, so recording there is what makes
-the log complete by construction rather than by discipline -- a page listing some of the writes is a
-page nobody trusts. Nothing here reads the log; `app/api/aktionen/` serves it.
-
-This module deliberately stores the values a write REPLACED, which `docs/logging/spec.md` forbids the
-log stream: a restore replays what a write replaced, so the prior document is the point. That is what
-makes retention and redaction this module's problem rather than the stream's.
+One act, one row, written by the act's own route inside the act's own transaction: `record_act` is the one writer of
+the log, and nothing here reads it. A row names who acted and what they did, never a person's name or any address but
+an administrator's and a grantee's, so nothing touches a row after the fact but the change or the erasure of such an
+address.
 """
 
-from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Final, Literal
 
+from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.core import clock
 from app.core.collections import Collection
+from app.core.crud import post_one_to_db
 from app.core.logging import trace_id_var
 
-Operation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-
-# A redaction's reach: one collection, and the documents in it whose log rows are to be emptied.
-RedactionTarget = tuple[Collection, Sequence[Any]]
-
-# What a write not made through a request is attributed to -- a migration, a script, a fixture. The
-# spelling matches `app/core/logging.py :: NO_REQUEST_SENTINEL`, so one grep finds both.
-SYSTEM_ACTOR_EMAIL = "SYSTEM"
-
-# What a write made through a request by NOBODY is attributed to. Spelled like the sentinel above
-# because it is one: the public form authenticates no person, so no address is held.
-PUBLIC_ACTOR_EMAIL = "PUBLIC"
-
-# Stands where an erased person was a record's actor: fixed, never their keyed pseudonym, which
-# singles them out. No `@` and non-hex letters, so no address or pseudonym equals it; within
-# `AKTEUR_PSEUDONYM_SHOWN` characters, so a log row shows it whole.
+# Stands where an erased person's address stood in a record or a log row: fixed, so it singles nobody out. No `@`, so
+# no address equals it.
 ERASED_ACTOR_MARKER = "ERASED"
 
-
-@dataclass(frozen=True)
-class Actor:
-    """Who a write is attributed to: `kind` names the binder, the backend authenticating a tier and never a person.
-
-    `email` is an administrator's mailbox or a sentinel. A signed-in person is a `PersonActor`,
-    carrying no address.
-    """
-
-    kind: Literal["admin_session", "system", "public"]
-    email: str
-
-    def as_document(self) -> dict[str, str]:
-        return {"kind": self.kind, "email": self.email}
+# The folded address of the administrator this request acts for, set by `bind_actor`, which every admin router depends
+# on. `None` everywhere else, so a route binding no administrator cannot record as one.
+actor_var: ContextVar[str | None] = ContextVar("actor", default=None)
 
 
-# The kind of person a person's write was made as: a contact person, a pupil, a pending registrant
-# among them, or a referee, fixed by the route's binder. Not a panel's Funktion: an account-only person
-# holds none yet withdraws.
-AktorFunktion = Literal["kontakt", "spieler", "schiedsrichter"]
+# Every act the Protokoll holds, category.operation. Closed and published, so an act with no German word fails
+# `tsc`. A `retention.*` member names what its pass took, so that noun is a word of the catalogue too.
+type FLAction = Literal[
+    "saison.created",
+    "saison.changed",
+    "saison.activated",
+    "saison.gruppen_swapped",
+    "saison.spielplan_created",
+    "saison.spielplan_recreated",
+    "saison.spielplan_deleted",
+    "saison.invitations_dispatched",
+    "spieltag.changed",
+    "spiel.changed",
+    "spiel.ergebnis_changed",
+    "spielbestaetigung.entered",
+    "spielbestaetigung.vorschlag_discarded",
+    "spielbestaetigung.vorschlag_adopted",
+    "spielbestaetigung.answered",
+    "spielbericht.saved",
+    "aufstellung.saved",
+    "team.entered",
+    "team.changed",
+    "team.retired",
+    "team.reactivated",
+    "team.austritt_entered",
+    "team.seat_changed",
+    "team.replaced",
+    "team.invitation_created",
+    "team.invitation_withdrawn",
+    "bewerbung.accepted",
+    "bewerbung.declined",
+    "bewerbung.seat_changed",
+    "registrierung.admitted",
+    "registrierung.declined",
+    "spieler.changed",
+    "spieler.deregistered",
+    "spieler.reactivated",
+    "schiedsrichter.created",
+    "schiedsrichter.changed",
+    "schiedsrichter.retired",
+    "schiedsrichter.reactivated",
+    "spielort.created",
+    "spielort.changed",
+    "spielort.retired",
+    "spielort.reactivated",
+    "grant.added",
+    "grant.removed",
+    "grant.addition_withdrawn",
+    "grant.handover_started",
+    "grant.handover_withdrawn",
+    "grant.handover_completed",
+    "grant.address_change_started",
+    "grant.address_switched",
+    "ban.added",
+    "ban.removed",
+    "address_change.started",
+    "address_change.discarded",
+    "erasure.on_request",
+    "erasure.own",
+    "retention.bewerbungen",
+    "retention.kontakte",
+    "retention.spielbestaetigungen",
+    "retention.spielberichte",
+    "retention.registrierungen",
+    "retention.schiedsrichter",
+    "retention.spieler",
+    "retention.address_changes",
+    "retention.bans",
+]
+
+# The `category` of `FLAction`, the Protokoll's type filter.
+type FLActionType = Literal[
+    "saison",
+    "spieltag",
+    "spiel",
+    "spielbestaetigung",
+    "spielbericht",
+    "aufstellung",
+    "team",
+    "bewerbung",
+    "registrierung",
+    "spieler",
+    "schiedsrichter",
+    "spielort",
+    "grant",
+    "ban",
+    "address_change",
+    "erasure",
+    "retention",
+]
+
+# Who a row names where no administrator acted, none of them anybody's name or address.
+ACT_BY_KONTAKT: Final = "kontakt"
+ACT_BY_SCHIEDSRICHTER: Final = "schiedsrichter"
+ACT_BY_SYSTEM: Final = "system"
+ACT_BY_PERSON: Final = "person"
 
 
-@dataclass(frozen=True)
-class PersonActor:
-    """A signed-in person, recorded under a pseudonym and the kind they wrote as.
-
-    Never an address, not even in a field of another name: the log outlives the person's erasure in
-    every row they wrote (`app/core/security.py :: akteur_pseudonym`).
-    """
-
-    pseudonym: str
-    funktion: AktorFunktion
-    kind: Literal["person_session"] = "person_session"
-
-    def as_document(self) -> dict[str, str]:
-        return {"kind": self.kind, "pseudonym": self.pseudonym, "funktion": self.funktion}
-
-
-SYSTEM_ACTOR = Actor(kind="system", email=SYSTEM_ACTOR_EMAIL)
-
-# Its own kind rather than `system`, which means a write made outside a request altogether: a public
-# submission IS a request, made by a visitor the backend authenticates as nobody. Bound by
-# `app/core/security.py :: bind_public_actor`.
-PUBLIC_ACTOR = Actor(kind="public", email=PUBLIC_ACTOR_EMAIL)
-
-# Set by `app/core/security.py :: bind_actor`, which every admin router depends on. The default is
-# the system actor rather than `None`, so a write outside a request records honestly instead of
-# needing a branch at each recording site.
-actor_var: ContextVar[Actor | PersonActor] = ContextVar("actor", default=SYSTEM_ACTOR)
-
-# Set by the same dependency. The route's METHOD and PATH are what let the page say "a team was
-# renamed" rather than "an update ran on `teams`", which the collection alone cannot distinguish.
-request_var: ContextVar[tuple[str, str] | None] = ContextVar("request", default=None)
-
-# The request an administrator's erasure answers, set around that erasure's whole transaction alone and
-# reset after it: a value left standing lands on the next request's rows (`docs/backend/spec.md :: I683`).
-anlass_var: ContextVar[str | None] = ContextVar("anlass", default=None)
-
-
-def log_stamp(moment: datetime) -> str:
-    """A log row's instant, spelled the one way both its string stamps are.
-
-    UTC with an offset, never German local time: `at` orders and ranges the page, and a local-time
-    string carrying no offset sorts October's two identical clock hours the wrong way.
-    """
-
-    return moment.astimezone(UTC).isoformat(timespec="seconds")
-
-
-async def record_write(
+async def record_act(
     *,
     collection: AsyncCollection,
-    operation: Operation,
-    document_id: Any = None,
-    db_filter: Mapping[str, Any] | None = None,
-    before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None = None,
-    modified_count: int | None = None,
-    session: AsyncClientSession | None = None,
+    action: FLAction,
+    # An administrator's route leaves this out and is recorded under the address its request bound. Every other caller
+    # states it, one of the four above or, on a holder's own change, the holder's folded address: a route binding no
+    # administrator and naming nobody here raises inside its transaction rather than recording the wrong who.
+    by: str | None = None,
+    # The team's name at the act, beside `by=ACT_BY_KONTAKT`, so a search needs no join.
+    team: str | None = None,
+    record_id: ObjectId | None = None,
+    # League data. A grant act's holds the grantee's folded address, an erasure's its typed reference.
+    label: str | None = None,
+    # How many records a page of a pass took, or the other records an act took with its own.
+    count: int | None = None,
+    # Required: the act's own transaction, so a failed act leaves no row and a retried one leaves one.
+    session: AsyncClientSession,
 ) -> None:
-    """Append one row describing a write that has just happened.
+    """Append the one row of an act, inside its transaction."""
 
-    Not wrapped in a try: a write nobody could record is what this feature exists to prevent, and
-    inside a transaction the failure aborts it.
-    """
-
-    if collection.name == Collection.AKTIONEN:
-        # The log recording its own rows would recurse without end, and a redaction is itself a
-        # write. What a redaction did is recoverable from the erasure row that caused it.
-        return
-
-    row = _row(
-        collection=str(collection.name),
-        operation=operation,
-        document_id=document_id,
-        db_filter=_stringify_filter(db_filter) if db_filter is not None else None,
-        before=_stored_image(before),
-        modified_count=modified_count,
+    # The target's own database handle, not an injected one, so an act needs no dependency of its own.
+    await post_one_to_db(
+        collection=collection.database[Collection.ACTION_LOG],
+        document={
+            # A BSON date, the key a TTL index expires on.
+            "at": clock.now(),
+            "by": by if by is not None else _bound_administrator(),
+            "team": team,
+            "action": action,
+            "record_id": record_id,
+            "label": label,
+            "count": count,
+            # The one join to the edge line when an account is misused: stored, never served.
+            "trace_id": trace_id_var.get(),
+        },
+        session=session,
     )
 
-    # The target's own database handle, not an injected one: that is what keeps this module off
-    # `app/core/db.py`'s import path and out of a cycle.
-    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
 
+def _bound_administrator() -> str:
+    address = actor_var.get()
+    if address is None:
+        raise LookupError("an act on a route binding no administrator states who acted")
 
-# An act the log records, writing none of the logged collections: ending an address's sessions writes the
-# sign-in store, out of this backend's reach; replaying an erasure's pseudonym writes the log and the day
-# counts, which it never records.
-LoggedAct = Literal["anmeldungen", "pseudonyme"]
-
-
-def act_row(act: LoggedAct, *, operation: Operation) -> dict[str, Any]:
-    """A logged act's row, built as a recorded write's is, naming no document, filter, image or count.
-
-    Inserted by the caller through `app/core/crud.py :: post_one_to_db`, which marks the write sent and
-    records nothing for the log's own collection.
-    """
-
-    return _row(collection=act, operation=operation, document_id=None, db_filter=None, before=None, modified_count=None)
-
-
-def _row(
-    *,
-    collection: str,
-    operation: Operation,
-    document_id: Any,
-    db_filter: dict[str, str] | None,
-    before: dict[str, Any] | list[dict[str, Any]] | None,
-    modified_count: int | None,
-) -> dict[str, Any]:
-    actor = actor_var.get()
-    request = request_var.get()
-
-    # One instant for both stamps: read twice, a row's two clocks straddle a second boundary.
-    moment = datetime.now(UTC)
-
-    return {
-        "at": log_stamp(moment),
-        # A BSON date because a TTL index expires on one alone, skipping a string in silence, which
-        # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
-        "at_date": moment,
-        "actor": actor.as_document(),
-        # The request's trace id and never this hop's span: a fan-out's rows and the write that
-        # caused them are one action on the page instead of forty only because they share it.
-        "trace_id": trace_id_var.get(),
-        "request": {"method": request[0], "path": request[1]} if request is not None else None,
-        "collection": collection,
-        "operation": operation,
-        "document_id": document_id,
-        "db_filter": db_filter,
-        "before": before,
-        "modified_count": modified_count,
-        # Set when a write destroying a person's values overwrites theirs here. Null means the image
-        # still holds what it recorded (`docs/backend/spec.md :: I42`, `:: I671`).
-        "redacted_at": None,
-        "anlass": anlass_var.get(),
-    }
-
-
-def _stored_image(before: Mapping[str, Any] | Sequence[Mapping[str, Any]] | None) -> dict[str, Any] | list[dict[str, Any]] | None:
-    """One document for a patch, an array for a removal that took a set.
-
-    A removal follows no write a restore could replay, so the images ARE the record, and one array
-    keeps one action in one row as `insert_many` does.
-    """
-
-    if before is None:
-        return None
-
-    if isinstance(before, Mapping):
-        return dict(before)
-
-    return [dict(document) for document in before]
-
-
-def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
-    """A filter's values rendered as text.
-
-    Stored for the reader rather than for replay: a filter can hold an ObjectId, a regex or a nested
-    operator, and a validator admitting all of those admits anything at all.
-    """
-
-    return {key: str(value) for key, value in db_filter.items()}
-
-
-def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, Any]:
-    """Every log row naming one of the documents handed in.
-
-    NOT narrowed to rows holding an image: a whole-image redaction stamps every row naming the
-    document, so "was this reached" is one query; a per-image one stamps those it changed.
-    """
-
-    # Equality on `collection` and a match on `document_id` in each branch, the shape
-    # `aktionen_target` serves (`app/core/constraints.py :: SUPPORT_INDEXES`). An `$in` of no ids
-    # matches nothing rather than everything.
-
-    # A `delete_many` row's `document_id` is an ARRAY, and `$in` matches it on its members, so the
-    # one row holding a whole set of images sits inside the same `(collection, document_id)`
-    # selection as a row naming one.
-    return {"$or": [{"collection": str(collection), "document_id": {"$in": list(document_ids)}} for collection, document_ids in targets]}
-
-
-def build_redaction_update(*, at: str) -> Mapping[str, Any]:
-    """Overwrite the IMAGE a row recorded and stamp it, in one `$set` (`docs/backend/spec.md :: I671`).
-
-    `document_id` stays: it names what the row was about, and dropping it would leave a row
-    nothing can attribute to the write that redacted it.
-    """
-
-    return {"$set": {"before": None, "redacted_at": at}}
-
-
-# One image's verdict: each path inside it, relative to the image, and what overwrites it there.
-ImageEdits = Mapping[str, Any]
-
-
-def row_images(row: Mapping[str, Any]) -> list[tuple[str, Any]]:
-    """Each image one log row holds, with the path addressing it.
-
-    By index where `before` is an array, a `delete_many` row's: a dotted path naming no index is
-    refused inside one.
-    """
-
-    before = row.get("before")
-
-    return [(f"before.{index}", image) for index, image in enumerate(before)] if isinstance(before, list) else [("before", before)]
-
-
-def build_image_redactions(
-    rows: Sequence[Mapping[str, Any]], *, judge: Callable[[Mapping[str, Any]], ImageEdits], at: str
-) -> list[tuple[list[Any], Mapping[str, Any]]]:
-    """Overwrite only what `judge` finds of the departing person in each image, one update per overwrite (`docs/backend/spec.md :: I42`).
-
-    Never the whole image where others share the document: their earlier states are their consent trail.
-    """
-
-    grouped: dict[frozenset[tuple[str, Any]], list[Any]] = {}
-    for row in rows:
-        edits = frozenset(
-            (f"{prefix}.{path}", value)
-            for prefix, image in row_images(row)
-            if isinstance(image, Mapping)
-            for path, value in judge(image).items()
-        )
-        # Unstamped where no image names them: this redaction stamps the rows it took a value from, where
-        # `build_redaction_update` stamps every row naming a document, an insert's included.
-        if edits:
-            grouped.setdefault(edits, []).append(row["_id"])
-
-    return [(ids, {"$set": {**dict(edits), "redacted_at": at}}) for edits, ids in grouped.items()]
+    return address

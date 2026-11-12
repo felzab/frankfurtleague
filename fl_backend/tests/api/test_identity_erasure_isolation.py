@@ -1,0 +1,245 @@
+"""
+API · a write keeping a person's seat while that person's erasure runs, against the shipped indexes and the whole database
+
+Each case runs one write to its commit inside the erasure, after the erasure's first read, and asks the whole
+database what holds the address once the erasure has answered.
+"""
+
+from collections.abc import Awaitable, Callable
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+from bson import ObjectId
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.api.bewerbungen.services import compose_decline_update
+from app.core.collections import Collection
+from app.shared.folding import sign_in_identifier
+from app.shared.tokens import hash_token
+from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import (
+    bewerbung_document,
+    kontakte_document,
+    kontaktperson_document,
+    new_schule_document,
+    saison_document,
+    saison_team_document,
+    schiedsrichter_document,
+    spieler_document,
+    team_document,
+)
+from tests.erasure import erased
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.outbox import MAIL_NOW
+from tests.team_writes import save_the_team, write_the_block
+from tests.whole_database import where_folded_to
+from tests.worker import worker_database
+
+pytestmark = pytest.mark.db
+
+DATABASE_NAME = worker_database("fl_erasure_isolation_test")
+
+NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+TODAY = "2026-04-01"
+SAISON_ID = "2026"
+
+# Typed as a visitor types it, and the fold every record stores: the fold, never the spelling, says whose a record is.
+TYPED = "Zorbanax.Quillfeather@Example.org"
+IDENTIFIER = sign_in_identifier(TYPED)
+
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607e10001")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f607e10002")
+INVITATION_TOKEN = "invitation-erasure-isolation"
+BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
+PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
+PUPIL_EMAIL = "wraxlington@example.com"
+REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
+STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
+
+OPEN_WINDOW = {"open": True, "start": "2026-03-01", "end": "2026-04-30"}
+# The registration window's own shape: it stores its start as `by`.
+OPEN_REGISTRATION_WINDOW = {"open": True, "end": "2026-04-30"}
+
+REFEREE_NAME = "Bernd Kraus"
+PHONE = "+49 69 5550202"
+
+Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+
+
+class GrantsReadThenRival(InterleavedCollection):
+    """The grants, running the rival to its commit after the erasure's first read: its snapshot is open, and it has written nothing."""
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
+        return cursor
+
+
+async def a_league(database: AsyncDatabase) -> None:
+    """A season open to both windows, a club entered seatless with its live link, two applications, a pupil and an unconfirmed referee.
+
+    Nothing here holds the erased address: what the case's writer commits is all of it.
+    """
+
+    await database[Collection.SAISONS].insert_one(
+        saison_document(SAISON_ID, "active", registrierung=dict(OPEN_REGISTRATION_WINDOW), bewerbung=dict(OPEN_WINDOW))
+    )
+    await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Lindenschule", "LSX"))
+    await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_OID, "Lindenschule", "LSX", kontakte=None))
+    await database[Collection.INVITATIONS].insert_one(
+        {
+            "_id": INVITATION_OID,
+            "saison_id": SAISON_ID,
+            "team_id": TEAM_OID,
+            "token_hashes": [hash_token(INVITATION_TOKEN)],
+            "revoked_at": None,
+            "sent_at": None,
+        }
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            BEWERBUNG_OID,
+            SAISON_ID,
+            "submitted",
+            kontakte=kontakte_document(
+                ansprechperson=kontaktperson_document("Quillhilde"),
+                stellvertretung=kontaktperson_document("Bramblewick"),
+                trainer=kontaktperson_document("Wigglesworth"),
+            ),
+            submitted_at="2026-03-10",
+            confirmation_deadline="2026-04-10",
+            schule=new_schule_document("Neue"),
+        )
+    )
+    await database[Collection.BEWERBUNGEN].insert_one(
+        bewerbung_document(
+            STEPPED_OUT_OID,
+            SAISON_ID,
+            "submitted",
+            kontakte=kontakte_document(
+                ansprechperson=kontaktperson_document("Quintessa"),
+                stellvertretung=kontaktperson_document("Brunhilde"),
+                trainer=kontaktperson_document("Ottokar"),
+            ),
+            submitted_at="2026-03-10",
+            confirmation_deadline="2026-04-10",
+            schule=new_schule_document("Ander"),
+        )
+    )
+    # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
+    await database[Collection.BEWERBUNGEN].update_one(
+        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20", announced=False)
+    )
+    await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
+    await database[Collection.SCHIEDSRICHTER].insert_one(
+        schiedsrichter_document(REFEREE_OID, email="kraus.bernd@example.com", name=REFEREE_NAME, default_payment=25, einwilligung=None)
+    )
+
+
+def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]) -> Any:
+    async def _run() -> Any:
+        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            await a_league(database)
+
+            return await body(database, client)
+
+    return on_the_seed_loop(_run())
+
+
+# The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
+SEATED = {
+    "first_name": "Zorbanax",
+    "last_name": "Quillfeather",
+    "email": TYPED,
+    "phone": PHONE,
+    "einwilligung": {"scope": "kontakt_data", "date": "2026-03-01"},
+}
+BESIDE = {**SEATED, "first_name": "Ottilie", "last_name": "Andere", "email": "ottilie.andere@example.com", "phone": "+49 69 5550404"}
+
+
+async def club_row(database: AsyncDatabase) -> dict[str, Any]:
+    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": SAISON_ID})
+    assert found is not None, "the seeded row is gone"
+    return found
+
+
+async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Any, version: int) -> Any:
+    return await write_the_block(database, kontakte, team_id=TEAM_OID, saison_id=SAISON_ID, version=version, today=TODAY, germany_now=MAIL_NOW)
+
+
+async def junction_patched(database: AsyncDatabase, client: AsyncMongoClient, values: dict[str, Any]) -> Any:
+    return await save_the_team(database, team_id=TEAM_OID, saison_id=SAISON_ID, **values)
+
+
+def junction_values(row: dict[str, Any], **changed: Any) -> dict[str, Any]:
+    return {"gruppe": row["gruppe"], "trikot_farbe": row.get("trikot_farbe"), **changed}
+
+
+async def the_block_it_was_served(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
+    version = (await club_row(database))["version"]
+
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED), version)
+
+
+async def another_seat_filled(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
+    version = (await club_row(database))["version"]
+
+    return lambda database, client: contacts_saved(database, client, kontakte_document(trainer=SEATED, ansprechperson=BESIDE), version)
+
+
+async def the_row_as_it_stands(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
+    # Sent once ahead, so the row already holds what the same save writes.
+    await junction_patched(database, client, junction_values(await club_row(database)))
+    values = junction_values(await club_row(database))
+
+    return lambda database, client: junction_patched(database, client, values)
+
+
+async def another_kit_colour(database: AsyncDatabase, client: AsyncMongoClient) -> Rival:
+    values = junction_values(await club_row(database), trikot_farbe="gruen")
+
+    return lambda database, client: junction_patched(database, client, values)
+
+
+# Each write an administrator can make to the club's row keeping the erased person's seat.
+KEEPING_WRITES: dict[str, Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Rival]]] = {
+    "a contacts save sending the block it was served": the_block_it_was_served,
+    "a contacts save filling another seat": another_seat_filled,
+    "a team save sending the row as it stands": the_row_as_it_stands,
+    "a team save changing the kit colour": another_kit_colour,
+}
+
+
+class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
+    """The row is what the erasure writes, so a write changing it meets the erasure there and one of the two runs again.
+
+    A write leaving the row unchanged writes nothing the erasure writes.
+    """
+
+    @pytest.mark.parametrize("write", list(KEEPING_WRITES))
+    def test_nothing_holds_the_address(self, mongo_replica_set_url: str, write: str):
+        prepare = KEEPING_WRITES[write]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Saved twice, the first minting the person's link, so the stored block is what a later send of it composes.
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), 0)
+            await contacts_saved(database, client, kontakte_document(trainer=SEATED), (await club_row(database))["version"])
+            keeping = await prepare(database, client)
+            written: list[str] = []
+
+            async def keep_the_seat() -> None:
+                written.append(await outcome_of(keeping(database, client)))
+
+            grants = GrantsReadThenRival(database[Collection.GRANTS], keep_the_seat)
+            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, grants_collection=grants))
+
+            return outcome, written, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
+
+        outcome, written, trainer, held = on_a_league(mongo_replica_set_url, body)
+
+        assert (outcome, written) == (COMMITTED, [COMMITTED]), "the write or the erasure never committed, so this case proves nothing"
+        assert trainer is None, "the erased person's seat stands"
+        assert held == [], f"{held} still hold the address the erasure answered for"

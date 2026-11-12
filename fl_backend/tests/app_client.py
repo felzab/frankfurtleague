@@ -7,21 +7,23 @@ loop the client binds to. No lifespan: it would open a client of its own and app
 Invariants:
 - An app a caller hands in leaves as it came: no `db_client`, and the overrides it held, so the
   next case serving through it meets none of this one's.
+- No administrator stays bound while it serves: a request is bound by `bind_actor` or by nothing,
+  as in production, so a route that forgets its `by` fails here rather than recording the suite's.
 """
 
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
-from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
+from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
 from app.core.dependencies import get_germany_now
+from app.core.recording import actor_var
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
-from tests.grants import admit
 
 
 @asynccontextmanager
@@ -30,9 +32,8 @@ async def app_client(
     *,
     config: BackendConfig | None = None,
     now: datetime | None = None,
-    admitting: Iterable[str] | None = None,
     app: FastAPI | None = None,
-) -> AsyncIterator[AsyncClient]:
+) -> AsyncGenerator[AsyncClient]:
     """No `serverSelectionTimeoutMS`: inside a request the app's own deadline replaces it.
 
     So a server that never answers is bounded by that deadline, or by a shorter `pymongo.timeout` the caller holds around the request.
@@ -55,9 +56,7 @@ async def app_client(
     # came: an override applied ahead of a client that failed to build would otherwise meet the next case.
     async with AsyncExitStack() as undo:
         undo.callback(restore_the_overrides)
-        # For a case whose server never answers: the actor check is answered from these addresses instead.
-        if admitting is not None:
-            admit(served, admitting)
+        undo.callback(actor_var.reset, actor_var.set(None))
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
         client = AsyncMongoClient(url)

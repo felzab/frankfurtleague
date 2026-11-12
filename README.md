@@ -11,7 +11,7 @@ League, _die Oberstufenliga der Frankfurter Schulen_.
 [![License: Elastic-2.0](https://img.shields.io/badge/license-Elastic--2.0-blue)](LICENSE)
 
 [Website](https://frankfurtleague.de) · [About](https://frankfurtleague.de/about) ·
-[Organisation](https://frankfurtleague.de/organisation) · [Contact](https://frankfurtleague.de/kontakt)
+[Contact](https://frankfurtleague.de/contact)
 
 </div>
 
@@ -29,21 +29,19 @@ with. The site is in German; the code and its documentation are in English.
 ## What it does
 
 Anyone can follow the season: the fixtures and results (_Spielplan_), each group's table
-(_Saisontabelle_), computed from the results, the knockout bracket (_Finalrunden_), every team and
+(_Tabelle_), computed from the results, the knockout bracket (_K.-o.-Runde_), every team and
 its squad, and a search over the season's matches (_Spielsuche_).
 
 The site also supports the season's organisation:
 
-| Who                    | What the site lets them do                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| **Schools**            | Apply to play a season (_Bewerbung_), each contact person confirming by email               |
-| **Contact people**     | Keep their team's squad list (_Kader_), and accept or decline the pupils who registered     |
-| **Pupils**             | Register through their team's link (_Einladung_), and choose what is published about them   |
-| **Referees**           | Confirm the details the league entered for them                                             |
-| **Everyone signed in** | Manage passkeys, sign-ins and consents on one account page (_Konto_), or delete the account |
-| **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access      |
-
-Sign-ups open with the coming season.
+| Who                    | What the site lets them do                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Schools**            | Apply to play a season (_Bewerbung_), each contact person confirming by email                                   |
+| **Contact people**     | Keep their team's squad list (_Kader_), and accept or decline the pupils who registered                         |
+| **Pupils**             | Register through their team's link (_Einladung_), and choose what is published about them                       |
+| **Referees**           | Confirm the details the league entered for them                                                                 |
+| **Everyone signed in** | Manage their address, passkeys, sign-ins and consents on their account's pages (_Konto_), or delete the account |
+| **Administrators**     | Run the season, its draw and results, clubs, referees, venues, applications and access                          |
 
 A pupil's name appears on the public squad list only with their consent, and the surname only as an
 initial. Unconfirmed applications and registrations expire, and a pupil's data is deleted once no
@@ -54,7 +52,7 @@ the code behind it.
 
 | Layer        | What                                                                                           |
 | ------------ | ---------------------------------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React Server Components), TypeScript, HeroUI, Tailwind CSS, Zod           |
+| **Frontend** | Next.js (App Router, React Server Components), TypeScript, React Aria, Tailwind CSS, Zod       |
 | **Backend**  | FastAPI, Pydantic, PyMongo's async client                                                      |
 | **Data**     | MongoDB: the league's database behind FastAPI, and a separate sign-in database                 |
 | **Sign-in**  | Better Auth, with passkeys or emailed codes; administrators need a passkey                     |
@@ -75,10 +73,9 @@ pull request and every push to `main`;
 
 Start with [`docs/README.md`](docs/README.md). The domain vocabulary is German (`Spiel`, `Spieltag`,
 `Saison`, `Kader`), and [the glossary](docs/glossary.md) explains each term. Some choices that look
-like mistakes are deliberate: each is listed in section 7 of [`.claude/CLAUDE.md`](.claude/CLAUDE.md)
-or under [`.claude/rules/`](.claude/rules/), the instructions my coding agents work under.
+like mistakes are deliberate: each is listed in [`docs/decisions.md`](docs/decisions.md).
 
-```
+```text
 fl_frontend/     Next.js app: routes under src/app/, feature slices under src/features/
 fl_backend/      FastAPI app: one package per slice under app/api/
 nginx/           reverse proxy configuration, local and production
@@ -101,12 +98,12 @@ work and merge every change.
 Found a bug, or have an idea for the site? I'd be glad to hear about it through the
 [issue forms](https://github.com/felzab/frankfurtleague/issues/new/choose). I work on this alongside
 other things, so a reply can take a few days. I'm not looking for pull requests for now. Questions
-about the league itself are best sent through [the contact page](https://frankfurtleague.de/kontakt).
+about the league itself are best sent through [the contact page](https://frankfurtleague.de/contact).
 
 ## Security
 
-Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) explains
-how to report it privately and what is in scope.
+Please don't report a suspected vulnerability in a public issue. [`SECURITY.md`](SECURITY.md) names
+the address to report it to and what to include.
 
 ## License
 
@@ -116,4 +113,4 @@ to others as a hosted or managed service. [`LICENSE`](LICENSE) has the full term
 
 The league's name and logo belong to Frankfurt League e. V. and, like the league's data, are not
 licensed at all ([`NOTICE`](NOTICE) lists them). To ask about using any of it, get in touch through
-[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt).
+[frankfurtleague.de/contact](https://frankfurtleague.de/contact).

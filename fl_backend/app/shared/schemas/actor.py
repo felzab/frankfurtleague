@@ -1,0 +1,9 @@
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class FLByAdmin(BaseModel):
+    """An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it."""
+
+    kind: Literal["admin"]

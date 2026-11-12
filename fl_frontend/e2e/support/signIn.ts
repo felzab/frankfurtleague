@@ -1,0 +1,114 @@
+/**
+ * E2E · signing in as a person does: the address, the code from the stack's mail sink, and a passkey
+ * held by Playwright's virtual authenticator (https://playwright.dev/docs/api/class-credentials),
+ * which answers the page's own WebAuthn calls with the user-verified flag and a discoverable
+ * credential, as the site's settings require. Nothing in the application knows a journey is running.
+ */
+import { expect } from "@playwright/test";
+
+import { typeInto } from "./controls";
+import { filedMessages, mailedCode } from "./mailSink";
+
+import type { BrowserContext, Locator, Page } from "@playwright/test";
+
+/** The step a send that mailed a code, or would have, shows in the address step's place, by its heading. */
+const codeStep = (page: Page): Locator => page.getByRole("main").getByRole("heading", { name: "Prüfe dein Postfach" });
+
+/** Asks for a code on `/signin`, as far as the step a send that mailed one shows. */
+export async function askForCode(page: Page, address: string): Promise<void> {
+  await page.goto("/signin");
+  await sendFromHere(page, address);
+  await expect(codeStep(page)).toBeVisible();
+}
+
+/** Signs in with the code the stack mails `address`, on the sign-in page the browser stands on, its return address kept. */
+export async function signInWithCodeHere(page: Page, address: string): Promise<void> {
+  const before = await filedMessages();
+  await sendFromHere(page, address);
+  await expect(codeStep(page)).toBeVisible();
+  const code = await mailedCode(address, before);
+  // Typed into the code's one input, a digit at a time as a person's typing is; the sixth sends the code by itself.
+  await page.getByRole("textbox", { name: "Code aus der E-Mail" }).pressSequentially(code);
+}
+
+/** Presses „Code senden“ for `address` on the sign-in page the browser stands on. */
+async function sendFromHere(page: Page, address: string): Promise<void> {
+  await typeInto(page.getByLabel("E-Mail-Adresse"), address);
+  await page.getByRole("button", { name: "Code senden" }).click();
+}
+
+/** Signs in on `/signin` with the code the stack mails `address`. */
+export async function signInWithCode(page: Page, address: string): Promise<void> {
+  await page.goto("/signin");
+  await signInWithCodeHere(page, address);
+}
+
+/**
+ * Where a person `scripts/ops/seed/seed.js :: journeyPerson` built lands once signed in: a confirmed referee no fixture
+ * books, so their one place is the referee's (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose
+ * address stays put for a referee in no season.
+ */
+export const PERSON_LANDING = "/area/schiedsrichter";
+
+/**
+ * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place
+ * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` sends the browser on in-stream to the
+ * Übersicht of the season it works in, the seed's running one (`fl_frontend/src/app/admin/(list)/page.tsx`).
+ */
+export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
+
+/**
+ * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the
+ * landing's rule sends this person to, or a pattern of it where the pathname holds a record's id the seed mints anew on
+ * every run, as a team's Übersicht does. The press's navigation may pass through `/area` on its way there, and an
+ * address asked for before it arrives aborts one of the two, so a journey goes on from here alone.
+ */
+export async function declinePasskeyOffer(page: Page, landing: string | RegExp): Promise<void> {
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+  await page.getByRole("button", { name: "Später" }).click();
+  await expect(page).toHaveURL((url) => (typeof landing === "string" ? url.pathname === landing : landing.test(url.pathname)));
+}
+
+/**
+ * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
+ * it, as `fl_frontend/src/proxy.ts` matches it.
+ */
+export async function sessionCookies(context: BrowserContext, site: string | undefined): Promise<string[]> {
+  return (await context.cookies(String(site))).map((cookie) => cookie.name).filter((name) => name.endsWith(".session_token"));
+}
+
+/** Konto's Anmeldung renders for a session alone: without one it sends the visitor to `/signin`. */
+export async function expectAccountPageOf(page: Page, address: string): Promise<void> {
+  await page.goto("/account/signin");
+
+  await expect(page).toHaveURL((url) => url.pathname === "/account/signin");
+  // The page's own E-Mail-Adresse box, in `main`: the rail's account row outside it names the address too.
+  await expect(page.getByRole("main").getByText(address, { exact: true })).toBeVisible();
+}
+
+/** The relying party the local `AUTH_URL` names. */
+const RELYING_PARTY = "localhost";
+
+/**
+ * The assertions the browser's authenticator has signed for the site: its signature counter rises by one on each
+ * (https://playwright.dev/docs/api/class-credentials#credentials-create-option-sign-count), so a press behind the touch
+ * moves it by exactly one, and an act whose end shows ran past the touch that moved it.
+ */
+export async function assertionsSigned(context: BrowserContext): Promise<number> {
+  return (await context.credentials.get({ rpId: RELYING_PARTY })).reduce((signed, passkey) => signed + passkey.signCount, 0);
+}
+
+/** An administrator's first passkey, set up where a code-borne sign-in lands. */
+export async function enrolPasskey(page: Page, context: BrowserContext): Promise<void> {
+  // The code alone does not open the Verwaltung: an administrator's first sign-in sets up a passkey.
+  await expect(page).toHaveURL((url) => url.pathname === "/signin/passkey");
+
+  // Installed only now, on the page whose ceremony it answers, and the page loaded again under it.
+  await context.credentials.install();
+  await page.reload();
+  await page.getByRole("button", { name: "Jetzt einrichten" }).click();
+  // Where every administrator lands, which a session short of the passkey would leave for the passkey step
+  // (`fl_frontend/src/core/auth/landing.ts :: destinationOf`). Waited for to the end of its in-stream redirect, so the
+  // journey's next address interrupts nothing.
+  await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
+}

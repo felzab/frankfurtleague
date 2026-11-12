@@ -1,29 +1,27 @@
 import { redirect } from "next/navigation";
 
+import { judgeAdminRequest } from "@/core/auth/guards";
 import { UnreadGrantError } from "@/core/errors";
-import { SIGN_IN_LANDING } from "@/core/signInLanding";
-
-import { runWithIncomingTrace } from "./traceScope";
+import { ROUTES } from "@/core/routes";
+import { runWithIncomingTrace } from "@/core/traceScope";
+import { objectIdParamOf } from "@/shared/utils/routeParams";
 
 /**
  * The admin pages' own check, and their one turn-away: the layout redirects nobody, a redirect there unmounting the
- * whole frame, and a soft navigation renders no layout at all (`docs/frontend/spec.md :: I122`, `:: I834`).
+ * whole frame, and a soft navigation renders no layout at all.
  */
 export async function requireAdminRequest(): Promise<void> {
-  // Loaded at the call: every slice's `queries.ts` imports this module, public pages among their
-  // readers, and a static import would put the sign-in store in each of their graphs.
-  const { judgeAdminRequest } = await import("@/core/auth");
   const judged = await judgeAdminRequest();
   if (!("refused" in judged)) return;
 
   // An outage stays on its page, whose boundary retries, as an admin write answers it with a retry.
   if (judged.refused === "unread") throw new UnreadGrantError();
-  redirect(SIGN_IN_LANDING);
+  redirect(ROUTES.signInLanding.path());
 }
 
 /**
  * Runs one admin-tier read with the administrator it is made for recorded as the request's actor, the
- * backend refusing an admin-tier request that names nobody (`docs/backend/spec.md :: I41`).
+ * backend refusing an admin-tier request that names nobody.
  */
 export async function runAdminRead<T>(fn: () => Promise<T>): Promise<T> {
   return runWithIncomingTrace(async () => {
@@ -32,4 +30,13 @@ export async function runAdminRead<T>(fn: () => Promise<T>): Promise<T> {
 
     return fn();
   });
+}
+
+/**
+ * An admin page's id segment, judged as the page's read is judged, ahead of the `null` a malformed one answers. That
+ * `null` leaves no read to run, so a person with no rights would otherwise meet the area's not-found in the frame
+ * rather than the turn-away every well-formed id meets.
+ */
+export function adminIdParamOf<TKey extends string>(paramsPromise: Promise<Record<TKey, string>>, key: TKey): Promise<string | null> {
+  return runAdminRead(() => objectIdParamOf(paramsPromise, key));
 }

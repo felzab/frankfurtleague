@@ -12,67 +12,29 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-  // Per operation, and an admin action runs up to seven: three session reads of two commands
-  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s
-  // (`docs/frontend/spec.md :: I362`).
+  // One bound per stage, each taken again by every attempt the driver retries: a read the store never
+  // answers ends after its own socket bound and its retry's checkout. An admin action reads the
+  // session in the proxy's slide, its guard and the render after it, so a slow store costs it
+  // several times these.
 
-  // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
-  // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
-  // abort after a failed commit has its own.
-  timeoutMS: 3000,
-  // A visitor's first request after a cold start connects without `timeoutMS`, so an unreachable
-  // server is met here. Tighter than `fl_backend/app/core/config.py :: db_server_selection_timeout`,
-  // which only the backend's boot waits on, where no visitor does.
+  // An unreachable store. Tighter than the backend's `SERVER_SELECTION_TIMEOUT_MS`, which only its boot
+  // waits on, where no visitor does.
   serverSelectionTimeoutMS: 3000,
-  // The handshake of the reconnect's explicit `connect()`, which `timeoutMS` does not reach and the
-  // driver would wait 30 s for. Its monitor times its checks out on this too, so a store whose
-  // handshake takes longer reads as down.
+  // A checkout from the pool, which waits out the opening of the connection it hands over: a store
+  // that accepts and never answers a handshake.
+  waitQueueTimeoutMS: 3000,
+  // One connection's opening and handshake, which the checkout above stops waiting for but the pool
+  // does not: the opening holds one of its two `maxConnecting` slots until this ends. The monitor
+  // times its checks out on it too, so a store whose handshake takes longer reads as down.
   connectTimeoutMS: 3000,
+  // Each send and receive on an open connection: a read or a commit the store never answers, and
+  // the index build.
+  socketTimeoutMS: 3000,
+  // Nothing bounds a transaction whole. The adapter runs one through the driver's `withTransaction`,
+  // which retries a write conflict, and sends again a commit whose answer was lost, for up to 120 s:
+  // no per-stage option shortens that, and the `timeoutMS` the adapter's documentation offers for it
+  // has no effect in this driver. A store answering all but commits holds a sign-in that long.
 };
-
-/**
- * The driver closes the topology a failed connect built and never builds another itself, so every
- * later operation would fail until a restart (`docs/frontend/spec.md :: I364`). The same client is
- * connected again: the adapter holds its `Db`.
- */
-class SignInStoreClient extends MongoClient {
-  // The driver's `connect()` builds a topology for a client already closed, so the reconnect asks
-  // this before each attempt rather than the driver.
-  #closed = false;
-
-  constructor(url: string) {
-    super(url, options);
-    let opened = false;
-    let reconnecting = false;
-    this.once("open", () => {
-      opened = true;
-    });
-    // Before the first open only a failed connect or a close ends a topology: once open, the driver
-    // reconnects on its own.
-    this.on("topologyClosed", () => {
-      if (opened || reconnecting || this.#closed) return;
-      reconnecting = true;
-      void (async () => {
-        while (!opened && !this.#closed) {
-          // The driver's own least interval between two checks of one server, and unreferenced: a retry
-          // that never succeeds must not hold open a process that would otherwise exit.
-          await pause(this.options.minHeartbeatFrequencyMS, undefined, { ref: false });
-          if (this.#closed) return;
-          // Unlogged: each session read meanwhile logs the same failure (`FE-AUTH-003`).
-          await this.connect().catch(() => undefined);
-        }
-        // A close landing while an attempt resolves a `mongodb+srv` host finds none of that attempt's
-        // topology yet, which then opens.
-        if (this.#closed) await super.close();
-      })();
-    });
-  }
-
-  override async close(force?: boolean): Promise<void> {
-    this.#closed = true;
-    await super.close(force);
-  }
-}
 
 let client: MongoClient | undefined;
 
@@ -86,10 +48,30 @@ export function signInStore(): MongoClient {
   // The development branch caches the client on `global`, or hot reloads exhaust the pool.
   if (process.env.NODE_ENV === "development") {
     const globalWithMongo = global as typeof globalThis & { _mongoClient?: MongoClient };
-    globalWithMongo._mongoClient ??= new SignInStoreClient(mongodbUri());
+    globalWithMongo._mongoClient ??= new MongoClient(mongodbUri(), options);
     client = globalWithMongo._mongoClient;
   } else {
-    client = new SignInStoreClient(mongodbUri());
+    client = new MongoClient(mongodbUri(), options);
   }
   return client;
+}
+
+/**
+ * Opens the store's client at the boot, its documented use (the driver's `MongoClient.connect`: "generally useful at
+ * application boot-time"), and again at the driver's own least interval between two checks of one server until it
+ * opens. The driver closes the topology a failed connect built and builds no other on its own, so without this a store
+ * down at the boot would fail every operation until a restart; once open, the driver reconnects by itself. Never
+ * rejects: each failed attempt goes unlogged, every session read meanwhile logging the same failure.
+ */
+export async function connectSignInStore(): Promise<void> {
+  const store = signInStore();
+  for (;;) {
+    try {
+      await store.connect();
+      return;
+    } catch {
+      // Unreferenced: a store that never answers must not hold open a process that would otherwise exit.
+      await pause(store.options.minHeartbeatFrequencyMS, undefined, { ref: false });
+    }
+  }
 }

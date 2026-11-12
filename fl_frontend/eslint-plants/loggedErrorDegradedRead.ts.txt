@@ -1,7 +1,0 @@
-// Linted as src/shared/utils/degradedRead.ts.
-// A page's absorbed read failure may hand the log the read's own error, and every other ban still reaches it.
-export function planted(error: Error): void {
-  logger.error("A page's read failed and its panel stands", error, { error_code: "FE-RSC-001" });
-}
-export const GAP = "flex gap-5"; // expect: gap
-export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

@@ -1,0 +1,48 @@
+"use client";
+
+import { useState } from "react";
+
+import { SignInPage } from "@/kit/SignInPage";
+
+import { COPY } from "@/core/copy";
+import { ROUTES } from "@/core/routes";
+import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
+import { signOut } from "@/shared/utils/signOut";
+
+import type { Copy } from "@/core/copy";
+
+/**
+ * `/signin` for somebody already signed in, instead of a second sign-in: its passkey would list the
+ * signed-in account's passkeys alone, and a code would replace the session this reader holds.
+ */
+export function SignedIn({ address }: { address: string }) {
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<Copy | null>(null);
+
+  const onSignOut = async () => {
+    setIsPending(true);
+    setError(null);
+
+    const ended = await signOut().catch(() => false);
+    // A full document load, as Next's guide advises for a sign-out: a soft navigation keeps every hidden route
+    // with its rows and typed text.
+    if (ended) return leaveDocumentFor("/");
+
+    setIsPending(false);
+    setError(COPY.shared.failure.unexpected);
+  };
+
+  return (
+    <SignInPage
+      view="signedIn"
+      title={COPY.signIn.title}
+      sentence={COPY.signIn.signedInAs}
+      address={address}
+      // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
+      continue={{ label: COPY.shared.overview, href: ROUTES.signInLanding.path() }}
+      // One press, as every sign-out is.
+      signOut={{ label: COPY.shared.verb.signOut, isBusy: isPending, onPress: () => void onSignOut() }}
+      row={error}
+    />
+  );
+}

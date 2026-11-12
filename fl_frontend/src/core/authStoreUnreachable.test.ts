@@ -1,7 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-
-import { configDouble, registerAuthDoubles } from "./authDoubles.ts";
+import { configDouble, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { assert, describe, it } from "vitest";
 
 /* The library builds its adapter inside its init, which `auth.$context` is the promise of: a factory refusing here
    rejects that promise, as a store unreachable at the first use does. */
@@ -14,14 +12,15 @@ const UNREACHABLE_ADAPTER = {
 const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
 // A module of its own: the library builds its context once per process, so a failing one here would fail every
-// case beside it in `fl_frontend/src/core/auth.test.ts`.
+// case beside it.
 registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE, config: configDouble() },
   specifiers: { "@better-auth/mongo-adapter": UNREACHABLE_ADAPTER },
 });
 
 // Imported here rather than at the top: a static import resolves before the doubles above are registered.
-const { deleteAccountFor, removePasskey } = await import("./auth.ts");
+const { deleteAccountFor } = await import("./auth/accounts.ts");
+const { removePasskey } = await import("./auth/passkeys.ts");
 const { RolledBackError } = await import("./errors.ts");
 
 /* Each caller reads anything but a rollback as a write that may have landed: the erasure has answered before the
@@ -34,7 +33,7 @@ describe("a store whose context fails before any transaction opens", () => {
   });
 
   it("answers a passkey's removal as a rollback", async () => {
-    const answer = await removePasskey({ id: "ein-konto", verwaltung: false }, "ein-passkey").catch((failed: unknown) => failed);
+    const answer = await removePasskey({ id: "an-account", isAdmin: false }, "a-passkey").catch((failed: unknown) => failed);
 
     assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a removal that never ran`);
   });

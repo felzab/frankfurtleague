@@ -17,7 +17,7 @@ ENVELOPE = frozenset({"$db", "$clusterTime", "$readPreference", "lsid", "txnNumb
 
 
 class SentReads(monitoring.CommandListener):
-    """Every `PLANNED` command this client sends that `wanted` picks, with its collection, stripped to what plans it."""
+    """Every planned command this client sends that `wanted` picks, with its collection, stripped to what plans it."""
 
     def __init__(self, wanted: Wanted) -> None:
         self._wanted = wanted

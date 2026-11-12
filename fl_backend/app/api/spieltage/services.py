@@ -1,36 +1,25 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
 from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
-from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
-from app.core.crud import build_query, build_sort
+from app.api.spiele.schemas import PHASE_RANK, is_unplayed
+from app.api.spieltage.schemas import (
+    FLSpielplanSpieltag,
+    FLSpielplanSpieltagAdmin,
+    FLSpielplanSpieltagAdminListAdapter,
+    FLSpielplanSpieltagListAdapter,
+    FLSpieltag,
+)
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLSaisonStatus
 
 
-def build_spieltage_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
-    """The Mongo sort, an APPROXIMATION of the natural order that `order_spieltage` refines.
-
-    The phase RANK is on no document, so no `find` separates the phases and `limit` may keep a
-    prefix of each. `position` leads, being exact inside one.
-    """
-
-    if sort_by == "natural":
-        # The chain follows `order` only here, this sort being a prefix SELECTOR: on a `position` tie
-        # straddling `limit`, a descending page needs the descending end of that tie.
-        direction = 1 if order == "asc" else -1
-
-        return build_sort(sort_by="position", order=order, chain=(("_id", direction),))
-
-    # Tie-broken by the two fields that make any ordering here reproducible. `position` and not a
-    # date: every matchday has one, and it is the order the season's schedule was drawn in.
-    return build_sort(sort_by=sort_by, order=order, chain=(("position", 1), ("_id", 1)))
-
-
-def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
+def order_spieltage[Spieltag: FLSpieltag](spieltage: list[Spieltag]) -> list[Spieltag]:
     """A season's matchdays in the order they are played: phase, then the stored `position`.
 
     The id tie-breaks a list spanning two seasons, whose positions repeat;
@@ -40,87 +29,86 @@ def order_spieltage(spieltage: list[FLSpieltag]) -> list[FLSpieltag]:
     return sorted(spieltage, key=lambda spieltag: (PHASE_RANK[spieltag.saison_phase], spieltag.position, str(spieltag.id)))
 
 
-def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
-    return build_query(
-        filters,
-        terms={"saison_id", "saison_phase"},
-        compiled={"saison_phase": {"$ne": "gruppenphase"}} if filters.saison_phase == "playoffs" else None,
-    )
-
-
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
-    """One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
+    """One raw matchday with its derived `count_spiele` attached, ready to validate.
 
     Every path validating a stored matchday goes through this, the echo included: the count is on
     no document, so an echo skipping it reports a matchday with no matches.
     """
 
-    return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
+    return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
-def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:
-    """Matchday 1 of a season, whose `beginn` opens the Nachnominierung period.
+def _with_their_spiele(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[dict[str, Any]]:
+    spiele_by_spieltag: dict[Any, list[Mapping[str, Any]]] = {}
+    for spiel_raw in sorted(spiele_raw, key=lambda spiel_raw: spiel_raw["spiel_nr"]):
+        spiele_by_spieltag.setdefault(spiel_raw["spieltag_id"], []).append(spiel_raw)
 
-    The phase is named because `position` restarts at 1 in every phase: the position alone matches
-    one row per phase, and the driver answers whichever it meets first.
+    return [{**with_expected_matches(raw, rules), "spiele": spiele_by_spieltag.get(raw["_id"], [])} for raw in spieltage_raw]
+
+
+def build_spielplan(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[FLSpielplanSpieltag]:
+    """A season's matchdays in the order they are played, each holding its matches by `spiel_nr`.
+
+    `spiele_raw` is what `build_spiele_pipeline` yields for the same season.
     """
 
-    return {"saison_id": saison_id, "saison_phase": PHASE_ORDER[0], "position": 1}
+    return order_spieltage(FLSpielplanSpieltagListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
 
 
-# The period's one test (`docs/backend/spec.md :: I334`): a second spelling lets the invite
-# tell a pupil one thing while the squad row stores another.
-def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
-    """Whether an entry made on `today` is a Nachnominierung, on `docs/backend/spec.md :: I335`'s terms."""
+def build_admin_spielplan(
+    spieltage_raw: Iterable[Mapping[str, Any]], spiele_raw: Iterable[Mapping[str, Any]], rules: FLSaisonRules
+) -> list[FLSpielplanSpieltagAdmin]:
+    """`build_spielplan`'s matchdays, their matches in the admin shape: money, the referee's whole name and `version`."""
 
-    # A type test rather than truthiness: an undated matchday stores `None`, and a value of any other
-    # type is no date this comparison can order.
-    return isinstance(beginn, str) and beginn <= today
+    return order_spieltage(FLSpielplanSpieltagAdminListAdapter.validate_python(_with_their_spiele(spieltage_raw, spiele_raw, rules)))
 
 
-# What each code below refuses is `fl_backend/app/core/domain.py :: RULES`.
-SPIELTAG_OUTSIDE_SAISON = "REQ-DATE-002"
-# `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
-SPIELTAG_SPAN_BELOW_FIXTURES = "REQ-DATE-003"
+def current_spieltag_id(spieltage: Sequence[FLSpielplanSpieltag], *, saison_status: FLSaisonStatus) -> CustomObjectId | None:
+    """The matchday the Spielplan opens on: the first holding a match still to be played, else the last.
+
+    A finished season has nothing left to play, whatever its fixtures still lack, so it opens on its last.
+    """
+
+    if saison_status != "past":
+        for spieltag in spieltage:
+            if any(is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis) for spiel in spieltag.spiele):
+                return spieltag.id
+
+    return spieltage[-1].id if spieltage else None
 
 
 def find_spieltag_span_refusal(
     *,
-    beginn: str,
-    ende: str,
+    start: str,
+    end: str,
     saison_start: str,
     saison_end: str,
-    fixture_dates: Sequence[str],
+    spiel_dates: Sequence[str],
 ) -> WriteRefusal | None:
     """Why this matchday's span must be refused, or `None`.
 
-    `fixture_dates` is every DATED fixture of the matchday; an undated one constrains nothing.
+    `spiel_dates` is every dated fixture of the matchday; an undated one constrains nothing.
     """
 
-    if beginn < saison_start or ende > saison_end:
+    if start < saison_start or end > saison_end:
         return WriteRefusal(
-            error_code=SPIELTAG_OUTSIDE_SAISON,
+            error_code=Code.SPIELTAG_OUTSIDE_SAISON,
             status=HTTPStatus.CONFLICT,
-            message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
-            "a matchday is a block of that season's fixtures",
         )
 
-    outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
+    outside = sorted(date for date in spiel_dates if date < start or date > end)
     if outside:
         return WriteRefusal(
-            error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
+            error_code=Code.SPIELTAG_SPAN_BELOW_SPIELE,
             status=HTTPStatus.CONFLICT,
-            message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
-            "widen the span or move those fixtures",
         )
 
     return None
-
-
-# `position` and `beginn` order a phase independently, so nothing else stops a season from showing
-# its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
-# postponement takes, and the message names it.
-SPIELTAG_BEGINN_OUT_OF_ORDER = "REQ-DATE-008"
 
 
 @dataclass(frozen=True)
@@ -128,17 +116,17 @@ class DatedNeighbour:
     """One dated matchday beside the one being re-dated, inside the same phase of the same season."""
 
     position: int
-    beginn: str
+    start: str
 
 
-def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
-    """One stored `beginn` as the rule takes it, or `None` for an undated row.
+def dated_start(spieltag_raw: Mapping[str, Any]) -> str | None:
+    """One stored `start` as the rule takes it, or `None` for an undated row.
 
-    `app/core/constraints.py :: Collection.SPIELTAGE` validates the field string-or-null, so nothing
-    converts it: a `str()` would turn an undated row into a day above every ISO date.
+    The record model reads the field string-or-null, so nothing converts it: a `str()` would turn an undated row into
+    a day above every ISO date.
     """
 
-    return spieltag_raw["beginn"]
+    return spieltag_raw["start"]
 
 
 def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | None:
@@ -147,66 +135,41 @@ def dated_neighbour(spieltag_raw: Mapping[str, Any] | None) -> DatedNeighbour | 
     if spieltag_raw is None:
         return None
 
-    beginn = dated_beginn(spieltag_raw)
+    start = dated_start(spieltag_raw)
 
-    return None if beginn is None else DatedNeighbour(position=spieltag_raw["position"], beginn=beginn)
+    return None if start is None else DatedNeighbour(position=spieltag_raw["position"], start=start)
 
 
 def find_spieltag_order_refusal(
     *,
-    beginn: str,
-    ende: str,
-    stored_beginn: str | None,
+    start: str,
+    stored_start: str | None,
     previous: DatedNeighbour | None,
     following: DatedNeighbour | None,
 ) -> WriteRefusal | None:
-    """Why this matchday's `beginn` must be refused for its place in the phase, or `None`.
+    """Why this matchday's `start` must be refused for its place in the phase, or `None`.
 
-    `previous` and `following` are the nearest DATED matchday below and above this `position`; an
+    `previous` and `following` are the nearest dated matchday below and above this `position`; an
     undated one states no date to compare, so the caller passes neither.
     """
 
-    # The STEP, never the state (`docs/backend/spec.md :: I44`): an `ende`-only edit resubmits this
-    # `beginn`. A first dating moves from no pair at all, so it is judged against both neighbours.
-    moved_earlier = stored_beginn is None or beginn < stored_beginn
-    moved_later = stored_beginn is None or beginn > stored_beginn
+    # The step, never the state: an `end`-only edit resubmits this
+    # `start`. A first dating moves from no pair at all, so it is judged against both neighbours.
+    moved_earlier = stored_start is None or start < stored_start
+    moved_later = stored_start is None or start > stored_start
 
     # The predecessor first, and both are reachable at once only for a first dating landing between
     # two neighbours already out of order: the earlier position is the pair a reader checks first.
-    if previous is not None and moved_earlier and beginn < previous.beginn:
-        # A stored `beginn` already below the predecessor's is the floor the STEP leaves: the rule
-        # takes it back unchanged, so naming the predecessor's day would refuse ground it gives.
-        floor = (
-            f"its `beginn` cannot go earlier than the {stored_beginn} it already stands on"
-            if stored_beginn is not None and stored_beginn < previous.beginn
-            else "its `beginn` cannot go earlier than that"
-        )
-
+    if previous is not None and moved_earlier and start < previous.start:
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            # Below the floor the goal is reachable at fixture level alone: the predecessor's own
-            # matches move into the later days, and no `beginn` moves at all.
-            message=f"this matchday begins {beginn} and position {previous.position} of its phase begins {previous.beginn}; "
-            f"{floor}; to play this one first, widen position {previous.position}'s `ende` "
-            "and move that matchday's own fixtures into the later days",
         )
 
-    if following is not None and moved_later and following.beginn < beginn:
-        # `ende` is never below `beginn` on the payload (`FLPatchSpieltagPayload`), so a span reaching
-        # here already runs past the follower and asking for a wider one would name a step taken.
-        opening = (
-            f"to postpone this one, restore its `beginn` of {stored_beginn}"
-            if stored_beginn is not None
-            else f"it holds no `beginn` to keep, so date it at or before {following.beginn}"
-        )
-
+    if following is not None and moved_later and following.start < start:
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_START_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
-            message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
-            f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "
-            "then re-date its fixtures inside that span",
         )
 
     return None

@@ -1,7 +1,4 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
-
-import { registerDoubles } from "./exportingModule.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04). */
 const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
@@ -16,13 +13,13 @@ const record =
   (message: string, ...rest: unknown[]): void =>
     void logs.push({ level, message, meta: JSON.stringify(rest) });
 
-registerDoubles({ modules: { "core/logging.ts": { logger: { info: record("info"), warn: record("warn"), error: record("error") } } } });
+vi.doMock("@/core/logging.ts", () => ({ logger: { info: record("info"), warn: record("warn"), error: record("error") } }));
 
 /** Every request the helper drew, and Cloudflare's answers in turn, the last one repeating; one throwing answers nothing. */
 const asked: { url: string; body: Record<string, unknown> }[] = [];
 let answers: (() => Response)[] = [];
 
-// The network edge, as `fl_frontend/src/core/mailGate.test.ts` fakes it, under the real config: the secret
+// The network edge, faked, under the real config: the secret
 // sent is the one this process boots with, which outside production is Cloudflare's published test secret.
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   asked.push({ url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown> });
@@ -32,13 +29,13 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   return answer();
 }) as typeof fetch;
 
-const { PRUEFUNG_GESTOERT, turnstileRefusal } = await import("./turnstile.ts");
-const { MENSCH_BESTAETIGEN } = await import("./turnstileToken.ts");
+const { CHECK_DISRUPTED, turnstileRefusal } = await import("./turnstile.ts");
+const { CONFIRM_HUMAN } = await import("./turnstileToken.ts");
 
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status: status, headers: { "content-type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 const judged =
   (codes: string[]): (() => Response) =>
@@ -55,31 +52,30 @@ describe("the bot check's verdict on a submission", () => {
   it("passes a token Cloudflare's test key minted, asked with the test secret this process boots with", async () => {
     answers = [judged([])];
 
-    assert.equal(await turnstileRefusal(TEST_TOKEN), null);
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
 
-    assert.deepEqual(
-      asked.map(({ url, body }) => ({ url: url, secret: body.secret, response: body.response })),
-      [{ url: SITEVERIFY_URL, secret: TEST_SECRET, response: TEST_TOKEN }],
-    );
-    assert.deepEqual(logs, [], "a judged pass wrote a line");
+    expect(asked.map(({ url, body }) => ({ url, secret: body.secret, response: body.response }))).toStrictEqual([
+      { url: SITEVERIFY_URL, secret: TEST_SECRET, response: TEST_TOKEN },
+    ]);
+    expect(logs, "a judged pass wrote a line").toStrictEqual([]);
   });
 
   /* Asked nothing: Cloudflare could only answer either with a judgement against it. */
   it("refuses a missing, empty or overlong token without asking Cloudflare", async () => {
     for (const token of [null, "", "x".repeat(2049)]) {
-      assert.equal(await turnstileRefusal(token), MENSCH_BESTAETIGEN, `passed ${JSON.stringify(token?.slice(0, 8))}`);
+      expect(await turnstileRefusal(token), `passed ${JSON.stringify(token?.slice(0, 8))}`).toBe(CONFIRM_HUMAN);
     }
 
-    assert.deepEqual(asked, []);
+    expect(asked).toStrictEqual([]);
   });
 
   it("refuses a token Cloudflare judged, a spent one and a forged one alike", async () => {
     for (const codes of [["invalid-input-response"], ["timeout-or-duplicate"], ["internal-error", "invalid-input-response"], []]) {
       answers = [() => json({ success: false, "error-codes": codes })];
-      assert.equal(await turnstileRefusal(TEST_TOKEN), MENSCH_BESTAETIGEN, `passed on ${codes.join(", ") || "no code"}`);
+      expect(await turnstileRefusal(TEST_TOKEN), `passed on ${codes.join(", ") || "no code"}`).toBe(CONFIRM_HUMAN);
     }
 
-    assert.deepEqual(logs, [], "a judged refusal wrote a line");
+    expect(logs, "a judged refusal wrote a line").toStrictEqual([]);
   });
 });
 
@@ -92,13 +88,10 @@ describe("a request of ours Cloudflare refuses", () => {
     it(`refuses the submission on ${code}, with a sentence of its own and one line naming the code and no token`, async () => {
       answers = [() => json({ success: false, "error-codes": [code] }, 400)];
 
-      assert.equal(await turnstileRefusal(TEST_TOKEN), PRUEFUNG_GESTOERT);
-      assert.equal(asked.length, 1, "a request Cloudflare refused was asked again");
-      assert.deepEqual(
-        logs.map(({ message }) => message),
-        ["turnstile.request_refused"],
-      );
-      assert.match(logs[0]?.meta ?? "", new RegExp(`"error_code":"FE-TURNSTILE-002","codes":"${code}","status":400`));
+      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
+      expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
+      expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
+      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"codes":"${code}","status":400`));
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }
@@ -106,17 +99,30 @@ describe("a request of ours Cloudflare refuses", () => {
   /* A 4xx naming no code is still Cloudflare answering that our request is wrong, which no retry repairs. */
   for (const status of [400, 403]) {
     it(`refuses the submission on a ${String(status)} naming no code, with that sentence and one line naming the status`, async () => {
-      answers = [() => new Response("<html>", { status: status })];
+      answers = [() => new Response("<html>", { status })];
 
-      assert.equal(await turnstileRefusal(TEST_TOKEN), PRUEFUNG_GESTOERT);
-      assert.equal(asked.length, 1, "a request Cloudflare refused was asked again");
-      assert.deepEqual(
-        logs.map(({ message }) => message),
-        ["turnstile.request_refused"],
-      );
-      assert.match(logs[0]?.meta ?? "", new RegExp(`"error_code":"FE-TURNSTILE-002","status":${String(status)}`));
+      expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
+      expect(asked.length, "a request Cloudflare refused was asked again").toBe(1);
+      expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
+      expect(logs[0]?.meta ?? "").toMatch(new RegExp(`"status":${String(status)}`));
     });
   }
+});
+
+describe("Cloudflare declining to judge", () => {
+  /* Garbage tokens can bring a 429 on while the site stands, so passing it would switch the check off on demand. A
+     code in its body judges no token, so it must not read as the visitor's failure. */
+  it.each([
+    ["no code", () => json({}, 429)],
+    ["a code", () => json({ success: false, "error-codes": ["too-many-requests"] }, 429)],
+  ])("refuses the submission on a 429 with %s, asked once, with one line naming the status", async (_, answer) => {
+    answers = [answer];
+
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(CHECK_DISRUPTED);
+    expect(asked.length).toBe(1);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.request_refused"]);
+    expect(logs[0]?.meta ?? "").toMatch(/"status":429/);
+  });
 });
 
 describe("Cloudflare's own failure", () => {
@@ -125,28 +131,25 @@ describe("Cloudflare's own failure", () => {
   it("is asked again once, under the same idempotency key", async () => {
     answers = [judged(["internal-error"]), judged([])];
 
-    assert.equal(await turnstileRefusal(TEST_TOKEN), null);
-    assert.equal(asked.length, 2);
-    assert.equal(typeof asked[0]?.body.idempotency_key, "string");
-    assert.equal(asked[1]?.body.idempotency_key, asked[0]?.body.idempotency_key, "the retry carried another key");
-    assert.deepEqual(logs, []);
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
+    expect(asked.length).toBe(2);
+    expect(typeof asked[0]?.body.idempotency_key).toBe("string");
+    expect(asked[1]?.body.idempotency_key, "the retry carried another key").toBe(asked[0]?.body.idempotency_key);
+    expect(logs).toStrictEqual([]);
   });
 
   it("is judged by the retry's answer where the retry judged the token", async () => {
     answers = [judged(["internal-error"]), judged(["invalid-input-response"])];
 
-    assert.equal(await turnstileRefusal(TEST_TOKEN), MENSCH_BESTAETIGEN);
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(CONFIRM_HUMAN);
   });
 
   it("lets the submission through after a second internal-error, with one line", async () => {
     answers = [judged(["internal-error"])];
 
-    assert.equal(await turnstileRefusal(TEST_TOKEN), null);
-    assert.equal(asked.length, 2, "Cloudflare's failure was not asked again, or asked more than once");
-    assert.deepEqual(
-      logs.map(({ message }) => message),
-      ["turnstile.unjudged"],
-    );
+    expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
+    expect(asked.length, "Cloudflare's failure was not asked again, or asked more than once").toBe(2);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["turnstile.unjudged"]);
   });
 });
 
@@ -161,7 +164,6 @@ describe("a check Cloudflare could not answer", () => {
       },
     ],
     ["a server error", () => json({}, 503)],
-    ["too many requests", () => json({}, 429)],
     ["a body that is no JSON", () => new Response("<html>", { status: 200 })],
     ["a body of another shape", () => json({ ok: true })],
   ];
@@ -170,11 +172,10 @@ describe("a check Cloudflare could not answer", () => {
     it(`lets the submission through on ${what}, asked once, with one line naming no token`, async () => {
       answers = [answer];
 
-      assert.equal(await turnstileRefusal(TEST_TOKEN), null);
-      assert.equal(asked.length, 1);
-      assert.equal(logs.length, 1, `wrote ${String(logs.length)} lines`);
-      assert.equal(logs[0]?.message, "turnstile.unjudged");
-      assert.match(logs[0]?.meta ?? "", /"error_code":"FE-TURNSTILE-001"/);
+      expect(await turnstileRefusal(TEST_TOKEN)).toBe(null);
+      expect(asked.length).toBe(1);
+      expect(logs.length, `wrote ${String(logs.length)} lines`).toBe(1);
+      expect(logs[0]?.message).toBe("turnstile.unjudged");
       assert.ok(!logs[0]?.meta.includes(TEST_TOKEN), "the line carried the token");
     });
   }

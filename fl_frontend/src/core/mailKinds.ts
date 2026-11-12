@@ -1,0 +1,140 @@
+import "server-only";
+
+import {
+  buildAddressChangeDiscardedEmail,
+  buildAddressChangeEffectiveEmail,
+  buildAddressChangeEmail,
+  buildAddressChangeNoticeEmail,
+} from "./addressChangeEmail";
+import { buildCodeEmail } from "./authEmail";
+import { buildBanEmail } from "./banListEmail";
+import {
+  buildBewerbungAbsageEmail,
+  buildBewerbungConfirmationEmail,
+  buildBewerbungObjectionEmail,
+  buildBewerbungReceivedEmail,
+  buildBewerbungReminderEmail,
+  buildBewerbungZusageEmail,
+  buildDeletionNoticeEmail,
+} from "./bewerbungEmail";
+import { buildErasureEmail } from "./erasureEmail";
+import { ContractBreakError } from "./errors";
+import { buildGrantEmail } from "./grantEmail";
+import { buildInvitationEmail } from "./invitationEmail";
+import { buildKontaktConfirmationEmail } from "./kontaktEmail";
+import { buildPasskeyAddedEmail, buildPasskeyErasedEmail } from "./passkeyEmail";
+import { buildRegistrierungAbsageEmail, buildRegistrierungConfirmationEmail } from "./registrierungEmail";
+import { buildSchiedsrichterConfirmationEmail } from "./schiedsrichterEmail";
+import {
+  buildAufstellungReminderEmail,
+  buildAustrittNoticeEmail,
+  buildSpielEinteilungEmail,
+  buildSpielEinteilungLiftedEmail,
+  buildSpielNoticeEmail,
+  buildSpielRequestEmail,
+  buildSpielVorschlagDiscardedEmail,
+} from "./spielEmail";
+
+import type { Mail } from "./emailShell";
+import type { FLOutboxHandout } from "./generated/client/types";
+
+/**
+ * The tag every mail from the Postausgang carries, its value the row's id: the provider echoes a mail's tags on every
+ * delivery event about it, so the event finds its row whether or not the send's report has landed.
+ */
+export const OUTBOX_TAG = "outbox_id";
+
+/** One owed mail's facts: a member of the backend's discriminated union, its `kind` naming the kind. */
+type OutboxData = FLOutboxHandout["data"];
+
+type OutboxKind = OutboxData["kind"];
+
+/** The member whose `kind` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
+type Member<D, A> = D extends { kind: infer K } ? (A extends K ? D : never) : never;
+
+/** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
+type DataPerKind = { [A in OutboxKind]: Member<OutboxData, A> };
+
+/** What the hand-out answers beside the facts, and where the mail's links stand. */
+interface Handout {
+  /** The raw link token minted for this hand-out, or null where the mail carries no link. */
+  readonly token: string | null;
+  /** The row's secret, which the drain opens, or null where it holds none. */
+  readonly secret: string | null;
+  /** The serving origin, never `SITE_URL`: a stack that is not production mails no production link. */
+  readonly origin: string;
+}
+
+type MailBuilder<A extends OutboxKind> = (data: DataPerKind[A], handout: Handout) => Mail;
+
+/** What a league mail carrying no link is built with beside its facts. */
+export interface MailOrigin {
+  readonly origin: string;
+}
+
+/** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */
+export interface MailLink extends MailOrigin {
+  readonly token: string;
+}
+
+/** The hand-out's token for a kind that always carries a link: the backend mints one for every row naming where it lives. */
+function minted({ token, origin }: Handout): MailLink {
+  if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
+
+  return { token, origin };
+}
+
+/**
+ * Each kind's builder, total over the backend's kinds: the annotation refuses a kind left out and, the value being an
+ * object literal, one the union does not name.
+ */
+const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
+  sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretOf(secret), origin),
+  passkey_added: ({ instant }, { origin }) => buildPasskeyAddedEmail({ instant: new Date(instant), origin }),
+  passkey_erased: ({ instant }, { origin }) => buildPasskeyErasedEmail({ instant: new Date(instant), origin }),
+  account_erasure: (_data, { secret, origin }) => buildErasureEmail({ origin, token: secretOf(secret) }),
+  schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterConfirmationEmail(data, minted(handout)),
+  spiel_request: buildSpielRequestEmail,
+  spiel_reminder: buildSpielRequestEmail,
+  spiel_einteilung: buildSpielEinteilungEmail,
+  spiel_moved: buildSpielNoticeEmail,
+  spiel_cancelled: buildSpielNoticeEmail,
+  spiel_einteilung_lifted: buildSpielEinteilungLiftedEmail,
+  spiel_vorschlag_discarded: buildSpielVorschlagDiscardedEmail,
+  aufstellung_reminder: buildAufstellungReminderEmail,
+  austritt_notice: buildAustrittNoticeEmail,
+  registrierung_confirmation: (data, handout) => buildRegistrierungConfirmationEmail(data, minted(handout)),
+  registrierung_absage: buildRegistrierungAbsageEmail,
+  invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
+  kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
+  ban: buildBanEmail,
+  grant: buildGrantEmail,
+  address_change_link: (data, handout) => buildAddressChangeEmail(data, minted(handout)),
+  // The stop link, minted into the change's `stopp.token_hashes`.
+  address_change_notice: (data, handout) => buildAddressChangeNoticeEmail(data, minted(handout)),
+  address_change_effective: buildAddressChangeEffectiveEmail,
+  address_change_discarded: buildAddressChangeDiscardedEmail,
+  bewerbung_received: (data, handout) => buildBewerbungReceivedEmail(data, minted(handout)),
+  bewerbung_confirmation: (data, handout) => buildBewerbungConfirmationEmail(data, minted(handout)),
+  bewerbung_reminder: (data, handout) => buildBewerbungReminderEmail(data, minted(handout)),
+  bewerbung_zusage: buildBewerbungZusageEmail,
+  bewerbung_absage: buildBewerbungAbsageEmail,
+  deletion_notice: buildDeletionNoticeEmail,
+  bewerbung_objection: buildBewerbungObjectionEmail,
+};
+
+/** A secret kind's secret, which its every row carries. */
+function secretOf(secret: string | null): string {
+  if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
+
+  return secret;
+}
+
+/**
+ * The mail one hand-out owes, or `undefined` where its kind has no builder: the generated client parses no answer, so a
+ * backend deployed ahead of this build can hand out a kind this map does not hold. Indexed by the kind itself, so the
+ * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
+ */
+export function mailFor<A extends OutboxKind>(kind: A, data: DataPerKind[A], handout: Handout): Mail | undefined {
+  return Object.hasOwn(MAIL_KINDS, kind) ? MAIL_KINDS[kind](data, handout) : undefined;
+}

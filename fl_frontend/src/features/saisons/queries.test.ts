@@ -1,14 +1,6 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
-
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "@/core/cacheScope.ts";
-import { registerDoubles } from "@/core/exportingModule.ts";
-import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
-import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-
-/** The saison modules under test, whose `react` imports are the ones the server build must answer. */
-const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
+import { describe, expect, it, vi } from "vitest";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
@@ -17,90 +9,55 @@ const { setSession } = doubleActionRequest();
 /** Every cache declaration a read made, which the request's own double answers by recording nothing. */
 const declared: string[] = [];
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerDoubles({
-  specifiers: {
-    "next/cache": { cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") },
-  },
-});
+vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"), cacheLife: () => void declared.push("cacheLife") }));
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
-/** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(({ endpoint }) =>
-  endpoint.endsWith("/loeschung/vorschau") ? { acknowledged: 1, abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
-);
+/** Every request the doubled client was asked for, cumulative across this file. */
+const reads = doubleApiClient(() => ({ saison: { id: "2627" } }));
 
-serveServerReactTo((parentURL) => parentURL.startsWith(FEATURE_URL));
+const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
 
-const { getAdminSaisons, getLoeschungVorschau } = await import("./queries.ts");
-const { resolveSaisonId } = await import("./resolvers.ts");
+describe("the admin season list's read", () => {
+  /* Kept past one request, the list would serve every administrator the first request's seasons, `next_saison_id`
+     and create refusal until the server restarts, and no journey creates a season to notice. */
+  it("is read on the admin tier every time, declaring no cache", async () => {
+    const before = reads.length;
 
-const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
-
-describe("the admin season list across a render pass", () => {
-  /* First, so a scope that failed to take fails here rather than under every count below. */
-  itOpensAScopeThatMemoizes();
-
-  it("is fetched once when the resolver and the page both read it", async () => {
-    beginRenderPass();
-    const before = adminReads();
-
-    // What one admin Suspense boundary does: check the season named in the URL, then read the list.
-    const resolved = await resolveSaisonId(Promise.resolve({ saison_id: "2526" }), "admin");
+    await getAdminSaisons();
     await getAdminSaisons();
 
-    assert.equal(resolved, "2526");
-    assert.equal(adminReads() - before, 1, "the admin season list went to the backend twice in one render pass");
-  });
-
-  it("is fetched again in the next pass, so no request is served another's copy", async () => {
-    // Primed here rather than leaning on the test above: a leak is only visible against a pass that
-    // already read the list, and `it` order is not something this should depend on.
-    beginRenderPass();
-    await getAdminSaisons();
-    const before = adminReads();
-
-    beginRenderPass();
-    await resolveSaisonId(Promise.resolve({ saison_id: "2526" }), "admin");
-    await getAdminSaisons();
-
-    // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`
-    // would open on this read, and 2 is no memoization at all.
-    const fetched = adminReads() - before;
-    assert.notEqual(fetched, 0, "a new request was served the previous request's admin list");
-    assert.equal(fetched, 1, "the admin season list went to the backend twice in one render pass");
+    expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
+      ["/saisons/list/admin", "admin"],
+      ["/saisons/list/admin", "admin"],
+    ]);
+    expect(declared, "the administrators' season list is declared into a cache every caller shares").toStrictEqual([]);
   });
 });
 
-describe("the deletion count the season page reads", () => {
-  /* Cached, the count keys on the season id alone: every administrator shares one slot, and a count from before
-     another season's activation names people already gone. */
-  it("is read on the admin tier in every pass, declaring no cache", async () => {
+describe("the season editor's read", () => {
+  /* Cached, the read would key on the season id alone: every administrator would share one slot, and a version from
+     before another administrator's save would refuse every save as stale. */
+  it("is read on the admin tier every time, declaring no cache", async () => {
     const before = reads.length;
 
-    beginRenderPass();
-    await getLoeschungVorschau("2627");
-    beginRenderPass();
-    await getLoeschungVorschau("2627");
+    await getAdminSaison("2627");
+    await getAdminSaison("2627");
 
-    assert.deepEqual(
-      reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType]),
-      [
-        ["/saisons/2627/loeschung/vorschau", "admin"],
-        ["/saisons/2627/loeschung/vorschau", "admin"],
-      ],
-    );
-    assert.deepEqual(declared, [], "the administrator's count is declared into a cache every caller shares");
+    expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
+      ["/saisons/2627/admin", "admin"],
+      ["/saisons/2627/admin", "admin"],
+    ]);
+    expect(declared, "the administrator's read is declared into a cache every caller shares").toStrictEqual([]);
   });
 
-  /* The admin tier's guard, which the page's layout does not give a page's own read (`docs/frontend/spec.md :: I122`). */
+  /* The admin tier's guard, which the page's layout does not give a page's own read. */
   it("sends nothing for a session holding no administrator", async () => {
     setSession(null);
     const before = reads.length;
 
-    beginRenderPass();
-    await assert.rejects(getLoeschungVorschau("2627"));
+    await expect(getAdminSaison("2627")).rejects.toThrow();
 
-    assert.equal(reads.length, before, "the count was read for a session the guard turns away");
+    expect(reads.length, "the season was read for a session the guard turns away").toBe(before);
   });
 });

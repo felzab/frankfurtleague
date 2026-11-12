@@ -1,7 +1,7 @@
 """ORCHESTRATION · one finished agent branch merged into the session branch.
 
 `git merge --no-ff` brings the branch in whole: the agent's commits keep the hooks they ran in its
-worktree, and the merge commit takes git's own message, which `commit-msg` leaves to git. A conflict
+worktree, and the merge commit takes git's own message, running whatever hooks the checkout has. A conflict
 in a generated document is answered by regenerating it from the merged code, one inside a markdown
 table by row key where a column names one row, and any other aborts the merge and goes back to the
 agent. A merge touching `fl_backend/` regenerates both documents either way: two branches each
@@ -33,17 +33,18 @@ from merge_rows import merge_file
 
 # Each document beside the module that writes it, run from `fl_backend` by the interpreter running
 # this tool: the backend's virtualenv, which `uv run --project fl_backend` selects.
-GENERATED: Final = (
-    ("tests.openapi_document", "fl_backend/openapi.json"),
-    ("tests.einwilligung_document", "fl_backend/einwilligung.json"),
-)
+GENERATED: Final = (("app.openapi_document", "fl_backend/openapi.json"),)
+# The frontend's client is generated from that document, so it follows every regeneration of it: a
+# document a merge moved with a stale client fails the gate's contract check.
+CLIENT: Final = (("pnpm", "exec", "orval"), "fl_frontend", "fl_frontend/src/core/generated")
 REGENERATED_FROM: Final = "fl_backend/"
 # Run where the merge touches the package: two branches can merge clean as text and still fail
 # together, one cutting an import the other's new case uses. The frontend's runs `next typegen` first.
 TYPE_CHECKS: Final = (
     (("fl_frontend/",), ("pnpm", "typecheck"), "fl_frontend"),
     (("fl_backend/",), (sys.executable, "-m", "pyright"), "fl_backend"),
-    (("scripts/", ".claude/skills/orchestration/tools/"), (sys.executable, "-m", "pyright"), "scripts"),
+    (("scripts/",), (sys.executable, "-m", "pyright"), "scripts"),
+    ((".claude/skills/orchestration/",), (sys.executable, "-m", "pyright"), ".claude/skills/orchestration"),
 )
 # A merge moving a manifest or a lockfile is checked against the install it implies rather than this
 # checkout's stale one; each runs from the root.
@@ -51,7 +52,12 @@ INSTALLS: Final = (
     (("fl_frontend/package.json", "fl_frontend/pnpm-lock.yaml"), ("pnpm", "--dir", "fl_frontend", "install", "--frozen-lockfile")),
     (("fl_backend/pyproject.toml", "fl_backend/uv.lock"), ("uv", "sync", "--project", "fl_backend", "--dev", "--frozen")),
 )
-ROWS_FIXED_RE: Final = re.compile(r"^Rows fixed:\s*(?P<rows>.+)$", re.MULTILINE)
+ROW_LABEL: Final = r"[A-Z][A-Z0-9-]*-F\d+"
+# A body wraps its `Rows fixed:` line like the rest of its prose, so the line runs on through every
+# following line made of row labels alone; prose after it, a label mentioned in it included, closes nothing.
+ROWS_FIXED_RE: Final = re.compile(
+    rf"^Rows fixed:[ \t]*(?P<rows>.+(?:\n[ \t]*{ROW_LABEL}(?:[,.]?[ \t]+{ROW_LABEL})*[,.]?[ \t]*$)*)", re.MULTILINE
+)
 # A rebase of commits another branch already merged lands each twice under two hashes, which the
 # preflight's duplicate-patch check then refuses.
 MERGE_BACK: Final = "the agent merges the session branch into its own branch, rebasing only where no other branch holds its commits"
@@ -123,7 +129,7 @@ def resolve(conflicted: list[str], written: list[str]) -> list[str]:
     generated = {document for _, document in GENERATED}
     merged: list[str] = []
     for path in conflicted:
-        if path in generated:
+        if path in generated or path.startswith(CLIENT[2] + "/"):
             continue
         if not path.endswith(".md"):
             raise Stop(3, f"CONFLICT in {path}, which is no markdown table")
@@ -146,12 +152,22 @@ def regenerate(root: Path, written: list[str]) -> list[str]:
     before = {document: git("ls-files", "--stage", "--", document) for _, document in GENERATED}
     for module, document in GENERATED:
         written.append(document)
-        done = subprocess.run((sys.executable, "-m", module, "--write"), cwd=root / "fl_backend", capture_output=True, check=False)
+        done = subprocess.run((sys.executable, "-m", module), cwd=root / "fl_backend", capture_output=True, check=False)
         if done.returncode != 0:
             said = (done.stderr or done.stdout).decode("utf-8", "replace").strip().splitlines()[-5:]
-            raise Stop(4, f"{module} --write exited {done.returncode}:", *said)
+            raise Stop(4, f"{module} exited {done.returncode}:", *said)
         git("add", "--", document)
-    return [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
+    moved = [document for _, document in GENERATED if git("ls-files", "--stage", "--", document) != before[document]]
+    command, where, folder = CLIENT
+    # A tree without the frontend's generator configuration has no client to follow the document.
+    if not (root / where / "orval.config.ts").exists():
+        return moved
+    client_before = git("ls-files", "--stage", "--", folder)
+    written.append(folder)
+    if (done := _run(command, root / where)).returncode != 0:
+        raise Stop(4, f"`{' '.join(command)}` exited {done.returncode}:", *_tail(done))
+    git("add", "-A", "--", folder)
+    return moved + ([folder] if git("ls-files", "--stage", "--", folder) != client_before else [])
 
 
 def _run(command: tuple[str, ...], cwd: Path) -> subprocess.CompletedProcess[bytes]:
@@ -167,11 +183,17 @@ def _tail(done: subprocess.CompletedProcess[bytes]) -> list[str]:
     return (done.stdout + done.stderr).decode("utf-8", "replace").strip().splitlines()[-15:]
 
 
-def type_check(root: Path, touched: list[str]) -> list[str]:
-    """Each touched package's type checker run over the merged tree, after any install it moved; the packages checked."""
+def install(root: Path, touched: list[str]) -> None:
+    """Each install a merged manifest or lockfile implies, run before anything the merged tree executes."""
+    # Before the regeneration too: its client generator runs through pnpm, which refuses a modules directory
+    # older than the merged lockfile.
     for manifests, command in INSTALLS:
         if any(path in manifests for path in touched) and (done := _run(command, root)).returncode != 0:
             raise Stop(5, f"`{' '.join(command)}` exited {done.returncode} for the merged manifests:", *_tail(done))
+
+
+def type_check(root: Path, touched: list[str]) -> list[str]:
+    """Each touched package's type checker run over the merged tree; the packages checked."""
     checked: list[str] = []
     for prefixes, command, where in TYPE_CHECKS:
         if not any(path.startswith(prefixes) for path in touched):
@@ -273,6 +295,7 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
                 raise Stop(7, f"git merge --no-ff --no-commit {branch} failed with no file in conflict")
             merged = resolve(conflicted, written)
         touched = git("diff", "--cached", "--name-only", "HEAD").split()
+        install(root, touched)
         moved = regenerate(root, written) if any(path.startswith(REGENERATED_FROM) for path in touched) else []
         if git("diff", "--name-only", "--diff-filter=U").split():
             raise Stop(3, "a conflict is still unresolved after the regeneration")
@@ -316,12 +339,17 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
     return 0
 
 
+def fixed_rows(bodies: str) -> list[str]:
+    """Every row label the commit bodies' `Rows fixed:` lines name, their wrapped continuations included."""
+    tokens = (row.rstrip(".,") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found))
+    return sorted({row for row in tokens if re.fullmatch(ROW_LABEL, row)})
+
+
 def credit(register: Path, held: str, branch: str, before: str, merge: str) -> None:
     """The rows the merged commits fixed closed, and each row and standing action the landing leaves named."""
     # Only a `Rows fixed:` line closes, and only a row routed to an agent the merge landed: a mention,
     # or a row another fixer holds, stays for the coordinator to judge.
-    bodies = git("log", "--format=%B", "HEAD^1..HEAD^2")
-    named = sorted({row.rstrip(".") for found in ROWS_FIXED_RE.findall(bodies) for row in re.split(r"[,\s]+", found) if row.rstrip(".")})
+    named = fixed_rows(git("log", "--format=%B", "HEAD^1..HEAD^2"))
     agent = owners(held, branch).union(*(owners(held, other) for other in carried(before)))
     closed = ledger.close_routed(register, named, merge, agent)
     for row in closed:

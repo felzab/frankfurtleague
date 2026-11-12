@@ -1,23 +1,18 @@
-import { apiClient } from "@/core/api";
+import { orMissing } from "@/core/errors";
+import { spielorteGetSpielort, spielorteGetSpielorte } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpielorteListResponseSchema } from "./schemas";
+import type { FLSpielort, FLSpielorteListResponse, SpielorteGetSpielorteParams } from "@/core/generated/client/types";
 
-import type { FLSpielorteListResponse } from "./schemas";
-import type { FLSpielorteFilterParams } from "./types";
-
-/**
- * Every venue. Admin-tier: the rent is money (`READ-MONEY-001`), and the address parts serve no
- * public page (`READ-ADDRESS-001`).
- *
- * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
- */
-export async function getSpielorte(filters: FLSpielorteFilterParams = {}): Promise<FLSpielorteListResponse> {
+/** Admin-tier: the rent is money, and the address parts serve no public page. */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
+export async function getSpielorte(filters: SpielorteGetSpielorteParams = {}): Promise<FLSpielorteListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() =>
-    apiClient<FLSpielorteListResponse>("/spielorte", FLSpielorteListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => spielorteGetSpielorte(filters));
+}
+
+/** Retired or not; `null` where no venue holds the id, which the editor answers with its not-found page. */
+// Never `"use cache"`, which keys on the arguments rather than the caller.
+export async function getSpielort(spielortId: string): Promise<FLSpielort | null> {
+  return runAdminRead(() => orMissing(spielorteGetSpielort(spielortId).then(({ spielort }) => spielort)));
 }

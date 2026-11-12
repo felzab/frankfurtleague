@@ -4,12 +4,11 @@ The owner's `/away` runs this before they leave, and `/back` undoes it ([modes.m
 subagent's permission prompt surfaces in the owner's session, not the agent's, so one unanswered
 prompt parks the whole fleet; the register is what stays true until the owner is back.
 
-- Bypass permissions mode does not suppress an explicit `ask` rule, the standard's
-  `Edit(**/docs/_standard/**)` in `.claude/settings.json` among them, so bypass is no preparation.
-- Turn the ask into a deny: add `Edit(**/docs/_standard/**)` to `permissions.deny` in the gitignored
-  `.claude/settings.local.json`, which a running session reloads, and confirm one refusal before
-  leaving. Deny is evaluated before ask: an agent reaching the standard is refused and works on, and
-  the change still waits for the owner.
+- Bypass permissions mode does not suppress an explicit `ask` rule, so bypass is no preparation.
+- Turn each `ask` rule the loaded settings hold into a deny: add it to `permissions.deny` in the
+  gitignored `.claude/settings.local.json`, which a running session reloads, and confirm one refusal
+  before leaving. Deny is evaluated before ask: an agent reaching that path is refused and works on,
+  and the change still waits for the owner. Where no `ask` rule is loaded, there is nothing to turn.
 - Add rules only. Removing or loosening a permission rule or a hook registration is the owner's to
   give, never yours to take, and the denies stay in force through the stretch.
 - The prompt surface is not enumerable from the rules: the harness's permission classifier raises
@@ -26,5 +25,5 @@ prompt parks the whole fleet; the register is what stays true until the owner is
   back: queue it under the register's "Open, awaiting the owner" with its options, your
   recommendation first. Where it blocks work, build the recommended option provisionally and mark
   it so there; on the owner's return every queued question goes through the ask tool, in batches,
-  each naming the provisional build it confirms or reverses. A rule change, and any string a visitor
-  navigates by, waits for the owner.
+  each naming the provisional build it confirms or reverses. A rule change waits for the owner; a
+  string a visitor reads ships under the project's copy standard and is listed for the owner.

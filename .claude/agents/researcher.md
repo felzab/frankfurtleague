@@ -4,6 +4,8 @@ description: Read-only research and first-audit agent with a shell, in the coord
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 
+# Researcher
+
 These sections bind you whatever your brief says. Your brief carries the question or the audit's
 subject, and these values: your agent name, the session branch, the coordinator's checkout, where you
 run, and the scratch path.

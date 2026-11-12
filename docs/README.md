@@ -1,34 +1,46 @@
 # Documentation
 
-**Folder purpose:** everything written down about this project.
+Which document answers which question. Read the first five in order when you start here; look the
+rest up when a question needs them.
 
-## Folder overview
+## Read first, in order
 
-| Read                               | For                                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`glossary.md`](glossary.md)       | The German domain vocabulary, and the pitfall in each term                                  |
-| [`domain.md`](domain.md)           | What depends on what, when a field may be edited, and what is refused                       |
-| [`datenschutz.md`](datenschutz.md) | The data-protection rulings, held there until each reaches its home                         |
-| [`frontend/`](frontend/)           | The Next.js app — what it is for, and its contract                                          |
-| [`backend/`](backend/)             | The FastAPI service — what it is for, and its contract                                      |
-| [`ops/`](ops/)                     | Building, routing, deploying and running the system                                         |
-| [`logging/`](logging/)             | Following a request through the logs, and what every `error_code` means                     |
-| [`_git/`](_git/)                   | Branching, commits, pull requests, the gate, repository settings                            |
-| [`_roadmap/`](_roadmap/)           | What is open on the product, the toolchain, the gate and the documentation corpus           |
-| [`_auditing/`](_auditing/)         | Running an audit or a remediation programme                                                 |
-| `audit/`                           | **Gitignored.** Working documents; what lives there is listed in [`_auditing/`](_auditing/) |
-| [`_standard/`](_standard/)         | Writing or changing any documentation — the rules, the shapes, and the examples             |
+1. **[`README.md`](../README.md)**: what the project is and how it is built.
+2. **This page**: where each answer lives.
+3. **[`domain.md`](domain.md)**: how the league's data fits together, and what a write is refused.
+4. **The overview of the surface you will touch**: [frontend](frontend/overview.md),
+   [backend](backend/overview.md) or [operations](ops/overview.md).
+5. **[`writing.md`](writing.md)**: how a document, a name, a comment, a commit and a pull request are
+   written.
 
-## Coming back after a while
+## Look up, do not read through
 
-Read in this order:
+| Document                                                          | Answers                                                                |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`glossary.md`](glossary.md)                                      | What a German term means, and its name in the code                     |
+| [`decisions.md`](decisions.md)                                    | What is deliberately never done                                        |
+| [`datenschutz.md`](datenschutz.md)                                | The record of processing under Art. 30 DSGVO, and the deletion concept |
+| [`frontend/copy.md`](frontend/copy.md)                            | How a string a visitor reads is written                                |
+| [`logging/overview.md`](logging/overview.md)                      | How to follow one request through the logs                             |
+| [`ops/spec.md`](ops/spec.md)                                      | The deployed system's services, routing, headers and gate              |
+| [`ops/runbooks.md`](ops/runbooks.md)                              | A procedure to run while operating                                     |
+| [`scripts/README.md`](../scripts/README.md)                       | What each script and checker does                                      |
+| [`fl_backend/tests/README.md`](../fl_backend/tests/README.md)     | What each backend test support module provides                         |
+| [`SECURITY.md`](../SECURITY.md)                                   | Where to report a vulnerability                                        |
+| [`pull_request_template.md`](../.github/pull_request_template.md) | A pull request body's sections                                         |
 
-1. **[`glossary.md`](glossary.md)** — the vocabulary is load-bearing.
-2. **[`domain.md`](domain.md)** — its aggregate boundaries are where the expensive mistakes are.
-3. **The three surface overviews** — [frontend](frontend/overview.md), [backend](backend/overview.md),
-   [ops](ops/overview.md).
-4. **[`.claude/CLAUDE.md`](../.claude/CLAUDE.md) §7 and the files it indexes under
-   [`.claude/rules/`](../.claude/rules/)** — one line per ratified decision.
-5. **[`_git/`](_git/)** — how to ship a change.
+What is still open on the product, the toolchain and the documentation is a
+[GitHub issue](https://github.com/felzab/frankfurtleague/issues), labelled by kind.
 
-The specs are reference, not reading. Look things up in them; do not read them through.
+## The AI agents' folder
+
+`.claude/` holds the working rules of the AI agents that build this project, and nothing in the
+repository depends on it: deleting it leaves every check, CI job and build passing. Outside it, only
+these name it:
+
+- `fl_frontend/next.config.ts`'s `agentRules` setting
+- the `.claude/` entries of `.gitignore` and `.prettierignore`
+- the worktree pattern in `fl_frontend/package.json`'s `format` and `format:check` scripts
+- the root `README.md`'s tree line and its section "Who builds it"
+- `.github/workflows/ai-tooling.yml`, which tests the agents' own tools
+- this section, and [`writing.md`](writing.md)'s opening and commit scopes

@@ -19,25 +19,13 @@
   },
   {
     "case": "a no-break and an ideographic space around it",
-    "typed": "\u00a0anna@schule.de\u3000",
+    "typed": " anna@schule.de　",
     "stored": "anna@schule.de",
     "folded": "anna@schule.de"
   },
   {
-    "case": "an umlaut domain",
-    "typed": "anna@m\u00fcller.de",
-    "stored": "anna@xn--mller-kva.de",
-    "folded": "anna@xn--mller-kva.de"
-  },
-  {
-    "case": "an umlaut domain typed decomposed",
-    "typed": "anna@mu\u0308ller.de",
-    "stored": "anna@xn--mller-kva.de",
-    "folded": "anna@xn--mller-kva.de"
-  },
-  {
     "case": "a zero-width no-break space before it",
-    "typed": "\ufeffanna@schule.de",
+    "typed": "﻿anna@schule.de",
     "stored": "anna@schule.de",
     "folded": "anna@schule.de"
   },
@@ -48,13 +36,19 @@
     "folded": "anna@schule.de\u0085"
   },
   {
-    "case": "an umlaut domain in capitals",
-    "typed": "anna@M\u00dcLLER.DE",
-    "stored": "anna@xn--mller-kva.de",
-    "folded": "anna@xn--mller-kva.de"
+    "case": "an umlaut domain",
+    "typed": "anna@müller.de",
+    "stored": null,
+    "folded": "anna@müller.de"
   },
   {
-    "case": "the umlaut domain's punycode",
+    "case": "an umlaut domain in capitals, whose umlaut no fold lowers",
+    "typed": "Anna@MÜLLER.DE",
+    "stored": null,
+    "folded": "anna@mÜller.de"
+  },
+  {
+    "case": "a domain in punycode",
     "typed": "anna@xn--mller-kva.de",
     "stored": "anna@xn--mller-kva.de",
     "folded": "anna@xn--mller-kva.de"
@@ -66,82 +60,10 @@
     "folded": "anna@xn--mller-kva.de"
   },
   {
-    "case": "a sharp s in the domain",
-    "typed": "anna@stra\u00dfe.de",
-    "stored": "anna@xn--strae-oqa.de",
-    "folded": "anna@xn--strae-oqa.de"
-  },
-  {
-    "case": "the double s the sharp s is not",
-    "typed": "anna@strasse.de",
-    "stored": "anna@strasse.de",
-    "folded": "anna@strasse.de"
-  },
-  {
-    "case": "a capital sharp s in the domain",
-    "typed": "anna@STRA\u1e9eE.de",
-    "stored": "anna@xn--strae-oqa.de",
-    "folded": "anna@xn--strae-oqa.de"
-  },
-  {
-    "case": "full-width letters and a half-width stop in the domain",
-    "typed": "anna@\uff53chule\uff61de",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
-  },
-  {
-    "case": "an ideographic full stop in the domain",
-    "typed": "anna@schule\u3002de",
-    "stored": "anna@schule.de",
-    "folded": "anna@schule.de"
-  },
-  {
-    "case": "Cherokee capitals in the domain",
-    "typed": "anna@\u13a0\u13a1.de",
-    "stored": "anna@xn--58dc.de",
-    "folded": "anna@xn--58dc.de"
-  },
-  {
-    "case": "Cherokee small letters in the domain",
-    "typed": "anna@\uab70\uab71.de",
-    "stored": "anna@xn--58dc.de",
-    "folded": "anna@xn--58dc.de"
-  },
-  {
-    "case": "Greek capitals in the domain",
-    "typed": "x@\u0391\u03a3.de",
-    "stored": "x@xn--mxa0b.de",
-    "folded": "x@xn--mxa0b.de"
-  },
-  {
     "case": "an umlaut in the local part",
-    "typed": "j\u00fcrgen@schule.de",
+    "typed": "jürgen@schule.de",
     "stored": null,
-    "folded": "j\u00fcrgen@schule.de"
-  },
-  {
-    "case": "an umlaut in a capitalised local part",
-    "typed": "J\u00dcRGEN@schule.de",
-    "stored": null,
-    "folded": "j\u00dcrgen@schule.de"
-  },
-  {
-    "case": "a full-width letter in the local part",
-    "typed": "\uff41nna@schule.de",
-    "stored": null,
-    "folded": "\uff41nna@schule.de"
-  },
-  {
-    "case": "a dotted capital I in the local part",
-    "typed": "\u0130lknur@schule.de",
-    "stored": null,
-    "folded": "\u0130lknur@schule.de"
-  },
-  {
-    "case": "a combining accent in the local part",
-    "typed": "vorstand\u0301@schule.de",
-    "stored": null,
-    "folded": "vorstand\u0301@schule.de"
+    "folded": "jürgen@schule.de"
   },
   {
     "case": "a display name around the address",
@@ -162,12 +84,6 @@
     "folded": "anna@schule"
   },
   {
-    "case": "an umlaut domain one octet past the ceiling once punycoded",
-    "typed": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.m\u00fcller.bbbbb.de",
-    "stored": null,
-    "folded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.xn--mller-kva.bbbbb.de"
-  },
-  {
     "case": "a domain under a special-use name",
     "typed": "Trainer@Example.TEST",
     "stored": null,
@@ -184,61 +100,5 @@
     "typed": "anna@example.org",
     "stored": "anna@example.org",
     "folded": "anna@example.org"
-  },
-  {
-    "case": "a special-use name typed in full-width letters",
-    "typed": "schiri@platzhalter.\uff49\uff4e\uff56\uff41\uff4c\uff49\uff44",
-    "stored": null,
-    "folded": "schiri@platzhalter.invalid"
-  },
-  {
-    "case": "an umlaut domain under a special-use name",
-    "typed": "anna@m\u00fcnchen.test",
-    "stored": null,
-    "folded": "anna@xn--mnchen-3ya.test"
-  },
-  {
-    "case": "an umlaut domain without a dot",
-    "typed": "anna@m\u00fcnchen",
-    "stored": null,
-    "folded": "anna@xn--mnchen-3ya"
-  },
-  {
-    "case": "an umlaut domain holding a slash a URL parser would end the host at",
-    "typed": "anna@m\u00fcnchen.de/x",
-    "stored": null,
-    "folded": "anna@m\u00fcnchen.de/x"
-  },
-  {
-    "case": "an umlaut domain holding a soft hyphen a URL parser would drop",
-    "typed": "anna@m\u00fcn\u00adchen.de",
-    "stored": null,
-    "folded": "anna@m\u00fcn\u00adchen.de"
-  },
-  {
-    "case": "an umlaut domain holding a tab a URL parser would drop",
-    "typed": "anna@m\u00fcn\tchen.de",
-    "stored": null,
-    "folded": "anna@m\u00fcn\tchen.de"
-  },
-  {
-    "case": "a Unicode 16 letter in the domain, which the URL parser the fold reads first refuses",
-    "typed": "anna@\ud81b\udd43x.de",
-    "stored": "anna@xn--x-7p6m.de",
-    "folded": "anna@xn--x-7p6m.de"
-  },
-  {
-    "case": "a Unicode 17 letter in the domain, which only the frontend's tables hold",
-    "typed": "anna@\ud807\uddb0x.de",
-    "stored": null,
-    "folded": "anna@\ud807\uddb0x.de",
-    "frontend": { "stored": "anna@xn--x-5g3j.de", "folded": "anna@xn--x-5g3j.de" }
-  },
-  {
-    "case": "a Hangul filler as the whole first label, which only the frontend's fold drops",
-    "typed": "anna@\u3164.de",
-    "stored": null,
-    "folded": "anna@\u3164.de",
-    "frontend": { "stored": null, "folded": "anna@.de" }
   }
 ]

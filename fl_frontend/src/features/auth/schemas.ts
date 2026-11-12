@@ -1,12 +1,29 @@
 import { z } from "zod";
 
-import { KontaktEmailSchema } from "@/shared/schemas";
+import { asSignInIdentifier, isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
+import { isSignInLibraryAddress } from "@/core/signInLibraryAddress";
 
 /**
- * Shared rather than private to the action: the form blocks its own submit against this, and a second copy of
- * the rule is how the browser comes to refuse what the server accepts (`docs/frontend/spec.md` I18).
+ * The address the send and the code step both take: one rule, so a code is never typed for an address the send
+ * refused. It carries no message of its own, so the action builder words every refusal on the box through the German
+ * map: a schema's own message is past the map, and answers the unexpected line. The browser's `type=email` takes addresses this refuses, a host with no dot among them, so this
+ * answer is the one such an address meets.
  */
 export const SignInPayloadSchema = z.object({
-  // This box is the only route to a session, so a grant made to an address it refuses admits nobody.
-  email: KontaktEmailSchema,
+  email: z
+    .string()
+    // Pydantic strips before it validates, so a pasted trailing space is an address the API takes.
+    .trim()
+    // Ahead and ending the judgement: the ceiling is a line of its own.
+    .max(KONTAKT_EMAIL_MAX_LENGTH, { abort: true })
+    // The ASCII local part and the special-use domains are in this predicate too, each worded alike here.
+    .refine(isDeliverableAddress),
 });
+
+/**
+ * An address a person will sign in at: the box's rule and the sign-in library's own. The API takes addresses the library
+ * refuses, and at such an address the sign-in answers as sent and no code ever comes, so a grant there admits nobody and
+ * a change onto it locks its person out. A ban and an erasure name an address that may already stand on file, and keep
+ * the box's rule.
+ */
+export const SignInAddressSchema = SignInPayloadSchema.shape.email.refine((email) => isSignInLibraryAddress(asSignInIdentifier(email)));

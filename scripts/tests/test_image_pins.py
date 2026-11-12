@@ -1,21 +1,19 @@
-"""SCRIPTS · every image this repository does not build is named by tag and digest (`docs/ops/spec.md` §1.1).
+"""Every image this repository does not build is pinned by tag and digest, and the versions no tool compares agree.
 
-A tag alone is a pointer its publisher can move, and no build or pull says when it has. Nothing
-else reads the pin form: a reference losing its digest in a hand edit, or a service added without
-one, builds and deploys as before, from an image no pull request reviewed.
+What it compares: every image both Dockerfiles, both compose files and the listed scripts name, against the pin form; both
+database test tiers' mongo against the local stack's; and each image's toolchain against the one the checkout and CI run,
+the frontend's Node against `devEngines` and the lockfile, the backend's Python against `.python-version`'s series and
+its uv against CI's. Each pair drifts in silence: a tag alone is a pointer its publisher can move, a hand edit can drop a
+digest, and Dependabot moves each file's pin on its own, so one side ships a version the other never ran.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import re
-import subprocess
-import sys
-import textwrap
 from pathlib import Path
 from typing import Final
-
-from test_check_gate_budget import job_bodies
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 DOCKERFILES: Final = (REPO_ROOT / "fl_frontend" / "Dockerfile", REPO_ROOT / "fl_backend" / "Dockerfile")
@@ -25,14 +23,15 @@ COMPOSE_FILES: Final = (REPO_ROOT / "docker-compose.yml", REPO_ROOT / "docker-co
 # the image, so a reader holding to one spelling passes a reference it never saw.
 FROM_RE: Final = re.compile(r"^[ \t]*FROM(?:[ \t]+--\S+)*[ \t]+(\S+)(?:[ \t]+AS[ \t]+(\S+))?[ \t]*$", re.MULTILINE | re.IGNORECASE)
 FROM_LINE_RE: Final = re.compile(r"^[ \t]*FROM[ \t]", re.MULTILINE | re.IGNORECASE)
-IMAGE_RE: Final = re.compile(r"^ +image: (.+)$", re.MULTILINE)
+# A plain or a quoted scalar: a value holding `: ` must be quoted to stay YAML.
+IMAGE_RE: Final = re.compile(r"""^ +image: (["']?)(.+?)\1[ \t]*$""", re.MULTILINE)
 # The two other instructions naming a source by `from`: a stage, or any image, which Docker pulls.
 COPY_FROM_RE: Final = re.compile(r"^[ \t]*COPY(?:[ \t]+--\S+)*?[ \t]+--from=(\S+)", re.MULTILINE | re.IGNORECASE)
 RUN_MOUNT_RE: Final = re.compile(r"^[ \t]*RUN((?:[ \t]+--\S+)+)", re.MULTILINE | re.IGNORECASE)
 # A name, a tag, and the registry's digest for it: the tag for the bot to compare, the digest for the pull.
 PINNED_RE: Final = re.compile(r"^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$")
-# This repository's own images, which `publish.yml` re-tags and `deploy.sh` pulls by `:latest`.
-OWN_IMAGE_RE: Final = re.compile(r"^ghcr\.io/felzab/frankfurtleague-(?:frontend|backend):latest$")
+# This repository's own images, whose tag the deploy hands Compose as `TAG`, which refuses to start without it.
+OWN_IMAGE_RE: Final = re.compile(r"^ghcr\.io/felzab/frankfurtleague-(?:frontend|backend):\$\{TAG:\?[^}]+\}$")
 # The local stack's override clearing an image the production file names.
 CLEARED: Final = "!reset null"
 
@@ -67,9 +66,9 @@ def external_references() -> list[tuple[str, str]]:
         relative = dockerfile.relative_to(REPO_ROOT).as_posix()
         found += [(relative, image) for image in dockerfile_images(dockerfile.read_text(encoding="utf-8"), dockerfile.name)]
     for compose in COMPOSE_FILES:
-        for image in IMAGE_RE.findall(compose.read_text(encoding="utf-8")):
-            if image.strip() != CLEARED and not OWN_IMAGE_RE.match(image.strip()):
-                found.append((compose.relative_to(REPO_ROOT).as_posix(), image.strip()))
+        for _, image in IMAGE_RE.findall(compose.read_text(encoding="utf-8")):
+            if image != CLEARED and not OWN_IMAGE_RE.match(image):
+                found.append((compose.relative_to(REPO_ROOT).as_posix(), image))
     return found
 
 
@@ -105,8 +104,10 @@ def test_every_external_image_tag_names_an_exact_release() -> None:
 SCRIPT_IMAGES: Final = {
     "scripts/gate/selfcheck.sh:shellcheck": ("scripts/gate/selfcheck.sh", "koalaman/shellcheck"),
     "scripts/gate/selfcheck.sh:actionlint": ("scripts/gate/selfcheck.sh", "rhysd/actionlint"),
-    "scripts/ops/local.sh:mongo": ("scripts/ops/local.sh", "mongo"),
+    "scripts/gate/verify.sh:lychee": ("scripts/gate/verify.sh", "lycheeverse/lychee"),
     "fl_backend/tests/conftest.py:mongo": ("fl_backend/tests/conftest.py", "mongo"),
+    ".github/workflows/verify.yml:playwright": (".github/workflows/verify.yml", "mcr.microsoft.com/playwright"),
+    ".github/workflows/verify.yml:buildkit": (".github/workflows/verify.yml", "moby/buildkit"),
 }
 ASSIGNMENT_RE: Final = re.compile(r'^([A-Z_]+)="([^"$]*)"$', re.MULTILINE)
 REFERENCE_RE: Final = r"(?<![\w/]){name}:[^\s\"']+"
@@ -128,61 +129,16 @@ def script_references() -> dict[str, tuple[str, str]]:
     return found
 
 
-def _local_stack_mongo() -> str:
-    stack = [image for path, image in external_references() if path == "docker-compose.local.yml" and image.startswith("mongo:")]
-    assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
-    return stack[0]
-
-
-def test_the_copy_of_the_local_database_runs_the_local_stack_s_mongo() -> None:
-    """A dump taken by one build and restored into another is the version skew the digest exists to remove."""
-    stack = _local_stack_mongo()
-    _, dump = script_references()["scripts/ops/local.sh:mongo"]
-
-    assert dump == stack, f"scripts/ops/local.sh copies with {dump}, and the local stack runs {stack}"
-
-
 def test_the_backend_db_tier_runs_the_local_stack_s_mongo() -> None:
     """Dependabot's compose ecosystem moves the stack alone, and no ecosystem reads the conftest's string.
 
     The frontend's tier follows through its own case, which holds its image to this pin.
     """
-    stack = _local_stack_mongo()
+    stack = [image for path, image in external_references() if path == "docker-compose.local.yml" and image.startswith("mongo:")]
     _, tier = script_references()["fl_backend/tests/conftest.py:mongo"]
 
-    assert tier == stack, f"fl_backend/tests/conftest.py :: MONGO_IMAGE is {tier}, and the local stack runs {stack}"
-
-
-# Each instruction naming a source by `from`, against a stage and against an image: the two
-# Dockerfiles take from stages alone, so the image arms are driven here.
-PLANTED_DOCKERFILE: Final = """FROM node:26@sha256:{digest} AS base
-FROM base AS builder
-COPY --from=builder /app /app
-COPY --chown=1:1 --from=busybox:1.36 /bin/sh /bin/sh
-RUN --mount=type=cache,target=/cache true
-RUN --mount=type=bind,from=alpine:3.22,target=/x --mount=type=cache,from=base,target=/y true
-COPY --from=0 /a /a
-""".format(digest="0" * 64)
-
-
-def test_an_image_a_copy_or_a_mount_takes_from_is_read_beside_a_stage() -> None:
-    """A stage is the file's own, and any other source is an image Docker pulls."""
-    assert dockerfile_images(PLANTED_DOCKERFILE, "planted") == [f"node:26@sha256:{'0' * 64}", "busybox:1.36", "alpine:3.22"]
-
-
-# The Control API's first release (`docs/ops/spec.md` §1.2): the edge's command passes `-l`, which an
-# older nginx refuses, and it never starts.
-CONTROL_API_FLOOR: Final = (1, 31, 5)
-EXACT_RELEASE_RE: Final = re.compile(r"^nginx:(\d+)\.(\d+)\.(\d+)\b")
-
-
-def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
-    """Read off the tag, which names the release an update is compared against; the digest runs it."""
-    edge = [image for path, image in external_references() if path == "docker-compose.yml" and image.startswith("nginx:")]
-    assert len(edge) == 1, f"docker-compose.yml names nginx {edge}, where the case reads exactly one"
-    release = EXACT_RELEASE_RE.match(edge[0])
-    assert release, f"{edge[0]} names no exact release, so no floor can be held to it"
-    assert tuple(int(part) for part in release.groups()) >= CONTROL_API_FLOOR, f"{edge[0]} predates the Control API's 1.31.5"
+    assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
+    assert tier == stack[0], f"fl_backend/tests/conftest.py :: MONGO_IMAGE is {tier}, and the local stack runs {stack[0]}"
 
 
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
@@ -193,8 +149,6 @@ UNREAD_DIRS: Final = frozenset({"node_modules", ".next", ".venv", "__pycache__",
 FRONTEND_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
 # A string naming the image: the bare name, a tag, a digest, a registry path ahead of it.
 MONGO_LITERAL_RE: Final = re.compile(r"""(["'`])((?:[\w.-]+/)*mongo(?:[:@][^"'`\s]*)?)\1""")
-# The image as a shell spells it, unquoted, as the script reader reads it; a URI's `//mongo:` is a host.
-MONGO_SHELL_RE: Final = re.compile(REFERENCE_RE.format(name="mongo"))
 
 
 def sources_under(root: Path, suffixes: frozenset[str]) -> list[Path]:
@@ -206,12 +160,12 @@ def sources_under(root: Path, suffixes: frozenset[str]) -> list[Path]:
     return sorted(found)
 
 
-def mongo_images(sources: list[Path], pattern: re.Pattern[str], group: int) -> list[tuple[str, str]]:
-    """Every mongo image `pattern` reads out of `sources`, each beside its file."""
+def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
+    """Every mongo image named in a string literal of `sources`, each beside its file."""
     return [
-        (path.relative_to(REPO_ROOT).as_posix(), match[group])
+        (path.relative_to(REPO_ROOT).as_posix(), match[2])
         for path in sources
-        for match in pattern.finditer(path.read_text(encoding="utf-8"))
+        for match in MONGO_LITERAL_RE.finditer(path.read_text(encoding="utf-8"))
     ]
 
 
@@ -221,7 +175,7 @@ def test_the_frontend_db_tier_names_the_backend_pin() -> None:
     No ecosystem reads either string, so this case is what holds the two together, digest included.
     """
     _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
-    images = mongo_images(sources_under(FRONTEND, FRONTEND_SUFFIXES), MONGO_LITERAL_RE, 2)
+    images = mongo_images(sources_under(FRONTEND, FRONTEND_SUFFIXES))
 
     # One place, so a second server cannot run another image where no case reads it.
     assert len(images) == 1, f"the frontend names a mongo image at {images}, where the case reads exactly one"
@@ -232,60 +186,53 @@ def test_the_backend_names_its_mongo_image_only_where_its_pin_is_read() -> None:
     """The conftest's pin is the one the stack's case holds, so a second image elsewhere runs unheld."""
     _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
 
-    assert mongo_images(sources_under(BACKEND, frozenset({".py"})), MONGO_LITERAL_RE, 2) == [("fl_backend/tests/conftest.py", pin)]
+    assert mongo_images(sources_under(BACKEND, frozenset({".py"}))) == [("fl_backend/tests/conftest.py", pin)]
 
 
-def test_the_scripts_run_mongo_only_where_the_dump_s_image_is_read() -> None:
-    """The dump's image is the one held to the local stack's, so a second script's runs unheld.
+# --- one version of each tool across CI and the images ---------------------------------------------
 
-    Which image `scripts/ops/local.sh` names, and that it names one, is `script_references`' to read.
-    """
-    images = mongo_images(sources_under(REPO_ROOT / "scripts", frozenset({".sh"})), MONGO_SHELL_RE, 0)
-
-    assert {path for path, _ in images} == {"scripts/ops/local.sh"}, f"scripts name mongo at {images}"
+BACKEND_TOOLCHAIN: Final = REPO_ROOT / ".github" / "actions" / "backend-toolchain" / "action.yml"
+FRONTEND_MANIFEST: Final = REPO_ROOT / "fl_frontend" / "package.json"
+FRONTEND_LOCKFILE: Final = REPO_ROOT / "fl_frontend" / "pnpm-lock.yaml"
+PYTHON_VERSION_FILE: Final = REPO_ROOT / "fl_backend" / ".python-version"
 
 
-# The db job's pull step reads the pin itself and sits behind `continue-on-error`, so a pin moved
-# out of its reader's shape leaves it printing an annotation and pulling nothing, with the job green.
-PULL_STEP: Final = "      - name: Pull the mongod image the db tier starts\n"
+def _from_tags(dockerfile: Path, image: str) -> list[str]:
+    """Every tag a FROM line gives `image` in one Dockerfile, the digest and any variant aside."""
+    return [
+        found.split("@", 1)[0].split(":", 1)[1].split("-", 1)[0]
+        for found, _ in FROM_RE.findall(dockerfile.read_text(encoding="utf-8"))
+        if found.startswith(f"{image}:")
+    ]
 
 
-def test_the_db_job_s_pull_step_reads_the_backend_tier_s_pin() -> None:
-    """The step's own script, lifted out of the workflow and run over the real conftest."""
-    body = job_bodies((REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8"))["db"]
-    assert body.count(PULL_STEP) == 1, "the db job holds no single pull step by this name"
-    step = body.split(PULL_STEP, 1)[1]
-    script = textwrap.dedent(step.split("python3 -c '", 1)[1].split("' fl_backend/tests/conftest.py", 1)[0])
-    conftest = REPO_ROOT / "fl_backend" / "tests" / "conftest.py"
-    done = subprocess.run([sys.executable, "-c", script, str(conftest)], capture_output=True, text=True, check=False)
-    _, pin = script_references()["fl_backend/tests/conftest.py:mongo"]
-
-    assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == pin, f"the pull step read {done.stdout.strip()!r}, where the conftest pins {pin}"
+def test_ci_installs_the_uv_the_backend_image_copies_in() -> None:
+    """The setup-uv step's `version` and the image's uv stage: fl_backend's `required-version` is a range both must sit inside."""
+    pinned = re.findall(r'^\s+version: "([^"]+)"$', BACKEND_TOOLCHAIN.read_text(encoding="utf-8"), re.MULTILINE)
+    tags = _from_tags(DOCKERFILES[1], "ghcr.io/astral-sh/uv")
+    assert len(pinned) == 1 and tags, f"read setup-uv {pinned} and the image's uv {tags}, where the case reads one of each"
+    assert set(tags) == set(pinned), f"CI installs uv {pinned[0]} and fl_backend/Dockerfile copies in {tags}"
 
 
-# The builder's whole-context COPY leaves out what `deps` installed from, whose check fails a patch
-# newer than the install. The failure needs a cache-hit `deps` layer, which only CI meets.
-FRONTEND_DOCKERFILE: Final = REPO_ROOT / "fl_frontend" / "Dockerfile"
-STAGE_RE: Final = re.compile(r"^[ \t]*FROM[ \t]+\S+[ \t]+AS[ \t]+(\S+)[ \t]*$", re.MULTILINE | re.IGNORECASE)
-COPY_RE: Final = re.compile(r"^[ \t]*COPY[ \t]+(.+?)[ \t]*$", re.MULTILINE | re.IGNORECASE)
-EXCLUDE: Final = "--exclude="
+def test_devengines_the_lockfile_and_the_frontend_image_name_one_exact_node_release() -> None:
+    """The image's Node is the release pnpm installs for the checkout and CI: `devEngines` names one exact release, the lockfile records it."""
+    runtime = json.loads(FRONTEND_MANIFEST.read_bytes())["devEngines"]["runtime"]
+    # `pnpm/setup` installs from the manifest alone, so a range there resolves afresh on every CI run.
+    exact = re.fullmatch(r"\d+\.\d+\.\d+", runtime["version"])
+    resolved = set(re.findall(r"^  node@runtime:(\S+?):?$", FRONTEND_LOCKFILE.read_text(encoding="utf-8"), re.MULTILINE))
+    tags = _from_tags(DOCKERFILES[0], "node")
+    assert runtime["name"] == "node" and exact and resolved and tags, (
+        f"read devEngines {runtime}, the lockfile's {resolved} and the image's {tags}, where the case reads one exact release of each"
+    )
+    assert set(tags) == {runtime["version"]} == resolved, (
+        f"devEngines {runtime['version']}, the lockfile's Node {sorted(resolved)}, fl_frontend/Dockerfile {tags}"
+    )
 
 
-def _stages(text: str) -> dict[str, str]:
-    """Each named stage's instructions, up to the next FROM."""
-    marks = list(STAGE_RE.finditer(text))
-    ends = [mark.start() for mark in marks[1:]] + [len(text)]
-    return {mark[1].lower(): text[mark.end() : end] for mark, end in zip(marks, ends, strict=True)}
-
-
-def test_the_builder_leaves_out_every_path_the_deps_stage_installed_from() -> None:
-    """Both sets read off the Dockerfile, so a copy added to `deps` or an exclude dropped is named."""
-    stages = _stages(FRONTEND_DOCKERFILE.read_text(encoding="utf-8"))
-    installed = {token for line in COPY_RE.findall(stages["deps"]) for token in line.split()[:-1] if not token.startswith("--")}
-    context = [line.split() for line in COPY_RE.findall(stages["builder"]) if line.split()[-2:] == [".", "."]]
-    assert installed, "no COPY was read out of the deps stage: this reader went inert"
-    assert len(context) == 1, f"the builder holds {len(context)} whole-context COPY lines, where the case reads exactly one"
-    excluded = {token.removeprefix(EXCLUDE) for token in context[0] if token.startswith(EXCLUDE)}
-
-    assert excluded == installed, f"deps installs from {sorted(installed)}; the builder excludes {sorted(excluded)}"
+def test_the_backend_image_runs_the_python_series_ci_installs() -> None:
+    """Every CI job's interpreter comes from the file, production's from the image's tag."""
+    series = PYTHON_VERSION_FILE.read_text(encoding="utf-8").strip()
+    tags = _from_tags(DOCKERFILES[1], "python")
+    assert tags and all(tag == series or tag.startswith(f"{series}.") for tag in tags), (
+        f"{series} in fl_backend/.python-version, {tags} in the image"
+    )

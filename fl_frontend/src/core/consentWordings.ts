@@ -1,0 +1,111 @@
+import { ROUTES } from "./routes";
+
+import type { Route } from "next";
+import type {
+  FLEinwilligungScope,
+  FLEinwilligungTextVersion,
+  FLMediaTextVersion,
+  FLNameKaderTextVersion,
+  FLNameSpielplanTextVersion,
+  FLSchiedsrichterTextVersions,
+  FLSeatTextVersions,
+  FLSpielerTextVersions,
+  FLWhatsappTextVersion,
+} from "./generated/client/types";
+
+/** The line under a control: its words, a link among them where it points to a page. */
+export type ConsentLine = ReadonlyArray<string | { readonly href: Route; readonly label: string }>;
+
+/** A consent given by one switch: the switch's own sentence, its whole label, and the line under it. */
+export type SwitchWording = { readonly label: string; readonly line: ConsentLine };
+
+/** A consent given by picking one of the scopes `scope` stores: the question, each option by the value it writes, and the line. */
+export type ScopeWording = {
+  readonly question: string;
+  readonly options: Readonly<Record<FLEinwilligungScope, string>>;
+  readonly line: ConsentLine;
+};
+
+const PRIVACY_NOTICE = ROUTES.privacyNotice.path();
+
+/**
+ * Every consent wording a stored record can name, keyed by the label its evidence stamps as `text_version`. A record
+ * proves what its person was shown only while its label's words stay as they were, so different words are a new label
+ * beside the old, never an edit of one, and a test fails an entry reworded in place. Each entry spells
+ * its words out whole, a line two entries share included, so no edit to one reaches another.
+ *
+ * Outside `COPY` and `SERVER_COPY`, whose entries the copy standard rewords freely. A label's month is the month its
+ * words go live, which the deploy first serving them sets.
+ */
+export const CONSENT_WORDINGS = {
+  "2026-11-whatsapp-1": {
+    label: "Die Liga darf mich auch über WhatsApp erreichen.",
+    line: [
+      "Dafür erhält WhatsApp deine Telefonnummer und unsere Nachrichten. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de widerrufen. Mehr unter ",
+      { href: PRIVACY_NOTICE, label: "Datenschutz" },
+      ".",
+    ],
+  },
+  "2026-11-media-1": {
+    label: "Die Liga darf Fotos, Videos und Interviews von mir auf ihrer Website und auf Instagram veröffentlichen.",
+    line: [
+      "Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de widerrufen. Mehr unter ",
+      { href: PRIVACY_NOTICE, label: "Datenschutz" },
+      ".",
+    ],
+  },
+  "2026-11-name-kader-1": {
+    question: "Was darf von deinem Namen auf der Website stehen?",
+    options: {
+      kader_public: "Vorname und Anfangsbuchstabe des Nachnamens",
+      internal: "Kein Name",
+    },
+    line: [
+      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
+      { href: PRIVACY_NOTICE, label: "Datenschutz" },
+      ".",
+    ],
+  },
+  "2026-11-name-spielplan-1": {
+    question: "Was darf von deinem Namen im Spielplan stehen?",
+    options: {
+      kader_public: "Erster Teil des Namens und Anfangsbuchstabe des nächsten",
+      internal: "Kein Name",
+    },
+    line: [
+      "Ohne Namen steht dort „anonym“. Du kannst das jederzeit in deinem Konto oder per E-Mail an kontakt@frankfurtleague.de ändern. Mehr unter ",
+      { href: PRIVACY_NOTICE, label: "Datenschutz" },
+      ".",
+    ],
+  },
+  // Every label the backend's `Literal`s admit, and no other: a label the backend accepts without words here, or words
+  // under a label it refuses, fails the type check.
+} as const satisfies Readonly<Record<FLEinwilligungTextVersion, SwitchWording | ScopeWording>>;
+
+// The labels each kind of record's press names, one per choice: each choice's current wording, the one label a grant
+// may name, though the request schema admits every label its kind's records cite so a withdrawal from an older page
+// still reaches. Checked against the backend's current labels, so a rewording that moves one fails here rather than
+// refusing every grant from the page.
+export const SEAT_TEXT_VERSIONS = { scope: "2026-11-whatsapp-1", media: "2026-11-media-1" } as const satisfies FLSeatTextVersions & {
+  readonly scope: FLWhatsappTextVersion;
+  readonly media: FLMediaTextVersion;
+};
+export const SPIELER_TEXT_VERSIONS = { scope: "2026-11-name-kader-1", media: "2026-11-media-1" } as const satisfies FLSpielerTextVersions & {
+  readonly scope: FLNameKaderTextVersion;
+  readonly media: FLMediaTextVersion;
+};
+export const SCHIEDSRICHTER_TEXT_VERSIONS = {
+  scope: "2026-11-name-spielplan-1",
+  media: "2026-11-media-1",
+} as const satisfies FLSchiedsrichterTextVersions & { readonly scope: FLNameSpielplanTextVersion; readonly media: FLMediaTextVersion };
+
+/** The words a kind's page shows beside its two choices, read off its labels so a page shows what its press stamps. */
+export const SEAT_WORDINGS = { scope: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.scope], media: CONSENT_WORDINGS[SEAT_TEXT_VERSIONS.media] };
+export const SPIELER_WORDINGS = {
+  scope: CONSENT_WORDINGS[SPIELER_TEXT_VERSIONS.scope],
+  media: CONSENT_WORDINGS[SPIELER_TEXT_VERSIONS.media],
+};
+export const SCHIEDSRICHTER_WORDINGS = {
+  scope: CONSENT_WORDINGS[SCHIEDSRICHTER_TEXT_VERSIONS.scope],
+  media: CONSENT_WORDINGS[SCHIEDSRICHTER_TEXT_VERSIONS.media],
+};

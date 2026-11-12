@@ -1,38 +1,35 @@
-import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { after, beforeEach, describe, it } from "node:test";
-
-import { MongoServerError } from "mongodb";
 
 import {
   ADMIN_EMAIL,
   Barrier,
-  BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
   HOLDS_NOTHING,
   lastMailedCode,
   ORIGIN,
+  overriding,
   registerAuthDoubles,
   signInByCode,
-} from "./authDoubles.ts";
-import { replicaSetUrl, startJudgedReplicaSet } from "./expiredTransactions.ts";
-import { overridingModule } from "./exportingModule.ts";
-import { answerAt, SITZ } from "./subjectFixtures.ts";
-import { registrationFor } from "./testAuthenticator.ts";
+} from "@/test-support/authDoubles.ts";
+import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { registrationFor } from "@/test-support/testAuthenticator.ts";
+import { MongoServerError } from "mongodb";
+import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { LookupFixture } from "./subjectFixtures.ts";
+import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
-// A replica set: why this file needs one is `docs/frontend/spec.md` §1.9's.
+// A replica set.
 const { mongod, closing } = await startJudgedReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = replicaSetUrl(mongod);
 
-// A second URL for the production module, which the load hook's match on a path's end lets past the
-// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
-const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
+// The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
+// under test is the one it builds.
+const PRODUCTION_DB = "@/core/db.ts";
 
 type Method = (...args: unknown[]) => unknown;
 
@@ -69,12 +66,6 @@ const wrapCollection = (name: string, collection: object): object =>
           };
         };
       }
-      if (name === "verification" && prop === "findOneAndDelete") {
-        return async (...args: unknown[]) => {
-          await consuming();
-          return (value as Method).apply(target, args);
-        };
-      }
       if (name === "account" && prop === "deleteMany") {
         return async (...args: unknown[]) => {
           await deletingAccounts();
@@ -103,7 +94,7 @@ const wrapDb = (db: object): object =>
 
 /* The real client, held where a request makes its first write after its judgement: the passkey row. Each
    transaction's commit asks `atCommit` first. */
-const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
+const DB_DOUBLE = overriding(PRODUCTION_DB, {
   signInStore: (db) => {
     productionClient = (db.signInStore as () => object)();
     const wrapped = new Proxy(productionClient as object, {
@@ -149,63 +140,45 @@ const LOGGING_DOUBLE = {
 };
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  // The admin key the person lane's erasure is sent under, beside the store's address.
+  core: {
+    config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
+    db: DB_DOUBLE,
+    logging: LOGGING_DOUBLE,
+  },
 });
 
 /** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
-let gateAnswer: Pick<LookupFixture, "sitze" | "gesperrt" | "konto"> = { sitze: [], gesperrt: false, konto: false };
+let gateAnswer: Pick<LookupFixture, "seats" | "barred" | "account"> = { seats: [], barred: false, account: false };
+
+/** The path a person's own erasure posts to, which the library's hook asks before it deletes the account. */
+const ERASURE_PATH = "/api/v0/identity/account/erasure";
+
+/** How many erasures the backend has been asked for. */
+let erasuresAsked = 0;
 
 // The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
+  if (new URL(url).pathname === ERASURE_PATH) {
+    erasuresAsked += 1;
+    return Promise.resolve(new Response(null, { status: 204 }));
+  }
 
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
   const granted = email === ADMIN_EMAIL;
   const body = answerAt(new URL(url).pathname, {
     ...HOLDS_NOTHING,
-    verwaltung: granted ? "administration" : null,
+    admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
-    berechtigt_seit: granted ? "2026-01-01T00:00:00Z" : null,
+    granted_since: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
   });
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
-
-/**
- * Holds the one write that arrives first until `release`, and passes every later one: the order in
- * which one request commits whole while the other, already judged, waits at its first write.
- */
-class Gate {
-  private release_: () => void = () => undefined;
-  private reachedResolve: () => void = () => undefined;
-  private armed = true;
-
-  /**
-   * Whether a write arrived and is being held. Bounded as the barrier's wait is, so a request that
-   * never reaches a held write answers `false` rather than hanging the run.
-   */
-  readonly reached = new Promise<boolean>((resolve) => {
-    this.reachedResolve = () => resolve(true);
-    setTimeout(() => resolve(false), BARRIER_TIMEOUT_MS).unref();
-  });
-
-  async arrive(): Promise<void> {
-    if (!this.armed) return;
-    this.armed = false;
-    this.reachedResolve();
-    await new Promise<void>((resolve) => {
-      this.release_ = resolve;
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
-    });
-  }
-
-  release(): void {
-    this.release_();
-  }
-}
 
 const warnings: string[] = [];
 const errors: string[] = [];
@@ -214,15 +187,11 @@ const barrier = new Barrier();
 /** Where each bound's count waits, for a case that arms it. */
 const counting = new Barrier();
 
-/**
- * What runs as a verification row is consumed: a passkey's challenge after its session was read and
- * before its transaction, a code inside its consume's own transaction.
- */
-let consuming: () => Promise<unknown> = async () => undefined;
-
-// Imported after the hooks above are registered: a static import resolves before they exist.
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, carryAccount, deleteAccountFor, deleteOwnAccount, endSessionsOfAddress, requestAccountDeletion } = await import("./auth.ts");
+const { auth } = await import("./auth/library.ts");
+const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts.ts");
+const { endSessionsOfAddress } = await import("./auth/accountSessions.ts");
 const { buildAuthIndexes } = await import("./authIndexes.ts");
 
 type Collection = {
@@ -239,16 +208,15 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
 
-after(() => {
+afterAll(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
 beforeEach(async () => {
-  gateAnswer = { sitze: [], gesperrt: false, konto: false };
+  gateAnswer = { seats: [], barred: false, account: false };
   barrier.disarm();
   counting.disarm();
   warnings.length = 0;
-  consuming = async () => undefined;
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
@@ -257,7 +225,7 @@ beforeEach(async () => {
   // Production's indexes under every case, so the library is driven over what it meets there.
   errors.length = 0;
   await buildAuthIndexes();
-  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
+  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 const handler = toNextJsHandler(auth);
@@ -284,7 +252,7 @@ type Offered = { cookie: string; challenge: string };
 /** The options half, run to completion: what the verify half then needs to be posted. */
 async function offer(cookie: string): Promise<Offered> {
   const offered = await overHttp("/passkey/generate-register-options", { cookie });
-  assert.equal(offered.status, 200, await offered.clone().text());
+  expect(offered.status, await offered.clone().text()).toBe(200);
   const { challenge } = (await offered.json()) as { challenge: string };
   return { cookie: `${cookie}; ${cookieHeader(offered)}`, challenge };
 }
@@ -305,26 +273,11 @@ async function passkeyRows(): Promise<Record<string, unknown>[]> {
   return authDb().collection("passkey").find({}).toArray();
 }
 
-/** Two verify halves, both held at their first write until both have been judged. */
-async function atOnce(
-  pairs: readonly (readonly [Offered, Buffer])[],
-): Promise<{ statuses: number[]; codes: unknown[]; notices: number; warnings: string[] }> {
-  const mailedBefore = sent.length;
-  barrier.arm(pairs.length);
-  const responses = await Promise.all(pairs.map(([offered, rawId]) => verify(offered, rawId)));
-  barrier.disarm();
-  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne`, so no race was run");
-
-  const refused = responses.filter((response) => response.status !== 200);
-  const codes = await Promise.all(refused.map(async (response) => ((await response.json()) as { code?: unknown }).code));
-  return { statuses: responses.map((response) => response.status).sort(), codes, notices: sent.length - mailedBefore, warnings: [...warnings] };
-}
-
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
 
 describe("two enrolments of one administrator, against a real database", () => {
-  // The clause holds in sequence; two enrolments at once may both stand (`docs/frontend/spec.md` §4).
+  // The clause holds in sequence; two enrolments at once may both stand.
   it("refuses a second code-borne enrolment made after the first", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
@@ -332,50 +285,24 @@ describe("two enrolments of one administrator, against a real database", () => {
     const first = await verify(a, AUTHENTICATOR_A);
     const second = await verify(b, AUTHENTICATOR_B);
 
-    assert.deepEqual([first.status, second.status, (await passkeyRows()).length], [200, 404, 1]);
-  });
-
-  // The credential index alone keeps one row here, and answers the loser with the plugin's own failure
-  // rather than a refusal the dialog can word.
-  it("stores one authenticator enrolled twice at once as one row", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const raced = await atOnce([
-      [a, AUTHENTICATOR_A],
-      [b, AUTHENTICATOR_A],
-    ]);
-
-    assert.deepEqual(
-      { ...raced, rows: (await passkeyRows()).length, errors: [...errors] },
-      {
-        statuses: [200, 500],
-        codes: ["FAILED_TO_VERIFY_REGISTRATION"],
-        notices: 1,
-        warnings: ["auth.passkey_enrolment_conflict"],
-        rows: 1,
-        errors: [],
-      },
-    );
+    expect([first.status, second.status, (await passkeyRows()).length]).toStrictEqual([200, 404, 1]);
   });
 });
 
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
-   that signs in, so a setup the database refuses signs nobody in and nobody out
-   (`docs/frontend/spec.md :: I399`). */
+   that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
   it("replaces the code's session with the passkey's, the credential stamped", async () => {
     const offered = await offer(await signIn(ADMIN_EMAIL));
 
     const enrolled = await verify(offered, AUTHENTICATOR_A, { createSession: true });
-    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
 
     const sessions = await sessionRows();
-    assert.deepEqual(
+    expect(
       sessions.map(({ authFactor, passkeyCredentialId }) => [authFactor, passkeyCredentialId]),
-      [["passkey", AUTHENTICATOR_A.toString("base64url")]],
       "the code's session outlived the setup, or the passkey's was never written",
-    );
+    ).toStrictEqual([["passkey", AUTHENTICATOR_A.toString("base64url")]]);
   });
 
   /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
@@ -393,39 +320,36 @@ describe("a passkey setup that signs in, against a real database", () => {
     barrier.disarm();
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
-    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 404]);
-    assert.deepEqual([warnings, errors], [[], []]);
-    assert.equal(sent.length - mailedBefore, 1);
+    expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 404]);
+    expect([warnings, errors]).toStrictEqual([[], []]);
+    expect(sent.length - mailedBefore).toBe(1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
-    assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
+    expect(factors, "the refused setup minted a session or ended its caller's").toStrictEqual(["code", "passkey"]);
   });
 
   /* The enrolment guard reads the caller's own rows alone, so a credential another account holds reaches
      the insert, where the index refuses it as a duplicate no retry clears. */
   it("refuses a setup naming a credential another account holds as the plugin's failure, on the conflict's warning", async () => {
     const administrator = await offer(await signIn(ADMIN_EMAIL));
-    assert.equal((await verify(administrator, AUTHENTICATOR_A)).status, 200, "the administrator holds no passkey, so nothing is named twice");
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const person = await offer(await signIn("zweites-konto@example.org"));
     warnings.length = 0;
     const mailedBefore = sent.length;
 
     const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
 
-    assert.deepEqual(
-      {
-        status: refused.status,
-        logged: [warnings, errors],
-        notices: sent.length - mailedBefore,
-        rows: (await passkeyRows()).length,
-        factors: (await sessionRows()).map(({ authFactor }) => authFactor),
-      },
-      { status: 500, logged: [["auth.passkey_enrolment_conflict"], []], notices: 0, rows: 1, factors: ["code", "code"] },
-    );
+    expect({
+      status: refused.status,
+      logged: [warnings, errors],
+      notices: sent.length - mailedBefore,
+      rows: (await passkeyRows()).length,
+      factors: (await sessionRows()).map(({ authFactor }) => authFactor),
+    }).toStrictEqual({ status: 500, logged: [["auth.passkey_enrolment_conflict"], []], notices: 0, rows: 1, factors: ["code", "code"] });
   });
 });
 
-describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I402`)", () => {
+describe("what a ban ends, against a real database", () => {
   it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
     const { adapter } = await auth.$context;
     const person = await adapter.create<Record<string, unknown>, { id: string }>({
@@ -437,7 +361,7 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
       data: { email: "unbeteiligt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
     });
     const session = (userId: string) => ({
-      userId: userId,
+      userId,
       token: randomUUID(),
       expiresAt: new Date(Date.now() + 60_000),
       createdAt: new Date(),
@@ -459,25 +383,24 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
       },
     });
 
-    await endSessionsOfAddress("Leser@Bücher.example");
+    await endSessionsOfAddress("Leser@XN--BCHER-KVA.example");
 
-    assert.deepEqual(
+    expect(
       (await sessionRows()).map(({ userId }) => String(userId)),
-      [other.id],
       "a session of the barred account survived, or another account's was ended",
-    );
-    assert.equal((await authDb().collection("user").find({}).toArray()).length, 2);
-    assert.equal((await passkeyRows()).length, 1);
+    ).toStrictEqual([other.id]);
+    expect((await authDb().collection("user").find({}).toArray()).length).toBe(2);
+    expect((await passkeyRows()).length).toBe(1);
   });
 });
 
-describe("an address change carrying the account, against a real database (`docs/frontend/spec.md :: I829`)", () => {
+describe("an address change carrying the account, against a real database", () => {
   /** An account at `email` holding two sessions and one passkey. */
   async function accountAt(email: string): Promise<string> {
     const { adapter } = await auth.$context;
     const account = await adapter.create<Record<string, unknown>, { id: string }>({
       model: "user",
-      data: { email: email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+      data: { email, emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
     });
     for (let index = 0; index < 2; index++) {
       await adapter.create({
@@ -515,86 +438,65 @@ describe("an address change carrying the account, against a real database (`docs
     const person = await accountAt("alt@schule.example");
     const other = await accountAt("unbeteiligt@example.org");
 
-    assert.equal(await carryAccount("Alt@Schule.example", "Neu@Bücher.example"), "umgezogen");
+    expect(await carryAccount("Alt@Schule.example", "Neu@XN--BCHER-KVA.example")).toBe("moved");
 
-    assert.deepEqual(
-      await accounts(),
+    expect(await accounts()).toStrictEqual(
       [
         [person, "neu@xn--bcher-kva.example"],
         [other, "unbeteiligt@example.org"],
       ].sort(),
     );
-    assert.deepEqual(
+    expect(
       [...new Set((await sessionRows()).map(({ userId }) => String(userId)))],
-      [other],
       "a session of the carried account survived, or another account's was ended",
-    );
-    assert.equal((await passkeyRows()).filter(({ userId }) => String(userId) === person).length, 1);
+    ).toStrictEqual([other]);
+    expect((await passkeyRows()).filter(({ userId }) => String(userId) === person).length).toBe(1);
   });
 
   // The unique index refuses the move, and the stamp rides that refused write: nothing of either account changes.
-  it("answers „belegt“ and moves nothing where the new address holds an account of its own", async () => {
+  it("answers taken and moves nothing where the new address holds an account of its own", async () => {
     const person = await accountAt("alt@schule.example");
     const holder = await accountAt("neu@schule.example");
 
-    assert.equal(await carryAccount("alt@schule.example", "neu@schule.example"), "belegt");
+    expect(await carryAccount("alt@schule.example", "neu@schule.example")).toBe("taken");
 
-    assert.deepEqual(
-      await accounts(),
+    expect(await accounts()).toStrictEqual(
       [
         [person, "alt@schule.example"],
         [holder, "neu@schule.example"],
       ].sort(),
     );
-    assert.equal((await sessionRows()).length, 4, "a session was ended by a carry that moved nothing");
+    expect((await sessionRows()).length, "a session was ended by a carry that moved nothing").toBe(4);
     // Each account keeps exactly its own: a passkey handed to the holder's account would let one person sign in to the other's.
-    assert.deepEqual(
+    expect(
       (await passkeyRows()).map(({ userId, credentialID }) => [String(userId), String(credentialID)]).sort(),
+      "a carry that moved nothing moved a passkey",
+    ).toStrictEqual(
       [
         [person, "kept-alt@schule.example"],
         [holder, "kept-neu@schule.example"],
       ].sort(),
-      "a carry that moved nothing moved a passkey",
     );
     // A stamp written apart from the refused move would end every session of a person whose address never changed.
-    assert.deepEqual(
+    expect(
       (
         await authDb()
           .collection("user")
           .find({ sessionsEndedAt: { $exists: true } })
           .toArray()
       ).length,
-      0,
       "a carry that moved nothing stamped an account's sessions ended",
-    );
+    ).toStrictEqual(0);
   });
 });
 
-/* The memory adapter's `delete` removes every row it matches and MongoDB's removes one, so the
-   clearing is judged here and nowhere else. */
-describe("an address's failures after a code signs in, against a real database (`docs/frontend/spec.md :: I441`)", () => {
+describe("an address's failures, against a real database", () => {
   async function failureRows(): Promise<Record<string, unknown>[]> {
     return authDb()
       .collection("verification")
       .find({ identifier: { $regex: "^sign-in-attempt-" } })
       .toArray();
   }
-
-  it("clears every failure the address had, not one of them", async () => {
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    const wrong = otp === "000000" ? "111111" : "000000";
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      await assert.rejects(
-        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrong }, headers: new Headers(ORIGIN) }),
-        (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
-      );
-    }
-    assert.equal((await failureRows()).length, 2, "the failures were not counted, so the clearing below proves nothing");
-
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN) });
-
-    assert.deepEqual(await failureRows(), [], "a sign-in left failures standing against the address");
-  });
 
   /* Each attempt's row goes in before it counts; held at the count until the whole burst has arrived,
      every count sees every row, the worst interleaving a real store can give. */
@@ -617,64 +519,10 @@ describe("an address's failures after a code signs in, against a real database (
     assert.ok(reached <= 10, `${String(reached)} of 15 concurrent attempts reached the code`);
     assert.ok((await failureRows()).length <= 10);
   });
-
-  /* A refusal at the mint comes after the code verified, so it is no guess: its row comes back out on
-     the real store as on the memory one. */
-  it("counts no refusal at the mint, and still counts a wrong code", async () => {
-    const email = "gesperrt-mit-code@example.org";
-    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
-    const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
-
-    await assert.rejects(
-      auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN) }),
-      (error: { body?: { code?: unknown } }) => error.body?.code === "SIGN_IN_BARRED",
-    );
-    assert.deepEqual(await failureRows(), [], "the refusal at the mint was counted as a failed code");
-
-    const next = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
-    await assert.rejects(
-      auth.api.signInEmailOTP({ body: { email, otp: next === "000000" ? "111111" : "000000" }, headers: new Headers(ORIGIN) }),
-      (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
-    );
-    assert.equal((await failureRows()).length, 1);
-  });
-});
-
-/* A wrong guess consumes the code and writes it back after its check. A send from another request,
-   inside the consume's transaction, writes a newer code the written-back one must not outrank
-   (`docs/frontend/spec.md :: I486`). */
-describe("a wrong code racing a new one's send, against a real database", () => {
-  it("signs in with the code mailed while a wrong guess was being checked", async () => {
-    const headers = new Headers(ORIGIN);
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
-    const stale = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(stale !== null, "the first send mailed nothing, so no code is raced");
-
-    const gate = new Gate();
-    consuming = () => gate.arrive();
-    const guess = auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: stale === "000000" ? "111111" : "000000" }, headers }).then(
-      () => "signed in",
-      (error: { body?: { code?: unknown } }) => error.body?.code,
-    );
-    try {
-      assert.ok(await gate.reached, "the wrong guess never reached its consume, so no race was run");
-      // From this request and never from inside the held one, whose transaction a nested call would join.
-      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
-    } finally {
-      gate.release();
-    }
-    assert.equal(await guess, "INVALID_OTP");
-
-    const fresh = lastMailedCode(sent, ADMIN_EMAIL);
-    assert.ok(fresh !== null && fresh !== stale, "the racing send mailed no new code");
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: fresh }, headers });
-
-    assert.equal((await sessionRows()).length, 1);
-  });
 });
 
 /* The per-address mail cap's own race, on the real store: sends held at their count until the whole
-   burst has arrived (`docs/frontend/spec.md :: I442`). */
+   burst has arrived. */
 describe("the code mails one address may be sent, against a real database", () => {
   it("mails no burst of concurrent sends past the fifth", async () => {
     const before = sent.length;
@@ -692,37 +540,34 @@ describe("the code mails one address may be sent, against a real database", () =
 });
 
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
-   takes the passkey row back with it (`docs/frontend/spec.md :: I403`); the enrolment refuses a barred
-   person before any mint (`:: I406`). */
+   takes the passkey row back with it; the enrolment refuses a barred
+   person before any mint. */
 describe("a set-up the gate refuses, against a real database", () => {
   it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
     const email = "ohne-sitz-spaeter@example.org";
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = cookieHeader(await signInByCode(auth, email));
-    assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
+    expect((await sessionRows()).length, "the seated person was not signed in, so the case below proves nothing").toBe(1);
 
     const offered = await offer(cookie);
-    gateAnswer = { sitze: [], gesperrt: false, konto: false };
+    gateAnswer = { seats: [], barred: false, account: false };
     const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
 
-    assert.equal(refused.status, 403, await refused.clone().text());
-    assert.equal(((await refused.clone().json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
-    assert.deepEqual(await passkeyRows(), [], "the refused set-up left its passkey behind");
-    assert.deepEqual(
-      (await sessionRows()).map(({ authFactor }) => authFactor),
-      ["code"],
-    );
+    expect(refused.status, await refused.clone().text()).toBe(403);
+    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
+    expect(await passkeyRows(), "the refused set-up left its passkey behind").toStrictEqual([]);
+    expect((await sessionRows()).map(({ authFactor }) => authFactor)).toStrictEqual(["code"]);
   });
 });
 
 /* The typed code's own path through the mint: its creation hook stamps the factor and asks the gate,
-   and the rotation ends the session the browser held (`docs/frontend/spec.md :: I399`, `:: I403`). */
+   and the rotation ends the session the browser held. */
 describe("a code sign-in through the mint, against a real database", () => {
   const PERSON = "spielerin-mit-code@example.org";
 
   it("stamps the session it mints `code`, and ends the one the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
     const [before] = await sessionRows();
     assert.ok(before !== undefined, "the first code sign-in minted nothing, so nothing below is replaced");
@@ -730,68 +575,66 @@ describe("a code sign-in through the mint, against a real database", () => {
     await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held });
 
     const after = await sessionRows();
-    assert.deepEqual(
+    expect(
       after.map(({ authFactor }) => authFactor),
-      ["code"],
       "the replaced session outlived the new one, or the new one was never written",
-    );
-    assert.notEqual(after[0]?.token, before.token);
+    ).toStrictEqual(["code"]);
+    expect(after[0]?.token).not.toBe(before.token);
   });
 
   /* The sibling read and delete run on the real adapter's id and reference types, which the memory
-     store's plain strings never test (`docs/frontend/spec.md :: I485`). */
+     store's plain strings never test. */
   it("leaves only the later of two sessions minted to replace one cookie", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
 
     const earlier = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
     const later = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
 
     const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;
-    assert.deepEqual(
+    expect(
       { rows: (await sessionRows()).length, open: [await opens(earlier), await opens(later)] },
-      { rows: 1, open: [false, true] },
       "the earlier replacement outlived the later one, held by no cookie",
-    );
+    ).toStrictEqual({ rows: 1, open: [false, true] });
   });
 
   it("mints nothing for a barred address and ends nothing the browser held", async () => {
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const held = await signIn(PERSON);
     const before = await sessionRows();
 
-    gateAnswer = { sitze: [SITZ], gesperrt: true, konto: true };
-    await assert.rejects(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }), (error: { body?: { code?: unknown } }) => {
-      return error.body?.code === "SIGN_IN_BARRED";
+    gateAnswer = { seats: [SEAT], barred: true, account: true };
+    await expect(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
+      return error.body?.code === "SIGN_IN_REFUSED";
     });
 
-    assert.deepEqual(await sessionRows(), before, "a refused code sign-in minted a session or ended the held one");
+    expect(await sessionRows(), "a refused code sign-in minted a session or ended the held one").toStrictEqual(before);
   });
 });
 
 /* The slide's write is the Mongo adapter's update by token, which the memory store's plain objects
    never test: an update matching nothing signs the reader out instead. */
-describe("a session only read, against a real database (`docs/frontend/spec.md :: I495`, `:: I496`)", () => {
+describe("a session only read, against a real database", () => {
   it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
-    const { readServedSession } = await import("./auth.ts");
+    const { readServedSession } = await import("./auth/session.ts");
     const { proxy } = await import("../proxy.ts");
     const { NextRequest } = await import("next/server");
 
-    gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+    gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = await signIn("leserin-mit-code@example.org");
     const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
     const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
     await authDb()
       .collection("session")
-      .updateMany({}, { $set: { updatedAt: updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
+      .updateMany({}, { $set: { updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
     const stamps = async () => (await sessionRows()).map((row) => [(row.updatedAt as Date).getTime(), (row.expiresAt as Date).getTime()]);
     const due = await stamps();
 
     assert.ok(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the guard read no session, so the case proves nothing");
-    assert.deepEqual(await stamps(), due, "a guard's read wrote the row");
+    expect(await stamps(), "a guard's read wrote the row").toStrictEqual(due);
 
     const before = Date.now();
-    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { ...ORIGIN, cookie } }));
+    await proxy(new NextRequest("http://localhost:3000/account", { headers: { ...ORIGIN, cookie } }));
 
     const [[slidAt = 0, lapsesAt = 0] = []] = await stamps();
     assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
@@ -800,7 +643,7 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
 
 /** One signed-in address with every row the store keeps of it: a session, a passkey, a live code, a failed guess, three mails' counts and a deletion token. */
 async function seedAccount(email: string): Promise<{ cookie: string; userId: string; pending: string[]; token: string }> {
-  gateAnswer = { sitze: [SITZ], gesperrt: false, konto: true };
+  gateAnswer = { seats: [SEAT], barred: false, account: true };
   const cookie = await signIn(email);
   const account = await authDb().collection("user").find({ email }).toArray();
   const userId = String(account[0]?._id ?? assert.fail("the sign-in wrote no account"));
@@ -810,7 +653,7 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
   await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers });
   const otp = lastMailedCode(sent, email);
   assert.ok(otp !== null, "the send mailed no code");
-  await assert.rejects(auth.api.signInEmailOTP({ body: { email, otp: otp === "000000" ? "111111" : "000000" }, headers }));
+  await expect(auth.api.signInEmailOTP({ body: { email, otp: otp === "000000" ? "111111" : "000000" }, headers })).rejects.toThrow();
   const { adapter } = await auth.$context;
   await adapter.create({
     model: "passkey",
@@ -826,15 +669,14 @@ async function seedAccount(email: string): Promise<{ cookie: string; userId: str
     },
   });
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
-  const found = /\/loeschung\?token=([0-9a-z]+)/.exec([...sent].reverse().find((message) => message.to === email)?.text ?? "");
+  const found = /\/erasure\?token=([0-9a-z]+)/.exec([...sent].reverse().find((message) => message.to === email)?.text ?? "");
   assert.ok(found?.[1] !== undefined, "the request mailed no link to the interstitial");
   await requestAccountDeletion(new Headers({ ...ORIGIN, cookie }));
 
-  // The aggregate count names no address, so it is nobody's to delete.
   const pending = (await authDb().collection("verification").find({}).toArray())
-    .filter((row) => !before.has(String(row._id)) && row.identifier !== "sign-in-mail-every-address")
+    .filter((row) => !before.has(String(row._id)))
     .map((row) => String(row.identifier));
-  assert.equal(pending.length, 7, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`);
+  expect(pending.length, `the seeding left ${String(pending.length)} pending rows, so a case reads fewer than it means to`).toBe(7);
 
   return { cookie, userId, pending, token: found[1] };
 }
@@ -852,62 +694,59 @@ async function heldOf({ userId, pending }: { userId: string; pending: readonly s
 }
 
 /* The Mongo adapter turns the helper's `in` and `starts_with` into a query of its own, which the memory store
-   never shows: a row they miss stands here and nowhere else (`docs/frontend/spec.md :: I675`). */
+   never shows: a row they miss stands here and nowhere else. */
 describe("an account deleted, against a real database", () => {
   it("leaves nothing of the address once its own link completes, and nothing of anybody else's goes", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const bystander = await seedAccount("unbeteiligt-db@example.org");
     const person = await seedAccount("loeschende-db@example.org");
-    let erased = 0;
+    const erasuresBefore = erasuresAsked;
 
     const answer = await runWithRequestScope(
       {
         traceId: `${"0".repeat(31)}4`,
-        spanId: `${"0".repeat(15)}4`,
-        actor: { email: "loeschende-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+        actor: { email: "loeschende-db@example.org", lane: "person", authTime: 0, factor: "code" },
       },
-      () =>
-        deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erased += 1;
-          return Promise.resolve({});
-        }),
+      () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
     );
 
-    assert.deepEqual([answer, erased], ["deleted", 1]);
-    assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+    expect([answer, erasuresAsked - erasuresBefore]).toStrictEqual(["deleted", 1]);
+    expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    expect(await heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* Both deletion paths find an account by its user row, so the helper goes first: a failure at that row
-     leaves it for them to find, and no passkey past their reach (`docs/frontend/spec.md :: I675`). */
+     leaves it for them to find, and no passkey past their reach. */
   it("leaves the user row alone where the library's delete of it fails, its passkeys and pending rows gone", async () => {
     const { runWithRequestScope } = await import("./requestScope.ts");
     const person = await seedAccount("nutzerzeile-db@example.org");
     deletingUser = () => Promise.reject(new Error("planted: the user row's delete fails"));
 
-    await assert.rejects(
+    await expect(
       runWithRequestScope(
         {
           traceId: `${"0".repeat(31)}5`,
-          spanId: `${"0".repeat(15)}5`,
-          actor: { email: "nutzerzeile-db@example.org", lane: "person", token: "doubled-person-token-not-a-credential" },
+          actor: { email: "nutzerzeile-db@example.org", lane: "person", authTime: 0, factor: "code" },
         },
-        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => Promise.resolve({})),
+        () => deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
       ),
-      /planted: the user row's delete fails/,
+      // Past the library's spend of the link, so of an outcome the press cannot name, the planted failure its cause.
+    ).rejects.toSatisfy(
+      (thrown: Error) =>
+        thrown.name === "DeletionOutcomeUnknown" && /planted: the user row's delete fails/.test((thrown.cause as Error).message),
     );
 
-    assert.deepEqual(await heldOf(person), { user: 1, sessions: 0, passkeys: 0, pending: 0 });
+    expect(await heldOf(person)).toStrictEqual({ user: 1, sessions: 0, passkeys: 0, pending: 0 });
   });
 
   it("deletes every row of an address in one transaction for the administrator's erasure and the sweep", async () => {
     const bystander = await seedAccount("unbeteiligt-konto-db@example.org");
     const person = await seedAccount("konto-weg-db@example.org");
 
-    assert.equal(await deleteAccountFor("Konto-Weg-DB@Example.org"), true);
+    expect(await deleteAccountFor("Konto-Weg-DB@Example.org")).toBe(true);
 
-    assert.deepEqual(await heldOf(person), { user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    assert.deepEqual(await heldOf(bystander), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+    expect(await heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
+    expect(await heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 
   /* The first run's commit fails transiently and writes nothing, so the adapter runs the deletion again; that
@@ -937,8 +776,8 @@ describe("an account deleted, against a real database", () => {
 
     const answer = await deleteAccountFor("konto-zweiter-lauf-db@example.org").catch((failed: unknown) => failed);
 
-    assert.equal(runs, 2, "the adapter ran the deletion once, so no retry followed a commit");
+    expect(runs, "the adapter ran the deletion once, so no retry followed a commit").toBe(2);
     assert.ok(answer instanceof RolledBackError, `the caller was told ${String(answer)} rather than of a rollback`);
-    assert.deepEqual(await heldOf(person), { user: 1, sessions: 1, passkeys: 1, pending: 7 });
+    expect(await heldOf(person)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
 });

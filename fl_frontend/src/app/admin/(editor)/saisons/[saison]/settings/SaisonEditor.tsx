@@ -1,0 +1,655 @@
+"use client";
+
+import { useState } from "react";
+
+import { Checkbox } from "@/kit/Checkbox";
+import { ToggleBoxes } from "@/kit/ChoiceButtons";
+import { ComboBox } from "@/kit/ComboBox";
+import { DateField } from "@/kit/DateField";
+import { EditorPage } from "@/kit/EditorPage";
+import { Facts } from "@/kit/Facts";
+import { FieldRows } from "@/kit/FieldRows";
+import { Section } from "@/kit/Section";
+import { SectionAct } from "@/kit/SectionAct";
+import { Select } from "@/kit/Select";
+import { Table } from "@/kit/Table";
+import { TextField } from "@/kit/TextField";
+import { useEditor } from "@/kit/useEditor";
+
+import { COPY } from "@/core/copy";
+import { dayBefore } from "@/core/dayArithmetic";
+import { formatDate, formatNumber } from "@/core/format";
+import { FLSpielerStufe } from "@/core/generated/client/types";
+
+import type { ActionAnswer } from "@/core/action";
+import type { Copy } from "@/core/copy";
+import type { CalendarDay } from "@/core/format";
+import type { FLSpielplanShape } from "@/core/generated/client/types";
+import type { SaisonRequired } from "@/features/saisons/required";
+import type { ChipProps } from "@/kit/Chip";
+import type { DangerAct, EditorPart } from "@/kit/EditorPage";
+import type { Option } from "@/kit/OptionList";
+import type { PageTitle } from "@/kit/RailFrame";
+import type { TableHead, TableRow } from "@/kit/Table";
+import type { EditorRecord, EditorSave } from "@/kit/useEditor";
+import type { SaisonValues } from "./saisonValues";
+
+const WORDS = COPY.admin.saison;
+const SPIELPLAN = COPY.page.spielplan;
+const TEAM = COPY.shared.facts.team;
+
+const TIEBREAK: readonly Option[] = [
+  { id: "tordifferenz", label: WORDS.tordifferenz },
+  { id: "direkter_vergleich", label: WORDS.direkterVergleich },
+];
+
+const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: WORDS.stufe[stufe] }));
+
+/** One club of the season as the swap and the replacement list it, graded as each write judges it. */
+export type SaisonClub = {
+  id: string;
+  name: string;
+  gruppe: string;
+  /** A group match of it has taken place, which closes every swap pair it stands in. */
+  groupTakenPlace: boolean;
+  /** Any match of it has taken place, which closes its replacement. */
+  takenPlace: boolean;
+};
+
+/** What the season holds beyond its fields: where it stands, its draw, and what the editor's acts read. */
+export type SaisonFacts = {
+  /** The season's start has passed, which fixes its scoring, its seeding and its clubs. */
+  begun: boolean;
+  /** A match of it has taken place, which fixes its start. */
+  takenPlace: boolean;
+  /** The site shows this season. */
+  isCurrent: boolean;
+  /** The season the site shows, which the switch onto this one leaves; `null` before the league's first. */
+  siteShows: string | null;
+  /**
+   * The Spielplan the season holds, counted off its stored matchdays and fixtures as the draw's writes judge them;
+   * `drawnOn` is `null` where no draw dated them.
+   */
+  spielplan: { spieltage: number; spiele: number; drawnOn: CalendarDay | null } | null;
+  /** Why the draw and each danger act cannot run now, by the refusal its write would answer, which the read serves. */
+  locked: { activate?: Copy; create?: Copy; recreate?: Copy; undraw?: Copy };
+};
+
+/** The registration links: their table's head and each team's row, and how many teams the press would mail. */
+export type SaisonLinks = { head: TableHead; rows: readonly TableRow[]; mailed: number };
+
+/** The acts the editor's sections and its danger rows press, each a server action naming its season. */
+export type SaisonActs = {
+  draw: (input: { saison_id: string }) => Promise<ActionAnswer>;
+  recreate: (input: { saison_id: string; holder: string }) => Promise<ActionAnswer>;
+  undraw: (input: { saison_id: string; holder: string }) => Promise<ActionAnswer>;
+  activate: (input: { saison_id: string; holder: string }) => Promise<ActionAnswer>;
+  swap: (input: { saison_id: string; team1_id: string; team2_id: string }) => Promise<ActionAnswer>;
+  replace: (input: { saison_id: string; team_id: string; incoming_team_id: string }) => Promise<ActionAnswer>;
+  sendLinks: (input: { saison_id: string }) => Promise<ActionAnswer>;
+};
+
+/** A danger row's closing, where its read names a reason. */
+const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
+
+/** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
+const optionOf = (club: SaisonClub, closed: boolean): Option =>
+  closed
+    ? { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` }, isDisabled: true, note: WORDS.tookPlace }
+    : { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } };
+
+/** The group swap: two clubs of different groups, a pair closed where a group match of either has taken place. */
+function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly SaisonClub[]; swap: SaisonActs["swap"]; locked: boolean }) {
+  const [first, setFirst] = useState<string | null>(null);
+  const [second, setSecond] = useState<string | null>(null);
+  const chosen = clubs.find((club) => club.id === first);
+  // A swap within one group exchanges nothing: the second club is one of another group.
+  const partners = chosen === undefined ? clubs : clubs.filter((club) => club.gruppe !== chosen.gruppe);
+  return (
+    <SectionAct
+      inputs={[first, second]}
+      acts={[
+        {
+          label: COPY.shared.withObject(WORDS.gruppen, "swap"),
+          isDisabled: locked || first === null || second === null,
+          run: async () => (first === null || second === null ? { ok: false } : swap({ saison_id: saison, team1_id: first, team2_id: second })),
+        },
+      ]}>
+      <ComboBox
+        label={WORDS.swapFirst}
+        options={clubs.map((club) => optionOf(club, club.groupTakenPlace))}
+        isDisabled={locked}
+        value={first}
+        onChange={(id) => {
+          setFirst(id);
+          setSecond(null);
+        }}
+      />
+      <ComboBox
+        label={WORDS.swapSecond}
+        options={partners.map((club) => optionOf(club, club.groupTakenPlace))}
+        isDisabled={locked}
+        value={second}
+        onChange={setSecond}
+      />
+    </SectionAct>
+  );
+}
+
+/** The replacement: a club leaving the season, closed once a match of it has taken place, and the club taking over. */
+function Replacement({
+  saison,
+  clubs,
+  incoming,
+  replace,
+  locked,
+}: {
+  saison: string;
+  clubs: readonly SaisonClub[];
+  incoming: readonly { id: string; name: string }[];
+  replace: SaisonActs["replace"];
+  locked: boolean;
+}) {
+  const [out, setOut] = useState<string | null>(null);
+  const [into, setInto] = useState<string | null>(null);
+  const leaving = clubs.find((club) => club.id === out);
+  const arriving = incoming.find((club) => club.id === into);
+  const consequence =
+    leaving === undefined || arriving === undefined
+      ? undefined
+      : WORDS.replaceConsequence({ record: arriving.name }, { record: leaving.name }, leaving.gruppe);
+  return (
+    <SectionAct
+      inputs={[out, into]}
+      acts={[
+        {
+          label: COPY.shared.withObject(TEAM, "replace"),
+          isDisabled: locked || consequence === undefined,
+          // Asked only once both clubs are chosen, the button staying closed until then.
+          confirm: { verb: "replace", subject: TEAM, consequence: consequence ?? COPY.shared.noValue, tone: "primary" },
+          run: async () =>
+            out === null || into === null ? { ok: false } : replace({ saison_id: saison, team_id: out, incoming_team_id: into }),
+        },
+      ]}>
+      <ComboBox
+        label={WORDS.outgoing}
+        options={clubs.map((club) => optionOf(club, club.takenPlace))}
+        isDisabled={locked}
+        value={out}
+        onChange={setOut}
+      />
+      <ComboBox
+        label={WORDS.incoming}
+        options={incoming.map((club) => ({ id: club.id, label: { record: club.name } }))}
+        isDisabled={locked}
+        value={into}
+        onChange={setInto}
+        consequence={consequence}
+      />
+    </SectionAct>
+  );
+}
+
+/**
+ * The season editor: its dates, its rules and its two windows, saved together from the editor's bar; then its draw,
+ * its group swap, its replacement and its registration links, each an act of its own box; its irreversible acts, the
+ * draw's regeneration and removal and the switch of the site onto it, in the danger rows behind the passkey touch, each
+ * closed with its reason where its write would refuse it now.
+ */
+export function SaisonEditor({
+  saison,
+  title,
+  chip,
+  record,
+  save,
+  required,
+  facts,
+  shapes,
+  clubs,
+  incoming,
+  links,
+  holder,
+  acts,
+  closed,
+}: {
+  saison: string;
+  title: PageTitle;
+  chip: ChipProps;
+  record: EditorRecord<SaisonValues>;
+  save: (change: EditorSave<SaisonValues>) => Promise<ActionAnswer<number>>;
+  /** Which boxes the season write requires, read from its schema on the server. */
+  required: SaisonRequired;
+  facts: SaisonFacts;
+  /** Every shape the draw admits beside the season's other rules, which the qualifiers are offered from. */
+  shapes: readonly FLSpielplanShape[];
+  clubs: readonly SaisonClub[];
+  incoming: readonly { id: string; name: string }[];
+  links: SaisonLinks;
+  /** The address the page was drawn for, which an act behind the passkey touch posts. */
+  holder: string;
+  acts: SaisonActs;
+  /** Why the season is closed read-only: it has finished. */
+  closed?: Copy;
+}) {
+  const editor = useEditor(record, save);
+  const { draft, set } = editor;
+  const isClosed = closed !== undefined;
+  const drawn = facts.spielplan !== null;
+
+  // The qualifiers per group the typed counts admit, as the draw judges them; the stored count stays listed, so the
+  // box never empties under its value.
+  const offered = shapes
+    .filter((shape) => String(shape.number_of_gruppen) === draft.gruppen && String(shape.teams_per_gruppe) === draft.teamsPerGruppe)
+    .map((shape) => String(shape.qualifiers_per_gruppe));
+  const qualifiers = [...new Set([...offered, draft.qualifiers])]
+    .filter((value) => value !== "")
+    .toSorted((one, other) => Number(one) - Number(other))
+    .map((value): Option => ({ id: value, label: { record: value } }));
+
+  // The application window is none or both of its days, so each is asked for once either holds one.
+  const bewerbungSet = draft.bewerbungStart !== null || draft.bewerbungEnd !== null;
+
+  const touch = { holder };
+  const of = { saison_id: saison, holder };
+
+  const sections: [EditorPart, ...EditorPart[]] = [
+    {
+      id: "period",
+      title: WORDS.period,
+      ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
+      fields: (
+        <FieldRows>
+          <DateField
+            label={WORDS.start}
+            name="start"
+            isRequired={required.start}
+            isDisabled={facts.takenPlace}
+            value={draft.start}
+            onChange={(day) => set("start", day)}
+          />
+          <DateField
+            label={WORDS.end}
+            name="end"
+            isRequired={required.end}
+            value={draft.end}
+            onChange={(day) => set("end", day)}
+            // A span ending before it begins is refused here, before the write sees it.
+            {...(draft.start === null ? {} : { minValue: draft.start })}
+          />
+        </FieldRows>
+      ),
+    },
+    {
+      id: "scoring",
+      title: WORDS.scoring,
+      help: WORDS.scoringHelp,
+      // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
+      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      fields: (
+        <>
+          <FieldRows label={WORDS.punkte}>
+            <TextField
+              label={WORDS.winPoints}
+              name="winPoints"
+              holds={2}
+              kind="digits"
+              isRequired={required.winPoints}
+              isDisabled={facts.begun}
+              value={draft.winPoints}
+              onChange={(value) => set("winPoints", value)}
+            />
+            <TextField
+              label={WORDS.drawPoints}
+              name="drawPoints"
+              holds={2}
+              kind="digits"
+              isRequired={required.drawPoints}
+              isDisabled={facts.begun}
+              value={draft.drawPoints}
+              onChange={(value) => set("drawPoints", value)}
+            />
+            <TextField
+              label={WORDS.lossPoints}
+              name="lossPoints"
+              holds={2}
+              kind="digits"
+              isRequired={required.lossPoints}
+              isDisabled={facts.begun}
+              value={draft.lossPoints}
+              onChange={(value) => set("lossPoints", value)}
+            />
+          </FieldRows>
+          <Select
+            label={WORDS.tiebreak}
+            name="tiebreak"
+            options={TIEBREAK}
+            isRequired={required.tiebreak}
+            isDisabled={facts.begun}
+            value={draft.tiebreak}
+            onChange={(id) => {
+              if (id !== null) set("tiebreak", id);
+            }}
+          />
+          {/* The goals a no-show is scored with, named as one value: their own labels say no more than a score's. */}
+          <FieldRows label={WORDS.forfeit}>
+            <TextField
+              label={WORDS.forfeitWinner}
+              name="forfeitWinner"
+              holds={2}
+              kind="digits"
+              isRequired={required.forfeitWinner}
+              value={draft.forfeitWinner}
+              onChange={(value) => set("forfeitWinner", value)}
+            />
+            <TextField
+              label={WORDS.forfeitLoser}
+              name="forfeitLoser"
+              holds={2}
+              kind="digits"
+              isRequired={required.forfeitLoser}
+              value={draft.forfeitLoser}
+              onChange={(value) => set("forfeitLoser", value)}
+            />
+          </FieldRows>
+        </>
+      ),
+    },
+    {
+      id: "gruppen",
+      title: WORDS.gruppenAndKoRunde,
+      // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
+      ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      fields: (
+        <>
+          <FieldRows>
+            <TextField
+              label={WORDS.gruppen}
+              name="gruppen"
+              holds={2}
+              kind="digits"
+              isRequired={required.gruppen}
+              isDisabled={drawn}
+              value={draft.gruppen}
+              onChange={(value) => set("gruppen", value)}
+            />
+            <TextField
+              label={WORDS.teamsPerGruppe}
+              name="teamsPerGruppe"
+              holds={2}
+              kind="digits"
+              isRequired={required.teamsPerGruppe}
+              isDisabled={drawn}
+              value={draft.teamsPerGruppe}
+              onChange={(value) => set("teamsPerGruppe", value)}
+            />
+          </FieldRows>
+          <Select
+            label={WORDS.qualifiers}
+            name="qualifiers"
+            options={qualifiers}
+            isRequired={required.qualifiers}
+            isDisabled={facts.begun || drawn}
+            value={draft.qualifiers}
+            onChange={(id) => {
+              if (id !== null) set("qualifiers", id);
+            }}
+          />
+        </>
+      ),
+    },
+    {
+      id: "kader",
+      title: COPY.shared.kader,
+      fields: (
+        <>
+          <TextField
+            label={WORDS.maxKader}
+            name="maxKader"
+            holds={2}
+            kind="digits"
+            isRequired={required.maxKader}
+            value={draft.maxKader}
+            onChange={(value) => set("maxKader", value)}
+          />
+          <ToggleBoxes
+            label={WORDS.stufen}
+            errorMessage={editor.fieldErrors?.stufen}
+            choices={STUFEN}
+            isRequired={required.stufen}
+            value={draft.stufen}
+            onChange={(ids) => set("stufen", ids)}
+          />
+        </>
+      ),
+    },
+    {
+      id: "bewerbungsfenster",
+      title: WORDS.bewerbungsfenster,
+      fields: (
+        <>
+          <FieldRows>
+            <DateField
+              label={WORDS.start}
+              name="bewerbungStart"
+              isRequired={bewerbungSet && required.bewerbungStart}
+              value={draft.bewerbungStart}
+              onChange={(day) => set("bewerbungStart", day)}
+            />
+            <DateField
+              label={WORDS.end}
+              name="bewerbungEnd"
+              isRequired={bewerbungSet && required.bewerbungEnd}
+              value={draft.bewerbungEnd}
+              onChange={(day) => set("bewerbungEnd", day)}
+              // A span ending before it begins is refused here, before the write sees it.
+              {...(draft.bewerbungStart === null ? {} : { minValue: draft.bewerbungStart })}
+            />
+          </FieldRows>
+          <Checkbox
+            label={WORDS.bewerbungPaused}
+            name="bewerbungPaused"
+            isSelected={draft.bewerbungPaused}
+            onChange={(paused) => set("bewerbungPaused", paused)}
+          />
+        </>
+      ),
+    },
+    {
+      id: "registrierungsfenster",
+      title: WORDS.registrierungsfenster,
+      fields: (
+        <>
+          <DateField
+            label={WORDS.end}
+            name="registrierungEnd"
+            value={draft.registrierungEnd}
+            onChange={(day) => set("registrierungEnd", day)}
+            {...(draft.start === null ? {} : { maxValue: dayBefore(draft.start) })}
+          />
+          <Checkbox
+            label={WORDS.registrierungPaused}
+            name="registrierungPaused"
+            isSelected={draft.registrierungPaused}
+            onChange={(paused) => set("registrierungPaused", paused)}
+          />
+        </>
+      ),
+    },
+    {
+      id: "spielplan",
+      title: SPIELPLAN,
+      fields:
+        facts.spielplan === null ? (
+          <SectionAct
+            acts={[
+              {
+                label: COPY.shared.withObject(SPIELPLAN, "create"),
+                variant: "primary",
+                isDisabled: isClosed,
+                locked: facts.locked.create,
+                run: () => acts.draw({ saison_id: saison }),
+              },
+            ]}
+          />
+        ) : (
+          <Facts
+            facts={[
+              { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
+              { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
+              {
+                label: WORDS.drawnOn,
+                value: facts.spielplan.drawnOn === null ? COPY.shared.noValue : { record: formatDate(facts.spielplan.drawnOn) },
+                figures: true,
+              },
+            ]}
+          />
+        ),
+    },
+    {
+      id: "gruppentausch",
+      title: WORDS.gruppentausch,
+      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      fields: (
+        <Swap
+          saison={saison}
+          clubs={clubs}
+          swap={acts.swap}
+          locked={facts.begun || isClosed}
+        />
+      ),
+    },
+    {
+      id: "replacement",
+      title: WORDS.replacement,
+      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
+      fields: (
+        <Replacement
+          saison={saison}
+          clubs={clubs}
+          incoming={incoming}
+          replace={acts.replace}
+          locked={facts.begun || isClosed}
+        />
+      ),
+    },
+    {
+      id: "invitations",
+      // Its own section, the table edge to edge in its box, so the table's width is the box's, which picks its form.
+      block: (
+        <Section
+          title={WORDS.invitations}
+          list={
+            <Table
+              {...links.head}
+              label={WORDS.invitations}
+              rows={links.rows}
+              empty={{ kind: "none", plural: COPY.page.teams, glyph: "teams" }}
+              bare
+            />
+          }>
+          <SectionAct
+            acts={[
+              {
+                label: COPY.shared.withObject(WORDS.invitations, "send"),
+                variant: "primary",
+                // The press's own plan reaches nobody: every team is passed over or already mailed.
+                isDisabled: isClosed || links.mailed === 0,
+                confirm: {
+                  verb: "send",
+                  subject: WORDS.invitations,
+                  consequence: WORDS.dispatchConsequence(links.mailed),
+                  tone: "primary",
+                },
+                run: () => acts.sendLinks({ saison_id: saison }),
+              },
+            ]}
+          />
+        </Section>
+      ),
+    },
+  ];
+
+  // What the draw's regeneration and its removal delete, which each question counts under its sentence.
+  const drawCounts =
+    facts.spielplan === null
+      ? []
+      : [
+          { label: COPY.spielplan.spieltage, value: { record: formatNumber(facts.spielplan.spieltage) }, figures: true },
+          { label: COPY.page.spiele, value: { record: formatNumber(facts.spielplan.spiele) }, figures: true },
+        ];
+
+  const danger: DangerAct[] = [
+    ...(drawn
+      ? [
+          {
+            name: COPY.shared.withObject(SPIELPLAN, "recreate"),
+            consequence: WORDS.recreateConsequence,
+            ...lockedBy(facts.locked.recreate),
+            confirm: {
+              verb: "recreate",
+              subject: SPIELPLAN,
+              consequence: WORDS.recreateConsequence,
+              facts: drawCounts,
+              tone: "danger",
+              onConfirm: () => acts.recreate(of),
+              touch,
+            },
+          } satisfies DangerAct,
+          {
+            name: COPY.shared.withObject(SPIELPLAN, "delete"),
+            consequence: WORDS.deleteConsequence,
+            ...lockedBy(facts.locked.undraw),
+            confirm: {
+              verb: "delete",
+              subject: SPIELPLAN,
+              consequence: WORDS.deleteConsequence,
+              facts: drawCounts,
+              tone: "danger",
+              onConfirm: () => acts.undraw(of),
+              touch,
+            },
+          } satisfies DangerAct,
+        ]
+      : []),
+    // The site's own season has no switch onto it.
+    ...(facts.isCurrent
+      ? []
+      : [
+          {
+            // The act and its season, as the draw's rows name theirs, so the row never repeats the box's title.
+            name: COPY.shared.withObject(WORDS.onto(saison), "activate"),
+            consequence: WORDS.activateConsequence(saison),
+            ...lockedBy(facts.locked.activate),
+            confirm: {
+              verb: "activate",
+              subject: WORDS.onto(saison),
+              consequence: WORDS.activateQuestion,
+              facts: [
+                {
+                  label: COPY.admin.facts.before,
+                  value: facts.siteShows === null ? COPY.shared.noValue : COPY.shared.saisonName(facts.siteShows),
+                },
+                { label: COPY.admin.facts.fromNow, value: COPY.shared.saisonName(saison) },
+              ],
+              tone: "primary",
+              onConfirm: () => acts.activate(of),
+              touch,
+            },
+          } satisfies DangerAct,
+        ]),
+  ];
+
+  return (
+    <EditorPage
+      title={title}
+      chip={chip}
+      // Which season the site shows is a fact of the season, never a state word.
+      {...(facts.isCurrent ? { lead: WORDS.isCurrent } : {})}
+      editor={editor}
+      closed={closed}
+      sections={sections}
+      // Titled by what its rows are about: the draw's two acts, the switch onto the season, or both.
+      danger={{ title: WORDS.dangerBox(drawn, !facts.isCurrent), acts: danger }}
+    />
+  );
+}

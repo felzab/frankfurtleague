@@ -1,53 +1,81 @@
-import assert from "node:assert/strict";
-import { beforeEach, describe, it } from "node:test";
+import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { registerDoubles } from "./exportingModule.ts";
+import { APIBadStatusError, APINetworkError, MailSendError } from "./errors.ts";
+import { onRequestError } from "./instrumentation.ts";
+import { formatTraceparent } from "./trace.ts";
 
-/** Every line the doubled logger was handed, with the fields it carried. */
-const lines: { message: string; fields: Record<string, unknown> | undefined }[] = [];
+import type { Instrumentation } from "next";
 
-registerDoubles({
-  modules: {
-    "core/logging.ts": {
-      logger: {
-        error: (message: string, _error: unknown, fields?: Record<string, unknown>): void => void lines.push({ message, fields }),
-      },
-    },
-  },
-});
+/** The page request that failed, as the edge's `traceparent` names it. */
+const REQUEST_TRACE = "a".repeat(32);
+/** An outbound call of a cache fill, which runs under a trace of its own. */
+const FETCH_TRACE = "b".repeat(32);
 
-const { onRequestError } = await import("./instrumentation.ts");
-const { APIBadStatusError } = await import("./errors.ts");
+const ROUTE = "/saisons/[saison]";
 
-const REQUEST = { path: "/bereich/admin/schiedsrichter", method: "GET", headers: {} };
-const CONTEXT = { routePath: "/bereich/admin/schiedsrichter/page", digest: "1234567890" };
+type Context = Parameters<Instrumentation.onRequestError>[2];
 
-beforeEach(() => {
-  lines.length = 0;
-});
+const CONTEXT: Context = {
+  routerKind: "App Router",
+  routePath: ROUTE,
+  routeType: "render",
+  renderSource: "server-rendering",
+  revalidateReason: undefined,
+};
 
-describe("the line a server-side crash writes", () => {
-  it("carries no status where the error carries none, the hook being handed no response status", async () => {
-    await onRequestError(new Error("Cannot read properties of undefined"), REQUEST, CONTEXT);
+/** The crash line the hook writes for `thrown`, its clock reading left out. */
+async function crashLine(thrown: unknown): Promise<Record<string, unknown>> {
+  const request = { path: "/saisons/2026", method: "GET", headers: { traceparent: formatTraceparent(REQUEST_TRACE) } };
+  const [line, ...rest] = await documentsWrittenByAsync(async () => onRequestError(thrown, request, CONTEXT));
+  expect(rest).toStrictEqual([]);
 
-    assert.equal(lines.length, 1);
-    assert.equal(lines[0]?.fields?.["error_code"], "FE-RSC-001");
-    assert.equal(lines[0]?.fields?.["status"], undefined);
+  const { timestamp: _timestamp, ...fields } = line ?? {};
+  return fields;
+}
+
+/** The fields every crash line carries, whatever was thrown. */
+const ENVELOPE = { level: "ERROR", service: "fl_frontend", trace_id: REQUEST_TRACE, message: "system.request_crashed", route: ROUTE };
+
+beforeEach(() => void vi.stubEnv("NODE_ENV", "production"));
+afterEach(() => void vi.unstubAllEnvs());
+
+describe("the request-error hook", () => {
+  /* Next catches a throw of the hook's own and prints it as plain text, so the line joining the crash to its request
+     would be lost exactly where the server threw something no reader expects. */
+  it("writes the crash line for a thrown value that is no error", async () => {
+    expect(await crashLine(undefined)).toStrictEqual({ ...ENVELOPE, name: "unknown" });
   });
 
-  it("carries the status the failing call was answered with", async () => {
-    const failure = new APIBadStatusError({
-      message: "refused",
-      url: "http://backend/api/v0/schiedsrichter",
-      statusCode: 503,
-      endpoint: "/schiedsrichter",
-      method: "GET",
-      readOnly: true,
-      traceId: "0",
-    });
+  it("names the failing call's trace and status for a backend answer gone wrong", async () => {
+    const failed = new APIBadStatusError({ message: "Service unavailable.", statusCode: 503, traceId: FETCH_TRACE });
 
-    await onRequestError(failure, REQUEST, CONTEXT);
+    expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "APIBadStatusError", fetch_trace_id: FETCH_TRACE, status: 503 });
+  });
 
-    assert.equal(lines[0]?.fields?.["status"], 503);
+  it("names the failing call's trace and status for a mail the provider refused", async () => {
+    const failed = new MailSendError({ message: "Rate limited.", statusCode: 429, traceId: FETCH_TRACE });
+
+    expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "MailSendError", fetch_trace_id: FETCH_TRACE, status: 429 });
+  });
+
+  /* Next hands this hook no response status, and a call that never answered has none to give. */
+  it("names the failing call's trace and no status for a call that never answered", async () => {
+    const failed = new APINetworkError({ message: "Request failed.", traceId: FETCH_TRACE, originalError: new TypeError("fetch failed") });
+
+    expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "APINetworkError", fetch_trace_id: FETCH_TRACE });
+  });
+
+  it("names no second trace for a call made under the page request's own", async () => {
+    const failed = new APIBadStatusError({ message: "Service unavailable.", statusCode: 503, traceId: REQUEST_TRACE });
+
+    expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "APIBadStatusError", status: 503 });
+  });
+
+  /* The digest is what the visitor's error page and Next's own printed error share, and Next sets it on the error. */
+  it("carries the digest Next set on the error", async () => {
+    const failed = Object.assign(new Error("Render failed."), { digest: "1234567890" });
+
+    expect(await crashLine(failed)).toStrictEqual({ ...ENVELOPE, name: "Error", digest: "1234567890" });
   });
 });

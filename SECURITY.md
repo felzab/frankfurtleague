@@ -1,56 +1,8 @@
 # Security policy
 
-## Reporting a vulnerability
-
-**Please do not open a public issue for a suspected vulnerability.**
-
-Report it privately via **[frankfurtleague.de/kontakt](https://frankfurtleague.de/kontakt)**, or by
-opening a [private security advisory](https://github.com/felzab/frankfurtleague/security/advisories/new)
-on this repository.
-
-Useful to include, most helpful first:
+Report a suspected vulnerability to <kontakt@frankfurtleague.de>, never in a public issue. Include:
 
 - what an attacker could do with it
 - the steps to reproduce it
-- the affected URL, endpoint or file
+- the affected address, endpoint or file
 - whether it is already public anywhere
-
-You will get a reply. This software is maintained by one person alongside other work, so please allow
-a few days before following up.
-
-## What is in scope
-
-The application and infrastructure in this repository: the Next.js frontend, the FastAPI backend,
-the nginx configuration and the deployment scripts.
-
-Particularly welcome:
-
-- anything that reaches admin functionality without an admin session
-- anything that exposes data the public site does not already show
-- injection of any kind, or a way to get markup or scripts rendered
-- a way to reach the backend API without a valid key, or to reach an internal-only route from outside
-
-## What is not in scope
-
-- **Findings from an automated scanner with no demonstrated impact.** A header grade or a version
-  fingerprint is not a vulnerability on its own.
-- **Denial of service**, volumetric or otherwise. This is a small site on one host; please do not test
-  its limits.
-- **Social engineering** of the maintainer or of anyone involved in the league.
-- **Anything requiring physical access** to the server, or a compromised admin device.
-- **`'unsafe-inline'` on the Content-Security-Policy's `script-src`.** A deliberate trade-off: a
-  per-request nonce cannot cover build-time prerendered HTML, so the `react/no-danger` ESLint rule is
-  the compensating control (see [security headers](docs/ops/spec.md#14-security-headers)). A
-  demonstrated injection that the policy fails to stop is very much in scope; the directive by itself
-  is not.
-
-## Please do not
-
-Test against **frankfurtleague.de**: it carries real league data that people rely on during a
-season. Run it locally instead: `./scripts/ops/local.sh` builds and serves the production image on your
-own machine, behind the same nginx configuration, which demonstrates almost anything.
-
-## Scope of this policy
-
-There is no bug bounty and no reward, and no supported older versions: only what is currently
-deployed is maintained, and fixes go out with the next deploy.

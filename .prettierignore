@@ -1,51 +1,41 @@
 # Prettier runs over the whole repository from fl_frontend, and --ignore-path replaces its default
 # lookup of ./.gitignore and ./.prettierignore, so every tree it must not check is named here.
 # Patterns resolve relative to this file. A line spares the reads and never the walk: prettier lists
-# every entry under `..` before it asks this file.
+# every entry under `..` before it asks this file. A file of a kind no parser takes, a log, a key or a
+# dotenv file, is never read, so no line names one.
 
 # Prettier's own .git exclusion does not match under the `..` root it runs from.
 .git
 
-docs/audit
-certs
 fl_backend/.venv
-__pycache__
 .pytest_cache
-.ruff_cache
 
 # Installed and built trees, nothing under which is written by hand.
-node_modules
 fl_frontend/.next/
 fl_frontend/out/
-*.tsbuildinfo
 next-env.d.ts
 
-# Generated: formatting one only guarantees it drifts again on the next regeneration, and the
-# reformat would bury the change its diff carries.
+# Generated, and never formatted by hand: a hand reformat drifts again on the next regeneration and
+# buries the change its diff carries. Orval formats its own output as it writes it
+# (`fl_frontend/orval.config.ts`).
 fl_backend/openapi.json
-fl_backend/einwilligung.json
+fl_frontend/src/core/generated/
 pnpm-lock.yaml
 
-# Each nested worktree is another branch's whole tree, with its own installs; the fixtures are what
-# a gate run leaves when Ctrl-C skips its EXIT trap.
+# Each nested worktree is another branch's whole tree, with its own installs and builds; the fixtures
+# are what a gate run leaves when Ctrl-C skips its EXIT trap. Prettier lists every file before it reads
+# this file, so the worktrees are also a negated pattern in `fl_frontend/package.json`'s two format
+# scripts, which keeps its walk out of them: listing dozens of them ran it out of heap.
 .claude/worktrees/
 .tmp-*/
 
-# Machine-local files, and credential shapes a formatter has no business opening at all. The two
-# tracked workspace files are the exception -- a tracked file the format gate skips is one nothing
-# holds to the repository's own style.
+# Machine-local files. The two tracked workspace files are the exception -- a tracked file the format
+# gate skips is one nothing holds to the repository's own style.
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
 .claude/settings.local.json
-.env*
-*.pem
-# The copy of the production database `./scripts/ops/local.sh --seed` leaves behind. Named here as well
-# as in .gitignore because `--ignore-path` replaces prettier's own .gitignore lookup, so without
-# this line the format scope fails on a dump's metadata and its remedy rewrites that dump.
+# A leftover copy of production's database, which this public repository must never take. Named here
+# as well as in .gitignore because `--ignore-path` replaces prettier's own .gitignore lookup, so
+# without this line the format scope fails on a dump's metadata and its remedy rewrites that dump.
 .local-db/
-.DS_Store
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*

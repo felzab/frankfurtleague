@@ -1,0 +1,561 @@
+"use client";
+
+import { useId, useState } from "react";
+
+import { textOf } from "@/core/copy";
+import { formatNumber } from "@/core/format";
+
+import { Button } from "./Button";
+import { buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { card, columnHead, nameWithChips, stacked } from "./cardStyles";
+import { Tick } from "./Checkbox";
+import { Chip } from "./Chip";
+import { CutText } from "./CutText";
+import { EmptyState } from "./EmptyState";
+import { RoleMark } from "./RoleMark";
+import { placeholderBar, PlaceholderLine } from "./Skeleton";
+import { tv } from "./tv";
+
+import type { Copy, Words } from "@/core/copy";
+import type { ReactElement } from "react";
+import type { ChipProps } from "./Chip";
+import type { EmptyStateProps } from "./EmptyState";
+import type { RoleMarkProps } from "./RoleMark";
+
+/**
+ * The block's look, which `Lineup` and its placeholder draw from: two cards, each a table of one row a pupil at every
+ * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
+ * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
+ * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
+ * table's box is the container its rows read, at a list's width, 42 rem.
+ */
+const lineup = tv({
+  slots: {
+    card: card().root(),
+    // A block among an editor's boxes, so its head stands in the 16 px every box of the editor pads its head with.
+    band: card().head({ class: "py-4" }),
+    title: card().title(),
+    count: card().count(),
+    // `w-full`: the name's column takes the room the others leave; `overflow-x-auto` as every kit table's box.
+    box: card().body({ class: "@container w-full overflow-x-auto" }),
+    sheet: "w-full border-collapse text-sm",
+    headRow: columnHead().rule(),
+    head: columnHead().text(),
+    row: `relative h-14 ${stacked()} lg:h-13`,
+    // The name takes the room the facts leave and is cut with „…“ where it is longer. A phone's line holds a name's
+    // least width and „Nachnominiert“ only one over the other: a name over its chip is 42 px, which 6 px of padding
+    // keep inside the row's 56, so such a row stands as tall as one without a chip.
+    name: "w-full px-3 py-2 @max-2xl:py-1.5",
+    // The name with its mark and the chip after it, as every row holds them (`nameWithChips`). The
+    // line's least width is the name's, 5 rem, so the facts beside it narrow the column to no less. No status column:
+    // a row's tick and act stand taller than its name's line, which a row of several lines cannot centre against them.
+    nameLine: "min-w-20",
+    // The row's own line under its name, inside the row's height while it is one line. It wraps rather than being cut,
+    // since a touch reaches no tooltip, and a word breaks anywhere, so the line never widens the name's column.
+    line: "block text-xs wrap-anywhere",
+    cell: "px-3 whitespace-nowrap",
+    // The last cell, as narrow as the act it holds.
+    end: "w-0 pe-3",
+    acts: "flex items-center justify-end",
+  },
+  variants: {
+    align: {
+      start: { head: "text-start", cell: "text-start" },
+      // Figures and the tick stand centred under their heads, as a league table's figures do.
+      centre: { head: "text-center", cell: "text-center" },
+    },
+    figures: { true: { cell: "font-numeric" } },
+    // A shirt number's column: two figures and its padding at the least, as `Table`'s `count` width.
+    count: { true: { head: "min-w-12" } },
+    // Left out of a phone's box, whose row is the name, the number and the row's controls.
+    desktop: { true: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" } },
+    // A pupil the squad no longer holds.
+    muted: { true: { row: "text-fg-muted" } },
+    tone: {
+      muted: { line: "text-fg-muted" },
+      danger: { line: "text-danger" },
+    },
+  },
+});
+
+/**
+ * A line-up as an editor's draft holds it, two of `useEditor`'s array values: the pupils it names, and those of them
+ * who start. Each is a set, so its ids stand in one order, `lineupValue`'s, whatever order they were named in: the
+ * editor compares arrays place by place, and a pupil named and taken out again must leave the draft as it was stored.
+ */
+export type LineupValue = { picked: ReadonlyArray<string>; starters: ReadonlyArray<string> };
+
+const inOrder = (ids: Iterable<string>) => [...new Set(ids)].sort((one, other) => (one < other ? -1 : one > other ? 1 : 0));
+
+/** A line-up's value in its one order, from the ids as a read serves them or a press leaves them; a starter is named. */
+export function lineupValue(picked: Iterable<string>, starters: Iterable<string>): LineupValue {
+  const named = inOrder(picked);
+  return { picked: named, starters: inOrder(starters).filter((id) => named.includes(id)) };
+}
+
+/** How many start: the starters `value` names and the nameless entries that started, as the write counts them. */
+export const lineupStarters = (value: LineupValue, nameless: ReadonlyArray<NamelessEntry>) =>
+  value.starters.length + nameless.filter((entry) => entry.starts).length;
+
+const placeOf = (value: LineupValue, id: string) => (!value.picked.includes(id) ? "rest" : value.starters.includes(id) ? "starts" : "bench");
+
+/**
+ * How many pupils stand elsewhere in the draft than in the stored line-up, named, starting or neither: what an
+ * editor's status line and its way back count as the line-up's changes (`useEditor`'s `countOf`), where the changed
+ * fields are two at the most however many pupils moved.
+ */
+export function lineupMoves(stored: LineupValue, draft: LineupValue): number {
+  return inOrder([...stored.picked, ...draft.picked]).filter((id) => placeOf(stored, id) !== placeOf(draft, id)).length;
+}
+
+/** One pupil of the squad, or one a stored line-up still names. */
+export type LineupPlayer = {
+  id: string;
+  name: Words;
+  /** The shirt number, which orders both lists; a pupil with none stands after the numbered ones. */
+  nummer: number | null;
+  /** In a box from 42 rem alone: a phone's row is the name, the number and the row's controls. */
+  position?: Words;
+  /** The role the pupil holds in the squad, the boxed letter after the name, which the block draws as `Table` does. */
+  mark?: RoleMarkProps;
+  chip?: ChipProps;
+  /**
+   * Registered after the season began: named only while fewer regular pupils than `startersMax` are, and no more of
+   * them than that gap leaves.
+   */
+  nominee?: boolean;
+  /**
+   * The squad no longer holds the pupil, whom a stored line-up still names: the line saying so under the name. The
+   * row leaves by its cross and comes back nowhere.
+   */
+  gone?: Copy;
+};
+
+/** Every word the block shows, the caller's. */
+export type LineupWords = {
+  /** The picked list's title and its table's name. */
+  picked: Copy;
+  /** The other list's: the squad's pupils the line-up does not name. */
+  rest: Copy;
+  name: Copy;
+  nummer: Copy;
+  position: Copy;
+  /** The tick's column, which with the pupil's name is each tick's name. */
+  starts: Copy;
+  /** The word at a squad row's end. */
+  pick: Copy;
+  /** The cross's name, which its tooltip shows. */
+  remove: Copy;
+  /** In the picked list's place while it names nobody: its blank slate, as an editor's every list with nothing in it yet. */
+  none: EmptyStateProps;
+  /** In the other list's place where the team has no squad, alike. */
+  noSquad: EmptyStateProps;
+  /** On the row of a tick pressed while `startersMax` pupils already start. */
+  startersFull: Copy;
+  /** Why a nominee cannot be named, and on a named nominee's row once the regular pupils leave no gap for them. */
+  nomineeLocked: Copy;
+  /** The name of an entry naming nobody: a pupil erased after the match was played, whose place stands. */
+  anonymous: Words;
+};
+
+/** An entry of the stored line-up naming nobody, a pupil erased after the match was played: whether they started. */
+export type NamelessEntry = { starts: boolean };
+
+type LineupProps = {
+  /** The squad, and every pupil `value` names: a named one the squad no longer holds carries `gone`. */
+  players: ReadonlyArray<LineupPlayer>;
+  value: LineupValue;
+  /**
+   * The stored entries naming nobody, in their stored order: the club fielded them, so each stands in the
+   * picked list read-only and counts as a regular pupil named and, where it started, a starter, as the write counts it;
+   * no press reaches one and `value` never holds one, since every save keeps them as stored.
+   */
+  nameless: ReadonlyArray<NamelessEntry>;
+  onChange: (value: LineupValue) => void;
+  /** How many start at the most, which is also how many regular pupils leave no place for a nominee. */
+  startersMax: number;
+  words: LineupWords;
+  /**
+   * Why nothing here can change as things stand, such as a fixture with no date: every act closed, each button
+   * answering a press with this reason as the kit's locked acts do.
+   */
+  locked?: Copy;
+  /** What the save refused of single pupils, by id: each on its row's own line, in the caller's hands when it goes. */
+  refusals?: Readonly<Record<string, Copy>>;
+};
+
+/** A pupil with no number stands after the numbered ones, in the order given. */
+const byNummer = (one: LineupPlayer, other: LineupPlayer) =>
+  one.nummer === other.nummer ? 0 : one.nummer === null ? 1 : other.nummer === null ? -1 : one.nummer - other.nummer;
+
+// How each column after the name sets, its head and its cells alike, in the block and in its placeholder.
+const NUMMER = { align: "centre", figures: true, count: true } as const;
+const POSITION = { align: "start", desktop: true } as const;
+const TICK = { align: "centre" } as const;
+
+/** A row's own line under its name: something to put right, or what the row is. */
+type RowLine = { tone: "danger" | "muted"; text: Copy };
+
+function NameCell({ player, nameId, line = null, lineId }: { player: LineupPlayer; nameId?: string; line?: RowLine | null; lineId?: string }) {
+  const s = lineup({ tone: line?.tone });
+  const words = nameWithChips();
+  return (
+    <td className={s.name()}>
+      <span className={words.line({ class: s.nameLine() })}>
+        <span className={words.head()}>
+          <CutText
+            id={nameId}
+            text={textOf(player.name)}
+            className={words.name()}
+          />
+          {player.mark !== undefined && <RoleMark {...player.mark} />}
+        </span>
+        {player.chip !== undefined && (
+          <span className={words.chips()}>
+            <Chip {...player.chip} />
+          </span>
+        )}
+      </span>
+      {line !== null && (
+        <span
+          id={lineId}
+          className={s.line()}>
+          {line.text}
+        </span>
+      )}
+    </td>
+  );
+}
+
+/** The cells every row of either list holds after its name: the number, and in a box from 42 rem the position. */
+function FactCells({ player }: { player: LineupPlayer }) {
+  return (
+    <>
+      <td className={lineup(NUMMER).cell()}>{player.nummer !== null && formatNumber(player.nummer)}</td>
+      <td className={lineup(POSITION).cell()}>{player.position !== undefined && textOf(player.position)}</td>
+    </>
+  );
+}
+
+function FactHeads({ words }: { words: Pick<LineupWords, "name" | "nummer" | "position"> }) {
+  return (
+    <>
+      <th
+        scope="col"
+        className={lineup({ align: "start" }).head()}>
+        {words.name}
+      </th>
+      <th
+        scope="col"
+        className={lineup(NUMMER).head()}>
+        {words.nummer}
+      </th>
+      <th
+        scope="col"
+        className={lineup(POSITION).head()}>
+        {words.position}
+      </th>
+    </>
+  );
+}
+
+/**
+ * A match's line-up as its club names it: everyone named in one list in shirt-number order, a tick alone in the
+ * column headed by `words.starts` saying who starts and a cross taking the row out, over the squad's other pupils,
+ * each row ending in the word that names its pupil. One row a pupil at every width, the name cut with „…“ and its chip
+ * after it, or under it where the line cannot hold both, as a phone's cannot.
+ *
+ * At most `startersMax` start. Once they do, the open ticks dim and stay pressable: a press changes nothing, and
+ * `words.startersFull` stands on that row's own line, inside the row's height, until the next change, as a refused
+ * row's message does. A tick is described by its row's line wherever one stands. A nominee's word is locked with
+ * `words.nomineeLocked` while the regular pupils named leave no gap. A regular pupil named over that gap takes no
+ * nominee out: the nominees then named carry the same words on their rows, and the person chooses whom to take out.
+ *
+ * The value is the caller's, two of `useEditor`'s array values (`LineupValue`), so the editor's unsaved state, its
+ * reset and its save hold a line-up as they hold any field; an entry naming nobody stands outside it, read-only under
+ * `words.anonymous`, its tick saying whether it started (`nameless`).
+ */
+export function Lineup({ players, value, nameless, onChange, startersMax, words, locked, refusals = {} }: LineupProps) {
+  const id = useId();
+  // The row whose tick was pressed with the starters complete; it says so while that still holds.
+  const [pressed, setPressed] = useState<string | null>(null);
+
+  const ordered = [...players].sort(byNummer);
+  const picked = ordered.filter((player) => value.picked.includes(player.id));
+  const rest = ordered.filter((player) => !value.picked.includes(player.id) && player.gone === undefined);
+  const hasSquad = players.some((player) => player.gone === undefined);
+
+  const isFull = lineupStarters(value, nameless) >= startersMax;
+  const nominees = picked.filter((player) => player.nominee === true).length;
+  // An entry naming nobody holds no squad row, so nothing says it was nominated late: the write counts it regular.
+  const gap = Math.max(0, startersMax - (picked.length + nameless.length - nominees));
+
+  const change = (named: Iterable<string>, starters: Iterable<string>) => {
+    setPressed(null);
+    onChange(lineupValue(named, starters));
+  };
+  const without = (ids: ReadonlyArray<string>, gone: string) => ids.filter((other) => other !== gone);
+  const tick = (player: LineupPlayer, starts: boolean) => {
+    if (starts && isFull) setPressed(player.id);
+    else change(value.picked, starts ? [...value.starters, player.id] : without(value.starters, player.id));
+  };
+
+  const lineOf = (player: LineupPlayer, starts: boolean): RowLine | null => {
+    const refusal = refusals[player.id];
+    if (refusal !== undefined) return { tone: "danger", text: refusal };
+    if (pressed === player.id && isFull && !starts) return { tone: "danger", text: words.startersFull };
+    if (player.nominee === true && nominees > gap) return { tone: "danger", text: words.nomineeLocked };
+    return player.gone === undefined ? null : { tone: "muted", text: player.gone };
+  };
+
+  const s = lineup();
+  const startsId = `${id}-starts`;
+  return (
+    <>
+      <section className={s.card()}>
+        <div className={s.band()}>
+          <h2 className={s.title()}>{words.picked}</h2>
+          <span className={s.count()}>{picked.length + nameless.length}</span>
+        </div>
+        <div className={s.box()}>
+          {picked.length + nameless.length === 0 ? (
+            <EmptyState {...words.none} />
+          ) : (
+            <table
+              aria-label={words.picked}
+              className={s.sheet()}>
+              <thead>
+                <tr className={s.headRow()}>
+                  <FactHeads words={words} />
+                  <th
+                    id={startsId}
+                    scope="col"
+                    className={lineup(TICK).head()}>
+                    {words.starts}
+                  </th>
+                  {/* The crosses' column names nothing, so its head is no header cell. */}
+                  <td className={s.head()} />
+                </tr>
+              </thead>
+              <tbody>
+                {picked.map((player) => {
+                  const starts = value.starters.includes(player.id);
+                  const line = lineOf(player, starts);
+                  const nameId = `${id}-${player.id}`;
+                  const lineId = `${nameId}-line`;
+                  // Dimmed as a closed act is and still pressed, so the press can be answered on the row.
+                  const isOpenTick = isFull && !starts;
+                  return (
+                    <tr
+                      key={player.id}
+                      data-kit-row
+                      className={lineup({ muted: player.gone !== undefined }).row()}>
+                      <NameCell
+                        player={player}
+                        nameId={nameId}
+                        line={line}
+                        lineId={lineId}
+                      />
+                      <FactCells player={player} />
+                      <td className={lineup(TICK).cell()}>
+                        <Tick
+                          aria-labelledby={`${startsId} ${nameId}`}
+                          aria-describedby={line === null ? undefined : lineId}
+                          isSelected={starts}
+                          isDisabled={locked !== undefined || player.gone !== undefined}
+                          locked={isOpenTick}
+                          onChange={(isSelected) => tick(player, isSelected)}
+                        />
+                      </td>
+                      <td className={s.end()}>
+                        <div className={s.acts()}>
+                          <Button
+                            icon="close"
+                            label={words.remove}
+                            locked={locked}
+                            onPress={() => change(without(value.picked, player.id), without(value.starters, player.id))}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* After the numbered pupils, as a pupil without a number stands, in their stored order: no person
+                    stands behind one, so its place names it, and no act reaches it. */}
+                {nameless.map((entry, place) => {
+                  const nameId = `${id}-nameless-${String(place)}`;
+                  return (
+                    <tr
+                      key={nameId}
+                      className={lineup({ muted: true }).row()}>
+                      <NameCell
+                        player={{ id: nameId, name: words.anonymous, nummer: null }}
+                        nameId={nameId}
+                      />
+                      <FactCells player={{ id: nameId, name: words.anonymous, nummer: null }} />
+                      <td className={lineup(TICK).cell()}>
+                        <Tick
+                          aria-labelledby={`${startsId} ${nameId}`}
+                          isSelected={entry.starts}
+                          isDisabled
+                          onChange={() => undefined}
+                        />
+                      </td>
+                      <td className={s.end()} />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+      <section className={s.card()}>
+        <div className={s.band()}>
+          <h2 className={s.title()}>{words.rest}</h2>
+          <span className={s.count()}>{rest.length}</span>
+        </div>
+        {!hasSquad && (
+          <div className={s.box()}>
+            <EmptyState {...words.noSquad} />
+          </div>
+        )}
+        {rest.length > 0 && (
+          <div className={s.box()}>
+            <table
+              aria-label={words.rest}
+              className={s.sheet()}>
+              <thead>
+                <tr className={s.headRow()}>
+                  <FactHeads words={words} />
+                  <td className={s.head()} />
+                </tr>
+              </thead>
+              <tbody>
+                {rest.map((player) => (
+                  <tr
+                    key={player.id}
+                    data-kit-row
+                    className={s.row()}>
+                    <NameCell player={player} />
+                    <FactCells player={player} />
+                    <td className={s.end()}>
+                      <div className={s.acts()}>
+                        <Button
+                          variant="secondary"
+                          label={words.pick}
+                          locked={locked ?? (player.nominee === true && nominees >= gap ? words.nomineeLocked : undefined)}
+                          onPress={() => change([...value.picked, player.id], value.starters)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+type WaitWords = Pick<LineupWords, "picked" | "rest" | "name" | "nummer" | "position" | "starts" | "pick">;
+
+/** One list's rows while the line-up is read, at the rows' height: `starts` the tick's head, `end` what a row ends in. */
+function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; starts?: Copy; rows: number; end: ReactElement }) {
+  const s = lineup();
+  return (
+    <table className={s.sheet()}>
+      <thead>
+        <tr className={s.headRow()}>
+          <FactHeads words={words} />
+          {starts !== undefined && <th className={lineup(TICK).head()}>{starts}</th>}
+          <td className={s.head()} />
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }, (_, index) => (
+          <tr
+            key={index}
+            className={s.row()}>
+            <td className={s.name()}>
+              <PlaceholderLine
+                textClass=""
+                widthClass="w-1/2"
+              />
+            </td>
+            <td className={lineup(NUMMER).cell()}>
+              <PlaceholderLine
+                textClass=""
+                widthClass="mx-auto w-4"
+              />
+            </td>
+            <td className={lineup(POSITION).cell()}>
+              <PlaceholderLine
+                textClass=""
+                widthClass="w-20"
+              />
+            </td>
+            {starts !== undefined && (
+              <td className={lineup(TICK).cell()}>
+                <span className={placeholderBar("mx-auto block size-4.5")} />
+              </td>
+            )}
+            <td className={s.end()}>
+              <span className={s.acts()}>{end}</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
+ * The block while the line-up is read: its two cards with their titles and column heads, a bar where each count will
+ * stand, and as many rows at the rows' height as the page states for each list, the tick, the cross and the squad
+ * rows' word as bars of their size. A squad list of none draws its head alone, as the block does.
+ */
+export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
+  const s = lineup();
+  // Inline, so its line keeps the count's baseline, which the band aligns on, as a fold's head does (`ReadFolds`).
+  const count = (
+    <span className={s.count()}>
+      <span className={placeholderBar("inline-block h-3 w-4 align-middle")} />
+    </span>
+  );
+  return (
+    <>
+      <div className={s.card()}>
+        <div className={s.band()}>
+          <span className={s.title()}>{words.picked}</span>
+          {count}
+        </div>
+        <div className={s.box()}>
+          <RowsPlaceholder
+            words={words}
+            starts={words.starts}
+            rows={picked}
+            end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
+          />
+        </div>
+      </div>
+      <div className={s.card()}>
+        <div className={s.band()}>
+          <span className={s.title()}>{words.rest}</span>
+          {count}
+        </div>
+        {rest > 0 && (
+          <div className={s.box()}>
+            <RowsPlaceholder
+              words={words}
+              rows={rest}
+              end={<span className={buttonPlaceholder()}>{words.pick}</span>}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

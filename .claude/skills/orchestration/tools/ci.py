@@ -46,9 +46,9 @@ JOB_RE: Final = re.compile(r"^`(?P<job>[^`]+)` job\b")
 # gh prints each line as `<job>\t<step>\t<timestamp> <text>`, the escape character spelled `^[`.
 STAMP_RE: Final = re.compile(r"^\N{ZERO WIDTH NO-BREAK SPACE}?\d{4}-\d\d-\d\dT[\d:.]+Z ?")
 COLOUR_RE: Final = re.compile(r"(?:\x1b|\^\[)\[[0-9;]*m")
+# The runner trims a line's leading space before it reads a workflow command, so a unit's own
+# annotation the gate replays indented is raised and logged here like the gate's.
 ANNOTATION_RE: Final = re.compile(r"^##\[error\](?P<text>.+)$")
-# A unit's own annotation, which the gate replays indented under its step, so the runner never read it.
-NESTED_RE: Final = re.compile(r"^\s+::error(?:\s[^:]*)?::(?P<text>.+)$")
 # Every failed job's last annotation.
 EXIT_RE: Final = re.compile(r"^Process completed with exit code \d+\.")
 # The summary job's pointer to the scope jobs, whose own lines carry its findings.
@@ -57,10 +57,11 @@ RELAY_RE: Final = re.compile(r"^A scope job failed\b")
 VERDICT_RE: Final = re.compile(r"^\s*✗\s+(?P<text>.+?)(?:\s+(?:\d+m\s*)?[\d.]+m?s)?$")
 PYTEST_RE: Final = re.compile(r"^\s*(?P<text>(?:FAILED|ERROR) \S+::\S.*)$")
 TSC_RE: Final = re.compile(r"^\s*(?P<text>\S+\(\d+,\d+\): error TS\d+: .+)$")
-# node:test lists each failing test once more under `✖ failing tests:`, after `test at <path>:<line>:<column>`.
-NODE_SECTION_RE: Final = re.compile(r"^\s*✖ failing tests:\s*$")
-NODE_AT_RE: Final = re.compile(r"^\s*test at (?P<path>\S+?):\d+:\d+\s*$")
-NODE_FAIL_RE: Final = re.compile(r"^\s*✖ (?P<name>.+?)(?: \([\d.]+m?s\))?\s*$")
+# Vitest's summary names each failing case, or a file that failed as a whole, once under `Failed
+# Tests`/`Failed Suites`: ` FAIL `, the project as `|unit|` or, coloured, ` unit `, then the file and
+# the case's ancestors joined by ` > `; a whole file's path follows in `[ ]`. The error's first line
+# comes next, and Vitest's own annotation for the case repeats it.
+VITEST_FAIL_RE: Final = re.compile(r"^\s*FAIL\s+(?:\|[^|]+\|\s+|\S+\s{2,}(?=\S))?(?P<name>\S.*?)(?:\s+\[ [^\]]+ \])?\s*$")
 
 
 class Line(NamedTuple):
@@ -104,26 +105,33 @@ def _text(line: str) -> tuple[str, str] | None:
 def read(log: str) -> dict[str, Job]:
     """Each failed job's findings in the order printed, its verdict lines, and whether it pointed at the scope jobs."""
     jobs: dict[str, Job] = {}
-    node_at: dict[str, str] = {}
+    # Per job: whether a Vitest case waits for its error's first line, and every such line read, by
+    # which that case's own annotation is known as no finding of its own.
+    vitest_waits: dict[str, bool] = {}
+    vitest_errors: dict[str, set[str]] = {}
     for raw in log.splitlines():
         parsed = _text(raw)
         if parsed is None:
             continue
         name, text = parsed
         job = jobs.setdefault(name, Job())
-        if NODE_SECTION_RE.match(text):
-            node_at[name] = ""
-        elif (at := NODE_AT_RE.match(text)) and name in node_at:
-            node_at[name] = at["path"]
-        elif (failed := NODE_FAIL_RE.match(text)) and node_at.get(name):
-            job.found.append(Line(f"{node_at[name]} :: {failed['name']}", annotation=False))
-            node_at[name] = ""
-        elif annotation := ANNOTATION_RE.match(text):
+        if vitest := VITEST_FAIL_RE.match(text):
+            job.found.append(Line(vitest["name"], annotation=False))
+            vitest_waits[name] = True
+            continue
+        if vitest_waits.get(name) and text.strip() and not ANNOTATION_RE.match(text):
+            vitest_errors.setdefault(name, set()).add(text.strip())
+            vitest_waits[name] = False
+            continue
+        repeated = ANNOTATION_RE.match(text)
+        if repeated and repeated["text"].strip() in vitest_errors.get(name, ()):
+            continue
+        if annotation := ANNOTATION_RE.match(text):
             if RELAY_RE.match(annotation["text"]):
                 job.relay = True
             elif not EXIT_RE.match(annotation["text"]):
                 job.found.append(Line(annotation["text"].strip(), annotation=True))
-        elif shaped := NESTED_RE.match(text) or PYTEST_RE.match(text) or TSC_RE.match(text):
+        elif shaped := PYTEST_RE.match(text) or TSC_RE.match(text):
             job.found.append(Line(shaped["text"], annotation=False))
         elif verdict := VERDICT_RE.match(text):
             job.verdicts.append(verdict["text"])

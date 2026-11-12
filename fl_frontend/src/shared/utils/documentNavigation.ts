@@ -5,11 +5,3 @@
 export function leaveDocumentFor(path: string): void {
   window.location.assign(path);
 }
-
-/**
- * This page loaded again whole, never `router.refresh()`: a server action's id lives in the page's
- * scripts, which only a new document replaces.
- */
-export function reloadDocument(): void {
-  window.location.reload();
-}

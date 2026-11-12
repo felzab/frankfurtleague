@@ -1,103 +1,37 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
-import z from "zod";
+import { getSaisonFrame } from "./queries";
 
-import { SEARCH_QUERY_PARAM } from "@/shared/utils/searchQuery";
-
-import { SAISON_ID_LENGTH } from "./constants";
-import { getAdminSaisons, getSaisons } from "./queries";
-import { searchWithoutSaisonId } from "./utils";
-
-import type { NextPageProps } from "@/shared/types/types";
-import type { FLSaison, FLSaisonStatus } from "./schemas";
-
-// Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
-// here too, and stripped rather than shown on the page alone.
-const saisonIdSchema = z.string().length(SAISON_ID_LENGTH).optional().catch(undefined);
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 
 /**
- * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
- * rather than the two a `getCurrentSaisonOrNull()` prefetch costs. **An admin page must pass `"admin"`.**
+ * The season the admin frame opens on: the running one, else the list's first, `undefined` only for a league
+ * holding none.
  */
-export async function resolveSaisonId(
-  searchParamsPromise: NextPageProps["searchParams"],
-  tier: "base" | "admin" = "base",
-): Promise<string | undefined> {
-  const searchParams = await searchParamsPromise;
-  const requested = saisonIdSchema.parse(searchParams.saison_id);
-
-  // Absent and malformed both parse to `undefined`; only the raw key separates them, and only the
-  // malformed one has something to strip.
-  if (requested === undefined && searchParams.saison_id === undefined) return undefined;
-
-  if (requested !== undefined) {
-    // At `"base"` a planned season is unknown, so an admin picking one is redirected straight back
-    // off it.
-    const { saisons } = tier === "admin" ? await getAdminSaisons() : await getSaisons();
-    if (saisons.some((saison) => saison.id === requested)) return requested;
-  }
-
-  // Redirecting without the unknown value, rather than ignoring it, is what keeps this and
-  // `SaisonSelector` from disagreeing.
-  const { [SEARCH_QUERY_PARAM]: _suche, ...uebrige } = searchParams;
-  redirect(searchWithoutSaisonId(uebrige));
-}
-
-/** An absent id is the running season and fetches nothing. */
-export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefined): Promise<boolean> {
-  if (resolvedSaisonId === undefined) return false;
-
-  const { saisons } = await getSaisons();
-  return saisons.some((saison) => saison.id === resolvedSaisonId && saison.status === "past");
-}
-
-/**
- * An admin page's season and the admin header's default (`SaisonMetadataDisplay`), so the two never
- * differ. It returns rather than redirecting, so each page's own answer to `undefined` stays where a
- * reader of that page meets it.
- */
-export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
-  saisons: readonly T[],
-  requestedSaisonId: string | undefined,
-): T | undefined {
-  if (requestedSaisonId !== undefined) return saisons.find((saison) => saison.id === requestedSaisonId);
-
+export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(saisons: readonly T[]): T | undefined {
   return saisons.find((saison) => saison.status === "active") ?? saisons[0];
 }
 
-/** Every admin page's season (`docs/frontend/spec.md :: I359`); `undefined` only for a league holding none. */
-export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison | undefined> {
-  const requestedSaisonId = await resolveSaisonId(searchParamsPromise, "admin");
-  // The list even where the URL names no season: the running season alone leaves a league before its
-  // first activation with nothing to show.
-  const { saisons } = await getAdminSaisons();
-
-  return selectSaison(saisons, requestedSaisonId);
-}
-
-/** For a page whose reads name a season: a league holding none is sent to the page that creates one (`docs/frontend/spec.md :: I363`). */
-export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison> {
-  // eslint-disable-next-line local/admin-link -- an empty league has no season to carry
-  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/bereich/admin/saisons");
+/** Judged against the season pages' frame: a planned season the public may not read. */
+export async function isPublicSaison(saisonId: string): Promise<boolean> {
+  return (await getSaisonFrame()).saisons.some((saison) => saison.id === saisonId);
 }
 
 /**
- * A `[saison_id]` SEGMENT, or not-found. A segment names the page's subject, so unlike the search
- * parameter above there is no fallback: degrading would silently edit a season nobody asked for.
+ * A public season page's `[saison]` segment: a season the public may read, or `null`. Judged against the frame's list,
+ * which filters on the same withheld status as every season read, so a page's metadata carries the not-found title for
+ * an unknown, malformed or withheld season, and no such segment reaches the backend or keys a cache entry of its own:
+ * the frame is one read, which the season layout already makes.
  */
-export async function resolveSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string> {
-  const saisonId = await parseSaisonIdParam(paramsPromise);
-  if (saisonId === null) notFound();
-
-  return saisonId;
+export async function publicSaisonOf(paramsPromise: Promise<{ saison: string }>): Promise<string | null> {
+  const { saison } = await paramsPromise;
+  return (await isPublicSaison(saison)) ? saison : null;
 }
 
-/** The same judgement without the throw, for `generateMetadata`, which answers a 404's title where a throw leaves the layout's. */
-export async function parseSaisonIdParam(paramsPromise: NextPageProps<{ saison_id: string }>["params"]): Promise<string | null> {
-  const parsed = z
-    .string()
-    .length(SAISON_ID_LENGTH)
-    .safeParse((await paramsPromise).saison_id);
+/** A public season page's `[saison]` segment, or not-found, for the page's body. */
+export async function resolvePublicSaisonParam(paramsPromise: Promise<{ saison: string }>): Promise<string> {
+  const saison = await publicSaisonOf(paramsPromise);
+  if (saison === null) notFound();
 
-  return parsed.success ? parsed.data : null;
+  return saison;
 }
