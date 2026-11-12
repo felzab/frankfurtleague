@@ -22,8 +22,9 @@ its invalidation live here rather than in the backend.
 
 **Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, one
 module per act (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts` beside a team's Kader). A slice holds what
-several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for the
-calls that write, `actions.ts` or an act's own module for the server actions more than one page calls
+several routes share, and only the modules it needs: `queries.ts` for reads, `mutations.ts` for a
+write that shapes its arguments before the generated client sends them (a write passing them through
+calls the generated client itself), `actions.ts` or an act's own module for the server actions more than one page calls
 (`features/saisons/createSaison.ts`), `personActions.ts` for those a signed-in person's own pages
 call, `schemas.ts` for its Zod schemas.
 

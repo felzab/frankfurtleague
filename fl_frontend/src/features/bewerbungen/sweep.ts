@@ -1,12 +1,14 @@
 import "server-only";
 
 import { requestOf } from "@/core/errors";
+import {
+  bewerbungenGetSweepSaisons,
+  bewerbungenSweepSaison,
+  registrierungenSweepRegistrierungen,
+  schiedsrichterSweepSchiedsrichter,
+} from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
 import { sweepAddressChange } from "@/features/address-change/sweep";
-import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { postSchiedsrichterSweep } from "@/features/schiedsrichter/mutations";
-
-import { getBewerbungSweepSaisons, postBewerbungSweep } from "./mutations";
 
 /** Which half of the pass a failure line is about. Each clock family stops for its own reasons. */
 type SweepFailure = "bewerbung.sweep_failed" | "registrierung.sweep_failed";
@@ -29,7 +31,7 @@ export async function runBewerbungSweep() {
   // After the seasons and whatever they met, so a lapsed address is ended every hour.
   const adressen = await sweepAddressChange();
   // The other clock no season holds: an entry whose link lapsed unanswered or declined, erased with its log images.
-  const schiedsrichter = await postSchiedsrichterSweep();
+  const schiedsrichter = await schiedsrichterSweepSchiedsrichter();
 
   return {
     count: {
@@ -52,7 +54,9 @@ export async function runBewerbungSweep() {
  * passed over and, where any call failed, every failure as one; a listing that fails rejects.
  */
 async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unknown }> {
-  const { saison_ids: saisonIds } = await getBewerbungSweepSaisons();
+  // No base-tier season read can serve this: each withholds a `future` season, which is the status every season
+  // with an open application holds.
+  const { saison_ids: saisonIds } = await bewerbungenGetSweepSaisons();
 
   const passedOver: PassedOver = { bewerbung: 0, registrierung: 0 };
   const error: unknown[] = [];
@@ -60,10 +64,10 @@ async function sweepAllSaisons(): Promise<{ passedOver: PassedOver; error?: unkn
   for (const saisonId of saisonIds) {
     // Its own event per half: one line for both cannot say which stopped, which is what an operator reads the logs for.
     await halfRun("bewerbung.sweep_failed", saisonId, error, async () => {
-      passedOver.bewerbung += (await postBewerbungSweep(saisonId)).failed;
+      passedOver.bewerbung += (await bewerbungenSweepSaison(saisonId)).failed;
     });
     await halfRun("registrierung.sweep_failed", saisonId, error, async () => {
-      passedOver.registrierung += (await postRegistrierungSweep(saisonId)).failed;
+      passedOver.registrierung += (await registrierungenSweepRegistrierungen(saisonId)).failed;
     });
   }
 

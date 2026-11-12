@@ -2,9 +2,8 @@ import "server-only";
 
 import { deleteAccountFor, listAccounts } from "@/core/auth/accounts";
 import { requestOf } from "@/core/errors";
+import { identityGetReferences } from "@/core/generated/client/sdk";
 import { logger } from "@/core/logging";
-
-import { postReferences } from "./mutations";
 
 /**
  * The most addresses one references read judges, the backend's `REFERENCES_ADDRESSES_MAX`: a larger batch is refused
@@ -36,7 +35,8 @@ export async function runAccountSweep(): Promise<{ count: AccountSweepCount; ope
     let unreferenced: readonly string[];
 
     try {
-      ({ unreferenced } = await postReferences({ identifiers: batch }));
+      // A POST that reads, the addresses in the body: a query string would put them on the access line.
+      ({ unreferenced } = await identityGetReferences({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       count.failed += batch.length;
@@ -58,7 +58,7 @@ async function deleteUnreferencedAccount(address: string, count: AccountSweepCou
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenced } = await postReferences({ identifiers: [address] });
+    const { unreferenced } = await identityGetReferences({ identifiers: [address] });
     if (!unreferenced.includes(address)) return;
 
     if (await deleteAccountFor(address)) count.deleted += 1;

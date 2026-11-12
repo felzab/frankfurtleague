@@ -4,11 +4,11 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { requestOf } from "@/core/errors";
+import { addressChangePostAddressChangeAnswer, addressChangePostAddressChangeStop } from "@/core/generated/client/sdk";
 import { AddressChangePostAddressChangeAnswerBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { accountAtNewAddress } from "@/features/address-change/account";
 import { runAddressChangeMoves } from "@/features/address-change/moves";
-import { postAddressChangeAnswer, postAddressChangeStop } from "@/features/address-change/mutations";
 import { endsTheLink } from "@/features/address-change/refusals";
 
 import { endOf, LINK_INVALID, STOPPED } from "./ends";
@@ -42,7 +42,7 @@ export const answerAddressChange = action({
 
     let answered;
     try {
-      answered = await postAddressChangeAnswer({ token: link, answer });
+      answered = await addressChangePostAddressChangeAnswer({ token: link, answer });
     } catch (error) {
       if (!endsTheLink(error)) throw error;
       return { ok: true, value: LINK_INVALID };
@@ -61,7 +61,7 @@ export const stopAddressChange = action({
   exempt: "The link's token is the whole credential, minted for one mailbox and spent by its stop.",
   run: async ({ token: link }): Promise<{ ok: true; value: EndState }> => {
     try {
-      await postAddressChangeStop({ token: link });
+      await addressChangePostAddressChangeStop({ token: link });
     } catch (error) {
       if (!endsTheLink(error)) throw error;
       return { ok: true, value: LINK_INVALID };
