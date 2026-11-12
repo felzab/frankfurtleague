@@ -101,17 +101,18 @@ def went_back(calls: list[str]) -> bool:
 
 
 @pytest.mark.parametrize(
-    ("named", "state"),
+    ("named", "new"),
     [
-        pytest.param("backend", "running unhealthy", id="unhealthy"),
-        pytest.param("frontend", "running starting", id="starting"),
-        pytest.param("cloudflared", "exited", id="no-running-container"),
-        pytest.param("nginx", None, id="no-container-at-all"),
+        pytest.param("backend", containers(backend="running unhealthy"), id="unhealthy"),
+        pytest.param("frontend", containers(frontend="running starting"), id="starting"),
+        pytest.param("cloudflared", containers(cloudflared="exited"), id="no-running-container"),
+        pytest.param("nginx", containers(nginx=None), id="no-container-at-all"),
+        pytest.param("backend", containers() + "backend running unhealthy\n", id="one-of-two-containers-unhealthy"),
     ],
 )
-def test_a_service_the_last_read_names_goes_back_although_up_answered_0(named: str, state: str | None):
+def test_a_service_the_last_read_names_goes_back_although_up_answered_0(named: str, new: str):
     """`up --wait` judges each service once, and on some Compose releases answers 0 at its timeout with one still starting."""
-    code, out, err, calls, pinned = deploy(new=containers(**{named: state}))
+    code, out, err, calls, pinned = deploy(new=new)
 
     assert code == 1, out + err
     assert went_back(calls), calls
@@ -144,9 +145,13 @@ def test_a_read_compose_cannot_answer_judges_nothing_live():
 
 
 def test_a_rollback_whose_build_reads_unhealthy_is_never_called_live():
-    code, out, err, calls, pinned = deploy(new_up=1, previous=containers(backend="running unhealthy"))
+    """The failed `up` comes first: its account names the service from a read of its own, since no read ran before it."""
+    code, out, err, calls, pinned = deploy(
+        new_up=1, new=containers(frontend="running unhealthy"), previous=containers(backend="running unhealthy")
+    )
 
     assert code == 1, out + err
+    assert f"compose logs --tail=60 frontend TAG={NEW}" in calls, calls
     assert went_back(calls), calls
     assert pinned == f"TAG={PREVIOUS}\n"
     assert f"{PREVIOUS} did not come up either" in last_line(err), err
