@@ -148,13 +148,17 @@ stored shape lands with the Playground paste that moves every stored document in
 read-back command is what says they all moved:
 
 ```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.readback
+docker compose exec -T backend python -m app.readback
 ```
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
 prints each refused document's collection, id and error location and never a value, and exits 0 when
 every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
-line names the collections it does not read.
+line counts the documents read and refused.
+
+**It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
+name is read by nothing, and the new name, never written, reads as an empty collection with nothing
+refused. Only the paste's own counts prove that a rename ran.
 
 **Run it after the paste and the deploy, never before**: it judges stored documents against the
 models of the image it runs in, so a run inside the old image reads the old shape clean.
@@ -209,9 +213,10 @@ deploy, or the boot raises on the difference that is left.
 
 **A uniqueness rule narrowed or widened by a `partial_filter`** is a different index rather than a
 changed one, so the live index is dropped by a `dropIndex` line, and the boot that follows builds the
-new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. The drop belongs in the deploy's
-own window, between the stack coming down and the new build coming up, because the refusal above is
-what the boot answers with while the old index stands. A widening also lets rows the narrow rule
+new one from `fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`. Drop it just before the
+deploy, because the refusal above is what the new build's boot answers with while the old index
+stands; the running build serves without the rule until then, and a restart of it would build the
+old index again. A widening also lets rows the narrow rule
 excused fall inside the wide one, so any that would collide move first, by a paste keyed on a state
 the previous statement leaves, so that one dying partway is repaired by pasting it again.
 
