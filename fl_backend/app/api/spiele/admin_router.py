@@ -25,6 +25,7 @@ from app.api.spieltage.services import build_admin_spielplan, current_spieltag_i
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
+    AufstellungenCollection,
     AufstellungenReadCollection,
     DBClient,
     SaisonsCollection,
@@ -163,6 +164,7 @@ async def patch_spiel(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
+    aufstellungen_collection: AufstellungenCollection,
     # Read on a `dry_run` alone, for whom the confirmation pass would mail of the save.
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     adopts_bericht: Annotated[
@@ -182,7 +184,9 @@ async def patch_spiel(
     by the pass's own rules. A `past` season's fixture is refused (`saison_past`), the `dry_run` included. The save
     deletes only the later results its body's `voided_results` names, each by its value as its `dry_run` answered it,
     and is refused whole where it would delete any other set (`voided_results_stale`), judged in its own transaction:
-    a result entered or changed after the question was asked is never deleted unasked.
+    a result entered or changed after the question was asked is never deleted unasked. A referee naming nobody, which a
+    played fixture holds once its referee was erased, is kept by a save and never made (`booking_unknown_resource`); a
+    save putting the fixture back among those to come drops it and its line-ups' entries naming nobody.
     """
 
     collections = SpielSaveCollections(
@@ -194,6 +198,7 @@ async def patch_spiel(
         spielorte=spielorte_collection,
         schiedsrichter=schiedsrichter_collection,
         spielberichte=spielberichte_collection,
+        aufstellungen=aufstellungen_collection,
     )
 
     if dry_run:
@@ -207,7 +212,7 @@ async def patch_spiel(
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(
-            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, session=session
+            spiel_id=spiel_id, payload=spiel_data, collections=collections, adopts_bericht=adopts_bericht, now=now, session=session
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

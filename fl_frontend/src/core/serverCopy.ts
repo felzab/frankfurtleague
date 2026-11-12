@@ -885,9 +885,6 @@ export const SERVER_COPY = catalogue({
        * „Noch keine Tore und Karten.“
        */
       officialToreAndCards: "offiziellen Tore und Karten",
-      anonymous: COPY.shared.anonymous,
-      /** A goal nobody was named for. */
-      unknown: "unbekannt",
       tor: "Tor",
       eigentor: "Eigentor",
       card: { gelb: "Gelbe Karte", gelb_rot: "Gelb-Rote Karte", rot: "Rote Karte" },
@@ -945,7 +942,7 @@ export const SERVER_COPY = catalogue({
         heading: "Schiedsrichterinnen und Schiedsrichter",
         // The referee's minimum age is the backend's alone, `fl_backend/app/shared/schemas/bounds.py`.
         text: (days: number) =>
-          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Löschen wir deinen Eintrag, bleibt an angesetzten und gespielten Spielen das Honorar ohne deinen Namen stehen.`,
+          `Pfeifst du für die Liga, trägt sie dich mit Name, Kontaktdaten, Schule und Honorar ein, so wie du oder die Person, die dich genannt hat, sie uns mitteilt. Über einen Link bestätigst du den Eintrag innerhalb ${boundBy("von", formatNumber(days), "Tagen")} mit deinem Geburtsdatum; pfeifen kann, wer mindestens\u00A016\u00A0Jahre alt ist. Löschen wir deinen Eintrag, steht an deinen gespielten Spielen „anonym“ mit dem Honorar, und aus angesetzten Spielen nehmen wir dich heraus.`,
       },
       spiele: {
         heading: "Spiele und Spielberichte",
@@ -974,7 +971,7 @@ export const SERVER_COPY = catalogue({
         record:
           "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams, Spielpläne, Ergebnisse und Tabellen, Aufstellungen, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht, und als freier Text Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
         names:
-          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort „anonym“; im Kader stehen Rückennummer und Position in beiden Fällen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
+          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         consented: (mediaAge: number) =>
           `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ${boundBy("ab", formatNumber(mediaAge), "Jahren")}, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         never:

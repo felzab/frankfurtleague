@@ -45,7 +45,7 @@ type Side = { name: Words; plaque: RecordText | null };
 /** The minute's rule, the write's own pattern, which the server reads off the published contract. */
 type MinuteRule = { pattern: string };
 
-const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: WORDS.unknown };
+const UNKNOWN: Option = { id: UNKNOWN_PLAYER, label: COPY.shared.nobody };
 
 const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label: WORDS.colour[colour], mark: <CardMark colour={colour} /> }));
 

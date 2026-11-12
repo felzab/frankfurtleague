@@ -23,7 +23,6 @@ from app.api.spieler.schemas import (
 from app.api.spieler.services import (
     build_held_rollen_filter,
     build_kader_pipeline,
-    build_spieler_filter,
     find_kader_stufe_refusal,
     find_squad_refusal,
     mark_shared_nummern,
@@ -122,7 +121,7 @@ async def get_spieler_saison(
     """
 
     person_raw, row_raw, saison_raw = await asyncio.gather(
-        pull_one_from_db(collection=spieler_collection, db_filter=build_spieler_filter(spieler_id)),
+        pull_one_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}),
         pull_one_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id, "saison_id": saison_id}),
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"]),
     )
@@ -170,7 +169,7 @@ async def patch_spieler_saison(
     season. No fan-out: unlike a team or a venue, a person is embedded in no other document.
     """
 
-    person_filter = build_spieler_filter(spieler_id)
+    person_filter = {"_id": spieler_id}
     row_filter = {"spieler_id": spieler_id, "saison_id": saison_id}
     person_part = spieler_data.model_dump(mode="json", include=set(PERSON_SAVE_FIELDS))
     row_part = spieler_data.model_dump(mode="json", include=set(ROW_SAVE_FIELDS))

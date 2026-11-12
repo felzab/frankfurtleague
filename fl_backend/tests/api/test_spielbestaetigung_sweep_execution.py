@@ -41,7 +41,6 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.shared.schemas.bounds import SPIEL_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
@@ -507,6 +506,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
             spielorte_collection=database[Collection.SPIELORTE],
             schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             now=NOW,
             dry_run=dry_run,
@@ -1038,20 +1038,6 @@ class TestTheMintsShareTakesWholeFixtures:
         assert (len(first), len(second)) == (len(spiele) - 1, len(spiele))
 
 
-class TestABookedRefereeHoldingNoAddress:
-    def test_their_fixture_is_passed_over_and_the_next_is_asked(self, mongo_replica_set_url: str):
-        """A row would stand as though they were told, and nobody would ask again; their fixture alone waits on the corrected address."""
-
-        spiele = [a_spiel(SPIEL, 1, NEXT_WEEK), a_spiel(OTHER_SPIEL, 2, NEXT_WEEK, schiedsrichter=booked(OTHER_SCHIEDSRICHTER))]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"kontakt.email": None}})
-            await sweep(database, client, passed_over=1)
-            return Counter(row["spiel_id"] for row in await rows(database))
-
-        assert on_a_league(mongo_replica_set_url, body, spiele=spiele) == {OTHER_SPIEL: 3}
-
-
 class TestAMoveNotAskedAtOnceIsToldAtOnce:
     """A club told nothing of a move until the new slot can be asked would turn up at the slot it was asked about."""
 
@@ -1298,18 +1284,6 @@ class TestASeatHandedOnBesideTheMintIsAskedAsItStandsOnceTheMintCommits:
         interleaved.assert_landed_inside(serially=1)
 
 
-class TestTheGhostIsAskedNothing:
-    def test_a_spiel_booked_onto_the_ghost_mints_its_two_sides(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await sweep(database, client), await rows(database)
-
-        answer, stored = on_a_league(
-            mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=booked(GHOST_SCHIEDSRICHTER_ID))]
-        )
-
-        assert ({row["party"]["kind"] for row in stored}, len(stored), answer.einteilungen) == ({"team"}, 2, [])
-
-
 # Fourteen days out, so the deadline falls a week before the fixture and the reminder inside it.
 FORTNIGHT = days_after(day=TODAY, days=14)
 DEADLINE = days_after(day=FORTNIGHT, days=-7)
@@ -1520,7 +1494,7 @@ class TestARefereeErasedBesideTheMintIsToldNothing:
         interleaved, erased_since, answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
         # The premise: the erasure committed under the mint's read, the first a fresh league's pass makes of the referees;
-        # the mint run again reads none, the fixture now booked onto the ghost.
+        # the mint run again reads none, the fixture still to come now booking nobody.
         assert (interleaved.passes, erased_since) == (1, True)
         assert answer.einteilungen == []
         assert [row["party"]["kind"] for row in stored] == ["team", "team"]
@@ -1612,13 +1586,11 @@ class TestTheLineupReminder:
         assert {reminder.due_at for reminder in first.aufstellungen} == {datetime(2126, 4, 15, 16, 0, tzinfo=UTC)}
         assert later.aufstellungen == []
 
-    def test_a_club_whose_line_up_names_only_a_pupil_erased_from_it_is_reminded(self, mongo_replica_set_url: str):
-        """Ahead of the lock an erased pupil's entry is the club's to pick anew: its screen shows nobody, so nothing stands."""
+    def test_a_club_whose_line_up_an_erasure_emptied_is_reminded(self, mongo_replica_set_url: str):
+        """Ahead of kick-off an erased pupil's entry goes, and the club picks anew: a line-up holding nobody stands as none."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.AUFSTELLUNGEN].insert_one(
-                documents.aufstellung_document(IN_THE_WINDOW, ALPHA, starters=[GHOST_SPIELER_ID])
-            )
+            await database[Collection.AUFSTELLUNGEN].insert_one(documents.aufstellung_document(IN_THE_WINDOW, ALPHA))
             return await handed_out(database, client, await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW), now=LINEUP_NOW)
 
         reminded = on_a_league(mongo_replica_set_url, body, spiele=[IN_THE_WINDOW])

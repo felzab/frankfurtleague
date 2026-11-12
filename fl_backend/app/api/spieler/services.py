@@ -10,7 +10,6 @@ from app.api.spieler.schemas import FLSpielerRolle
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC, is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
@@ -61,9 +60,8 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     return einwilligung.get("scope") == "kader_public" and is_confirmed(einwilligung)
 
 
-# The two NAME fields alone: a withheld row keeps its `nummer` and `position`, so a `$cond` reaching
-# further would withhold the squad slot rather than the name. The record is read here and projected
-# nowhere.
+# The two NAME fields alone: what a read serves beside a withheld name is that read's to withhold. The
+# record is read here and projected nowhere.
 PUBLIC_PERSON: Mapping[str, Any] = {
     "first_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": "$first_name", "else": None}},
     "last_name": {"$cond": {"if": NAME_IS_PUBLIC, "then": PUBLIC_LAST_NAME, "else": None}},
@@ -90,56 +88,18 @@ def public_person(*, first_name: str | None, last_name: str | None, einwilligung
     return PublicPerson(first_name=first_name, last_name=public_initial(last_name))
 
 
-def build_ghost_spieler() -> dict[str, Any]:
-    """The row an erased pupil's scorer and card entries are repointed to, as written.
+# The key a nameless row sorts by, true where the join withheld the name, so those rows come after the named ones.
+_NAMELESS = "nameless"
 
-    Nameless and recordless, as `app/api/spieler/schemas.py :: FLSpielerRecord` admits for this row
-    alone: a name here is published on every such entry, and a fabricated record is counted as consent.
-    """
-
-    return {
-        "_id": GHOST_SPIELER_ID,
-        "first_name": None,
-        "last_name": None,
-        "einwilligung": None,
-        "birth_date": None,
-    }
+# The squad table's own order: the named rows by position and then the forename served, the nameless ones after them.
+# Fixed rather than asked for: ordering by a key reads it out whether or not the response carries it (`READ-PUPIL-001`,
+# `READ-PUPIL-002`), so no caller names one, and the chain stops at the forename, a surname this tier will not serve
+# ordering nothing. The position is null on a nameless row, so its place says nothing of it.
+SQUAD_ORDER: Mapping[str, int] = {_NAMELESS: 1, "position": 1, "first_name": 1}
 
 
-# The one term excluding the sentinel, spelled once for the collection reads and the by-id filter.
-_NOT_THE_GHOST: Mapping[str, Any] = {"$ne": GHOST_SPIELER_ID}
-
-
-def build_real_spieler_filter(terms: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-    """The persons `terms` match, never the sentinel; with none, every person somebody stands behind.
-
-    Takes the caller's terms rather than being spread into them: a spread replaces their own `_id`
-    term, an `$in` included, without a word.
-    """
-
-    composed = dict(terms or {})
-
-    # Apart under `$and` only where the caller names `_id`, so the caller's own `_id` term is never replaced.
-    if "_id" in composed:
-        return {"$and": [composed, {"_id": dict(_NOT_THE_GHOST)}]}
-
-    return {**composed, "_id": dict(_NOT_THE_GHOST)}
-
-
-def build_spieler_filter(spieler_id: Any) -> Mapping[str, Any]:
-    """One real person by id, nothing for the sentinel.
-
-    Shared by every route naming a person by id: reached by any, the sentinel takes a name onto every
-    erased pupil's entry or a squad row of its own.
-    """
-
-    return {"_id": {"$eq": spieler_id, **_NOT_THE_GHOST}}
-
-
-# The squad table's own order, by position and then the forename served. Fixed rather than asked for: ordering by a key
-# reads it out whether or not the response carries it (`READ-PUPIL-001`, `READ-PUPIL-002`), so no caller names one, and
-# the chain stops at the forename, a surname this tier will not serve ordering nothing.
-SQUAD_ORDER: Mapping[str, int] = {"position": 1, "first_name": 1}
+# Whether the join withheld the person's name, as the mask answers it.
+_NAME_WITHHELD: Mapping[str, Any] = {"$eq": [f"${AS_NAME}.first_name", None]}
 
 
 def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[Mapping[str, Any]]:
@@ -158,8 +118,6 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
         # The SQUAD ROW's retirement (`READ-SQUAD-001`). No switch: this tier marks no row it would
         # un-hide (`READ-SQUAD-002`).
         "inactive_since": None,
-        # The sentinel, so it never joins a squad row whatever the rows hold.
-        "spieler_id": dict(_NOT_THE_GHOST),
     }
 
     return [
@@ -188,15 +146,15 @@ def build_spieler_pipeline(*, team_id: CustomObjectId, saison_id: str) -> list[M
                 "_id": 0,
                 "first_name": f"${AS_NAME}.first_name",
                 "last_name": f"${AS_NAME}.last_name",
-                "position": 1,
-                "nummer": 1,
-                # The captaincy, for the mark beside the name, and null beside a withheld one: the mark would say
-                # which of the squad the nameless row is.
-                "rolle": {"$cond": {"if": {"$eq": [f"${AS_NAME}.first_name", None]}, "then": None, "else": "$rolle"}},
+                # The number, the position and the captaincy beside a name alone: beside a withheld one they would
+                # say which of the squad the nameless row is.
+                **{field: {"$cond": {"if": _NAME_WITHHELD, "then": None, "else": f"${field}"}} for field in ("position", "nummer", "rolle")},
+                _NAMELESS: _NAME_WITHHELD,
             }
         },
         # After the projection, so `first_name` orders by the name served, which the join masked.
         {"$sort": dict(SQUAD_ORDER)},
+        {"$unset": _NAMELESS},
         # One page, as every season-scoped read takes.
         {"$limit": LIST_LIMIT_DEFAULT},
     ]

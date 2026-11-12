@@ -573,9 +573,9 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     if (spiel.get("note") or "").strip():
         return True
 
-    return (spiel.get("spielort") or {}).get("spielort_id") is not None or (spiel.get("schiedsrichter") or {}).get(
-        "schiedsrichter_id"
-    ) is not None
+    # A referee's booking by its block, never its id: one naming nobody keeps a played match's fee once its referee was
+    # erased, and is a record all the same.
+    return (spiel.get("spielort") or {}).get("spielort_id") is not None or spiel.get("schiedsrichter") is not None
 
 
 def unplayed_spiel_nrs(spiele: Iterable[FLSpiel]) -> list[int]:

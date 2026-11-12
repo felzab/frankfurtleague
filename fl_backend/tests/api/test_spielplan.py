@@ -806,6 +806,11 @@ class TestWhatCountsAsRecordedAgainstASpiel:
         if edit.ko is not None:
             assert holds_a_recorded_fact({**UNTOUCHED_BRACKET, **edit.ko}) is True, f"{projected} left the bracket window open: {edit.why}"
 
+    def test_a_booking_naming_nobody_closes_the_window(self):
+        """A played match's booking keeps its fee once its referee was erased: read by its id, it would read as no record."""
+
+        assert holds_a_recorded_fact({**UNTOUCHED_SPIEL, "schiedsrichter": {"schiedsrichter_id": None}}) is True
+
     @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis.__value__))
     def test_every_sonderereignis_closes_the_window_whatever_it_awards(self, sonderereignis: str):
         """Reach for `has_taken_place`'s narrower set and the two awarding nothing stop closing it.

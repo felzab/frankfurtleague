@@ -126,6 +126,15 @@ describe("the match editor's save", () => {
     expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00" }]);
   });
 
+  // The harm: a played match whose referee was erased loses its booking and the fee it recorded on any save of it.
+  it("sends a booking naming nobody back as one, with its fee", async () => {
+    state.read = { ...STORED, schiedsrichter: { schiedsrichter_id: null, name: null, payment: 25 } };
+
+    await saveSpiel(saving({ time: "18:00:00" }));
+
+    expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00", schiedsrichter: { schiedsrichter_id: null, payment: 25 } }]);
+  });
+
   it("stands a hand-picked club on its side without the side's source, which the bracket would otherwise put back", async () => {
     await saveSpiel(saving({ team2: PICKED }));
 

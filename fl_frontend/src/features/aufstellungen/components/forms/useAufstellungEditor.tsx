@@ -11,7 +11,7 @@ import { REFUSED_ROW } from "../../payload";
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { FLAufstellungEntry } from "@/core/generated/client/types";
-import type { ErasedEntry, LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
+import type { LineupPlayer, LineupValue, LineupWords } from "@/kit/Lineup";
 import type { EditorSave } from "@/kit/useEditor";
 
 /** What a line-up's save is handed: the fixture, the version the editor was read at, and the half of the line-up it changed. */
@@ -20,10 +20,10 @@ type AufstellungSave = EditorSave<LineupValue, number | null>;
 /** What the line-up's editor is handed, at whichever address it stands. */
 export type AufstellungEditing = {
   /**
-   * The line-up as read: the fixture's id, the stored `version`, `null` where none is stored, its entries naming a pupil,
-   * and those whose pupil was erased since, which no save sends and every save keeps.
+   * The line-up as read: the fixture's id, the stored `version`, `null` where none is stored, and its entries, those
+   * naming nobody among them, which the block shows read-only and every save sends back as stored.
    */
-  aufstellung: { id: string; version: number | null; spieler: ReadonlyArray<FLAufstellungEntry>; erased: ReadonlyArray<ErasedEntry> };
+  aufstellung: { id: string; version: number | null; spieler: ReadonlyArray<FLAufstellungEntry> };
   players: ReadonlyArray<LineupPlayer>;
   words: LineupWords;
   /** Why nobody can be named as the fixture stands, such as its having no day or hour yet. */
@@ -38,13 +38,15 @@ export type AufstellungEditing = {
  * whose address it stands at: the page's own editor places the three in its `EditorPage` and hands it the save.
  */
 export function useAufstellungEditor({ aufstellung, players, words, locked, save }: AufstellungEditing) {
+  const named = aufstellung.spieler.flatMap(({ spieler_id, starts }) => (spieler_id === null ? [] : [{ spieler_id, starts }]));
+  const nameless = aufstellung.spieler.filter((entry) => entry.spieler_id === null).map(({ starts }) => ({ starts }));
   const record = {
     id: aufstellung.id,
     version: aufstellung.version,
     // In the block's one order, or a pupil named and taken out again would leave the draft counted as changed.
     values: lineupValue(
-      aufstellung.spieler.map((entry) => entry.spieler_id),
-      aufstellung.spieler.filter((entry) => entry.starts).map((entry) => entry.spieler_id),
+      named.map((entry) => entry.spieler_id),
+      named.filter((entry) => entry.starts).map((entry) => entry.spieler_id),
     ),
   };
   const editor = useEditor<LineupValue, number | null>(record, save, { countOf: lineupMoves });
@@ -59,12 +61,12 @@ export function useAufstellungEditor({ aufstellung, players, words, locked, save
   return {
     editor,
     // The starters alone: beside the count of moves it fits a phone's bar, where the longer line pushes the count out.
-    barText: COPY.area.team.aufstellung.startelfCount(lineupStarters(draft, aufstellung.erased), STARTERS_MAX),
+    barText: COPY.area.team.aufstellung.startelfCount(lineupStarters(draft, nameless), STARTERS_MAX),
     block: (
       <Lineup
         players={players}
         value={draft}
-        erased={aufstellung.erased}
+        nameless={nameless}
         onChange={(next) => {
           set("picked", next.picked);
           set("starters", next.starters);

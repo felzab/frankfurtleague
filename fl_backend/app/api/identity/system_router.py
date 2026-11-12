@@ -152,9 +152,9 @@ async def get_references(
 
 # The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
 # it, and neither the hourly pass nor an activation's press holds a person's session here.
-# At most seventeen commands for a pupil a report and a locked line-up name, each the round trip plus at most 1.36 ms,
-# timed locally 2026-11-11: this share, about 6.7 s with the call's own four, fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
-# round trip.
+# At most sixteen commands for a pupil a report and a played match's line-up name, each the round trip plus at most
+# 1.36 ms, timed locally 2026-11-11: this share, about 6.3 s with the call's own four, fits
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 ERASURES_PER_PASS: Final = 10
 
 
@@ -269,9 +269,6 @@ async def sweep_erasure(
     what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
     call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
     limit.
-
-    The 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no
-    handler; this call counts that failure as any other and never answers it.
     """
 
     statuses = await saison_statuses(saisons_collection=saisons_collection)

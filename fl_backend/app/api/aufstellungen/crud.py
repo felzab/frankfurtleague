@@ -1,5 +1,5 @@
 """
-API · a line-up's document written, repointed and removed
+API · a line-up's document written, its entries of an erased pupil emptied, and removed
 
 One document per club per fixture, so no club's save can touch another's, and a seat and an administrator saving one
 club's line-up write the same document: a refusal between them is a true conflict.
@@ -15,7 +15,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.schemas import FLAufstellungEntry
-from app.api.aufstellungen.services import keeps_erased
+from app.api.teams.services import is_played
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
@@ -27,7 +27,6 @@ from app.core.crud import (
     pull_one_from_db,
 )
 from app.core.recording import record_act
-from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
@@ -102,17 +101,16 @@ async def erase_pupil_from_aufstellungen_in_session(
     *,
     aufstellungen_collection: AsyncCollection,
     spieler_id: CustomObjectId,
-    # The erasing request's clock, which judges each line-up locked or still the club's to change.
+    # The erasing request's clock, which judges each fixture played or still to come.
     now: datetime,
-    # REQUIRED: the erasure's own, so a line-up never names the sentinel of an erasure that rolled back.
+    # REQUIRED: the erasure's own, so no line-up loses a name to an erasure that rolled back.
     session: AsyncClientSession,
 ) -> None:
-    """Repoint this pupil's entries on locked line-ups at the sentinel and remove their entries from the rest.
+    """Empty this pupil's entries on the line-ups of played fixtures and remove their entries from the rest.
 
-    A locked line-up's entry stands, as a report's does: from the lock the line-up is the club's record of whom it
-    fielded, and a removed entry would read as a pupil nobody picked. One still ahead of its lock is the club's to
-    change, so its club picks again rather than keeping a place nobody can fill. Judged by `keeps_erased`, which the
-    screen and the save judge again against the fixture as it then stands.
+    A played match's entry stands naming nobody, as a report's does: the line-up is the record of whom the club
+    fielded, and a removed entry would read as a place nobody filled. A match still to come loses the pupil, and its
+    club picks again. Judged once, here, by `app/api/teams/services.py :: is_played`.
     """
 
     naming = await aggregate_many_from_db(
@@ -136,28 +134,52 @@ async def erase_pupil_from_aufstellungen_in_session(
     if not naming:
         return
 
-    locked = {
-        row["_id"] for row in naming if any(keeps_erased(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
+    played = {
+        row["_id"] for row in naming if any(is_played(date=spiel.get("date"), time=spiel.get("time"), now=now) for spiel in row[_SPIEL_AS])
     }
-    ahead = sorted({row["_id"] for row in naming} - locked, key=str)
+    to_come = sorted({row["_id"] for row in naming} - played, key=str)
 
-    if locked:
+    if played:
         # Narrowed to the line-ups holding an entry to change, since an array-filtered update reaches
         # `patch_many_in_db` unnarrowed (the manual's "$[<identifier>]" page).
         await patch_many_in_db(
             collection=aufstellungen_collection,
-            db_filter={"_id": {"$in": sorted(locked, key=str)}, "spieler.spieler_id": spieler_id},
-            update={"$set": {"spieler.$[entry].spieler_id": GHOST_SPIELER_ID}},
+            db_filter={"_id": {"$in": sorted(played, key=str)}, "spieler.spieler_id": spieler_id},
+            update={"$set": {"spieler.$[entry].spieler_id": None}},
             array_filters=[{"entry.spieler_id": spieler_id}],
             session=session,
         )
-    if ahead:
+    if to_come:
         await patch_many_in_db(
             collection=aufstellungen_collection,
-            db_filter={"_id": {"$in": ahead}},
+            db_filter={"_id": {"$in": to_come}},
             update={"$pull": {"spieler": {"spieler_id": spieler_id}}},
             session=session,
         )
+
+
+async def drop_nameless_entries(
+    *,
+    aufstellungen_collection: AsyncCollection,
+    spiel_id: ObjectId,
+    # REQUIRED: the fixture's save, whose re-dating is what puts the match back among those to come.
+    session: AsyncClientSession,
+) -> None:
+    """Remove every entry naming nobody from the fixture's line-ups, once a save has put the played match back among those to come.
+
+    A match to come holds no entry naming nobody, so its clubs pick again.
+    """
+
+    # Every line-up of the fixture written, not only those this snapshot finds an entry naming nobody in: a pupil's erasure
+    # judging the match played beside this save then conflicts with it, and whichever commits second judges it to come.
+    await anchor_in_db(collection=aufstellungen_collection, db_filter={"spiel_id": spiel_id}, session=session)
+    # `$type`, never a null equality, which also matches an entry lacking the key.
+    await patch_many_in_db(
+        collection=aufstellungen_collection,
+        db_filter={"spiel_id": spiel_id, "spieler.spieler_id": {"$type": "null"}},
+        update={"$pull": {"spieler": {"spieler_id": {"$type": "null"}}}},
+        session=session,
+    )
 
 
 async def remove_the_seasons_aufstellungen(

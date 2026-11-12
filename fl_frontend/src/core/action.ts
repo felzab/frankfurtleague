@@ -236,10 +236,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "ergebnis_side_emptied",
   "spieltag_occupied",
   "eligibility_team_not_in_saison",
-  // A line-up starting more than eleven with the kept entries of erased pupils, which the line-up block shows read-only
-  // and counts: only a page read before an erasure meets it, and a reload shows the true count, where a sentence of its
-  // own would stand beside a bar still counting eleven.
-  "aufstellung_starters_exceed_eleven",
   // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
   "ansetzung_not_enterable",
   "ansetzung_not_discardable",

@@ -242,7 +242,7 @@ class FLErasureViewResponse(BaseAPIResponse):
     kontakt_seats: int = Field(ge=0)
     bewerbung_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    # The fixtures still to be played that book a referee row, each needing a new referee afterwards.
+    # The fixtures not yet kicked off that book a referee row, each needing a new referee afterwards.
     spiele: int = Field(ge=0)
     # The address's own live change, and each other address's naming it that this administrator may see.
     address_change: int = Field(ge=0)
