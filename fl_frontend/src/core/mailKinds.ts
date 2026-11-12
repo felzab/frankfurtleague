@@ -104,7 +104,7 @@ const MAIL_KINDS: { [A in OutboxKind]: MailBuilder<A> } = {
   aufstellung_reminder: buildAufstellungReminderEmail,
   austritt_notice: buildAustrittNoticeEmail,
   registrierung_confirmation: (data, handout) => buildRegistrierungConfirmationEmail(data, minted(handout)),
-  registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
+  registrierung_absage: buildRegistrierungAbsageEmail,
   invitation: (data, handout) => buildInvitationEmail(data, minted(handout)),
   kontakt_confirmation: (data, handout) => buildKontaktConfirmationEmail(data, minted(handout)),
   ban: buildBanEmail,

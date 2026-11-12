@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ListTable } from "@/kit/ListTable";
 
-import { COPY, textOf } from "@/core/copy";
+import { COPY } from "@/core/copy";
 import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
 import { rowChip } from "@/features/spieler/rowChip";
 
@@ -23,14 +23,17 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
     const isLive = row.inactive_since === null;
     const chip = rowChip(row);
     const mark = roleMarkOf(row.rolle);
-    const facts = [row.position, row.stufe === null ? null : textOf(COPY.admin.saison.stufe[row.stufe])].filter((fact) => fact !== null);
+    const facts = [
+      row.position === null ? null : { record: row.position },
+      row.stufe === null ? null : COPY.admin.saison.stufe[row.stufe],
+    ].filter((fact) => fact !== null);
     return {
       id: row.spieler_id,
       name: { record: kaderName(row) },
       // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
       ...(isLive && mark !== undefined ? { mark } : {}),
       ...(chip === undefined ? {} : { chip }),
-      ...(facts.length === 0 ? {} : { phoneLine: { record: facts.join(" · ") } }),
+      ...(facts.length === 0 ? {} : { phoneLine: COPY.shared.line(facts) }),
       muted: !isLive,
       ...(isLive ? { onOpen: () => open(row) } : {}),
       cells: {
@@ -45,8 +48,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
 /**
  * The team's Kader as the list template's table, searched by the template's field, and the dialog its live rows open.
  * One dialog for every row, mounted closed while the squad holds a live row, so a press opens it by its state as a held
- * dialog asks (`fl_frontend/src/kit/useOpenUntilHidden.ts`); it keeps the row last pressed, which it shows while it
- * closes.
+ * dialog asks; it keeps the row last pressed, which it shows while it closes.
  */
 export function KaderTable({ head, read, team, saison }: { head: TableHead; read: FLKaderResponse; team: string; saison: string }) {
   const [chosen, setChosen] = useState<string | null>(null);

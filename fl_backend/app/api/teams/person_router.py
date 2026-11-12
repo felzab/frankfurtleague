@@ -63,7 +63,6 @@ from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload, by_choice
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSide
 
-# The person lane's identifier, as `app/api/registrierungen/person_router.py` declares it and for its reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
@@ -111,22 +110,10 @@ async def patch_einwilligung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
+    """Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
-    One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
-    differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
-    other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
-    other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
-    to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
-    person confirmed a seat on, a past season's included.
-
-    Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
-    `evidence_state` other than the held seats' own, either choice having moved since the page was served
-    (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
-    under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
-    `media` moving to `true` where a held seat's stored birthdate does not reach `FLMediaMinAgeYears` today or is
-    missing (`media_age`). Each refusal writes nothing.
+    Each choice moves only where it differs from the row as the page served it, so seats answered apart keep their
+    answers to a choice not changed.
     """
 
     pressed: dict[FLEinwilligungChoice, object] = {"scope": einwilligung_data.scope, "media": einwilligung_data.media}
@@ -320,24 +307,13 @@ async def get_team_overview(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamOverviewResponse:
-    """
-    Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+    """Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
 
-    The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
-    asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
-    date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until
-    the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
-    fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
-    still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
-    each with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and
-    `registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that
-    person confirmed it.
-
-    No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
-    signed-in person holds no seat on this team in this season.
+    No address, telephone number, birthdate or consent record of anybody is served.
     """
 
-    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
+    # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
+    # it serves from straddling a commit.
     async with db.start_session(snapshot=True) as session:
         subject = await roles_of(identifier, records, session=session)
         refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))
@@ -446,18 +422,14 @@ async def get_team_spiele(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamSpieleResponse:
-    """
-    Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
+    """Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
 
-    Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
-    state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
-    the clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about
-    the fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.
-
-    Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+    Each carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where
+    no row asks the team about the fixture as it stands.
     """
 
-    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
+    # A snapshot rather than a transaction: the read writes nothing, and one point in time keeps the seat and every row
+    # it serves from straddling a commit.
     async with db.start_session(snapshot=True) as session:
         subject = await roles_of(identifier, records, session=session)
         refuse(find_role_refusal(seats=subject.seats, team_id=team_id, saison_id=saison_id))

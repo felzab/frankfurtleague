@@ -624,9 +624,6 @@ export const getAufstellungenGetAufstellungUrl = (spielId: string, teamId: strin
 
 /**
  * The line-up screen of one club for one fixture, as the club's own seat holders read it.
- *
- * With the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that
- * does not exist or does not field this club.
  * @summary One club's line-up for one fixture as an administrator reads it
  */
 export const aufstellungenGetAufstellung = async (
@@ -645,22 +642,9 @@ export const getAufstellungenPutAufstellungUrl = (spielId: string, teamId: strin
 };
 
 /**
- * Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.
+ * Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
  *
- * The document a seat holder's save writes, on the same payload, so the lock never reaches this save
- * (`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as
- * `aufstellung.saved`.
- *
- * Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
- * (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
- * holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
- * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
- * (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past the shortage
- * (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
- * save, and every refusal but `version_stale` is asked again outside the transaction just before answering. An entry
- * naming nobody stands for a pupil erased after the match was played: the screen serves it in `spieler`, and a save
- * keeps it by sending it back.
+ * An entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.
  * @summary Save one club's line-up for one fixture as an administrator
  */
 export const aufstellungenPutAufstellung = async (
@@ -696,13 +680,7 @@ export const getAufstellungenGetAufstellungSelfUrl = (spielId: string, teamId: s
 /**
  * The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
  *
- * The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
- * saved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's
- * marks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is
- * null for a fixture holding no day or no hour, which takes no line-up.
- *
- * Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished
- * season granting none, and `document_not_found` for a fixture that does not exist or does not field this club.
+ * A finished season grants no seat, so its line-ups are an administrator's to read.
  * @summary One club's line-up for one fixture as its seat holder reads it
  */
 export const aufstellungenGetAufstellungSelf = async (
@@ -723,22 +701,8 @@ export const getAufstellungenPutAufstellungSelfUrl = (spielId: string, teamId: s
 /**
  * Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
  *
- * The first save creates the document and answers 201. `version` is the document's as the screen was served it, null
- * where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
- * `aufstellung.saved`.
- *
- * Refuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season
- * granting none (`role_not_held`); a
- * fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
- * (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
- * the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
- * squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
- * (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named beside eleven regular players, or
- * more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
- * `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
- * refused as the payload's own rules. A line-up being due or overdue refuses nothing.
- * Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
- * a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
+ * A line-up being due or overdue refuses nothing, and `version` is the document's as the screen was served it, null
+ * where the screen showed no line-up.
  * @summary Save one club's line-up for one fixture as its seat holder
  */
 export const aufstellungenPutAufstellungSelf = async (
@@ -1320,29 +1284,10 @@ export const getIdentityPostAccountErasureUrl = () => {
 };
 
 /**
- * Erase every record the signed-in address holds, at once and as one write.
+ * Erase every record the signed-in address holds, at once and as one write; the owner is refused until a handover.
  *
- * PERSON TIER. The owner is refused until a handover (`owner_erasure`), since nobody else could name an owner, and a
- * person holding a grant erases it with the rest. No other precondition stands in front of a person's own request, a
- * pupil in a live squad and a referee booked on a fixture still to be played included. Nothing is counted against the
- * person's day.
- *
- * Removed: the pupil record and every squad row it holds, so the team reads one player fewer, its match reports' goals
- * and cards and its entries on the line-ups of played matches standing and naming nobody, and its entries on line-ups
- * of matches still to come going; the referee record, every played fixture it was booked on standing with its own fee
- * and naming nobody, every booking of a fixture still to come going, and every
- * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
- * address's pending change naming this one as its new address, every record it would move standing at its own; every
- * grant the address holds, every administrator being told it ended.
- * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
- * and its other seats standing.
- * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row, the answer
- * standing. Every match report stands, its remarks and entries included, and names no referee. Every log row naming
- * their address names a fixed marker in their place.
- *
- * An address holding nothing is no refusal. The 404 is published for the steps' reads by
- * id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
- * touched here: deleting it is the caller's, once this has answered.
+ * A played match keeps its report, its line-ups and its booking, each naming nobody in the person's place, and the
+ * sign-in account is the caller's to delete once this has answered.
  * @summary Erase every record the signed-in address holds
  */
 export const identityPostAccountErasure = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
@@ -1357,20 +1302,10 @@ export const getIdentityGetAccountErasureViewUrl = () => {
 };
 
 /**
- * Answer what `POST /identity/account/erasure` would remove for the signed-in address, by kind and by name.
+ * What `POST /identity/account/erasure` would remove or empty for the signed-in address, by kind and by name, and nothing else.
  *
- * Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
- * removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
- * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
- * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures
- * booking their referee record, which name nobody once played and lose the booking while still to come; the
- * confirmations their referee record was asked for, which go; the goals, cards and played matches' line-up entries of
- * their pupil record, which name nobody, and its entries on line-ups of matches still to come, which go; every reason they typed
- * answering a match confirmation, from any
- * seat they held, which goes from its row, the answer standing; and the log rows naming their address, which name a
- * marker in their place. Written besides: the notice that their grant ended, which
- * every administrator is sent. `admin_tier` is the tier of the grant the address holds, or null; a dead spelling of the
- * address, which admits nobody, goes with the erasure unnamed.
+ * Another address's pending change naming this one is counted and not named once its link has reached this mailbox,
+ * since its records are not this address's until it takes effect.
  * @summary Show what an erasure of the signed-in address would remove
  */
 export const identityGetAccountErasureView = async (
@@ -1387,19 +1322,9 @@ export const getIdentityPostErasureUrl = () => {
 };
 
 /**
- * Erase every record an address holds, on a request that person made by mail, at once and as one write.
+ * Erase every record an address holds, on a request that person made by mail, at once and as one write, as their own erasure does.
  *
- * ADMIN TIER. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the person's own
- * state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass. Three
- * refusals are about who asks. The administrator's own address is refused (`own_address`): their account page serves it,
- * or the owner. An address holding a grant is refused unless the administrator holds an owner's power (`admin_address`),
- * judged inside the write. An address another address's pending change would move to is refused, judged inside the write,
- * where that address holds a grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the
- * change, a discard only the owner makes of it.
- *
- * `reason` names the request the erasure answers, as free text. An address holding nothing is no refusal. The 404 and the
- * 409 answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
- * the caller's, once this has answered.
+ * Nothing about the person's own state refuses it, and the sign-in account is the caller's to delete once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identityPostErasure = async (
@@ -1435,27 +1360,8 @@ export const getIdentitySweepErasureUrl = (params?: IdentitySweepErasureParams) 
 /**
  * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
  *
- * The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
- * in the latest `past` season, in any season with a greater id or in the running one, and no registration still `submitted`
- * at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `completed_saison_id`
- * is null. A pupil holding no address is never due: nothing else erases by a name.
- *
- * Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
- * pending registration since this call read them, the two committing before that transaction writes included, or whom another
- * call deleted first, is counted `skipped` and left standing. A squad entry or a registration meeting that transaction's
- * writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
- * Two calls at once therefore delete each pupil once. Deleted are
- * the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
- * one included. A contact seat, a referee record, a grant and anything else held at the same address stand.
- *
- * **A pass is a run of calls, each handing the next the `after` the last answered**, the first naming none; it ends at the call
- * answering `after` null. A call reaches at most a fixed share of the due pupils after `after`, in `_id` order, and the pass
- * holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
- * `failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
- * the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
- * what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
- * call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
- * limit.
+ * A pass is a run of calls, each handing the next the `after` the last answered, and it ends at the call answering
+ * `after` null; `remaining` counts the pupils still due, the failed among them, so it is no stopping condition.
  * @summary Delete one share of the pupils the season-after rule makes due
  */
 export const identitySweepErasure = async (
@@ -1473,16 +1379,9 @@ export const getIdentityGetErasureViewUrl = () => {
 };
 
 /**
- * Count what `POST /identity/erasure` would remove or empty for this address, by kind, and name nothing.
+ * Count what `POST /identity/erasure` would remove or empty for this address, by kind, naming nothing and storing nothing.
  *
- * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot. `spiele`
- * counts the fixtures not yet kicked off that a referee row is booked on, whose booking the erasure takes off.
- * `address_change` counts the address's own live change and each other address's change naming it, leaving out a grant
- * holder's for an administrator without an owner's power, since counting it would answer whether a typed address is its
- * new one. Stores nothing.
- *
- * Refused as the erasure is: the administrator's own address (`own_address`), an address holding a grant unless the
- * administrator holds an owner's power (`admin_address`).
+ * It is refused as that erasure is, and leaves out of `address_change` a grant holder's change this administrator may not see.
  * @summary Count what an erasure of an address would remove
  */
 export const identityGetErasureView = async (
@@ -2100,10 +1999,7 @@ export const getSaisonsGetLandingUrl = () => {
 /**
  * The season the site is on, `before_start`, `running` or `decided`, null for a league that has none.
  *
- * Beside it, the application window open today by the rule the submission refuses on, the day the next one opens by
- * the judgement the form's page serves, whether a season not yet ended holds a window at all, and the league's figures
- * over every season the public reads, counted on every read. The windows and the figures are read beside the season's
- * two steps rather than after them, so they add no step to the read.
+ * Beside it, the application windows and the league's figures over every season the public reads, counted on every read.
  * @summary The landing
  */
 export const saisonsGetLanding = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLLandingResponse> => {
@@ -2372,7 +2268,7 @@ export const getSaisonsGetSpielplanUrl = (saisonId: string) => {
 /**
  * Every matchday of one season with its matches, in playing order, and the matchday to open on.
  *
- * The Spielplan and the Spielsuche both show this. 404 for a season this tier may not read.
+ * 404 for a season this tier may not read.
  * @summary One Saison's Spielplan
  */
 export const saisonsGetSpielplan = async (saisonId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpielplanResponse> => {
@@ -2482,10 +2378,7 @@ export const getSchiedsrichterGetSchiedsrichterUrl = (params?: SchiedsrichterGet
 };
 
 /**
- * An admin-tier read: a referee is a pupil, so their contact and school are private (`READ-CONTACT-001`).
- *
- * The fee is admin-tier as money, not as a pupil's detail (`READ-MONEY-001`). Deactivated ones
- * stay retrievable for a historical match.
+ * Every referee in name order, retired ones included where `include_inactive` asks, since a played match still names them.
  * @summary List Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichter = async (
@@ -2503,14 +2396,10 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 };
 
 /**
- * Create a referee and owe them their confirmation link.
+ * Create a referee and owe them their confirmation link, answering the address and the deadline it goes to.
  *
- * `inactive_since` is set to null here and is on no payload. **Entering a referee IS the
- * invitation**: the payload requires an email address, and there is no second press deciding
- * whether this person is asked, because a referee nobody asked is a name nobody consented to
- * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
- *
- * Refused where another referee holds the name (`duplicate_key`, naming `name`).
+ * Entering a referee is the invitation, with no second press deciding whether they are asked, since a referee nobody
+ * asked is a name nobody consented to publish.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichter = async (
@@ -2544,20 +2433,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
 /**
  * Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
  *
- * Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
- * else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
- * public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
- * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
- * `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
- *
- * Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
- * `evidence_state` other than the record's own, either choice having moved since the page was served
- * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
- * other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to
- * `true` where the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
- * refusal writes nothing.
- *
- * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
+ * The public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.
  * @summary Change a signed-in referee's own publication and media consent
  */
 export const schiedsrichterPatchEinwilligung = async (
@@ -2592,18 +2468,8 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
 /**
  * Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.
  *
- * The consent carries the publication scope they chose, the media answer beside it, the stamp and, on each choice's
- * evidence, the wording they were shown. It reaches this one collection and writes nothing on any fixture: a referee's
- * publication scope has one home, which the fixture list joins at read time to decide whether to publish the name each
- * fixture stores.
- *
- * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
- * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
- * `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
- * `FLMediaMinAgeYears` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
- *
- * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
- * a withheld name would go on being served for as long as that entry lives.
+ * The caller drops the cached fixture list after a successful answer, or a withheld name goes on being served for as
+ * long as that entry lives.
  * @summary Confirm one Schiedsrichter's entry and consent
  */
 export const schiedsrichterPostConfirmation = async (
@@ -2637,12 +2503,8 @@ export const getSchiedsrichterPostDeclineUrl = () => {
 /**
  * Record the referee's objection to the entry their link opens: its day, and nothing else of the person.
  *
- * The entry then goes on the clock its link started, the midnight after the deadline, as the privacy notice says of an
- * unconfirmed or declined one (`POST /schiedsrichter/sweep`). Until then no booking takes it and no
- * re-send or reactivation asks the person again. The objection is journalled.
- *
- * Refuses, in the confirmation's order: a token no referee holds (`link_invalid`), an entry already answered,
- * confirmed or declined (`confirmation_exists`), and a link whose deadline has passed (`link_expired`).
+ * The entry is erased at the midnight after its link's deadline, and until then no booking takes it and nobody asks
+ * the person again.
  * @summary Decline one Schiedsrichter's entry
  */
 export const schiedsrichterPostDecline = async (
@@ -2674,16 +2536,9 @@ export const getSchiedsrichterGetConfirmationViewUrl = () => {
 };
 
 /**
- * Answer what this token opens: the link's state and deadline, the age bounds, and the day of the person's own answer.
+ * What this token opens: the link's state and deadline, the age bounds and the day of the person's own answer.
  *
- * **Nothing else** (`READ-REFEREE-002`): never a name, the school, the contact details, the fee, the birthdate or the
- * entry's id, all of which are behind `READ-CONTACT-001`. The link went to an address an administrator typed and nobody has
- * confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second
- * URL.
- *
- * Refuses only a token no referee holds (`link_invalid`): a confirmed or an expired link
- * is SERVED in that state rather than refused, so a reopened link shows what became of it. `answered_at` is the day the
- * state's answer was given, the consent's or the objection's, and null on every state showing none.
+ * A confirmed or an expired link is served in that state rather than refused, so a reopened link shows what became of it.
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetConfirmationView = async (
@@ -2716,9 +2571,6 @@ export const getSchiedsrichterGetSelfSaisonsUrl = () => {
 
 /**
  * Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
- *
- * A planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address
- * holding no live, confirmed referee record (`role_not_held`).
  * @summary The seasons a signed-in referee has fixtures in
  */
 export const schiedsrichterGetSelfSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLOwnSaisonsResponse> => {
@@ -2733,16 +2585,9 @@ export const getSchiedsrichterGetSelfSpieleUrl = (saisonId: string) => {
 };
 
 /**
- * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+ * Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
  *
- * Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
- * their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now
- * (from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is
- * served, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the
- * fixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,
- * or none at all, answers an empty list.
- *
- * Refuses an address holding no live, confirmed referee record (`role_not_held`).
+ * Nobody's address is served, and no reason an administrator entered.
  * @summary A signed-in referee's fixtures of one season, one row a fixture
  */
 export const schiedsrichterGetSelfSpiele = async (
@@ -2762,13 +2607,8 @@ export const getSchiedsrichterSweepSchiedsrichterUrl = () => {
 /**
  * Erase every referee entry nobody confirmed, or whose person objected, once the midnight after its link's last day has passed.
  *
- * Erased as a person's own erasure erases a referee entry, as the privacy notice says of an unconfirmed or declined
- * one: the entry goes with its confirmation rows and its bookings of fixtures still to come, and a played fixture's
- * booking stands naming nobody. A confirmed entry holds no deletion date and is never due.
- *
- * A page of entries is erased in one transaction that reads them again, so one confirmed since is left standing; an
- * entry whose erasure fails is logged by its id, passed over and counted in `failed`, and stays due for the next
- * pass. No body: the clock takes no season.
+ * Each goes as a person's own erasure takes a referee entry, and one whose erasure fails is counted in `failed` and
+ * stays due for the next pass.
  * @summary Erase the referee entries whose link lapsed unanswered or declined
  */
 export const schiedsrichterSweepSchiedsrichter = async (
@@ -2785,10 +2625,9 @@ export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: strin
 };
 
 /**
- * Deactivate a referee. SOFT, for the same reason as venues: a played match names them by id.
+ * Deactivate a referee, who stays on record because a played match names them by id.
  *
- * Refused while an unplayed fixture still books them (`schiedsrichter_still_assigned`), naming the path's id with
- * those fixtures' `spiel_nrs` and their `count` as its bounds.
+ * Refused while a fixture still to be played books them.
  * @summary Deactivate a Schiedsrichter (soft delete)
  */
 export const schiedsrichterDeleteSchiedsrichter = async (
@@ -2806,14 +2645,9 @@ export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: stri
 };
 
 /**
- * Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).
+ * One referee, a retired one included, with whether their consent link has lapsed today and what became of their last confirmation mail.
  *
- * Deactivated ones included -- a historical match references them by id. An id whose referee has been erased
- * answers 404: the document is gone.
- *
- * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
- * lapsed link without reading a clock of its own. `delivery` says what became of the last confirmation mail the referee
- * was owed, null where none was.
+ * An erased referee's id answers 404.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterById = async (
@@ -2833,22 +2667,8 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
 /**
  * Update a referee on the `version` the editor was served, answering the version stored.
  *
- * The editor's next save sends that version. A fixture names the referee by id and reads the name at its own read, so
- * nothing else is written; each fixture keeps the `payment` agreed for it.
- *
- * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
- * new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
- * leaving it live is a credential in the wrong inbox.
- *
- * **A CONFIRMED referee's address is refused here** (`schiedsrichter_address_only_per_change`), retired or not: it is who signs in as the
- * person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
- * A save keeping it lands, a pending change standing.
- *
- * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
- * collected for a role nobody gives them. Their old link is retired all the same, and the
- * reactivation mints the fresh one.
- *
- * Refused where another referee holds the name (`duplicate_key`, naming `name`), ahead of the address's refusals.
+ * A corrected address on an unconfirmed referee retires their link and owes a fresh one, named in `confirmation`, and a
+ * confirmed referee's address moves only through an address change.
  * @summary Update a Schiedsrichter
  */
 export const schiedsrichterPatchSchiedsrichter = async (
@@ -2883,15 +2703,8 @@ export const getSchiedsrichterInviteSchiedsrichterUrl = (schiedsrichterId: strin
 /**
  * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
  *
- * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
- *
- * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
- * answered, consenting or objecting (`confirmation_exists`), and where they carry no email address
- * (`schiedsrichter_no_address`). 404 for an id no referee holds, an erased referee's among them.
- *
- * **A referee who has already answered is refused rather than sent a second link**: the
- * confirmation refuses every such press, so minting one would replace a live block with a
- * credential that can never be spent.
+ * The previous link stops working at once and the deadline restarts from today; a referee who has already answered is
+ * refused, since the new link could never be spent.
  * @summary Send a Schiedsrichter a fresh confirmation link
  */
 export const schiedsrichterInviteSchiedsrichter = async (
@@ -2909,12 +2722,9 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
 };
 
 /**
- * Clear `inactive_since`, putting the referee back into the picker and every default read.
+ * Bring a retired referee back into the picker and every default read.
  *
- * **A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a
- * retired referee's save stores a new address and mails nothing, so coming back is what
- * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
- * person has answered.
+ * One who has not answered is owed a fresh link, named in `confirmation`, since a retired referee's save mails nothing.
  * @summary Bring a deactivated Schiedsrichter back
  */
 export const schiedsrichterReactivateSchiedsrichter = async (
@@ -2932,18 +2742,9 @@ export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
 };
 
 /**
- * What the booked referee's report form reads.
+ * What the booked referee's report form reads: the fixture, both clubs' live squads, and the stored report or null.
  *
- * The fixture, both clubs' live squads of the season, the pupils the stored report names outside them, and the stored
- * report, its remarks included, or null.
- *
- * `reportable` is whether the referee writes it now: the fixture's kick-off has passed (its day has come, where it
- * holds no time), it is neither called off nor struck out, and its season runs. Served where it is false too, whose
- * page says why it takes no report, with both squads empty: the pupils the stored report names are then all in
- * `named`. Once the fixture's season has ended, `completed` is true and the read is the report alone, both squads
- * empty, which its referee writes no more. Refused `role_not_held` where the address holds no confirmed, live referee
- * record, and `bericht_not_officiated` where the fixture is booked to none of its records; `document_not_found` for a
- * fixture that does not exist.
+ * Where `reportable` is false or `completed` true, both squads are empty and every pupil the report names is in `named`.
  * @summary One fixture's report as its referee reads it
  */
 export const spielberichteGetSpielberichtBericht = async (
@@ -2961,31 +2762,10 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
 };
 
 /**
- * Write the whole report of one fixture as its booked referee, replacing what stood.
+ * Write the whole report of one fixture as its booked referee, replacing what stood, and never the fixture's result.
  *
- * The shoot-out or the event proposed, the scorers, the cards and the remarks; the two goal counts of the proposal are
- * the entries credited to each side, an own goal crediting the other one, and no form sends them. The first write
- * creates it and answers 201; every write changing it clears its adoption in the same update, so a report the
- * administrator adopted reads `differing` again until it is adopted anew, and a write changing nothing writes
- * nothing. Every write stamps the clubs the fixture fields now, so a report a knockout correction re-fielded a side
- * under reads `sides_changed` until it is written again. Writes no fixture: the result is the administrator's to save.
- *
- * `version` is the report document's as the form was served it, null where the form showed no report: a write composed
- * on another state would replace a report its sender never saw. The administrator's adoption raises it too, so a form
- * read before an adoption saves stale once.
- *
- * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
- * (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
- * (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
- * `version` other than the document's now, or than null where none stands (`version_stale`); one undated, or whose
- * kick-off is still to come, its day where it holds no time (`bericht_not_played`); one called off or struck out
- * (`bericht_cancelled`); a shoot-out proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); and a pupil
- * the write newly names on a side outside that side's live squad of the season, a pupil the report already named on
- * that side staying while the side fields the club it did (`spieler_not_in_kader`). Every refusal but `version_stale`
- * is asked again outside the transaction just before answering, the referee's records included, so a write landing on
- * what was judged before that second asking refuses the report rather than letting it stand, and one landing after it
- * stands beside the report; a write of the report itself landing mid-press conflicts with this one, whose retry meets
- * `version_stale`. Two first writes at once are two forms opened on no report: the later is refused.
+ * A write changing the report clears its adoption, and `version` is the report document's as the form was served it,
+ * null where the form showed no report.
  * @summary Write one fixture's report as its referee
  */
 export const spielberichtePutSpielberichtBericht = async (
@@ -3018,11 +2798,7 @@ export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every `active` season's id, oldest first.
- *
- * `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
- * entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
- * bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
+ * Every `active` season's id, oldest first: a confirmation serves no purpose once its season is over.
  * @summary Every season the confirmation pass visits
  */
 export const spielbestaetigungenGetSweepSaisons = async (
@@ -3039,59 +2815,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
 };
 
 /**
- * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.
+ * Close, mint and remind one season's fixture confirmations as of today, owing each mail with its row, and answer what it did, counted.
  *
- * Each mail is owed through the Postausgang in the transaction that writes its row.
- *
- * The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
- * to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
- * those, a row whose fixture has kicked off, or reached its day where it holds no time, closes `spiel_past`, so
- * nobody answers about a match already started. A club's decline closed `discarded` is closed again for each of
- * those but a move and a referee change, in the pass that closes an agreement beside it, and once the slot it was
- * about has kicked off: the public fixture then stops counting it as that club's agreement.
- *
- * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
- * about a slot not yet kicked off: for a move, „Spiel verlegt“, naming the slot it left and the one the fixture holds now
- * where the party is still one of its sides or its referee and that slot has a day, an hour and both sides; for a
- * referee taken off the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
- * as it was given -- and for a call-off, the slot the row was about; for an `austritt`, the slot too, to a referee alone,
- * each opponent having been told at the exit's own write (`app/api/spielbestaetigungen/crud.py ::
- * owe_the_austritt_notices_in_session`). A club is told at every address of its confirmed seats as they stand now, a
- * referee at the address their record holds; a party nobody is left to tell is told nothing.
- *
- * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
- * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
- * its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
- * decline the administrator discarded is the party's one answer to that Ansetzung. The deadline falls the notice period
- * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_DEADLINE_DAYS`) before the fixture, or today where that has passed.
- * A club's row is owed its request at every address of the club's confirmed seats, one mail per mailbox carrying no
- * link, since the club answers on its own pages signed in, and the row is stamped as asked; a club holding no confirmed
- * seat is asked once it holds one, while its row is open and in time. A referee row is owed its Einteilung. A
- * party still asked by a fixture that moved to a slot the mint asks today is the mint's, never the close's: in the
- * transaction asking about the new slot, the mint closes the party's row about the slot left `ansetzung_changed`, and
- * the request or Einteilung it owes names the slot left, the one mail telling of the move; a party it owes no request,
- * its answer about the new slot standing or no confirmed seat of its reachable, is owed the move's notice instead. A fixture
- * holding any other unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
- * its notice first.
- *
- * The one reminder goes to every address of the club's confirmed seats as they stand now, on each open team row never
- * reminded whose deadline lies the reminder's days away (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS`) and
- * whose request was owed on an earlier day, and stamps the day; a row whose club holds no confirmed seat that day is
- * reminded of nothing.
- *
- * The line-up reminder goes to every address of a club's confirmed seats as they stand now, for each fixture whose
- * kick-off lies between `app/shared/schemas/bounds.py :: AUFSTELLUNG_REMINDER_DAYS` and `:: AUFSTELLUNG_DUE_DAYS`
- * ahead, each counted back at the kick-off's clock time, and for which the club stores no line-up, neither the
- * fixture decided or called off nor the club out by its
- * day; once per club and fixture, the mail's own keys being its one record (`app/api/spielbestaetigungen/services.py
- * :: aufstellung_reminder_key`), so a fixture first read past the window's start, or moved, is reminded only if no
- * reminder of it went. Each states the moment the line-up is due and is given up at it.
- *
- * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
- * and counted in `failed`; any other failure is raised, every step committed before it standing with its mails.
- *
- * A season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for
- * a season ended since the listing, mails nobody. 404 where no season has the id.
+ * Each step takes a bounded share and leaves the rest due, and a season that is not `active` is passed by whole.
  * @summary Run one season's fixture confirmation pass
  */
 export const spielbestaetigungenSweepSpielbestaetigungen = async (
@@ -3109,21 +2835,10 @@ export const getSpielbestaetigungenAdoptSpielbestaetigungUrl = (spielbestaetigun
 };
 
 /**
- * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+ * Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.
  *
- * Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
- * discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
- * stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
- * hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
- * status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
- * body. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the
- * referee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,
- * `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
- * (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
- * as that save resolves it. The
- * row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
- * next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
- * about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+ * The next confirmation pass closes every party's row about the slot left, tells each of the move and asks about the
+ * new slot.
  * @summary Adopt a club's proposed date
  */
 export const spielbestaetigungenAdoptSpielbestaetigung = async (
@@ -3141,24 +2856,10 @@ export const getSpielbestaetigungenPostSchiedsrichterAnswerUrl = (spielbestaetig
 };
 
 /**
- * Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
+ * Record the signed-in referee's first answer about a fixture they are booked on, until its kick-off: accept, or decline giving a reason.
  *
- * The first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee
- * null and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so
- * booking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at
- * the season's end. Answering is open until the fixture's kick-off, or its day where it holds no time, whatever
- * deadline a club's row of the same fixture carries.
- *
- * Refuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no
- * row of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row
- * already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
- * (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
- * time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
- * fixture whose kick-off has come (`ansetzung_deadline_past`). An acceptance is judged again outside the transaction just
- * before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
- *
- * **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
- * on the public fixture, and a decline takes it off.
+ * A decline takes them off the fixture, and the caller drops the cached fixture list after a successful answer, since
+ * either answer can move the referee's name on the public fixture.
  * @summary Accept or decline one of the signed-in referee's own fixture assignments
  */
 export const spielbestaetigungenPostSchiedsrichterAnswer = async (
@@ -3196,21 +2897,8 @@ export const getSpielbestaetigungenPostTeamAnswerUrl = (spielbestaetigungId: str
 /**
  * Record one club's answer about one Ansetzung, from whichever of its confirmed seats presses first, and the seat it came from.
  *
- * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
- * (`ansetzung_answered`). Writes no fixture: a proposal is the administrator's to act on. The seat recorded is the
- * signed-in person's own on the row's team, the first in order where they hold two.
- *
- * Refuses, in this order: an id naming no team's row, or the row of a team the signed-in person holds no seat on in
- * its season (`ansetzung_foreign_row`, one answer for both); a row already answered, closed since or not (`ansetzung_answered`); one closed
- * unanswered (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one
- * whose date, time, ground or sides moved since the row was asked (`ansetzung_changed`); an answer after the
- * deadline's day (`ansetzung_deadline_past`); a proposal dated before today (`ansetzung_vorschlag_past`); one naming
- * the day and hour the fixture already holds (`ansetzung_vorschlag_unchanged`, on both boxes); and a proposal the
- * administrator's own save of that date would be refused: on or after a club's exit (`eligibility_disqualified`),
- * outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's other
- * fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the seat's is asked again outside
- * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
- * than letting it stand.
+ * It writes no fixture: a decline's proposal is the administrator's to act on, and is refused wherever the
+ * administrator's own save of that date would be.
  * @summary Confirm a fixture's Ansetzung as the team's seat holder, or decline it proposing another date
  */
 export const spielbestaetigungenPostTeamAnswer = async (
@@ -3243,16 +2931,10 @@ export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetig
 };
 
 /**
- * Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
+ * Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
  *
- * IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
- * answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
- * counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
- * agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
- * address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
- * declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
- * while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of
- * the move.
+ * The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
+ * the date stands.
  * @summary Discard a club's proposed date
  */
 export const spielbestaetigungenDiscardSpielbestaetigung = async (
@@ -3270,14 +2952,10 @@ export const getSpielbestaetigungenEnterSpielbestaetigungUrl = (spielbestaetigun
 };
 
 /**
- * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
+ * Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
  *
- * The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
- * nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
- * the season's end. Refused for a row
- * already answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers
- * while this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since
- * left is settled as asked, and the next confirmation pass closes it.
+ * The answer is the league's record of how a date was agreed and is never rewritten; it names nobody, and its reason
+ * goes at the season's end.
  * @summary Record a party's Zusage on its behalf
  */
 export const spielbestaetigungenEnterSpielbestaetigung = async (
@@ -4069,19 +3747,8 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
 /**
  * Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
  *
- * One answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it
- * differs from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No
- * other slot of the row and no other row is written, each choice moving with its own evidence and leaving the
- * other standing; a press moving no seat writes nothing. A GRANT (`scope` to `kontakt_data_whatsapp` or `media`
- * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
- * person confirmed a seat on, a past season's included.
- *
- * Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
- * `evidence_state` other than the held seats' own, either choice having moved since the page was served
- * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
- * under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
- * `media` moving to `true` where a held seat's stored birthdate does not reach `FLMediaMinAgeYears` today or is
- * missing (`media_age`). Each refusal writes nothing.
+ * Each choice moves only where it differs from the row as the page served it, so seats answered apart keep their
+ * answers to a choice not changed.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligung = async (
@@ -4388,20 +4055,9 @@ export const getTeamsGetTeamOverviewUrl = (teamId: string, saisonId: string) => 
 };
 
 /**
- * Everything a team's Übersicht shows, in one read, for a person holding any contact seat on the team in this season.
+ * Everything a team's Übersicht shows in one read, for a person holding any contact seat on the team in this season.
  *
- * The team's name, code, full name and colour, and the seats the signed-in person holds on it. The dates the league
- * asked the team to confirm that still hold work: unanswered (`valid`, or `vorschlag` with the other club's proposed
- * date and hour), unanswered past its deadline (`expired`), or declined with the team's own proposal until
- * the league adopts or discards it (`declined`); an agreed date is not listed. Each by its day and hour. The coming
- * fixtures holding a day and an hour, neither decided nor called off, for which the team has stored no line-up and may
- * still enter one, each with its marks, soonest first. The registrations awaiting the team's decision, newest first,
- * each with the pupil's own position and Stufe, under the cap the team's Registrierungen page reads them by, and
- * `registrierungen_complete` false where it cut some. And the team's three seats, each with its holder's name and whether that
- * person confirmed it.
- *
- * No address, telephone number, birthdate or consent record of anybody is served. Refused `role_not_held` where the
- * signed-in person holds no seat on this team in this season.
+ * No address, telephone number, birthdate or consent record of anybody is served.
  * @summary A team's Übersicht in one season
  */
 export const teamsGetTeamOverview = async (
@@ -4422,12 +4078,8 @@ export const getTeamsGetTeamSpieleUrl = (teamId: string, saisonId: string) => {
 /**
  * Every fixture of the team in this season in the order the draw numbered them, for a person holding any contact seat on it.
  *
- * Each as the public reads serve a fixture, with its matchday's `position` and its phase's count of matchdays, the
- * state of the date the league asked the team to confirm, and its line-up's marks: whether one is stored, the phase
- * the clock puts it in, and the instants it is due and locks at. `termin` is null where no row asks the team about
- * the fixture as it stands, and `aufstellung` for a fixture holding no day or no hour.
- *
- * Refused `role_not_held` where the signed-in person holds no seat on this team in this season.
+ * Each carries the state of the date the league asked the team to confirm and its line-up's marks, `termin` null where
+ * no row asks the team about the fixture as it stands.
  * @summary A team's fixtures in one season, with what is open on each
  */
 export const teamsGetTeamSpiele = async (

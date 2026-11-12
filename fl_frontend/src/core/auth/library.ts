@@ -14,9 +14,9 @@ import { CODE_VALIDITY_MINUTES } from "../authEmail";
 import { MONGO_DB_NAME } from "../authIndexes";
 import { now } from "../clock";
 import { authSecret, frontend_config } from "../config";
+import { COPY } from "../copy";
 import { signInStore } from "../db";
 import { asSignInIdentifier } from "../emailAddress";
-import { BRAND_NAME } from "../emailShell";
 import { ERASURE_LINK_VALID_HOURS } from "../erasureEmail";
 import { logger } from "../logging";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "../passkeyCeremony";
@@ -74,22 +74,22 @@ const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
-/** The one path that spends a code, which the browser's client posts (`fl_frontend/src/core/authClient.ts`). */
+/** The one path that spends a code, which the browser's client posts. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
 /** What the code check takes: the browser's client sends these two, and a name or an image is a hand-made request's. */
 const CODE_SIGN_IN_FIELDS: ReadonlySet<string> = new Set(["email", "otp"]);
 
-/** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
+/** The one path that mails a code, called in process alone. */
 const CODE_SEND_PATH = "/email-otp/send-verification-otp";
 
 /**
  * The one path that mails a deletion link, called in process without a token; a press completes the link through
- * `/delete-user/callback`, also called in process (`fl_frontend/src/core/auth/accounts.ts :: deleteOwnAccount`).
+ * `/delete-user/callback`, also called in process.
  */
 const DELETE_USER_PATH = "/delete-user";
 
-/** The library's answer to a mailed link, which a capped request answers too (`better-auth/api :: deleteUser`). */
+/** The library's `deleteUser` answer to a mailed link, which a capped request answers too. */
 const DELETION_LINK_SENT = "Verification email sent";
 
 const PASSKEY_REGISTRATION_PATH = "/passkey/verify-registration";
@@ -108,7 +108,7 @@ const SESSION_ANSWER_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION_
 
 /**
  * What every finished sign-in answers instead: the plugin's own shape for a call that carries no record back. The
- * passkey assertion adds the address it signed in (`./assertionAnswer.ts`).
+ * passkey assertion adds the address it signed in.
  */
 const SIGNED_IN = { status: true };
 
@@ -158,8 +158,8 @@ function codeSignInAddress(body: unknown): string | null {
    surface is closed from two sides: the documented switch below, and the default-deny hook that also
    covers what it cannot. */
 
-// What a browser of this league calls: `fl_frontend/src/core/authClient.ts`'s two ceremonies, four
-// paths, its code check and its sign-out. The code's send and every guard run in process instead.
+// What a browser of this league calls: the two passkey ceremonies' four paths, the code check and the
+// sign-out. The code's send and every guard run in process instead.
 
 // The spellings come from the constants the stamp, the enrolment refusal, the assertion's ask and the code's
 // bounds compare, so a release that renamed one would 404 the real call rather than let it through unjudged.
@@ -231,7 +231,7 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
   // The adapter's line for an abort after a failed commit that failed too, which leaves the transaction
-  // open on the server (`@better-auth/mongo-adapter :: abortTransactionCommand`).
+  // open on the server.
   ["Failed to abort a MongoDB transaction", "auth.transaction_left_open"],
 ];
 
@@ -245,8 +245,8 @@ const sessionOptions = {
   updateAge: SESSION_UPDATE_AGE_SECONDS,
   // `passkeyStepOf` offers an enrolment on the same figure, so the page never offers what the library refuses.
   freshAge: FRESH_SIGN_IN_SECONDS,
-  // Off, so revocation stays a store read on every request and the guards (`fl_frontend/src/core/auth/guards.ts`)
-  // judge a stored row rather than a signed copy of one.
+  // Off, so revocation stays a store read on every request and the guards judge a stored row rather than
+  // a signed copy of one.
   cookieCache: { enabled: false },
   additionalFields: {
     // `input: false` is the whole defence for both: left writable, any holder of any session stamps
@@ -301,7 +301,7 @@ export const ownErasure = new AsyncLocalStorage<DeletionPress>();
  */
 async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
   const press = ownErasure.getStore();
-  // First: whatever follows, the link this press carried is spent (`better-auth/api :: deleteUserCallback`).
+  // First: whatever follows, the link this press carried is spent.
   if (press !== undefined) press.linkSpent = true;
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
@@ -363,7 +363,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // The session and its user in one `$lookup` rather than a second query: every guard reads the
       // session on every request, cookie caching being off above.
       database: { joins: true },
-      // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
+      // The edge's own access line already carries the address, under its retention bound.
       ipAddress: { disableIpTracking: true },
       // The library turns its origin check, and the CSRF checks riding on it, off wherever `NODE_ENV` is
       // `test` or `TEST` is set, so the check is pinned on whatever the environment says.
@@ -459,9 +459,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
       },
     },
 
-    // Off everywhere: the edge meters these paths, the code check's on the confirmation zones
-    // (`nginx/shared/site.conf`), and the library's own rules key on a network address it does not store
-    // and reach no in-process call; `withinBound` stands in for them per address.
+    // Off everywhere: the edge meters these paths per network, the code check on a tighter budget, and
+    // the library's own rules key on a network address it does not store and reach no in-process call;
+    // `withinBound` stands in for them per address.
     rateLimit: { enabled: false },
 
     disabledPaths: [...DISABLED_PATHS],
@@ -477,8 +477,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // interpolates the rejected value into the message itself.
         const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
-        // `args` is dropped whole: it carries the error object itself, which
-        // `fl_frontend/src/core/logging.ts` writes with its message and stack.
+        // `args` is dropped whole: it carries the error object itself, which the logger writes with its
+        // message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
         // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
@@ -633,8 +633,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const signedIn = ctx.context.newSession;
         if (ctx.path === PASSKEY_ASSERTION_PATH && signedIn !== null) return ctx.json(assertionAnswer(signedIn.user.email));
 
-        // The pages read nothing else off any of these bodies but whether it is there
-        // (`@better-auth/passkey/client :: getPasskeyActions`, `fl_frontend/src/features/auth/components/forms/SignInFlow.tsx`).
+        // Neither the pages nor the passkey plugin's client read anything off these bodies but whether
+        // one is there.
         return ctx.json(SIGNED_IN);
       }),
     },
@@ -653,8 +653,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // trying all million of them.
         storeOTP: "encrypted",
         // Every send mints a new code, valid ten minutes from its own mail, and voids the one before.
-        // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
-        // never lapsed.
+        // "reuse" moves a live code's expiry on every send, so a code asked for again every few minutes
+        // never lapses.
         resendStrategy: "rotate",
         async sendVerificationOTP({ email, otp, type }) {
           // The one type this application asks for: every endpoint minting another is refused over
@@ -665,13 +665,13 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // and this returns as though it had, so every branch is one answer.
           if ((await mayReceiveSignIn(email)) !== "admitted") return;
 
-          // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
-          // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
+          // Awaited: the sign-in action, the one caller a stranger reaches, runs this whole send behind its
+          // response, and the library's own send route is closed.
           try {
             await oweSignInMail(email, { kind: "sign_in_code" }, { value: otp, validMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
-            // Name only: a failure on this path routinely carries the submitted address, and
-            // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
+            // Name only: a failure on this path routinely carries the submitted address, and the logger
+            // writes its message and stack, scrubbing the address alone.
             logger.error("auth.code_send_failed", undefined, {
               name: failed instanceof Error ? failed.name : "unknown",
             });
@@ -687,7 +687,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
       // before anything is written. Set to "preferred" and both halves relax together, which is what
       // WebAuthn Level 3 §7.2 conditions the check on.
       passkey({
-        rpName: BRAND_NAME,
+        rpName: COPY.brand.name,
         // Named rather than left to the plugin's own derivation, which answers this same host off
         // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
         rpID: origin.hostname,
@@ -731,8 +731,8 @@ const authOptions = (origin: URL, client: MongoClient) =>
       passkeyLastUse(),
 
       // No `customSession`: it reshapes `/get-session`, which `DISABLED_PATHS` closes to every browser, so
-      // `readLibrarySession` would be its one reader, and `fl_frontend/src/core/auth/session.ts :: projected` already
-      // builds that reader's copy over the library's own read.
+      // `readLibrarySession` would be its one reader, and `projected` already builds that reader's copy over
+      // the library's own read.
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),

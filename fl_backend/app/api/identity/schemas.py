@@ -18,7 +18,7 @@ class FLSubjectPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # In the BODY and on no path or query: an address in a URL reaches the edge's access line, which
+    # In the body and on no path or query: an address in a URL reaches the edge's access line, which
     # the rule keeps a credential out of and an identifier is no better in.
     email: CustomEmail
 
@@ -26,16 +26,14 @@ class FLSubjectPayload(BaseModel):
 class FLSubjectSeat(BaseModel):
     """One contact seat the mailbox holds on a season's junction row.
 
-    Per seat and never per person, as the erasure's `FLAccountErasureSeat` is: one row seats one
-    person twice where `trainer_is_also` says so.
+    Per seat and never per person: one row seats one person twice where `trainer_is_also` says so.
     """
 
     saison_id: str
     team_id: CustomObjectId
-    # The contact-seat sense of the word, never the captaincy's, which `docs/glossary.md` holds
-    # apart (`app/api/spieler/schemas.py :: FLSpielerRolle`).
+    # The contact-seat sense of the word, never the captaincy's `FLSpielerRolle`.
     rolle: FLKontaktRolle
-    # The junction row's own name and code, the ones the club was PLAYED under:
+    # The junction row's own name and code, the ones the club was played under:
     # a club renamed since is still named here as its seats were held.
     team_name: str
     team_shorthand: str
@@ -59,7 +57,7 @@ class FLSubjectSpieler(BaseModel):
 
 
 class FLSubjectSchiedsrichter(BaseModel):
-    """One referee record the mailbox names, carrying the id alone for `FLSubjectSpieler`'s reason."""
+    """One referee record the mailbox names, by its id alone, so a machine read gets no fresh copy of somebody's own data."""
 
     schiedsrichter_id: CustomObjectId
 
@@ -67,8 +65,7 @@ class FLSubjectSchiedsrichter(BaseModel):
 class FLSubject(BaseModel):
     """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
-    One person holds seats at two clubs, and nothing enforces one pupil record per address
-    (`docs/datenschutz.md :: "One address is one person"`).
+    One person holds seats at two clubs, and nothing enforces one pupil record per address.
     """
 
     seats: list[FLSubjectSeat]
@@ -189,7 +186,7 @@ class FLReferencesResponse(BaseAPIResponse):
     unreferenced: list[str]
 
 
-# --- The ADMINISTRATOR's erasure on a mailed request, and its counts.
+# --- The administrator's erasure on a mailed request, and its counts.
 
 
 def _trimmed_as_the_page_trims(value: Any) -> Any:
@@ -206,7 +203,7 @@ ErasureAddress = Annotated[
     # Published, since no schema keyword carries the after-validator: a generated client would take the Unicode domain.
     Field(description="Its domain, after the last `@`, in ASCII alone, an international one in punycode; else `email_not_accepted`."),
     # Never `strip_whitespace`, whose set adds U+0085, which the page keeps: one spelling's records would be erased and
-    # another spelling's sign-in account left (`fl_backend/tests/shared/test_email_address.py`).
+    # another spelling's sign-in account left.
     BeforeValidator(_trimmed_as_the_page_trims),
     AfterValidator(refuse_a_domain_beyond_ascii),
 ]
@@ -217,7 +214,7 @@ class FLErasureAddressPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # In the BODY for `FLSubjectPayload`'s reason.
+    # In the body, since an address in a URL reaches the edge's access line.
     email: ErasureAddress
 
 

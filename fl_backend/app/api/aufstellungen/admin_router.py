@@ -43,12 +43,7 @@ async def get_aufstellung(
     session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLAufstellungResponse:
-    """
-    The line-up screen of one club for one fixture, as the club's own seat holders read it.
-
-    With the season's status, so a finished season's line-up opens read-only. `document_not_found` for a fixture that
-    does not exist or does not field this club.
-    """
+    """The line-up screen of one club for one fixture, as the club's own seat holders read it."""
 
     return await read_aufstellung_screen(
         seat=None,
@@ -84,23 +79,9 @@ async def put_aufstellung(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLAufstellungResponse:
-    """
-    Save the whole line-up of one club for one fixture, at any time on a fixture holding a day and an hour.
+    """Save the whole line-up of one club for one fixture at any time, the hour before kick-off included.
 
-    The document a seat holder's save writes, on the same payload, so the lock never reaches this save
-    (`aufstellung_locked` is the seat's alone) and a save between the two is refused as any stale one is. Recorded as
-    `aufstellung.saved`.
-
-    Refuses, in this order, each writing nothing: a fixture that does not exist or does not field this club
-    (`document_not_found`); a fixture of a finished season, whose line-up is read-only (`saison_past`); a fixture
-    holding no day or no hour (`aufstellung_spiel_undated`); a `version` other than
-    the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
-    squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
-    (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee past the shortage
-    (`aufstellung_nominee_without_shortage`, bounded by `max`). The payload's own rules refuse as they do a seat's
-    save, and every refusal but `version_stale` is asked again outside the transaction just before answering. An entry
-    naming nobody stands for a pupil erased after the match was played: the screen serves it in `spieler`, and a save
-    keeps it by sending it back.
+    An entry naming nobody stands for a pupil erased after the match was played, and a save keeps it by sending it back.
     """
 
     answer, created = await save_aufstellung_screen(

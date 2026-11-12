@@ -54,8 +54,8 @@
   overflow-anchor: none;
 }
 
-/* An over-long PLACEHOLDER ends in an ellipsis, declared once because the
-   population is every field in the app. BOTH arms are needed: `text-overflow`
+/* An over-long placeholder ends in an ellipsis, declared once because the
+   population is every field in the app. Both arms are needed: `text-overflow`
    does not inherit, and only Blink and Gecko forward it to the pseudo-element. */
 /* `input` and not `textarea`: a textarea's placeholder wraps, and `text-overflow` acts only on
    inline overflow. */
@@ -87,7 +87,7 @@ input:focus:placeholder-shown::placeholder {
   }
 }
 
-/* Reduced motion, SOFTENED: the policy is "remove movement, keep fades", never
+/* Reduced motion, softened: the policy is "remove movement, keep fades", never
    "remove motion". Zeroing every duration makes the site motionless rather than
    calm, and reads as flickering. Deliberately unlayered. */
 /* Autonomous loops stop, but never a loading indicator — a frozen one says nothing about the wait

@@ -138,14 +138,14 @@ export default function SpielberichtPage({ params }: Props) {
 /** A pupil by number and name as the squad lists them; one an erasure took is „anonym“, as every page names them. */
 function optionOf({ spieler_id: id, nummer, first_name: first, last_name: last }: FLSpielberichtSpieler): Option {
   const name = spielerName({ first_name: first, last_name: last });
-  return { id, label: { record: SERVER_COPY.area.line([nummer === null ? null : { record: nummer }, name]) } };
+  return { id, label: { record: COPY.shared.line([nummer === null ? null : { record: nummer }, name]) } };
 }
 
 /**
  * Each side's pupils to pick from: its live squad, then any pupil a stored row names on that side outside it, kept so
  * the row shows its name and not to be picked anew, which the write refuses. A side fielding another club since the
- * report was written offers its squad alone: its rows naming a pupil outside it have lost their player
- * (`./berichtValues.ts :: valuesOf`), and the departed club's pupils are no deregistration of the club playing.
+ * report was written offers its squad alone: its rows naming a pupil outside it have lost their player, and the
+ * departed club's pupils are no deregistration of the club playing.
  */
 function squadsOf(read: FLSpielberichtSchiedsrichterResponse): Record<FLSpielSide, Option[]> {
   const stored = read.bericht;
@@ -204,7 +204,7 @@ async function readPage(params: Props["params"]) {
   return (
     <BerichtEditor
       title={title}
-      lead={SERVER_COPY.area.line([
+      lead={COPY.shared.line([
         COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
         spiel.spielort === null ? null : { record: spiel.spielort.name },
       ])}

@@ -31,7 +31,7 @@ const PRIVACY_NOTICE = ROUTES.privacyNotice.path();
 /**
  * Every consent wording a stored record can name, keyed by the label its evidence stamps as `text_version`. A record
  * proves what its person was shown only while its label's words stay as they were, so different words are a new label
- * beside the old, never an edit of one; `consentWordings.test.ts` fails an entry reworded in place. Each entry spells
+ * beside the old, never an edit of one, and a test fails an entry reworded in place. Each entry spells
  * its words out whole, a line two entries share included, so no edit to one reaches another.
  *
  * Outside `COPY` and `SERVER_COPY`, whose entries the copy standard rewords freely. A label's month is the month its

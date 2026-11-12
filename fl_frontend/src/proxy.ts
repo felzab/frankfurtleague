@@ -9,8 +9,8 @@ import { ROUTES } from "./core/routes";
 import type { NextRequest } from "next/server";
 
 /**
- * No per-request nonce CSP here: the one enforced policy lives in `nginx/shared/security_headers.conf`. That is what lets
- * the matcher stay scoped to the pages a session serves — the slide is a Mongo round trip, never on a public load.
+ * No per-request nonce CSP here: the edge sets the one enforced policy. That is what lets the matcher stay scoped to
+ * the pages a session serves — the slide is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
   // First, so the token has left the address before a page, the sign-in or a script reads it.
@@ -80,8 +80,8 @@ export const config = {
       source: "/(area|admin|account)/:path*",
       missing: [
         // No `value`, so it matches the header whatever it carries: `1` on the route tree and on every segment a link's
-        // partial prefetch fetches, `2` and `3` on a runtime prefetch (`next/dist/client/components/segment-cache/
-        // cache.js`). A full prefetch, a link's `prefetch={true}`, sends none and runs the proxy.
+        // partial prefetch fetches, `2` and `3` on a runtime prefetch, as Next's segment cache sends them. A full
+        // prefetch, a link's `prefetch={true}`, sends none and runs the proxy.
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
       ],
@@ -100,8 +100,8 @@ export const config = {
       has: [{ type: "header", key: "purpose", value: "prefetch" }],
       missing: [{ type: "header", key: "cookie", value: ".*\\.session_token=.*" }],
     },
-    // `fl_frontend/src/core/mailedLink.ts :: MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty
-    // `token` is not: Next's `has` reads an empty query value as absent.
+    // `MAILED_LINK_PAGES`, on a request carrying a token alone, which an empty `token` is not: Next's `has` reads an
+    // empty query value as absent.
     { source: "/(erasure|registrierung)", has: [{ type: "query", key: "token" }] },
     {
       source: "/signin/:path*",

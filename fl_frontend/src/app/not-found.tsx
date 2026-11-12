@@ -12,8 +12,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = NOT_FOUND_METADATA;
 
 /**
- * Every address the site has no page for: the bare card, as the root `fl_frontend/src/app/error.tsx` draws it, a real
- * 404 with no read behind it. It stays bare because Next hands this element to every layout's boundary, so whatever
+ * Every address the site has no page for: the bare card, as the root error boundary draws it, a real 404 with no
+ * read behind it. It stays bare because Next hands this element to every layout's boundary, so whatever
  * it draws travels in every page's payload, and a frame here would be a frame in every response.
  */
 export default function NotfoundPage() {

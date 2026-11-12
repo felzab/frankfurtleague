@@ -64,23 +64,9 @@ async def patch_einwilligung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
+    """Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
-    Writes those two on this one referee row, each moved choice with its evidence (`evidence.<choice>`), and nothing
-    else: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The
-    public fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that
-    list's next read. A PATCH moving neither choice writes nothing. A GRANT (`scope` to
-    `kader_public` or `media` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
-
-    Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
-    `evidence_state` other than the record's own, either choice having moved since the page was served
-    (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
-    other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to
-    `true` where the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
-    refusal writes nothing.
-
-    **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
+    The public fixture list reads the scope off this row, so the caller drops its cached copy after a successful answer.
     """
 
     own_entry = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
@@ -140,17 +126,9 @@ async def get_self_spiele(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLSchiedsrichterSpieleResponse:
-    """
-    Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, one row a fixture.
+    """Every fixture of this season booked to one of the signed-in address's live, confirmed referee records, open work first.
 
-    Each with the fixture as it stands, the state of the booking they were asked to confirm and the row an answer names,
-    their own decline's reason, whether the league recorded the answer for them, whether the fixture takes a report now
-    (from its kick-off, or from its day where it holds no time), and when its report was first sent. Nobody's address is
-    served, and no reason an administrator entered. Open work first, a booking to answer or a report owed; then the
-    fixtures to come, each by its day; then the days gone by, the latest first. A season holding no fixture of theirs,
-    or none at all, answers an empty list.
-
-    Refuses an address holding no live, confirmed referee record (`role_not_held`).
+    Nobody's address is served, and no reason an administrator entered.
     """
 
     # A snapshot, so each fixture is judged against the records, rows and report of one moment; never a transaction,
@@ -178,12 +156,7 @@ async def get_self_saisons(
     records: SubjectLookup,
     db: DBClient,
 ) -> FLOwnSaisonsResponse:
-    """
-    Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first.
-
-    A planned season is served as any other, and a referee booked nowhere is answered an empty list. Refuses an address
-    holding no live, confirmed referee record (`role_not_held`).
-    """
+    """Every season in which a fixture is booked to one of the signed-in address's live, confirmed referee records, the newest first."""
 
     async with db.start_session(snapshot=True) as session:
         subject = await roles_of(identifier, records, session=session)

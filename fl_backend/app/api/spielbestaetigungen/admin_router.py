@@ -79,15 +79,10 @@ async def enter_spielbestaetigung(
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> None:
-    """
-    Record that the party of an open confirmation agreed to its Ansetzung elsewhere than by its own answer, signed in.
+    """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
-    The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
-    nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
-    the season's end. Refused for a row
-    already answered, by a seat or by an administrator, or closed (`ansetzung_not_enterable`), including one a seat answers
-    while this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since
-    left is settled as asked, and the next confirmation pass closes it.
+    The answer is the league's record of how a date was agreed and is never rewritten; it names nobody, and its reason
+    goes at the season's end.
     """
 
     async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -141,17 +136,10 @@ async def discard_spielbestaetigung(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.
+    """Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
 
-    IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `discarded`, which is that club's one
-    answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
-    counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
-    agreement beside it. Where its kick-off is still to come, the club is owed a notice that the date stands, at every
-    address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
-    declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
-    while this request runs included (`ansetzung_not_discardable`): the confirmation pass closes that row and tells its club of
-    the move.
+    The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
+    the date stands.
     """
 
     async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> Mapping[str, Any]:
@@ -251,22 +239,10 @@ async def adopt_spielbestaetigung(
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> None:
-    """
-    Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save.
+    """Move a fixture to the date and hour a club's open decline proposes, through the fixture's own save and refused as it is.
 
-    Refused for any row but an open club decline proposing a date about the fixture's current Ansetzung, the row a
-    discard closes (`ansetzung_not_adoptable`), and for a proposed day gone by (`ansetzung_vorschlag_past_as_stored`, the
-    stored proposal's 409). The fixture is saved as the administrator's save would carry it on the proposed day and
-    hour, everything else kept, so it meets every rule that save meets and is refused as that save is, by its code and
-    status alone, as the draw answers the season write's refusals: no refusal names a field, the request carrying no
-    body. A code the save names a field by is answered under its twin for that field instead, a 409: the ground or the
-    referee booked beside the proposed slot (`spiel_double_booked_spielort_as_stored`,
-    `spiel_double_booked_schiedsrichter_as_stored`), a side out of the season by then
-    (`eligibility_disqualified_team1_as_stored`, `eligibility_disqualified_team2_as_stored`). The bracket is resolved
-    as that save resolves it. The
-    row is not closed here: the fixture has left the Ansetzung it answers, so its parties' pages read it `invalid` at once and the
-    next confirmation pass closes every party's row `ansetzung_changed`, owing each party „Spiel verlegt“ and asking it
-    about the new slot. IRREVERSIBLE as a save is: moving the fixture back is another save.
+    The next confirmation pass closes every party's row about the slot left, tells each of the move and asks about the
+    new slot.
     """
 
     collections = SpielSaveCollections(

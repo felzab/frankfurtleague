@@ -85,7 +85,7 @@ describe("a form's status line", () => {
   // A boxed refusal and a sentence in one answer: the sentence is said nowhere else, so the line says it.
   it("says a reason no box says, beside the boxes that say theirs", () => {
     const postcode = COPY.shared.field.required;
-    const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_draw;
+    const reason = SERVER_COPY.ruleLine.elfmeterschiessen_without_winner;
     expect(statusOf({ ok: false, fieldErrors: { postcode }, reason }, false, false)).toStrictEqual({ tone: "error", text: reason });
   });
 });

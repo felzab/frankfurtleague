@@ -7,7 +7,6 @@ import { LineupPlaceholder } from "@/kit/Lineup";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
@@ -63,7 +62,7 @@ function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const words = COPY.area.team.aufstellung;
   const due = marks === null || marks.stored || marks.phase === "locked" ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
-  return SERVER_COPY.area.line([matchdayOf(spiel, spiel), when, owed]);
+  return COPY.shared.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
 /** The chip after the title while nothing is stored past the due mark. */

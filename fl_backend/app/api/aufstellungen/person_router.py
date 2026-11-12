@@ -25,7 +25,6 @@ from app.core.routing import by_id
 from app.core.security import PersonIdentifier, get_person_identifier, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
-# The person lane's identifier, as `app/api/spieler/person_router.py` declares it and for its reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/aufstellungen",
     dependencies=[Depends(verify_access_admin), Depends(get_person_identifier)],
@@ -49,16 +48,9 @@ async def get_aufstellung_self(
     session: SnapshotSession,
     now: datetime = Depends(get_germany_now),
 ) -> FLAufstellungResponse:
-    """
-    The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
+    """The line-up screen of one club for one fixture, for a person holding any contact seat on that club in the fixture's season.
 
-    The fixture, the club's live squad of the season in shirt-number order, the stored line-up in the order it was
-    saved, every pupil it names outside that squad, the season's status, the document's `version` and the line-up's
-    marks: whether one is stored, the phase the clock puts it in, and the instants it is due and locks at. `marks` is
-    null for a fixture holding no day or no hour, which takes no line-up.
-
-    Refused `role_not_held` where the signed-in person holds no seat on this club in the fixture's season, a finished
-    season granting none, and `document_not_found` for a fixture that does not exist or does not field this club.
+    A finished season grants no seat, so its line-ups are an administrator's to read.
     """
 
     return await read_aufstellung_screen(
@@ -98,25 +90,10 @@ async def put_aufstellung_self(
     db: DBClient,
     now: datetime = Depends(get_germany_now),
 ) -> FLAufstellungResponse:
-    """
-    Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
+    """Save the whole line-up of one club for one fixture, as any contact seat of the club may until one hour before kick-off.
 
-    The first save creates the document and answers 201. `version` is the document's as the screen was served it, null
-    where the screen showed no line-up. An emptied line-up is saved as an empty list. The save is recorded as
-    `aufstellung.saved`.
-
-    Refuses, in this order, each writing nothing: no seat on this club in the fixture's season, a finished season
-    granting none (`role_not_held`); a
-    fixture that does not exist or does not field this club (`document_not_found`); a fixture holding no day or no hour
-    (`aufstellung_spiel_undated`); a save from one hour before kick-off (`aufstellung_locked`); a `version` other than
-    the document's now, or than null where none stands (`version_stale`); a pupil newly named whom the club's live
-    squad of the season does not hold, and an entry naming nobody beyond as many as the stored line-up holds
-    (`spieler_not_in_kader`, on each such entry's `spieler_id`); and a nominee named beside eleven regular players, or
-    more nominees than the regular players leave open of eleven (`aufstellung_nominee_without_shortage`, bounded by
-    `max`). A pupil named twice (`spieler_named_twice`) and more than eleven starters (`starters_exceed_eleven`) are
-    refused as the payload's own rules. A line-up being due or overdue refuses nothing.
-    Every refusal but `version_stale` is asked again outside the transaction just before answering, so a seat ended,
-    a fixture re-dated or a pupil ausgetragen between the two refuses the save rather than letting it stand.
+    A line-up being due or overdue refuses nothing, and `version` is the document's as the screen was served it, null
+    where the screen showed no line-up.
     """
 
     answer, created = await save_aufstellung_screen(

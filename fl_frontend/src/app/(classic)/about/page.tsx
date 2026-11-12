@@ -19,7 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * About: the league's two paragraphs, the three sections the landing's pillars show as cards, the
- * practical ones as short prose, and the organisers' row, which holds what the old Organisation page held.
+ * practical ones as short prose, and the organisers' row.
  */
 export default function AboutPage() {
   const sections = [words.about.spielorte, words.about.admission, words.about.safety];

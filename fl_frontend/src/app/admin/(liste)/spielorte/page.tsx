@@ -59,7 +59,7 @@ const HEAD: TableHead = {
 };
 
 async function readSpielorte() {
-  // Retired included: the list will be the one way into a retired venue's page.
+  // Retired included: the list is the one way into a retired venue's page, whose danger box brings it back.
   const { spielorte } = await getSpielorte({ include_inactive: true });
   return {
     table: {

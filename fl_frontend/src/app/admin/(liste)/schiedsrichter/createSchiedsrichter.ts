@@ -12,7 +12,7 @@ const kontakt = shape.kontakt.shape;
 
 /**
  * The create dialog's boxes, by the names they post under, each held to the create's own published rule: an empty box
- * but the name's is no value, as `fieldRules.ts` marks them.
+ * but the name's is no value.
  */
 const SchiedsrichterForm = z.object({
   name: shape.name,
