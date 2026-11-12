@@ -1,5 +1,7 @@
 "use client";
 
+import { flushSync } from "react-dom";
+
 import { assertedAddress } from "@/core/auth/assertionAnswer";
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { COPY } from "@/core/copy";
@@ -24,14 +26,31 @@ import type { Copy } from "@/core/copy";
  * any account's passkey answers, so a touch signing another account in is refused as the page's sign-in having ended. The
  * prompt itself cannot be narrowed to the holder's passkeys there: the library lists a session's own alone, and none
  * stands.
+ *
+ * `stepAside` is a dialog's, whose React Aria modal makes every element outside it inert, a password manager's prompt
+ * added while it stands included, so the prompt would take no press and no Escape: it is told `true` before the prompt
+ * opens, committed at once so the page stands free of the modal before the browser asks, and `false` once the prompt
+ * has answered.
  */
-export function usePasskeyTouch(held: boolean, holder: string | undefined) {
+export function usePasskeyTouch(held: boolean, holder: string | undefined, stepAside?: (aside: boolean) => void) {
   usePreloadedAuthClient(held);
+
+  const prompt = async (authClient: Awaited<ReturnType<typeof loadAuthClient>>) => {
+    if (stepAside === undefined) return authClient.signIn.passkey();
+    // Past the first `await`, so outside the press's transition, whose updates would wait for the whole act; and flushed,
+    // as React's guide does for a browser API reading the page, so the modal's cleanup has run before the browser asks.
+    flushSync(() => stepAside(true));
+    try {
+      return await authClient.signIn.passkey();
+    } finally {
+      stepAside(false);
+    }
+  };
 
   const touch = async (): Promise<Copy | null> => {
     try {
       const authClient = await loadAuthClient();
-      const { data, error } = await authClient.signIn.passkey();
+      const { data, error } = await prompt(authClient);
       // A cancelled prompt and a refused passkey alike: the act did not run, and the passkey did not answer for it.
       if (error !== null) return COPY.signIn.refusal.unverified;
       if (holder === undefined) return null;

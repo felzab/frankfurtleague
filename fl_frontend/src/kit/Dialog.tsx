@@ -183,11 +183,14 @@ function ActDialog({
   tone = "primary",
   locked,
   danger,
+  isAside,
   children,
 }: Pick<DialogAct, "title" | "action" | "carry" | "lead" | "consequence" | "facts" | "tone" | "locked" | "danger" | "children"> & {
   label: Copy;
   opened: HeldOpen;
   touched: ReturnType<typeof usePasskeyTouch>;
+  /** The dialog stands aside while the passkey prompt does (`DialogOverlay`). */
+  isAside: boolean;
 }) {
   const close = () => opened.onOpenChange(false);
   const { answer, submit, block, isBlocked, isPending } = useFormAction(
@@ -208,6 +211,7 @@ function ActDialog({
   return (
     <DialogOverlay
       width="form"
+      isAside={isAside}
       isDismissable={!isPending}
       isKeyboardDismissDisabled={isPending}
       {...opened}>
@@ -288,7 +292,8 @@ type Opening<T extends Tone> =
  */
 export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, ...form }: DialogAct<T> & Opening<T>) {
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
+  const [isAside, setAside] = useState(false);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
   const label = actLabel(act);
   // Counted while rendering, as React's guide adjusts state to a changed prop: the count keys `ActDialog`.
   const [opening, setOpening] = useState(0);
@@ -306,6 +311,7 @@ export function Dialog<T extends Tone = "primary">({ act, trigger, open, touch, 
       label={label}
       opened={{ isOpen, onOpenChange: setOpen }}
       touched={touched}
+      isAside={isAside}
     />
   );
   return trigger === undefined ? (

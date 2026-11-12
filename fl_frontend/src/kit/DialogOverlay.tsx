@@ -1,5 +1,7 @@
 "use client";
 
+import { Activity } from "react";
+
 import { Modal, ModalOverlay } from "react-aria-components/Modal";
 
 import { tv } from "./tv";
@@ -46,24 +48,34 @@ const dialogBox = tv({
  */
 export function DialogOverlay({
   width,
+  isAside = false,
   children,
   ...overlay
 }: Pick<ModalOverlayProps, "isOpen" | "isDismissable" | "isKeyboardDismissDisabled" | "onOpenChange"> & {
   width: "question" | "form";
+  /**
+   * The dialog steps aside while the browser's passkey prompt stands (`usePasskeyTouch`): hidden in an `Activity`,
+   * which keeps what the person typed and the act's busy state, and whose cleanup lifts the modal's `inert` and its
+   * focus trap from the page, so a password manager's prompt takes presses. It shows again as it was once the prompt
+   * answers.
+   */
+  isAside?: boolean;
   /** The React Aria `Dialog` the box holds. */
   children: ReactNode;
 }) {
   return (
-    <ModalOverlay
-      {...overlay}
-      className={dim()}>
-      <div className="sticky top-0 left-0 grid h-(--visual-viewport-height) w-full place-items-center p-4">
-        <Modal
-          data-kit-focus
-          className={dialogBox({ width })}>
-          {children}
-        </Modal>
-      </div>
-    </ModalOverlay>
+    <Activity mode={isAside ? "hidden" : "visible"}>
+      <ModalOverlay
+        {...overlay}
+        className={dim()}>
+        <div className="sticky top-0 left-0 grid h-(--visual-viewport-height) w-full place-items-center p-4">
+          <Modal
+            data-kit-focus
+            className={dialogBox({ width })}>
+            {children}
+          </Modal>
+        </div>
+      </ModalOverlay>
+    </Activity>
   );
 }

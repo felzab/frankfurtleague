@@ -155,7 +155,8 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
     setWasOpen(isOpen);
     setRefusal(null);
   }
-  const touched = usePasskeyTouch(touch !== undefined, touch?.holder);
+  const [isAside, setAside] = useState(false);
+  const touched = usePasskeyTouch(touch !== undefined, touch?.holder, setAside);
   // An act answering nothing is done; one answering is judged by its answer.
   const act = answering(
     touched(async () => (await onConfirm()) ?? DONE),
@@ -165,6 +166,7 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
   const overlay = words !== null && (
     <DialogOverlay
       width="question"
+      isAside={isAside}
       isOpen={isOpen}
       isKeyboardDismissDisabled={isBusy}
       onOpenChange={setOpen}>

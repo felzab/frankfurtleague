@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -66,8 +66,9 @@ describe("a question behind the passkey touch", () => {
     await pressIn(asked, VERB);
     await waitFor(() => expect(passkey.prompt).toHaveBeenCalledTimes(1));
     expect(onConfirm).not.toHaveBeenCalled();
-    // The one state the act's busy button and „Zurück“ share, which the prompt must not end early.
-    expect(within(asked).getByRole("button", { name: COPY.shared.back }).hasAttribute("disabled")).toBe(true);
+    // The one state the act's busy button and „Zurück“ share, which the prompt must not end early: read through the
+    // question standing aside while the prompt does, as it shows again.
+    expect(within(asked).getByRole("button", { name: COPY.shared.back, hidden: true }).hasAttribute("disabled")).toBe(true);
 
     await act(async () => answer(SIGNED_IN));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
@@ -136,6 +137,86 @@ describe("a dialog of inputs behind the passkey touch", () => {
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
     const posted = action.mock.calls[0]?.[0];
     expect([posted?.get("name"), posted?.get("holder")]).toStrictEqual(["Anna", HOLDER]);
+  });
+});
+
+/**
+ * What a password manager draws its passkey prompt in: an element of its own under the body, standing from the page's
+ * load, or added as the prompt opens, as the prompt's own button is here. React Aria's modal marks every element outside
+ * it, and every one added later, `inert` (`aria-hidden` here, jsdom having no `inert`), and an inert prompt takes no press
+ * and no Escape; its focus trap pulls a press outside back into the dialog.
+ */
+function extensionPrompt() {
+  const standing = document.body.appendChild(document.createElement("div"));
+  const drawn = document.createElement("button");
+  onTestFinished(() => {
+    standing.remove();
+    drawn.remove();
+  });
+  return { standing, drawn };
+}
+
+const isBlocked = (element: Element) => element.closest('[inert], [aria-hidden="true"]') !== null;
+
+// The harm: the prompt drawn under a dialog's modal takes no press and cannot be dismissed, and the page hangs.
+describe("the browser's passkey prompt over a dialog", () => {
+  const cases = [
+    {
+      name: "a question",
+      draw: (onConfirm: () => Promise<ActionAnswer>) => question(onConfirm, { holder: HOLDER }),
+      role: "alertdialog",
+      press: VERB,
+    },
+    {
+      name: "a dialog of inputs",
+      draw: (onConfirm: () => Promise<ActionAnswer>) => (
+        <Dialog
+          title={COPY.shared.help}
+          act={{ verb: "save" }}
+          action={onConfirm}
+          touch={{ holder: HOLDER }}
+          trigger={{ label: VERB }}>
+          <TextField
+            label={COPY.shared.name}
+            name="name"
+            kind="text"
+          />
+        </Dialog>
+      ),
+      role: "dialog",
+      press: COPY.shared.verb.save,
+    },
+  ] as const;
+
+  it.each(cases)("stands over a page no modal blocks while it is open, from $name", async ({ draw, role, press }) => {
+    const { standing, drawn } = extensionPrompt();
+    let answer = (_: typeof SIGNED_IN) => {};
+    // A prompt left open holds React's pending action, which every later case's transition would wait on.
+    onTestFinished(() => answer(SIGNED_IN));
+    // Read as the browser asks, which is when the prompt draws: free then, not only some render later.
+    let blockedAsAsked: boolean | null = null;
+    passkey.prompt.mockImplementationOnce(() => {
+      blockedAsAsked = isBlocked(standing);
+      document.body.append(drawn);
+      return new Promise((resolve) => (answer = resolve));
+    });
+    const onConfirm = vi.fn(async () => DONE);
+    render(draw(onConfirm));
+
+    await userEvent.click(screen.getByRole("button", { name: VERB }));
+    const asked = await screen.findByRole(role);
+    expect(isBlocked(standing)).toBe(true);
+    await pressIn(asked, press);
+    await waitFor(() => expect(passkey.prompt).toHaveBeenCalledTimes(1));
+
+    expect([blockedAsAsked, isBlocked(standing), isBlocked(drawn)]).toStrictEqual([false, false, false]);
+    // Nor does the modal's focus trap pull a press on the prompt back into the dialog.
+    await userEvent.click(drawn);
+    expect(document.activeElement).toBe(drawn);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    await act(async () => answer(SIGNED_IN));
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
   });
 });
 
