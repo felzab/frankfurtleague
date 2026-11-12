@@ -23,8 +23,8 @@ the folder.
 - **Bold only for a run-in heading**, as here, and never capitals for emphasis.
 - **Spell every domain term as [the glossary](glossary.md) does**, and check its entry before first
   writing it. A new term's entry says what the word is and where it lives in the code, nothing more.
-- **A decision no tool or comment can hold is one line in [the decisions record](decisions.md)**,
-  added in the commit that takes it, whose body holds its date and argument; the line has no date.
+- **A never that no check enforces is one line in [the decisions record](decisions.md)**, added in
+  the commit that takes it, whose body holds its date and argument; the line has no date.
 - **A route's or a published model's docstring is its published description**: one or two sentences
   of what a caller may rely on. It names no source path, rule id or refusal list, and never says how
   the code is built.
