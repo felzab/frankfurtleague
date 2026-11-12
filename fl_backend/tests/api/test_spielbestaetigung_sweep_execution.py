@@ -831,7 +831,7 @@ class TestARefereeHoldsOneQuestionAcrossAMoveAndBack:
 
         seen = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        assert [held for held, _, _ in seen] == [[stand] for _, stand, _ in seen]
+        assert [held for held, _, _ in seen] == [[digest] for _, digest, _ in seen]
         # Asked first, then told of each move in the Einteilung asking the slot it moved to.
         assert [told for _, _, told in seen] == [[False], [True], [True]]
 
@@ -902,7 +902,7 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
 class TestAMovedSpielAsksAgain:
     """The close reaches an ANSWERED row, so a kept agreement records why it stopped applying."""
 
-    def test_the_answered_row_closes_with_its_answer_and_the_new_stand_is_asked(self, mongo_replica_set_url: str):
+    def test_the_answered_row_closes_with_its_answer_and_the_new_ansetzung_is_asked(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
             asked = {request.side: request.spielbestaetigung_id for request in first.requests}

@@ -1099,7 +1099,7 @@ export const SERVER_COPY = catalogue({
           "Automatisierte Entscheidungen im Sinne von Art.\u00A022 DSGVO treffen wir nicht. Einen Datenschutzbeauftragten haben wir nicht bestellt. Beschweren kannst du dich bei einer Datenschutzaufsichtsbehörde, für uns beim Hessischen Beauftragten für Datenschutz und Informationsfreiheit, Postfach\u00A03163, 65021\u00A0Wiesbaden.",
       },
       /** The notice's last paragraph: the day its words took effect. */
-      stand: (day: CalendarDay) => `Stand: ${formatDateLong(day)}`,
+      asOf: (day: CalendarDay) => `Stand: ${formatDateLong(day)}`,
     },
 
     legalNotice: {

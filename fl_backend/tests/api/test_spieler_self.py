@@ -112,7 +112,7 @@ MEDIA_GRANTED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
 # What a page served that record echoes.
-EARLIER_STAND = evidence_state_of(blocks=[{**_einwilligung(), EVIDENCE: EARLIER_EVIDENCE}])
+EARLIER_STATE = evidence_state_of(blocks=[{**_einwilligung(), EVIDENCE: EARLIER_EVIDENCE}])
 
 
 def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
@@ -121,14 +121,14 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in einwilligung.items() if key != EVIDENCE}
 
 
-def _payload(*, scope: str = "kader_public", media: bool = False, stand: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """A press from a page served the record as the suite seeds it, unless `stand` says otherwise."""
+def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """A press from a page served the record as the suite seeds it, unless `state` says otherwise."""
 
     return {
         "scope": scope,
         "media": media,
         "text_versions": dict(SPIELER_TEXT_VERSIONS),
-        "evidence_state": dict(stand) if stand is not None else evidence_state_of(blocks=[_einwilligung()]),
+        "evidence_state": dict(state) if state is not None else evidence_state_of(blocks=[_einwilligung()]),
     }
 
 
@@ -448,7 +448,7 @@ class TestTheMediaAge:
 
         response, _, after, _ = served(
             mongo_replica_set_url,
-            _press(YOUNG, _payload(scope="internal", media=True, stand=MEDIA_GRANTED_STATE), before=granted_under_an_earlier_label),
+            _press(YOUNG, _payload(scope="internal", media=True, state=MEDIA_GRANTED_STATE), before=granted_under_an_earlier_label),
         )
 
         assert response.status_code == 204, response.text
@@ -467,7 +467,7 @@ class TestTheEvidence:
         """The case that goes red the day a write sets the block, or its evidence, whole."""
 
         response, _, after, _ = served(
-            mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal", stand=EARLIER_STAND), before=self._earlier_evidence)
+            mongo_replica_set_url, _press(IDENTIFIER, _payload(scope="internal", state=EARLIER_STATE), before=self._earlier_evidence)
         )
 
         assert response.status_code == 204, response.text
@@ -481,10 +481,10 @@ class TestTheEvidence:
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await self._earlier_evidence(database)
-            withdrawn = await http.patch(PATCH_PATH, json=_payload(scope="internal", stand=EARLIER_STAND), headers=_person(IDENTIFIER))
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=EARLIER_STATE), headers=_person(IDENTIFIER))
             between = (await _records(database))[PUPIL_OID]["einwilligung"][EVIDENCE]["scope"]
-            served_stand = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", stand=served_stand), headers=_person(IDENTIFIER))
+            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", state=served_state), headers=_person(IDENTIFIER))
             return withdrawn, between, granted, await _records(database)
 
         withdrawn, between, granted, after = served(mongo_replica_set_url, steps)
@@ -499,7 +499,7 @@ class TestTheEvidence:
         assert _block(after[PUPIL_OID]["einwilligung"]) == _block(_einwilligung())
 
     def test_a_press_moving_nothing_restamps_nothing(self, mongo_replica_set_url: str):
-        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(stand=EARLIER_STAND), before=self._earlier_evidence))
+        response, _, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, _payload(state=EARLIER_STATE), before=self._earlier_evidence))
 
         assert response.status_code == 204, response.text
         assert after[PUPIL_OID]["einwilligung"][EVIDENCE] == EARLIER_EVIDENCE
@@ -515,10 +515,10 @@ class TestAStalePage:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.media": True}})
             first_tab = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]
-            withdrawn = await http.patch(PATCH_PATH, json=_payload(media=False, stand=first_tab["evidence_state"]), headers=_person(IDENTIFIER))
+            withdrawn = await http.patch(PATCH_PATH, json=_payload(media=False, state=first_tab["evidence_state"]), headers=_person(IDENTIFIER))
             before = await _records(database)
             stale = await http.patch(
-                PATCH_PATH, json=_payload(scope="internal", media=True, stand=first_tab["evidence_state"]), headers=_person(IDENTIFIER)
+                PATCH_PATH, json=_payload(scope="internal", media=True, state=first_tab["evidence_state"]), headers=_person(IDENTIFIER)
             )
             return withdrawn, stale, before, await _records(database)
 
@@ -529,34 +529,34 @@ class TestAStalePage:
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["media"] is False
 
-    def test_the_stand_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
+    def test_the_state_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
         """The round trip the page makes: echoed as served, over a record carrying evidence, and read again after the press."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
-            served_stand = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            response = await http.patch(PATCH_PATH, json=_payload(scope="internal", stand=served_stand), headers=_person(IDENTIFIER))
+            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
+            response = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=served_state), headers=_person(IDENTIFIER))
             served_after = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            return served_stand, response, served_after, await _records(database)
+            return served_state, response, served_after, await _records(database)
 
-        served_stand, response, served_after, after = served(mongo_replica_set_url, steps)
+        served_state, response, served_after, after = served(mongo_replica_set_url, steps)
 
-        assert served_stand == EARLIER_STAND
+        assert served_state == EARLIER_STATE
         assert response.status_code == 204, response.text
         # The stand the page serves after the press is what a next press from it echoes: the moved choice's alone moved.
         assert served_after == evidence_state_of(blocks=[after[PUPIL_OID]["einwilligung"]])
-        assert served_after["media"] == EARLIER_STAND["media"]
-        assert served_after["scope"] != EARLIER_STAND["scope"]
+        assert served_after["media"] == EARLIER_STATE["media"]
+        assert served_after["scope"] != EARLIER_STATE["scope"]
 
-    def test_two_acts_in_one_second_leave_no_stand_a_stale_press_can_echo(self, mongo_replica_set_url: str):
+    def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
         """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(PATCH_PATH, json=_payload(scope="internal"), headers=_person(IDENTIFIER))
             between = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", stand=between), headers=_person(IDENTIFIER))
+            granted = await http.patch(PATCH_PATH, json=_payload(scope="kader_public", state=between), headers=_person(IDENTIFIER))
             before = await _records(database)
-            stale = await http.patch(PATCH_PATH, json=_payload(scope="internal", stand=between), headers=_person(IDENTIFIER))
+            stale = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=between), headers=_person(IDENTIFIER))
             return withdrawn, granted, stale, before, await _records(database)
 
         withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)

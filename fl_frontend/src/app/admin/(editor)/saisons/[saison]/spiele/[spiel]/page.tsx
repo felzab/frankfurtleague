@@ -75,7 +75,7 @@ const REPORT_HEAD: TableHead = {
   columns: [
     { key: "event", label: WORDS.event },
     { key: "minute", label: WORDS.minute, figures: true },
-    { key: "stand", label: WORDS.ergebnis, figures: true },
+    { key: "score", label: WORDS.ergebnis, figures: true },
   ],
 };
 
@@ -208,7 +208,7 @@ function berichtRows(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht): 
         cells: {
           event: tor.eigentor ? words.eigentor : words.tor,
           minute: { record: tor.minute },
-          stand: WORDS.score(score, null),
+          score: WORDS.score(score, null),
         },
       };
     });

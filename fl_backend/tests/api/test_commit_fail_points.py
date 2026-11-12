@@ -417,7 +417,7 @@ class TestAPersonsOwnPress:
         assert (before != withdrawn, after) == (True, withdrawn)
         assert (status, body["error_code"], len(journal_records(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
 
-    def test_a_press_on_a_stale_stand_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_press_on_a_stale_state_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
 
         stale = {"scope": "a" * 64, "media": None}

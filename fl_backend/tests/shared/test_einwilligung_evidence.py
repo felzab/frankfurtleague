@@ -280,7 +280,7 @@ class TestARenewalFromTheSamePersonsLaterAnswers:
         assert "einwilligung.scope" not in renew(CONFIRMED, offset)
 
 
-class TestTheStandAPressEchoes:
+class TestTheStateAPressEchoes:
     """`evidence_state_of`, the one derivation the account read serves and a consent PATCH compares with."""
 
     def test_a_grant_and_its_withdrawal_in_one_second_answer_two_stands(self):
@@ -308,10 +308,10 @@ class TestTheStandAPressEchoes:
 
         stands = [evidence_state_of(blocks=[block]) for block in (granted, withdrawn, renewed)]
 
-        assert len({stand["scope"] for stand in stands}) == 3
-        assert len({stand["media"] for stand in stands}) == 1
+        assert len({state["scope"] for state in stands}) == 3
+        assert len({state["media"] for state in stands}) == 1
 
-    def test_an_act_on_any_one_of_several_blocks_moves_the_stand(self):
+    def test_an_act_on_any_one_of_several_blocks_moves_the_state(self):
         """One press moves every held seat, so a stale page holding one seat's old stand is refused on all of them."""
 
         moved = {

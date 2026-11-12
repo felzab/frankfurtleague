@@ -133,19 +133,19 @@ def _block(einwilligung: dict[str, Any]) -> dict[str, Any]:
 AT = "2026-10-03T10:00:00+00:00"
 
 
-def _payload(*, scope: str = "kader_public", media: bool = False, stand: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """A press from a page served a referee's record as the suite seeds it, unless `stand` says otherwise."""
+def _payload(*, scope: str = "kader_public", media: bool = False, state: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """A press from a page served a referee's record as the suite seeds it, unless `state` says otherwise."""
 
     return {
         "scope": scope,
         "media": media,
         "text_versions": dict(SCHIEDSRICHTER_TEXT_VERSIONS),
-        "evidence_state": dict(stand) if stand is not None else evidence_state_of(blocks=[_einwilligung()]),
+        "evidence_state": dict(state) if state is not None else evidence_state_of(blocks=[_einwilligung()]),
     }
 
 
 # The retired referee's record is seeded granting media, so its page serves a stand of its own.
-RETIRED_STAND = evidence_state_of(blocks=[_einwilligung(media=True)])
+RETIRED_STATE = evidence_state_of(blocks=[_einwilligung(media=True)])
 
 
 def _person(email: str) -> StampedHeaders:
@@ -182,7 +182,7 @@ async def _editor_save(database: AsyncDatabase, *, version: int, default_payment
         actor_var.reset(token)
 
 
-async def _served_stand(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
+async def _served_state(http: AsyncClient, email: str, arm: str, **key: str) -> Any:
     """The stand the account read serves one record, by the ids naming it: what a page loaded after the last press posts.
 
     A press answers nothing, so a second press reads its precondition where the page does.
@@ -422,7 +422,7 @@ class TestARecordNotHeld:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(
                 _referee_path(RETIRED_OID),
-                json=_payload(scope="internal", media=False, stand=RETIRED_STAND),
+                json=_payload(scope="internal", media=False, state=RETIRED_STATE),
                 headers=_person(RETIRED),
             )
             granted = await http.patch(
@@ -430,7 +430,7 @@ class TestARecordNotHeld:
                 json=_payload(
                     scope="kader_public",
                     media=False,
-                    stand=await _served_stand(http, RETIRED, "schiedsrichter", schiedsrichter_id=str(RETIRED_OID)),
+                    state=await _served_state(http, RETIRED, "schiedsrichter", schiedsrichter_id=str(RETIRED_OID)),
                 ),
                 headers=_person(RETIRED),
             )
@@ -451,7 +451,7 @@ async def _withdrawn_then_granted(
     withdrawn = await http.patch(path, json=payload(False, None), headers=_person(email))
     assert withdrawn.status_code == 204, withdrawn.text
 
-    return await http.patch(path, json=payload(True, await _served_stand(http, email, arm, **key)), headers=_person(email))
+    return await http.patch(path, json=payload(True, await _served_state(http, email, arm, **key)), headers=_person(email))
 
 
 @pytest.mark.db
@@ -477,8 +477,8 @@ class TestGivableIsTheGrantThePressTakes:
                 granted = await _withdrawn_then_granted(
                     http,
                     _referee_path(entry["schiedsrichter_id"]),
-                    lambda media, stand, entry=entry: _payload(
-                        scope=entry["einwilligung"]["scope"], media=media, stand=entry["evidence_state"] if stand is None else stand
+                    lambda media, state, entry=entry: _payload(
+                        scope=entry["einwilligung"]["scope"], media=media, state=entry["evidence_state"] if state is None else state
                     ),
                     email,
                     "schiedsrichter",
@@ -490,11 +490,11 @@ class TestGivableIsTheGrantThePressTakes:
                 granted = await _withdrawn_then_granted(
                     http,
                     f"/api/v{API_VERSION}/teams/{seat['team_id']}/saisons/{seat['saison_id']}/account/einwilligung",
-                    lambda media, stand, seat=seat: {
+                    lambda media, state, seat=seat: {
                         "scope": seat["scope"],
                         "media": media,
                         "text_versions": dict(SEAT_TEXT_VERSIONS),
-                        "evidence_state": seat["evidence_state"] if stand is None else stand,
+                        "evidence_state": seat["evidence_state"] if state is None else state,
                     },
                     email,
                     "seats",
@@ -556,7 +556,7 @@ SEAT_WITHDRAWAL = {
 }
 
 
-def _seated_stand(held: int, **set_fields: Any) -> dict[str, str | None]:
+def _seated_state(held: int, **set_fields: Any) -> dict[str, str | None]:
     """The stand a page serves for `held` of the asker's seats on one row as `_seat` seeds them, `set_fields` laid over each."""
 
     return evidence_state_of(blocks=[{**_seat(REFEREE_STORED, media=True)["einwilligung"], **set_fields}] * held)
@@ -577,25 +577,25 @@ async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
     }
 
 
-def _seat_body(*, media: bool, scope: str = "kontakt_data", stand: Any = None) -> dict[str, Any]:
-    """A seat press from a page served one seeded seat, unless `stand` says otherwise."""
+def _seat_body(*, media: bool, scope: str = "kontakt_data", state: Any = None) -> dict[str, Any]:
+    """A seat press from a page served one seeded seat, unless `state` says otherwise."""
 
     return {
         "scope": scope,
         "media": media,
         "text_versions": dict(SEAT_TEXT_VERSIONS),
-        "evidence_state": _seated_stand(1) if stand is None else stand,
+        "evidence_state": _seated_state(1) if state is None else state,
     }
 
 
-def _seat_press(email: str, team_id: ObjectId, saison_id: str, media: bool, *, before=None, stand: Any = None):
-    """A press from a page served the row's seats as seeded, unless `stand` says otherwise."""
+def _seat_press(email: str, team_id: ObjectId, saison_id: str, media: bool, *, before=None, state: Any = None):
+    """A press from a page served the row's seats as seeded, unless `state` says otherwise."""
 
     async def steps(http: AsyncClient, database: AsyncDatabase) -> tuple[Any, dict[Any, Any], dict[Any, Any]]:
         if before is not None:
             await before(database)
         stored = await _rows(database)
-        body = _seat_body(media=media, stand=_seated_stand(HELD_SEATS[(team_id, saison_id)]) if stand is None else stand)
+        body = _seat_body(media=media, state=_seated_state(HELD_SEATS[(team_id, saison_id)]) if state is None else state)
         response = await http.patch(_seat_path(team_id, saison_id), json=body, headers=_person(email))
         return response, stored, await _rows(database)
 
@@ -623,14 +623,14 @@ class TestTheSeatsMediaChoice:
 
     def test_a_past_seasons_seats_take_a_withdrawal_each_and_refuse_a_grant(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            body = _seat_body(media=False, stand=_seated_stand(2))
+            body = _seat_body(media=False, state=_seated_state(2))
             withdrawn = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             granted = await http.patch(
                 _seat_path(TEAM_A_OID, PAST_SAISON),
                 json={
                     **body,
                     "media": True,
-                    "evidence_state": await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON),
+                    "evidence_state": await _served_state(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON),
                 },
                 headers=_person(IDENTIFIER),
             )
@@ -662,7 +662,7 @@ class TestTheSeatsMediaChoice:
 
         response, before, after = served(
             mongo_replica_set_url,
-            _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off, stand=_seated_stand(1, media=False)),
+            _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off, state=_seated_state(1, media=False)),
         )
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIA_AGE)
@@ -718,7 +718,7 @@ class TestTheSeatsWhatsAppChoice:
     def test_a_past_seasons_withdrawal_lands_on_every_held_slot_naming_the_grant_it_ended(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             await _whatsapp_on_every_held_seat(database)
-            body = _seat_body(media=True, stand=_seated_stand(2, scope="kontakt_data_whatsapp"))
+            body = _seat_body(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp"))
             response = await http.patch(_seat_path(TEAM_A_OID, PAST_SAISON), json=body, headers=_person(IDENTIFIER))
             return response, await _rows(database)
 
@@ -738,14 +738,14 @@ class TestTheSeatsWhatsAppChoice:
             await _whatsapp_on_every_held_seat(database)
             withdrawn = await http.patch(
                 _seat_path(TEAM_A_OID, PAST_SAISON),
-                json=_seat_body(media=True, stand=_seated_stand(2, scope="kontakt_data_whatsapp")),
+                json=_seat_body(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp")),
                 headers=_person(IDENTIFIER),
             )
             before = await _rows(database)
-            stand = await _served_stand(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON)
+            state = await _served_state(http, IDENTIFIER, "seats", team_id=str(TEAM_A_OID), saison_id=PAST_SAISON)
             granted = await http.patch(
                 _seat_path(TEAM_A_OID, PAST_SAISON),
-                json=_seat_body(media=True, scope="kontakt_data_whatsapp", stand=stand),
+                json=_seat_body(media=True, scope="kontakt_data_whatsapp", state=state),
                 headers=_person(IDENTIFIER),
             )
             return withdrawn, granted, before, await _rows(database)
@@ -767,13 +767,13 @@ class TestTheSeatsWhatsAppChoice:
                 {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
                 {"$set": {"kontakte.stellvertretung.einwilligung.evidence.media": media_receipt}},
             )
-            served_stand = next(
+            served_state = next(
                 seat["evidence_state"]
                 for seat in (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["seats"]
                 if seat["team_id"] == str(TEAM_B_OID)
             )
             response = await http.patch(
-                _seat_path(TEAM_B_OID, ACTIVE_SAISON), json=_seat_body(media=True, stand=served_stand), headers=_person(IDENTIFIER)
+                _seat_path(TEAM_B_OID, ACTIVE_SAISON), json=_seat_body(media=True, state=served_state), headers=_person(IDENTIFIER)
             )
             return response, await _rows(database)
 
@@ -833,10 +833,10 @@ def _application_path(bewerbung_id: ObjectId) -> str:
     return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/account/einwilligung"
 
 
-def _withdrawal(*, stand: Any = None, media: bool = False) -> dict[str, Any]:
-    """A press from a page served the pending application's two seeded seats of the asker, unless `stand` says otherwise."""
+def _withdrawal(*, state: Any = None, media: bool = False) -> dict[str, Any]:
+    """A press from a page served the pending application's two seeded seats of the asker, unless `state` says otherwise."""
 
-    return _seat_body(media=media, stand=_seated_stand(2) if stand is None else stand)
+    return _seat_body(media=media, state=_seated_state(2) if state is None else state)
 
 
 async def _application_docs(database: AsyncDatabase) -> dict[Any, Any]:
@@ -863,7 +863,7 @@ class TestAPendingApplicationsSeats:
                 "rollen": ["trainer", "ansprechperson"],
                 "scope": "kontakt_data",
                 "media": True,
-                "evidence_state": _seated_stand(2),
+                "evidence_state": _seated_state(2),
             }
         ]
 
@@ -896,7 +896,7 @@ class TestAPendingApplicationsSeats:
             )
             before = await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({})
             response = await http.patch(
-                _application_path(PENDING_OID), json=_withdrawal(stand=_seated_stand(2, media=False)), headers=_person(IDENTIFIER)
+                _application_path(PENDING_OID), json=_withdrawal(state=_seated_state(2, media=False)), headers=_person(IDENTIFIER)
             )
             return response, before, (await _application_docs(database), await database[Collection.ACTION_LOG].count_documents({}))
 
@@ -932,7 +932,7 @@ class TestAPendingApplicationsSeats:
                 {"_id": PENDING_OID}, {"$set": {f"kontakte.{slot}.einwilligung.media": False for slot in ("trainer", "ansprechperson")}}
             )
             before = await _application_docs(database)
-            body = {**_withdrawal(stand=_seated_stand(2, media=False)), "scope": scope, "media": media}
+            body = {**_withdrawal(state=_seated_state(2, media=False)), "scope": scope, "media": media}
             response = await http.patch(_application_path(PENDING_OID), json=body, headers=_person(IDENTIFIER))
             return response, before, await _application_docs(database)
 
@@ -950,7 +950,7 @@ class TestAPendingApplicationsSeats:
             )
             response = await http.patch(
                 _application_path(PENDING_OID),
-                json=_withdrawal(media=True, stand=_seated_stand(2, scope="kontakt_data_whatsapp")),
+                json=_withdrawal(media=True, state=_seated_state(2, scope="kontakt_data_whatsapp")),
                 headers=_person(IDENTIFIER),
             )
             return response, await _application_docs(database)
