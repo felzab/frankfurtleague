@@ -431,8 +431,12 @@ async function ToolbarActOnceRead({ act }: { act: Promise<ListCreate> }) {
   return <ToolbarAct act={await act} />;
 }
 
-/** The toolbar's row: the fields from its start, and at its end the group of acts or the link. */
-const TOOLBAR_CLASSES = "flex flex-wrap items-center gap-3";
+/**
+ * The toolbar's row: the fields from its start, and at its end the group of acts or the link. Its parts stand on their
+ * feet: a filter's label stands over its field, where the search field's magnifier names it, so the fields and the
+ * buttons line up by their bottoms, and centring them would lift the search field by half the label's line.
+ */
+const TOOLBAR_CLASSES = "flex flex-wrap items-end gap-3";
 
 function ToolbarActs({ children }: { children: ReactNode }) {
   return <div className="ms-auto flex flex-wrap items-center justify-end gap-3">{children}</div>;
