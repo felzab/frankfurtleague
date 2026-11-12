@@ -77,7 +77,7 @@ async def patch_einwilligung(
     `evidence_state` other than the record's own, either choice having moved since the page was served
     (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
     other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to
-    `true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
+    `true` where the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
     refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.

@@ -2554,7 +2554,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  * `evidence_state` other than the record's own, either choice having moved since the page was served
  * (`choices_stale`); a grant on a retired record (`giving_not_allowed`); a choice moving onto a grant under a label
  * other than its current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to
- * `true` where the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
+ * `true` where the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
  * refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
@@ -2600,7 +2600,7 @@ export const getSchiedsrichterPostConfirmationUrl = () => {
  * Refuses, in this order: a token no referee holds (`link_invalid`), an entry already answered, confirmed or
  * declined (`confirmation_exists`), a link whose deadline has passed (`link_expired`), an age outside `minimum_age` to
  * `maximum_age` (`confirmation_age`, carrying the two as its bounds `min` and `max`), and a media consent from a referee below
- * `MEDIA_MIN_AGE_YEARS` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
+ * `FLMediaMinAgeYears` (`media_age`) -- the last two judged before anything is written, so a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
  * a withheld name would go on being served for as long as that entry lives.
@@ -3404,7 +3404,7 @@ export const getSpieleGetSpielAdminUrl = (spielId: string) => {
  * they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
  * another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
  * group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
- * reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
+ * reads in, null where none stands; the fixture's confirmation rows, newest first, as an administrator reads them; and per
  * side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
  * club has stored none. `document_not_found` for an id no fixture holds.
  * @summary One Spiel and all the match editor offers and shows beside it
@@ -3434,7 +3434,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * other than the record's own, either choice having moved since the page was served (`choices_stale`); a choice
  * moving onto a grant under a label other than its
  * current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where
- * the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
+ * the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
  * refusal writes nothing.
  *
  * **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
@@ -4132,7 +4132,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
  * `evidence_state` other than the held seats' own, either choice having moved since the page was served
  * (`choices_stale`); a grant where the row grants no panel (`giving_not_allowed`); a choice moving onto a grant
  * under a label other than its current wording's, the page loaded before a rewording (`grant_wording_stale`);
- * `media` moving to `true` where a held seat's stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is
+ * `media` moving to `true` where a held seat's stored birthdate does not reach `FLMediaMinAgeYears` today or is
  * missing (`media_age`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */

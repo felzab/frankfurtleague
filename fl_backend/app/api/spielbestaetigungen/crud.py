@@ -101,7 +101,7 @@ async def pull_ansetzung_state(
 
 # --- The ADMINISTRATOR's read.
 
-# What the list serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
+# What the match editor serves of a row, read off the model it is served as: an allow-list, so a block a row still carries and
 # no administrator reads, an old seat's address among them, never leaves the database.
 ADMIN_ROW_FIELDS: Final[list[str]] = [
     field.validation_alias if isinstance(field.validation_alias, str) else name for name, field in FLSpielbestaetigung.model_fields.items()

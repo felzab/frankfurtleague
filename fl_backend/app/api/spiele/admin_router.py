@@ -120,7 +120,7 @@ async def get_spiel_admin(
     they confirmed their entry; on a knockout fixture every club of its season, each saying whether it stands on
     another fixture of the matchday and whether a save fielding it here by hand would pass the write's rules, null on a
     group fixture; the fixture's report as its Spielbericht section shows it, its goals, its proposal and the state it
-    reads in, null where none stands; the fixture's confirmation rows as the confirmations' read serves them; and per
+    reads in, null where none stands; the fixture's confirmation rows, newest first, as an administrator reads them; and per
     side how many pupils the stored line-up of the club fielded there names and how many of them start, null where that
     club has stored none. `document_not_found` for an id no fixture holds.
     """

@@ -369,7 +369,7 @@ async def patch_einwilligung(
     other than the record's own, either choice having moved since the page was served (`choices_stale`); a choice
     moving onto a grant under a label other than its
     current wording's, the page loaded before a rewording (`grant_wording_stale`); `media` moving to `true` where
-    the stored birthdate does not reach `MEDIA_MIN_AGE_YEARS` today or is missing (`media_age`). Each
+    the stored birthdate does not reach `FLMediaMinAgeYears` today or is missing (`media_age`). Each
     refusal writes nothing.
 
     **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a

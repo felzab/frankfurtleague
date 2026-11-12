@@ -119,7 +119,7 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     teams: list[FLSpielEditorTeam] | None
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
-    # The fixture's confirmation rows, newest first, as the confirmations' own read serves them.
+    # The fixture's confirmation rows, newest first, as an administrator reads them.
     spielbestaetigungen: list[FLSpielbestaetigung]
     aufstellungen: FLSpielEditorAufstellungen
 
