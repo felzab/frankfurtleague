@@ -917,7 +917,7 @@ export const SERVER_COPY = catalogue({
       kader: {
         heading: "Im Kader",
         text: (minAge: number, days: number) =>
-          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Rückennummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
+          `In den Kader eines Teams registrierst du dich über dessen Link mit Name und E-Mail-Adresse, wenn du willst auch mit Trikotnummer, Position und Stufe, und bestätigst innerhalb ${boundBy("von", formatNumber(days), "Tagen")} über einen Link mit deinem Geburtsdatum, dass du mindestens ${boundBy(formatNumber(minAge), "Jahre")} alt bist. Über die Aufnahme entscheiden die Kontaktpersonen des Teams; deine E-Mail-Adresse, dein Geburtsdatum und deine Antworten sehen sie nicht.`,
       },
       schiedsrichter: {
         heading: "Schiedsrichterinnen und Schiedsrichter",
@@ -943,7 +943,7 @@ export const SERVER_COPY = catalogue({
         senders:
           "Unsere E-Mails verschicken wir über Resend, Codes und Sicherheitshinweise von anmeldung@frankfurtleague.de, alle anderen von liga@frankfurtleague.de; Resend meldet uns, ob eine E-Mail ankommt, und wir speichern das bei der Nachricht.",
         forwarding:
-          "Ein eigenes Postfach hat die Liga nicht: E-Mails an die Liga leitet Cloudflare an die privaten Postfächer der Personen weiter, die die Liga organisieren, und die Antwort kommt von deren privater Adresse. Den Inhalt speichert Cloudflare nach eigener Angabe nicht, nur Absender, Empfänger und Betreff. Deine Nachricht löschen wir, sobald sie erledigt ist und keine Pflicht zur Aufbewahrung besteht.",
+          "E-Mails an die Liga kommen in ihr Postfach bei Google Workspace, das ein Mitglied des Vorstands liest und das jede Nachricht an ein Mitglied des Vorstands weiterleitet. Im Postfach der Liga löschen wir jede Nachricht 6\u00A0Monate nach ihrem Eingang.",
         whatsapp:
           "Über WhatsApp schreiben wir dir nur, wenn du das erlaubt hast oder uns dort schreibst; dann erhält WhatsApp deine Telefonnummer und die Nachrichten.",
       },
@@ -952,7 +952,7 @@ export const SERVER_COPY = catalogue({
         record:
           "Auf der Website stehen Name, Kürzel, Schule und Anschrift jedes Teams, Spielpläne, Ergebnisse und Tabellen, Aufstellungen, sobald ein Team sie einträgt, Tore und Karten, sobald der Spielbericht feststeht, und als freier Text Notizen zu Spielen, Beschreibungen von Teams und der Grund für einen Rückzug.",
         names:
-          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
+          "Stehst du im Kader, zeigen wir dort, in Aufstellungen und bei Toren und Karten deinen Vornamen und den Anfangsbuchstaben deines Nachnamens; pfeifst du, zeigen wir an deinen Spielen den ersten Teil deines Namens und den Anfangsbuchstaben des nächsten, bei nur einem Namen diesen ganz. Beides zeigen wir nur mit deiner Einwilligung, sonst steht dort nur „anonym“. Trikotnummer und Position zeigen wir nur neben deinem Namen. Hast du im Kader die Rolle „Kapitän“ oder „Co-Kapitän“, zeigen wir sie dort und in Aufstellungen neben deinem Namen, nie neben „anonym“.",
         consented: (mediaAge: number) =>
           `Ebenfalls nur mit Einwilligung zeigen wir die Vornamen der Personen, die die Liga organisieren, auf der Startseite und unter „${COPY.page.about}“ und, ${boundBy("ab", formatNumber(mediaAge), "Jahren")}, Fotos, Videos und Interviews, auf denen du zu erkennen bist, hier und auf dem Instagram-Kanal der Liga. Widerrufst du, entfernen wir Fotos, Videos und Interviews von dir von der Website und vom Instagram-Kanal der Liga.`,
         never:
@@ -963,15 +963,16 @@ export const SERVER_COPY = catalogue({
         lead: "Außer uns und den oben genannten Personen erhalten deine Daten nur:",
         items: [
           "Hetzner Online GmbH, Nürnberg: unser Server;",
-          "Cloudflare, Inc.: jede Anfrage, Turnstile und die Weiterleitung von E-Mails;",
+          "Cloudflare, Inc.: jede Anfrage und Turnstile;",
           "MongoDB, Inc.: die Datenbank und ihre Sicherungskopien, in Frankfurt am Main;",
           "Resend (Plus Five Five, Inc.): unsere E-Mails;",
-          "die Anbieter der privaten Postfächer: E-Mails an die Liga, unsere Antworten und Mitteilungen zum Zugang zur Verwaltung, ohne Vertrag zur Auftragsverarbeitung;",
+          "Google Cloud EMEA Limited, Dublin (Google Workspace for Nonprofits): E-Mails an die Liga;",
+          "die Anbieter der privaten Postfächer: Mitteilungen zum Zugang zur Verwaltung und, wo ein Mitglied des Vorstands sie dort liest, E-Mails an die Liga, ohne Vertrag zur Auftragsverarbeitung;",
           "WhatsApp Ireland Limited, wenn du WhatsApp erlaubst: die gewöhnliche App, ohne Vertrag zur Auftragsverarbeitung;",
           "Meta (Instagram), selbst verantwortlich: die Fotos, Videos und Interviews, die du erlaubst.",
         ],
         transfers:
-          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO), deren Kopie wir dir auf Anfrage schicken. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
+          "In die Vereinigten Staaten übermitteln wir auf Grundlage des Angemessenheitsbeschlusses zum EU-US Data Privacy Framework (Art.\u00A045 DSGVO), für Cloudflare und Resend auch der Standardvertragsklauseln der Europäischen Kommission (Art.\u00A046 Abs.\u00A02 lit.\u00A0c DSGVO); in andere Länder ohne Angemessenheitsbeschluss übermittelt Google auf Grundlage dieser Klauseln. Eine Kopie der Klauseln schicken wir dir auf Anfrage. Ein privates Postfach kann in einem Land ohne Angemessenheitsbeschluss liegen; für diese Übermittlung gibt es keine geeigneten Garantien. Darüber hinaus geben wir keine Daten weiter, auch nicht an unsere Sponsoren.",
       },
       /**
        * The retention table: each store's name, what it holds and how long. A bound the frontend's code holds is a
@@ -999,7 +1000,7 @@ export const SERVER_COPY = catalogue({
           },
           {
             name: "Registrierung",
-            content: "Name, Adresse, Geburtsdatum",
+            content: "Name, Adresse, Geburtsdatum, Trikotnummer, Position, Stufe, Antworten",
             period: (bound: RetentionBounds) => `${boundBy(formatNumber(bound.registrierungDays), "Tage")}, wenn unbestätigt oder abgelehnt`,
           },
           {
@@ -1007,7 +1008,11 @@ export const SERVER_COPY = catalogue({
             content: "Team, Saison",
             period: "ohne Frist",
           },
-          { name: "Kader und Aufstellungen", content: "Name, Adresse, Geburtsdatum, Antworten", period: "bis zum Ende der Saison danach" },
+          {
+            name: "Kader und Aufstellungen",
+            content: "Name, Adresse, Geburtsdatum, Trikotnummer, Position, Stufe, Rolle, Antworten",
+            period: "bis zum Ende der Saison danach",
+          },
           {
             name: "Schiedsrichter",
             content: "Name, Kontaktdaten, Honorar, Antworten",
@@ -1064,13 +1069,17 @@ export const SERVER_COPY = catalogue({
             content: "Adresse, Betreff, Inhalt",
             period: "30\u00A0Tage, in Sicherungen bis\u00A07\u00A0Tage länger",
           },
-          { name: "E-Mails bei Cloudflare", content: "Absender, Empfänger, Betreff", period: "31\u00A0Tage" },
+          {
+            name: "E-Mails an die Liga",
+            content: "Absender, Inhalt, Anhänge",
+            period: "6\u00A0Monate; danach bei Google bis\u00A055\u00A0Tage wiederherstellbar, dann binnen 180\u00A0Tagen gelöscht",
+          },
           { name: "Turnstile bei Cloudflare", content: "Signale deines Browsers beim Absenden eines Formulars", period: "7\u00A0Tage" },
         ],
       },
       erasure: {
         heading: "Löschung",
-        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und Cloudflare bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
+        text: "Löschen wir Daten, auf deinen Wunsch oder nach ihrer Frist, verschwinden sie sofort aus der Datenbank und nach etwa\u00A08\u00A0Tagen aus den Sicherungskopien; spielen wir eine ältere Sicherung ein, löschen wir sie erneut. Es bleiben die Kopien bei Resend und, von deinen E-Mails an uns, bei Google bis zu ihren Fristen, die Protokolle des Servers mit der Nummer eines Eintrags und, bei Kontaktpersonen, dem Tag der Bestätigung bis zu ihrer Frist, eine Sperre deiner Adresse bis zu ihrem Ende, die E-Mail mit dem Link zur Löschung, bis er abläuft, Mitteilungen zum Zugang zur Verwaltung, die andere schon erhalten haben, und freie Texte, die nicht unter deiner Adresse stehen. Löschen wir ein bestätigtes Konto, schreiben wir dir das, ebenso, wenn wir eine Bewerbung löschen, die nicht zustande kam und in der du deinen Eintrag bestätigt hast, außer an eine gesperrte Adresse; eine Absage nennt die Löschung schon selbst.",
         log: "Was die Verwaltung an den Daten der Liga ändert, halten wir 12\u00A0Monate im Protokoll der Liga fest, ebenso, was Kontaktpersonen und Schiedsrichter für andere ändern, und die Löschung von Einträgen. Ein Eintrag sagt, wer es war, was geschah und wann, ohne alten oder neuen Inhalt. Beim Zugang zur Verwaltung steht darin die Adresse der genannten Person, auch wenn der Zugang nie galt. Die Verwaltung steht darin mit ihrer Adresse, alle anderen ohne Namen und Adresse. Zu einer Löschung stehen dort, wer sie veranlasst hat, und ein Verweis auf die Anfrage. Löschen wir deine Daten, ersetzt ein fester Vermerk deine Adresse.",
       },
       rights: {
@@ -1224,7 +1233,7 @@ export const SERVER_COPY = catalogue({
     opening: (team: Words, saison: string) =>
       `Du hast dich über den Link ${boundBy("von", textOf(team))} für den Kader ${boundBy("in", "der", COPY.shared.saisonName(saison))} registriert.`,
     stored:
-      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Rückennummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
+      "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,
     deadline: (until: CalendarDay) => `Bestätigst du nicht ${boundBy("bis", "zum", formatDateLong(until))}, löschen wir deine Registrierung.`,
     more: MORE,
