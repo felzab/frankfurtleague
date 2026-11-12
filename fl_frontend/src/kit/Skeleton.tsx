@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
  * collapses unseen where a shorter one loses a reload's place for good. On a classic page, whose footer a collapse
  * would lift into view, it draws the state that lands most often. No static shell knows who reads, so a part one role
  * alone holds draws no wait, and a part the role reshapes draws its usual shape until a first read says otherwise
- * (`PageWaitOnceRead`). A placeholder never shows a state's words.
+ * (`AccountPage`'s `waitOnceRead`). A placeholder never shows a state's words.
  */
 const placeholder = tv({
   slots: {

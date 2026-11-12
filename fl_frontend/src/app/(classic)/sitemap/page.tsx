@@ -1,8 +1,7 @@
 import { connection } from "next/server";
 
 import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { PageWait } from "@/kit/PageFade";
-import { Prose, ProseLinksPlaceholder } from "@/kit/Prose";
+import { ProseWait } from "@/kit/Prose";
 import { SAISON_WORDS } from "@/kit/Skeleton";
 
 import { COPY } from "@/core/copy";
@@ -30,20 +29,16 @@ const FRAME_GROUPS: ReadonlyArray<ProseSection> = [
  * Every season the public may read, the newest first, each with its pages, over the footer's groups. Read on a
  * request: the build reaches no backend.
  */
-async function Groups() {
+async function readGroups(): Promise<ReadonlyArray<ProseSection>> {
   await connection();
   const { saisons } = await getSaisonFrame();
-  return (
-    <Prose
-      sections={[
-        ...saisons.map(({ id }): ProseSection => ({
-          heading: COPY.shared.saisonName(id),
-          blocks: [{ kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) }],
-        })),
-        ...FRAME_GROUPS,
-      ]}
-    />
-  );
+  return [
+    ...saisons.map(({ id }): ProseSection => ({
+      heading: COPY.shared.saisonName(id),
+      blocks: [{ kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) }],
+    })),
+    ...FRAME_GROUPS,
+  ];
 }
 
 /**
@@ -58,15 +53,10 @@ export default function SitemapPage() {
         title={COPY.page.sitemap}
         lead={[SERVER_COPY.description.sitemap]}
       />
-      <PageWait
-        fallback={
-          <ProseLinksPlaceholder
-            heading={SAISON_WORDS}
-            links={SAISONLESS_PAGES.map(({ page }) => ROUTES[page].title)}
-          />
-        }>
-        <Groups />
-      </PageWait>
+      <ProseWait
+        sections={readGroups()}
+        wait={{ heading: SAISON_WORDS, links: SAISONLESS_PAGES.map(({ page }) => ROUTES[page].title) }}
+      />
     </ClassicPage>
   );
 }

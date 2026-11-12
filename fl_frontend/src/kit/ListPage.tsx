@@ -18,7 +18,6 @@ import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { PageWait } from "./PageFade";
 import { RailPage } from "./RailFrame";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
@@ -747,7 +746,7 @@ export function ListPage({
             )}
           </div>
         )}
-        <PageWait
+        <Suspense
           fallback={
             <ListWait>
               <ListPlaceholder list={list} />
@@ -755,7 +754,7 @@ export function ListPage({
           }>
           {notice !== undefined && <NoticeOnceRead notice={notice} />}
           <ListBody list={list} />
-        </PageWait>
+        </Suspense>
       </ListQueryScope>
     </RailPage>
   );

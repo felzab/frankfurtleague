@@ -107,7 +107,7 @@
     :root {
       --motion-state: 100ms;
       --motion-in: 200ms;
-      /* An overlay's exit, and the cross-fade between pages and from a template's skeleton to its content. */
+      /* An overlay's exit, and the cross-fade between pages. */
       --motion-out: 150ms;
     }
   }
