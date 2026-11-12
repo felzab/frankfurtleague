@@ -76,9 +76,10 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
     <html
       lang="de"
       suppressHydrationWarning
-      // The viewport's scroll container is `<html>`, never `<body>`: its gutter is reserved, so a scrollbar
-      // appearing on a page that grows leaves the content's width alone.
-      className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
+      // The viewport's scroll container is `<html>`, never `<body>`. Its track always shows: a page that grows
+      // keeps the content's width, and a full-width line meets the track, where a reserved gutter would
+      // stand empty beyond the line on a short page.
+      className={`${anton.variable} ${raleway.variable} ${inter.variable} overflow-y-scroll`}>
       {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
       <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">

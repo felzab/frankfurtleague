@@ -21,6 +21,14 @@
     font-synthesis: none;
   }
 
+  /* A dialog's or a sheet's scroll lock hides the root's scrollbar and keeps its gutter, so the page does not
+     move. The scrim, like every box of the page, is laid out in the viewport inside that gutter, and the browser
+     paints the gutter with the root's background: while a scrim stands, that background carries the scrim over
+     the ground, so the strip at the window's edge dims with the page. */
+  :root:has(.bg-scrim) {
+    background: linear-gradient(var(--scrim), var(--scrim)), var(--bg);
+  }
+
   /* Every control shows the pointing hand, as a link does: Tailwind 4's preflight gives a button the browser's
      arrow, and its upgrade guide restores the hand with this rule. A kit recipe drawing an entry that is no
      button, a menu's or a list's, names `cursor-pointer` itself. */
