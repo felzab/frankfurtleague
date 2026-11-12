@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy";
 import AdministratorsPage from "./page";
 
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
-import type { ListCreate } from "@/kit/ListPage";
+import type { ListActOnceRead } from "@/kit/ListPage";
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { TableProps } from "@/kit/Table";
 import type { ReactElement } from "react";
@@ -45,7 +45,8 @@ const change = (address: string, effective_from: string | null, holder: FLAddres
 
 type Drawn = {
   props: {
-    acts: Promise<{ side: ListCreate | null; create: ListCreate | null }>;
+    side: ListActOnceRead;
+    create: ListActOnceRead;
     list: { content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>> };
   };
 };
@@ -57,12 +58,14 @@ async function read(reader: string, grants: readonly FLGrantRow[], changes: read
   state.reader = reader;
   const { props } = AdministratorsPage() as unknown as Drawn;
   const { cards } = (await props.list.content).props;
-  const rowsOf = (title: string) => (cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined)?.rows ?? [];
+  const tableOf = (title: string) => cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined;
   return {
-    ...(await props.acts),
-    titles: cards.map((card) => card.title),
-    active: rowsOf(COPY.admin.team.active),
-    waiting: rowsOf(COPY.admin.administrators.pending),
+    side: await props.side.act,
+    create: await props.create.act,
+    cards: cards.map(({ title, count }) => ({ title, count })),
+    active: tableOf(COPY.admin.team.active)?.rows ?? [],
+    waiting: tableOf(COPY.admin.administrators.pending)?.rows ?? [],
+    waitingEmpty: tableOf(COPY.admin.administrators.pending)?.empty,
   };
 }
 
@@ -93,17 +96,28 @@ describe("who holds access and what waits", () => {
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
+
+  /* A card drawn only while something waits moves the page under its reader whenever nothing does. */
+  it("draws „Angekündigt“ while nothing waits, saying so", async () => {
+    const { cards, waitingEmpty } = await read(OWNER, [THE_OWNER, grant("anna@example.org")]);
+
+    expect(cards).toStrictEqual([
+      { title: COPY.admin.team.active, count: 2 },
+      { title: COPY.admin.administrators.pending, count: 0 },
+    ]);
+    expect(waitingEmpty).toStrictEqual({ kind: "clear" });
+  });
 });
 
 describe("the owner's acts", () => {
-  /* An act left off a row tells an administrator nothing of who may run it, nor the owner why their own row holds none. */
-  it("show an administrator every row's act, locked as the owner's alone, what waits included", async () => {
+  /* An act left off tells an administrator nothing of who may run it, nor the owner why their own row holds none. */
+  it("show an administrator every act, on the toolbar and on every row, locked as the owner's alone", async () => {
     const handover = grant("anna@example.org", { owner_from: FUTURE });
 
     const { create, side, active, waiting } = await read("anna@example.org", [THE_OWNER, handover]);
 
-    expect([create, side]).toStrictEqual([null, null]);
     const ownerOnly = COPY.admin.administrators.ownerOnly;
+    expect([create.locked, side.locked]).toStrictEqual([ownerOnly, ownerOnly]);
     expect(actsOf([...active, ...waiting])).toStrictEqual([ownerOnly, ownerOnly, ownerOnly]);
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
@@ -112,21 +126,21 @@ describe("the owner's acts", () => {
   it("reach the owner whatever the session's spelling, the owner's own row locked until the handover", async () => {
     const { create, active } = await read("Owner@Example.org", [THE_OWNER, grant("anna@example.org")]);
 
-    expect(create).not.toBeNull();
+    expect(create.locked).toBeUndefined();
     expect(actsOf(active)).toStrictEqual([COPY.admin.administrators.afterHandover, "runs"]);
   });
 
-  it("offer the handover from the administrators in effect, and lock it while one waits", async () => {
+  it("offer the handover from the administrators in effect, locked while one waits or none stands to take over", async () => {
     const waitingAddition = grant("neu@example.org", { effective_from: FUTURE });
 
     const open = await read(OWNER, [THE_OWNER, grant("anna@example.org"), waitingAddition]);
     const locked = await read(OWNER, [THE_OWNER, grant("anna@example.org", { owner_from: FUTURE })]);
-    const alone = await read(OWNER, [THE_OWNER]);
+    const alone = await read(OWNER, [THE_OWNER, waitingAddition]);
 
-    const { options } = (open.side?.children as ReactElement<{ options: ReadonlyArray<{ id: string }> }>).props;
+    const { options } = (open.side.children as ReactElement<{ options: ReadonlyArray<{ id: string }> }>).props;
     expect(options.map(({ id }) => id)).toStrictEqual(["anna@example.org"]);
-    expect(open.side?.locked).toBeUndefined();
-    expect(locked.side?.locked).toBe(COPY.admin.administrators.handoverRunning);
-    expect(alone.side).toBeNull();
+    expect(open.side.locked).toBeUndefined();
+    expect(locked.side.locked).toBe(COPY.admin.administrators.handoverRunning);
+    expect(alone.side.locked).toBe(COPY.admin.administrators.noAdministrator);
   });
 });

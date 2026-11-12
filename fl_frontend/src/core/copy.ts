@@ -1487,9 +1487,10 @@ export const COPY = catalogue({
       additionConsequence: (wait: Wait) => `Der Zugang gilt ${waitWords(wait).after}.`,
       removeConsequence: "Der Zugang endet sofort.",
       handoverConsequence: (wait: Wait) => `Die ${OWNER_TIER} geht ${waitWords(wait).after} über, und du bleibst in der Verwaltung.`,
-      /** Why the handover is locked. */
+      /** Why the handover is locked: one runs, or no administrator holds access to take it over. */
       handoverRunning: "Übergabe läuft schon",
-      /** Why the owner's acts are locked for an administrator, who reads the page. */
+      noAdministrator: "Noch kein Administrator",
+      /** Why the owner's acts, on the toolbar and on every row, are locked for an administrator, who reads the page. */
       ownerOnly: `Nur für die ${OWNER_TIER}`,
       /** Why the owner's own row cannot be removed: the owner leaves the role by the handover. */
       afterHandover: AFTER_HANDOVER,

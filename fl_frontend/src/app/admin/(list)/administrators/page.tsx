@@ -33,9 +33,11 @@ const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
 
-/** The two toolbar acts, each naming its button, its wait and its dialog. */
+/** The two toolbar acts, each naming its button, its wait and its dialog, and the server action its form posts to. */
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
+const ADD_FACE = { title: actLabel(ADD), act: ADD, action: addAdministrator } as const;
+const HAND_OVER_FACE = { title: actLabel(HAND_OVER), act: HAND_OVER, action: startHandover } as const;
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.adminAdministrators, ROUTES.adminAdministrators.path());
@@ -223,15 +225,14 @@ const HEAD = {
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
 
 /** A table of the page's cards, carrying nothing of `HEAD` a read table has no use for. */
-const tableOf = (label: Copy, head: Pick<TableProps, "columns" | "state">, rows: readonly TableRow[]): TableProps => ({
+const tableOf = (label: Copy, head: Pick<TableProps, "columns" | "state" | "empty">, rows: readonly TableRow[]): TableProps => ({
   label,
   nameLabel: ADDRESS,
   ...head,
   rows,
-  empty: EMPTY,
 });
 
-/** „Aktiv“ open, and under it „Angekündigt“ folded with its count, drawn only while something waits. */
+/** „Aktiv“ open, and under it „Angekündigt“ folded with its count, which says „Nichts offen.“ while nothing waits. */
 async function foldsOf(access: Promise<Access>) {
   const read = await access;
   const waiting = waitingRows(read);
@@ -246,26 +247,26 @@ async function foldsOf(access: Promise<Access>) {
           tables: [
             tableOf(
               ROUTES.adminAdministrators.title,
-              { columns: HEAD.columns, state: HEAD.state },
+              { columns: HEAD.columns, state: HEAD.state, empty: EMPTY },
               read.active.map((grant) => activeRow(grant, read)),
             ),
           ],
         },
-        ...(waiting.length === 0
-          ? []
-          : [{ title: WORDS.pending, count: waiting.length, tables: [tableOf(WORDS.pending, { columns: [] }, waiting)] as const }]),
+        {
+          title: WORDS.pending,
+          count: waiting.length,
+          tables: [tableOf(WORDS.pending, { columns: [], empty: { kind: "clear" } }, waiting)],
+        },
       ]}
     />
   );
 }
 
-/** The add dialog, for the owner alone. */
-function addOf({ reader, readerIsOwner }: Access): ListCreate | null {
-  if (!readerIsOwner) return null;
+/** The add dialog, the owner's alone: an administrator's button says so. */
+function addOf({ reader, readerIsOwner }: Access): ListCreate {
+  if (!readerIsOwner) return { ...ADD_FACE, children: null, locked: WORDS.ownerOnly };
   return {
-    title: actLabel(ADD),
-    act: ADD,
-    action: addAdministrator,
+    ...ADD_FACE,
     touch: { holder: reader },
     consequence: WORDS.additionConsequence(GRANT_WAIT),
     children: (
@@ -282,14 +283,17 @@ function addOf({ reader, readerIsOwner }: Access): ListCreate | null {
   };
 }
 
-/** The handover's dialog, for the owner alone while an administrator stands to take over, and locked while one waits. */
-function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCreate | null {
+/**
+ * The handover's dialog, the owner's alone and only while an administrator stands to take over, its button saying why
+ * where it cannot run, and locked while one waits.
+ */
+function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCreate {
   const [owner, ...administrators] = active;
-  if (!readerIsOwner || owner === undefined || administrators.length === 0) return null;
+  // The reader holds the owner's grant in effect, which `active` sets first, so `owner` stands wherever the reader may act.
+  if (!readerIsOwner || owner === undefined) return { ...HAND_OVER_FACE, children: null, locked: WORDS.ownerOnly };
+  if (administrators.length === 0) return { ...HAND_OVER_FACE, children: null, locked: WORDS.noAdministrator };
   return {
-    title: actLabel(HAND_OVER),
-    act: HAND_OVER,
-    action: startHandover,
+    ...HAND_OVER_FACE,
     touch: { holder: reader },
     ...(handover === undefined ? {} : { locked: WORDS.handoverRunning }),
     consequence: WORDS.handoverConsequence(OWNER_WAIT),
@@ -311,19 +315,19 @@ function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCr
 }
 
 /**
- * Who holds access to the administration and what waits: the owner's acts on either, an administrator's page to read.
- * Its wait is an administrator's page, what both roles see, so only the owner's page moves as it lands (`ListPage`'s `acts`).
+ * Who holds access to the administration and what waits, and the owner's acts on either, which an administrator sees
+ * locked with their reason: every reader's page stands in one shape, its wait's.
  */
 export default function AdministratorsPage() {
   const access = readAccess();
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminAdministrators" } }}
-      acts={access.then((read) => ({ side: handoverOf(read), create: addOf(read) }))}
+      side={{ label: HAND_OVER_FACE.title, act: access.then(handoverOf) }}
+      create={{ label: ADD_FACE.title, act: access.then(addOf) }}
       list={{
         kind: "folds",
         wait: (
-          // „Angekündigt“ stands only while something waits, which the read tells: its wait draws it, the taller form.
           <OpenFoldPlaceholder
             title={COPY.admin.team.active}
             head={HEAD}

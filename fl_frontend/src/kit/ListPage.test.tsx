@@ -15,9 +15,10 @@ import { ListPage } from "./ListPage";
 import { ListTable } from "./ListTable";
 import { RailPage } from "./RailFrame";
 
+import type { Copy } from "@/core/copy";
 import type { AtRule, Container, Declaration, Document, Rule } from "postcss";
 import type { ComponentProps, ReactElement } from "react";
-import type { ListRoleActs, SpieltageContent } from "./ListPage";
+import type { SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
 vi.mock("next/link", () => ({
@@ -97,7 +98,7 @@ describe("the list's create act", () => {
   });
 });
 
-describe("the toolbar's acts the read decides", () => {
+describe("what the read says over the list", () => {
   // Read at once, since a prerender waits for every boundary, the list's among them.
   const LIST = {
     kind: "spieltage",
@@ -106,28 +107,25 @@ describe("the toolbar's acts the read decides", () => {
   } as const;
   const HEAD = { scope: "saison", title: { route: "spielplan" } } as const;
 
-  // The harm: React's reveal throttle holds each reveal 300 ms after the last, so a toolbar in a boundary of its own can
-  // land after the rows and lift them under a finger on „Entfernen“. Each boundary's reveal is one `$RC` call in the stream.
-  it("reveals the toolbar and the list as one", async () => {
-    const name = actLabel({ verb: "create", object: COPY.page.spielplan });
-    const acts = Promise.withResolvers<ListRoleActs>();
+  // The harm: React's reveal throttle holds each reveal 300 ms after the last, so a notice in a boundary of its own can
+  // land after the rows and lift them under a finger on a row's act. Each boundary's reveal is one `$RC` call in the stream.
+  it("reveals the notice and the list as one", async () => {
+    const text = COPY.template.draftUnsaved;
+    const notice = Promise.withResolvers<Copy | null>();
     const list = Promise.withResolvers<SpieltageContent>();
     const stream = await renderToReadableStream(
       <ListPage
         head={HEAD}
-        acts={acts.promise}
+        notice={notice.promise}
         list={{ ...LIST, content: list.promise }}
       />,
     );
 
-    acts.resolve({
-      side: null,
-      create: { title: name, act: { verb: "create", object: COPY.page.spielplan }, action: vi.fn(), children: null },
-    });
+    notice.resolve(text);
     list.resolve(await LIST.content);
     const page = await new Response(stream).text();
 
-    expect(page).toContain(name);
+    expect(page).toContain(text);
     expect(page.match(/\$RC\("/g)).toHaveLength(1);
   });
 });

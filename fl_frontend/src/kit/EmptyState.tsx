@@ -41,10 +41,11 @@ export type EmptyStateProps = {
 };
 
 /**
- * A list of open work with nothing waiting, such as an Übersicht card: „Nichts offen.“ No search or filter narrows
+ * A list of open work with nothing waiting, such as an Übersicht card or Administratoren's „Angekündigt“: „Nichts
+ * offen.“ No search or filter narrows
  * such a list, so it names no plural.
  */
-type Clear = { kind: "clear" };
+export type Clear = { kind: "clear" };
 
 const slate = tv({
   slots: {
