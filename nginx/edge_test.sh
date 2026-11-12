@@ -14,6 +14,7 @@
 # - Each security header is sent once, as written, on every location's response, a link page's
 #   referrer policy withholding the referrer.
 # - A link page's request writes no error line, its frontend failing included.
+# - The link pages' prefix without its slash reaches Next rather than a redirect Next sends back.
 # - Each upstream is named through a variable and found through Docker's DNS alone, and the
 #   capabilities the model grants are enough to start nginx.
 # - Each rate zone admits its burst as written and refuses past it, as the connection ceiling does its
@@ -415,6 +416,18 @@ for _i in "${!HEADER_PATHS[@]}"; do
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
 done
+
+# --- the link pages' prefix without its slash -----------------------------------------------------
+
+# nginx answers a prefix location's path without its slash with a redirect to it, and Next redirects
+# that slash away again, so a typed `/confirm` loops unless it reaches Next itself.
+CONFIRM_STATUS="$(curl -s -o /dev/null -D "${SCRATCH}/headers-confirm" -w '%{http_code}' --max-time 5 -H "Host: localhost" "${BASE}/confirm" || true)"
+read_headers "${SCRATCH}/headers-confirm"
+if [[ "$CONFIRM_STATUS" != 200 || -z "${SENT_VALUE[x-seen-traceparent]:-}" ]]; then
+  fail "UPSTREAM /confirm"
+  detail "expected /confirm to reach the frontend, nginx answered ${CONFIRM_STATUS} to '${SENT_VALUE[location]:-}'"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
 
 # --- an empty Next-Action, as Next would receive it --------------------------------------------------
 
@@ -1139,7 +1152,7 @@ fi
 
 ok "${#LOGGED_LINES[@]} access lines each holding its trace id and no query, the mailed link's token on none,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written, a
-link page's and its refusals withholding the referrer,
+link page's and its refusals withholding the referrer, /confirm reaching Next,
 each handing its upstream the edge's own traceparent, an empty
 Next-Action handed to no one, each rate zone admitting its burst as written and the connection ceiling
 its figure, each refusing past it, server actions metered on their own zone and nothing else metered by it, refused in
