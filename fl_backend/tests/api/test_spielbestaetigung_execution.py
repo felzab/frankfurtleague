@@ -943,6 +943,47 @@ class TestAnAnswerAndItsWritersErasureCross:
         )
 
 
+class TestADiscardAndASeatHoldersErasureCross:
+    """The discard anchors the season row its mailboxes were read off, and the erasure empties a seat on it, so one retries.
+
+    Without that conflict the discard's notice would go to the mailbox of a person who had just erased themselves.
+    """
+
+    def test_an_erasure_landing_inside_the_discard_leaves_its_mailbox_untold(self, mongo_replica_set_url: str):
+        """The Ansprechperson is erased between the discard's read of the seats and its write: the discard run again mails the rest."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
+
+            async def erase_the_ansprechperson() -> None:
+                await erased(database, client, address(TEAM1, "ansprechperson"), germany_now=ERASED_AT)
+
+            # Ahead of the row's write rather than the anchor, so the race stands whether or not the anchor is there; the
+            # erasure writes the season row and never this row, whose answer came from another seat.
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], erase_the_ansprechperson)
+            # The stand-in delegates every call, which the endpoint's collection type cannot say.
+            stand_in: Any = confirmations
+            # Not refused: the proposal still stands once the erasure has committed, so the run again closes it.
+            await discard_spielbestaetigung(
+                spielbestaetigung_id=ROW1,
+                spielbestaetigungen_collection=stand_in,
+                spiele_collection=database[Collection.SPIELE],
+                saison_teams_collection=database[Collection.SAISON_TEAMS],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                now=NOW,
+            )
+            confirmations.assert_landed_inside(serially=0)
+            told = await database[Collection.OUTBOX].find({"kind": "spiel_vorschlag_discarded"}, {"to": 1, "_id": 0}).to_list()
+
+            return (await row_now(database, ROW1))["closed"], sorted(mail["to"] for mail in told)
+
+        closed, told = on_a_spiel(mongo_replica_set_url, body)
+
+        assert closed == {"reason": "discarded"}
+        assert told == sorted(address(TEAM1, seat) for seat in KONTAKT_ROLLEN if seat != "ansprechperson")
+
+
 # --- A REFEREE'S OWN ROWS: the referee's answer, signed in on the person lane.
 
 OTTO = "otto@example.com"

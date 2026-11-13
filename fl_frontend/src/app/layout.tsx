@@ -16,11 +16,13 @@ import shareImage from "./share-image.png";
 
 import type { Metadata } from "next";
 
-// Its stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
+// Every face is `optional`: one not in within the browser's short block period is left out for that view, so no text
+// is drawn in a stand-in and then again in the face, which moved the league table's and the search's figures. Anton's
+// stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
-  display: "swap",
+  display: "optional",
   variable: "--font-anton",
   adjustFontFallback: false,
   fallback: ["Anton Fallback"],
@@ -31,7 +33,7 @@ const anton = Anton({
 // synthesis off in the global styles, an `italic` sets upright.
 const raleway = Raleway({
   subsets: ["latin"],
-  display: "swap",
+  display: "optional",
   variable: "--font-raleway",
 });
 
@@ -39,9 +41,8 @@ const raleway = Raleway({
 // figures whatever face the headings and the body take.
 const inter = Inter({
   subsets: ["latin"],
-  display: "swap",
-  // The public league table sets its figures in this face, so it is preloaded like the other two:
-  // a swap on that page would reflow every column.
+  display: "optional",
+  // The public league table sets its figures in this face, so it is preloaded like the other two.
   variable: "--font-inter",
 });
 
