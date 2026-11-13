@@ -37,6 +37,8 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
+from app.api.teams.admin_router import put_austritt
+from app.api.teams.schemas import FLAustrittPayload
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -46,7 +48,7 @@ from tests import documents
 from tests.acts import acts_of
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
@@ -517,11 +519,13 @@ async def enter(database: AsyncDatabase, client: AsyncMongoClient, row_id: Objec
     )
 
 
-async def discard_row(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None) -> None:
+async def discard_row(
+    database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None, spiele: Any = None
+) -> None:
     return await discard_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        spiele_collection=database[Collection.SPIELE],
+        spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         outbox_collection=database[Collection.OUTBOX],
         db=client,
@@ -603,6 +607,61 @@ class TestTheAdministratorsZusage:
         assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ENTERABLE, None, 1)
 
 
+class FixturesRunningARivalAtTheDiscardsLastChance(InterleavedCollection):
+    """The fixtures a discard judges, a rival run once at the latest point it can commit ahead of the discard.
+
+    Ahead of the discard's write of them, which a rival writing later meets open and waits on, or after a read of them
+    outside the discard's transaction, the last a judgement can make. Each read inside the transaction is counted as a judgement.
+    """
+
+    def __init__(self, collection: Any, rival: Rival) -> None:
+        super().__init__(collection, rival)
+        self.judged = 0
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        answered = await self._collection.aggregate(*args, **kwargs)
+        if kwargs.get("session") is None:
+            await self.run_the_rival()
+        else:
+            self.judged += 1
+
+        return answered
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        await self.run_the_rival()
+        return await self._collection.update_many(*args, **kwargs)
+
+
+# The same day an hour later: a move the save takes.
+MOVED_TO = "19:30:00"
+
+
+async def move_the_match(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await save(database, client, await spiel_now(database), time=MOVED_TO)
+
+
+async def let_the_opponent_leave_through_its_exit(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await put_austritt(
+        team_id=TEAM2,
+        saison_id=SAISON_ID,
+        austritt_data=FLAustrittPayload.model_validate({"type": "rueckzug", "reason": "Schule zieht zurück", "date": DATE}),
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        saisons_collection=database[Collection.SAISONS],
+        spiele_collection=database[Collection.SPIELE],
+        outbox_collection=database[Collection.OUTBOX],
+        db=client,
+        today=TODAY,
+        germany_now=NOW,
+    )
+
+
+# Each through its own route, which writes the fixture: the save the one it moves, the exit every fixture of the season.
+WRITING_THE_FIXTURE_BESIDE_THE_DISCARD = [
+    pytest.param(move_the_match, id="a-save-moving-the-match"),
+    pytest.param(let_the_opponent_leave_through_its_exit, id="the-opponents-exit-by-the-match-day"),
+]
+
+
 class TestTheDiscard:
     def test_it_closes_the_decline_and_leaves_the_clubs_answer_as_given(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -663,22 +722,53 @@ class TestTheDiscard:
 
         assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None)
 
-    def test_a_move_landing_inside_the_discard_refuses_it(self, mongo_replica_set_url: str):
-        """The discard writes no fixture, so the move raises no conflict: only the re-read outside the transaction sees it."""
+    @pytest.mark.parametrize("rival", WRITING_THE_FIXTURE_BESIDE_THE_DISCARD)
+    def test_a_write_landing_inside_the_discard_refuses_it_and_tells_the_club_nothing(self, mongo_replica_set_url: str, rival: Overtaking):
+        """Both committing, the club would be told the date stands for a slot the match has left, or against a club gone by its day.
+
+        The discard writes the fixture it judges, as the save and the exit do, so the two conflict and the retry refuses.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
+            fixtures = FixturesRunningARivalAtTheDiscardsLastChance(database[Collection.SPIELE], lambda: rival(database, client))
+            outcome = await outcome_of(discard_row(database, client, ROW1, spiele=fixtures))
+            fixtures.assert_landed_inside(serially=0)
+            told = await database[Collection.OUTBOX].count_documents({"kind": "spiel_vorschlag_discarded"})
 
-            async def move() -> None:
-                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"time": "19:30:00"}})
+            return outcome, (await row_now(database, ROW1))["closed"], told, fixtures.judged
 
-            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], move)
-            outcome = await outcome_of(discard_row(database, client, ROW1, spielbestaetigungen=confirmations))
-            confirmations.assert_landed_inside(serially=0)
+        # Judged twice: the refusal is the run again's, after the conflict.
+        assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 0, 2)
 
-            return outcome, (await row_now(database, ROW1))["closed"], confirmations.passes
+    def test_a_discard_landing_inside_a_save_leaves_the_save_committing_on_the_version_its_form_read(self, mongo_replica_set_url: str):
+        """The club is told the date stands as it did at the discard's commit; the save meets the discard's write and runs again.
 
-        assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 1)
+        The discard's write moves no `version`, so the form read before it saves.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
+            loaded = await spiel_now(database)
+
+            async def discard() -> None:
+                await discard_row(database, client, ROW1)
+
+            # After the save's reads and ahead of its write of the fixture.
+            fixtures = InterleavedCollection(database[Collection.SPIELE], discard, before="find_one_and_update")
+            outcome = await outcome_of(save(database, client, loaded, spiele=fixtures, time=MOVED_TO))
+            stored = await spiel_now(database)
+            told = await database[Collection.OUTBOX].count_documents({"kind": "spiel_vorschlag_discarded"})
+
+            return fixtures, outcome, (stored["time"], stored["version"]), (await row_now(database, ROW1))["closed"], told
+
+        fixtures, outcome, stored, closed, told = on_a_spiel(mongo_replica_set_url, body)
+
+        # Serially the save writes the fixture once; a second arrival is its run again after the conflict.
+        fixtures.assert_landed_inside(serially=1)
+        # The save's own raise alone.
+        assert (outcome, stored) == (COMMITTED, (MOVED_TO, 1))
+        assert (closed, told) == ({"reason": "discarded"}, len(KONTAKT_ROLLEN))
 
     @pytest.mark.parametrize("overtake", OVERTAKEN_BY_THE_PASS)
     def test_a_proposal_the_pass_would_close_is_refused_before_it_does(self, mongo_replica_set_url: str, overtake: Overtaking):

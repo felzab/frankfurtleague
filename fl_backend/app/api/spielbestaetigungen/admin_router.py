@@ -12,6 +12,7 @@ from app.api.spielbestaetigungen.crud import (
     JUDGED_SPIEL_FIELDS,
     JUDGED_VEREIN_FIELDS,
     anchor_the_mailboxes_told,
+    anchor_the_spiele_acted_on,
     pull_ansetzung_state,
     pull_named_spiele,
 )
@@ -165,7 +166,13 @@ async def discard_spielbestaetigung(
     The public fixture counts it as the club's agreement, and the club is told that the date stands.
     """
 
-    async def judged(row: Mapping[str, Any], *, verein_projection: Mapping[str, Any], session: AsyncClientSession | None) -> AnsetzungState:
+    async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
+        row = await pull_one_from_db(
+            collection=spielbestaetigungen_collection,
+            db_filter={"_id": spielbestaetigung_id},
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
+            session=session,
+        )
         # The close's own read, through the name join: the notice names the clubs as the fixture fields them.
         found = await pull_named_spiele(
             spiele_collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=JUDGED_SPIEL_FIELDS, session=session
@@ -175,23 +182,16 @@ async def discard_spielbestaetigung(
         vereine = await pull_many_from_db(
             collection=saison_teams_collection,
             db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"]]}},
-            projection=verein_projection,
+            # With what the notice reads too: the seats are the mailboxes told, and the name the one stated.
+            projection={**JUDGED_VEREIN_FIELDS, "_id": 1, "name": 1, "kontakte": 1},
             session=session,
         )
         state = AnsetzungState(spiel=found[0], vereine=vereine)
         refuse(find_discard_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
-
-        return state
-
-    async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
-        row = await pull_one_from_db(
-            collection=spielbestaetigungen_collection,
-            db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
-            session=session,
-        )
-        # The clubs' season rows with what the notice reads too: the seats are the mailboxes told, and the name the one stated.
-        state = await judged(row, verein_projection={**JUDGED_VEREIN_FIELDS, "_id": 1, "name": 1, "kontakte": 1}, session=session)
+        # A save moving the match writes the fixture, and a club's exit every fixture of its season, so either landing
+        # beside this write conflicts with it and the retry judges the fixture it left, rather than the club being told
+        # that a slot stands which the match has left.
+        await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
 
         try:
             discarded = await patch_one_in_db(
@@ -225,10 +225,6 @@ async def discard_spielbestaetigung(
             # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
             await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session)
         await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
-
-        # The fixture and the clubs' season rows are judged, and the anchor writes one at most, so a move or an exit
-        # landing under this transaction need raise no conflict: judged again outside it before answering.
-        await judged(row, verein_projection=JUDGED_VEREIN_FIELDS, session=None)
 
         return discarded
 
