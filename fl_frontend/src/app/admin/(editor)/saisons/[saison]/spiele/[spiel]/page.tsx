@@ -180,35 +180,58 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   return { version: bericht.version, text: WORDS.fromReport(WORDS.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
+/** An answer the party has not given: the chip of one still owed, and the line of one that lapsed on no day. */
+const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
+
 /**
- * One party's answer as a row, by the state its newest row reads as: its name, its answer's chip, and under them the
- * answer's day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its
- * day, and its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so
- * and the day it lapsed on, as every other page under that chip does. A row about a slot the match has left, or about
- * a call-off since undone, asks nothing about the match as it stands, and a row in time that nobody could be mailed on
- * has asked nothing yet: the party reads as not asked.
+ * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
+ * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
+ * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
+ * it lapsed on, as every other page under that chip does; one an exit or a decision ended lapsed on no day, and its line
+ * says the answer is missing. A discarded proposal reads as the agreement the fixture counts. An answer about a slot the
+ * match has left is drawn as given beside that slot, which it alone is about. A row about a slot the match has left that
+ * holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time that
+ * nobody could be mailed on has asked nothing yet: the party reads as not asked.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
-  if (row === undefined || row.state === "invalid" || row.state === "cancelled" || (row.state === "valid" && row.asked_at === null)) {
+  if (
+    row === undefined ||
+    (row.state === "invalid" && row.answer === null) ||
+    row.state === "cancelled" ||
+    (row.state === "valid" && row.asked_at === null)
+  ) {
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
-  const deadline = dayOf(row.deadline);
-  if (row.state === "expired") return { ...shown, chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(deadline) };
+  if (row.state === "expired") {
+    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on));
+    return { ...shown, chip: EXPIRED_CHIP, line };
+  }
   const { answer } = row;
-  // Unanswered and in time: its party may still answer.
-  if (answer === null) {
-    return { ...shown, chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: WORDS.answerBy(deadline) };
+  // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
+  if (answer === null) return { ...shown, chip: { tone: "warn", label: ANSWER_MISSING }, line: WORDS.answerBy(dayOf(row.due_by)) };
+  const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
+  if (row.state === "invalid") {
+    const slot = SERVER_COPY.season.labelled(
+      COPY.admin.facts.before,
+      COPY.spielplan.when(dayOf(row.ansetzung.date), timeOf(row.ansetzung.time)),
+    );
+    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: slot } : { ...shown, chip: DECLINED_CHIP, line: slot, ...reason };
   }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
-  if (answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
-  const { vorschlag, reason } = answer;
+  // The chip follows the state, so a decline whose proposal the league discarded reads as the agreement it counts as.
+  if (row.state === "agreed") {
+    return answer.kind === "agreed"
+      ? { ...shown, chip: AGREED_CHIP, line: day }
+      : { ...shown, chip: AGREED_CHIP, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
+  }
+  const { vorschlag } = answer;
   const line =
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: DECLINED_CHIP, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: DECLINED_CHIP, line, ...reason };
 }
 
 /**
