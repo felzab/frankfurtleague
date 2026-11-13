@@ -72,8 +72,9 @@ export const metadata: Metadata = {
 };
 
 /**
- * Every route may block a navigation into it: the root is the highest `instant` config of every route, so `false` here
- * lets the build accept each page that reads uncached data outside every boundary, which `WholePages` leaves them.
+ * Every route may block a navigation into it: every page arrives whole, so no navigation into one shows anything before
+ * it is read. The root is the highest `instant` config of every route, so `false` here tells Next's navigation checks so
+ * for each of them; it is the lowest place that covers them all.
  */
 export const instant = false;
 

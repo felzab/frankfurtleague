@@ -120,7 +120,7 @@ export function usePendingQuery(): URLSearchParams | null {
 
 const bar = tv({
   // Never pressed and never read: the page under it stays the one to press, and the sign is a visual one alone.
-  base: "pointer-events-none fixed inset-x-0 z-20 h-0.75 opacity-0 data-shown:opacity-100 data-shown:transition-opacity data-shown:duration-(--motion-in)",
+  base: "pointer-events-none fixed inset-x-0 z-20 h-0.75 overflow-hidden opacity-0 data-shown:opacity-100 data-shown:transition-opacity data-shown:duration-(--motion-in)",
   variants: {
     // At the top edge of the page area, under the band on a phone and under the title strip beside the rail on desktop,
     // its start following the rail's width as it collapses; under the classic header.
@@ -134,8 +134,10 @@ const bar = tv({
 /**
  * The one sign that a navigation is under way: a thin bar at the top of the page area, which each frame places once,
  * outside every link and every scroll box. It shows once a navigation has been pending `SHOWN_AFTER`, fading in where
- * motion is welcome and at once where it is not, keeps pulsing under both, and goes in the render that commits the new
- * page. Its segment is the brand green, which keeps 4.5:1 on every ground of the page in both themes.
+ * motion is welcome and at once where it is not, and goes in the render that commits the new page. Where motion is
+ * welcome a segment crosses it (`kit-navigation`, in the tokens); where it is not the whole bar pulses, since a
+ * loading sign never stops. Its segment is the brand green, which keeps 4.5:1 on every ground of the page in both
+ * themes.
  */
 export function NavigationBar({ placement }: { placement: "rail" | "classic" }) {
   const shown = useContext(NavigationContext)?.shown ?? false;
@@ -144,7 +146,7 @@ export function NavigationBar({ placement }: { placement: "rail" | "classic" }) 
       aria-hidden
       data-shown={shown || undefined}
       className={bar({ placement })}>
-      <span className="block size-full animate-pulse rounded-full bg-brand" />
+      <span className="block h-full w-1/3 animate-[kit-navigation_1.2s_ease-in-out_infinite] rounded-full bg-brand motion-reduce:w-full motion-reduce:animate-pulse" />
     </span>
   );
 }
