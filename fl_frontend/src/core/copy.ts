@@ -169,8 +169,6 @@ const PRIVACY_NOTICE = "Datenschutz";
 const RETIREMENT = "Stilllegung";
 // An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
-// The season's start having passed, as an act's reason.
-const LOCKED_SINCE_START = "Seit Saisonbeginn gesperrt";
 
 /**
  * Each reason an editor's fields can stand locked for, as its lock line says it after „Gesperrt“, in the order the
@@ -193,6 +191,9 @@ const LOCK = {
 
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
+
+// The season's start having passed, as an act's reason, in the lock line's words.
+const LOCKED_SINCE_START = `Gesperrt ${LOCK.sinceStart}`;
 
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
