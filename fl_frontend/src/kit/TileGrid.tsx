@@ -1,5 +1,7 @@
 import Image from "next/image";
 
+import { waitSample } from "@/core/copy";
+
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
@@ -20,10 +22,26 @@ import type { ChipProps } from "./Chip";
 export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href: string };
 
 /**
- * A club of the season: its name, its Kürzel and its page; on Teams also its group, under the name, and, where it
- * has left the season, its exit's chip after the name and its words muted, as a list row carries them.
+ * A club of the season: its name, its Kürzel and its page, `null` in the sample the tiles wait as; on Teams also its
+ * group, under the name, and, where it has left the season, its exit's chip after the name and its words muted, as a
+ * list row carries them.
  */
-export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route; line?: Copy; chip?: ChipProps; muted?: boolean };
+export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route | null; line?: Copy; chip?: ChipProps; muted?: boolean };
+
+/** How many tiles a grid of schools waits as: six rows of four in a wide box. */
+const SCHOOLS_WAITING = 24;
+
+/**
+ * The schools while they are read, for `Pending` to draw the tiles from: 24 for every grid of schools, since how many
+ * clubs a season holds is what the read tells, so no page states it. Each tile holds what Teams lands, a Kürzel's three
+ * letters, a name of two words and the group's line under it.
+ */
+export const SCHOOL_TILES_SAMPLE: readonly SchoolTile[] = Array.from({ length: SCHOOLS_WAITING }, () => ({
+  name: { record: waitSample(7, 4) },
+  plaque: { record: waitSample(3) },
+  href: null,
+  line: waitSample(6, 1),
+}));
 
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
 // fixed grid, two columns and four from 42 rem of the box they stand in; each tile's content is its own.
@@ -62,9 +80,10 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
   return (
     <TilesBox>
       <ul className={slots.root()}>
-        {schools.map((school) => (
+        {schools.map((school, index) => (
           <li
-            key={school.href}
+            // The sample's tiles have no address to tell them apart by.
+            key={school.href ?? index}
             className={slots.tile()}>
             <Link
               href={school.href}
@@ -76,10 +95,17 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
                 />
                 <span className="grid min-w-0">
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0">{school.name.record}</span>
+                    {/* Each value's words in an inline box of their own, which a wait draws as their bar, line by line. */}
+                    <span className="min-w-0">
+                      <span data-kit-bar="words">{school.name.record}</span>
+                    </span>
                     {school.chip !== undefined && <Chip {...school.chip} />}
                   </span>
-                  {school.line !== undefined && <span className="text-xs font-normal text-fg-muted">{school.line}</span>}
+                  {school.line !== undefined && (
+                    <span className="text-xs font-normal text-fg-muted">
+                      <span data-kit-bar="words">{school.line}</span>
+                    </span>
+                  )}
                 </span>
               </span>
             </Link>
@@ -91,16 +117,15 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
 }
 
 /**
- * The schools while they are read: `count` of the grid's tiles, each its plaque, its name's line and the line under
- * it as bars, at a tile's height. 24 by default, six rows of four in a wide box, for every grid of
- * schools: how many clubs a season holds is what the read tells, so no page states it.
+ * The schools while they are read, drawn by hand: as many of the grid's tiles as the sample holds, each its plaque,
+ * its name's line and the line under it as bars, at a tile's height.
  */
-export function SchoolTilesPlaceholder({ count = 24 }: { count?: number }) {
+export function SchoolTilesPlaceholder() {
   const slots = grid({ kind: "school" });
   return (
     <TilesBox>
       <div className={slots.root()}>
-        {Array.from({ length: count }, (_, index) => (
+        {Array.from({ length: SCHOOLS_WAITING }, (_, index) => (
           <div
             key={index}
             className={slots.tile()}>

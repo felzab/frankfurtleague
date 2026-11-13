@@ -18,6 +18,7 @@ import { Filters } from "./Filters";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
+import { Pending } from "./Pending";
 import { RailPage } from "./RailFrame";
 import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
 import { Placeholder, Waiting } from "./Skeleton";
@@ -27,7 +28,7 @@ import { SpieltagHeadPlaceholder } from "./SpieltagHead";
 import { Table, TablePlaceholder } from "./Table";
 import { Tabs, TabsPlaceholder } from "./Tabs";
 import { TeamHead, TeamHeadPlaceholder } from "./TeamHead";
-import { SchoolTilesPlaceholder } from "./TileGrid";
+import { SCHOOL_TILES_SAMPLE, SchoolTiles } from "./TileGrid";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -198,15 +199,13 @@ type ListContent =
       kind: "tiles";
       /** The search field's name. */
       search: ListSearch;
-      /** How many tiles its wait draws. */
-      wait: number;
       content: Promise<TilesContent>;
     };
 
 /**
  * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
  * as many as the page states beside its list, since how many there are is what the read
- * tells.
+ * tells. The school tiles wait as the tiles themselves, drawn from their sample (`Pending`), which no page counts.
  */
 function ListPlaceholder({ list }: { list: ListContent }) {
   switch (list.kind) {
@@ -299,7 +298,11 @@ function ListPlaceholder({ list }: { list: ListContent }) {
         </SpielCards>
       );
     case "tiles":
-      return <SchoolTilesPlaceholder count={list.wait} />;
+      return (
+        <Pending>
+          <SchoolTiles schools={SCHOOL_TILES_SAMPLE} />
+        </Pending>
+      );
   }
 }
 
