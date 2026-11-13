@@ -22,7 +22,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_spiel_editor_expired_test")
+DATABASE_NAME = worker_database("fl_spiel_editor_read_test")
 
 SAISON_ID = "2026"
 HOME, AWAY = (ObjectId(f"6890a1b2c3d4e5f6074600{n:02d}") for n in (1, 2))
