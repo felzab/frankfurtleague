@@ -165,9 +165,10 @@ export function NavigationBar({ placement }: { placement: "rail" | "classic" }) 
  * The page's own content, which a frame places it in: `inert` while a navigation leaving the page is pending, so nothing
  * typed, pressed or selected in a page being left reaches it, and it leaves the accessibility tree; the frame around it
  * stays pressable, so a second press still wins, and the bar says what inertness alone would not. A navigation staying
- * on the path, a filter's or a tab's, leaves the page live, and so does one opening the match pop-up over it, so the
- * match pressed keeps its focus for the pop-up to give back when it closes (`leavesPage`). It draws no box (`display: contents`), so it moves nothing
- * and takes no picture of its own in a page's cross-fade.
+ * on the path, a filter's or a tab's, leaves this wrapper live, and so does one opening the match pop-up over it, so the
+ * match pressed keeps its focus for the pop-up to give back when it closes (`leavesPage`); once the pop-up stands, its
+ * modal makes the page beneath it inert, as every modal dialog does. It draws no box (`display: contents`), so it
+ * moves nothing and takes no picture of its own in a page's cross-fade.
  */
 export function PageContent({ children }: { children: ReactNode }) {
   const pending = useContext(NavigationContext)?.pending ?? null;
