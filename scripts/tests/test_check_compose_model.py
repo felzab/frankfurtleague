@@ -7,15 +7,15 @@ rule rather than either compose file's current wording.
 
 from __future__ import annotations
 
-import contextlib
-import io
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, base_env, import_scripts, new_root, run_shell, write_shell
+from conftest import BASH, REPO_ROOT, base_env, import_scripts, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -252,20 +252,29 @@ def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
     return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
-def run_main(production: dict[str, Any], local: dict[str, Any], project: Path, monkeypatch) -> tuple[int, str]:
-    """`main` over two rendered models beside `project`, the checkout their edges mount: its exit code and what it printed."""
-    monkeypatch.setattr(checker, "REPO_ROOT", project)
+# The checker and the one module it imports, at their paths in a checkout.
+CHECKER_FILES: Final = ("scripts/checks/check_compose_model.py", "scripts/lib/checker_kernel.py")
+
+
+def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> subprocess.CompletedProcess[str]:
+    """The checker run as the gate runs it, as its own process, over two rendered models beside `project`.
+
+    It reads the edge's directories from the checkout it sits in, so `project` holds the checker too,
+    and is the checkout their edges mount as well as the directory Compose rendered them in.
+    """
+    for rel in CHECKER_FILES:
+        (project / rel).parent.mkdir(parents=True, exist_ok=True)
+        (project / rel).write_bytes((REPO_ROOT / rel).read_bytes())
     for name, rendered in (("production.json", production), ("local.json", local)):
         (project / name).write_bytes(json.dumps(rendered).encode())
-    out = io.StringIO()
-    argv_before = checker.sys.argv
-    checker.sys.argv = ["check_compose_model.py", str(project / "production.json"), str(project / "local.json")]
-    try:
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
-            code = checker.main()
-    finally:
-        checker.sys.argv = argv_before
-    return code, out.getvalue()
+    command = (sys.executable, str(project / CHECKER_FILES[0]), str(project / "production.json"), str(project / "local.json"))
+    # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
+    return subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", check=False)
+
+
+def failures(done: subprocess.CompletedProcess[str]) -> list[str]:
+    """The first line of each finding the run printed, as a reader of the gate's output meets it."""
+    return [line.strip() for line in done.stdout.splitlines() if line.strip().startswith("FAIL")]
 
 
 def clean_pair(project: Path) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -276,35 +285,41 @@ def clean_pair(project: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     return rendered_stack(project, "nginx/prod", cloudflared=CONNECTED), rendered_stack(project, "nginx/local")
 
 
+def test_a_clean_pair_exits_zero():
+    """The contract's passing arm, and what keeps the finding case below from passing on a run that fails anyway."""
+    project = new_root("fl-compose-main-")
+
+    done = run_main(*clean_pair(project), project)
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "production publishes nothing and runs 4 services; locally every port binds loopback" in done.stdout, done.stdout
+
+
 @pytest.mark.parametrize("failing", ["production", "local"])
-def test_a_rule_in_the_table_that_fails_fails_the_run(failing: str, monkeypatch):
-    """`main` runs `RULES` whole over both stacks, so this one case holds the wiring every rule reaches a reader through."""
+def test_a_finding_in_either_stack_fails_the_run(failing: str):
+    """`main` runs `RULES` over both stacks and answers 1 for what one finds, the finding printed for the reader."""
     project = new_root("fl-compose-main-")
     production, local = clean_pair(project)
-    code, said = run_main(production, local, project, monkeypatch)
-    assert code == 0, said
+    stack = {"production": production, "local": local}[failing]
+    stack["services"]["backend"]["environment"]["MONGODB_URI"] = "x"
 
-    def planted(stack):
-        return [checker.Finding("fail", f"{stack.name}: planted")] if stack.name == failing else []
+    done = run_main(production, local, project)
 
-    monkeypatch.setattr(checker, "RULES", (*checker.RULES, planted))
-    code, said = run_main(production, local, project, monkeypatch)
-
-    assert code == 1 and f"{failing}: planted" in said, said
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == [f"FAIL    {failing}: backend is handed MONGODB_URI in its environment"], done.stdout
 
 
-def test_a_rule_that_refuses_a_model_exits_two(monkeypatch):
+def test_a_model_compose_did_not_render_exits_two():
     """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair."""
     project = new_root("fl-compose-main-")
     production, local = clean_pair(project)
+    local["services"]["mongo"]["ports"] = ["27017:27017"]
 
-    def refuses(stack):
-        raise ValueError(f"{stack.name}: planted")
+    done = run_main(production, local, project)
 
-    monkeypatch.setattr(checker, "RULES", (*checker.RULES, refuses))
-    code, said = run_main(production, local, project, monkeypatch)
-
-    assert code == checker.EXIT_REFUSED and "planted" in said, said
+    assert done.returncode == checker.EXIT_REFUSED, done.stdout + done.stderr
+    assert "local: mongo has a port Compose did not expand, so this is not its rendered model" in done.stderr, done.stderr
+    assert "Nothing was judged, so this is a refusal rather than a verdict on either stack." in done.stderr, done.stderr
 
 
 @pytest.mark.parametrize("stack", ["production", "local"])
