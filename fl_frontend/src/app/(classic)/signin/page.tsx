@@ -3,7 +3,6 @@ import { connection } from "next/server";
 import { SignInShell } from "@/kit/SignInShell";
 
 import { frontend_config } from "@/core/config";
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SignInFlow } from "@/features/auth/components/forms/SignInFlow";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -20,12 +19,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
  * this page renders.
  */
 export default function SignInPage() {
-  return (
-    <SignInShell
-      title={COPY.signIn.title}
-      view={readView()}
-    />
-  );
+  return <SignInShell view={readView()} />;
 }
 
 async function readView() {

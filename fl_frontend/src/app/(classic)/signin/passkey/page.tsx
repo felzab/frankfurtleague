@@ -22,16 +22,10 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 
 /**
  * Resolves nothing itself: a top-level await would tie the static shell to one URL, and this page is a
- * function of the session on the request. It waits in the sign-in's skeleton, as `/signin` does, its title a bar:
- * the step the session reads names it.
+ * function of the session on the request.
  */
 export default function PasskeyPage({ searchParams }: Props) {
-  return (
-    <SignInShell
-      title={null}
-      view={readView(searchParams)}
-    />
-  );
+  return <SignInShell view={readView(searchParams)} />;
 }
 
 async function readView(searchParams: Props["searchParams"]) {
