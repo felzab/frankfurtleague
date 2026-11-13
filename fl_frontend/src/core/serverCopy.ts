@@ -431,7 +431,7 @@ export const SERVER_COPY = catalogue({
      */
     austrittNotice: {
       subject: (team: string) => `Ausgeschieden: ${team}`,
-      lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonName(saison))} ausgeschieden.` },
+      lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonNameBound(saison))} ausgeschieden.` },
       spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
       /** A match row's label, with its year as every other mail's date has it; undated, what is still to settle. */
       when: (day: CalendarDay | null, time: TimeOfDay | null) =>
@@ -458,7 +458,7 @@ export const SERVER_COPY = catalogue({
        */
       received: {
         subject: (saison: string) => `Bewerbung für die ${COPY.shared.saisonName(saison)} eingegangen`,
-        lead: (saison: string) => `${boundBy("Für", "die", COPY.shared.saisonName(saison))} ist eine Bewerbung eingegangen.`,
+        lead: (saison: string) => `${boundBy("Für", "die", COPY.shared.saisonNameBound(saison))} ist eine Bewerbung eingegangen.`,
         named: (rollen: readonly FLKontaktRolle[]) => `Darin bist du ${boundBy("als", rollenText(rollen))} genannt.`,
         others: "Die anderen Kontaktpersonen bestätigen selbst. Sag ihnen Bescheid.",
         pending: "Noch offen",
@@ -476,7 +476,7 @@ export const SERVER_COPY = catalogue({
         subject: (saison: string) => `Zusage für die ${COPY.shared.saisonName(saison)}`,
         /** The first sentence after the club's name, the preview; the welcome stands apart from it. */
         lead: {
-          after: (saison: string) => ` spielt ${boundBy("in", "der", COPY.shared.saisonName(saison))}.`,
+          after: (saison: string) => ` spielt ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))}.`,
           welcome: "Herzlich willkommen.",
         },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
@@ -487,7 +487,7 @@ export const SERVER_COPY = catalogue({
         subject: (saison: string) => `Absage für die ${COPY.shared.saisonName(saison)}`,
         lead: {
           before: "Danke für die Bewerbung von\u00A0",
-          after: (saison: string) => ` ${boundBy("für", "die", COPY.shared.saisonName(saison))}.`,
+          after: (saison: string) => ` ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))}.`,
         },
         decision: "In dieser Saison können wir das Team nicht aufnehmen.",
         /** After `decision`: the decline stands as the application's deletion notice, so no second mail follows. */
@@ -577,7 +577,7 @@ export const SERVER_COPY = catalogue({
       subject: "Deine E-Mail-Adresse ist gesperrt",
       lead: "Die Verwaltung hat deine E-Mail-Adresse gesperrt.",
       effect: "Mit ihr kannst du dich nicht anmelden und bekommst keine E-Mails der Liga.",
-      ends: (saison: string) => `Die Sperre endet ${boundBy("nach", "der", COPY.shared.saisonName(saison))} von selbst.`,
+      ends: (saison: string) => `Die Sperre endet ${boundBy("nach", "der", COPY.shared.saisonNameBound(saison))} von selbst.`,
       stored: "In der Sperrliste stehen deine Adresse, der Grund und das Datum.",
       account:
         "Dein Konto bleibt, solange unter dieser Adresse ein Eintrag bei uns besteht. Die Sperre bleibt auch nach einer Löschung bis zu ihrem Ende.",
@@ -632,7 +632,7 @@ export const SERVER_COPY = catalogue({
       account: `Dein Konto und deine Angaben sind gelöscht, bis auf das, was unter „${COPY.page.privacyNotice}“ steht.`,
       bewerbung: {
         // True of a lapse and of an application undecided at its season's end alike.
-        lead: (saison: string) => `Die Bewerbung ${boundBy("für", "die", COPY.shared.saisonName(saison))} kam nicht zustande.`,
+        lead: (saison: string) => `Die Bewerbung ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))} kam nicht zustande.`,
         deleted: "Wir haben sie mit allen Angaben gelöscht.",
       },
     },
@@ -644,7 +644,7 @@ export const SERVER_COPY = catalogue({
     invitation: {
       subject: (team: string) => `Registrierungslink: ${team}`,
       passOn: (saison: string, team: string) =>
-        `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("für", team)} spielen.`,
+        `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
       valid: "Der Link gilt bis zum Ende der Registrierung.",
@@ -665,7 +665,9 @@ export const SERVER_COPY = catalogue({
       absage: {
         subject: (team: string) => `Registrierung abgelehnt: ${team}`,
         /** The lead follows the team's name, set semibold. */
-        lead: { after: (saison: string) => ` hat deine Registrierung ${boundBy("für", "die", COPY.shared.saisonName(saison))} abgelehnt.` },
+        lead: {
+          after: (saison: string) => ` hat deine Registrierung ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))} abgelehnt.`,
+        },
         askTeam: "Fragen dazu beantwortet dein Team.",
         /** In `askTeam`'s place where the team answered that the address is another person's. */
         otherPerson: "Unter dieser Adresse steht schon eine andere Person.",
@@ -1236,10 +1238,10 @@ export const SERVER_COPY = catalogue({
     opening: {
       /** A seat in an application, one text for all: it names no submitter, the form recording none. */
       named: (schule: Words, saison: string, rolle: Words) =>
-        `Du bist in der Bewerbung ${boundBy("von", textOf(schule))} ${boundBy("für", "die", COPY.shared.saisonName(saison))} ${boundBy("als", textOf(rolle))} genannt.`,
+        `Du bist in der Bewerbung ${boundBy("von", textOf(schule))} ${boundBy("für", "die", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(rolle))} genannt.`,
       /** Seated by the league on a team's season, with no application. */
       seasonRow: (team: Words, saison: string, rolle: Words) =>
-        `Die Liga hat dich ${boundBy("für", textOf(team))} ${boundBy("in", "der", COPY.shared.saisonName(saison))} ${boundBy("als", textOf(rolle))} eingetragen.`,
+        `Die Liga hat dich ${boundBy("für", textOf(team))} ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("als", textOf(rolle))} eingetragen.`,
     },
     stored: "Wir speichern deinen Namen, deine Kontaktdaten und dein Geburtsdatum längstens bis zum Ende der Saison danach.",
     /** The same on a closed row, whose seat no confirmation filled, so no birthdate stands on it. */
@@ -1300,7 +1302,7 @@ export const SERVER_COPY = catalogue({
    */
   registrierungConfirmation: {
     opening: (team: Words, saison: string) =>
-      `Du hast dich über den Link ${boundBy("von", textOf(team))} für den Kader ${boundBy("in", "der", COPY.shared.saisonName(saison))} registriert.`,
+      `Du hast dich über den Link ${boundBy("von", textOf(team))} für den Kader ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} registriert.`,
     stored:
       "Wir speichern deinen Namen, deine E-Mail-Adresse, dein Geburtsdatum und, wenn du sie angegeben hast, Trikotnummer, Position und Stufe, längstens bis zum Ende der Saison danach.",
     ageCheck,

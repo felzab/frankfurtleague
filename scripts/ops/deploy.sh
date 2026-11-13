@@ -130,17 +130,21 @@ up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orp
 # `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
 # keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
 # `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
-# output, says which: `start worker processes` at notice, the image's nginx.conf level, or the reason.
-# Matched as an error-log line from its start, which no request can write.
+# output, says which, each line naming the pid that wrote it. The master logs `reconfiguring`, then
+# the reason it refuses or `start worker processes` at notice, the image's nginx.conf level. Only the
+# master's lines are read: a worker's request can log an alert of its own, such as its connections
+# running out, which bears no connection number either.
 reload_nginx() {
-  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said refused i
+  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
   quietly docker compose exec -T nginx nginx -s reload || return 1
   failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
   for (( i = 0; i < 15; i++ )); do
     sleep 1
     said="$(docker compose logs --no-log-prefix --since "$since" nginx 2>&1)" \
       || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
-    refused="$(grep -E '^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ' <<<"$said" || true)"
+    master="$(sed -nE 's/^[0-9/]+ [0-9:]+ \[notice\] ([0-9]+)#[0-9]+: reconfiguring$/\1/p' <<<"$said" | tail -n 1)"
+    if [[ -z "$master" ]]; then continue; fi
+    refused="$(grep -E "^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ${master}#[0-9]+: " <<<"$said" || true)"
     if [[ -n "$refused" ]]; then
       failure="$refusal"
       info "nginx's running master refused the configuration nginx -t passed, which a restart of nginx, a
@@ -148,7 +152,7 @@ reboot included, loads afresh:"
       detail <<<"$refused"
       return 1
     fi
-    if grep -Eq '^[0-9/]+ [0-9:]+ \[notice\] [0-9]+#[0-9]+: start worker processes$' <<<"$said"; then return 0; fi
+    if grep -Eq "^[0-9/]+ [0-9:]+ \[notice\] ${master}#[0-9]+: start worker processes$" <<<"$said"; then return 0; fi
   done
   info "nginx logged neither new workers nor a refusal within 15 seconds of the reload."
   return 1
