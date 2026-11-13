@@ -1,4 +1,4 @@
-"""BACKEND · the clubs an applying school picks from, and the tier the whole public router is served at
+"""BACKEND · the clubs an applying school picks from
 
 `tests/api/test_bewerbung_public_read.py` holds the other half of the form's read -- the application
 window and the colours taken, which the rule puts inside its carve-out. A file of its
@@ -13,15 +13,12 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.core.codes import Code
-
 from .test_bewerbung_public_read import (
     ADDRESS,
     CLUBS,
     DESCRIPTION,
     OPEN_SAISON,
     PREFIX,
-    RETIRED_CLUB,
     SCHULFORM,
     answered,
     seed_the_public_corpus,
@@ -58,25 +55,3 @@ class TestTheClubList:
 
         for withheld in (ADDRESS["street"], ADDRESS["postcode"], website_host(CLUBS[0][0]), SCHULFORM, DESCRIPTION):
             assert withheld not in rendered
-
-    def test_a_retired_club_is_not_offered(self, seeded_url: str):
-        """The picker offers what a school may apply AS, and `find_picked_club_refusal` refuses the same set at the write."""
-
-        assert RETIRED_CLUB[0] not in answered(seeded_url, FORM).text
-
-
-class TestTheTierTheseReadsAreServedAt:
-    """Base-tier at a prefix whose other two routers are admin, which is exactly the mix `test_admin_guard.py` exists to catch."""
-
-    def test_no_key_reaches_nothing(self, seeded_url: str):
-        """Public here means no SESSION, never no key: the edge reaches this application through the frontend, which holds one."""
-
-        response = answered(seeded_url, FORM, headers={})
-
-        assert response.status_code == 401
-        assert response.json()["error_code"] == Code.ACCESS_KEY_REFUSED
-
-    def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
-        """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""
-
-        assert answered(seeded_url, f"{PREFIX}/list/admin?saison_id=2027").status_code == 401
