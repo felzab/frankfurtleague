@@ -127,6 +127,7 @@ from app.core.dependencies import (
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
     SchiedsrichterReadCollection,
+    SnapshotSession,
     SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpieleReadCollection,
@@ -360,6 +361,7 @@ async def get_team_saison_admin(
     outbox_collection: OutboxReadCollection,
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     schiedsrichter_collection: SchiedsrichterReadCollection,
+    session: SnapshotSession,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLTeamSaisonAdminResponse:
@@ -434,6 +436,7 @@ async def get_team_saison_admin(
             start_date=str(saison_raw["start_date"]),
             vereine={row["team_id"]: row for row in season_rows},
             now=now,
+            session=session,
         )
     )
 

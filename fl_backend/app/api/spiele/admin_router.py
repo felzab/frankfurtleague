@@ -191,13 +191,17 @@ async def patch_spiel(
     )
 
     if dry_run:
-        return await preview_spiel_save(
-            spiel_id=spiel_id,
-            payload=spiel_data,
-            collections=collections,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            now=now,
-        )
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction,
+        # and a declared session would be started for every save.
+        async with db.start_session(snapshot=True) as session:
+            return await preview_spiel_save(
+                spiel_id=spiel_id,
+                payload=spiel_data,
+                collections=collections,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                now=now,
+                session=session,
+            )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(

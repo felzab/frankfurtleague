@@ -8,6 +8,7 @@ after its Anpfiff, is a referee looking in the wrong place.
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from bson import ObjectId
 
 from app.api.saisons.services import SAISON_AS
@@ -82,20 +83,38 @@ def test_an_abandonment_owing_its_report_leads_while_a_no_show_owing_none_files_
     assert served([reported, no_show, abandoned]) == [1, 3, 2]
 
 
-def test_a_fixture_a_club_left_by_its_day_is_no_longer_refereed_and_owes_no_report():
-    """The pass told the referee „Du pfeifst … nicht mehr“: served as refereed, the list would ask for the report after the kick-off."""
+KICK_OFF = "2027-05-20"
+RESULT = {"ergebnis": "2:1", "team1_tore": 2, "team2_tore": 1}
 
-    kick_off = "2027-05-20"
-    left_on_the_day = {"team_id": ObjectId(), "name": "Adler", "tore": None, "austritt": {"date": kick_off}}
+
+@pytest.mark.parametrize(
+    ("austritt", "record", "refereed"),
+    [
+        pytest.param(None, RESULT, True, id="a match played"),
+        pytest.param(None, {"sonderereignis": "abgebrochen"}, True, id="a match abandoned"),
+        pytest.param(KICK_OFF, {}, False, id="a club out by its day"),
+        # The walkover a fixture against a departed club is reported with: read through the decision, which answers
+        # the event first, the referee the pass told „Du pfeifst … nicht mehr“ would be handed the booking back.
+        pytest.param(KICK_OFF, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, False, id="a club out by its day reported absent"),
+        # An exit dated back over a match already played: its referee officiated and was told nothing.
+        pytest.param(KICK_OFF, RESULT, True, id="a match played before an exit dated back over it"),
+    ],
+)
+def test_a_past_fixture_is_refereed_and_owes_its_report_unless_a_club_left_by_its_day_and_it_was_never_played(
+    austritt: str | None, record: dict[str, Any], refereed: bool
+):
+    """Each kicked off with no report sent, in a running season: refereed, the report is owed; not, the list shows no booking."""
+
+    team1_tore, team2_tore = record.get("team1_tore"), record.get("team2_tore")
     joined = {
         "_id": ObjectId(),
-        "date": kick_off,
+        "date": KICK_OFF,
         "time": "18:30:00",
-        "team1": left_on_the_day,
-        "team2": {"team_id": ObjectId(), "name": "Biber", "tore": None, "austritt": None},
+        "team1": {"team_id": ObjectId(), "name": "Adler", "tore": team1_tore, "austritt": None if austritt is None else {"date": austritt}},
+        "team2": {"team_id": ObjectId(), "name": "Biber", "tore": team2_tore, "austritt": None},
         "spielort": None,
-        "ergebnis": None,
-        "sonderereignis": None,
+        "ergebnis": record.get("ergebnis"),
+        "sonderereignis": record.get("sonderereignis"),
         OWN_ROW_AS: [],
         BERICHT_AS: [],
         SAISON_AS: [{"status": "active"}],
@@ -103,4 +122,4 @@ def test_a_fixture_a_club_left_by_its_day_is_no_longer_refereed_and_owes_no_repo
 
     served = compose_self_spiel(joined, now=datetime(2027, 5, 21, 12, tzinfo=UTC))
 
-    assert (served.officiates, served.past, served.bericht_owed) == (False, True, False)
+    assert (served.officiates, served.past, served.bericht_owed) == (refereed, True, refereed)

@@ -33,6 +33,7 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
+    SONDEREREIGNIS_NO_SHOW,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielElfmeterschiessenPayload,
@@ -161,12 +162,30 @@ def decision_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any)
     return None
 
 
+def _joined_austritte(spiel: Mapping[str, Any]) -> list[str]:
+    return [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+
+
 def joined_decision_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
     """`decision_of` for a fixture read through the name join, by its sides' own exit days and its own day."""
 
-    austritte = [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+    return decision_of(spiel=spiel, austritte=_joined_austritte(spiel), tag=spiel.get("date"))
 
-    return decision_of(spiel=spiel, austritte=austritte, tag=spiel.get("date"))
+
+def exit_ends_the_booking(spiel: Mapping[str, Any]) -> bool:
+    """Whether a club out by the fixture's day ends its referee's booking, for a fixture read through the name join.
+
+    The exit judged on its own, never through `joined_decision_of`, which answers a result or an event first: the
+    walkover a fixture against a departed club is reported with would hand back a booking the pass told the referee
+    is off. Only a record of the match played keeps it, a result or a count no no-show awarded, or an abandonment: an
+    exit dated back over a match already played, whose referee officiated and was told nothing, its kick-off gone by.
+    """
+
+    tag = spiel.get("date")
+    exited = tag is not None and any(day <= tag for day in _joined_austritte(spiel))
+    played = has_taken_place(spiel) and spiel.get("sonderereignis") not in SONDEREREIGNIS_NO_SHOW
+
+    return exited and not played
 
 
 @dataclass(frozen=True)
@@ -825,8 +844,8 @@ def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
 def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]) -> dict[str, Any]:
     """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read.
 
-    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row stands open for: a party asked
-    already is asked about a move at once, however far out it went.
+    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row holds its party's question for:
+    a party asked already is asked about a move at once, however far out it went.
     """
 
     return {
@@ -847,7 +866,8 @@ REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
 # discard its club's answer to the Ansetzung left, and a referee change, never a club's. A club taken off the fixture,
-# which `reason_to_close` names as a move, ends it too: `reason_to_end` asks that apart.
+# and a move the mint asks nothing about, which `reason_to_close` names as a move, end it too: `reason_to_end` asks
+# those apart.
 REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
@@ -933,6 +953,11 @@ def reason_to_end(
     reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now)
     # A club taken off is told so whatever its row holds: its discard told it the date stands, a match it no longer plays.
     if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER or not still_a_party(row=row, spiel=spiel):
+        return reason
+
+    # A move the mint asks nothing about, onto today or a slot it cannot ask, is told here or by nobody: kept, the
+    # discard would leave its club at the slot it was told stands.
+    if reason == "ansetzung_changed" and not asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
         return reason
 
     # Its own kick-off, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.

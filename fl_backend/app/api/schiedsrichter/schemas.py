@@ -263,7 +263,7 @@ class FLSchiedsrichterSpiel(BaseReadModel):
     reason: CustomNonEmptyString | None
     # Whether the league recorded the answer for them, so the list never shows it as their own.
     entered: bool
-    # Whether they still referee it: false once a club's exit decides it, as the pass's notice told them; nothing is then
+    # Whether they still referee it: false once a club's exit ends it unplayed, as the pass's notice told them; nothing is then
     # answered or reported.
     officiates: bool
     # Whether the fixture has been played: from its kick-off, or from its day where it holds no time. Judged here, by the
