@@ -1,12 +1,9 @@
-import { COPY, textOf } from "@/core/copy";
-import { formatDateWithWeekday, formatOrdinal, formatTime } from "@/core/format";
+import { textOf } from "@/core/copy";
 
 import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
-import { SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
-import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { RecordFigures } from "./Table";
 import { tv } from "./tv";
 
@@ -82,92 +79,6 @@ const tiles = tv({
     },
   },
 });
-
-const { fact } = COPY.spielplan;
-
-/**
- * A match's five tiles while it is read, at typical words set unseen, so the value's row takes its baselines, a line
- * under a value its height, and the venue wraps where a real one does.
- */
-const MATCH_WAIT = [
-  { label: fact.spieltag, value: formatOrdinal(2), line: COPY.shared.phase.gruppenphase },
-  { label: fact.date, value: formatDateWithWeekday("2027-03-06"), line: "2027" },
-  { label: fact.time, value: formatTime("14:00") },
-  { label: fact.schiedsrichter, value: COPY.shared.noValue, words: true },
-  { label: fact.spielort, value: SPIELORT_WORDS, words: true },
-] as const satisfies ReadonlyArray<{ label: string; value: string; line?: string; words?: true }>;
-
-/** A match's tiles while it is read, `five`'s own grid at `MATCH_WAIT`'s words. */
-function MatchTilesPlaceholder() {
-  return (
-    <BlockBox>
-      <div className={tiles({ layout: "five" }).root()}>
-        {MATCH_WAIT.map((item, index) => {
-          const words = "words" in item;
-          const slots = tiles({ layout: "five", words, wide: index === 4 });
-          return (
-            <div
-              key={item.label}
-              className={slots.tile({ class: cardSurface() })}>
-              <PlaceholderLine
-                textClass={slots.label()}
-                words={item.label}
-              />
-              <PlaceholderSentence
-                textClass={slots.value()}
-                words={item.value}
-                lines={words ? 2 : 1}
-              />
-              {"line" in item && (
-                <PlaceholderLine
-                  textClass={slots.line()}
-                  words={item.line}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </BlockBox>
-  );
-}
-
-/**
- * The tiles while the record is read: the layout's own grid with its count of tiles, each its label's line, its
- * value's and, unless `line` says these tiles carry none, the line under it as bars, at a tile's size.
- */
-export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["layout"]; line?: boolean }) {
-  if (layout === "five") return <MatchTilesPlaceholder />;
-  return (
-    <BlockBox>
-      <div className={tiles({ layout }).root()}>
-        {Array.from({ length: 4 }, (_, index) => {
-          const slots = tiles({ layout });
-          return (
-            <div
-              key={index}
-              className={slots.tile({ class: cardSurface() })}>
-              <PlaceholderLine
-                textClass={slots.label()}
-                widthClass="w-2/3"
-              />
-              <PlaceholderLine
-                textClass={slots.value()}
-                widthClass="w-1/2"
-              />
-              {line && (
-                <PlaceholderLine
-                  textClass={slots.line()}
-                  widthClass="w-1/3"
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </BlockBox>
-  );
-}
 
 /** A tile's value: its words, or the link to where it stands, another site's or a page of this one. */
 function TileValue({ item }: { item: StatTile }) {

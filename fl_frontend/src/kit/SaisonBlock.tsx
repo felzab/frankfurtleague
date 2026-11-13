@@ -2,13 +2,12 @@ import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { Card, CardPlaceholder } from "./Card";
+import { Card } from "./Card";
 import { Chip } from "./Chip";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
 import { SAISON_CHIP } from "./saisonChip";
-import { placeholderBar } from "./Skeleton";
 import { SpielGroup } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -153,28 +152,10 @@ function Body({ state }: { state: SaisonState }) {
 
 /**
  * The card's body at every width: at least the tallest state's, the running season's last and next match, each a 40-px
- * head over a 100-px match card, three hairlines between and under them, so no state, and not its wait, moves what
- * stands beside or under the card when it lands. From `lg` that reserve is taller than the hero's text, so it sets the
- * hero's height, before the read as after it.
+ * head over a 100-px match card, three hairlines between and under them, so no state moves what stands beside or under
+ * the card. From `lg` that reserve is taller than the hero's text, so it sets the hero's height in every state.
  */
 const BODY_CLASSES = "min-h-[calc(17.5rem+3px)]";
-
-/**
- * The season's card while the season is read: the card's own head, its name's line and its chip's place, over one plain
- * body, since which state's body lands is what the read tells. The body stands at the card's one body height, and fills
- * the card wherever the hero's grid stretches it further.
- */
-export function SaisonBlockPlaceholder() {
-  return (
-    <CardPlaceholder
-      chip
-      fill>
-      <div className={`grid p-4 ${BODY_CLASSES}`}>
-        <span className={placeholderBar("")} />
-      </div>
-    </CardPlaceholder>
-  );
-}
 
 /**
  * The season's card beside the hero, the one part of the landing that changes with the season's state: the kit's

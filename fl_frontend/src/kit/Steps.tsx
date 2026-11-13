@@ -1,13 +1,9 @@
-import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { BlockBox } from "./BlockBox";
-import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
-import { Placeholder, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -57,25 +53,8 @@ async function Band({ band }: { band: Promise<StepsBand> }) {
   );
 }
 
-/**
- * The band while the read says whether a window is open: `sentence` is the words of the state most days are in, so
- * the box is that sentence's height at every width.
- */
-function BandPlaceholder({ sentence }: { sentence: Copy }) {
-  const slots = steps();
-  return (
-    <Placeholder layoutClass={slots.band()}>
-      <PlaceholderSentence
-        textClass={slots.sentence()}
-        words={sentence}
-      />
-      <span className={buttonPlaceholder()}>{COPY.page.about}</span>
-    </Placeholder>
-  );
-}
-
-/** How a school joins: the numbered steps, which stand at once, then the band with the application window's state. */
-export function Steps({ items, band, closed }: { items: readonly Step[]; band: Promise<StepsBand>; closed: Copy }) {
+/** How a school joins: the numbered steps, then the band with the application window's state. */
+export function Steps({ items, band }: { items: readonly Step[]; band: Promise<StepsBand> }) {
   const slots = steps();
   return (
     <>
@@ -96,9 +75,7 @@ export function Steps({ items, band, closed }: { items: readonly Step[]; band: P
           ))}
         </ol>
       </BlockBox>
-      <PageWait fallback={<BandPlaceholder sentence={closed} />}>
-        <Band band={band} />
-      </PageWait>
+      <Band band={band} />
     </>
   );
 }
