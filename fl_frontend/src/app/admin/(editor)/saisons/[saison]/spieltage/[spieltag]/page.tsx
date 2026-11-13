@@ -60,12 +60,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A matchday's editor, on its one read by id and its write on the version it was read at. */
 export default function SpieltagEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{ sections: [[{ rows: 2, holds: "day" }]] }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 async function readEditor(params: Props["params"]) {

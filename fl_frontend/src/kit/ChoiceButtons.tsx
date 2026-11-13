@@ -8,8 +8,7 @@ import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
-import { PlaceholderLine } from "./Skeleton";
+import { choiceButton, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
@@ -116,33 +115,6 @@ export function Segmented({
       </div>
       <GroupMessage errorMessage={errorMessage} />
     </RadioGroup>
-  );
-}
-
-/**
- * `ToggleBoxes` while its record is read: the label's line, each box at its own edge around a bar for its word, wrapping
- * as the boxes wrap.
- */
-export function ToggleBoxesPlaceholder({ count }: { count: number }) {
-  return (
-    <div className={fieldRoot()}>
-      <PlaceholderLine
-        textClass={fieldLabel()}
-        widthClass="w-24"
-      />
-      <span className={choiceGroup({ kind: "boxes" })}>
-        {Array.from({ length: count }, (_, index) => (
-          <span
-            key={index}
-            className={choiceButton({ kind: "boxes" })}>
-            <PlaceholderLine
-              textClass=""
-              widthClass="w-5"
-            />
-          </span>
-        ))}
-      </span>
-    </div>
   );
 }
 

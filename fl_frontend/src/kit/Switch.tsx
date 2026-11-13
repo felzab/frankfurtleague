@@ -4,26 +4,9 @@ import { SwitchButton, SwitchField } from "react-aria-components/Switch";
 
 import { LockMark, MessageLine, useFieldLock } from "./FieldParts";
 import { switchThumb, switchTrack, toggleField, toggleLine, toggleRow } from "./fieldStyles";
-import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
-
-/** A switch while its record is read: the track as a bar, and its label as lines, wrapping as the label will. */
-export function SwitchPlaceholder({ label }: { label: string }) {
-  return (
-    <div className={toggleField()}>
-      <span className={toggleRow({ in: "field" })}>
-        {/* The track's own box alone: either state's fill and edge would stand over the bar's. */}
-        <span className={placeholderBar(switchTrack.base)} />
-        <PlaceholderSentence
-          textClass=""
-          words={label}
-        />
-      </span>
-    </div>
-  );
-}
 
 /**
  * A yes or no that takes effect at once, or reveals an optional part of a saved form beneath it. Its

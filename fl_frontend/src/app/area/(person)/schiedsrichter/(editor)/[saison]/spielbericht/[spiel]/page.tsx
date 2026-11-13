@@ -2,8 +2,6 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { RecordRowsPlaceholder } from "@/kit/RecordRows";
-import { SectionPlaceholder } from "@/kit/Section";
 import { StatusPage } from "@/kit/StatusPage";
 
 import { requires } from "@/core/action";
@@ -93,46 +91,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** The report's form, on its one read, or the status card saying why the fixture takes no report from this referee. */
 export default function SpielberichtPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A public season's match, the report's state most days, links its page from the strip.
-        link: COPY.shared.toSpiel,
-        sections: [
-          ["score", "rule", "field"],
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <RecordRowsPlaceholder
-                    rows={3}
-                    lines={2}
-                    add={COPY.shared.withObject(WORDS.goal, "enter")}
-                  />
-                }
-              />
-            ),
-          },
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <RecordRowsPlaceholder
-                    rows={1}
-                    lines={3}
-                    add={COPY.shared.withObject(WORDS.card, "enter")}
-                  />
-                }
-              />
-            ),
-          },
-          [{ titled: "paragraph" }],
-        ],
-      }}
-      editor={readPage(params)}
-    />
-  );
+  return <EditorShell editor={readPage(params)} />;
 }
 
 /** A pupil by number and name as the squad lists them; one no record holds is „anonym“, as every page names them. */

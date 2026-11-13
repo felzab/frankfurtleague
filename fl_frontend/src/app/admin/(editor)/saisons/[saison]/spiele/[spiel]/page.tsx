@@ -1,14 +1,8 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
-import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { SectionPlaceholder } from "@/kit/Section";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
-import { SwitchPlaceholder } from "@/kit/Switch";
-import { TablePlaceholder } from "@/kit/Table";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -68,10 +62,9 @@ const REQUIRED = {
   payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
-/** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it, and the wait its bars. */
+/** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it. */
 const REPORT_HEAD: TableHead = {
   nameLabel: COPY.shared.spieler,
-  linked: false,
   stack: true,
   columns: [
     { key: "event", label: WORDS.event },
@@ -112,65 +105,9 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A booking and its money under it while the match is read, each at its width. */
-function BookingPlaceholder() {
-  return (
-    <>
-      <FieldPlaceholder />
-      <FieldPlaceholder
-        holds={5}
-        unit={COPY.shared.unit.euro}
-      />
-    </>
-  );
-}
-
 /** The match editor, on its one view read. */
 export default function SpielEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A public season's match, the editor's state most days, links its page from the strip.
-        link: COPY.shared.toSpiel,
-        sections: [
-          ["pair", <BookingPlaceholder key="spielort" />, <BookingPlaceholder key="schiedsrichter" />],
-          [
-            <SwitchPlaceholder
-              key="result"
-              label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
-            />,
-            "score",
-          ],
-          [{ titled: "paragraph" }],
-          [{ titled: "field" }],
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <TablePlaceholder
-                    head={REPORT_HEAD}
-                    rows={3}
-                    plaques
-                    bare
-                  />
-                }
-              />
-            ),
-          },
-          [
-            <AnswerRowsPlaceholder
-              key="answers"
-              rows={3}
-            />,
-          ],
-          // Both sides' line-up rows, as a dated match with its two clubs shows them.
-          { block: <SectionPlaceholder list={<CardRowsPlaceholder rows={2} />} /> },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */

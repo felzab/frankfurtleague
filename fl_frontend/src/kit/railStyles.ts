@@ -25,7 +25,7 @@ export const railGlyph = tv({ base: "flex shrink-0 justify-center group-data-col
 export const groupHeading = tv({ base: "text-xs font-medium text-fg-muted" });
 
 /**
- * The editor's bar at the foot of the viewport, which `EditorBar` draws and the editor's placeholder holds: on desktop as
+ * The editor's bar at the foot of the viewport, which `EditorBar` draws: on desktop as
  * tall as the rail's foot beside it (`--rail-foot`, from `tokens.css`), so the two top hairlines are one line, the
  * account row's name keeping one line however long (`AccountRow`). Its hairline runs the content's whole width, and its contents stand in a row over the editor's own column, the status at
  * the column's left edge and the save at its right, the content's and the bar's paddings alike centring the column.

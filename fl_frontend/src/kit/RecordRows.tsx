@@ -3,13 +3,10 @@
 import { useContext, useId, useState } from "react";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
 import { smallCaps, stacked } from "./cardStyles";
 import { CheckboxPlaceholder } from "./Checkbox";
 import { messageLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
-import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -105,9 +102,6 @@ const recordRows = tv({
     },
   },
 });
-
-/** One line of a row's fields while they are read: a bar across the row, as tall as a control. */
-const FIELD_LINE_CLASSES = "col-span-full h-8 rounded-lg pointer-coarse:h-10";
 
 type Slots = ReturnType<typeof recordRows>;
 
@@ -306,49 +300,6 @@ export function RecordRows<Row extends EditorRow>({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/**
- * The list while its record is read: `rows` rows, each its label's line over as many lines of fields as a row takes
- * in a list narrower than 42 rem, two, or three where it has a cell below, and over one from it, or two with a cell
- * below; then the foot's add control by its label. Drawn from the rows' own recipe, so it stands as tall as the list will.
- */
-export function RecordRowsPlaceholder({ rows, lines, add }: { rows: number; lines: 2 | 3; add: Copy }) {
-  const slots = recordRows({ beside: false });
-  return (
-    <div className={slots.root()}>
-      {rows > 0 && (
-        <div className={slots.grid()}>
-          {Array.from({ length: rows }, (_, row) => (
-            <div
-              key={row}
-              className={slots.row()}>
-              <PlaceholderLine
-                textClass={slots.label()}
-                widthClass="w-12"
-              />
-              {Array.from({ length: lines }, (_, line) => (
-                <span
-                  key={line}
-                  // The narrow list's second line joins the first from 42 rem; a cell below keeps its own line.
-                  className={placeholderBar(line === 1 ? `${FIELD_LINE_CLASSES} @2xl:hidden` : FIELD_LINE_CLASSES)}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-      <div className={slots.foot()}>
-        <span className={buttonPlaceholder()}>
-          <Icon
-            glyph="create"
-            size={16}
-          />
-          {add}
-        </span>
-      </div>
     </div>
   );
 }

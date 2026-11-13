@@ -2,8 +2,6 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -56,39 +54,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A referee's editor, on its one read by id and its write on the version it was read at. */
 export default function SchiedsrichterEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            "field",
-            <FieldPlaceholder
-              key="default_payment"
-              holds={5}
-              unit={COPY.shared.unit.euro}
-            />,
-          ],
-          ["field", "field"],
-          // A confirmed referee's box, as nearly every entry lands: one waiting on its answer adds its act.
-          [
-            <FactsPlaceholder
-              key="confirmation"
-              pairs={2}
-            />,
-          ],
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(COPY.shared.schiedsrichter, "retire"),
-            consequence: WORDS.retireConsequence,
-            act: COPY.shared.verb.retire,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 /**

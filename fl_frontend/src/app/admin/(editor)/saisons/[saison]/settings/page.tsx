@@ -1,19 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { CheckboxPlaceholder } from "@/kit/Checkbox";
-import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
 import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { FieldRows } from "@/kit/FieldRows";
-import { SectionPlaceholder } from "@/kit/Section";
 import { NOT_SENT_CHIP, SENT_CHIP } from "@/kit/stateChips";
-import { TablePlaceholder } from "@/kit/Table";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
-import { FLSpielerStufe } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
@@ -40,20 +32,15 @@ const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
 /**
- * The registration links' head, stated with the rows this page reads for it and drawn while they are read. The rows
- * open nothing, so on a phone a sent row's line says the day the „Gesendet am“ column would.
+ * The registration links' head. The rows open nothing, so on a phone a sent row's line says the day the „Gesendet am“
+ * column would.
  */
 const LINKS_HEAD: TableHead = {
   nameLabel: TEAM,
-  linked: false,
   state: { label: COPY.admin.schiedsrichter.state },
-  line: "phone",
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
 };
-
-/** One of the editor's selects of a few short choices while it is read. */
-const SELECT = <FieldPlaceholder key="select" />;
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -124,88 +111,7 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 
 /** The season editor, on the season's one admin read. */
 export default function SaisonSettingsPage({ params }: Props) {
-  return (
-    <EditorShell
-      // Each part in its fullest state, which no one season holds all at once: its draw standing, and the rows of a
-      // season not yet the site's. Only the read says which one it is.
-      wait={{
-        sections: [
-          [{ rows: 2, holds: "day" }],
-          ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }],
-          [
-            <FieldRows key="counts">
-              <FieldPlaceholder holds={2} />
-              <FieldPlaceholder holds={2} />
-              <FieldPlaceholder
-                kind="choice"
-                holds={2}
-              />
-            </FieldRows>,
-          ],
-          [
-            <FieldPlaceholder
-              key="maxKader"
-              holds={2}
-            />,
-            <ToggleBoxesPlaceholder
-              key="stufen"
-              count={Object.values(FLSpielerStufe).length}
-            />,
-          ],
-          [
-            { rows: 2, holds: "day" },
-            <CheckboxPlaceholder
-              key="paused"
-              label={WORDS.bewerbungPaused}
-            />,
-          ],
-          [
-            <FieldPlaceholder key="end" />,
-            <CheckboxPlaceholder
-              key="paused"
-              label={WORDS.registrierungPaused}
-            />,
-          ],
-          [
-            <FactsPlaceholder
-              key="spielplan"
-              pairs={3}
-            />,
-          ],
-          ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }],
-          ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }],
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <TablePlaceholder
-                    head={LINKS_HEAD}
-                    rows={24}
-                    bare
-                  />
-                }
-                rows={[{ acts: [COPY.shared.withObject(WORDS.invitations, "send")] }]}
-              />
-            ),
-          },
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(COPY.page.spielplan, "recreate"),
-            consequence: WORDS.recreateConsequence,
-            act: COPY.shared.verb.recreate,
-          },
-          { name: COPY.shared.withObject(COPY.page.spielplan, "delete"), consequence: WORDS.deleteConsequence, act: COPY.shared.verb.delete },
-          {
-            name: COPY.shared.withObject(WORDS.onto("2027"), "activate"),
-            consequence: WORDS.activateConsequence("2027"),
-            act: COPY.shared.verb.activate,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 async function readEditor(params: Props["params"]) {
