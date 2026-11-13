@@ -18,7 +18,8 @@
 #   ./scripts/ops/local.sh --e2e --landing=<state>
 #                                    load the made-up league again into the RUNNING end-to-end stack,
 #                                    the landing in <state> (seed.js's LANDING_STATES), and restart its
-#                                    frontend; nothing is built, and sessions and passkeys stay
+#                                    frontend; nothing is built, and sessions and passkeys stay.
+#                                    Run it from the checkout whose --e2e started the stack
 #   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes; with
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
@@ -70,8 +71,13 @@ if (( RESEED )); then
   if (( ! E2E || DOWN )); then
     refuse "--landing re-seeds the running end-to-end stack: run it as --e2e --landing=<state>, without --down."
   fi
-  if [[ " ${LANDING_STATES[*]} " != *" ${LANDING} "* ]]; then
-    refuse "--landing=${LANDING} names no state of the landing. One of: ${LANDING_STATES[*]}."
+  known=0
+  for state in "${LANDING_STATES[@]}"; do
+    if [[ "$state" == "$LANDING" ]]; then known=1; fi
+  done
+  if (( ! known )); then
+    # A space between the names: `[*]` joins with the first character of IFS, a newline here.
+    refuse "--landing=${LANDING} names no state of the landing. One of: $(IFS=' '; printf '%s' "${LANDING_STATES[*]}")."
   fi
 fi
 
@@ -93,6 +99,16 @@ if (( E2E )); then MAIL_SINK="${E2E_DIR}/mail"; fi
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
 E2E_KEYS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+
+# The stack's name is fixed, so a checkout that did not start it reaches it too, and the frontend
+# --landing recreates takes this checkout's keys. A key missing here is refused before compose is
+# asked anything; keys an earlier start left here are not compared with the running stack's.
+if (( RESEED )); then
+  for name in "${E2E_KEYS[@]}"; do
+    [[ -f "${E2E_DIR}/secrets/${name}" ]] || refuse "${E2E_DIR}/secrets holds no ${name}, so the frontend --landing recreates would start without its keys.
+Run --e2e --landing=<state> from the checkout whose --e2e started the stack."
+  done
+fi
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
 # local one, and a key it held for longer than one run would be a key to keep. Nothing prints a

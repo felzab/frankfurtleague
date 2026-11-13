@@ -479,7 +479,9 @@ other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
 one of `scripts/ops/seed/seed.js :: LANDING_STATES`: the seed runs again with `SEED_LANDING` in
 mongosh's environment, the read-back judges it, and the frontend alone is recreated, so no read of
 the earlier state stays cached. It builds nothing and keeps the stack's keys, its sign-in store and
-its images, so sessions and passkeys survive it; with no end-to-end stack running it refuses.
+its images, so sessions and passkeys survive it. It refuses with no end-to-end stack running, and
+in a checkout whose `.tmp-e2e/secrets/` lacks a key, since the stack's name is every checkout's and
+the frontend it recreates takes the keys of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
@@ -751,6 +753,7 @@ be true there, a check the owner makes in its list of monitors:
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
+| `local.sh` and CI's landing loop name the landing states the seed seeds, the loop all but the seed as written                              | `scripts/tests/test_landing_states.py`                                                                                                                                                 |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
 | The builder stage has no reachable backend and no real environment                                                                         | `fl_frontend/Dockerfile`'s `SKIP_ENV_VALIDATION=true`, with no secrets directory and no `API_URL`                                                                                      |
 | The three API keys are 64 printable ASCII characters without the space, one file each that both sides read                                 | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`                                                                |
@@ -816,7 +819,8 @@ Each gap is open, waiting on work, or accepted, with its reason.
 - **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
   nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
 - **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so
-  the newer configuration fronts the older build.
+  the newer configuration fronts the older build wherever nginx loads it: a start that recreated
+  nginx, a reload nginx confirmed neither way, and any later restart.
 - **Registry tag pruning is manual.** Accepted: a botched delete destroys the builds a hand rollback
   pulls (§1.5).
 - **Revoking admin access ends no session.** Accepted: both processes read the grant on every
