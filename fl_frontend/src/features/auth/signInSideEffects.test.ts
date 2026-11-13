@@ -1,4 +1,3 @@
-import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
 import {
   ADMIN_EMAIL,
   HOLDS_NOTHING,
@@ -8,13 +7,13 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { answerAt } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
 import type { ActionAnswer } from "@/core/action.ts";
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
 const STORE = "__flSignInStore";
@@ -33,15 +32,15 @@ const BACKENDS: Readonly<Record<string, LookupFixture>> = {
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
-function answerFromTheBackend(call: ApiCall): Promise<unknown> {
-  const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
+function answerFromTheBackend({ path, body }: { path: string; body: unknown }): unknown {
+  const asked = ((body ?? {}) as { email?: string }).email ?? "";
   const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
 
-  return Promise.resolve(answerAt(call.endpoint, backend));
+  return answerAt(path, backend);
 }
 
 // Registered ahead of the imports below, whose graph reaches the real client through the gate.
-const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
+const { sent: asked } = serveBackend(answerFromTheBackend);
 
 /** `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. */
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };

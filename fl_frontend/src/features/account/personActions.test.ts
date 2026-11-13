@@ -9,6 +9,7 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -68,25 +69,26 @@ const addressChanges: string[] = [];
 /** Every consent save that reached the backend, by its path. */
 const consentWrites: string[] = [];
 
-globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+serveBackend(({ method, path: endpoint, headers, body }) => {
+  // Under the base path the client sends it on, as the cases spell every path they compare.
+  const path = `/api/v0${endpoint}`;
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
-    return Promise.resolve(Response.json({}));
+    return {};
   }
   if (path === ERASURE_PATH) {
-    erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(new Response(null, { status: 204 }));
+    erasures.push({ method, actor: headers.get("x-fl-actor") });
+    return new Response(null, { status: 204 });
   }
   if (path === ADDRESS_CHANGE_PATH) {
-    addressChanges.push(init?.method ?? "GET");
-    return Promise.resolve(Response.json({ id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" }));
+    addressChanges.push(method);
+    return { id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" };
   }
 
-  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const { email } = (body ?? {}) as { email?: string };
   const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, seats: [SEAT], account: true };
-  return Promise.resolve(Response.json(answerAt(path, fixture)));
-}) as typeof globalThis.fetch;
+  return answerAt(path, fixture);
+});
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const {
