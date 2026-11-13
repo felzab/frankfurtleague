@@ -479,7 +479,9 @@ other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
 one of `scripts/ops/seed/seed.js :: LANDING_STATES`: the seed runs again with `SEED_LANDING` in
 mongosh's environment, the read-back judges it, and the frontend alone is recreated, so no read of
 the earlier state stays cached. It builds nothing and keeps the stack's keys, its sign-in store and
-its images, so sessions and passkeys survive it; with no end-to-end stack running it refuses.
+its images, so sessions and passkeys survive it. It refuses with no end-to-end stack running, and
+in a checkout whose `.tmp-e2e/secrets/` lacks a key, since the stack's name is every checkout's and
+the frontend it recreates takes the keys of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
