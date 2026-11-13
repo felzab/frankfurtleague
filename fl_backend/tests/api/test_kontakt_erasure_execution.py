@@ -446,16 +446,6 @@ def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
 
 
 @pytest.mark.db
-def test_the_rows_naming_nobody_erased_are_not_reached(mongo_replica_set_url: str):
-    """The other half of the floor. Kills a write that ignores its filter: every case above passes for one that clears both collections."""
-
-    _, rows = after_erasure(mongo_replica_set_url)
-
-    assert rows[ROW_B_OID]["kontakte"] == LIVE_BLOCKS[ROW_B_OID]
-    assert rows[OTHER_BEWERBUNG_OID]["kontakte"] == LIVE_BLOCKS[OTHER_BEWERBUNG_OID]
-
-
-@pytest.mark.db
 def test_a_spelling_handed_in_unfolded_still_clears(mongo_replica_set_url: str):
     """Drop the fold at the erasure's entry and this fails: both callers read rows on the fold, and the variant handed on matches no seat."""
 

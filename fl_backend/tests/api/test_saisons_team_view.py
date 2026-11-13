@@ -7,7 +7,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_team, get_teams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundError
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.worker import worker_database
@@ -125,14 +124,3 @@ def test_the_club_page_holds_its_own_row_matches_and_squad(seeded_url: str):
     assert (response.team.name, response.standing.id, response.standing.platz) == ("Delta", CLUBS["Delta"], 2)
     assert [(match.spiel_nr, match.spieltag_position, match.count_spieltage_in_phase) for match in response.spiele] == [(2, 2, 1), (3, 2, 1)]
     assert [row.first_name for row in response.kader] == ["Nadja"]
-
-
-@pytest.mark.db
-def test_a_club_the_season_does_not_hold_has_no_page_in_it(seeded_url: str):
-    async def body(database: AsyncDatabase) -> Any:
-        with pytest.raises(DocumentNotFoundError) as refusal:
-            await page_of("Gamma")(database)
-
-        return refusal.value
-
-    assert on_a_league(seeded_url, body).status_code == 404

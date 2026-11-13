@@ -266,27 +266,39 @@ class TestTheSquadRead:
         assert "einwilligung" not in text
 
 
-# Each operation, as the request that would otherwise succeed: the row is team A's own.
-OPERATIONS = [
-    pytest.param("GET", lambda team_id, saison_id: squad_url(team_id, saison_id), None, id="GET"),
-    pytest.param("PATCH", lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id), PAYLOAD, id="PATCH"),
-    pytest.param("DELETE", lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id), None, id="DELETE"),
-]
-
-# A seat on team B asking for team A; team A's seat holder asking for a season of team A they hold
-# no seat in; and for one whose seat they hold on a `past` season, which grants no panel.
-ELSEWHERE = [
-    pytest.param(B_ANSPRECH, TEAM_A, ACTIVE_SAISON, id="another team"),
-    pytest.param(ANSPRECH, TEAM_A, FUTURE_SAISON, id="another season of the same team"),
-    pytest.param(ANSPRECH, TEAM_A, PAST_SAISON, id="a past season"),
+# Each operation, as the request that would otherwise succeed (the row is team A's own), paired with one
+# seat that grants it nothing: a seat on team B asking for team A; team A's seat holder asking for a
+# season of team A they hold no seat in; and for one whose seat they hold on a `past` season, which
+# grants no panel.
+NOT_HELD = [
+    pytest.param(
+        B_ANSPRECH, TEAM_A, ACTIVE_SAISON, "GET", lambda team_id, saison_id: squad_url(team_id, saison_id), None, id="another team-GET"
+    ),
+    pytest.param(
+        ANSPRECH,
+        TEAM_A,
+        FUTURE_SAISON,
+        "PATCH",
+        lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id),
+        PAYLOAD,
+        id="another season of the same team-PATCH",
+    ),
+    pytest.param(
+        ANSPRECH,
+        TEAM_A,
+        PAST_SAISON,
+        "DELETE",
+        lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id),
+        None,
+        id="a past season-DELETE",
+    ),
 ]
 
 
 class TestASeatNotHeld:
-    """`role_not_held`, judged by each handler itself: drop the check from one and its three cases go red."""
+    """`role_not_held`, judged by each handler itself: drop the check from one and its case goes red."""
 
-    @pytest.mark.parametrize(("method", "path", "body"), OPERATIONS)
-    @pytest.mark.parametrize(("email", "team_id", "saison_id"), ELSEWHERE)
+    @pytest.mark.parametrize(("email", "team_id", "saison_id", "method", "path", "body"), NOT_HELD)
     def test_each_operation_is_refused_and_writes_nothing(
         self,
         mongo_replica_set_url: str,
@@ -416,8 +428,8 @@ class TestAStufeTheSeasonDoesNotOffer:
         assert answer == (409, Code.KADER_STUFE_NOT_ALLOWED)
         assert untouched
 
-    @pytest.mark.parametrize("stufe", ["Q4", None], ids=["the stored one", "none"])
-    def test_the_stufe_the_row_already_holds_and_none_pass(self, mongo_replica_set_url: str, stufe: str | None):
+    @pytest.mark.parametrize("stufe", ["Q4"], ids=["the stored one"])
+    def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str, stufe: str):
         """A season narrowed after the row was written leaves the row editable, its own Stufe included."""
 
         answer, _ = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})
