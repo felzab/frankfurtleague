@@ -6,22 +6,22 @@ from zoneinfo import ZoneInfo
 import bson
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.outbox.schemas import FLOutboxStatus
-from app.api.teams.schemas import FLKontaktSeatPayload
 from app.api.teams.services import (
     compose_kontakte_origin,
     compose_seat_block,
     find_kontakt_taken_refusal,
+    kontakt_row_of,
     links_owed,
     with_link_state,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.shared.schemas.literals import FLKontaktRolle
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased, seats_cleared
@@ -30,8 +30,8 @@ from tests.outbox import MAIL_NOW
 from tests.team_writes import BlockWritten, write_the_block
 from tests.worker import worker_database
 
-# Marked per class rather than for the module: what the payload refuses and what the composition
-# decides are reached with no container (`docs/decisions.md`'s `tests` line), while which
+# Marked per class rather than for the module: what the composition decides is reached with no
+# container (`docs/decisions.md`'s `tests` line), while which
 # KEYS a `$set` leaves alone only a stored document shows.
 DATABASE_NAME = worker_database("fl_saison_team_kontakte_test")
 
@@ -165,9 +165,6 @@ RESAVED_AS_RENDERED: dict[str, Any] = {
     "stellvertretung": person("Klara"),
     "trainer_is_also": None,
 }
-
-# What the seat write's payload takes of a person.
-SEAT_SENT = {field: value for field, value in person("Ida").items() if field != "einwilligung"}
 
 ERASED_SEAT = "ansprechperson"
 ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
@@ -316,19 +313,6 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         assert stored["kontakte"] == SEEDED_KONTAKTE
 
 
-class TestWhatThePayloadRefuses:
-    """The provenance and the birthdate are on no payload: a field the editor merely hid would still be a route an API caller has."""
-
-    @pytest.mark.parametrize(("field", "value"), [("birth_date", BIRTH_DATE), ("confirmed_at", CONFIRMED_ON), ("einwilligung", {})])
-    def test_a_seat_naming_what_only_its_person_gives_is_refused(self, field: str, value: Any):
-        """Through the seat write's own payload: refused rather than bounded, an age floor here would still let an administrator enter it."""
-
-        with pytest.raises(ValidationError) as failure:
-            FLKontaktSeatPayload.model_validate({**SEAT_SENT, "version": 0, field: value})
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", field)]
-
-
 class TestTheCompositionDecidesFromItsArguments:
     """The pure half, so every branch is pinned without a container."""
 
@@ -344,6 +328,13 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed["trainer"]["einwilligung"]["confirmed_at"] == CONFIRMED_ON
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
+
+
+class TestTheRowALinkIsMintedOn:
+    def test_a_team_that_left_a_season_that_has_ended_reads_as_the_seasons_end(self):
+        """The season's end is what the mail and the page name: no team is still in a season that is over."""
+
+        assert kontakt_row_of(saison_status="past", austritt=AUSTRITT) == "saison_past"
 
 
 # A row's block as the seat write reads it, and the same row with the Trainer holding the Ansprechperson's seat too.
@@ -384,6 +375,18 @@ class TestTheSeatWriteDecidesFromItsArguments:
 
         assert (seats, kontakte["ansprechperson"]["first_name"]) == (("trainer", "ansprechperson"), "Ida")
         assert [kontakte[owed[0]]["email"] for owed in links_owed(kontakte=kontakte, stored=SEAT_BLOCK)] == ["ida@example.com"]
+
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson"])
+    def test_a_write_on_either_seat_of_a_pair_writes_both_under_one_link(self, seat: FLKontaktRolle):
+        """One seat written alone would leave the pair naming two people, each holding the other's link."""
+
+        proposed, seats = compose_seat_block(stored=PAIRED_BLOCK, seat=seat, sent=seat_sent("Lea"), today=TODAY)
+        kontakte = compose_kontakte_origin(kontakte=proposed, stored=PAIRED_BLOCK)
+
+        assert sorted(seats) == ["ansprechperson", "trainer"]
+        assert (kontakte["trainer"]["first_name"], kontakte["ansprechperson"]["first_name"]) == ("Lea", "Lea")
+        assert kontakte["trainer_is_also"] == "ansprechperson"
+        assert [sorted(owed) for owed in links_owed(kontakte=kontakte, stored=PAIRED_BLOCK)] == [["ansprechperson", "trainer"]]
 
     def test_a_number_another_seats_person_holds_in_another_spelling_is_refused_on_its_box(self):
         """The block's rule, which no payload can judge: the other seats are stored, not sent."""

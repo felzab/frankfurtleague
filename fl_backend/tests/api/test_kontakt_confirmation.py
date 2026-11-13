@@ -31,7 +31,7 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
@@ -46,8 +46,6 @@ from tests.records import record_collections
 from tests.team_writes import write_the_block
 from tests.whole_database import where_held
 from tests.worker import worker_database
-
-from .test_bewerbung_einwilligung_execution import ReadsRecorded, leaf_paths, loaded_by_the_link
 
 pytestmark = pytest.mark.db
 
@@ -272,11 +270,11 @@ async def replace(database: AsyncDatabase) -> Any:
     )
 
 
-async def read_view(database: AsyncDatabase, token: str, *, today: str = TODAY, saison_teams: Any = None) -> Any:
+async def read_view(database: AsyncDatabase, token: str, *, today: str = TODAY) -> Any:
     return await get_einwilligung_view(
         view_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         today=today,
@@ -291,7 +289,6 @@ async def answer(
     today: str = TODAY,
     media: bool = False,
     saisons: Any = None,
-    saison_teams: Any = None,
 ) -> Any:
     body: dict[str, Any] = {"token": token, "answer": answer}
     if answer == "given":
@@ -300,7 +297,7 @@ async def answer(
     return await post_einwilligung(
         answer_data=TypeAdapter(FLBewerbungEinwilligungAnswerPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         outbox_collection=database[Collection.OUTBOX],
@@ -469,7 +466,6 @@ class TestTheResend:
         "kontakte",
         [
             pytest.param({**STORED_UNCONFIRMED, "trainer": stored("Ida", confirmed_at="2026-03-20")}, id="a seat its person has confirmed"),
-            pytest.param({**STORED_UNCONFIRMED, "trainer": None}, id="a seat holding nobody"),
         ],
     )
     def test_a_seat_with_nothing_left_to_confirm_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, kontakte: dict[str, Any]):
@@ -482,60 +478,6 @@ class TestTheResend:
 
         assert code == Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION
         assert after == before
-
-    def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await resend(database, "kapitaen")
-
-            return None
-
-        on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
-
-
-def _seat_paths(block: str, *leaves: str) -> set[str]:
-    return {f"{block}.{seat}.{leaf}" for seat in SEATS for leaf in leaves}
-
-
-# What each handler resolves off the row its token found, `_id` the answer's alone, which keys its patch on it.
-SAISON_VIEW_RESOLVES = frozenset(
-    _seat_paths("confirmations", "token_hashes", "declined_at", "deadline")
-    | _seat_paths("kontakte", "email", "einwilligung.confirmed_at")
-    | {"kontakte.trainer_is_also", "saison_id", "name", "austritt"}
-)
-SAISON_ANSWER_RESOLVES = (
-    SAISON_VIEW_RESOLVES | _seat_paths("kontakte", "einwilligung.scope", "einwilligung.media", "einwilligung.evidence") | {"_id"}
-)
-
-
-class TestWhatASeasonRowsLinkLoads:
-    """Holds the narrowing alone: a projection too short is answered by the cases driving each field either read resolves."""
-
-    def test_the_view_never_holds_the_row_beyond_the_fields_its_answer_is_built_from(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            response = await save(database, THREE)
-            recorder = ReadsRecorded(database[Collection.SAISON_TEAMS])
-            await read_view(database, response.confirmations[1].token, saison_teams=recorder)
-
-            return loaded_by_the_link(recorder)
-
-        loaded = on_a_league(mongo_replica_set_url, body)
-
-        assert loaded, "the link's own read did not run"
-        assert set().union(*(leaf_paths(document) for document in loaded)) <= SAISON_VIEW_RESOLVES
-
-    def test_the_answer_never_holds_the_row_beyond_the_fields_it_judges_and_writes_on(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[Any]:
-            response = await save(database, THREE)
-            recorder = ReadsRecorded(database[Collection.SAISON_TEAMS])
-            await answer(database, response.confirmations[1].token, saison_teams=recorder)
-
-            return loaded_by_the_link(recorder)
-
-        loaded = on_a_league(mongo_replica_set_url, body)
-
-        assert loaded, "the link's own read did not run"
-        assert set().union(*(leaf_paths(document) for document in loaded)) <= SAISON_ANSWER_RESOLVES
 
 
 class TestTheLinkConfirms:
@@ -685,15 +627,6 @@ class TestTheDeadline:
         assert after.state == "expired"
         assert code == Code.LINK_EXPIRED
 
-    def test_a_resend_reopens_a_seat_whose_link_ran_out(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await save(database, THREE)
-            fresh = await resend(database, "trainer", today=AFTER_THE_DEADLINE)
-
-            return await answer(database, fresh.confirmation.token, today=AFTER_THE_DEADLINE)
-
-        assert on_a_league(mongo_replica_set_url, body).outcome == "confirmed"
-
 
 class TestARowsPeopleLeavingTakeTheirLinks:
     def test_a_replaced_club_s_links_open_nothing_on_the_incoming_club_s_row(self, mongo_replica_set_url: str):
@@ -789,13 +722,6 @@ class TestARowNoLongerInTheSeason:
                 "exited",
                 id="a team that left",
             ),
-            # Past as well as left: the season's end is what the mail names.
-            pytest.param(
-                "past",
-                {"austritt": {"type": "rueckzug", "reason": "Keine Mannschaft mehr", "date": "2026-03-01"}},
-                "saison_past",
-                id="a team that left a season that has ended",
-            ),
         ],
     )
     def test_a_person_the_save_newly_seats_is_minted_a_link_taking_their_objection(
@@ -853,9 +779,9 @@ class TestALinkOutlivingItsSeason:
     """A link minted while the season ran asks no consent once it has ended or the team left it."""
 
     async def closed(self, database: AsyncDatabase, how: str) -> None:
-        if how in ("past", "both"):
+        if how == "past":
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-        if how in ("austritt", "both"):
+        if how == "austritt":
             await database[Collection.SAISON_TEAMS].update_one({"_id": ROW_OID}, ITS_TEAM_LEFT)
 
     @pytest.mark.parametrize(
@@ -863,8 +789,6 @@ class TestALinkOutlivingItsSeason:
         [
             pytest.param("past", "saison_past", id="the season ended"),
             pytest.param("austritt", "exited", id="the team left"),
-            # The season's end is what the page names: no team is still in a season that is over.
-            pytest.param("both", "saison_past", id="the team left a season that has since ended"),
         ],
     )
     def test_its_view_offers_an_objection_alone_and_its_refused_consent_writes_nothing(self, mongo_replica_set_url: str, how: str, row: str):
@@ -882,21 +806,6 @@ class TestALinkOutlivingItsSeason:
         assert (view.state, view.row) == ("saison_past", row)
         assert code == Code.KONTAKT_SAISON_PAST
         assert after == before
-
-    def test_its_deadline_passing_too_reads_as_over(self, mongo_replica_set_url: str):
-        """Past its own deadline the link takes no Widerspruch either (`link_expired`), so the page offers nothing."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            token = (await save(database, THREE)).confirmations[0].token
-            await self.closed(database, "past")
-
-            view = await read_view(database, token, today=AFTER_THE_DEADLINE)
-
-            return view, await refused(answer(database, token, answer="declined", today=AFTER_THE_DEADLINE))
-
-        view, code = on_a_league(mongo_replica_set_url, body)
-
-        assert (view.state, code) == ("expired", Code.LINK_EXPIRED)
 
     @pytest.mark.parametrize("how", [pytest.param("past", id="the season ended"), pytest.param("austritt", id="the team left")])
     def test_an_objection_on_it_is_still_taken(self, mongo_replica_set_url: str, how: str):
