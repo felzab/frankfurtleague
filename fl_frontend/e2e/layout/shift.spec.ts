@@ -1,9 +1,9 @@
 /**
  * E2E · no page moves while it loads: every page each role reaches in the made-up seed's three seasons, at a phone's
  * size and a desktop's, by a hard load, by a client navigation from the link a person presses, and by a hard load at a
- * viewport 4000 px tall. Its budget is zero, for a hard load from the moment its document is parsed
- * (`../support/layoutShift.ts`). Its first two cases are its own red, a page that moves once loaded and one that moves
- * once parsed while its load is still held back, each of which the recorder must count against a load.
+ * viewport 4000 px tall. Its budget is zero, every shift from an act's start counted (`../support/layoutShift.ts`).
+ * Its first two cases are its own red, a page that moves long after it has loaded and one that moves while its
+ * document is still parsed, each of which the recorder must count against a load.
  *
  * The tall pass is there because the API counts only nodes in view: a box below the first screen that changes size once
  * the page is parsed moves boxes nobody measures at 844 or 900 px. At 4000 px most pages stand whole in view, and the
@@ -33,7 +33,7 @@
 import { expect } from "@playwright/test";
 
 import { ADMINISTRATOR_STATE, test as journey } from "../support/journey";
-import { countedOf, expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } from "../support/layoutShift";
+import { expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } from "../support/layoutShift";
 import { signInWithCode } from "../support/signIn";
 import { standInForTurnstile } from "../support/turnstileStandIn";
 
@@ -528,8 +528,7 @@ const ROLES: Record<Role, readonly Walk[]> = {
 };
 
 /**
- * The guard's own red: a page whose paragraph a block pushes down a moment after it has loaded and painted, long after
- * its parse, so the load's budget counts it, served by
+ * The guard's own red: a page whose paragraph a block pushes down a moment after it has loaded and painted, served by
  * the case itself at an address of the stack's origin, never by the stack. A real navigation, since the recorder's
  * init script runs in each new document, which `page.setContent` writes into the blank one instead.
  */
@@ -560,61 +559,59 @@ test("a paragraph pushed down by a block inserted above it moves", async ({ page
   await page.route(MOVING, (route) => route.fulfill({ contentType: "text/html", body: MOVING_PAGE }));
   await page.goto(MOVING);
   await settle(page, record);
-  expect(totalOf(countedOf(record, "load")), "the recorder counts the paragraph's move against the load").toBeGreaterThan(0);
+  expect(totalOf(record), "the recorder counts the paragraph's move against the load").toBeGreaterThan(0);
 });
 
 /**
- * The guard's red for the load rule's boundary: the same move, made once the document is parsed but while its `load`
- * is still held back by an image the case answers only after the move, so a rule counting from the end of loading,
- * rather than from `DOMContentLoaded`, drops it. The page notes whether `load` had begun when it moved.
+ * The guard's red for a document painted in pieces, as a page without the root layout's `expect` link is on a slow
+ * device: a centred paragraph painted alone, then moved aside by a second one the parser inserts after it once a
+ * script the case holds back is answered. The page notes once a frame has been painted with the first paragraph alone,
+ * at the second animation frame, and the case answers the script only then, so the move comes between two frames
+ * while the document is still parsed.
  */
-const MOVING_EARLY = "/layout-guard-moving-early";
+const MOVING_WHILE_PARSED = "/layout-guard-moving-while-parsed";
 
-const HELD_IMAGE = "/layout-guard-held.gif";
+const HELD_SCRIPT = "/layout-guard-held.js";
 
-const MOVING_EARLY_PAGE = `<!doctype html>
+const MOVING_WHILE_PARSED_PAGE = `<!doctype html>
 <html lang="de">
   <body>
-    <p>Absatz</p>
-    <img src="${HELD_IMAGE}" width="1" height="1" alt="" />
-    <script>
-      addEventListener("DOMContentLoaded", () =>
+    <div style="display: flex; justify-content: center">
+      <p>Absatz</p>
+      <script>
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
-            const [navigation] = performance.getEntriesByType("navigation");
-            document.documentElement.dataset.loadBegunAtMove = String(navigation.loadEventStart > 0);
-            const block = document.createElement("div");
-            block.style.height = "100px";
-            document.body.prepend(block);
+            document.documentElement.dataset.painted = "true";
           }),
-        ),
-      );
-    </script>
+        );
+      </script>
+      <script src="${HELD_SCRIPT}"></script>
+      <p>Noch ein Absatz</p>
+    </div>
   </body>
 </html>`;
 
-/** A 1 × 1 transparent GIF, the held image's body once the case lets `load` come. */
-const GIF = Buffer.from("R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==", "base64");
-
-test("a paragraph pushed down after the parse and before the load ends moves", async ({ page }) => {
+test("a paragraph moved aside by content parsed after a painted frame moves", async ({ page }) => {
   const record = await recordShifts(page);
   let release = () => {};
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(MOVING_EARLY, (route) => route.fulfill({ contentType: "text/html", body: MOVING_EARLY_PAGE }));
-  await page.route(HELD_IMAGE, async (route) => {
+  await page.route(MOVING_WHILE_PARSED, (route) => route.fulfill({ contentType: "text/html", body: MOVING_WHILE_PARSED_PAGE }));
+  await page.route(HELD_SCRIPT, async (route) => {
     await released;
-    await route.fulfill({ contentType: "image/gif", body: GIF });
+    await route.fulfill({ contentType: "text/javascript", body: "" });
   });
-  // Not to `load`, which the held image keeps back until the move has been reported.
-  await page.goto(MOVING_EARLY, { waitUntil: "domcontentloaded" });
-  await expect.poll(() => record.length, { message: "the block's move is reported while the image is held" }).toBeGreaterThan(0);
-  expect(await page.locator("html").getAttribute("data-load-begun-at-move"), "the block moved before the load began").toBe("false");
+  // Not to `domcontentloaded`, which the held script keeps back until the case answers it.
+  await page.goto(MOVING_WHILE_PARSED, { waitUntil: "commit" });
+  await expect
+    .poll(() => page.locator("html").getAttribute("data-painted"), { message: "a frame is painted while the script is held" })
+    .toBe("true");
+  expect(record, "nothing has moved before the second paragraph is parsed").toHaveLength(0);
   release();
   await page.waitForLoadState("load");
   await settle(page, record);
-  expect(totalOf(countedOf(record, "load")), "the recorder counts the move between the parse and the load").toBeGreaterThan(0);
+  expect(totalOf(record), "the recorder counts a move made while the document is parsed against the load").toBeGreaterThan(0);
 });
 
 for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) {
@@ -641,7 +638,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${name} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
+            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
             await expectArrived(page, end);
             await expectSignedIn(page, role);
           });
@@ -663,7 +660,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
                 }
                 await page.evaluate((mark) => Reflect.set(window, mark, true), MARK);
                 const left = page.url();
-                await expectStill(page, record, "press", async () => {
+                await expectStill(page, record, async () => {
                   await press(link, phone);
                   // Left the origin: the link's own address, or the page an address answering for another sends it to.
                   await expect(page).toHaveURL((url) => url.href !== left);
@@ -685,7 +682,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${name} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
+            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
             await expectArrived(page, end);
             await expectSignedIn(page, role);
           });
