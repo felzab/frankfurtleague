@@ -35,7 +35,7 @@ export type StatusCardProps = {
   quiet?: WayOn;
 };
 
-export const statusCard = tv({
+const statusCard = tv({
   slots: {
     root: "grid w-full justify-items-center gap-4 text-center",
     mark: "flex size-10 items-center justify-center justify-self-center rounded-full",
