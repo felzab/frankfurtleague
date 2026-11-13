@@ -100,7 +100,7 @@ and takes a second line, which moves what stands below it.
 | Form refusal            | 1 short sentence, the status line's two lines on a phone  | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone  | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence, and a muted line where a list has nothing yet | which narrowing emptied it                                                                    |
-| Toast                   | a title of 1 to 3 words, no body                          | a past participle; a failure, the one line `failure.unexpected`                               |
+| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body     | done, a past participle or the act's note; refused, its own sentence or `failure.unexpected`  |
 | Page or section intro   | none                                                      | a page's title is its explanation                                                             |
 | List-truncation banner  | none                                                      | the load-more control instead                                                                 |
 | Page title              | the page's catalogue title                                | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
@@ -133,8 +133,14 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** is one of `toast`'s titles, and only for an action that leaves nothing on the page to
-  change.
+- **A toast** answers an act that leaves nothing on the page to change, and an act behind the passkey
+  touch whose question or dialog has closed before it answers: one of `toast`'s titles or the act's
+  note once done, in the warn tone where it partly happened, and the refusal's own sentence once
+  refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). No field stands beside a toast, so an
+  act whose dialog closes words every refusal as a sentence naming what was refused, never a field's
+  phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless` in
+  `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done act
+  on its own line alone.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
   `empty.filter` only where the list keeps a filter.

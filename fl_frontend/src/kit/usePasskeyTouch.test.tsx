@@ -168,8 +168,9 @@ describe("a dialog of inputs behind the passkey touch", () => {
     await waitFor(() => expect(toasted()).toStrictEqual([true, COPY.shared.toast.done.enter]));
   });
 
-  // A field's message with no field left to show it would toast as a failure nobody can act on.
-  it("toasts a refusal the server placed on a field as the form's line says it", async () => {
+  // A field's phrase, or the line pointing at the fields, with no field left in sight tells the person nothing true: a
+  // touched act words its refusals as sentences, and one it does not word is the shared failure.
+  it("toasts a refusal carrying a field's phrase alone as the shared failure, never the phrase or the fields' pointer", async () => {
     passkey.prompt.mockResolvedValueOnce(SIGNED_IN);
     const action = vi.fn(async (_: FormData): Promise<ActionAnswer> => ({ ok: false, fieldErrors: { name: COPY.shared.field.taken } }));
     render(inputs(action));
@@ -179,7 +180,9 @@ describe("a dialog of inputs behind the passkey touch", () => {
     await userEvent.type(within(dialog).getByRole("textbox"), "Anna");
     await pressIn(dialog, ENTER);
 
-    await waitFor(() => expect(toasted()).toStrictEqual([false, COPY.template.checkFields]));
+    await waitFor(() => expect(vi.mocked(toastAnswer)).toHaveBeenCalledOnce());
+    // No reason: `toastAnswer` says its failure line.
+    expect(toasted()).toStrictEqual([false, undefined]);
   });
 });
 

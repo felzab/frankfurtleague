@@ -99,8 +99,10 @@ describe("a ban", () => {
       });
     });
 
-    it("is refused on the address's box where nothing was left to end", async () => {
-      expect(await enterBan(BAN)).toMatchObject({ ok: false, fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } });
+    // The harm: the dialog has closed before the answer, so a box's phrase would reach its toast as the pointer at
+    // fields nobody sees.
+    it("is refused in a sentence of its own where nothing was left to end", async () => {
+      expect(await enterBan(BAN)).toStrictEqual({ ok: false, errorCode: "duplicate_key", reason: SERVER_COPY.closedDialog.banned });
 
       expect(store.reached).toStrictEqual([`end ${ADDRESS}`]);
     });
@@ -124,6 +126,20 @@ describe("a ban", () => {
 
       expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
     });
+  });
+
+  it.each([
+    ["an address of the wrong shape", { email: "max@example" }, SERVER_COPY.closedDialog.format.address, undefined],
+    ["a Grund of spaces", { ban_reason: "   " }, SERVER_COPY.closedDialog.reasonMissing, undefined],
+    ["a Grund holding an address", { ban_reason: ADDRESS }, SERVER_COPY.closedDialog.reasonWithAddress, "address_in_free_text"],
+  ])("refuses %s in its box's sentence, the dialog having closed", async (_case, typed, reason, rule) => {
+    if (rule !== undefined) {
+      answerWith(async () => {
+        throw refused("payload_refused", { fields: [{ path: ["ban_reason"], kind: rule, ctx: {}, in: "body" }] });
+      });
+    }
+
+    expect(await enterBan({ ...BAN, ...typed })).toMatchObject({ ok: false, reason });
   });
 
   // A write the backend refused stands nowhere, so there is nothing for a sign-out to follow.

@@ -44,7 +44,7 @@ export type AskedInput<Input> = {
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
  * form's line, no question asked. The question's final press closes it, asks the touch and runs `act`, whose refusal
  * answers in a toast (`ConfirmDialog`). A done act names itself in its answer's `note`, which stands in the form's
- * line over boxes drawn empty.
+ * line over boxes drawn empty, and in that line alone.
  */
 export function QuestionForm<Input>({
   verb,
@@ -138,6 +138,7 @@ export function QuestionForm<Input>({
           {...(asked.question.facts === undefined ? {} : { facts: asked.question.facts })}
           open={open}
           touch={{ holder }}
+          doneShown
           onConfirm={async () => {
             const answered = await act({ ...asked.input, holder });
             // An update after the `await` lands outside the press's transition unless it opens one of its own.

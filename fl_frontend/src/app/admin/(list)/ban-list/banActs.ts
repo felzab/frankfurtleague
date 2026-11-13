@@ -16,6 +16,7 @@ import { SignInPayloadSchema } from "@/features/auth/schemas";
 import type { Copy } from "@/core/copy";
 
 const PARTIAL = COPY.admin.banList.partial;
+const CLOSED = SERVER_COPY.closedDialog;
 
 /**
  * The dialog's boxes, by the names they post under. The address is held to the sign-in's own rule, the published one
@@ -76,9 +77,9 @@ function partialOutcome(sessionsEnded: boolean, noticeOwed: boolean): Copy | und
  * Bans an address from the dialog over the list, behind the passkey touch: its next sign-in is refused, its live
  * sessions end here, and an address holding an account is owed its notice in the ban's own transaction. Nothing that
  * fails after the write undoes the ban, so the toast after the dialog closed says what did not follow, in the warn tone,
- * and a second press, the address typed again, can still end the sessions. A second ban is the unique index's refusal, which the shared 409 answers with
- * no field, and the address is the one box it can be about; its sessions end all the same, and a press that ended some
- * says so rather than refusing.
+ * and a second press, the address typed again, can still end the sessions. A second ban is the unique index's refusal,
+ * which the shared 409 answers with no field; its sessions end all the same, and a press that ended some says so rather
+ * than refusing. The dialog has closed before any answer, so every refusal is a sentence (`boxless`).
  */
 export const enterBan = action({
   lane: "admin",
@@ -88,6 +89,10 @@ export const enterBan = action({
   ownWords: ["ban_list_admin", "ban_list_no_saison", "email_not_accepted", "address_in_free_text"],
   paths: { email: "email", ban_reason: "ban_reason" },
   examples: { email: COPY.shared.field.exampleAddress },
+  boxless: {
+    email: { value: CLOSED.format.address, email_not_accepted: CLOSED.format.address },
+    ban_reason: { required: CLOSED.reasonMissing, address_in_free_text: CLOSED.reasonWithAddress },
+  },
   run: async ({ email, ban_reason }) => {
     // Read ahead of the write, so the ban owes its own notice in its own transaction.
     const account = await accountAt(email);
@@ -100,11 +105,9 @@ export const enterBan = action({
       // this press is the only one that can still end them. A session of an address banned earlier is already gone, so this
       // costs nobody anything, and finding one is what tells this press from a true second ban.
       const stood = await sessionsRunAt(email);
-      // No field error here: the dialog closed before the touch, so a box's phrase would reach the toast as the form's
-      // pointer at its fields, which says nothing of the sessions still running.
       if (!(await sessionsEndedAt(email))) return { ok: false, reason: PARTIAL.sessions, warn: true };
       if (stood) return { ok: true, value: undefined, note: PARTIAL.ended };
-      return { ok: false, errorCode: "duplicate_key", fieldErrors: { email: SERVER_COPY.refusal.duplicate_key } };
+      return { ok: false, errorCode: "duplicate_key", reason: CLOSED.banned };
     }
 
     // After the write is acknowledged, so nobody is signed out by a request that then failed.

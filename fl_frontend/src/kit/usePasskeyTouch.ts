@@ -19,11 +19,11 @@ import type { Copy } from "@/core/copy";
  * person holds a passkey, which the page read; a person holding none is asked nothing, as the lane admits them. It
  * answers the wrapper an act's own press runs: the wrapped act answers as the act does, or, where the passkey did not
  * answer, with the refusal, the act never having run, which the caller shows as any refusal: a box or a one-shot form
- * on its line, with what the person typed, and a dialog in its toast. The caller's pending state holds through the
- * browser's prompt, the act's button busy. `holder` is the address the page was drawn for: a page whose own session
- * ended asks a prompt naming nobody, which any account's passkey answers, so a touch signing another account in is
- * refused as the page's sign-in having ended. The prompt itself cannot be narrowed to the holder's passkeys there: the
- * library lists a session's own alone, and none stands.
+ * on its line, with what the person typed, and a dialog in its toast, its inputs typed anew. The caller's pending state
+ * holds through the browser's prompt, the act's button busy. `holder` is the address the page was drawn for: a page
+ * whose own session ended asks a prompt naming nobody, which any account's passkey answers, so a touch signing another
+ * account in is refused as the page's sign-in having ended. The prompt itself cannot be narrowed to the holder's
+ * passkeys there: the library lists a session's own alone, and none stands.
  *
  * A dialog asking its act closes for good before its final press asks the touch (`ConfirmDialog`, `Dialog`), as an
  * identity check is asked with no modal standing: a React Aria modal makes every element outside it inert, a password

@@ -67,6 +67,7 @@ beforeEach(() => {
   acts.read.mockReset();
   acts.act.mockReset();
   acts.touch.mockReset();
+  vi.mocked(toastAnswer).mockClear();
   acts.read.mockResolvedValue(READ);
   acts.touch.mockResolvedValue({ data: { status: true, email: HOLDER }, error: null });
 });
@@ -81,8 +82,9 @@ describe("a form asking its question over what the press read", () => {
     expect(acts.touch).not.toHaveBeenCalled();
   });
 
-  // The harm: the touch ahead of the question, or the act sending what the boxes hold rather than what the read held.
-  it("runs the act behind the touch on the read's input, emptying the boxes under its done line", async () => {
+  // The harm: the touch ahead of the question, the act sending what the boxes hold rather than what the read held, or
+  // the done act said twice, in the line and in a toast.
+  it("runs the act behind the touch on the read's input, emptying the boxes under its done line alone", async () => {
     acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     await press();
 
@@ -97,6 +99,7 @@ describe("a form asking its question over what the press read", () => {
     await waitFor(() => {
       expect(box().value).toBe("");
     });
+    expect(vi.mocked(toastAnswer)).not.toHaveBeenCalled();
   });
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
