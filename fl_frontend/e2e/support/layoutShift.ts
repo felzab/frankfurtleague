@@ -150,10 +150,15 @@ const QUIET_MS = 300;
 const WINDOWS = 10;
 
 /**
- * Waits until `page` stands still: no `[aria-busy="true"]` left, then two animation frames and `QUIET_MS` in which no
- * new shift arrives and the address holds, repeated until one such window passes, and failing after `WINDOWS` with the
- * shifts and the address it saw. A navigation inside the window destroys the context it was waited in, which is a page
- * still moving, so the wait starts again.
+ * Waits until `page` stands still: no visible `[aria-busy="true"]` left, then two animation frames and `QUIET_MS` in
+ * which no new shift arrives and the address holds, repeated until one such window passes, and failing after `WINDOWS`
+ * with the shifts and the address it saw. A navigation inside the window destroys the context it was waited in, which
+ * is a page still moving, so the wait starts again.
+ *
+ * A hidden wait is left out: Next keeps the page a client navigation left in the document, hidden
+ * (https://nextjs.org/docs/app/guides/preserving-ui-state#testing), and a wait in it draws no box, so it can move
+ * nothing the browser reports, and waiting on it would fail a still page. Playwright's visibility leaves out a busy box
+ * of no size as well, which a wait standing at its content's size never is.
  */
 export async function settle(page: Page, record: ShiftRecord): Promise<void> {
   const { timeout } = test.info();
@@ -163,7 +168,7 @@ export async function settle(page: Page, record: ShiftRecord): Promise<void> {
   const from = record.length;
   for (let window = 0; window < WINDOWS; window++) {
     const [count, address] = [record.length, page.url()];
-    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+    await expect(page.locator('[aria-busy="true"]').filter({ visible: true })).toHaveCount(0);
     const quiet = await page
       .evaluate(
         (ms) =>
