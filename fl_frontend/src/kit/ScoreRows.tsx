@@ -33,7 +33,10 @@ type ScoreColumn = {
   values: readonly [string, string];
   onChange: (side: 0 | 1, value: string) => void;
   isRequired: boolean;
-  /** Held fixed by its record: both fields disabled, a headed column's head marked with the lock (`useFieldLock`). */
+  /**
+   * Held fixed by its record: both fields read-only and marked with the lock (`useFieldLock`), a headed column at its
+   * head and the goals' unheaded one after each row's club, the name a goal field stands beside.
+   */
   isLocked?: boolean;
 };
 
@@ -139,8 +142,10 @@ export function ScoreRows({
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
-  // Only the shoot-out's column has a head to mark: the goals' fields are named by their hidden label alone.
+  // The shoot-out's column is marked at its head; the goals' column has none, so each goal field is marked after the
+  // club naming its row.
   const shootOutLock = useFieldLock(false, shootOut?.isLocked ?? false);
+  const toreLock = useFieldLock(false, !("counted" in tore) && tore.isLocked === true);
   const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
       {shown.head ?? shown.label}
@@ -199,6 +204,7 @@ export function ScoreRows({
               className={slots.name()}>
               {textOf(sides[side].name)}
             </span>
+            {toreLock.isMarked && <LockMark />}
           </span>
           {"counted" in tore ? counted(side, tore) : field(side, "tore", tore)}
           {shootOut !== null && field(side, "shootOut", shootOut)}

@@ -17,26 +17,23 @@ function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].shorthand;
 }
 
-// Each route's hue, the public two letters' and the administration's word alike: a club out of the season by either
-// route takes the danger hue, a withdrawal as a disqualification does.
-const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "danger" } as const satisfies Record<FLAustrittType, ChipProps["tone"]>;
-
 /**
  * A club's exit chip, after its name wherever a public list or its page names it: the route's two letters, which a
- * screen reader hears as the club's state, so every public surface draws one chip for one record.
+ * screen reader hears as the club's state, so every public surface draws one chip for one record. Red by either route:
+ * a withdrawal takes the danger hue as a disqualification does.
  */
 export function austrittChip(type: FLAustrittType): ChipProps {
-  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittState(type) };
+  return { tone: "danger", label: austrittKuerzel(type), spoken: austrittState(type) };
 }
 
 /**
  * The chip after a club's name in the administration, the list's „Stand“ column's and the editor's head alike:
- * „Stillgelegt“ once it left the league, else how it left the season, in its route's hue, as the public chip draws it,
- * and in the full word, which the list and the editor have room for; „Aktiv“ while it plays on.
+ * „Stillgelegt“ once it left the league, else how it left the season, red as the public chip draws it, and in the full
+ * word, which the list and the editor have room for; „Aktiv“ while it plays on.
  */
 export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps {
   if (retiredSince !== null) return RETIRED_CHIP;
-  return exit === null ? ACTIVE_CHIP : { tone: AUSTRITT_TONE[exit], label: austrittState(exit) };
+  return exit === null ? ACTIVE_CHIP : { tone: "danger", label: austrittState(exit) };
 }
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {

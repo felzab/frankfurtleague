@@ -1,3 +1,4 @@
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Icon } from "./Icon";
 import { tv } from "./tv";
@@ -26,9 +27,7 @@ const pillars = tv({
 export function Pillars({ items }: { items: readonly [Pillar, Pillar, Pillar] }) {
   const slots = pillars();
   return (
-    // The container the cards' columns read, since a query reads an ancestor; `w-full`, since a container's width
-    // counts none of its content.
-    <div className="@container w-full">
+    <BlockBox>
       <div className={slots.root()}>
         {items.map((item) => (
           <div
@@ -45,6 +44,6 @@ export function Pillars({ items }: { items: readonly [Pillar, Pillar, Pillar] })
           </div>
         ))}
       </div>
-    </div>
+    </BlockBox>
   );
 }

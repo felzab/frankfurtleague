@@ -30,6 +30,7 @@ import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
+import type { ChipProps } from "@/kit/Chip";
 import type { EditorPart, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
@@ -68,6 +69,7 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  */
 export function SpielEditor({
   title,
+  chip,
   preview,
   record,
   save,
@@ -91,6 +93,8 @@ export function SpielEditor({
   spielPage,
 }: {
   title: PageTitle;
+  /** The match's state after the title, as the league's „Spiele“ list shows it; absent for a match simply set. */
+  chip?: ChipProps;
   /** The line under the title: the match as it is stored, read on the server. */
   preview: Copy;
   record: EditorRecord<SpielValues>;
@@ -235,6 +239,7 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
+      chip={chip}
       lead={preview}
       editor={editor}
       closed={closed}

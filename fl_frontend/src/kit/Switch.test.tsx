@@ -10,7 +10,7 @@ import { Switch } from "./Switch";
 describe("a locked switch", () => {
   // The harm: a switch its record holds fixed, such as a match's result before its season's start, still flips and
   // reveals fields whose save the write refuses, while its lock mark says it cannot.
-  it("stands disabled and never flips", async () => {
+  it("stands read-only and never flips", async () => {
     const onChange = vi.fn();
     render(
       <Switch
@@ -21,10 +21,10 @@ describe("a locked switch", () => {
     );
     const control = screen.getByRole<HTMLInputElement>("switch");
 
-    // A person's click, as a browser delivers it: a bare dispatched event reaches even a disabled input in jsdom.
+    // A person's click, as a browser delivers it.
     await userEvent.click(control);
 
-    expect(control.disabled).toBe(true);
+    expect(control.getAttribute("aria-readonly")).toBe("true");
     expect(onChange).not.toHaveBeenCalled();
   });
 });

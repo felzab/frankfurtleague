@@ -164,30 +164,31 @@ failure="${tag} did not come up"
 if up; then
   # What `up` answered and nothing more: the read below judges each service.
   ok "compose's wait ended without a failure"
-  # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
-  step "nginx's configuration"
-  failure="nginx did not take this checkout's configuration and still runs the one it had"
-  if ! quietly docker compose exec -T nginx nginx -t; then
-    # Going back moves the images alone, and nginx reads the checkout's files at any restart.
-    warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
+  # Before nginx is reloaded, so a run this read fails goes back with nginx on the configuration it had.
+  step "Every service's state"
+  read_rc=0
+  read_states || read_rc=$?
+  if (( read_rc == 0 )); then
+    ok "every service is running and healthy"
+    # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
+    step "nginx's configuration"
+    failure="nginx did not take this checkout's configuration and still runs the one it had"
+    if ! quietly docker compose exec -T nginx nginx -t; then
+      # Going back moves the images alone, and nginx reads the checkout's files at any restart.
+      warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
 reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
-  elif reload_nginx; then
-    ok "tested, and its new workers started"
-    step "Every service's state"
-    read_rc=0
-    read_states || read_rc=$?
-    if (( read_rc == 0 )); then
-      ok "every service is running and healthy"
+    elif reload_nginx; then
+      ok "tested, and its new workers started"
       pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
       ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
       exit 0
-    elif (( read_rc == 1 )); then
-      printf -v named '%s, ' "${FAILING[@]}"
-      failure="${tag} came up, but the last read finds ${named%, } not running and healthy"
-    else
-      failure="${tag} came up, but compose could not read each service's state after it"
     fi
+  elif (( read_rc == 1 )); then
+    printf -v named '%s, ' "${FAILING[@]}"
+    failure="${tag} came up, but the last read finds ${named%, } not running and healthy"
+  else
+    failure="${tag} came up, but compose could not read each service's state after it"
   fi
 fi
 
@@ -203,7 +204,7 @@ fi
 
 # The images alone go back: the checkout's compose file and nginx's configuration stay as pulled.
 # nginx is not reloaded, so unless the start above recreated it, it runs the configuration it had
-# before this run.
+# before this run, except after a reload nginx confirmed neither way, which the failure names.
 step "Going back to ${prev}"
 export TAG="$prev"
 back_rc=1

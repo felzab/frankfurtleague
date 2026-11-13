@@ -98,7 +98,7 @@ export function DateField({
   consequence?: Copy;
   isRequired?: boolean;
   isDisabled?: boolean;
-  /** Held fixed by its record: disabled, its label marked with the lock (`useFieldLock`). */
+  /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
   name?: string;
   value?: CalendarDay | null;
@@ -122,7 +122,8 @@ export function DateField({
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
         isRequired={lock.isRequired}

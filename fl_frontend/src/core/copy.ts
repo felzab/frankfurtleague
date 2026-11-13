@@ -367,7 +367,7 @@ export const COPY = catalogue({
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
     question: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}?`,
     back: "Zurück",
-    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
+    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up, and every toast. */
     close: "Schließen",
 
     /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
@@ -1021,8 +1021,6 @@ export const COPY = catalogue({
         numbered: (noun: Copy, number: number) => `${noun} ${formatNumber(number)}`,
         /** The status card of a match called off or struck out, which takes no report. */
         befell: { ausgefallen: "Spiel ausgefallen", annulliert: "Spiel annulliert" } satisfies Partial<Record<FLSonderereignis, string>>,
-        /** Under the goals' title where a side fields another club than the report names, whose pupils left their rows. */
-        sidesChanged: "Im Spiel stehen inzwischen andere Teams.",
       },
     },
   },

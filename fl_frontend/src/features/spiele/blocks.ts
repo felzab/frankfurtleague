@@ -162,6 +162,15 @@ function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<Sp
   return { chip, muted: true, absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2" };
 }
 
+/**
+ * A match's state as the league's „Spiele“ list and its editor's head show it: what befell it, as every list shows it,
+ * else „Vorläufig“ while its clubs, asked about its date, have not both confirmed it.
+ */
+export function adminSpielChipOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ansetzung_confirmed">): ChipProps | undefined {
+  if (spiel.sonderereignis !== null) return eventChip(spiel.sonderereignis, namesOf(spiel));
+  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.admin.spiel.provisional } : undefined;
+}
+
 /** A match's row with `when` as its date line, the whole of it a link to the match. */
 function rowOf(spiel: Listed, when: Copy, linked = true): SpielRowProps & { id: string } {
   return {

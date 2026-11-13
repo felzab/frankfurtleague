@@ -62,7 +62,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
   },
   spiel_einteilung: { kind: "spiel_einteilung", ansetzung: ANSETZUNG, moved_from: null },
   spiel_moved: { kind: "spiel_moved", appointment: APPOINTMENT, moved_to: null, asked_again: false, recipient: "team" },
-  spiel_cancelled: { kind: "spiel_cancelled", appointment: APPOINTMENT, recipient: "team" },
+  spiel_cancelled: { kind: "spiel_cancelled", appointment: APPOINTMENT, recipient: "team", sonderereignis: "ausgefallen" },
   spiel_einteilung_lifted: { kind: "spiel_einteilung_lifted", appointment: APPOINTMENT },
   spiel_vorschlag_discarded: { kind: "spiel_vorschlag_discarded", appointment: APPOINTMENT },
   aufstellung_reminder: {

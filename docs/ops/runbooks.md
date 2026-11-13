@@ -78,12 +78,13 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
    (`docker compose up --wait`). Compose recreates a service only where its definition or image
    moved, so a deploy moving only the application images recreates those two, and nginx keeps
    serving across the swap.
-4. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
+4. **It reads every service's state once more**, since the wait judges each service once and a
+   service can fail after it has passed. A service the compose file defines with no running
+   container, or with a healthcheck reading anything but healthy, fails the deploy, named, before
+   nginx is touched.
+5. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
    seconds for nginx's own line `start worker processes`. An `[emerg]`, `[alert]` or `[crit]` line,
    or no line at all, fails the deploy, the line shown.
-5. **It reads every service's state once more**, since the wait judges each service once and a
-   service can fail after it has passed. A service the compose file defines with no running
-   container, or with a healthcheck reading anything but healthy, fails the deploy, named.
 6. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
    and the build before it.
 
@@ -114,7 +115,7 @@ about and counts as no pin.
 | ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
 | Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                        |
 | Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                       |
-| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
+| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded, unless its reload went unconfirmed                 |
 | Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
 | Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
 | Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                          |
@@ -128,7 +129,8 @@ pull, or a `--no-rollback` run whose pin could not be written.** The run names w
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
-recreated it. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
+recreated it, or nginx confirmed neither taking nor refusing the run's reload, which the run's last
+line then says. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
 files, which any later start of nginx, a reboot included, loads and fails on: pull a commit whose
 configuration nginx takes and deploy it.
 
