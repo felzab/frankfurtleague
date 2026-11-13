@@ -105,7 +105,13 @@ commit until it ends.
   it in pieces: a table's column widening as its later rows arrive, the phone bar's tracks narrowing
   as its later links do. Chrome and Edge from version 124 and Safari from 18.2 honour the link;
   Firefox does not.
-- Where the element never comes, the end of parsing lifts the block.
+- The block holds a page's first paint for as long as the browser takes to parse the document up to
+  that element. Measured in headless Chromium, that is nothing on a fast device and about 0.2 s on a
+  processor slowed ten times for the largest administrator page, a document of about 260 kB. React's
+  own form of this block gives it up for a document past 512 kB, since holding the paint of a larger
+  one costs more than a late shift; a page that grows towards that size needs the same cap.
+- Where the element never comes, the end of parsing lifts the block, and Chromium paints at about
+  the load event.
 - A page that finds nothing, is refused or throws while the server renders it arrives as Next's bare
   error document, which holds neither the root layout's link nor its element. Its body is empty, so
   the visitor sees a bare ground until the page's code runs and draws the segment's not-found or
