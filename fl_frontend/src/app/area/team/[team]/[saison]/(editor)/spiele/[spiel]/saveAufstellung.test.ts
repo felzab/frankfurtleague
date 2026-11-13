@@ -1,6 +1,7 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { person, seat } from "@/test-support/subjectFixtures";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
+import { describe, expect, it } from "vitest";
 
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 
@@ -46,27 +47,20 @@ const STORED: FLAufstellungResponse = {
   marks: null,
 };
 
-const state = vi.hoisted(() => ({ sent: [] as { endpoint: string; method: string | undefined; body: unknown }[] }));
-
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+// The merge's read and the write, each answered only at the line-up of the match and the club the case names: a save
+// reaching for another club's line-up goes unanswered and fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (path !== `/aufstellungen/${SPIEL}/${TEAM}/self`) return undefined;
+  if (method === "GET") return STORED;
+  return method === "PUT" ? { ...STORED, version: 4 } : undefined;
+});
 // A person holding seats on two clubs of the season, so a save sent for the wrong one would pass the seat's claim.
-vi.mock("@/core/subject", () => ({
-  getSubjectSession: async () =>
-    person({ seats: [seat({ team_id: TEAM, saison_id: "2027" }), seat({ team_id: OTHER_TEAM, saison_id: "2027" })] }),
-}));
-
-doubleApiClient((call) => {
-  state.sent.push({ endpoint: call.endpoint, method: call.method, body: JSON.parse(call.body ?? "null") });
-  return call.method === "PUT" ? { ...STORED, version: 4 } : STORED;
+signedInRequest({
+  email: "pia@example.org",
+  records: { seats: [seat({ team_id: TEAM, saison_id: "2027" }), seat({ team_id: OTHER_TEAM, saison_id: "2027" })] },
 });
 
 const { saveAufstellung } = await import("./saveAufstellung");
-
-beforeEach(() => {
-  state.sent = [];
-});
 
 describe("a line-up's save", () => {
   // The write takes the line-up whole: sent for another match or club it would write that line-up, and the half the
@@ -74,11 +68,11 @@ describe("a line-up's save", () => {
   it("writes the line-up of the match and the club it names, whole, the starters it changed over the pupils as stored", async () => {
     const answer = await saveAufstellung({ team_id: TEAM, saison_id: "2027", id: SPIEL, version: 3, changes: { starters: [ONE] } });
 
-    expect(state.sent).toStrictEqual([
+    expect(backend.sent.map(({ path, method, body }) => ({ path, method, body }))).toStrictEqual([
       // The merge reads the line-up of the same match and club it writes, of the two clubs the person holds seats on.
-      { endpoint: `/aufstellungen/${SPIEL}/${TEAM}/self`, method: "GET", body: null },
+      { path: `/aufstellungen/${SPIEL}/${TEAM}/self`, method: "GET", body: undefined },
       {
-        endpoint: `/aufstellungen/${SPIEL}/${TEAM}/self`,
+        path: `/aufstellungen/${SPIEL}/${TEAM}/self`,
         method: "PUT",
         // In shirt-number order, on the version the editor read.
         body: {
