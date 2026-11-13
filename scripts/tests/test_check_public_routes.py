@@ -12,11 +12,12 @@ coverage.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from conftest import import_scripts, new_root
+from conftest import REPO_ROOT, import_scripts, new_root
 
 [routes] = import_scripts("check_public_routes")
 
@@ -101,25 +102,32 @@ def accounted(app: Path, where: tuple) -> list:
     return routes.account(accounting(app, where))
 
 
-def test_a_recorded_reason_at_an_exact_match_path_does_not_excuse_its_missing_meter(monkeypatch):
+def test_a_recorded_reason_at_an_exact_match_path_does_not_excuse_its_missing_meter():
     """Not redundant beside the plain unmetered-exact case: the recorded reason names that same path.
 
     `REASONS` accounts for what a PREFIX covers, so nothing there may answer for an exact match.
     """
-    monkeypatch.setattr(routes, "REASONS", (routes.Reason("/api/bewerbung", "a prefix reason spelled at an exact match's own path"),))
-    findings = accounted(tree("/api/bewerbung"), served(exact("/api/bewerbung", metered=False), CATCH_ALL))
+    reason = routes.REASONS[0].path
+    app = clean_tree()
+    write(app, reason.strip("/") + "/route.ts", HANDLER)
 
-    assert severities(findings) == ["fail"]
-    assert "carries no limit_req" in details(findings)
+    done = run_checker(app, clean(exact(reason, metered=False)))
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == [f"FAIL    app/{reason.strip('/')}/route.ts answers {reason}, whose exact-match location carries no limit_req"]
 
 
-def test_a_handler_recorded_unmetered_is_no_finding_and_its_neighbour_still_is(monkeypatch):
+def test_a_handler_recorded_unmetered_is_no_finding_and_its_neighbour_still_is():
     """The record names one URL: a handler beside it, unmetered the same way, is reported."""
-    monkeypatch.setattr(routes, "UNMETERED", (routes.Unmetered("/api/hook", "a machine's webhook"),))
-    findings = accounted(tree("/api/hook", "/api/hook2"), served(exact("/api/hook", metered=False), CATCH_ALL))
+    recorded = routes.UNMETERED[0].path
+    app = clean_tree()
+    for url in (recorded, recorded + "2"):
+        write(app, url.strip("/") + "/route.ts", HANDLER)
 
-    assert severities(findings) == ["fail"]
-    assert "/api/hook2" in details(findings)
+    done = run_checker(app, clean(exact(recorded, metered=False)))
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == [f"FAIL    app/{recorded.strip('/')}2/route.ts answers {recorded}2, and no location in {SOURCE} names it"]
 
 
 def test_a_handler_filed_as_a_tsx_route_is_walked_too():
@@ -214,13 +222,18 @@ def test_the_catch_all_is_never_coverage():
     assert routes.covering_prefix("/api/example", served(CATCH_ALL)) is None
 
 
-def test_a_prefix_covering_a_handler_needs_a_recorded_reason(monkeypatch):
+def test_a_prefix_covering_a_handler_needs_a_recorded_reason():
     """A prefix names where a path goes and meters nothing, so the reason is the whole accounting."""
-    monkeypatch.setattr(routes, "REASONS", ())
-    findings = accounted(tree("/api/example/one"), served(prefix("/api/example/"), CATCH_ALL))
+    assert routes.declaring("/api/example/") is None, "the prefix this case plants is one REASONS records"
+    app = clean_tree()
+    write(app, "api/example/one/route.ts", HANDLER)
 
-    assert severities(findings) == ["fail"]
-    assert "no recorded reason" in details(findings)
+    done = run_checker(app, clean(prefix("/api/example/")))
+
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == [
+        "FAIL    app/api/example/one/route.ts answers /api/example/one, covered by the prefix location /api/example/ and by no recorded reason"
+    ]
 
 
 def test_a_dynamic_segment_with_no_prefix_over_it_is_unmeterable():
@@ -665,91 +678,109 @@ HTTP_CONF = (
     "map $uri $referrer_policy {\n    /new no-referrer;\n    default strict-origin-when-cross-origin;\n}\n"
 )
 LINK_BURST = 10 * routes.kader_size_max(routes.REPO_ROOT / routes.OPENAPI) - 2 * 30
-CLEAN = (
-    "server {\n"
-    + METERED
-    + block("location = /new", CEILING, f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
-    + ACTION_CATCH_ALL
-    + "}\n"
-)
+CHECKER = REPO_ROOT / "scripts" / "checks" / "check_public_routes.py"
 
 
-def run_main(app: Path, text: str, monkeypatch) -> int:
-    """One end-to-end run over a planted pair, where the exit contract is decided.
-
-    The real reasons and conventions are withdrawn, or a run answers for what this tree does not
-    hold rather than the shape its case planted.
-    """
-    monkeypatch.setattr(routes, "REASONS", ())
-    monkeypatch.setattr(routes, "METADATA", ())
-    monkeypatch.setattr(routes, "UNMETERED", ())
-    conf = app.parent / SOURCE
-    conf.write_bytes(text.encode("utf-8"))
-    (app.parent / routes.NGINX_HTTP_CONF).write_bytes(HTTP_CONF.encode("utf-8"))
-    monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
-    return routes.main()
+def clean(*blocks: str) -> str:
+    """The server body every rule passes over `clean_tree`, the blocks given beside its own."""
+    link = block("location = /new", CEILING, f"        limit_req zone=linkpage burst={LINK_BURST} nodelay;\n", ACTION_ZONE, DISCARDED, PASS)
+    return "server {\n" + METERED + link + "".join(blocks) + ACTION_CATCH_ALL + "}\n"
 
 
 def clean_tree() -> Path:
-    """A route handler and a link page, each with the location `CLEAN` gives it."""
+    """A route handler and a link page, each with the location `clean` gives it."""
     app = link_page("/new")
     write(app, "api/bewerbung/route.ts", HANDLER)
     return app
 
 
-def test_a_clean_pair_exits_zero(monkeypatch):
+def run_checker(app: Path, text: str | bytes, *, tree: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """The checker run as the gate runs it, as its own process, over `app` and a configuration of `text` beside it.
+
+    The real tables stand: what they record names no URL a fixture tree holds unless its case plants it.
+    `tree` hands it another route tree than `app`, the configuration still beside `app`.
+    """
+    conf = app.parent / SOURCE
+    conf.write_bytes(text if isinstance(text, bytes) else text.encode("utf-8"))
+    (app.parent / routes.NGINX_HTTP_CONF).write_bytes(HTTP_CONF.encode("utf-8"))
+    # Its own encoding, not the machine's: the checker's streams are utf-8 whatever the codepage.
+    return subprocess.run(
+        (sys.executable, str(CHECKER), str(tree or app), str(conf)), capture_output=True, encoding="utf-8", errors="replace", check=False
+    )
+
+
+def failures(done: subprocess.CompletedProcess[str]) -> list[str]:
+    """The first line of each finding the run printed, as a reader of the gate's output meets it."""
+    return [line.strip() for line in done.stdout.splitlines() if line.strip().startswith("FAIL")]
+
+
+REFUSED = "Nothing was accounted for, so this is a refusal rather than a verdict on the routes."
+
+
+def test_a_clean_pair_exits_zero():
     """The contract's passing arm, and what the gate's ops section reads as a green step."""
-    assert run_main(clean_tree(), CLEAN, monkeypatch) == 0
+    done = run_checker(clean_tree(), clean())
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "1 route handler(s) accounted for" in done.stdout and "1 link page(s) on the link pages' zone" in done.stdout, done.stdout
 
 
-def test_a_rule_in_the_table_that_fails_fails_the_run(monkeypatch):
-    """`main` runs `RULES` whole, so this one case holds the wiring every rule reaches a reader through."""
-    monkeypatch.setattr(routes, "RULES", (*routes.RULES, lambda judged: [routes.Finding("fail", "planted")]))
+def test_a_finding_fails_the_run():
+    """`main` runs every rule of `RULES` and answers 1 for what one finds, the finding printed for the reader."""
+    app = clean_tree()
+    write(app, "api/example/route.ts", HANDLER)
 
-    assert run_main(clean_tree(), CLEAN, monkeypatch) == 1
+    done = run_checker(app, clean())
 
-
-def test_a_rule_that_judged_nothing_exits_two(monkeypatch):
-    """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair."""
-
-    def judged_nothing(judged):
-        raise routes.NothingJudged("planted")
-
-    monkeypatch.setattr(routes, "RULES", (*routes.RULES, judged_nothing))
-
-    assert run_main(clean_tree(), CLEAN, monkeypatch) == routes.EXIT_REFUSED
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert failures(done) == [f"FAIL    app/api/example/route.ts answers /api/example, and no location in {SOURCE} names it"]
 
 
-def test_a_construct_it_cannot_parse_exits_two(monkeypatch):
+def test_a_rule_that_judged_nothing_exits_two():
+    """A refusal collapsed into a failure, or into a pass, sends a reader to the wrong repair.
+
+    A tree with no link page leaves the link rules nothing to judge.
+    """
+    app = tree("/api/bewerbung")
+
+    done = run_checker(app, clean())
+
+    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
+    assert "A rule found nothing to judge, so this is a refusal rather than a pass." in done.stderr, done.stderr
+
+
+def test_a_construct_it_cannot_parse_exits_two():
     """A refusal collapsed into a failure sends a reader to repair the routes rather than the reader."""
-    text = "server {\n" + block("location ~ ^/api/", PASS) + "}\n"
+    done = run_checker(clean_tree(), "server {\n" + block("location ~ ^/api/", PASS) + "}\n")
 
-    assert run_main(clean_tree(), text, monkeypatch) == routes.EXIT_REFUSED
+    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
+    assert "the location modifier '~'" in done.stderr and REFUSED in done.stderr, done.stderr
 
 
-def test_a_metadata_file_this_reader_cannot_place_exits_two(monkeypatch):
+def test_a_metadata_file_this_reader_cannot_place_exits_two():
     """The gap the population closes, at the exit contract: the next metadata route ends the run."""
     app = clean_tree()
     write(app, "twitter-image.tsx", GENERATED)
 
-    assert run_main(app, CLEAN, monkeypatch) == routes.EXIT_REFUSED
+    done = run_checker(app, clean())
+
+    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
+    assert "the metadata image 'twitter-image.tsx'" in done.stderr and REFUSED in done.stderr, done.stderr
 
 
-def test_a_missing_route_tree_exits_two(monkeypatch):
+def test_a_missing_route_tree_exits_two():
     """Input the checker cannot read is a refusal, never a tree it may call accounted for."""
     app = clean_tree()
-    conf = app.parent / SOURCE
-    conf.write_bytes(CLEAN.encode("utf-8"))
-    monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app.parent / "gone"), str(conf)])
 
-    assert routes.main() == routes.EXIT_REFUSED
+    done = run_checker(app, clean(), tree=app.parent / "gone")
+
+    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
+    assert "no App Router tree here" in done.stderr and REFUSED in done.stderr, done.stderr
 
 
-def test_a_configuration_that_is_not_utf_8_exits_two(monkeypatch):
+def test_a_configuration_that_is_not_utf_8_exits_two():
     """A byte no decoder places is input this check cannot judge, and a traceback is not a verdict."""
-    app = clean_tree()
-    conf = app.parent / SOURCE
-    conf.write_bytes(b"# \xff\n" + CLEAN.encode("utf-8"))
-    monkeypatch.setattr(sys, "argv", ["check_public_routes.py", str(app), str(conf)])
+    done = run_checker(clean_tree(), b"# \xff\n" + clean().encode("utf-8"))
 
-    assert routes.main() == routes.EXIT_REFUSED
+    assert done.returncode == routes.EXIT_REFUSED, done.stdout + done.stderr
+    assert "the route tree and the edge configuration both have to be readable" in done.stderr and "Traceback" not in done.stderr, done.stderr
