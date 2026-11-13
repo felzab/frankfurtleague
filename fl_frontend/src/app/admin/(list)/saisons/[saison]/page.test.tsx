@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
@@ -31,12 +32,12 @@ const SPIEL: FLSpielJoinedAdmin = {
   version: 3,
 };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
 let served: FLSaisonOverviewResponse = { cards: [] };
 
-doubleApiClient(() => served);
+// The page's one read, of the season's open work, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/2027/overview" ? served : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
 
 const { AdminOverview } = await import("./page");
 
