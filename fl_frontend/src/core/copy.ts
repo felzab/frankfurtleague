@@ -217,6 +217,8 @@ const EFFECTIVE_FROM = "Gilt ab";
 const VALID_UNTIL = "Gültig bis";
 // The day a record was entered, a fact's label and a row's line alike.
 const ENTERED_ON = "Eingetragen am";
+// The day a grant took effect, a column's head, a fact's label and a row's line alike.
+const SINCE = "Seit";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -1508,7 +1510,9 @@ export const COPY = catalogue({
       /** The heading over what waits. */
       pending: "Angekündigt",
       /** A grant's `effective_from`, as a date under this label. */
-      since: "Seit",
+      since: SINCE,
+      /** A grant's row line on a phone, whose box leaves the „Seit“ column out: „Seit 12.11.2026“. */
+      sinceOn: (moment: string) => boundBy(SINCE, formatDate(new Date(moment))),
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
       /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
       pendingLine: (kind: Copy, address: string | null, moment: string) =>
