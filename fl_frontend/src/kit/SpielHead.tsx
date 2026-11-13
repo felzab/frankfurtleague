@@ -254,7 +254,8 @@ function PopupPlaceholder() {
 
 /**
  * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. It opens at once, on the press,
+ * the match where something did, and the way to the match's page as the dialog's act. Under `WholePages` it opens with
+ * its match read, the page it was pressed on standing until then. Outside `WholePages` it opens at once, on the press,
  * and waits for its match in its one boundary, inside the dialog, as its body's placeholders.
  */
 export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {

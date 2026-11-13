@@ -80,11 +80,12 @@ async function Aside({ content }: { content: Promise<LandingContent> }) {
  * `h1`, its tagline, over the lead and its two ways on, the season's card beside them; then the page's
  * sections, each one of the landing's blocks.
  *
- * What the page knows before its read stands at once, and that is every static part: the tagline, the lead and the
- * sections' words, so the first paint has the page's real height at every width, a phone's too, and the browser's
- * restored scroll lands where the person was. What the read decides waits in place, each part in a boundary of its own
- * drawn as its block's placeholder: here the two ways on and the season's card, in `sections` the band under the steps,
- * the figures, the doors and the schools, the one read landing them together.
+ * Under `WholePages` the page arrives whole, its static parts and what its read decides together. Outside it, what the
+ * page knows before its read stands at once, and that is every static part: the tagline, the lead and the sections'
+ * words, so the first paint has the page's real height at every width, a phone's too, and the browser's restored scroll
+ * lands where the person was. What the read decides then waits in place, each part in a boundary of its own drawn as
+ * its block's placeholder: here the two ways on and the season's card, in `sections` the band under the steps, the
+ * figures, the doors and the schools, the one read landing them together.
  */
 export function LandingPage({
   title,

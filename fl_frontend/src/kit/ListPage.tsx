@@ -665,9 +665,10 @@ async function ListBody({ list }: { list: ListContent }) {
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
- * The title and the toolbar are drawn at once; the list waits for its content, in the template's one boundary with what
- * its read decides above it, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the
- * search field before the rows arrive searches them once they do.
+ * Under `WholePages` the page arrives whole, its list read with it. Outside it, the title and the toolbar are drawn at
+ * once, and the list waits for its content in the template's one boundary, with what its read decides above it, drawn
+ * meanwhile as the placeholders of the blocks it will be drawn with; typing into the search field before the rows
+ * arrive searches them once they do.
  */
 export function ListPage({
   head,
