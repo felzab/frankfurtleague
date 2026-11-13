@@ -141,7 +141,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
   };
 }
 
-/** A notice naming a fixture, the reader's next mail, if any, being the request or the Einteilung it states. */
+/** A notice naming a fixture, with no button: nothing is left to answer, and no later mail is promised. */
 function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
     kind: "notice",

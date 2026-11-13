@@ -325,7 +325,7 @@ async function readEditor(params: Props["params"]) {
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.fromStart };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.untilStart };
       return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];
