@@ -734,7 +734,8 @@ def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
-# discard its club's answer to the Ansetzung left, and a referee change, never a club's.
+# discard its club's answer to the Ansetzung left, and a referee change, never a club's. A club taken off the fixture,
+# which `reason_to_close` names as a move, ends it too: `reason_to_end` asks that apart.
 REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
@@ -819,7 +820,8 @@ def reason_to_end(
     """Why the pass's close shuts a row holding its party's question, or `None`."""
 
     reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now)
-    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER:
+    # A club taken off is told so whatever its row holds: its discard told it the date stands, a match it no longer plays.
+    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER or not still_a_party(row=row, spiel=spiel):
         return reason
 
     # Its own kick-off, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
