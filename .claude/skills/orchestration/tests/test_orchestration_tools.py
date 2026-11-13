@@ -1356,27 +1356,21 @@ def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> N
     assert _live_status(register, "OTHER") == "RUNNING"
 
 
-@pytest.mark.parametrize(
-    ("module", "name", "said"),
-    [
-        ("ledger", "route_each", "these rows were not routed to it: the register is locked"),
-        ("reg", "_wake", "its live-agent row was not set RUNNING (OSError: the register is locked)."),
-    ],
-    ids=["the route", "the wake"],
-)
-def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: str, name: str, said: str
-) -> None:
-    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice."""
-    plans, _, messages = _fleet(tmp_path)
+def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path) -> None:
+    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice.
 
-    def locked(*_: object, **__: object) -> None:
-        raise OSError("the register is locked")
-
-    monkeypatch.setattr({"ledger": ledger, "reg": reg}[module], name, locked)
-    told = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
-    assert told is not None and told.startswith(f"The message to WORKER is recorded; {said}"), told
-    assert "Fix it." in messages.read_bytes().decode("utf-8")
+    The register's lock names a running process, so the wake and the route each fail after the record.
+    """
+    plans, register, messages = _fleet(tmp_path)
+    lock = register.with_name(f"{register.name}.lock")
+    lock.write_bytes(str(os.getpid()).encode())
+    done = _run("reg", "message", str(plans), stdin=json.dumps(_sent("WORKER", "Fix it.\nRows: A-F1")).encode("utf-8"))
+    assert done.returncode == 0, done.stderr
+    told = json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
+    held = f"{lock} names process {os.getpid()}, still running"
+    assert told.startswith(f"The message to WORKER is recorded; its live-agent row was not set RUNNING (OSError: {held}"), told
+    assert f"; these rows were not routed to it: {held}" in told, told
+    assert "Fix it." in messages.read_bytes().decode("utf-8") and _status(register, "A-F1") == ["OPEN", ""]
 
 
 def test_a_message_to_an_agent_no_row_names_is_recorded_and_its_rows_refused(tmp_path: Path) -> None:
@@ -1614,11 +1608,15 @@ def _stub(tmp_path: Path, name: str, script: str) -> dict[str, str]:
 
 
 # Answers `run list` from `list.json`, `run view --log-failed` from `log.txt` and any other view from
-# `run.json`, exiting with `exit.txt`'s code.
+# `run.json`, exiting with `exit.txt`'s code. Where `meanwhile.txt` names a file on its first line, the
+# log's answer writes the rest over that file, as a writer racing a read does.
 GH: Final = (
     "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\n"
     "if args[:2] == ['run', 'list']:\n    sys.stdout.write((here / 'list.json').read_text(encoding='utf-8'))\n"
     "elif '--log-failed' in args:\n    sys.stdout.buffer.write((here / 'log.txt').read_bytes())\n"
+    "    if (here / 'meanwhile.txt').exists():\n"
+    "        target, _, text = (here / 'meanwhile.txt').read_bytes().partition(b'\\n')\n"
+    "        Path(target.decode()).write_bytes(text)\n"
     "else:\n    sys.stdout.write((here / 'run.json').read_text(encoding='utf-8'))\n"
     "sys.exit(int((here / 'exit.txt').read_text(encoding='utf-8')))\n"
 )
@@ -1812,24 +1810,22 @@ def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Pa
     assert _run("ci", str(register), "123", "--commit", "0" * 12, cwd=root, env=env).returncode == 2
 
 
-def test_a_reading_prints_before_the_write_that_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_a_reading_prints_before_the_write_that_fails(tmp_path: Path) -> None:
+    """A write after a long read meets the register as other writers left it; refused there, it must not take the reading with it.
+
+    The register loses its expected-red table while the log is read, so the write clearing a row refuses.
+    """
     root, sha = _pushed(tmp_path)
     run = _failed(sha, jobs=[{"name": "frontend", "conclusion": "success"}])
     env = _gh(tmp_path, run, _log(("docs", "##[error]`db` took 155 s against a budget of 135 s")))
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: x |").encode())
-
-    def unwritable(*_: object) -> None:
-        raise OSError("the register is locked")
-
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "clear", unwritable)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "123"]) == 2
-    said = capsys.readouterr()
-    assert "CLEARED   refusalCoverage" in said.out and said.out.endswith("0 NEW, 1 expected\n") and "the register is locked" in said.err
+    (tmp_path / "bin" / "meanwhile.txt").write_bytes(f"{register}\n# Agent register\n".encode())
+    done = _run("ci", str(register), "123", cwd=root, env=env)
+    assert done.returncode == 2, (done.stdout, done.stderr)
+    assert "CLEARED   refusalCoverage" in done.stdout and done.stdout.splitlines()[-1] == "0 NEW, 1 expected", done.stdout
+    assert "no expected-red table under `## Expected red` in the register" in done.stderr, done.stderr
+    assert register.read_bytes() == b"# Agent register\n"
 
 
 def test_ci_head_without_wait_reads_the_pushed_commits_run_or_says_there_is_none(tmp_path: Path) -> None:
@@ -2212,27 +2208,20 @@ def test_a_branch_carrying_a_patch_the_session_already_holds_is_refused(tmp_path
     assert "Docs: Another file" not in said
 
 
-def test_git_failing_during_the_merge_is_its_own_exit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Exit 2 says nothing was started; a failure once the merge has begun must not read as that."""
+def test_git_failing_during_the_merge_is_its_own_exit(tmp_path: Path) -> None:
+    """Exit 2 says nothing was started; a failure once the merge has begun must not read as that.
+
+    The branch deletes the generated document and empties its writer, so the regeneration's `git add` of it names no file.
+    """
     root = _repo(tmp_path)
-    _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
-    head = git(root, "rev-parse", "HEAD")
-    real_git = land.git
-
-    def add_fails(*args: str, check: bool = True) -> str:
-        if args[:1] == ("add",):
-            raise land.Stop(2, "git add exited 128: planted")
-        return real_git(*args, check=check)
-
-    monkeypatch.setattr(land, "git", add_fails)
-    monkeypatch.chdir(root)
-    code = land.main([str(_register(tmp_path)), "agent"])
-    said = capsys.readouterr().err
-    assert code == 7, said
-    assert "planted" in said and git(root, "rev-parse", "HEAD") == head
-    assert git(root, "status", "--porcelain") == ""
+    git(root, "checkout", "-q", "agent")
+    git(root, "rm", "-q", "fl_backend/openapi.json")
+    write(root, "fl_backend/app/openapi_document.py", "")
+    git(root, "add", "-A")
+    git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-m", "Backend: No document")
+    git(root, "checkout", "-q", "main")
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 7)
+    assert "git add -- fl_backend/openapi.json exited 128" in said and "the merge is aborted" in said, said
 
 
 def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path) -> None:
