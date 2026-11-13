@@ -67,8 +67,6 @@ RUNNING_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end":
 NOT_YET_OPEN_SAISON = "2028"
 ALREADY_CLOSED_SAISON = "2029"
 
-# Spelled here rather than taken from `tests/documents.py :: ADDRESS`: the picker's suite searches its
-# body for this street and postcode (`tests/api/test_bewerbung_public_picker.py`).
 ADDRESS: Mapping[str, Any] = {
     "street": "Hanauer Landstraße",
     "house_number": "12a",
@@ -98,8 +96,6 @@ def _junction(
     return saison_team_document(saison_id, team_id, name, shorthand, austritt=austritt, trikot_farbe=trikot_farbe)
 
 
-# Searched for in the picker's body too, which imports them with `website_host`: a copy spelled
-# there drifts from the seed and then searches for nothing (`tests/api/test_bewerbung_public_picker.py`).
 DESCRIPTION = "Eine Schule mit langer Tradition."
 SCHULFORM = "gymnasium_g9"
 
@@ -122,10 +118,7 @@ def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str |
 
 
 def seed_the_public_corpus(mongo_replica_set_url: str) -> Iterator[str]:
-    """Every way a window can stand, the clubs, and one season's assigned colours, in `CORPUS_DATABASE`.
-
-    A generator, not a fixture: `test_bewerbung_public_picker.py` seeds it too.
-    """
+    """Every way a window can stand, the clubs, and one season's assigned colours, in `CORPUS_DATABASE`."""
 
     client = MongoClient(mongo_replica_set_url)
     try:

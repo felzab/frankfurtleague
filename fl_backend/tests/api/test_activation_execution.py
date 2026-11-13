@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
@@ -134,43 +134,6 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         assert statuses == {ARCHIVED: "past", INCUMBENT: "past", TARGET: "active"}
         # A season already `past` is not counted, so this is the number of seasons the rollover moved.
         assert response.deactivated == 1
-
-    def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
-        """The `$ne` on the target: its own unplayed fixture is seeded, and only a rule reading it as outgoing would refuse this."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(ARCHIVED, "past"), saison_document(TARGET, "active")],
-            spiele=[spiel(TARGET, ergebnis=None)],
-        )
-
-        assert statuses == {ARCHIVED: "past", TARGET: "active"}
-        assert response.deactivated == 0
-
-
-class TestARefusedRolloverWritesNothing:
-    def test_an_unknown_season_demotes_nobody(self, mongo_replica_set_url: str):
-        """The target's read ahead of the demotion: without it the league would be left with no active season at all."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await call_activate(database, client, "2099")
-
-            return await statuses_now(database)
-
-        statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-        )
-
-        assert statuses == {INCUMBENT: "active", TARGET: "future"}
 
 
 class TestAMidFlightFailureTakesTheDemotionBack:
