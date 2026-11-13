@@ -20,7 +20,9 @@
  *
  * A still page proves nothing about a page never reached, so each case asserts what answered: a hard load's status and
  * the document its server sent, and after every case the frame's `main` the browser drew and, where a page ends in a
- * card, that card's title. A press must stay in the document it was made in.
+ * card, that card's title. A press must stay in the document it was made in, and is measured both ways it can find its
+ * page, each its own case: with every prefetch refused, and once the page's prefetches are done. Which of the two a
+ * press met would otherwise be a race between the press and the prefetches.
  *
  * On a development machine, a second run against one start of the end-to-end stack passes `--no-deps` and reads the
  * sessions the first saved: the administrator's setup enrols a passkey once per start, and the stack mails an address
@@ -34,7 +36,7 @@ import { expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } fro
 import { signInWithCode } from "../support/signIn";
 import { standInForTurnstile } from "../support/turnstileStandIn";
 
-import type { BrowserContext, Locator, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page, Request } from "@playwright/test";
 import type { ShiftRecord } from "../support/layoutShift";
 
 type Role = "visitor" | "pupil" | "referee" | "contact" | "administrator" | "newcomer";
@@ -273,6 +275,64 @@ async function expectArrived(page: Page, end: End | undefined): Promise<void> {
 /** A mark on the page's `window`, which a client navigation keeps and a document load clears. */
 const MARK = "journeyPressedHere";
 
+/** The header Next's router sets on every prefetch, its route tree's request first, and on no navigation's request. */
+const PREFETCH_HEADER = "next-router-prefetch";
+
+/**
+ * The header Next's router sets on each of its requests, a navigation's and a prefetch's alike: before the press, every
+ * one is a prefetch, the data a `prefetch={true}` link reads after its route tree among them, which carries no
+ * `PREFETCH_HEADER`.
+ */
+const ROUTER_HEADER = "rsc";
+
+/**
+ * The two ways a press finds its page, each its own case. Cold: every prefetch refused as an aborted request, so the
+ * router holds no route for the link and asks for the page as it navigates. Warm: the press waits until the page's
+ * prefetches are done, which for a link that prefetches nothing is the cold way again.
+ */
+const WAYS = { cold: "with nothing prefetched", warm: "once its prefetches are done" } as const;
+
+type Way = keyof typeof WAYS;
+
+/** The router's requests `page` has begun from the case's start, and those still open. */
+type RouterRequests = { begun: Request[]; open: Set<Request> };
+
+function routerRequests(page: Page): RouterRequests {
+  const requests: RouterRequests = { begun: [], open: new Set() };
+  page.on("request", (request) => {
+    if (!(ROUTER_HEADER in request.headers())) return;
+    requests.begun.push(request);
+    requests.open.add(request);
+  });
+  const close = (request: Request) => requests.open.delete(request);
+  page.on("requestfinished", close);
+  page.on("requestfailed", close);
+  return requests;
+}
+
+/**
+ * Waits until the page's prefetches are done: none open, and none begun through one of `settle`'s windows, since
+ * Next's scheduler starts the next of its queue as one closes. Fails after ten tries.
+ */
+async function settlePrefetches(page: Page, record: ShiftRecord, requests: RouterRequests): Promise<void> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await expect.poll(() => requests.open.size, { message: `${page.url()}'s prefetches end` }).toBe(0);
+    const begun = requests.begun.length;
+    await settle(page, record);
+    if (requests.begun.length === begun && requests.open.size === 0) return;
+  }
+  throw new Error(`${page.url()} never stopped prefetching`);
+}
+
+/** Whether the router fetched `address`'s route tree, the request a prefetch begins with, before the press. */
+function prefetched(requests: RouterRequests, address: string): boolean {
+  return requests.begun.some((request) => {
+    const url = new URL(request.url());
+    url.searchParams.delete("_rsc");
+    return request.headers()["next-router-segment-prefetch"] === "/_tree" && url.pathname + url.search === address;
+  });
+}
+
 /** The viewport's height in the tall pass. */
 const TALL = 4000;
 
@@ -500,24 +560,35 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           });
 
           if (origin !== undefined) {
-            test(`${target} by the link on ${origin}`, { tag }, async ({ page }) => {
-              const record = await recordShifts(page);
-              // The walk ends on the origin, settled, its link to the target read and, where a control holds it, open.
-              const { link } = await walk(page, record, steps, phone);
-              await page.evaluate((mark) => Reflect.set(window, mark, true), MARK);
-              const left = page.url();
-              await expectStill(page, record, async () => {
-                await press(link, phone);
-                // Left the origin: the link's own address, or the page an address answering for another sends it to.
-                await expect(page).toHaveURL((url) => url.href !== left);
+            for (const [way, words] of Object.entries(WAYS) as [Way, string][]) {
+              test(`${target} by the link on ${origin}, ${words}`, { tag }, async ({ page }) => {
+                const record = await recordShifts(page);
+                // Counted, or refused, from before the origin's load, whose hydration starts its prefetches.
+                const requests = way === "warm" ? routerRequests(page) : undefined;
+                if (way === "cold") {
+                  await page.route("**/*", (route) => (PREFETCH_HEADER in route.request().headers() ? route.abort() : route.fallback()));
+                }
+                // The walk ends on the origin, settled, its link to the target read and, where a control holds it, open.
+                const { addresses, link } = await walk(page, record, steps, phone);
+                if (requests !== undefined) {
+                  await settlePrefetches(page, record, requests);
+                  test.info().annotations.push({ type: "prefetched", description: String(prefetched(requests, addresses.at(-1) ?? target)) });
+                }
+                await page.evaluate((mark) => Reflect.set(window, mark, true), MARK);
+                const left = page.url();
+                await expectStill(page, record, async () => {
+                  await press(link, phone);
+                  // Left the origin: the link's own address, or the page an address answering for another sends it to.
+                  await expect(page).toHaveURL((url) => url.href !== left);
+                });
+                await expectArrived(page, end);
+                expect(
+                  await page.evaluate((mark) => Reflect.get(window, mark) === true, MARK),
+                  "the press navigated in the page, never by a document load",
+                ).toBe(true);
+                await expectSignedIn(page, role);
               });
-              await expectArrived(page, end);
-              expect(
-                await page.evaluate((mark) => Reflect.get(window, mark) === true, MARK),
-                "the press navigated in the page, never by a document load",
-              ).toBe(true);
-              await expectSignedIn(page, role);
-            });
+            }
           }
         });
 
