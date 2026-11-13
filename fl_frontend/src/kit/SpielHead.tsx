@@ -1,19 +1,16 @@
 import { COPY, textOf } from "@/core/copy";
 
-import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
 import { classicTitle } from "./ClassicPage";
 import { CutText } from "./CutText";
 import { DialogTitle, RouteDialog, RouteDialogBody } from "./Dialog";
-import { Facts, FactsPlaceholder, SPIELORT_WORDS } from "./Facts";
+import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
 import { StatusCardBody } from "./StatusCard";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -156,50 +153,6 @@ export function SpielHead({ eyebrow, team1, team2, result, absent, placement = "
   );
 }
 
-/** A side of the head while its match is read: the plaque, the name's line and the standing's line, centred. */
-function SidePlaceholder() {
-  const style = head();
-  return (
-    <span className={style.side()}>
-      <span className={placeholderBar("h-6 w-10")} />
-      <PlaceholderLine
-        textClass="text-sm"
-        widthClass="w-24"
-      />
-      <PlaceholderLine
-        textClass={style.standing()}
-        widthClass="w-20"
-      />
-    </span>
-  );
-}
-
-/**
- * A match's head while the match is read, in the place the head will take: the head's own surface, its eyebrow's line
- * over the two sides about the score, each as bars at their sizes, the line under the score kept.
- */
-export function SpielHeadPlaceholder({ placement = "page" }: { placement?: "dialog" | "page" }) {
-  const style = head({ placement });
-  return (
-    <div className={style.root()}>
-      <PlaceholderLine
-        textClass={style.eyebrow()}
-        widthClass="w-24"
-      />
-      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
-        <SidePlaceholder />
-        <span className="grid justify-items-center pt-0.5">
-          <span className="flex h-[1em] items-center text-3xl leading-none">
-            <span className={placeholderBar("h-[0.75em] w-16")} />
-          </span>
-          <span className="h-4" />
-        </span>
-        <SidePlaceholder />
-      </div>
-    </div>
-  );
-}
-
 export type SpielPopupContent = {
   /** The dialog's name, read rather than drawn: the head names the match by its two sides. */
   title: Copy;
@@ -233,40 +186,15 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
   );
 }
 
-/** The match pop-up's body while the match is read: the band, the four facts and the act, named by the wait's word. */
-function PopupPlaceholder() {
-  return (
-    <RouteDialogBody
-      title={COPY.shared.loading}
-      act={
-        <Placeholder layoutClass="grid">
-          <span className={buttonPlaceholder("w-full")} />
-        </Placeholder>
-      }>
-      <Waiting layoutClass="grid gap-6">
-        <SpielHeadPlaceholder placement="dialog" />
-        <FactsPlaceholder
-          look="free"
-          pairs={4}
-          wraps={{ pair: 2, words: SPIELORT_WORDS }}
-        />
-      </Waiting>
-    </RouteDialogBody>
-  );
-}
-
 /**
  * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. Under `WholePages` it opens with
- * its match read, the page it was pressed on standing until then. Outside `WholePages` it opens at once, on the press,
- * and waits for its match in its one boundary, inside the dialog, as its body's placeholders.
+ * the match where something did, and the way to the match's page as the dialog's act. It opens with its match read,
+ * the page it was pressed on standing until then.
  */
 export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
   return (
     <RouteDialog beneath={beneath}>
-      <PageWait fallback={<PopupPlaceholder />}>
-        <PopupBody popup={popup} />
-      </PageWait>
+      <PopupBody popup={popup} />
     </RouteDialog>
   );
 }
