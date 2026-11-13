@@ -1,29 +1,11 @@
+import { serveBackend } from "@/test-support/backend.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-/** Every job the scheduler started, by its name, and the drain. */
-const ran: string[] = [];
-
-const job = (name: string) => () => {
-  ran.push(name);
-  return Promise.resolve();
-};
-
-vi.doMock("@/core/config.ts", () => ({
-  frontend_config: { APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" },
-  heartbeatUrl: () => undefined,
-}));
-vi.doMock("@/core/logging.ts", () => ({ logger: { info: () => undefined, warn: () => undefined, error: () => undefined } }));
-vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
-vi.doMock("@/features/roles/sweep.ts", () => ({ runAccountSweep: job("account") }));
-vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("erasure") }));
-vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
-vi.doMock("@/features/grants/sweep.ts", () => ({ runHandoverPass: job("grants") }));
-vi.doMock("@/core/mail.ts", () => ({
-  drainOutbox: async () => {
-    ran.push("outbox");
-  },
-  takeDrainCounts: () => ({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 }),
-}));
+/* Every job the scheduler would run is the real one, over a backend that answers nothing: a pass armed here would send
+   its first request into a case that names none, which fails it, and be on the record of what the backend saw. */
+const backend = serveBackend();
+const log = captureLog();
 
 const { register } = await import("./instrumentation.ts");
 
@@ -39,7 +21,9 @@ it("arms nothing under a development build", async () => {
   expect(process.env.NODE_ENV).toBe("development");
   await register();
   vi.advanceTimersByTime(3 * HOUR_MS);
-  await new Promise((resolve) => setImmediate(resolve));
+  await backend.answered();
 
-  expect(ran).toStrictEqual([]);
+  expect(backend.sent, "a pass reached the backend").toStrictEqual([]);
+  // The boot ran to its end, so the silence is the scheduler's.
+  expect(log.lines().map(({ message }) => message)).toStrictEqual(["system.started"]);
 });
