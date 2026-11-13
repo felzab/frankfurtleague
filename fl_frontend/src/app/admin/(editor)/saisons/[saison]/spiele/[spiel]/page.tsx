@@ -17,7 +17,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
@@ -301,22 +301,26 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
- * „Fehlt“ where none is stored. A side the draw has not settled has no club to name one; a match with no day or hour,
- * and one called off, owe none, so neither shows a row.
+ * „Fehlt“ where none is stored, with the chip the club's own pages draw for it past its due mark and from the lock. A
+ * side the draw has not settled has no club to name one; a match with no day or hour, and one called off, owe none, so
+ * neither shows a row.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
-  const { spiel, aufstellungen } = view;
+  const { spiel, aufstellungen, aufstellung_marks: marks } = view;
   if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];
     if (club === null) return [];
     const stored = aufstellungen[side];
+    const mark = marks[side];
+    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase];
     return [
       {
         id: side,
         href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
         name: words.ofTeam({ record: club.name }),
+        ...(chip === undefined ? {} : { chip }),
         line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
       },
     ];

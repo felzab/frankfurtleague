@@ -4703,6 +4703,14 @@ export interface FLSignInResponse {
 export type FLSignatoryMinAgeYears = 18;
 
 /**
+ * Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.
+ */
+export interface FLSpielEditorAufstellungMarks {
+  team1: FLAufstellungMarks | null;
+  team2: FLAufstellungMarks | null;
+}
+
+/**
  * Each side's line-up as the editor's line states it, the club the fixture fields there now; null where it has stored none.
  */
 export interface FLSpielEditorAufstellungen {
@@ -5232,6 +5240,7 @@ export interface FLSpielbestaetigungViewAnsetzung {
  * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
  */
 export interface FLSpieleAdminSingleResponse {
+  aufstellung_marks: FLSpielEditorAufstellungMarks;
   aufstellungen: FLSpielEditorAufstellungen;
   saison_begun: boolean;
   saison_status: FLSaisonStatus;

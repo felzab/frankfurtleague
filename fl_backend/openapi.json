@@ -11682,6 +11682,37 @@
         "title": "FLSpielAdvancement",
         "type": "object"
       },
+      "FLSpielEditorAufstellungMarks": {
+        "description": "Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.",
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungMarks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungMarks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielEditorAufstellungMarks",
+        "type": "object"
+      },
       "FLSpielEditorAufstellungen": {
         "description": "Each side's line-up as the editor's line states it, the club the fixture fields there now; null where it has stored none.",
         "properties": {
@@ -14583,6 +14614,9 @@
       "FLSpieleAdminSingleResponse": {
         "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.",
         "properties": {
+          "aufstellung_marks": {
+            "$ref": "#/components/schemas/FLSpielEditorAufstellungMarks"
+          },
           "aufstellungen": {
             "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
           },
@@ -14651,7 +14685,8 @@
           "teams",
           "spielbericht",
           "spielbestaetigungen",
-          "aufstellungen"
+          "aufstellungen",
+          "aufstellung_marks"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"

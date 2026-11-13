@@ -116,7 +116,7 @@ export function SpielEditor({
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
   answers: readonly AnswerRow[];
-  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored. */
+  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored, with its chip. */
   aufstellungen: ReadonlyArray<CardActRowProps & { id: string }>;
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
