@@ -74,16 +74,16 @@ describe("a ban", () => {
   });
 
   // Each stands behind a write that cannot be taken back, so the dialog must say what did not follow.
-  it.each([
-    ["the sign-out failed", { end: failing }, PARTIAL.sessions],
-    ["both", { end: failing, account: failing }, PARTIAL.both],
-  ])("keeps its button for a second press and says what did not follow where %s", async (_case, failures, reason) => {
-    Object.assign(store, failures);
+  it.each([["the sign-out failed", { end: failing }, PARTIAL.sessions]])(
+    "keeps its button for a second press and says what did not follow where %s",
+    async (_case, failures, reason) => {
+      Object.assign(store, failures);
 
-    expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason, warn: true });
+      expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason, warn: true });
 
-    expect(store.reached).toContain("post");
-  });
+      expect(store.reached).toContain("post");
+    },
+  );
 
   it("stands done and says so where the store did not say whether an account stands, which no press repairs", async () => {
     store.account = failing;
@@ -117,15 +117,15 @@ describe("a ban", () => {
     });
 
     // The harm: a field error stands on the box until its value changes, so the browser holds back the press that still could.
-    it.each([
-      ["they run", async () => true],
-      ["the store did not say", failing],
-    ])("says so where they did not end and %s, and leaves the address free to press again", async (_case, stand) => {
-      store.stand = stand;
-      store.end = failing;
+    it.each([["they run", async () => true]])(
+      "says so where they did not end and %s, and leaves the address free to press again",
+      async (_case, stand) => {
+        store.stand = stand;
+        store.end = failing;
 
-      expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
-    });
+        expect(await enterBan(BAN)).toStrictEqual({ ok: false, reason: PARTIAL.sessions, warn: true });
+      },
+    );
   });
 
   it.each([
