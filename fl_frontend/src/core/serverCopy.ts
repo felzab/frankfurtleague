@@ -342,9 +342,33 @@ export const SERVER_COPY = catalogue({
       voidSubject: (day: CalendarDay) => `Nicht mehr angefragt: Spiel am ${formatDateLong(day)}`,
       void: { before: (spiel: Words) => `Die Anfrage ${boundBy("zu", textOf(spiel))} am\u00A0`, after: " gilt nicht mehr." },
 
-      /** A call-off, around its moment, and what a reinstated fixture brings each reader. */
-      cancelledSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
-      cancelled: { before: (spiel: Words) => `${textOf(spiel)} am\u00A0`, after: " fällt aus." },
+      /**
+       * A match that will not be played, by its event in the word the match page names it by, around its moment: a
+       * no-show names the side that stayed away. `none` words a mail naming no event. What a match called off and set
+       * again brings each reader follows.
+       */
+      cancelled: {
+        ausgefallen: {
+          subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.ausgefallen}: Spiel am ${formatDateLong(day)}`,
+          before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
+          after: " ist ausgefallen.",
+        },
+        annulliert: {
+          subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.annulliert}: Spiel am ${formatDateLong(day)}`,
+          before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
+          after: " ist annulliert.",
+        },
+        nichtantreten: {
+          subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.nichtantretenChip}: Spiel am ${formatDateLong(day)}`,
+          before: (team: Words) => `${textOf(team)} ist zum Spiel am\u00A0`,
+          after: " nicht angetreten.",
+        },
+        none: {
+          subject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
+          before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
+          after: " fällt aus.",
+        },
+      },
       reinstated: {
         team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
         schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",

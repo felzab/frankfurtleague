@@ -56,6 +56,51 @@ describe("the notice of a move", () => {
   );
 });
 
+/* One mail serves every event that keeps a match from being played: worded alike, a match struck out or decided by a
+   no-show would read as called off, and its parties would wait for a request that never comes. */
+describe("the notice of a match that will not be played", () => {
+  const appointment = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
+  // What the event means for the result, in the match page's own sentence: a no-show counts for the side that turned up.
+  const { consequence } = COPY.spielplan.sonderereignis;
+  const events = [
+    { sonderereignis: "ausgefallen", subject: "Ausgefallen: Spiel am 20. November 2026", counted: consequence.notScored, promised: true },
+    { sonderereignis: "annulliert", subject: "Annulliert: Spiel am 20. November 2026", counted: consequence.notScored, promised: false },
+    {
+      sonderereignis: "nichtantreten_team1",
+      subject: "Nicht angetreten: Spiel am 20. November 2026",
+      counted: consequence.nichtantreten({ record: appointment.team2 }),
+      promised: false,
+    },
+    {
+      sonderereignis: "nichtantreten_team2",
+      subject: "Nicht angetreten: Spiel am 20. November 2026",
+      counted: consequence.nichtantreten({ record: appointment.team1 }),
+      promised: false,
+    },
+  ] as const;
+
+  it.each(events)(
+    "names $sonderereignis in its subject, counts the match as the match page does, and promises a request only where one follows",
+    ({ sonderereignis, subject, counted, promised }) => {
+      for (const [recipient, promise] of [
+        ["team", "neue Anfrage"],
+        ["schiedsrichter", "neue Einteilung"],
+      ] as const) {
+        const mail = mailFor(
+          "spiel_cancelled",
+          { kind: "spiel_cancelled", recipient, appointment, sonderereignis },
+          { token: null, secret: null, origin: ORIGIN },
+        );
+        const text = JSON.stringify(mail);
+
+        expect(mail?.subjectLine).toBe(subject);
+        expect(text.includes(counted)).toBe(true);
+        expect(text.includes(promise)).toBe(promised);
+      }
+    },
+  );
+});
+
 /* The opponent reads the open fixtures outside any season's page, so a row without its year names no day: a match row's
    short date reads the same in every season. */
 describe("the notice of a club's exit", () => {

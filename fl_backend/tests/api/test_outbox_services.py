@@ -48,7 +48,7 @@ def test_every_mail_to_a_club_s_seats_names_the_club_it_goes_to():
     The Austritt notice names the opponent it goes to, never the departed club its reference names.
     """
 
-    request = FLSpielNoticeData(kind="spiel_cancelled", recipient="team", appointment=APPOINTMENT)
+    request = FLSpielNoticeData(kind="spiel_cancelled", recipient="team", appointment=APPOINTMENT, sonderereignis="ausgefallen")
     row = {"_id": ObjectId(), "saison_id": SAISON_ID, "party": {"kind": "team", "team_id": OWN}}
     spiel = {"team1": {"team_id": OWN}, "team2": {"team_id": OPPONENT}, "date": "2026-05-02", "time": "10:00:00"}
     vereine = {
