@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -41,12 +41,16 @@ export function RowAct({
   locked?: Copy;
 }) {
   const [isAsking, setAsking] = useState(false);
+  // The act runs after its question closed, so its button or its „⋯“ shows it running.
+  const acting = useTransition();
+  const [isActing] = acting;
   return (
     <SideActs
       acts={[
         {
           label: COPY.shared.verb[verb],
           tone: "danger",
+          isBusy: isActing,
           ...(locked === undefined ? {} : { locked }),
           onPress: () => setAsking(true),
         },
@@ -60,6 +64,7 @@ export function RowAct({
         touch={{ holder }}
         onConfirm={() => act({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
+        transition={acting}
       />
     </SideActs>
   );
