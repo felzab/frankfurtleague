@@ -59,15 +59,21 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
 }
 
 /**
- * The asterisk after a required field's label, a checkbox's included. Hidden from assistive technology, which
- * hears the field's required state instead. A closed form draws none, since a value nobody can change asks nothing
- * of the reader.
+ * Whether a field asks for a value, to the eye and to assistive technology alike: never in a closed form or on a
+ * locked field, since a value nobody can change asks nothing of the reader. React Aria sets `required` or
+ * `aria-required` from `isRequired` whatever `isDisabled` says, so a field hands it this answer, never its own prop.
+ */
+function asksForValue(isRequired: boolean, isClosed: boolean, isLocked: boolean): boolean {
+  return isRequired && !isClosed && !isLocked;
+}
+
+/**
+ * The asterisk after a required field's label, a score column's head included. Hidden from assistive technology,
+ * which hears the field's required state instead; drawn only where the field asks for a value (`asksForValue`).
  */
 export function RequiredMark({ isRequired }: { isRequired: boolean }) {
-  const isClosed = useContext(FormClosed);
   return (
-    isRequired &&
-    !isClosed && (
+    asksForValue(isRequired, useContext(FormClosed), false) && (
       <span
         aria-hidden
         className={requiredMark()}>
@@ -78,14 +84,23 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
 }
 
 /**
- * A field's disabled state and whether its label carries the lock mark. A field `isLocked` is one its record holds
- * fixed, such as a season's points once it has begun: disabled, and marked at its label, so what stands locked is
- * seen at the field while the editor's lock line says why. A closed form disables every field and marks none, since its
- * one reason covers them all and a mark on each would single out nothing.
+ * A field's disabled state, its required state and whether its label carries the lock mark. A field `isLocked` is one
+ * its record holds fixed, such as a season's points once it has begun: disabled, and marked at its label, so what
+ * stands locked is seen at the field while the editor's lock line says why. A closed form disables every field and
+ * marks none, since its one reason covers them all and a mark on each would single out nothing. Neither asks for a
+ * value (`asksForValue`), so `isRequired` is what the field hands React Aria and its label.
  */
-export function useFieldLock(isDisabled: boolean, isLocked: boolean): { isDisabled: boolean; isMarked: boolean } {
+export function useFieldLock(
+  isDisabled: boolean,
+  isLocked: boolean,
+  isRequired = false,
+): { isDisabled: boolean; isMarked: boolean; isRequired: boolean } {
   const isClosed = useContext(FormClosed);
-  return { isDisabled: isClosed || isDisabled || isLocked, isMarked: isLocked && !isClosed };
+  return {
+    isDisabled: isClosed || isDisabled || isLocked,
+    isMarked: isLocked && !isClosed,
+    isRequired: asksForValue(isRequired, isClosed, isLocked),
+  };
 }
 
 /** The lock mark after a locked control's label, a field's or a switch's alike, `useFieldLock`'s `isMarked`. */

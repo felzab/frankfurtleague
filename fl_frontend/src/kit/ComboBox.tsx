@@ -73,7 +73,7 @@ export function ComboBox({
   const chosenLabel = options.find((option) => option.id === (value === undefined ? chosen : value))?.label;
   const shown = chosenLabel === undefined ? "" : textOf(chosenLabel);
   const root = useEarlyEdit();
-  const lock = useFieldLock(isDisabled, isLocked);
+  const lock = useFieldLock(isDisabled, isLocked, isRequired);
   return (
     <AriaComboBox
       ref={root}
@@ -90,12 +90,12 @@ export function ComboBox({
         onChange?.(id);
       }}
       onInputChange={setText}
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       isDisabled={lock.isDisabled}>
       {!labelHidden && (
         <FieldLabel
           label={label}
-          isRequired={isRequired}
+          isRequired={lock.isRequired}
           isLocked={lock.isMarked}
         />
       )}

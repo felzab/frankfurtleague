@@ -194,7 +194,7 @@ export function TextField(props: TextFieldProps) {
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
   const root = useEarlyEdit();
-  const lock = useFieldLock(isDisabled, isLocked);
+  const lock = useFieldLock(isDisabled, isLocked, isRequired);
 
   return (
     <AriaTextField
@@ -205,8 +205,8 @@ export function TextField(props: TextFieldProps) {
       value={props.value}
       defaultValue={props.defaultValue}
       onChange={props.onChange}
-      isRequired={isRequired}
-      validate={judgeOf(kind, isRequired)}
+      isRequired={lock.isRequired}
+      validate={judgeOf(kind, lock.isRequired)}
       isDisabled={lock.isDisabled}
       maxLength={maxLength}
       minLength={minLength}
@@ -218,7 +218,7 @@ export function TextField(props: TextFieldProps) {
       {!labelHidden && (
         <FieldLabel
           label={label}
-          isRequired={isRequired}
+          isRequired={lock.isRequired}
           isLocked={lock.isMarked}
         />
       )}

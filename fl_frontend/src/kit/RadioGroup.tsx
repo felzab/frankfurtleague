@@ -4,9 +4,8 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { choiceCard, fieldLabel, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { useEarlyEdit } from "./useEarlyEdit";
 
@@ -85,6 +84,7 @@ export function RadioGroup({
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <AriaRadioGroup
       ref={root}
@@ -92,11 +92,11 @@ export function RadioGroup({
       aria-describedby={describedBy}
       name={name}
       defaultValue={defaultValue}
-      isRequired={isRequired}
-      isDisabled={useDisabled(false)}>
+      isRequired={lock.isRequired}
+      isDisabled={lock.isDisabled}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
       />
       <div className={radioList({ layout: answers.layout ?? "list" })}>
         {answers.layout === "cards"

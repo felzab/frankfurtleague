@@ -109,7 +109,7 @@ export function DateField({
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
   maxValue?: CalendarDay;
 }) {
-  const lock = useFieldLock(isDisabled, isLocked);
+  const lock = useFieldLock(isDisabled, isLocked, isRequired);
   return (
     <DatePicker<CalendarDate>
       className={fieldRoot()}
@@ -121,11 +121,11 @@ export function DateField({
       maxValue={fromDay(maxValue)}
       // The day and the month keep their leading zero, „03.04.2027“, as the site prints a date.
       shouldForceLeadingZeros
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       isDisabled={lock.isDisabled}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
         isLocked={lock.isMarked}
       />
       {/* One field rings as a whole, its calendar button included. */}

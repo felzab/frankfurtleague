@@ -7,9 +7,8 @@ import { Text } from "react-aria-components/Text";
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { PlaceholderLine } from "./Skeleton";
 import { useEarlyEdit } from "./useEarlyEdit";
 
@@ -76,6 +75,7 @@ export function Segmented({
   labelHidden?: boolean;
 }) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <RadioGroup
       ref={root}
@@ -84,14 +84,14 @@ export function Segmented({
       orientation="horizontal"
       value={value}
       onChange={onChange}
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(false)}>
+      isDisabled={lock.isDisabled}>
       {!labelHidden && (
         <FieldLabel
           label={label}
-          isRequired={isRequired}
+          isRequired={lock.isRequired}
         />
       )}
       <div className={choiceGroup({ kind: "segmented" })}>
@@ -162,19 +162,20 @@ export function ToggleBoxes({
   onChange?: (ids: string[]) => void;
 }) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <CheckboxGroup
       ref={root}
       className={fieldRoot()}
       value={value === undefined ? undefined : [...value]}
       onChange={onChange}
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(false)}>
+      isDisabled={lock.isDisabled}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
       />
       <div className={choiceGroup({ kind: "boxes" })}>
         {choices.map((choice) => (
