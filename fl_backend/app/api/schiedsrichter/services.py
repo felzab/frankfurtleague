@@ -9,7 +9,7 @@ from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
-from app.api.spielbestaetigungen.services import AnsetzungState, joined_decision_of, schiedsrichter_state_of
+from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
 from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.api.teams.services import is_played
@@ -543,7 +543,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
     # A club out by the fixture's day ends the booking, as the pass's notice told the referee.
-    officiates = joined_decision_of(spiel) != "austritt"
+    officiates = not exit_ends_the_booking(spiel)
     # As the report's own read judges its form open, in `kader_is_open`.
     reportable = officiates and takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
     submitted_at = None if bericht is None else bericht.get("submitted_at")

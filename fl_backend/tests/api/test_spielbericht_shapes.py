@@ -219,14 +219,18 @@ class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
     """The pass told the referee they no longer referee it: still taken, their report would stand on a match the club left."""
 
     @pytest.mark.parametrize(
-        ("austritt", "refused"),
+        ("austritt", "record", "refused"),
         [
-            pytest.param(TODAY, True, id="the club gone by the match's day"),
-            pytest.param("2027-05-15", False, id="the club gone after it"),
+            pytest.param(TODAY, {}, True, id="the club gone by the match's day"),
+            pytest.param("2027-05-15", {}, False, id="the club gone after it"),
+            # The walkover a fixture against a departed club is reported with, which decides it ahead of the exit.
+            pytest.param(TODAY, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, True, id="the club gone and reported absent"),
+            # An exit dated back over a match already played, whose referee officiated and was told nothing.
+            pytest.param(TODAY, {"ergebnis": "2:1"}, False, id="a match played before an exit dated back over it"),
         ],
     )
-    def test_the_booked_referee(self, austritt: str, refused: bool):
-        left = spiel(team1={"team_id": TEAM1, "tore": None, "austritt": {"date": austritt}})
+    def test_the_booked_referee(self, austritt: str, record: dict[str, Any], refused: bool):
+        left = spiel(team1={"team_id": TEAM1, "tore": None, "austritt": {"date": austritt}}, **record)
 
         assert (
             refused_with(Code.BERICHT_NOT_OFFICIATED, find_not_refereed_refusal(spiel_raw=left, schiedsrichter_ids=[SCHIEDSRICHTER])) is refused

@@ -33,6 +33,7 @@ from app.api.spielbestaetigungen.schemas import (
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY,
+    SONDEREREIGNIS_NO_SHOW,
     FLPatchSpielDataPayload,
     FLSpiel,
     FLSpielElfmeterschiessenPayload,
@@ -161,12 +162,30 @@ def decision_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any)
     return None
 
 
+def _joined_austritte(spiel: Mapping[str, Any]) -> list[str]:
+    return [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+
+
 def joined_decision_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
     """`decision_of` for a fixture read through the name join, by its sides' own exit days and its own day."""
 
-    austritte = [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+    return decision_of(spiel=spiel, austritte=_joined_austritte(spiel), tag=spiel.get("date"))
 
-    return decision_of(spiel=spiel, austritte=austritte, tag=spiel.get("date"))
+
+def exit_ends_the_booking(spiel: Mapping[str, Any]) -> bool:
+    """Whether a club out by the fixture's day ends its referee's booking, for a fixture read through the name join.
+
+    The exit judged on its own, never through `joined_decision_of`, which answers a result or an event first: the
+    walkover a fixture against a departed club is reported with would hand back a booking the pass told the referee
+    is off. Only a record of the match played keeps it, a result or a count no no-show awarded, or an abandonment: an
+    exit dated back over a match already played, whose referee officiated and was told nothing, its kick-off gone by.
+    """
+
+    tag = spiel.get("date")
+    exited = tag is not None and any(day <= tag for day in _joined_austritte(spiel))
+    played = has_taken_place(spiel) and spiel.get("sonderereignis") not in SONDEREREIGNIS_NO_SHOW
+
+    return exited and not played
 
 
 @dataclass(frozen=True)
