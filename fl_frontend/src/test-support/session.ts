@@ -1,3 +1,21 @@
+/**
+ * The request a server action or a server page runs in, signed in through the real sign-in library, the real guards
+ * and the real config.
+ *
+ * What a test file does:
+ * - At module level, `serveBackend(answer)` for the backend the subject reads and writes, then `signedInRequest()` for
+ *   the administrator, signed in by passkey, or `signedInRequest(visitor)` for another, then `await import` of the
+ *   subject: the doubles reach only the modules imported after the call.
+ * - A case arriving as someone else awaits `arriveAs(visitor)`, `null` for nobody. A case reads what the code owed
+ *   by mail off `outbox.sent`, and the rows the library holds off `store`.
+ *
+ * What the helper guarantees:
+ * - Each case arrives as the file's visitor, on an empty store, with no cookie the code wrote before it, and with the
+ *   file's own lookup answer.
+ * - The lookup answers the visitor's address alone; a read for any other address fails the case unless the case
+ *   answered it, and `answerTheLookup(() => null)` inside a case names an outage for that case alone.
+ * - Every lookup and mail the helper answers is on the backend's `served`, beside the case's own `sent`.
+ */
 import {
   ADMIN_EMAIL,
   answerTheLookup,
@@ -39,12 +57,8 @@ const fixtureOf = ({ records = {}, admin = false }: NonNullable<Visitor>): Looku
 });
 
 /**
- * The request a server action or a server page runs in, signed in through the REAL sign-in library over its in-memory
- * store: the session's cookie on the doubled `next/headers` (`fl_frontend/src/test-support/nextRequest.ts`), an
- * administrator's session made by passkey as every admin guard asks, and the visitor's lookups answered on the file's
- * backend (`fl_frontend/src/test-support/backend.ts`), whose `serveBackend` answers the rest.
- * Every case arrives as `visitor` until `arriveAs` names another for the rest of it. Called before the subject's
- * `await import`: the doubles reach only the modules imported after it.
+ * Signs every case in as `visitor` over the library's in-memory store, its cookie on the doubled `next/headers`, an
+ * administrator's session made by passkey as every admin guard asks, until `arriveAs` names another for the rest of it.
  */
 export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
   /** Signs a fresh session in for `next` and arrives with its cookie, or with none for nobody. */
