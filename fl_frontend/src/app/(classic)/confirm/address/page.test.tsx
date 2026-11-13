@@ -1,29 +1,37 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-
-import AddressChangeConfirmationPage from "./page";
 
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { ReactElement } from "react";
 
-const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
+/** The view the backend serves for the link's token, which `stateFor` sets. */
+let view: FLAddressChangeViewResponse["view"] | undefined;
 
-vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
-vi.mock("@/core/generated/client/sdk", async (original) => ({
-  ...(await original<object>()),
-  addressChangeGetAddressChangeView: async () => ({ view: read.view }),
-}));
-vi.mock("@/features/address-change/account", () => ({ accountAtNewAddress: async () => false }));
+/** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
+const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
+
+// The link's one read, for its own token alone: any other request goes unanswered, which fails the case.
+serveBackend(({ method, path, body }) =>
+  method === "POST" && path === "/address_change/confirmation/view" && carriesToken(body) && view !== undefined
+    ? ({ view } satisfies FLAddressChangeViewResponse)
+    : undefined,
+);
+// The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
+doubleNextRequest();
+
+const { default: AddressChangeConfirmationPage } = await import("./page");
 
 const WORDS = SERVER_COPY.addressChange;
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(view: FLAddressChangeViewResponse["view"]): Promise<MailedState> {
-  read.view = view;
+async function stateFor(served: FLAddressChangeViewResponse["view"]): Promise<MailedState> {
+  view = served;
   const page = AddressChangeConfirmationPage({ params: Promise.resolve({}), searchParams: Promise.resolve({ token: "tok" }) }) as ReactElement<{
     page: Promise<MailedState>;
   }>;

@@ -95,8 +95,8 @@ describe("a form asking its question over what the press read", () => {
     await waitFor(() => {
       expect(box().value).toBe("");
     });
-    // The line alone: a toast would say it a second time.
-    expect(screen.getAllByText(COPY.admin.erased)).toHaveLength(1);
+    // The line alone, the question closed: a toast, in any words, would say the act a second time.
+    expect([screen.getAllByText(COPY.admin.erased).length, screen.queryAllByRole("alertdialog")]).toStrictEqual([1, []]);
   });
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.

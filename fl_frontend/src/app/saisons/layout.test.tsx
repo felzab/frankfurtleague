@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import SaisonsLayout from "./layout";
 
 import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 
@@ -19,16 +19,20 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/server", () => ({ connection: async () => undefined }));
 // Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () =>
-    ({
-      saisons: [
-        { id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" },
-        { id: "2026", start_date: "2025-09-01", end_date: "2026-06-30" },
-      ],
-      active_saison_id: "2027",
-    }) satisfies FLSaisonFrameResponse,
-}));
+const FRAME = {
+  saisons: [
+    { id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" },
+    { id: "2026", start_date: "2025-09-01", end_date: "2026-06-30" },
+  ],
+  active_saison_id: "2027",
+} satisfies FLSaisonFrameResponse;
+
+// The season pages' frame alone: any other read goes unanswered, which fails the case.
+serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/frame" ? FRAME : undefined));
+// The frame is a cached read, which declares its tag and lifetime through `next/cache`, answering only in Next's cache scope.
+doubleNextRequest();
+
+const { default: SaisonsLayout } = await import("./layout");
 
 describe("the public season pages' frame", () => {
   // The not-found page stands inside this frame, so a menu following an unknown season would lead every entry to a 404.

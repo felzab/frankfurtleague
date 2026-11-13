@@ -1,29 +1,36 @@
 import { TO_ACCOUNT } from "@/kit/MailedPage";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import { objectKontakt } from "./answerKontakt";
-import { END, TO_HOME } from "./ends";
-import KontaktConfirmationPage from "./page";
 
 import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
 import type { ReactElement } from "react";
 
-const read = vi.hoisted(() => ({ view: null as FLBewerbungEinwilligungViewResponse | null }));
+/** The view the backend serves for the link's token, which `stateFor` sets. */
+let view: FLBewerbungEinwilligungViewResponse | undefined;
 
-vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
-vi.mock("@/core/generated/client/sdk", async (original) => ({
-  ...(await original<object>()),
-  bewerbungenGetEinwilligungView: async () => read.view,
-}));
+/** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
+const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
+
+// The link's one read, for its own token alone: any other request goes unanswered, which fails the case.
+serveBackend(({ method, path, body }) =>
+  method === "POST" && path === "/bewerbungen/einwilligung/view" && carriesToken(body) ? view : undefined,
+);
+// The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
+doubleNextRequest();
+
+const { objectKontakt } = await import("./answerKontakt");
+const { END, TO_HOME } = await import("./ends");
+const { default: KontaktConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(view: Partial<FLBewerbungEinwilligungViewResponse>): Promise<MailedState> {
-  read.view = {
+async function stateFor(served: Partial<FLBewerbungEinwilligungViewResponse>): Promise<MailedState> {
+  view = {
     quelle: "bewerbung",
     state: "valid",
     row: null,
@@ -35,7 +42,7 @@ async function stateFor(view: Partial<FLBewerbungEinwilligungViewResponse>): Pro
     maximum_age: 99,
     deadline: "2026-11-18",
     answered_at: null,
-    ...view,
+    ...served,
   };
   const page = KontaktConfirmationPage({
     params: Promise.resolve({}),
