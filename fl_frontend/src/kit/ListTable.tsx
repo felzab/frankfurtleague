@@ -170,13 +170,10 @@ export function ListCard({
   );
 }
 
-/**
- * What is typed into a list's search field, shared by the field, which the toolbar draws at once, and the
- * table, which arrives once its rows are read.
- */
+/** What is typed into a list's search field, shared by the field in the toolbar and the list under it. */
 const ListQuery = createContext<{ query: string; setQuery: (query: string) => void }>({ query: "", setQuery: () => undefined });
 
-/** A list's search text, held around its toolbar and the boundary its table waits in. */
+/** A list's search text, held around its toolbar and its list. */
 export function ListQueryScope({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   return <ListQuery value={{ query, setQuery }}>{children}</ListQuery>;
@@ -253,8 +250,8 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
     read({ query, cursor: null }, (state, page) => ({ ...state, query, rows: page.rows, cursor: page.cursor }));
   });
 
-  // The field stands outside this table, which may arrive after something was typed, so the table follows
-  // the text rather than the field's keystrokes. A list past one read's cap asks the server for it, once.
+  // The field stands outside this table, so the table follows the text the field holds rather than its keystrokes. A
+  // list past one read's cap asks the server for it, once.
   useEffect(() => {
     latest.current += 1;
     if (more === undefined || query.trim() === "") return;
