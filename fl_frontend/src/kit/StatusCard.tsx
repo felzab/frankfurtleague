@@ -43,7 +43,7 @@ const statusCard = tv({
     railTitle: "font-heading tracking-display uppercase",
   },
   variants: {
-    // The mark's tint is 12 % of its hue over the card, as a chip's.
+    // The mark's tint is 12 % of its hue over the card.
     tone: {
       success: { mark: "bg-success/12 text-success" },
       info: { mark: "bg-info/12 text-info" },
