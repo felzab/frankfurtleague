@@ -43,7 +43,8 @@ beforeEach(() => {
   state.refreshes = 0;
 });
 
-// The queue is the toast module's own: each toast runs out before the next test.
+// The queue is the toast module's own: a done act's toast runs out before the next test, and a refusal's, which stands
+// until it is closed, is read by no later case here.
 afterEach(() => {
   vi.useFakeTimers();
   act(() => vi.runAllTimers());

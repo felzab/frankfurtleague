@@ -367,7 +367,7 @@ export const COPY = catalogue({
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
     question: (object: Copy, verb: Verb) => `${object} ${infinitive(verb)}?`,
     back: "Zurück",
-    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
+    /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up, and every toast. */
     close: "Schließen",
 
     /** The status cards' titles and ways on: a mailed page's ends, and the frames' own. */
