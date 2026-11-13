@@ -381,8 +381,8 @@
   --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
-  --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and a two-digit figure inside 8-px padding */
-  --container-bracket: 15rem; /* a bracket card on desktop with 8 px of room on each side, the most a round's column gives it: its 224-px card holds „Verlierer von Spiel 13“ whole */
+  --container-bracket-narrow: 5rem; /* a bracket card in a box under 42 rem: the plaque and a two-digit figure inside 8-px padding */
+  --container-bracket: 15rem; /* a bracket card in a box of 42 rem and more, with 8 px of room on each side, the most a round's column gives it: its 224-px card holds „Verlierer von Spiel 13“ whole */
   --container-dialog: 35rem; /* a dialog holding a form, and a mailed page's question card */
   --container-field: 24rem; /* a form's standard field, at every screen width: a name, an address or a choice; wider than a phone's row, so a phone's field fills its row */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */

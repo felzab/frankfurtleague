@@ -33,7 +33,7 @@ const tree = tv({
     // One column wide whatever its match spans, so every card of the tree is the same size. In the narrow form the
     // card is as wide as its token alone, the room between two cards what the round's equal columns leave over, so
     // four across fit a 360-px phone inside the page's gutters; in the wide form it keeps 8 px of room on each side.
-    card: "w-bracket-phone @2xl:max-w-bracket @2xl:px-2",
+    card: "w-bracket-narrow @2xl:max-w-bracket @2xl:px-2",
     gap: "block h-(--bracket-gap)",
     feed: "relative h-(--bracket-gap)",
     // From each card of a pair down, across between them, and down to the match they feed.

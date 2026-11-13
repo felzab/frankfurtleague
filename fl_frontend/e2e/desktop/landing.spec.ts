@@ -1,6 +1,7 @@
 /**
- * E2E · the landing and the season pages, where no lower tier sees the root slot's pop-up open over the landing, or a
- * season page fail to render on the seed's real data, its running season 2027.
+ * E2E · the landing and the season pages, where no lower tier sees the root slot's pop-up open over the landing, a
+ * season page fail to render on the seed's real data, its running season 2027, or the classic footer, a server component
+ * awaiting the year, drop its sponsor's paid mark.
  */
 import { expect } from "@playwright/test";
 
@@ -70,4 +71,11 @@ test("the rail's four season pages and the sponsors page each stand under their 
   await page.getByRole("contentinfo").getByRole("link", { name: "Sponsoren", exact: true }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/sponsors");
   await expect(page.getByRole("main").getByRole("heading", { level: 1, name: "Sponsoren" })).toBeVisible();
+});
+
+// The harm: a paid link that loses `rel="sponsored"` reads to a search engine as an endorsement, and no reader sees it.
+test("the footer marks its sponsor's link paid", async ({ page }) => {
+  await page.goto("/");
+  const sponsor = page.getByRole("contentinfo").getByRole("link", { name: "Stiftung Polytechnische Gesellschaft", exact: true });
+  await expect(sponsor).toHaveAttribute("rel", /(^| )sponsored( |$)/);
 });

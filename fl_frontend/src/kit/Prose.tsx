@@ -1,5 +1,4 @@
 import { Callout } from "./Callout";
-import { stacked } from "./cardStyles";
 import { ClassicPage, PageHead } from "./ClassicPage";
 import { Contents } from "./Contents";
 import { Link } from "./Link";
@@ -29,12 +28,12 @@ export type ProseBlock =
 /** A section of a text: its heading and the blocks under it. */
 export type ProseSection = { heading: Copy; blocks: ReadonlyArray<ProseBlock> };
 
-// Each section under its 20-px heading, 48 px from the next with a hairline halfway, 16 px between its paragraphs; each
-// block of words at a line's measure, a table across the column.
+// Each section under its 20-px heading, 48 px from the next, 16 px between its paragraphs; each block of words at a
+// line's measure, a table across the column.
 const prose = tv({
   slots: {
     text: "grid min-w-0 gap-6 text-base text-fg",
-    section: `kit-section-target grid gap-4 ${stacked()} pt-6 first:pt-0`,
+    section: "kit-section-target grid gap-4 pt-6 first:pt-0",
     heading: "max-w-measure text-xl font-semibold",
     paragraph: "max-w-measure",
     list: "grid max-w-measure list-disc gap-2 ps-6 marker:text-fg-muted",
@@ -154,11 +153,11 @@ function Text({ sections }: { sections: ReturnType<typeof identified> }) {
 }
 
 /**
- * A text's sections under 20-px semibold headings, each over a hairline but the first: paragraphs and bullet lists,
- * each at a line's measure; a table, which the page places, across the column; a box as the kit's `Callout`; a list of
- * the site's pages as plain links.
+ * A text's sections under 20-px semibold headings, parted by space alone: paragraphs and bullet lists, each at a line's
+ * measure; a table, which the page places, across the column; a box as the kit's `Callout`; a list of the site's pages
+ * as plain links.
  */
-function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
+export function Prose({ sections }: { sections: ReadonlyArray<ProseSection> }) {
   return <Text sections={identified(sections)} />;
 }
 

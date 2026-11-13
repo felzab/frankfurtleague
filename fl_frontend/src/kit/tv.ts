@@ -16,7 +16,7 @@ export const tv = createTV({
           "signin",
           "question",
           "card",
-          "bracket-phone",
+          "bracket-narrow",
           "bracket",
           "dialog",
           "field",

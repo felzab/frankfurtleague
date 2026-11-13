@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { FormClosed } from "./formClosed";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
@@ -32,6 +33,39 @@ describe("an address field's autofill", () => {
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+// The harm: a screen reader announces "required" on a value nobody can change, which no sighted reader sees.
+describe("a required field nobody can change", () => {
+  it("is heard as required only while its form is open and the field unlocked", () => {
+    render(
+      <>
+        <TextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isRequired
+        />
+        <TextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isRequired
+          isLocked
+        />
+        <FormClosed value>
+          <TextField
+            label={COPY.shared.startelf}
+            kind="text"
+            isRequired
+          />
+        </FormClosed>
+      </>,
+    );
+    // React Aria states it as the native `required` or as `aria-required`, by the form's validation behaviour.
+    const heard = screen
+      .getAllByRole("textbox")
+      .map((box) => (box as HTMLInputElement).required || box.getAttribute("aria-required") === "true");
+    expect(heard).toStrictEqual([true, false, false]);
   });
 });
 
