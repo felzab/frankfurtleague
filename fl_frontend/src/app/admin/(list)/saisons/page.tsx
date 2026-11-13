@@ -1,6 +1,4 @@
-import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
-import { SAISON_WORDS } from "@/kit/Skeleton";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
@@ -49,9 +47,8 @@ export default function SaisonsPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminSaisons" } }}
-      // Any season's name is as wide as the one the read names.
-      create={{ label: actLabel({ verb: "create", object: SAISON_WORDS }), act: readCreate(read) }}
-      list={{ kind: "table", head: HEAD, wait: 4, content: readSaisons(read) }}
+      create={readCreate(read)}
+      list={{ kind: "table", head: HEAD, content: readSaisons(read) }}
     />
   );
 }
@@ -86,7 +83,6 @@ async function readCreate(read: ReturnType<typeof getAdminSaisons>): Promise<Lis
   };
 }
 
-/** The table's head, drawn while the seasons are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.saison,
   state: { label: COPY.admin.schiedsrichter.state },

@@ -1,33 +1,23 @@
-import { COPY } from "@/core/copy";
-
-import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
+import { BracketTree } from "./BracketTree";
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { CappedRows } from "./CappedRows";
-import { Card, CardActRow, CardPlaceholder, CardRowsPlaceholder } from "./Card";
+import { Card, CardActRow } from "./Card";
 import { CardGrid } from "./CardGrid";
 import { cardSurface } from "./cardStyles";
 import { Dialog } from "./Dialog";
 import { actLabel } from "./dialogAct";
 import { EmptyBox, EmptyState } from "./EmptyState";
-import { FieldPlaceholder } from "./FieldPair";
 import { Filters } from "./Filters";
-import { Icon } from "./Icon";
 import { Link } from "./Link";
 import { ListCard, ListMatches, ListQueryScope, ListSearchField, ListTable, ListTiles } from "./ListTable";
-import { Pending } from "./Pending";
 import { RailPage } from "./RailFrame";
-import { SeatRows, SeatRowsPlaceholder } from "./SeatRows";
-import { Placeholder, Waiting } from "./Skeleton";
-import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
-import { spielColumns, SpielListPlaceholder, spielSubgrid } from "./SpielRow";
-import { SpieltagHeadPlaceholder } from "./SpieltagHead";
-import { Table, TablePlaceholder } from "./Table";
-import { Tabs, TabsPlaceholder } from "./Tabs";
-import { TeamHead, TeamHeadPlaceholder } from "./TeamHead";
-import { SCHOOL_TILES_SAMPLE, SchoolTiles } from "./TileGrid";
-import { PageWait } from "./WholePage";
+import { SeatRows } from "./SeatRows";
+import { SpielGroup } from "./SpielGroup";
+import { spielColumns, spielSubgrid } from "./SpielRow";
+import { Table } from "./Table";
+import { Tabs } from "./Tabs";
+import { TeamHead } from "./TeamHead";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -115,82 +105,48 @@ type SpieleContent = { matches: ReadonlyArray<{ row: SpielRowProps & { id: strin
 /** Clubs the filters left as school tiles, each with the words the search narrows them by, and why there are none. */
 type TilesContent = { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps };
 
-/**
- * What the list shows, by its kind, which is known before its content is read: the kind decides the shape
- * the wait is drawn in.
- */
+/** What the list shows, by its kind, and the content the kind is drawn from once it is read. */
 type ListContent =
   | {
       kind: "table";
       /** The search field's name, where the list holds about 20 rows or more. */ search?: ListSearch;
-      /** The table's head, which its placeholder draws while the rows are read. */
+      /** The table's head, over the rows the read brings. */
       head: TableHead;
-      /** How many rows its wait draws. */
-      wait: number;
-      /** „Weitere 50 laden“ stands under the list as a rule, so its wait draws the button. */
-      paged?: true;
-      /** Each row is a club's, its plaque before its name, so its wait draws the plaque's bar and the name's after it. */
-      plaques?: true;
       content: Promise<TableContent>;
     }
   | {
       kind: "folds";
-      /** The cards while they wait, `OpenFoldPlaceholder`, which the page places as it places the cards. */
-      wait: ReactElement;
       /** `ReadFolds` over the cards, in a `column`: a page folding nothing ships none of the fold's client code. */
       content: Promise<ReactElement>;
     }
   | {
       kind: "spieltage";
-      /** Each matchday's panel opens with its dates and its act, as the administrator's „Spiele“ list's do. */
-      dated?: true;
-      /** How many matchday tabs its wait draws, and how many matches under them. */
-      wait: { tabs: number; matches: number };
       content: Promise<SpieltageContent>;
     }
   | {
       kind: "groups";
-      /** Every group's table's head, one for all, which their placeholder draws while the rows are read. */
+      /** Every group's table's head, one for all. */
       head: TableHead;
-      /** How many group cards its wait draws, and how many rows in each. */
-      wait: { groups: number; rows: number };
       content: Promise<GroupsContent>;
     }
   | {
       kind: "cards";
       /** The search field's name, where a card's list can reach about 20 rows, as a table's takes it. */
       search?: ListSearch;
-      /**
-       * Each card while it waits, in their order, its title, the acts its rows carry, which a narrow card sets on a line
-       * of their own, and `count` as the card states it, and how many rows each draws; the seats' card's title, where
-       * the page shows the record's seats; and `team` where a team's head opens the page.
-       */
-      wait: {
-        rows: number;
-        cards: ReadonlyArray<{ title: Copy; acts?: ReadonlyArray<Copy>; count?: false }>;
-        seats?: Copy;
-        team?: true;
-      };
       content: Promise<CardsContent>;
     }
   | {
       kind: "tree";
-      /** How many teams its wait draws the tree for, which is the tree's shape. */
-      wait: ComponentProps<typeof BracketTreePlaceholder>["qualifiers"];
       content: Promise<TreeContent>;
     }
   | {
       kind: "spiele";
       /** The search field's name. */
       search: ListSearch;
-      /** How many match cards its wait draws. */
-      wait: number;
       content: Promise<SpieleContent>;
     }
   | {
       kind: "spielGroups";
-      /** How many match cards its wait draws. */
-      wait: number;
       content: Promise<SpielGroupsContent>;
     }
   | {
@@ -201,117 +157,8 @@ type ListContent =
     };
 
 /**
- * What each kind waits in: the placeholders of the blocks its content is drawn with, laid out as the content lays them,
- * as many as the page states beside its list, since how many there are is what the read
- * tells. The school tiles wait as the tiles themselves, drawn from their sample (`Pending`), which no page counts.
- */
-function ListPlaceholder({ list }: { list: ListContent }) {
-  switch (list.kind) {
-    case "table":
-      return (
-        <>
-          <TablePlaceholder
-            head={list.head}
-            rows={list.wait}
-            plaques={list.plaques === true}
-          />
-          {list.paged === true && (
-            <div className="flex items-center gap-3">
-              <span className={buttonPlaceholder()}>{COPY.shared.loadMore}</span>
-            </div>
-          )}
-        </>
-      );
-    case "folds":
-      return list.wait;
-    case "groups":
-      return Array.from({ length: list.wait.groups }, (_, index) => (
-        <CardPlaceholder
-          key={index}
-          count>
-          <TablePlaceholder
-            head={list.head}
-            rows={list.wait.rows}
-            plaques
-            bare
-          />
-        </CardPlaceholder>
-      ));
-    case "cards":
-      return (
-        <>
-          {list.wait.team === true && <TeamHeadPlaceholder />}
-          <Cards boxes={list.wait.cards.length + (list.wait.seats === undefined ? 0 : 1)}>
-            {list.wait.cards.map(({ title, acts, count }) => (
-              <CardPlaceholder
-                key={title}
-                title={title}
-                count={count !== false}>
-                <CardRowsPlaceholder
-                  rows={list.wait.rows}
-                  {...(acts === undefined ? {} : { acts })}
-                />
-              </CardPlaceholder>
-            ))}
-            {list.wait.seats !== undefined && (
-              <CardPlaceholder title={list.wait.seats}>
-                <SeatRowsPlaceholder
-                  bare
-                  readOnly
-                />
-              </CardPlaceholder>
-            )}
-          </Cards>
-        </>
-      );
-    case "spieltage":
-      return (
-        <TabsPlaceholder count={list.wait.tabs}>
-          {list.dated === true && <SpieltagHeadPlaceholder />}
-          <SpielListPlaceholder
-            count={list.wait.matches}
-            layout="cards"
-          />
-        </TabsPlaceholder>
-      );
-    case "tree":
-      return <BracketTreePlaceholder qualifiers={list.wait} />;
-    case "spiele":
-      return (
-        <SpielListPlaceholder
-          count={list.wait}
-          layout="cards"
-        />
-      );
-    case "spielGroups":
-      return (
-        <SpielCards>
-          {Array.from({ length: list.wait }, (_, index) => (
-            <div
-              key={index}
-              className={SPIEL_CARD_CLASSES}>
-              <SpielGroupPlaceholder columns="outer" />
-            </div>
-          ))}
-        </SpielCards>
-      );
-    case "tiles":
-      return (
-        <Pending>
-          <SchoolTiles schools={SCHOOL_TILES_SAMPLE} />
-        </Pending>
-      );
-  }
-}
-
-/** What a list's boundary holds while its blocks are read, laid out as the blocks will be. */
-function ListWait({ children }: { children: ReactNode }) {
-  return <Waiting layoutClass="flex flex-col gap-6">{children}</Waiting>;
-}
-
-/**
  * A page's cards: side by side in the grid, or a lone one at the content's width, beside which the grid's second column
- * would stand empty. The wait and the page each count their own, so both stand alike.
+ * would stand empty.
  */
 function Cards({ boxes, children }: { boxes: number; children: ReactNode }) {
   return boxes === 1 ? children : <CardGrid>{children}</CardGrid>;
@@ -343,35 +190,6 @@ function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
   );
 }
 
-/**
- * The filter block while its choices are read, at the height it will stand at, so nothing under the toolbar moves when
- * it arrives: on a phone the „Filter“ button, on desktop its labelled selects, each its label, its field and the line
- * under it.
- */
-function FiltersPlaceholder({ count }: { count: number }) {
-  return (
-    <Placeholder>
-      <span className={buttonPlaceholder("lg:hidden")}>
-        <Icon
-          glyph="filter"
-          size={16}
-        />
-        {COPY.shared.filter}
-      </span>
-      <span className="flex items-start gap-3 max-lg:hidden">
-        {Array.from({ length: count }, (_, index) => (
-          // A filter's select at the least width its row gives it.
-          <span
-            key={index}
-            className="w-40">
-            <FieldPlaceholder />
-          </span>
-        ))}
-      </span>
-    </Placeholder>
-  );
-}
-
 /** The filter block once its choices are read. */
 async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Filter>> }) {
   return <Filters filters={await filters} />;
@@ -382,32 +200,6 @@ async function FiltersOnceRead({ filters }: { filters: Promise<ReadonlyArray<Fil
  * page read, the button saying why (`Button`).
  */
 export type ListCreate = DialogAct & { locked?: Copy };
-
-/**
- * A toolbar act the read words: its words, which its wait draws at their width, and the act, `locked` while the list as
- * read, or the reader's role, shuts it.
- */
-export type ListActOnceRead = { label: Copy; act: Promise<ListCreate> };
-
-/**
- * A toolbar act while what it makes is read: its button's placeholder, the create act's glyph before its words, so the
- * toolbar keeps its height and each button its width.
- */
-function ToolbarActPlaceholder({ label, side }: { label: Copy; side: boolean }) {
-  return (
-    <Placeholder>
-      <span className={buttonPlaceholder()}>
-        {!side && (
-          <Icon
-            glyph="create"
-            size={16}
-          />
-        )}
-        {label}
-      </span>
-    </Placeholder>
-  );
-}
 
 /**
  * An act at the toolbar row's end, its button opening the dialog over the list: the create act, or as `side` the second
@@ -442,21 +234,16 @@ async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate>; sid
   );
 }
 
-/** A toolbar act as stated, or in a boundary of its own while the read words it. */
-function ToolbarActOf({ act, side = false }: { act: ListCreate | ListActOnceRead; side?: boolean }) {
-  return "label" in act ? (
-    <PageWait
-      fallback={
-        <ToolbarActPlaceholder
-          label={act.label}
-          side={side}
-        />
-      }>
-      <ToolbarActOnceRead
-        act={act.act}
-        side={side}
-      />
-    </PageWait>
+/**
+ * A toolbar act as stated, or as the read words it: its words, and `locked` while the list as read, or the reader's
+ * role, shuts it.
+ */
+function ToolbarActOf({ act, side = false }: { act: ListCreate | Promise<ListCreate>; side?: boolean }) {
+  return act instanceof Promise ? (
+    <ToolbarActOnceRead
+      act={act}
+      side={side}
+    />
   ) : (
     <ToolbarAct
       act={act}
@@ -510,7 +297,7 @@ async function NoticeOnceRead({ notice }: { notice: Promise<Copy | null> }) {
   );
 }
 
-/** The list once its content is read, in the boundary's place. */
+/** The list once its content is read. */
 async function ListBody({ list }: { list: ListContent }) {
   switch (list.kind) {
     case "table": {
@@ -664,15 +451,12 @@ async function ListBody({ list }: { list: ListContent }) {
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
- * Under `WholePages` the page arrives whole, its list read with it. Outside it, the title and the toolbar are drawn at
- * once, and the list waits for its content in the template's one boundary, with what its read decides above it, drawn
- * meanwhile as the placeholders of the blocks it will be drawn with; typing into the search field before the rows
- * arrive searches them once they do.
+ * The page arrives whole: every part it reads, the list and whatever its read decides around it, holds the page until
+ * it is drawn.
  */
 export function ListPage({
   head,
   filters,
-  filterCount = 1,
   create,
   side,
   link,
@@ -680,30 +464,20 @@ export function ListPage({
   list,
 }: {
   head: RailPageHead;
-  /**
-   * The filter block, its choices and their values read with the list, as the Spielsuche's clubs and matchdays
-   * are, so it waits in a boundary of its own and stands in the toolbar once read.
-   */
+  /** The filter block, its choices and their values read with the list, as the Spielsuche's clubs and matchdays are. */
   filters?: Promise<ReadonlyArray<Filter>>;
-  /** How many selects the filter block holds, which the page knows before the read and its wait draws. */
-  filterCount?: number;
   /**
    * A record created where its list shows: the dialog's title, its act, its fields and the action. Read with the list
-   * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all, so
-   * it waits in a boundary of its own and stands in the toolbar once read.
+   * where what it makes is the list's to say, as the Saisons list names the next season, or whether it stands at all.
    */
-  create?: ListCreate | ListActOnceRead;
+  create?: ListCreate | Promise<ListCreate>;
   /**
    * A second act on the list as a whole, a secondary button before the create act, such as Administratoren's handover:
    * stated or read as the create act is, and shown to every reader, locked with its reason for one it does not serve.
    */
-  side?: ListCreate | ListActOnceRead;
+  side?: ListCreate | Promise<ListCreate>;
   link?: ListLink;
-  /**
-   * What holds of the list as read and no row says, standing between the toolbar and the list, in the list's boundary:
-   * in one of its own, React's reveal throttle can land the rows 300 ms ahead of it, and it then lifts them under a
-   * finger on a row's act.
-   */
+  /** What holds of the list as read and no row says, standing between the toolbar and the list. */
   notice?: Promise<Copy | null>;
   list: ListContent;
 }) {
@@ -718,11 +492,7 @@ export function ListPage({
         {hasToolbar && (
           <div className={TOOLBAR_CLASSES}>
             {search !== undefined && <ListSearchField {...search} />}
-            {filters !== undefined && (
-              <PageWait fallback={<FiltersPlaceholder count={filterCount} />}>
-                <FiltersOnceRead filters={filters} />
-              </PageWait>
-            )}
+            {filters !== undefined && <FiltersOnceRead filters={filters} />}
             {(side !== undefined || create !== undefined) && (
               <ToolbarActs>
                 {side !== undefined && (
@@ -736,27 +506,13 @@ export function ListPage({
             )}
             {link !== undefined && (
               <div className="ms-auto">
-                <PageWait
-                  fallback={
-                    <Placeholder>
-                      <span className={buttonPlaceholder()}>{link.label}</span>
-                    </Placeholder>
-                  }>
-                  <LinkOnceRead link={link} />
-                </PageWait>
+                <LinkOnceRead link={link} />
               </div>
             )}
           </div>
         )}
-        <PageWait
-          fallback={
-            <ListWait>
-              <ListPlaceholder list={list} />
-            </ListWait>
-          }>
-          {notice !== undefined && <NoticeOnceRead notice={notice} />}
-          <ListBody list={list} />
-        </PageWait>
+        {notice !== undefined && <NoticeOnceRead notice={notice} />}
+        <ListBody list={list} />
       </ListQueryScope>
     </RailPage>
   );

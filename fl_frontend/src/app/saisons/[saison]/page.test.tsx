@@ -29,14 +29,16 @@ describe("a season the public cannot read", () => {
     await expect(
       generateMetadata({ params, searchParams: Promise.resolve({}) }, Promise.resolve({}) as unknown as ResolvingMetadata),
     ).resolves.toBe(NOT_FOUND_METADATA);
-    const stream = await renderToReadableStream(
-      <SpielplanPage
-        params={params}
-        searchParams={Promise.resolve({})}
-      />,
-      { onError: () => undefined },
-    );
-    await stream.allReady;
+    // The page has no boundary of its own, so its not-found ends the render before any read.
+    await expect(
+      renderToReadableStream(
+        <SpielplanPage
+          params={params}
+          searchParams={Promise.resolve({})}
+        />,
+        { onError: () => undefined },
+      ),
+    ).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
     expect(reads).toStrictEqual([]);
   });
 });

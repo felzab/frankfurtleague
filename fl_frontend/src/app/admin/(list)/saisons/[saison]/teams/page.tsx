@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { actLabel } from "@/kit/dialogAct";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
@@ -74,7 +73,6 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
   };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: TEAM,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -95,14 +93,11 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminTeams" } }}
       filters={readFilters(list, searchParams)}
-      filterCount={2}
-      create={{ label: actLabel(ACT), act: readCreate(list, params) }}
+      create={readCreate(list, params)}
       list={{
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        wait: 24,
-        plaques: true,
         content: readTeams(list, params, searchParams),
       }}
     />

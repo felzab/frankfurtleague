@@ -80,9 +80,8 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are: the name and the day it came in, as the
- * administration's Registrierungen list stands in two columns, every other fact and both acts in the row's dialog, so a
- * desktop name is never pressed thin by them.
+ * The table's head: the name and the day it came in, as the administration's Registrierungen list stands in two
+ * columns, every other fact and both acts in the row's dialog, so a desktop name is never pressed thin by them.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
@@ -131,7 +130,6 @@ export default function RegistrierungenPage({ params }: Props) {
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
-        wait: 3,
         content: read.then(({ drawn }) => ({ drawn })),
       }}
     />

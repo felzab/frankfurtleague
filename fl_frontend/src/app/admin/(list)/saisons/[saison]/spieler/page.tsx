@@ -93,7 +93,6 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   return { saison, filters: [team, state] as const, shown };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -115,12 +114,10 @@ export default function SpielerPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminSpieler" } }}
       filters={season.then(({ filters }) => filters)}
-      filterCount={2}
       list={{
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminSpieler.title,

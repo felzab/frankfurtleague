@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(getBewerbungenOfSaison(saison), () => pageMetadata(parent, ROUTES.adminBewerbungen, ROUTES.adminBewerbungen.path(saison)));
 }
 
-/** The table's head, drawn while the rows are read and over them once they are: a phone keeps the name and its chip. */
+/** The table's head: a phone keeps the name and its chip. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.facts.school,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -116,14 +116,12 @@ export default function BewerbungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminBewerbungen" } }}
       filters={list.then(({ filters }) => filters)}
-      filterCount={2}
       link={{ label: COPY.page.adminBewerbungenBulk, href: list.then(({ bulk }) => bulk) }}
       notice={list.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        wait: 24,
         content: list.then(({ table }) => ({ table })),
       }}
     />
