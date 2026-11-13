@@ -133,6 +133,23 @@ describe("a date the team cannot answer", () => {
   });
 });
 
+// The harm: a date an exit ended before its deadline read as lapsed on a day still to come, which the team cannot have
+// missed.
+describe("a lapsed date", () => {
+  it("names the day it lapsed on, and none where it ended on no day", async () => {
+    const rows = await spielbestaetigungen(
+      spielbestaetigung({ state: "expired", deadline: "2026-11-08", lapsed_on: "2026-11-08" }),
+      spielbestaetigung({ state: "expired", spielbestaetigung_id: "000000000000000000000002" }),
+    );
+
+    const when = COPY.spielplan.when("2026-11-14", "16:00:00");
+    expect(rows.map(({ line }) => line)).toStrictEqual([
+      COPY.shared.line([when, COPY.admin.schiedsrichter.expiredOn("2026-11-08"), COPY.area.team.leagueDecides]),
+      COPY.shared.line([when, COPY.area.team.leagueDecides]),
+    ]);
+  });
+});
+
 // A row past its due mark that says so only in its muted line reads as one still in time.
 describe("a line-up's row", () => {
   it("carries „Überfällig“ from its due mark and „Gesperrt“ from the lock", async () => {
