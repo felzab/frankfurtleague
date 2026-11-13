@@ -1,17 +1,23 @@
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
 import { describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
 import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes.ts";
 
-import robots from "./robots.ts";
-import sitemap from "./sitemap.ts";
-
+import type { FLSaisonFrameResponse } from "@/core/generated/client/types.ts";
 import type { RouteEntry } from "@/core/routes.ts";
 
 /** The season pages' frame as the sitemap reads it; each case sets the season the site is on. */
-const frame = vi.hoisted((): { saisons: never[]; active_saison_id: string | null } => ({ saisons: [], active_saison_id: null }));
+const frame: FLSaisonFrameResponse = { saisons: [], active_saison_id: null };
 vi.mock("next/server", () => ({ connection: async () => undefined }));
-vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => frame }));
+// The season pages' frame alone: any other read goes unanswered, which fails the case.
+serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/frame" ? frame : undefined));
+// The frame is a cached read, which declares its tag and lifetime through `next/cache`, answering only in Next's cache scope.
+doubleNextRequest();
+
+const { default: robots } = await import("./robots.ts");
+const { default: sitemap } = await import("./sitemap.ts");
 
 /** Each row with its address, every segment filled, so a prefix test reads it as a crawler would. */
 const ROWS = (Object.entries(ROUTES) as [string, RouteEntry][]).map(([key, row]) => {
