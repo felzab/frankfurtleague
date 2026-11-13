@@ -6,7 +6,7 @@ import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { SectionPlaceholder } from "@/kit/Section";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -260,13 +260,13 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   const { answer } = row;
   if (answer === null) return { ...shown, chip: row.expired ? EXPIRED_CHIP : open, line: WORDS.answerBy(dayOf(row.deadline)) };
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
-  if (answer.kind === "agreed") return { ...shown, chip: { tone: "success", label: WORDS.agreed }, line: day };
+  if (answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
   const { vorschlag, reason } = answer;
   const line =
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: DECLINED_CHIP, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
 /** Each party's answer about the fixture as it stands: both clubs, then the referee where a booking names one. */
