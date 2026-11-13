@@ -6,6 +6,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import PyMongoError
 
 from app.api.outbox.schemas import FLAustrittNoticeData
 from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
@@ -38,6 +39,16 @@ DEPARTED_ROW = ObjectId("6890a1b2c3d4e5f6077600a1")
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6077600b1")
 
 NAMES = {DEPARTED: "Goethe", OPPONENT: "Schiller", EARLIER_OPPONENT: "Lessing", GONE_TOO: "Kleist"}
+
+# The client whose exit the server refuses, by its name, every other client's commands running as they would; each
+# refusal carries no transient label, on which `with_transaction` never retries.
+REFUSED_EXIT_APP = "austritt-refused"
+# The exit's commit, or the write recording it on the club's row (`findAndModify`, which no notice sends): the one is
+# what notices written off its session outlive, the other what notices committed apart from it outlive.
+EXIT_REFUSALS = [
+    pytest.param({"failCommands": ["commitTransaction"], "errorCode": 251}, id="its commit refused"),
+    pytest.param({"failCommands": ["findAndModify"], "errorCode": 2}, id="its row's write refused"),
+]
 
 
 def club(team_id: ObjectId, **fields: Any) -> dict[str, Any]:
@@ -177,10 +188,14 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
         # Never the opponent's seat: the team editor reads a seat's last mail as the delivery of its link.
         assert {(row["reference"]["id"], row["reference"]["seat"]) for row in rows} == {(DEPARTED_ROW, None)}
 
-    def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str):
-        """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so."""
+    @pytest.mark.parametrize("refusal", EXIT_REFUSALS)
+    def test_the_exit_s_write_owes_the_notices_in_its_own_transaction(self, mongo_replica_set_url: str, refusal: dict[str, Any]):
+        """Nothing above reaches the route, so an exit recorded with its call gone would tell nobody, and nothing would say so.
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        Owed outside the exit's transaction, a refused exit would tell every opponent of an exit that never stood.
+        """
+
+        async def exit_through(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await put_austritt(
                 team_id=DEPARTED,
                 saison_id=SAISON_ID,
@@ -194,8 +209,23 @@ class TestAnOpponentHearsOfAnExitAtTheExitsOwnWrite:
                 germany_now=MAIL_NOW,
             )
 
-            return await told(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            refusing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=REFUSED_EXIT_APP)
+            await client.admin.command(
+                "configureFailPoint", "failCommand", mode={"times": 1}, data={**refusal, "appName": REFUSED_EXIT_APP, "errorLabels": []}
+            )
+            try:
+                with pytest.raises(PyMongoError):
+                    await exit_through(refusing[database.name], refusing)
+            finally:
+                await client.admin.command("configureFailPoint", "failCommand", mode="off")
+                await refusing.close()
+            refused = await told(database, client)
+            await exit_through(database, client)
 
-        notices = on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
+            return refused, await told(database, client)
 
+        refused, notices = on_a_league(mongo_replica_set_url, body, spiele=[spiel(1, DEPARTED, OPPONENT, LATER)])
+
+        assert refused == {}
         assert sorted(notices) == addresses(OPPONENT)

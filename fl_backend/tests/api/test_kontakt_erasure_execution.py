@@ -93,10 +93,7 @@ NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 MATCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607813000")
 NEAR_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{4000 + index:04d}") for index, email in enumerate(NEAR_MISSES)}
 
-# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-
-# Written out rather than computed from `utc_stamp`, which would agree with any conversion of `NOW`, including none.
 
 
 # Every seeded person, by surname: the address that identifies them, the number they hold now, and

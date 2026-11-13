@@ -94,20 +94,11 @@ describe("the application a press sends", () => {
   });
 
   // The harm: a press whose answer was lost, sent again under another key, is a second application and three more mails.
-  it("sends the form's replay key, and the backend no field of its own", async () => {
+  // The body's own fields are the generated payload's, which tsc holds.
+  it("sends the form's replay key", async () => {
     expect(await submitBewerbung(posted(BOXES))).toStrictEqual({ ok: true, value: SUBMITTED });
 
     expect(calls[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
-    expect(Object.keys(body())).toStrictEqual([
-      "kader",
-      "kontakte",
-      "saison_id",
-      "schule",
-      "stufengroesse",
-      "team_id",
-      "trikot",
-      "wunschgegner",
-    ]);
   });
 });
 

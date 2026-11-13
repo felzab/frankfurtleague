@@ -57,7 +57,6 @@ DEADLINE = confirmation_deadline_from(today=TODAY)
 # The day after the deadline a link minted on `TODAY` carries.
 AFTER_THE_DEADLINE = "2026-04-16"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-# Written out rather than computed from `utc_stamp`, which would agree with any conversion of `NOW`.
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607a50001")
 ROW_OID = ObjectId("6890a1b2c3d4e5f607a50011")
@@ -209,13 +208,7 @@ async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any]) -> Maile
     return Mailed(answer=answer, confirmations=links)
 
 
-async def save(
-    database: AsyncDatabase,
-    kontakte: Any,
-    *,
-    saison_teams: Any = None,
-    today: str = TODAY,
-) -> Mailed:
+async def save(database: AsyncDatabase, kontakte: Any) -> Mailed:
     """The block over whatever the row holds now, and the links it owed."""
 
     row = await database[Collection.SAISON_TEAMS].find_one({"_id": ROW_OID})
@@ -227,9 +220,8 @@ async def save(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         version=row["version"],
-        today=today,
+        today=TODAY,
         germany_now=MAIL_NOW,
-        saison_teams_collection=saison_teams,
     )
 
     return await mailed(database, answer, answer.confirmations)

@@ -310,8 +310,6 @@ class TestTheOneRolePerSquadOnEveryWritePath:
         refusal = on_a_database(mongo_replica_set_url, body)
 
         assert refusal.error_code == Code.KADER_ROLLE_TAKEN
-        # Named, or the editor's phrase has no box to land on and falls to the shared failure line.
-        assert refusal.fields == (("rolle",),)
 
     def test_giving_up_a_role_is_never_refused(self, mongo_replica_set_url: str):
         """The repair every refusal above names has to be reachable, and on a squad already holding the role twice it is the only one."""

@@ -56,7 +56,6 @@ WIRE_CONFIG = build_test_config().model_copy(update={"db_base_name": DATABASE_NA
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
-PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 # The active season's start unless a case says so: after `TODAY`, so an admission is an ordinary entry.
 AFTER_TODAY = "2026-04-20"
@@ -70,8 +69,7 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607970001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607970002")
 
 # Seat holders, as `kontaktperson_document` folds them. This team and season: Anna, Theo
-# (Trainer alone), Stella (Stellvertretung). Otto: another team. Paula and Nora: this team in the
-# `past` season and the next one only.
+# (Trainer alone). Otto: another team. Nora: this team in the next season only.
 ANNA = "anna@example.com"
 THEO = "theo@example.com"
 OTTO = "otto@example.com"
@@ -91,7 +89,7 @@ RULES: Mapping[str, Any] = documents.rules_document(max_kader_size=3, allowed_st
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def kontakte(*, ansprechperson: str, trainer: str | None = None, stellvertretung: str | None = None) -> dict[str, Any]:
+def kontakte(*, ansprechperson: str, trainer: str | None = None) -> dict[str, Any]:
     """Every seat confirmed by its own person, so each grants its panel."""
 
     stamp = "2026-03-21"
@@ -99,7 +97,7 @@ def kontakte(*, ansprechperson: str, trainer: str | None = None, stellvertretung
     return {
         "trainer": None if trainer is None else documents.kontaktperson_document(trainer, confirmed_at=stamp),
         "ansprechperson": documents.kontaktperson_document(ansprechperson, confirmed_at=stamp),
-        "stellvertretung": None if stellvertretung is None else documents.kontaktperson_document(stellvertretung, confirmed_at=stamp),
+        "stellvertretung": None,
         "trainer_is_also": None,
     }
 
@@ -113,8 +111,7 @@ def on_a_league(
 ) -> Any:
     """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
 
-    The first club also plays the `past` season before and the `future` one after, each seated by
-    somebody holding no seat this season.
+    The first club also plays the `future` season after, its Trainer somebody holding no seat this season.
     """
 
     async def _run() -> Any:
@@ -132,24 +129,18 @@ def on_a_league(
                         TEAM_OID,
                         "Zorbanax",
                         "ZOX",
-                        kontakte=kontakte(ansprechperson="Anna", trainer="Theo", stellvertretung="Stella"),
+                        kontakte=kontakte(ansprechperson="Anna", trainer="Theo"),
                     ),
                     documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QUX", kontakte=kontakte(ansprechperson="Otto")),
                 ]
             )
-            await database[Collection.SAISONS].insert_many(
-                [
-                    documents.saison_document(NEXT_SAISON_ID, "future", rules=documents.rules_document(allowed_stufen=["Q1", "Q2"])),
-                    documents.saison_document(PAST_SAISON_ID, "past"),
-                ]
+            await database[Collection.SAISONS].insert_one(
+                documents.saison_document(NEXT_SAISON_ID, "future", rules=documents.rules_document(allowed_stufen=["Q1", "Q2"]))
             )
-            await database[Collection.SAISON_TEAMS].insert_many(
-                [
-                    documents.saison_team_document(
-                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
-                    ),
-                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Paula")),
-                ]
+            await database[Collection.SAISON_TEAMS].insert_one(
+                documents.saison_team_document(
+                    NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
+                )
             )
 
             if squad:
@@ -894,7 +885,7 @@ class TestOneAddressAdmittedTwiceAtOnce:
         assert sorted(row["saison_id"] for row in rows) == [SAISON_ID, NEXT_SAISON_ID]
 
 
-class TestEverySeatActsAlike:
+class TestASeatGrantingNothingHereIsRefused:
     @pytest.mark.parametrize("operation", ["admit", "decline"])
     def test_an_id_no_registration_holds_answers_as_another_teams_row(self, mongo_replica_set_url: str, operation: str):
         """A seat holder learns nothing of which ids exist: the answer is the seat check's, never a 404."""

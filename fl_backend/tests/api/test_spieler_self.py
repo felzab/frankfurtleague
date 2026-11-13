@@ -222,7 +222,6 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
 
 
 SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
-FUTURE_SAISON = "2027"
 # The two matchdays of the active season's group phase.
 SPIELTAG_1_OID = SPIEL["spieltag_id"]
 SPIELTAG_2_OID = ObjectId("6890a1b2c3d4e5f607840043")
@@ -256,8 +255,6 @@ NOT_THE_CLUBS = _club_spiel(5, TEAM_B_OID, None)
 async def _seed_the_season(database: AsyncDatabase) -> None:
     """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
 
-    await database[Collection.SAISONS].insert_one(saison_document(FUTURE_SAISON, "future"))
-    await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(YOUNG_OID, FUTURE_SAISON, TEAM_B_OID))
     await database[Collection.SPIELTAGE].insert_many(
         [
             {

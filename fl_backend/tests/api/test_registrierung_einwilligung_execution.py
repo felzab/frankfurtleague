@@ -96,10 +96,11 @@ def on_a_league(url: str, body: Body, *, registrierungen: list[dict[str, Any]] |
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The other club first, so a link reading whichever club comes first names that one rather than its own.
             await database[Collection.TEAMS].insert_many(
                 [
-                    team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
                     team_document(OTHER_TEAM_OID, OTHER_TEAM_NAME, f"{OTHER_SCHOOL}-Gymnasium"),
+                    team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
                 ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(

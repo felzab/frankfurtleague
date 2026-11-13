@@ -16,8 +16,9 @@ describe("„Wer“", () => {
     expect(ids.map((id) => byOf(held, id)).toSorted()).toStrictEqual(held);
   });
 
-  it("reads a stray id as no actor", () => {
-    expect(byOf(["system"], "pia@example.org")).toBeNull();
+  /* Read as an actor, the unfiltered view would list one person's rows while „Wer“ reads „Alle“. */
+  it("reads no choice as no actor", () => {
+    expect(byOf(["pia@example.org", "system"], null)).toBeNull();
   });
 });
 

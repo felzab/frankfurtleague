@@ -25,6 +25,7 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_kontakt_seat_write_test")
 
 SAISON_ID = "2026"
+PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 CONFIRMED_ON = "2026-03-15"
 BIRTH_DATE = "1990-05-17"
@@ -189,8 +190,37 @@ class TestTheSeatsStateDecidesTheWrite:
         assert [mail.to for mail in mails] == ["lea@example.com"]
 
 
+class TestTheSeasonsOwnRowIsWritten:
+    def test_a_write_reads_and_writes_the_block_of_the_season_it_names(self, mongo_replica_set_url: str):
+        """The club's row of a season before, stored first, holds other people: read in its place, they would be seated here."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SAISONS].insert_one(saison_document(PAST_SAISON_ID, "past"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document(PAST_SAISON_ID, TEAM_OID, "Adler", "ADX", kontakte=block(trainer=stored_person("Lea")))
+            )
+            # Moved behind the past season's row, so a read naming no season meets that one first.
+            row = await database[Collection.SAISON_TEAMS].find_one_and_delete({"team_id": TEAM_OID, "saison_id": SAISON_ID})
+            await database[Collection.SAISON_TEAMS].insert_one(row)
+            await write_seat(database, "stellvertretung", sent_person("Klara"))
+
+            return {
+                stored["saison_id"]: {
+                    seat: (stored["kontakte"][seat] or {}).get("first_name") for seat in ("trainer", "ansprechperson", "stellvertretung")
+                }
+                async for stored in database[Collection.SAISON_TEAMS].find({"team_id": TEAM_OID})
+            }
+
+        seated = on_a_row(mongo_replica_set_url, body, kontakte=block())
+
+        assert seated == {
+            SAISON_ID: {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"},
+            PAST_SAISON_ID: {"trainer": "Lea", "ansprechperson": "Jonas", "stellvertretung": None},
+        }
+
+
 class TestTheTrainersSecondSeat:
-    """`trainer_is_also` names one person in two seats: the pair moves as one, and only the Trainer's seat moves the claim."""
+    """`trainer_is_also` names one person in two seats: the Trainer's write moves the pair as one, a claim it leaves out standing."""
 
     PAIRED = block(ansprechperson=stored_person("Ida"), trainer_is_also="ansprechperson")
 

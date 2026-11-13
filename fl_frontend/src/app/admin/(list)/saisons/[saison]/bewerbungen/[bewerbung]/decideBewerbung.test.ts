@@ -12,7 +12,6 @@ const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
 doubleApiClient((call) => {
   state.sent.push({ endpoint: call.endpoint, body: JSON.parse(call.body ?? "null") as unknown });
-  return { email: "stored@example.de" };
 });
 
 const { acceptBewerbung } = await import("./decideBewerbung");

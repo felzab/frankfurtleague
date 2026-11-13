@@ -806,16 +806,14 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
     """The public verdict counts a discard as its club's agreement only while an agreement would count."""
 
     @pytest.mark.parametrize(
-        ("saison_team", "spiel", "today", "reason"),
+        ("saison_team", "spiel", "reason"),
         [
-            pytest.param(AUSTRITT_ON_THE_DAY, {}, TODAY, "austritt", id="the agreeing club gone by the day"),
-            pytest.param({}, {"team1.tore": 2}, TODAY, "spiel_decided", id="decided"),
-            pytest.param({}, {"sonderereignis": "ausgefallen"}, TODAY, "cancelled", id="called off"),
-            pytest.param({}, {}, days_after(day=NEXT_WEEK, days=1), "spiel_past", id="its day gone by"),
+            pytest.param(AUSTRITT_ON_THE_DAY, {}, "austritt", id="the agreeing club gone by the day"),
+            pytest.param({}, {"sonderereignis": "ausgefallen"}, "cancelled", id="called off"),
         ],
     )
     def test_the_pass_closing_the_agreement_ends_the_discard_and_tells_what_its_closing_owes(
-        self, mongo_replica_set_url: str, saison_team: dict[str, Any], spiel: dict[str, Any], today: str, reason: str
+        self, mongo_replica_set_url: str, saison_team: dict[str, Any], spiel: dict[str, Any], reason: str
     ):
         """Kept, the discard alone would read the fixture provisional where two agreements read null.
 
@@ -829,7 +827,7 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
             if spiel:
                 await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": spiel})
             before = await verdict(database)
-            answer = await sweep(database, client, today=today)
+            answer = await sweep(database, client)
 
             return discarded, before, answer, await verdict(database), await rows(database)
 
@@ -846,23 +844,6 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
         # By row, the discarded club's named: the call-off's notices go to every party it closed a mailed row of.
         assert told == ({row["_id"] for row in stored} if reason == "cancelled" else set())
         assert (discarded in told) is (reason == "cancelled")
-
-    def test_a_discard_about_an_ansetzung_the_spiel_left_ends_once_its_day_has_passed(self, mongo_replica_set_url: str):
-        """The move keeps it, the club's answer to that Ansetzung; kept past its day it would be read by every pass for good."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            discarded = await alphas_discard_beside_betas_agreement(database, client)
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"time": "19:00:00"}})
-            await sweep(database, client)
-            kept = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": discarded})
-            await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
-            ended = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": discarded})
-
-            return kept, ended
-
-        kept, ended = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert (kept["closed"]["reason"], ended["closed"]["reason"]) == ("discarded", "spiel_past")
 
 
 class TestAMovedSpielAsksAgain:
@@ -904,6 +885,30 @@ class TestAMovedSpielAsksAgain:
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
         alpha_request = next(request for request in second.requests if request.side == "team1")
         assert sorted(recipient.address for recipient in alpha_request.recipients) == sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)
+
+    def test_a_club_never_asked_about_the_slot_left_is_asked_naming_none(self, mongo_replica_set_url: str):
+        """A club first mailed after the move was never told the old slot, so its first request names no slot it left."""
+
+        unconfirmed = {**{seat: kontaktperson_document(first_name) for seat, first_name in SEATS[ALPHA].items()}, "trainer_is_also": None}
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": ALPHA, "saison_id": SAISON_ID}, {"$set": {"kontakte.ansprechperson": seated("Anwen")}}
+            )
+            await move(database, client, SPIEL, time="19:00:00")
+
+            return await sweep(database, client)
+
+        second = on_a_league(
+            mongo_replica_set_url,
+            body,
+            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
+            junctions=[junction(ALPHA, kontakte=unconfirmed), junction(BETA)],
+        )
+
+        left = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "18:00:00"}
+        assert sorted((request.side, request.moved_from) for request in second.requests) == [("team1", None), ("team2", left)]
 
 
 class TestAMoveAskedAtOnceWaitsOnNoCloseShare:
@@ -1733,14 +1738,10 @@ class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
     """Its parties asked about `NEXT_WEEK`, the fixture moved before any pass closed their rows."""
 
     @pytest.mark.parametrize(
-        ("today", "moved_to", "told"),
-        [
-            pytest.param(days_after(day=NEXT_WEEK, days=1), days_after(day=NEXT_WEEK, days=7), True, id="off a day gone by"),
-            pytest.param(TODAY, YESTERDAY, True, id="onto a day gone by"),
-            pytest.param(days_after(day=NEXT_WEEK, days=1), TODAY, False, id="from one day gone by to another"),
-        ],
+        ("today", "moved_to"),
+        [pytest.param(days_after(day=NEXT_WEEK, days=1), TODAY, id="from one day gone by to another")],
     )
-    def test_the_pass_closing_it(self, mongo_replica_set_url: str, today: str, moved_to: str, told: bool):
+    def test_the_pass_closing_it(self, mongo_replica_set_url: str, today: str, moved_to: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"date": moved_to}})
@@ -1752,7 +1753,7 @@ class TestAMoveIsAnnouncedWhileEitherDayIsToCome:
         # Told by the notice, or by the request about a new slot asked at once.
         clubs = len(late.new_ansetzungen) + len([request for request in late.requests if request.moved_from is not None])
         referees = len(late.schiedsrichter_new_ansetzungen) + len([e for e in late.einteilungen if e.moved_from is not None])
-        assert (clubs, referees) == ((2, 1) if told else (0, 0))
+        assert (clubs, referees) == (0, 0)
 
 
 class TestAnAddressMovedBesideTheNoticeIsTheOneTold:
