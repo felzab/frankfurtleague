@@ -844,8 +844,8 @@ def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
 def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]) -> dict[str, Any]:
     """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read.
 
-    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row stands open for: a party asked
-    already is asked about a move at once, however far out it went.
+    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row holds its party's question for:
+    a party asked already is asked about a move at once, however far out it went.
     """
 
     return {

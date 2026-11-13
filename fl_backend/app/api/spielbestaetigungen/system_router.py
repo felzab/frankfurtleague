@@ -423,10 +423,10 @@ async def sweep_spielbestaetigungen(
         """
 
         async def window() -> list[Mapping[str, Any]]:
-            # The fixtures a row stands open for, read first inside the one read `saw` records: a party asked already
-            # is asked about a move at once, however far out it went.
+            # The fixtures a row holds its party's question for, a discard's among them, read first inside the one read
+            # `saw` records: a party asked already is asked about a move at once, however far out it went.
             asked_ids = await spielbestaetigungen_collection.distinct(
-                "spiel_id", {"saison_id": saison_id, **build_closable_filter()}, session=session
+                "spiel_id", {"saison_id": saison_id, **build_holding_filter()}, session=session
             )
 
             return await pull_named_spiele(
@@ -473,10 +473,18 @@ async def sweep_spielbestaetigungen(
         # one now, oldest first, so the newest is the slot its request names as left. Any other waits for the close step,
         # which shuts it and tells of it first.
         moved: dict[tuple[Any, tuple[str, Any]], list[Mapping[str, Any]]] = {}
+        # Each held discard about an Ansetzung its fixture left, where its club is asked about the new one now: the move
+        # leaves it its club's answer to the slot left, so nothing closes it, and the close step tells nothing of it.
+        # The slot it told its club stands is the one the request names as left.
+        discards_left: dict[tuple[Any, tuple[str, Any]], list[Mapping[str, Any]]] = {}
         waiting: set[Any] = set()
         for row in sorted(read, key=lambda row: row["_id"]):
             spiel = by_id[row["spiel_id"]]
-            if row.get("closed") is not None or row["ansetzung"]["digest"] == digests[spiel["_id"]]:
+            if row["ansetzung"]["digest"] == digests[spiel["_id"]]:
+                continue
+            if row.get("closed") is not None:
+                if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
+                    discards_left.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
                 continue
             if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
                 moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
@@ -491,7 +499,7 @@ async def sweep_spielbestaetigungen(
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
-            asked_before = any(spiel_id == spiel["_id"] for spiel_id, _ in moved)
+            asked_before = any(spiel_id == spiel["_id"] for spiel_id, _ in [*moved, *discards_left])
             if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=now, asked_before=asked_before):
                 return plan
 
@@ -502,8 +510,12 @@ async def sweep_spielbestaetigungen(
                 plan.closed += len(left)
                 for row in left:
                     plan.updates.append(({"_id": row["_id"], **build_closable_filter()}, compose_closing_update(reason="ansetzung_changed")))
-                # The slot the move left, where the party was asked about it and either day is still to come.
-                told = left[-1] if left and notice_owed(row=left[-1], reason="ansetzung_changed", spiel=spiel, now=now) else None
+                # The slot the move left, the newest asked about, where the party was asked about it and either day is
+                # still to come.
+                about_left = sorted([*left, *discards_left.get((spiel["_id"], party_key(party)), [])], key=lambda row: row["_id"])
+                told = (
+                    about_left[-1] if about_left and notice_owed(row=about_left[-1], reason="ansetzung_changed", spiel=spiel, now=now) else None
+                )
                 moved_from = (
                     None
                     if told is None
