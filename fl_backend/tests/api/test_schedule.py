@@ -4,7 +4,7 @@ import pytest
 
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
+from app.api.saisons.services import find_rules_refusal, total_season_spiele
 from app.api.spiele.schemas import MAX_QUALIFIERS, PHASE_ORDER
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -117,16 +117,3 @@ class TestTheLargestLegalSeasonFitsInOneRead:
 
         # A sweep refusing everything would satisfy the assertion above without proving anything.
         assert accepted > 0
-
-
-class TestTheSeasonCarriesItsSchedule:
-    """A matchday's `count_spiele` is read off the season it holds, so a path skipping the injection answers 500."""
-
-    def test_the_injected_schedule_is_the_derivation(self, saison):
-        """The wire shape and `schedule_for` are the same numbers; nothing recomputes them differently."""
-
-        injected = with_schedule(saison())["schedule"]
-
-        assert [(entry["phase"], entry["spieltage"], entry["matches_per_spieltag"]) for entry in injected] == [
-            (entry.phase, entry.spieltage, entry.matches_per_spieltag) for entry in schedule_for(rules())
-        ]

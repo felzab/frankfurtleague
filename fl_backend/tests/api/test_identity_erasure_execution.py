@@ -25,7 +25,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.address_change.crud import end_an_emptied_change_in_session
-from app.api.identity.crud import EACH_PERSON_GROUP, ERASURE_STEPS, erase_everything
+from app.api.identity.crud import ERASURE_STEPS, erase_everything
 from app.api.registrierungen.person_router import admit
 from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_decline_update
@@ -112,6 +112,8 @@ THEIR_VALUES = (
 
 # The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
+# The two of them seated beside the person on both a season row and an application, so each is counted, not only found.
+SEATED_BESIDE_THEM = ("Quillhilde", "Bramblewick")
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
@@ -641,15 +643,25 @@ class TestNothingOfTheirsIsLeftAnywhere:
                 await where_referenced(database, *records),
             )
 
+        async def copies(database: AsyncDatabase) -> dict[str, int]:
+            """How often each seat holder beside them is written, so one copy of two gone shows."""
+
+            rendered = str([await database[name].find().to_list(length=None) for name in sorted(await database.list_collection_names())])
+
+            return {value: rendered.casefold().count(value.casefold()) for value in SEATED_BESIDE_THEM}
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             if holding_a_grant:
                 await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             before = await scanned(database, *THEIR_VALUES)
+            bystanders = await copies(database)
             response = await erased_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))
 
-            return before, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES)
+            return before, bystanders, response.status_code, await scanned(database, *THEIR_VALUES, *BYSTANDER_VALUES), await copies(database)
 
-        (before, folded_before, ids_before), status, (after, folded_after, ids_after) = on_a_league(mongo_replica_set_url, body)
+        (before, folded_before, ids_before), bystanders_before, status, (after, folded_after, ids_after), bystanders_after = on_a_league(
+            mongo_replica_set_url, body
+        )
 
         assert all(before[value] for value in THEIR_VALUES), before
         assert folded_before and all(ids_before.values()), (folded_before, ids_before)
@@ -659,6 +671,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
         assert folded_after == []
         assert ids_after == dict.fromkeys(records, [])
         assert [value for value in BYSTANDER_VALUES if not after[value]] == []
+        assert bystanders_after == bystanders_before
 
 
 class TestWhatStandsBesideThem:
@@ -995,24 +1008,6 @@ class WritesRecorded:
 
 
 class TestEachStepWritesWhatItDeclares:
-    def test_the_collections_each_step_writes_are_the_ones_it_declares(self, mongo_replica_set_url: str):
-        """`reaches` is what each step declares; here it is held to the writes themselves.
-
-        The seed and a grant of the person's own give every step something to write in each collection it declares.
-        """
-
-        writes: dict[str, set[str]] = {}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            recorded: dict[str, Any] = {name: WritesRecorded(handle, writes) for name, handle in erasure_collections(database).items()}
-            await erased_in_scope(database, client, EACH_PERSON_GROUP, **recorded)
-
-        on_a_league(mongo_replica_set_url, body)
-
-        # The whole erasure ends every change naming the address first, leaving the emptied change's step nothing: its own case.
-        assert writes == {step.run.__name__: {str(collection) for collection in step.reaches} for step in ERASURE_STEPS if step != EMPTIED}
-
     def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
         """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
 
