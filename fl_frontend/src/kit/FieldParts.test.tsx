@@ -66,7 +66,7 @@ describe("a field's label", () => {
 // The harm: a keyboard user passes over every value a record holds fixed, and a screen reader never reads it, which no
 // sighted reader sees.
 describe("a locked field", () => {
-  it("is reached by Tab and read as read-only, a select's and a combo box's chosen answer and a date included", async () => {
+  it("is reached by Tab and read as read-only with its value, of every kind, as is a closed form's field", async () => {
     const options = [{ id: "a", label: { record: "Gruppe A" } }];
     render(
       <>
@@ -76,6 +76,13 @@ describe("a locked field", () => {
           isLocked
           value="Lena"
         />
+        <FormClosed value>
+          <KitTextField
+            label={COPY.shared.startelf}
+            kind="text"
+            value="Mara"
+          />
+        </FormClosed>
         <Select
           label={COPY.signIn.address}
           options={options}
@@ -96,7 +103,7 @@ describe("a locked field", () => {
       </>,
     );
     const boxes = [...screen.getAllByRole<HTMLInputElement>("textbox"), screen.getByRole<HTMLInputElement>("combobox")];
-    expect(boxes.map((box) => box.value)).toStrictEqual(["Lena", "Gruppe A", "Gruppe A"]);
+    expect(boxes.map((box) => box.value)).toStrictEqual(["Lena", "Mara", "Gruppe A", "Gruppe A"]);
     // A date's day, month and year are each a stop of their own, read-only by their ARIA state.
     const segments = screen.getAllByRole("spinbutton");
     expect(segments.map((segment) => segment.textContent)).toStrictEqual(["14", "03", "2027"]);
