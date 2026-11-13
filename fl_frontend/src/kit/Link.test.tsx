@@ -10,7 +10,8 @@ import type { ComponentProps } from "react";
 
 // Next's link, standing in as an anchor that says it navigates on the client, a client navigation being what an
 // intercepting route catches, and what it was asked to prefetch.
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean | null }) => (
     <a
       data-client-navigation

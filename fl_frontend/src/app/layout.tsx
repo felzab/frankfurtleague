@@ -5,6 +5,7 @@ import { Anton, Inter, Raleway } from "next/font/google";
 import { BrandSprite } from "@/kit/BrandSprite";
 import { RootProviders } from "@/kit/RootProviders";
 import { ThemeColor } from "@/kit/ThemeColor";
+import { WholePages } from "@/kit/WholePage";
 
 import { SITE_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -70,6 +71,12 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Every route may block a navigation into it: the root is the highest `instant` config of every route, so `false` here
+ * lets the build accept each page that reads uncached data outside every boundary, which `WholePages` leaves them.
+ */
+export const instant = false;
+
 /** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
@@ -86,8 +93,11 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
         <BrandSprite />
         <RootProviders>
           <ThemeColor />
-          {children}
-          {modal}
+          {/* Every page arrives whole, a click keeping the page it leaves until the next is complete. */}
+          <WholePages>
+            {children}
+            {modal}
+          </WholePages>
         </RootProviders>
       </body>
     </html>

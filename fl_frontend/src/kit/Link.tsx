@@ -8,6 +8,7 @@ import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
 import { tv } from "./tv";
+import { LinkHint } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -236,6 +237,7 @@ export function Link<T extends string>(
       href={href}
       prefetch={prefetch}>
       {words}
+      <LinkHint />
     </NextLink>
   );
 }

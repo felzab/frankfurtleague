@@ -1,7 +1,6 @@
-import { Suspense } from "react";
-
 import { formColumn, RailPage } from "./RailFrame";
 import { Waiting } from "./Skeleton";
+import { PageWait } from "./WholePage";
 
 import type { ReactElement } from "react";
 import type { PageTitle } from "./RailFrame";
@@ -22,9 +21,9 @@ export function StepsPage({ title, wait, steps }: { title: PageTitle; wait: Reac
       scope="area"
       title={title}>
       <div className={formColumn()}>
-        <Suspense fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
+        <PageWait fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
           <StepsOnceRead steps={steps} />
-        </Suspense>
+        </PageWait>
       </div>
     </RailPage>
   );

@@ -21,7 +21,8 @@ import type { ComponentProps, ReactElement } from "react";
 import type { SpieltageContent } from "./ListPage";
 
 // The strip's own links, which need no router to be read, and the address the tabs link from.
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/saisons/2027", useRouter: () => ({ replace: vi.fn() }) }));

@@ -1,4 +1,4 @@
-import { Fragment, Suspense } from "react";
+import { Fragment } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -7,6 +7,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { editorBarLook } from "./railStyles";
 import { editorHead, lockSlot, SectionPlaceholder } from "./Section";
 import { Placeholder, PlaceholderLine, Waiting } from "./Skeleton";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
@@ -42,7 +43,7 @@ export type EditorWait = {
  */
 export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promise<ReactNode> }) {
   return (
-    <Suspense
+    <PageWait
       fallback={
         <RailPage
           scope="area"
@@ -81,6 +82,6 @@ export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promis
         </RailPage>
       }>
       <EditorBody editor={editor} />
-    </Suspense>
+    </PageWait>
   );
 }

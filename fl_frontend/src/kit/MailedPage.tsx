@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
@@ -14,6 +12,7 @@ import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
 import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
 import { ClassicStatusPage, StatusPagePlaceholder } from "./StatusCard";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -258,9 +257,9 @@ export function MailedPage(
   return (
     // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
     <OneShotEnd>
-      <Suspense fallback={props.end === undefined ? <QuestionPlaceholder {...props} /> : <StatusPagePlaceholder {...props.end} />}>
+      <PageWait fallback={props.end === undefined ? <QuestionPlaceholder {...props} /> : <StatusPagePlaceholder {...props.end} />}>
         <MailedBody page={props.page} />
-      </Suspense>
+      </PageWait>
     </OneShotEnd>
   );
 }

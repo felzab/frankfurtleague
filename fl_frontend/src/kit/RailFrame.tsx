@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import NextLink from "next/link";
 
 import { COPY, textOf } from "@/core/copy";
@@ -30,6 +29,7 @@ import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
+import { LinkHint, PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -55,12 +55,12 @@ function HeadStart({ back }: { back?: Back }) {
   if (back === undefined) return logo;
   if (typeof back === "string") return <BackControl href={back} />;
   return (
-    <Suspense fallback={<BackPlaceholder />}>
+    <PageWait fallback={<BackPlaceholder />}>
       <ReadBack
         back={back}
         none={logo}
       />
-    </Suspense>
+    </PageWait>
   );
 }
 
@@ -139,21 +139,21 @@ export function RailFrame({
             </div>
             {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
                 nothing in the rail moves when it lands. */}
-            <Suspense fallback={<SaisonButtonPlaceholder placement="rail" />}>
+            <PageWait fallback={<SaisonButtonPlaceholder placement="rail" />}>
               <SaisonButton placement="rail" />
-            </Suspense>
-            <Suspense fallback={<RailEntriesPlaceholder groups={groups} />}>
+            </PageWait>
+            <PageWait fallback={<RailEntriesPlaceholder groups={groups} />}>
               <RailEntries
                 groups={groups}
                 prefetch={prefetch}
               />
-            </Suspense>
+            </PageWait>
             <div
               className={`grid shrink-0 gap-2 border-t border-border px-3 pt-2 pb-3 ${foot.kind === "account" ? "min-h-(--rail-foot)" : ""}`}>
               {foot.kind === "account" ? (
-                <Suspense fallback={<AccountRowPlaceholder />}>
+                <PageWait fallback={<AccountRowPlaceholder />}>
                   <AccountRow account={foot.account} />
-                </Suspense>
+                </PageWait>
               ) : (
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
@@ -170,7 +170,10 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>{COPY.template.account}</span>
+                    <span className={railFade()}>
+                      {COPY.template.account}
+                      <LinkHint />
+                    </span>
                   </NextLink>
                 </RailTooltip>
               )}
@@ -220,22 +223,22 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
           // The list's address needs the season the rail fills in, read while the band streams.
-          <Suspense fallback={<BackPlaceholder />}>
+          <PageWait fallback={<BackPlaceholder />}>
             <EditorBack />
-          </Suspense>
+          </PageWait>
         ) : (
           <HeadStart back={back} />
         )}
-        <Suspense fallback={<SaisonButtonPlaceholder placement="band" />}>
+        <PageWait fallback={<SaisonButtonPlaceholder placement="band" />}>
           <SaisonButton placement="band" />
-        </Suspense>
+        </PageWait>
       </header>
       {children}
       {back === undefined && (
         <div className="contents group-has-[[data-kit-page-bar]]/column:hidden">
-          <Suspense fallback={<BarPlacesPlaceholder />}>
+          <PageWait fallback={<BarPlacesPlaceholder />}>
             <BarPlaces />
-          </Suspense>
+          </PageWait>
         </div>
       )}
     </div>
@@ -345,7 +348,7 @@ export function RailPage({
             {flag !== undefined && <Chip {...flag} />}
           </span>
         )}
-        {action !== undefined && <Suspense fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</Suspense>}
+        {action !== undefined && <PageWait fallback={<span className="size-8 shrink-0 pointer-coarse:size-10" />}>{action}</PageWait>}
         {link !== undefined &&
           ("waits" in link ? (
             <Placeholder layoutClass={frameLink({ tone: "strip", class: "ms-auto shrink-0" })}>
@@ -377,7 +380,10 @@ export function RailPage({
                 href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.title}
+                <span>
+                  {page.title}
+                  <LinkHint />
+                </span>
               </NextLink>
             ))}
           </nav>

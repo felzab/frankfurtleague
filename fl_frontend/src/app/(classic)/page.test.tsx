@@ -10,7 +10,8 @@ import HomePage from "./page";
 import type { FLLandingResponse } from "@/core/generated/client/types";
 import type { ComponentProps } from "react";
 
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("next/server", async (original) => ({ ...(await original<object>()), connection: async () => undefined }));

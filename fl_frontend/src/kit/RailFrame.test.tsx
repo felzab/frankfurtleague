@@ -19,7 +19,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("next-themes", () => ({ useTheme: () => ({ theme: "system", setTheme: () => undefined }) }));
 
 // Next's link, standing in as an anchor saying what it was asked to prefetch.
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean | null }) => (
     <a
       data-prefetch={String(prefetch)}
