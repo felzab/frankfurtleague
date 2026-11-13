@@ -75,6 +75,39 @@ describe("the notice of a move", () => {
     [true, false].map((askedAgain) => ({ movedTo, askedAgain, slot: movedTo === null ? "no new slot" : "a new slot" })),
   );
 
+  /* A replacement or a bracket correction changes the sides and keeps the slot: worded as moved, the reader looks for a
+     new day that does not exist. */
+  it("words a new pairing at its slot as no move, in a request, an Einteilung and a notice", () => {
+    const replaced = { ...left, team1: "Carl-Schurz-Schule", spielort: "Halle Nord" };
+    const origin = { token: null, secret: null, origin: ORIGIN };
+    const mails = [
+      mailFor(
+        "spiel_request",
+        {
+          kind: "spiel_request",
+          team: "Goethe-Gymnasium",
+          team_id: "6890a1b2c3d4e5f607000001",
+          saison_id: "2026",
+          ansetzung: replaced,
+          deadline: "2026-11-13",
+          moved_from: left,
+        },
+        origin,
+      ),
+      mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
+      mailFor(
+        "spiel_moved",
+        { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
+        origin,
+      ),
+    ];
+
+    for (const mail of mails) {
+      expect(JSON.stringify(mail)).not.toContain("verlegt");
+      expect(JSON.stringify(mail)).toContain(left.team1);
+    }
+  });
+
   // The hand-out serves such a row with `stays` at its default, false, and `asked_again` as it was written.
   it.each(queued)("builds a notice queued before `stays` as it was queued: $slot, asked again $askedAgain", ({ movedTo, askedAgain }) => {
     for (const [recipient, promise, unbooked] of [
