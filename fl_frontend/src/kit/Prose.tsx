@@ -2,9 +2,7 @@ import { Callout } from "./Callout";
 import { ClassicPage, PageHead } from "./ClassicPage";
 import { Contents } from "./Contents";
 import { Link } from "./Link";
-import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -182,44 +180,7 @@ export function ReadingPage({ sections, ...head }: { sections: ReadonlyArray<Pro
   );
 }
 
-/** One heading's links while a read names the heading: its line and each link's, in the words they will stand in. */
-function ProseLinksPlaceholder({ heading, links }: { heading: string; links: readonly Copy[] }) {
-  const slots = prose();
-  return (
-    <Placeholder layoutClass={slots.section()}>
-      <PlaceholderLine
-        textClass={slots.heading()}
-        words={heading}
-      />
-      <div className={slots.links()}>
-        {links.map((link) => (
-          <PlaceholderLine
-            key={link}
-            textClass="text-base"
-            words={link}
-          />
-        ))}
-      </div>
-    </Placeholder>
-  );
-}
-
-/** The sections once their read has landed. */
-async function ProseOnceRead({ sections }: { sections: Promise<ReadonlyArray<ProseSection>> }) {
+/** A text whose sections a read decides, once that read has landed. */
+export async function ProseOnceRead({ sections }: { sections: Promise<ReadonlyArray<ProseSection>> }) {
   return <Prose sections={await sections} />;
-}
-
-/** A text whose sections a read decides, in a boundary of its own: meanwhile `wait`, one heading over its links, stands in their place. */
-export function ProseWait({
-  sections,
-  wait,
-}: {
-  sections: Promise<ReadonlyArray<ProseSection>>;
-  wait: ComponentProps<typeof ProseLinksPlaceholder>;
-}) {
-  return (
-    <PageWait fallback={<ProseLinksPlaceholder {...wait} />}>
-      <ProseOnceRead sections={sections} />
-    </PageWait>
-  );
 }
