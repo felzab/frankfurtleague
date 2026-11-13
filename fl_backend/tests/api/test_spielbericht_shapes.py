@@ -14,6 +14,7 @@ from app.api.spielberichte.services import (
     find_cancelled_refusal,
     find_not_in_kader_refusal,
     find_not_played_refusal,
+    find_not_refereed_refusal,
     judge_bericht,
     kader_is_open,
     newly_named,
@@ -212,6 +213,24 @@ class TestACalledOffSpielTakesNoReport:
         """
 
         assert kader_is_open(context(sonderereignis="ausgefallen"), now=NOW) is False
+
+
+class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
+    """The pass told the referee they no longer referee it: still taken, their report would stand on a match the club left."""
+
+    @pytest.mark.parametrize(
+        ("austritt", "refused"),
+        [
+            pytest.param(TODAY, True, id="the club gone by the match's day"),
+            pytest.param("2027-05-15", False, id="the club gone after it"),
+        ],
+    )
+    def test_the_booked_referee(self, austritt: str, refused: bool):
+        left = spiel(team1={"team_id": TEAM1, "tore": None, "austritt": {"date": austritt}})
+
+        assert (
+            refused_with(Code.BERICHT_NOT_OFFICIATED, find_not_refereed_refusal(spiel_raw=left, schiedsrichter_ids=[SCHIEDSRICHTER])) is refused
+        )
 
 
 class TestANewlyNamedPupilIsInTheSquad:

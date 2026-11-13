@@ -10,8 +10,9 @@ from typing import Any
 
 from bson import ObjectId
 
+from app.api.saisons.services import SAISON_AS
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSpiel
-from app.api.schiedsrichter.services import order_self_spiele, owes_a_bericht
+from app.api.schiedsrichter.services import BERICHT_AS, OWN_ROW_AS, compose_self_spiel, order_self_spiele, owes_a_bericht
 
 
 def entry(spiel_nr: int, date: str | None, time: str | None = None, *, reportable: bool = False, **fields: Any) -> FLSchiedsrichterSpiel:
@@ -29,6 +30,7 @@ def entry(spiel_nr: int, date: str | None, time: str | None = None, *, reportabl
         "state": "agreed",
         "reason": None,
         "entered": False,
+        "officiates": True,
         "past": False,
         "submitted_at": None,
         **fields,
@@ -78,3 +80,27 @@ def test_an_abandonment_owing_its_report_leads_while_a_no_show_owing_none_files_
     reported = entry(3, "2027-05-27", "18:30:00", submitted_at=datetime(2027, 5, 27, 19, tzinfo=UTC), **played)
 
     assert served([reported, no_show, abandoned]) == [1, 3, 2]
+
+
+def test_a_fixture_a_club_left_by_its_day_is_no_longer_refereed_and_owes_no_report():
+    """The pass told the referee „Du pfeifst … nicht mehr“: served as refereed, the list would ask for the report after the kick-off."""
+
+    kick_off = "2027-05-20"
+    left_on_the_day = {"team_id": ObjectId(), "name": "Adler", "tore": None, "austritt": {"date": kick_off}}
+    joined = {
+        "_id": ObjectId(),
+        "date": kick_off,
+        "time": "18:30:00",
+        "team1": left_on_the_day,
+        "team2": {"team_id": ObjectId(), "name": "Biber", "tore": None, "austritt": None},
+        "spielort": None,
+        "ergebnis": None,
+        "sonderereignis": None,
+        OWN_ROW_AS: [],
+        BERICHT_AS: [],
+        SAISON_AS: [{"status": "active"}],
+    }
+
+    served = compose_self_spiel(joined, now=datetime(2027, 5, 21, 12, tzinfo=UTC))
+
+    assert (served.officiates, served.past, served.bericht_owed) == (False, True, False)

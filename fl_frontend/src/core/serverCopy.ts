@@ -866,7 +866,7 @@ export const SERVER_COPY = catalogue({
     schiedsrichter: {
       /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
       spielberichtFrom: (when: Copy) => `Spielbericht ${boundBy("ab", when)}`,
-      /** A fixture another referee is booked onto. */
+      /** A fixture another referee is booked onto, or one a club's exit took the booking off, on the list's chip too. */
       unbooked: "Nicht mehr eingeteilt",
     },
   },

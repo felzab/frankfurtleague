@@ -161,6 +161,14 @@ def decision_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any)
     return None
 
 
+def joined_decision_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
+    """`decision_of` for a fixture read through the name join, by its sides' own exit days and its own day."""
+
+    austritte = [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+
+    return decision_of(spiel=spiel, austritte=austritte, tag=spiel.get("date"))
+
+
 @dataclass(frozen=True)
 class AnsetzungState:
     """What an answer is judged against and does not write: the fixture as it stands, and both clubs' season rows."""

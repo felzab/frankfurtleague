@@ -35,6 +35,7 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   state: "valid",
   reason: null,
   entered: false,
+  officiates: true,
   past: false,
   submitted_at: null,
   bericht_owed: false,
@@ -101,6 +102,20 @@ describe("a game something befell", () => {
     expect(rows.map(({ chip }) => chip)).toStrictEqual([
       { tone: "danger", label: words.ausgefallen },
       { tone: "danger", label: words.nichtantretenChip, spoken: words.nichtantreten({ record: "Eiche" }) },
+    ]);
+  });
+});
+
+/* The pass mailed the referee „Du pfeifst … nicht mehr“ once a club left by the game's day: read by its booking, the row
+   would say „Zugesagt“ or offer the two answers on a game they no longer referee. */
+describe("a game a club's exit took the booking off", () => {
+  it("carries „Nicht mehr eingeteilt“ and no answers, whatever its booking last read", async () => {
+    const rows = await rowsOf(spiel({ officiates: false, state: "agreed" }), spiel({ officiates: false, state: "expired" }));
+
+    const unbooked = { tone: "neutral", label: SERVER_COPY.area.schiedsrichter.unbooked };
+    expect(rows.map(({ chip, acts }) => [chip, acts])).toStrictEqual([
+      [unbooked, undefined],
+      [unbooked, undefined],
     ]);
   });
 });

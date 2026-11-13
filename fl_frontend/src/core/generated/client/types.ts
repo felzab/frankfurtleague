@@ -4660,6 +4660,7 @@ export interface FLSchiedsrichterSpiel {
   bericht_owed: boolean;
   date: string | null;
   entered: boolean;
+  officiates: boolean;
   past: boolean;
   reason: string | null;
   sonderereignis: FLSonderereignis | null;

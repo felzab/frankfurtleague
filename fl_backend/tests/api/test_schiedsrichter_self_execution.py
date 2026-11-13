@@ -277,6 +277,12 @@ class TestTheSeasonsFixtures:
             LEFT_HOME: "expired",
             TO_ANSWER: "valid",
         }
+        # The exits end the booking too, as the pass's notice told him; the one from the season before ends none.
+        assert {spiel_id: by_id[spiel_id].officiates for spiel_id in (LEFT_AWAY, LEFT_HOME, TO_ANSWER)} == {
+            LEFT_AWAY: False,
+            LEFT_HOME: False,
+            TO_ANSWER: True,
+        }
         assert (by_id[DECLINED_HERE].state, by_id[DECLINED_HERE].reason) == ("declined", OWN_DECLINE["reason"])
         assert (by_id[TODAYS].past, by_id[REPORTED].past) == (False, True)
         assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)

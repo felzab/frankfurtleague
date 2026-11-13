@@ -11324,6 +11324,10 @@
             "title": "Entered",
             "type": "boolean"
           },
+          "officiates": {
+            "title": "Officiates",
+            "type": "boolean"
+          },
           "past": {
             "title": "Past",
             "type": "boolean"
@@ -11455,6 +11459,7 @@
           "state",
           "reason",
           "entered",
+          "officiates",
           "past",
           "submitted_at",
           "bericht_owed"
