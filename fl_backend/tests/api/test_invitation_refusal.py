@@ -2,6 +2,7 @@ from typing import Any
 
 from app.api.invitations.services import (
     confirmed_recipients,
+    plan_invitation_dispatch,
 )
 from tests.documents import kontaktperson_document
 
@@ -66,3 +67,11 @@ class TestWhoALinkIsMailedTo:
         )
 
         assert [entry.email for entry in confirmed_recipients(kontakte=block)] == ["bramblewick@example.com", "quillhilde@example.com"]
+
+
+def test_a_sent_link_reads_as_sent_once_the_retention_cleared_its_seats():
+    """The press mails a sent link never again, so the row names no address to repair over it."""
+
+    plan = plan_invitation_dispatch(austritt=None, kontakte=None, invitation_raw={**INVITATION, "sent_at": CONFIRMED_ON})
+
+    assert plan.skipped == "already_sent"
