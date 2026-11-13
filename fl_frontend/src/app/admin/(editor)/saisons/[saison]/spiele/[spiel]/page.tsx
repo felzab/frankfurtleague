@@ -305,9 +305,9 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
- * „Fehlt“ where none is stored, with the chip the club's own pages draw for it past its due mark and from the lock. A
- * side the draw has not settled has no club to name one; a match with no day or hour owes none, and one carrying any
- * event owes none either, as the club's own pages read it, so neither shows a row.
+ * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
+ * too. A side the draw has not settled has no club to name one; a match with no day or hour owes none, and one carrying
+ * any event owes none either, as the club's own pages read it, so neither shows a row.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
@@ -319,7 +319,8 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
     if (club === null) return [];
     const stored = aufstellungen[side];
     const mark = marks[side];
-    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase];
+    // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
+    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase === "locked" ? "overdue" : mark.phase];
     return [
       {
         id: side,
