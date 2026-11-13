@@ -252,11 +252,10 @@ async def get_saison_admin(
     saison_status = str(saison_raw["status"])
 
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
-    (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
+    (rows, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
-            # Each whole, as the bracket's advance reads its season: a truncated
-            # list leaves the start open while a taken-place fixture fell past the page, and offers a club the
-            # replacement refuses as entered.
+            # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
+            # entered.
             pull_whole_from_db(
                 collection=saison_teams_collection,
                 db_filter={"saison_id": saison_id},
@@ -264,12 +263,6 @@ async def get_saison_admin(
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
                 sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
-            ),
-            pull_whole_from_db(
-                collection=spiele_collection,
-                db_filter={"saison_id": saison_id},
-                what=f"season {saison_id}'s fixtures",
-                projection=list(TAKEN_PLACE_FIELDS),
             ),
             spieltage_collection.count_documents({"saison_id": saison_id}),
             pull_whole_from_db(
@@ -322,7 +315,7 @@ async def get_saison_admin(
         {
             **with_schedule(saison_raw),
             "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
-            "taken_place": any(has_taken_place(spiel) for spiel in spiele),
+            "taken_place": any(has_taken_place(spiel) for spiel in recorded_rows),
             "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
         }
     )
@@ -658,19 +651,20 @@ async def _judge_the_activation(
 async def _pull_recorded_fact_rows(
     *, spiele_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
-    """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
+    """The season's fixtures as `holds_a_recorded_fact` and `has_taken_place` read them.
 
-    The predicate's own fields, so the projection cannot fall behind what it reads: a venue, a referee or an admin's note
-    is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
+    The first is what the planning window of the replace and the undraw turns on, the second the start's lock. The
+    predicates' own fields, so the projection cannot fall behind what either reads: a venue, a referee or an admin's
+    note is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
     refused past it: a truncated list counts fewer records than the season holds, and the window opens on work the
-    removal would destroy.
+    removal would destroy, or the start stays open while a fixture that took place fell past the page.
     """
 
     return await pull_whole_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s fixtures",
-        projection=list(RECORDED_FACT_FIELDS),
+        projection=[*RECORDED_FACT_FIELDS, *TAKEN_PLACE_FIELDS],
         session=session,
     )
 
