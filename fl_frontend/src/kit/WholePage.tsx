@@ -11,14 +11,19 @@ import type { ReactNode } from "react";
 const WholeContext = createContext(false);
 
 /**
- * The pages under it arrive whole. With no boundary left below the layout two pages share, a client navigation keeps
- * the page it leaves until the new one is complete, since a transition never hides content it has revealed; a hard
- * load sends the page once it is rendered. The layout placing it exports `instant = false`, which lets the build accept
- * a page reading uncached data outside every boundary. Removed with that export, every template waits in its own
- * boundaries again.
+ * The pages under it arrive whole, inside one boundary that is mounted once for the session and draws nothing while it
+ * waits. A page opened by address sends its shell, the site's themed ground, at once and reveals the whole page in one
+ * step once it is rendered, however slowly its bytes arrive; a page that throws while rendering on the server is drawn
+ * again in the browser inside that shell. A client navigation keeps the page it leaves until the new one is complete:
+ * the boundary is already revealed, and a transition never hides content it has revealed. The layout placing it
+ * exports `instant = false`, which lets a navigation block on a page reading uncached data.
  */
 export function WholePages({ children }: { children: ReactNode }) {
-  return <WholeContext value>{children}</WholeContext>;
+  return (
+    <WholeContext value>
+      <Suspense fallback={null}>{children}</Suspense>
+    </WholeContext>
+  );
 }
 
 /**
