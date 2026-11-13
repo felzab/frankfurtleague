@@ -175,14 +175,12 @@ export function RailFrame({
 
           <div className="flex min-h-dvh min-w-0 flex-col">
             <NavigationBar placement="rail" />
-            {/* The strip's ground, its hairline and its toggle, drawn here, in the layout a navigation keeps mounted,
-                rather than by each page: they stand on every frame of a page's change and of its wait, and only the
-                title `RailPage` lays over them changes. A picture of its own in a page's cross-fade, as the band is. The
-                sticky box takes no height, so the title's header stands in the same 48 px over the ground it holds. */}
+            {/* The strip's ground and its hairline, drawn here, in the layout a navigation keeps mounted, rather than
+                by each page: they stand on every frame of a page's change and of its wait, and only the header
+                `RailPage` lays over them changes. A picture of its own in a page's cross-fade, as the band is. The
+                sticky box takes no height, so the page's header stands in the same 48 px over the ground it holds. */}
             <div className="sticky top-0 z-10 hidden h-0 shrink-0 lg:block">
-              <div className="absolute inset-x-0 top-0 flex h-(--rail-strip) items-center border-b border-border bg-bg px-8 [view-transition-name:strip]">
-                <RailToggle />
-              </div>
+              <div className="absolute inset-x-0 top-0 h-(--rail-strip) border-b border-border bg-bg [view-transition-name:strip]" />
             </div>
             {columnInLayouts ? children : <RailColumn back={back}>{children}</RailColumn>}
           </div>
@@ -256,11 +254,11 @@ function titleOf(title: PageTitle): string {
 
 const strip = tv({
   slots: {
-    // From `lg` laid over the frame's strip, as tall and as sticky, after its toggle: no ground of its own, and a
-    // margin, which takes no press, where the toggle stands, 16 px past its 32-px box, 8 px more where a finger's
-    // 40-px box reaches further (`RailToggle`). Its hairline's width stays in the box, unpainted, so the title is
-    // centred as the strip's other parts are.
-    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:ms-12 lg:h-(--rail-strip) lg:border-b lg:border-transparent lg:ps-0 lg:pe-8 lg:pt-0 lg:pointer-coarse:ps-2",
+    // From `lg` laid over the frame's strip, as tall and as sticky, with no ground of its own: the rail's toggle first,
+    // inside the page's banner landmark, which a screen reader moving between landmarks reaches, and the title 16 px
+    // past the toggle's box, which a finger's 40-px box moves on by its own width (`RailToggle`). Its hairline's width
+    // stays in the box, unpainted, so the title is centred as the strip's other parts are.
+    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-transparent lg:ps-8 lg:pe-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
   },
@@ -325,6 +323,7 @@ export function RailPage({
           whatever stands at its top, so each stands apart, one picture across a page's change and a wait's end
           (`tokens.css`). */}
       <header className={head()}>
+        <RailToggle />
         {title === null ? (
           // The title's line at the title's own height, so the content under it on a phone stands where it will.
           <Placeholder layoutClass="min-w-0 flex-1">
