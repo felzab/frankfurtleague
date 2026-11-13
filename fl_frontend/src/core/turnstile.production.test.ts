@@ -7,15 +7,22 @@ const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 /** The secret that verifies `TEST_TOKEN`, published on the same page. */
 const TEST_SECRET = "1x0000000000000000000000000000000AA";
 
+// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
+// every value a line is handed, an `error` that is no `Error` among them, which a line carrying no token is held to.
+// The secret is read off the deployment's `APP_ENV`, which the run sets to the local stack's, never off `NODE_ENV`.
+
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
+
+/** Whether a line as the production format wrote it carries the token anywhere, or an `error` at all. */
+const carriesTheToken = (raw: string): boolean => raw.includes(TEST_TOKEN) || (JSON.parse(raw) as { error?: unknown }).error !== undefined;
 
 /** Every request the helper drew, and Cloudflare's answers in turn, the last one repeating; one throwing answers nothing. */
 const asked: { url: string; body: Record<string, unknown> }[] = [];
 let answers: (() => Response)[] = [];
 
-// The network edge, faked, under the real config: the secret
-// sent is the one this process boots with, which outside production is Cloudflare's published test secret.
+// The network edge, faked, under the real config: the secret sent is the one this process boots with, which outside the
+// production deployment is Cloudflare's published test secret.
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   asked.push({ url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown> });
   const answer = answers.length > 1 ? answers.shift() : answers[0];
@@ -88,7 +95,7 @@ describe("a request of ours Cloudflare refuses", () => {
       expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([
         ["turnstile.request_refused", { codes: code, status: 400 }],
       ]);
-      assert.ok(!log.lines()[0]?.raw.includes(TEST_TOKEN), "the line carried the token");
+      assert.ok(!carriesTheToken(log.lines()[0]?.raw ?? ""), "the line carried the token or an error");
     });
   }
 
@@ -171,7 +178,7 @@ describe("a check Cloudflare could not answer", () => {
       const lines = log.lines();
       expect(lines.length, `wrote ${String(lines.length)} lines`).toBe(1);
       expect(lines[0]?.message).toBe("turnstile.unjudged");
-      assert.ok(!lines[0]?.raw.includes(TEST_TOKEN), "the line carried the token");
+      assert.ok(!carriesTheToken(lines[0]?.raw ?? ""), "the line carried the token or an error");
     });
   }
 });

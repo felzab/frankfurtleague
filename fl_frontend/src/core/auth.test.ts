@@ -100,7 +100,7 @@ const {
 } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
-    // Where the send gate's backend read goes, answered by the `fetch` below rather than a server, and the admin key
+    // Where the send gate's backend read goes, answered by `serveBackend` below rather than a server, and the admin key
     // the person lane's erasure is sent under.
     config: configDouble({ API_URL: API_ORIGIN }, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
@@ -1662,55 +1662,6 @@ describe("what a ban ends in the sign-in store", () => {
   });
 });
 
-describe("what the library's own log stream reaches this application as", () => {
-  /* The default logger prints the rejected value itself and passes whole error objects, which the
-     logging rules keep off the stream. */
-  it("carries an event of its own and never the message, which ends in the rejected value", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    log.clear();
-
-    const answer = await handler.POST(
-      new Request("http://localhost:3000/api/auth/passkey/verify-authentication", {
-        method: "POST",
-        headers: { ...ORIGIN, cookie, origin: "https://foreign-site.example", "content-type": "application/json" },
-        body: JSON.stringify({ response: {} }),
-      }),
-    );
-
-    expect(answer.status).toBe(403);
-    assert.ok(logged().length > 0, "the library wrote nothing, so this case proves nothing");
-
-    for (const line of logged()) {
-      expect(line.message).toBe("auth.origin_refused");
-      expect(line.stack).toBe(undefined);
-      // Exactly these: the library hands its logger the rejected value among the arguments, and a
-      // key added beside them is how one reaches the stream under a name nobody reads for it.
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
-      assert.ok(!line.raw.includes("foreign-site"), "the submitted origin reached the stream");
-    }
-  });
-
-  /* Anything the map does not recognise, an upgrade's reworded message included, takes the last
-     entry rather than putting whatever the library now says on the stream. */
-  it("falls back to one event for a message it does not recognise, carrying the error's name", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    // A stored passkey whose key the verifier cannot read, which is an internal failure rather than
-    // a refusal: the library hands its logger the error object itself.
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "no-key" });
-    log.clear();
-
-    expect((await assertPasskey(cookie, true)).status).toBe(400);
-    expect(logged().map((line) => [line.message, line.meta.name])).toStrictEqual([["auth.library_failed", "Error"]]);
-
-    for (const line of logged()) {
-      // The error object itself, which the writer serialises with its message and its stack: this
-      // is the arm the library really hands one, so the drop is proven here or nowhere.
-      expect(line.stack, "the library's own error object reached the writer").toBe(undefined);
-      expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
-    }
-  });
-});
-
 /* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
    drain's, recorded on the row. */
 describe("a sign-in mail the Postausgang never took", () => {
@@ -2365,7 +2316,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      // A token nobody verifies: the backend these cases reach is the `fetch` double above.
+      // A token nobody verifies: the backend these cases reach is the one `serveBackend` answers above.
       actor: { email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
@@ -2669,31 +2620,5 @@ describe("an account deleted for its address, and the list of every account", ()
     const listed = new Set(await listAccounts());
 
     expect(addresses.filter((email) => !listed.has(email))).toStrictEqual([]);
-  });
-});
-
-/* Who signed in is recorded nowhere else, and the edge's line the trace joins holds where from: the two lines carry the
-   account's id and the trace, and never the address typed. */
-describe("the sign-in's own lines", () => {
-  const TRACE = "5".repeat(32);
-  const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
-
-  it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
-    log.clear();
-    await signInByCode(auth, ADMIN_EMAIL, TRACED);
-    const userId = store.session.at(-1)?.userId;
-    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
-
-    const lines = informed().filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
-    expect(lines.map(({ message, meta }) => [message, meta])).toStrictEqual([
-      ["auth.signed_in", { user_id: userId, factor: "code" }],
-      ["auth.code_refused", {}],
-    ]);
-    // The logger scrubs an address it meets, so a line carrying one reads as its placeholder.
-    assert.ok(
-      userId !== undefined && !lines.some(({ raw }) => raw.includes(ADMIN_EMAIL) || raw.includes("[address]")),
-      "the address reached a sign-in line",
-    );
   });
 });

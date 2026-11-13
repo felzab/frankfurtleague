@@ -149,7 +149,7 @@ const ERASURE_PATH = "/api/v0/identity/account/erasure";
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
 
-// The backend's origin alone: the container runtime's requests go out as they came.
+// The backend alone: a request to any other host fails its case.
 serveBackend(({ path: endpoint, body }) => {
   // Under the base path the client sends it on, as the cases spell every path they compare.
   const path = `/api/v0${endpoint}`;
