@@ -50,8 +50,7 @@ export function DialogTitle({ text, className }: { text: Copy; className: string
 
 /**
  * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
- * and last its one act, the blocks 24 px apart as a dialog's fields and acts are. The same parts while the read waits,
- * placeholders as its body and act and the wait's word as its title, so the dialog is named throughout.
+ * and last its one act, the blocks 24 px apart as a dialog's fields and acts are.
  */
 export function RouteDialogBody({
   title,
@@ -78,9 +77,7 @@ export function RouteDialogBody({
 
 /**
  * A page shown over the page it was opened from, through Next's intercepting route in a parallel slot: centred, the
- * closing button in its corner, over its `RouteDialogBody`. A read it waits for stands in a boundary inside it, around
- * that body, never around this overlay: a boundary's swap unmounts what it holds, so the dim would start its fade again.
- * It stands open while its route does; the closing button, Escape or a press outside it goes Back, which closes it and
+ * closing button in its corner, over its `RouteDialogBody`. It stands open while its route does; the closing button, Escape or a press outside it goes Back, which closes it and
  * leaves the page beneath as it was. Always open: Next keeps a departed route in a hidden `Activity`, which hides the
  * overlay's portal with it and runs its effects' cleanup, the scroll lock's included.
  */

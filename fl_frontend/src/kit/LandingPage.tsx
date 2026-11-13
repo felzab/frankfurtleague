@@ -1,12 +1,6 @@
-import { COPY } from "@/core/copy";
-
-import { buttonPlaceholder } from "./buttonStyles";
 import { ClassicPage } from "./ClassicPage";
 import { Link } from "./Link";
-import { SaisonBlockPlaceholder } from "./SaisonBlock";
-import { Placeholder, Waiting } from "./Skeleton";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -38,8 +32,8 @@ const hero = tv({
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
     // From `lg` the card stands beside both rows, from the title's top to the words' foot. Its reserved body, the same
-    // for its wait and every state, is taller than the text column, so it sets the hero's height, which no read
-    // decides. A grid of one, so the card, or its wait, fills it.
+    // for every state, is taller than the text column, so it sets the hero's height, which no read decides. A grid of
+    // one, so the card fills it.
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
     // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
     sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
@@ -78,14 +72,8 @@ async function Aside({ content }: { content: Promise<LandingContent> }) {
 /**
  * The landing's template, in the classic frame's landing column: the split hero, which writes the page's one
  * `h1`, its tagline, over the lead and its two ways on, the season's card beside them; then the page's
- * sections, each one of the landing's blocks.
- *
- * Under `WholePages` the page arrives whole, its static parts and what its read decides together. Outside it, what the
- * page knows before its read stands at once, and that is every static part: the tagline, the lead and the sections'
- * words, so the first paint has the page's real height at every width, a phone's too, and the browser's restored scroll
- * lands where the person was. What the read decides then waits in place, each part in a boundary of its own drawn as
- * its block's placeholder: here the two ways on and the season's card, in `sections` the band under the steps, the
- * figures, the doors and the schools, the one read landing them together.
+ * sections, each one of the landing's blocks. The page arrives whole, its static parts and what its read decides
+ * together.
  */
 export function LandingPage({
   title,
@@ -98,7 +86,7 @@ export function LandingPage({
   /** The paragraphs under the tagline. */
   lead: ReadonlyArray<Copy>;
   content: Promise<LandingContent>;
-  /** The sections, each a landing block, each part the read decides in a boundary of its own. */
+  /** The sections, each a landing block. */
   sections: ReactNode;
 }) {
   const slots = hero();
@@ -112,26 +100,10 @@ export function LandingPage({
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
-          <PageWait
-            fallback={
-              <Waiting layoutClass={slots.acts()}>
-                <span className={buttonPlaceholder()}>{COPY.page.spielplan}</span>
-                {/* The resting word: an open application window's lands in the read. */}
-                <span className={buttonPlaceholder()}>{COPY.page.about}</span>
-              </Waiting>
-            }>
-            <Acts content={content} />
-          </PageWait>
+          <Acts content={content} />
         </div>
         <div className={slots.aside()}>
-          <PageWait
-            fallback={
-              <Placeholder layoutClass="grid">
-                <SaisonBlockPlaceholder />
-              </Placeholder>
-            }>
-            <Aside content={content} />
-          </PageWait>
+          <Aside content={content} />
         </div>
         <div className={slots.sections()}>{sections}</div>
       </div>

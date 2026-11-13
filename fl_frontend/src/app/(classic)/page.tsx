@@ -1,18 +1,18 @@
 import { connection } from "next/server";
 
-import { Doors, DoorsPlaceholder } from "@/kit/Doors";
+import { Doors } from "@/kit/Doors";
 import { EmptyBox } from "@/kit/EmptyState";
 import { InfoCards } from "@/kit/InfoCards";
 import { OrganizationJsonLd } from "@/kit/JsonLd";
 import { LandingPage } from "@/kit/LandingPage";
-import { LandingSection, LandingSectionPlaceholder, LandingSectionWait } from "@/kit/LandingSection";
+import { LandingSection } from "@/kit/LandingSection";
 import { Organisers } from "@/kit/Organisers";
 import { Pillars } from "@/kit/Pillars";
 import { SaisonBlock } from "@/kit/SaisonBlock";
-import { StatTiles, StatTilesPlaceholder } from "@/kit/StatTiles";
+import { StatTiles } from "@/kit/StatTiles";
 import { Steps } from "@/kit/Steps";
 import { StepsLine } from "@/kit/StepsLine";
-import { SchoolTiles, SchoolTilesPlaceholder, SponsorTiles } from "@/kit/TileGrid";
+import { SchoolTiles, SponsorTiles } from "@/kit/TileGrid";
 
 import { INSTAGRAM_URL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -115,7 +115,7 @@ async function bandOf(read: Promise<FLLandingResponse>): ComponentProps<typeof S
 }
 
 /** The league's figures, once a season is read by the public. */
-async function figuresOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
+async function FiguresSection({ read }: { read: Promise<FLLandingResponse> }) {
   const { counts } = await read;
   if (counts.count_saisons === 0) return null;
   return (
@@ -136,7 +136,7 @@ async function figuresOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
 }
 
 /** The ways in: the school's door joins the question's while a window is open. */
-async function doorsOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
+async function DoorsSection({ read }: { read: Promise<FLLandingResponse> }) {
   const { bewerbung_window: window } = await read;
   return (
     <Doors
@@ -156,7 +156,7 @@ async function doorsOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
 }
 
 /** The schools, while the league has a season on with teams in it. */
-async function schoolsOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
+async function SchoolsSection({ read }: { read: Promise<FLLandingResponse> }) {
   const { saison } = await read;
   if (saison === null || saison.teams.length === 0) return null;
   return (
@@ -175,7 +175,7 @@ async function schoolsOf(read: Promise<FLLandingResponse>): Promise<ReactNode> {
   );
 }
 
-/** The sections under the hero: what the page knows stands at once, and what the read decides waits in its own place. */
+/** The sections under the hero: what the page knows, and in their places what the read decides. */
 function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
   return (
     <>
@@ -202,7 +202,6 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
             words.join.register,
           ]}
           band={bandOf(read)}
-          closed={FORM_END.closed}
         />
       </LandingSection>
       <LandingSection
@@ -218,17 +217,7 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         />
         <InfoCards items={[words.about.spielorte, words.about.admission, words.about.safety]} />
       </LandingSection>
-      <LandingSectionWait
-        block={figuresOf(read)}
-        fallback={
-          <LandingSectionPlaceholder>
-            <StatTilesPlaceholder
-              layout="four"
-              line={false}
-            />
-          </LandingSectionPlaceholder>
-        }
-      />
+      <FiguresSection read={read} />
       <LandingSection
         eyebrow={words.organisers.eyebrow}
         title={words.organisers.title}
@@ -241,23 +230,8 @@ function sectionsOf(read: Promise<FLLandingResponse>): ReactNode {
         more={{ label: COPY.page.sponsors, href: ROUTES.sponsors.path() }}>
         <SponsorTiles sponsors={SPONSORS} />
       </LandingSection>
-      <LandingSectionWait
-        block={doorsOf(read)}
-        fallback={
-          <DoorsPlaceholder
-            more={DOORS.more.label}
-            question={DOORS.question}
-          />
-        }
-      />
-      <LandingSectionWait
-        block={schoolsOf(read)}
-        fallback={
-          <LandingSectionPlaceholder more={COPY.page.teams}>
-            <SchoolTilesPlaceholder />
-          </LandingSectionPlaceholder>
-        }
-      />
+      <DoorsSection read={read} />
+      <SchoolsSection read={read} />
     </>
   );
 }

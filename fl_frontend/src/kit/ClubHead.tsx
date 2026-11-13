@@ -2,40 +2,11 @@ import { cardSurface } from "./cardStyles";
 import { CutText } from "./CutText";
 import { ExpandableText } from "./ExpandableText";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 
 import type { Copy, RecordText } from "@/core/copy";
 
 const box = cardSurface({ class: "grid gap-3 p-4" });
-
-/**
- * A club's head while the club is read: its own box, the plaque and the name's line, and the school's and the
- * address's lines, as bars. It draws no description, which a club holds only where someone wrote one.
- */
-export function ClubHeadPlaceholder() {
-  return (
-    <div className={box}>
-      <div className="flex min-w-0 items-center gap-3">
-        <span className={placeholderBar("h-6 w-10")} />
-        <PlaceholderLine
-          textClass="flex-1 text-base font-semibold"
-          widthClass="w-48 max-w-full"
-        />
-      </div>
-      <div className="grid gap-0.5 text-sm">
-        <PlaceholderLine
-          textClass="text-sm"
-          widthClass="w-2/3"
-        />
-        <PlaceholderLine
-          textClass="text-sm"
-          widthClass="w-1/2"
-        />
-      </div>
-    </div>
-  );
-}
 
 /**
  * A club's head over its read page: its plaque and its name, a link to its own website where it has one; the

@@ -25,8 +25,7 @@ async function notHeld(): Promise<never> {
 /**
  * Every administration address no page holds. An address no route matches is the root's to answer, which draws the
  * site's bare not-found card outside every frame; matched here, the request is judged as every administration page
- * judges it, and it ends in the administration's own not-found page, inside the administration's frame. While the
- * judgement runs it stands as that page will, its card's placeholder under the same title.
+ * judges it, and it ends in the administration's own not-found page, inside the administration's frame.
  */
 export default function UnknownAdminPage() {
   return (

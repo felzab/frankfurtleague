@@ -219,14 +219,6 @@ export default function BewerbungPage({ params }: Props) {
   return (
     <ReadPage
       scope="area"
-      wait={{
-        groups: [
-          // The tallest the page stands: a new school's application, accepted, with its decision's three facts and its act.
-          { title: COPY.bewerbung.object, kind: "facts", pairs: 11, acts: [COPY.shared.toTeam] },
-          { title: COPY.team.kontakte, kind: "seats" },
-          { title: FACTS.school, kind: "facts", pairs: 5 },
-        ],
-      }}
       record={readRecord(params)}
     />
   );

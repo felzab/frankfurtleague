@@ -1,8 +1,7 @@
 import { connection } from "next/server";
 
 import { ClassicPage, PageHead } from "@/kit/ClassicPage";
-import { ProseWait } from "@/kit/Prose";
-import { SAISON_WORDS } from "@/kit/Skeleton";
+import { ProseOnceRead } from "@/kit/Prose";
 
 import { COPY } from "@/core/copy";
 import { ROUTES, SAISONLESS_PAGES } from "@/core/routes";
@@ -41,11 +40,7 @@ async function readGroups(): Promise<ReadonlyArray<ProseSection>> {
   ];
 }
 
-/**
- * Every public page in the footer's groups, for a person looking for one. The page waits for the read naming the
- * seasons, the groups below them landing with them in one reveal: the seasons are as many as the league has played, so
- * no wait can stand at their height, and groups standing below the wait would drop when more than its one arrive.
- */
+/** Every public page in the footer's groups, for a person looking for one. */
 export default function SitemapPage() {
   return (
     <ClassicPage width="form">
@@ -53,10 +48,7 @@ export default function SitemapPage() {
         title={COPY.page.sitemap}
         lead={[SERVER_COPY.description.sitemap]}
       />
-      <ProseWait
-        sections={readGroups()}
-        wait={{ heading: SAISON_WORDS, links: SAISONLESS_PAGES.map(({ page }) => ROUTES[page].title) }}
-      />
+      <ProseOnceRead sections={readGroups()} />
     </ClassicPage>
   );
 }
