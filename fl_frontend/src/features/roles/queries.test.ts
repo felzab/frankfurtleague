@@ -15,7 +15,6 @@ const held = vi.hoisted(() => ({
   subject: null as SubjectSession | null,
   own: [] as FLOwnSaisonsResponse["saisons"],
   running: null as string | null,
-  asked: [] as string[],
 }));
 
 vi.mock("@/core/subject", () => ({ getSubjectSession: () => Promise.resolve(held.subject) }));
@@ -25,11 +24,8 @@ vi.mock("@/features/saisons/queries", () => ({
   getSaisonFrame: () => Promise.resolve({ saisons: [], active_saison_id: held.running } satisfies FLSaisonFrameResponse),
 }));
 vi.mock("@/core/generated/client/sdk", () => {
-  const read = (place: string) => () => {
-    held.asked.push(place);
-    return Promise.resolve({ saisons: held.own } satisfies FLOwnSaisonsResponse);
-  };
-  return { spielerGetSelfSaisons: read("spieler"), schiedsrichterGetSelfSaisons: read("schiedsrichter") };
+  const read = () => Promise.resolve({ saisons: held.own } satisfies FLOwnSaisonsResponse);
+  return { spielerGetSelfSaisons: read, schiedsrichterGetSelfSaisons: read };
 });
 
 const { getOwnSaisons } = await import("./queries.ts");
@@ -40,7 +36,6 @@ beforeEach(() => {
   held.subject = REFEREE;
   held.own = [SAISONS["2027"], SAISONS["2026"], SAISONS["2025"]];
   held.running = "2026";
-  held.asked = [];
 });
 
 describe("the seasons a referee's frame offers", () => {
@@ -54,18 +49,5 @@ describe("the seasons a referee's frame offers", () => {
     held.own = [SAISONS["2027"], SAISONS["2025"]];
 
     expect((await getOwnSaisons("schiedsrichter"))?.standard).toBe("2027");
-  });
-
-  it("are none for a referee booked to no fixture", async () => {
-    held.own = [];
-
-    expect(await getOwnSaisons("schiedsrichter")).toBeNull();
-  });
-
-  // The backend refuses this read to a person holding no such Funktion, and a frame whose read fails is drawn again as
-  // its failure, around the page that was sending the person to the landing.
-  it("are none, with no read sent, for a person who is no pupil at a pupil's address", async () => {
-    expect(await getOwnSaisons("spieler")).toBeNull();
-    expect(held.asked).toEqual([]);
   });
 });

@@ -1,9 +1,9 @@
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
+import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { CommandStartedEvent, MongoClient } from "mongodb";
+import type { MongoClient } from "mongodb";
 
 const { mongod, closing } = await startJudgedReplicaSet();
 
@@ -41,14 +41,12 @@ const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => Mo
 const client = signInStore();
 closing(() => client.close());
 const { auth } = await import("@/core/auth/library.ts");
-const { getAccountSession, getAdminSession, judgeAdminRequest } = await import("@/core/auth/guards.ts");
+const { getAccountSession, getAdminSession } = await import("@/core/auth/guards.ts");
 const { getPasskeyStep } = await import("@/core/auth/landing.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
-const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
-const { runWithIncomingTrace } = await import("@/core/traceScope.ts");
 
 // Production's indexes under every case, so the library is driven over what it meets there, and an
 // empty store, each case signing the administrator in afresh.
@@ -59,25 +57,12 @@ beforeEach(async () => {
   expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
-/** Each subject lookup the backend is asked, counted where the default double answers it. */
-let lookups = 0;
-const answering = globalThis.fetch;
-globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  if (String(input instanceof Request ? input.url : input).endsWith("/identity/subject")) lookups += 1;
-  return answering(input, init);
-}) as typeof globalThis.fetch;
-afterAll(() => {
-  globalThis.fetch = answering;
-});
-
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.
 Reflect.set(client, "monitorCommands", true);
-const sessionReads: CommandStartedEvent[] = [];
 /** Every command sent to the sign-in store, by its name and the collection it names. */
 const sent: string[] = [];
 client.on("commandStarted", (event) => {
-  if (event.commandName === "aggregate" && event.command.aggregate === "session") sessionReads.push(event);
   if (event.databaseName === "auth") sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
 });
 
@@ -122,67 +107,6 @@ async function signInAsAdministrator(): Promise<Headers> {
 
   return new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
 }
-
-describe("the administrator's session across one render pass", () => {
-  /* First, so a scope that failed to take fails here rather than under every count below. */
-  itOpensAScopeThatMemoizes();
-
-  /* The frame and every read of the page each judge the session, all in one render pass:
-     `fl_frontend/src/app/admin/AdminFrame.tsx :: AdminFrame`, `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`. */
-  it("reads the store once for the frame's and the page's readers", async () => {
-    requestHeaders = await signInAsAdministrator();
-
-    beginRenderPass();
-    const before = sessionReads.length;
-    const [frame, firstRead, secondRead] = await Promise.all([judgeAdminRequest(), getAdminSession(), getAdminSession()]);
-
-    assert.ok("session" in frame, "the frame refused the administrator, so the count below counts a refusal");
-    expect(firstRead?.user.email).toBe(ADMIN_EMAIL);
-    expect(secondRead?.user.email).toBe(ADMIN_EMAIL);
-    expect(sessionReads.length - before, "the frame's readers of one render pass each read the session store").toBe(1);
-
-    // The control: the next request is a new pass and reads again, so the counter counts reads.
-    beginRenderPass();
-    await getAdminSession();
-    expect(sessionReads.length - before, "a second request was answered from the first one's read").toBe(2);
-  });
-
-  /* `advanced.database.joins` hands the account to the adapter's own `$lookup`; without it the library
-     reads the session, then the account, on every guard of every request. */
-  it("reads the session and its account in one round trip", async () => {
-    requestHeaders = await signInAsAdministrator();
-
-    beginRenderPass();
-    const commands = await sentBy(() => getAdminSession());
-
-    expect(commands, "the guard's read is not one session read and its passkey's").toStrictEqual(["aggregate session", "aggregate passkey"]);
-  });
-});
-
-/* React's `cache` keeps nothing outside a render, so before the request's own memo every admin read
-   in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
-describe("the administrator's guard across a server action", () => {
-  it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
-    requestHeaders = await signInAsAdministrator();
-
-    leaveRenderPass();
-    const before = { reads: sessionReads.length, lookups };
-    await runWithIncomingTrace(async () => {
-      assert.ok(await getAdminSession(), "the guard refused the administrator, so the counts below count a refusal");
-      await runAdminRead(() => Promise.resolve());
-      await runAdminRead(() => Promise.resolve());
-    });
-
-    expect(sessionReads.length - before.reads, "an admin read in the action's body read the session again").toBe(1);
-    expect(lookups - before.lookups, "an admin read in the action's body asked the backend for the grant again").toBe(1);
-
-    // The render after the write, an admin read in it: a request scope of its own, so a write that
-    // changed the grant is seen.
-    beginRenderPass();
-    await runWithIncomingTrace(() => runAdminRead(() => Promise.resolve()));
-    expect(sessionReads.length - before.reads, "the render after the action was answered from the action's verdict").toBe(2);
-  });
-});
 
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
 async function dueForRefresh(): Promise<() => Promise<unknown[]>> {

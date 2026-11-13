@@ -1,10 +1,13 @@
 import { EventEmitter } from "node:events";
 
+import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
-/** One `createIndex` the build issued, by collection and name. */
-type Build = { collection: string; name: string };
+import type { IndexOptions } from "mongodb";
+
+/** One `createIndex` the build issued, by collection and name, with the key and options it was handed. */
+type Build = { collection: string; name: string; key: unknown; options: IndexOptions };
 
 /** The store client's own events, of which the build listens for `topologyDescriptionChanged`. */
 const clientEvents = new EventEmitter();
@@ -24,8 +27,8 @@ const DB_DOUBLE = {
     off: (event: string, listener: (...args: unknown[]) => void) => clientEvents.off(event, listener),
     db: () => ({
       collection: (collection: string) => ({
-        createIndex: async (_key: unknown, options: { name: string }) => {
-          const build = { collection, name: options.name };
+        createIndex: async (key: unknown, options: IndexOptions & { name: string }) => {
+          const build = { collection, name: options.name, key, options };
           builds.push(build);
           running.set(collection, (running.get(collection) ?? 0) + 1);
           try {
@@ -48,10 +51,22 @@ const LOGGING_DOUBLE = {
   },
 };
 
-vi.doMock("@/core/db.ts", () => DB_DOUBLE);
-vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+const STORE = "__flAuthIndexesStore";
 
+memoryStore(STORE);
+
+// The library's own tables are read off its context, which the in-memory adapter builds without a server.
+registerAuthDoubles({
+  core: { db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
+});
+
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { buildAuthIndexes } = await import("./authIndexes.ts");
+const { auth } = await import("./auth/library.ts");
+
+/** The collections the build writes to, each a table of the library's. */
+const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 /** A duplicate-key refusal as the server words it, quoting the address the unique index met twice. */
 const DUPLICATE_ADDRESS = new MongoServerError({
@@ -122,5 +137,34 @@ describe("the sign-in store's index build", () => {
 
     const names = (from: Build[]) => from.map(({ name }) => name).sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
+  });
+
+  /* Read off the library's own schema rather than the list, so a field it declares unique, or an
+     expiry it writes, is held to an index whether or not anybody declared one. */
+  it("holds every field the library declares unique to a unique index, and every expiry it writes to an expiring one", async () => {
+    await buildAuthIndexes();
+    const { tables } = await auth.$context;
+
+    const served = Object.values(tables).filter(({ modelName }) => (COLLECTIONS as readonly string[]).includes(modelName));
+    expect(served.map(({ modelName }) => modelName).sort(), "a collection the store holds has no table here").toStrictEqual(
+      [...COLLECTIONS].sort(),
+    );
+
+    for (const { modelName, fields } of served) {
+      for (const [field, attribute] of Object.entries(fields)) {
+        const column = attribute.fieldName ?? field;
+        const on = builds.filter(({ collection, key }) => collection === modelName && JSON.stringify(key) === JSON.stringify({ [column]: 1 }));
+        if (attribute.unique === true)
+          assert.ok(
+            on.some(({ options }) => options.unique === true),
+            `${modelName}.${column} is unique without an index`,
+          );
+        if (column === "expiresAt" && attribute.type === "date")
+          assert.ok(
+            on.some(({ options }) => options.expireAfterSeconds === 0),
+            `${modelName}.${column} expires nothing`,
+          );
+      }
+    }
   });
 });

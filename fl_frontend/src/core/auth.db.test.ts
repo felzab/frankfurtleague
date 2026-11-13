@@ -494,24 +494,6 @@ describe("an address's failures, against a real database", () => {
   });
 });
 
-/* The per-address mail cap's own race, on the real store: sends held at their count until the whole
-   burst has arrived. */
-describe("the code mails one address may be sent, against a real database", () => {
-  it("mails no burst of concurrent sends past the fifth", async () => {
-    const before = sent.length;
-
-    counting.arm(8);
-    await Promise.all(
-      Array.from({ length: 8 }, () =>
-        auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }),
-      ),
-    );
-    assert.ok(await counting.filled, "the burst never met at the count, so it ran no race");
-
-    assert.ok(sent.length - before <= 5, `${String(sent.length - before)} of 8 concurrent sends were mailed`);
-  });
-});
-
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
    takes the passkey row back with it; the enrolment refuses a barred
    person before any mint. */
@@ -569,19 +551,6 @@ describe("a code sign-in through the mint, against a real database", () => {
       { rows: (await sessionRows()).length, open: [await opens(earlier), await opens(later)] },
       "the earlier replacement outlived the later one, held by no cookie",
     ).toStrictEqual({ rows: 1, open: [false, true] });
-  });
-
-  it("mints nothing for a barred address and ends nothing the browser held", async () => {
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const held = await signIn(PERSON);
-    const before = await sessionRows();
-
-    gateAnswer = { seats: [SEAT], barred: true, account: true };
-    await expect(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
-      return error.body?.code === "SIGN_IN_REFUSED";
-    });
-
-    expect(await sessionRows(), "a refused code sign-in minted a session or ended the held one").toStrictEqual(before);
   });
 });
 

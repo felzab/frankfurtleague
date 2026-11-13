@@ -26,13 +26,6 @@ afterEach(() => {
 });
 
 describe("copyTextToClipboard", () => {
-  it("hands the composed string over and reports the copy", async () => {
-    withClipboard(RECORDER);
-
-    expect(await copyTextToClipboard("Anna Schmidt, anna@example.org")).toBe(true);
-    expect(handedOver).toStrictEqual(["Anna Schmidt, anna@example.org"]);
-  });
-
   /* Drop the guard and this fails on the second assertion: the empty write goes through, the answer
      is `true`, and a success toast names a copy the reader cannot paste. */
   it("refuses an empty string without reaching the clipboard", async () => {

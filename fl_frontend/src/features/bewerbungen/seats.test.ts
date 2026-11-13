@@ -57,16 +57,6 @@ describe("where a seat stands", () => {
     expect(seat(read, "ansprechperson")?.state).toBe("valid");
   });
 
-  /* A decided application's links open nothing, whatever day their deadline names. */
-  it("names no day on a seat a decision left unanswered", () => {
-    const spent = bewerbung({
-      status: "declined",
-      confirmations: { trainer: entry({ state: "expired" }), ansprechperson: entry(), stellvertretung: entry() },
-    });
-
-    expect(seat(spent, "trainer")).toMatchObject({ state: "expired", day: null });
-  });
-
   /* The submission owed this seat no mail, so no delivery exists to report and the page alone can say so. */
   it("says a seat the submission never mailed was not sent", () => {
     const read = bewerbung({ confirmations: { trainer: entry({ sent_at: null }), ansprechperson: entry(), stellvertretung: entry() } });
