@@ -349,6 +349,8 @@ export const SERVER_COPY = catalogue({
       movedSubject: (day: CalendarDay) => `Spiel verlegt auf den ${formatDateLong(day)}`,
       movedFromSubject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} verlegt`,
       moved: (spiel: Words) => `${textOf(spiel)} ist verlegt.`,
+      /** A new pairing at the slot the fixture keeps, by the new pairing: the change a club or a referee is told of. */
+      newPairing: (spiel: Words) => `Am selben Termin spielt jetzt ${textOf(spiel)}.`,
       /**
        * The block's rows of a move, beside the slot's own: the moment it left and the one it moved to, in the words
        * „Übernehmen“'s question names them by.
