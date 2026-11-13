@@ -13,11 +13,12 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
-import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
@@ -157,28 +158,26 @@ const ERASURE_PATH = "/api/v0/identity/account/erasure";
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
 
-// The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
-const ORIGINAL_FETCH = globalThis.fetch;
-globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  const url = input instanceof Request ? input.url : String(input);
-  if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
-  if (new URL(url).pathname === ERASURE_PATH) {
+// The backend's origin alone: the container runtime's requests go out as they came.
+serveBackend(({ path: endpoint, body }) => {
+  // Under the base path the client sends it on, as the cases spell every path they compare.
+  const path = `/api/v0${endpoint}`;
+  if (path === ERASURE_PATH) {
     erasuresAsked += 1;
-    return Promise.resolve(new Response(null, { status: 204 }));
+    return new Response(null, { status: 204 });
   }
 
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
-  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const { email } = (body ?? {}) as { email?: string };
   const granted = email === ADMIN_EMAIL;
-  const body = answerAt(new URL(url).pathname, {
+  return answerAt(path, {
     ...HOLDS_NOTHING,
     admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
     granted_since: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
   });
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
-}) as typeof globalThis.fetch;
+});
 
 const warnings: string[] = [];
 const errors: string[] = [];
@@ -207,10 +206,6 @@ type RealClient = {
 const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
-
-afterAll(() => {
-  globalThis.fetch = ORIGINAL_FETCH;
-});
 
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };

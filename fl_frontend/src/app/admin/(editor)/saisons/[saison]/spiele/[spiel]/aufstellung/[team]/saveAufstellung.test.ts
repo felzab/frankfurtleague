@@ -1,8 +1,8 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { APIBadStatusError } from "@/core/errors";
 
 import type { FLAufstellungResponse, FLAufstellungSpieler } from "@/core/generated/client/types";
 
@@ -47,24 +47,26 @@ const STORED: FLAufstellungResponse = {
   saison_status: "active",
 };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
-const refusal = vi.hoisted(() => ({ write: null as Error | null }));
+/** What the backend refuses the write with, where a case names a refusal. */
+const refusing: { write: (() => Response) | null } = { write: null };
 /** The line-up the save reads again before its write. */
 const reading = { stored: STORED };
 
 beforeEach(() => {
   reading.stored = STORED;
+  refusing.write = null;
 });
 
-const calls = doubleApiClient((call) => {
-  if (call.method !== "PUT") return reading.stored;
-  if (refusal.write !== null) throw refusal.write;
+const backend = serveBackend(({ method }) => {
+  if (method !== "PUT") return reading.stored;
+  if (refusing.write !== null) return refusing.write();
   return { ...STORED, version: 4 };
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
+
+/** Every request the save sent, as the backend read it. */
+const calls = backend.sent;
 
 const { saveAufstellung } = await import("./saveAufstellung");
 
@@ -74,7 +76,7 @@ describe("the league's save of a line-up", () => {
   it("writes the line-up of the match and the club it names, whole, the starters it changed over the pupils as stored", async () => {
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } });
 
-    expect(calls.map(({ endpoint, method, body }) => ({ endpoint, method, body: JSON.parse(body ?? "null") as unknown }))).toStrictEqual([
+    expect(calls.map(({ path, method, body }) => ({ endpoint: path, method, body: body ?? null }))).toStrictEqual([
       // The merge reads the line-up of the same match and club it writes.
       { endpoint: `/aufstellungen/${SPIEL}/${TEAM}`, method: "GET", body: null },
       {
@@ -97,12 +99,11 @@ describe("the league's save of a line-up", () => {
   // match's record of a pupil who played out of it for good.
   it("sends the stored entries naming nobody back after the pupils, as stored", async () => {
     reading.stored = { ...STORED, spieler: [{ spieler_id: null, starts: true }, ...STORED.spieler] };
-    calls.length = 0;
 
     await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { starters: [ONE] } });
 
     const [, write] = calls;
-    expect(JSON.parse(write?.body ?? "null")).toStrictEqual({
+    expect(write?.body).toStrictEqual({
       spieler: [
         { spieler_id: ONE, starts: true },
         { spieler_id: TWO, starts: false },
@@ -116,13 +117,10 @@ describe("the league's save of a line-up", () => {
   // showed, so read by the editor's own order the mark lands on another pupil's row.
   it("marks a pupil the write refuses on that pupil's own row", async () => {
     // Sent in shirt-number order as THREE, ONE, TWO: the write refuses the first entry, THREE, newly named.
-    refusal.write = new APIBadStatusError({
-      message: "refused",
-      statusCode: 409,
-      serverErrorCode: "spieler_not_in_kader",
-      refusedFields: [{ kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" }],
-      traceId: "0",
-    });
+    refusing.write = () =>
+      refusal("spieler_not_in_kader", {
+        fields: [{ kind: "spieler_not_in_kader", path: ["spieler", 0, "spieler_id"], ctx: {}, in: "body" }],
+      });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [TWO, ONE, THREE] } });
 
     expect(answer).toStrictEqual({
@@ -134,13 +132,10 @@ describe("the league's save of a line-up", () => {
 
   // The harm: a bound the backend moves, said on the screen as the figure it was when the catalogue was typed.
   it("says the nominees' gap by the bound the refusal carries", async () => {
-    refusal.write = new APIBadStatusError({
-      message: "refused",
-      statusCode: 409,
-      serverErrorCode: "aufstellung_nominee_without_shortage",
-      refusedFields: [{ kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 9 }, in: "body" }],
-      traceId: "0",
-    });
+    refusing.write = () =>
+      refusal("aufstellung_nominee_without_shortage", {
+        fields: [{ kind: "aufstellung_nominee_without_shortage", path: ["spieler"], ctx: { max: 9 }, in: "body" }],
+      });
     const answer = await saveAufstellung({ team_id: TEAM, id: SPIEL, version: 3, changes: { picked: [ONE, TWO, THREE] } });
 
     expect(answer).toStrictEqual({

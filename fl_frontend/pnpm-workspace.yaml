@@ -7,6 +7,10 @@ allowBuilds:
   # `@esbuild/*` package the lockfile pins; its script only checks for it and, finding none, installs
   # one through npm, past the lockfile and this file's policies. Refused, a missing binary fails loudly.
   esbuild: false
+  # Its script copies the browser's service worker into each directory `package.json :: msw.workerDirectory`
+  # names, and this manifest names none: the unit tests serve the backend through MSW's Node server alone,
+  # and nothing here needs the browser worker.
+  msw: false
   protobufjs: false
   # Its native code comes from the prebuilt @img packages the lockfile pins; pnpm lists it only for
   # the source build its binding.gyp offers, which nothing here needs.

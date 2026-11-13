@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -67,31 +68,29 @@ const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voi
  * The fixture the save reads before its write, every payload it writes, what the write answers, and what the write's
  * dry run, asked first, reports.
  */
-const state = vi.hoisted(() => ({
+const state = {
   read: null as unknown,
   sent: [] as unknown[],
   answer: null as unknown,
   dryRun: null as unknown,
-}));
+};
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
-// save clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
+/** Every request the save made of the write's endpoint, its dry run's among them, with its query. */
+const calls: { endpoint: string; method: string }[] = [];
 
-// The editor's view as far as the save reads it: the fixture.
-vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => ({ spiel: state.read }),
-}));
+// The backend answers the editor's read with the fixture, the dry run with its report and the write with its answer,
+// so the save runs through the real guard, read, generated call and dispatch, which counts the write.
+serveBackend(({ method, path, search, body }) => {
+  if (method === "GET" && path === `/spiele/${SPIEL_ID}/admin`) return { spiel: state.read };
+  if (method !== "PATCH" || path !== `/spiele/${SPIEL_ID}`) return undefined;
 
-// The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
-// which counts it.
-const calls = doubleApiClient((call) => {
-  if (call.endpoint.includes("dry_run=true")) return state.dryRun;
-  state.sent.push(JSON.parse(call.body ?? "null"));
+  calls.push({ endpoint: search.size > 0 ? `${path}?${search.toString()}` : path, method });
+  if (search.get("dry_run") === "true") return state.dryRun;
+  state.sent.push(body);
   return state.answer;
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
 
 const { saveSpiel } = await import("./saveSpiel");
 

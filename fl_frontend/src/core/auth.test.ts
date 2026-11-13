@@ -15,9 +15,11 @@ import {
   sessionByCode,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
-import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { assertionAnswer } from "./auth/assertionAnswer.ts";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
@@ -164,11 +166,12 @@ let erasureAnswer = ERASED;
 /** How many erasures the backend has been asked for, which a case reads before and after its press. */
 const erasuresAsked = (): number => asked.filter((path) => path === ERASURE_PATH).length;
 
-const ORIGINAL_FETCH = globalThis.fetch;
-globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+serveBackend(async ({ path: endpoint, body }) => {
+  // Under the base path the client sends it on, as the cases spell every path they compare.
+  const path = `/api/v0${endpoint}`;
   asked.push(path);
-  if (path === ERASURE_PATH) return erasureAnswer();
+  // A rejected answer is a request the backend never answered.
+  if (path === ERASURE_PATH) return erasureAnswer().catch(() => HttpResponse.error());
   const held = heldRead;
   if (held !== undefined) {
     heldRead = undefined;
@@ -176,21 +179,15 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     await held.release;
   }
 
-  const email = (JSON.parse(String(init?.body ?? "{}")) as { email?: string }).email ?? "";
+  const email = ((body ?? {}) as { email?: string }).email ?? "";
   const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
-  if (backend === "throws") throw new TypeError("fetch failed");
+  if (backend === "throws") return HttpResponse.error();
   if (backend === "refuses") {
     const refusal = { error_code: "payload_refused", trace_id: "0".repeat(32), fields: [] };
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
   }
 
-  return new Response(JSON.stringify(answerAt(path, backend)), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
-}) as typeof globalThis.fetch;
-afterAll(() => {
-  globalThis.fetch = ORIGINAL_FETCH;
+  return answerAt(path, backend);
 });
 
 /** A stored passkey as the plugin's own routes read one, so an admitted route would really act. */
