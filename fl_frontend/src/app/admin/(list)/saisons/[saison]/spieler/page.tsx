@@ -3,14 +3,13 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
-import { ACTIVE_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { kaderName } from "@/features/spieler/constants";
 import { getSpielerAdmin } from "@/features/spieler/queries";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -48,7 +47,7 @@ function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
     id: row.spieler_id,
     name: { record: kaderName(row) },
     href: ROUTES.adminSpielerRecord.path(saison, row.spieler_id),
-    chip: rowChip(row) ?? ACTIVE_CHIP,
+    chip: rowState(row),
     muted: row.inactive_since !== null,
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },

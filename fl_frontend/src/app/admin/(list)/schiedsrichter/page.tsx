@@ -1,5 +1,4 @@
 import { ListPage } from "@/kit/ListPage";
-import { CONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -27,7 +26,7 @@ function rowOf(referee: FLSchiedsrichter): TableRow {
     id: referee.id,
     name: { record: referee.name },
     href: ROUTES.adminSchiedsrichterRecord.path(referee.id),
-    chip: refereeChip(referee) ?? CONFIRMED_CHIP,
+    chip: refereeChip(referee),
     muted: referee.inactive_since !== null,
     cells: {
       email: referee.kontakt.email === null ? COPY.shared.noValue : { record: referee.kontakt.email },

@@ -1,4 +1,4 @@
-import { RETIRED_CHIP } from "@/kit/stateChips";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 
@@ -30,14 +30,13 @@ export function austrittChip(type: FLAustrittType): ChipProps {
 }
 
 /**
- * The chip after a club's name in the administration where it is out of play: „Stillgelegt“ once it left the league,
- * else how it left the season, in its route's hue, as the public chip draws it, and in the full word, which the list and
- * the editor have room for. A club playing on has none here: the editor's head names no default, and the list's „Stand“ column
- * draws „Aktiv“ in its place.
+ * The chip after a club's name in the administration, the list's „Stand“ column's and the editor's head alike:
+ * „Stillgelegt“ once it left the league, else how it left the season, in its route's hue, as the public chip draws it,
+ * and in the full word, which the list and the editor have room for; „Aktiv“ while it plays on.
  */
-export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
+export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps {
   if (retiredSince !== null) return RETIRED_CHIP;
-  return exit === null ? undefined : { tone: AUSTRITT_TONE[exit], label: austrittState(exit) };
+  return exit === null ? ACTIVE_CHIP : { tone: AUSTRITT_TONE[exit], label: austrittState(exit) };
 }
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {

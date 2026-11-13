@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { actLabel } from "@/kit/dialogAct";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
-import { ACTIVE_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { FLGruppenNames, FLTeamListState } from "@/core/generated/client/types";
@@ -61,14 +60,13 @@ export async function generateMetadata({ params, searchParams }: Props, parent: 
  * and muted once out, its group and its colour.
  */
 function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
-  const out = adminTeamChip(team.inactive_since, team.austritt_type);
   return {
     id: team.id,
     name: { record: team.name },
     plaque: { record: team.shorthand },
     href: ROUTES.adminTeam.path(saison, team.id),
-    chip: out ?? ACTIVE_CHIP,
-    muted: out !== undefined,
+    chip: adminTeamChip(team.inactive_since, team.austritt_type),
+    muted: team.inactive_since !== null || team.austritt_type !== null,
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
       trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : trikotFarbeLabel(team.trikot_farbe),

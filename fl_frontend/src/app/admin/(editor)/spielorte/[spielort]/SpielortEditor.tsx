@@ -2,7 +2,7 @@
 
 import { AddressFields } from "@/kit/AddressFields";
 import { EditorPage } from "@/kit/EditorPage";
-import { RETIRED_CHIP } from "@/kit/stateChips";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 import { useEditor } from "@/kit/useEditor";
 
@@ -73,7 +73,7 @@ export function SpielortEditor({
   return (
     <EditorPage
       title={title}
-      chip={retired ? RETIRED_CHIP : undefined}
+      chip={retired ? RETIRED_CHIP : ACTIVE_CHIP}
       editor={editor}
       danger={{ title: COPY.admin.retirement, acts: [danger] }}
       sections={[

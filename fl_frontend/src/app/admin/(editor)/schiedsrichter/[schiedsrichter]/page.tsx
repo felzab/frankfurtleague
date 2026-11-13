@@ -93,14 +93,11 @@ export default function SchiedsrichterEditorPage({ params }: Props) {
 
 /**
  * The chips after the name, as a seat's row sets them: the state's, then what the last confirmation mail met where it
- * met trouble (`deliveryChip`). A confirmed entry carries no state chip, so its mail's trouble, a complaint after the
- * delivery, stands first.
+ * met trouble (`deliveryChip`), such as a complaint after a confirmed entry's delivery.
  */
-function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip?: ChipProps; flag?: ChipProps } {
-  const state = refereeChip(referee);
-  const mail = deliveryChip(delivery) ?? undefined;
-  if (state === undefined) return mail === undefined ? {} : { chip: mail };
-  return { chip: state, ...(mail === undefined ? {} : { flag: mail }) };
+function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip: ChipProps; flag?: ChipProps } {
+  const mail = deliveryChip(delivery);
+  return { chip: refereeChip(referee), ...(mail === null ? {} : { flag: mail }) };
 }
 
 /**

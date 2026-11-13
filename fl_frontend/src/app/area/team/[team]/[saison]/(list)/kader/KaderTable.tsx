@@ -3,11 +3,10 @@
 import { useState } from "react";
 
 import { ListTable } from "@/kit/ListTable";
-import { ACTIVE_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 
 import { KaderRowDialog } from "./KaderRowDialog";
 
@@ -32,7 +31,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
       name: { record: kaderName(row) },
       // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
       ...(isLive && mark !== undefined ? { mark } : {}),
-      chip: rowChip(row) ?? ACTIVE_CHIP,
+      chip: rowState(row),
       ...(facts.length === 0 ? {} : { phoneLine: COPY.shared.line(facts) }),
       muted: !isLive,
       ...(isLive ? { onOpen: () => open(row) } : {}),

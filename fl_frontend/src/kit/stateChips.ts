@@ -7,7 +7,7 @@ import type { ChipProps } from "./Chip";
  * state another page shows too. Green is a state reached and in order, as a list's default row is.
  */
 
-/** A record in play, the default row of a list's „Stand“ column: a club, a squad row, a venue. */
+/** A record in play, the default of a list's „Stand“ column and of its editor's head: a club, a squad row, a venue. */
 export const ACTIVE_CHIP: ChipProps = { tone: "success", label: COPY.admin.team.active };
 
 /** A record the league retired, out of play for every season to come: a club, a venue, a referee. */
