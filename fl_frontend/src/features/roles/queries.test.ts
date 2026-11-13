@@ -1,8 +1,8 @@
-import { person } from "@/test-support/subjectFixtures.ts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { signedInRequest } from "@/test-support/session.ts";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { FLOwnSaisonsResponse, FLSaisonFrameResponse } from "@/core/generated/client/types.ts";
-import type { SubjectSession } from "@/core/subject.ts";
 
 const SAISONS = {
   "2027": { id: "2027", start_date: "2026-09-01", end_date: "2027-07-31" },
@@ -10,30 +10,22 @@ const SAISONS = {
   "2025": { id: "2025", start_date: "2024-09-01", end_date: "2025-07-31" },
 } as const;
 
-/** What the backend holds for the case: the signed-in person, their own seasons and the season the site is on. */
-const held = vi.hoisted(() => ({
-  subject: null as SubjectSession | null,
-  own: [] as FLOwnSaisonsResponse["saisons"],
-  running: null as string | null,
-}));
+/** What the backend holds for the case: the referee's own seasons and the season the site is on. */
+const held = { own: [] as FLOwnSaisonsResponse["saisons"], running: null as string | null };
 
-vi.mock("@/core/subject", () => ({ getSubjectSession: () => Promise.resolve(held.subject) }));
-// The trace and the actor a person's read runs under are its own module's and its own test's.
-vi.mock("@/shared/utils/personRead", () => ({ runPersonRead: <Read>(read: () => Promise<Read>) => read() }));
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: () => Promise.resolve({ saisons: [], active_saison_id: held.running } satisfies FLSaisonFrameResponse),
-}));
-vi.mock("@/core/generated/client/sdk", () => {
-  const read = () => Promise.resolve({ saisons: held.own } satisfies FLOwnSaisonsResponse);
-  return { spielerGetSelfSaisons: read, schiedsrichterGetSelfSaisons: read };
+// The two reads the frame's seasons make, each answered only at its own method and path: the referee's own seasons,
+// and the public frame naming the season the site is on.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/schiedsrichter/self/saisons") return { saisons: held.own } satisfies FLOwnSaisonsResponse;
+  return path === "/saisons/frame" ? ({ saisons: [], active_saison_id: held.running } satisfies FLSaisonFrameResponse) : undefined;
 });
+// A referee's session: the real subject read, the real person's read and the real frame read run beneath the query.
+signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607250021" }] } });
 
 const { getOwnSaisons } = await import("./queries.ts");
 
-const REFEREE = person({ schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607250021" }] });
-
 beforeEach(() => {
-  held.subject = REFEREE;
   held.own = [SAISONS["2027"], SAISONS["2026"], SAISONS["2025"]];
   held.running = "2026";
 });
