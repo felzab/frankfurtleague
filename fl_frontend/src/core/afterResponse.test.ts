@@ -49,9 +49,9 @@ const backend = serveBackend(({ method, path, body }) => {
   }
   return undefined;
 });
-const provided = serveHost("https://api.resend.com", ({ method, url }) =>
-  method === "POST" && url.pathname === "/emails" ? { id: "re-1" } : undefined,
-);
+/** The provider's one endpoint, served inside the case reading what it took: a host the file serves records every case. */
+const serveTheProvider = () =>
+  serveHost("https://api.resend.com", ({ method, url }) => (method === "POST" && url.pathname === "/emails" ? { id: "re-1" } : undefined));
 
 vi.doMock("@/core/config.ts", () => CONFIG);
 vi.doMock("next/server", async () => ({
@@ -86,6 +86,7 @@ it("schedules no drain under a restore's hold, and one without it", () => {
    send after it would be refused unsent and the page left to the hourly pass. Scheduled from inside a request, as a
    write's drain is, so a drain run in the request's scope would inherit its cut. */
 it("drains behind the response under no request's cut, so a drain past 30 seconds still sends", async () => {
+  const provided = serveTheProvider();
   await runWithRequestScope({ traceId: "0".repeat(32) }, async () => {
     drainSoon();
   });
