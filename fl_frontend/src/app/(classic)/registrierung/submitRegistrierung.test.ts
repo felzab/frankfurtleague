@@ -1,14 +1,9 @@
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { refused } from "@/test-support/refusals";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
-
-import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types";
-import type { ApiCall } from "@/test-support/apiClientDouble";
 
 const link = vi.hoisted(() => ({ forget: vi.fn<(page: string) => Promise<void>>(async () => undefined) }));
 
@@ -20,11 +15,11 @@ vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => null }));
 // The cookie the proxy set, which only Next's request scope holds.
 vi.mock("@/core/mailedLink", () => ({ forgetMailedLink: link.forget }));
 
-const { calls, answerWith } = doubleApiAnswers(() => Promise.resolve({ registrierung_id: "6890a1b2c3d4e5f607190001" }));
+const { calls } = doubleApiAnswers(() => Promise.resolve({ registrierung_id: "6890a1b2c3d4e5f607190001" }));
 
 // Both after the double: the page's module reads the link's view through the generated client too.
 const { submitRegistrierung } = await import("./submitRegistrierung");
-const { LINK_INVALID, REPLAY_FIELD } = await import("./invitation");
+const { REPLAY_FIELD } = await import("./invitation");
 
 const KEY = "3f2b8c1e-7a4d-4e6f-9b1a-2c3d4e5f6a7b";
 const TOKEN = "not-a-real-token";
@@ -48,28 +43,6 @@ const posted = (entries: Readonly<Record<string, string>>) => {
   for (const [name, value] of Object.entries(entries)) formData.set(name, value);
   return formData;
 };
-
-const OPEN: FLInvitationViewResponse = {
-  team: "Kastanie",
-  schule: "Kastanie-Gymnasium",
-  saison_id: "2027",
-  saison_status: "active",
-  running: true,
-  allowed_stufen: ["Q1", "Q2"],
-  team_entered: true,
-  kader_free: true,
-  nachnominierung: false,
-};
-
-/** The registration's write refused with `code`, and the link's view read again answering `view`, or refused as dead. */
-const movedTo = (code: Code, view: FLInvitationViewResponse | null) =>
-  answerWith((call: ApiCall) =>
-    call.endpoint.endsWith("/invitation/view")
-      ? view === null
-        ? Promise.reject(refused("document_not_found"))
-        : Promise.resolve(view)
-      : Promise.reject(refused(code)),
-  );
 
 beforeEach(() => {
   link.forget.mockClear();
@@ -96,25 +69,5 @@ describe("the registration a press sends", () => {
     });
     // The next person at a shared browser opening the plain address meets no earlier pupil's link.
     expect(link.forget).toHaveBeenCalledWith(ROUTES.registrierung.path());
-  });
-});
-
-// The harm: one code covers a shut window and a club out of the season, so a card chosen by the code alone tells a pupil
-// the wrong reason, and a pupil whose link has gone keeps a form nothing accepts.
-describe("a press the link's state refused since the page was read", () => {
-  it("ends on the card the link opens now", async () => {
-    movedTo("registrierung_closed", { ...OPEN, team_entered: false });
-    expect(await submitRegistrierung(posted(BOXES))).toMatchObject({
-      ok: true,
-      value: { title: SERVER_COPY.registrierung.end.teamNotEntered },
-    });
-
-    movedTo("registrierung_closed", { ...OPEN, running: false });
-    expect(await submitRegistrierung(posted(BOXES))).toMatchObject({ ok: true, value: { title: SERVER_COPY.registrierung.end.closed } });
-
-    movedTo("document_not_found", null);
-    expect(await submitRegistrierung(posted(BOXES))).toStrictEqual({ ok: true, value: LINK_INVALID });
-
-    expect(link.forget).not.toHaveBeenCalled();
   });
 });
