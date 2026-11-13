@@ -1,7 +1,8 @@
 /**
  * E2E · no page moves while it loads: every page each role reaches in the made-up seed's three seasons, at a phone's
  * size and a desktop's, by a hard load, by a client navigation from the link a person presses, and by a hard load at a
- * viewport 4000 px tall. Its budget is zero (`../support/layoutShift.ts`).
+ * viewport 4000 px tall. Its budget is zero (`../support/layoutShift.ts`). Its first case is its own red, a page that
+ * moves, which the recorder must report.
  *
  * The tall pass is there because the API counts only nodes in view: a wait below the first screen that lands at another
  * size moves boxes nobody measures at 844 or 900 px. At 4000 px most pages stand whole in view, and the frame's `main`
@@ -25,7 +26,7 @@
 import { expect } from "@playwright/test";
 
 import { ADMINISTRATOR_STATE, test as journey } from "../support/journey";
-import { expectStill, NEWCOMER, recordShifts, sessionFile, settle } from "../support/layoutShift";
+import { expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } from "../support/layoutShift";
 import { signInWithCode } from "../support/signIn";
 import { standInForTurnstile } from "../support/turnstileStandIn";
 
@@ -378,6 +379,41 @@ const ROLES: Record<Role, readonly Walk[]> = {
   newcomer: OFFERED,
 };
 
+/**
+ * The guard's own red: a page whose paragraph a block pushes down a moment after it has loaded and painted, served by
+ * the case itself at an address of the stack's origin, never by the stack. A real navigation, since the recorder's
+ * init script runs in each new document, which `page.setContent` writes into the blank one instead.
+ */
+const MOVING = "/layout-guard-moving";
+
+const MOVING_PAGE = `<!doctype html>
+<html lang="de">
+  <body>
+    <p>Absatz</p>
+    <script>
+      addEventListener("load", () =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            setTimeout(() => {
+              const block = document.createElement("div");
+              block.style.height = "100px";
+              document.body.prepend(block);
+            }, 100),
+          ),
+        ),
+      );
+    </script>
+  </body>
+</html>`;
+
+test("a paragraph pushed down by a block inserted above it moves", async ({ page }) => {
+  const record = await recordShifts(page);
+  await page.route(MOVING, (route) => route.fulfill({ contentType: "text/html", body: MOVING_PAGE }));
+  await page.goto(MOVING);
+  await settle(page, record);
+  expect(totalOf(record), "the recorder reports the paragraph's move").toBeGreaterThan(0);
+});
+
 for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) {
   test.describe(role, { tag: role === "visitor" ? [] : ["@signed-in"] }, () => {
     if (role === "newcomer") test.use({ storageState: async ({ newcomerSession }, provide) => provide(newcomerSession) });
@@ -397,16 +433,16 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         test.describe(`at ${width} px`, () => {
           test.use(device);
 
-          test(`${target} by a hard load`, { tag }, async ({ page, context }) => {
-            const record = await recordShifts(context);
+          test(`${target} by a hard load`, { tag }, async ({ page }) => {
+            const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
             await expectStill(page, record, () => page.goto(address));
             await expectSignedIn(page, role);
           });
 
           if (origin !== undefined) {
-            test(`${target} by the link on ${origin}`, { tag }, async ({ page, context }) => {
-              const record = await recordShifts(context);
+            test(`${target} by the link on ${origin}`, { tag }, async ({ page }) => {
+              const record = await recordShifts(page);
               // The walk ends on the origin, settled, its link to the target read and, where a control holds it, open.
               const { link } = await walk(page, record, steps, phone);
               const left = page.url();
@@ -423,8 +459,8 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         test.describe(`at ${width} by ${String(TALL)} px`, () => {
           test.use({ ...device, viewport: { width: device.viewport.width, height: TALL } });
 
-          test(`${target} by a hard load`, { tag }, async ({ page, context }) => {
-            const record = await recordShifts(context);
+          test(`${target} by a hard load`, { tag }, async ({ page }) => {
+            const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
             await expectStill(page, record, () => page.goto(address));
             await expectSignedIn(page, role);

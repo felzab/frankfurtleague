@@ -7,7 +7,7 @@
  * what this guard exists for: it leaves out an entry within 500 ms of an input, which every client navigation's shift
  * is, and calls 0.1 good, where the landing's 19-px jump measured 0.0059. Chromium alone reports the entries: WebKit
  * lists no `layout-shift` among `PerformanceObserver.supportedEntryTypes`, so the `layout` project runs in Chromium at
- * a phone's size too.
+ * a phone's size too, and the recorder fails a context whose browser lists none.
  */
 import path from "node:path";
 
@@ -77,11 +77,17 @@ export type ShiftRecord = Shift[];
 const SHIFT_BINDING = "journeyMeetsLayoutShift";
 
 /**
- * Records every layout shift each document of `context` reports, from its first frame: an init script runs before any
- * script of the page, and the observer's `buffered` flag hands it the entries reported before it observed. Each entry
- * goes to the driver as it arrives, so a document a redirect leaves keeps its entries.
+ * Records every layout shift each document of `page`'s context reports, from its first frame: an init script runs
+ * before any script of the page, and the observer's `buffered` flag hands it the entries reported before it observed.
+ * Each entry goes to the driver as it arrives, so a document a redirect leaves keeps its entries. A browser listing no
+ * `layout-shift` entry would observe nothing and sum zero on every page, so the context fails at once; an entry whose
+ * sources cannot be described still counts its value.
  */
-export async function recordShifts(context: BrowserContext): Promise<ShiftRecord> {
+export async function recordShifts(page: Page): Promise<ShiftRecord> {
+  const context: BrowserContext = page.context();
+  expect(await page.evaluate(() => PerformanceObserver.supportedEntryTypes.includes("layout-shift")), "the browser reports layout shift").toBe(
+    true,
+  );
   const record: ShiftRecord = [];
   await context.exposeBinding(SHIFT_BINDING, (_source, shift: Shift) => {
     record.push(shift);
@@ -107,17 +113,25 @@ export async function recordShifts(context: BrowserContext): Promise<ShiftRecord
       };
     };
     const box = (rect: DOMRectReadOnly): readonly number[] => [rect.x, rect.y, rect.width, rect.height].map(Math.round);
+    const sourcesOf = (entry: LayoutShiftEntry) => {
+      try {
+        return entry.sources.map((source) => ({
+          ...describe(source.node),
+          previous: box(source.previousRect),
+          current: box(source.currentRect),
+        }));
+      } catch (error) {
+        // A throw here would drop the entry's value with it, and the case would sum zero.
+        return [{ landmark: "none", node: `undescribed: ${String(error)}`, text: "", previous: null, current: null }];
+      }
+    };
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as LayoutShiftEntry[]) {
         forward({
           address: location.pathname + location.search,
           value: entry.value,
           hadRecentInput: entry.hadRecentInput,
-          sources: entry.sources.map((source) => ({
-            ...describe(source.node),
-            previous: box(source.previousRect),
-            current: box(source.currentRect),
-          })),
+          sources: sourcesOf(entry),
         });
       }
     }).observe({ type: "layout-shift", buffered: true });
@@ -176,6 +190,9 @@ function wordsOf({ address, value, hadRecentInput, sources }: Shift): string {
   return [`  ${address}: ${value.toFixed(5)}${hadRecentInput ? " (after an input)" : ""}`, ...lines].join("\n");
 }
 
+/** The share of the viewport `shifts` moved, summed: what the budget of zero is held against. */
+export const totalOf = (shifts: ShiftRecord): number => shifts.reduce((sum, { value }) => sum + value, 0);
+
 /**
  * Runs `act`, a load or a navigation, waits until the page stands still, and asserts that nothing moved: the sum of every
  * shift reported since `act` began is zero. Soft, so a test's other loads still report.
@@ -185,6 +202,5 @@ export async function expectStill(page: Page, record: ShiftRecord, act: () => Pr
   await act();
   await settle(page, record);
   const shifts = record.slice(from);
-  const total = shifts.reduce((sum, { value }) => sum + value, 0);
-  expect.soft(total, `the page moved while it loaded:\n${shifts.map(wordsOf).join("\n")}`).toBe(0);
+  expect.soft(totalOf(shifts), `the page moved while it loaded:\n${shifts.map(wordsOf).join("\n")}`).toBe(0);
 }
