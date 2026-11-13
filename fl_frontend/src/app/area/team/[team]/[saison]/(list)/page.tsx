@@ -115,7 +115,7 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
       return {
         ...base,
         chip: EXPIRED_CHIP,
-        // A row an exit ended lapsed on no day, its deadline never reached.
+        // A row an exit ended before its deadline lapsed on no day, its deadline never reached.
         line: line([
           when,
           venueOf(ansetzung),

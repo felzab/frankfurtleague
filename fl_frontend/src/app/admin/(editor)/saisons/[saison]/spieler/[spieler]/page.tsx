@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-
 import { requires } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
@@ -64,8 +62,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** A player's editor in one season, on its one read and its one save over the person and their squad row. */
-export default function SpielerEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SpielerEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** The Person box's fact: the address, a mail link to the person. */

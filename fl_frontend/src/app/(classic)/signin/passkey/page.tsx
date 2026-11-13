@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { SignInShell } from "@/kit/SignInShell";
-
 import { getPasskeyStep } from "@/core/auth/landing";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
@@ -20,12 +18,9 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 // Never under `/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
 
-/**
- * Resolves nothing itself: a top-level await would tie the static shell to one URL, and this page is a
- * function of the session on the request.
- */
-export default function PasskeyPage({ searchParams }: Props) {
-  return <SignInShell view={readView(searchParams)} />;
+/** The passkey step the session on the request owes. */
+export default async function PasskeyPage({ searchParams }: Props) {
+  return await readView(searchParams);
 }
 
 async function readView(searchParams: Props["searchParams"]) {

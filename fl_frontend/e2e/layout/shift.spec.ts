@@ -2,8 +2,8 @@
  * E2E · no page moves while it loads: every page each role reaches in the made-up seed's three seasons, at a phone's
  * size and a desktop's, by a hard load, by a client navigation from the link a person presses, and by a hard load at a
  * viewport 4000 px tall. Its budget is zero, for a hard load from the moment its document is parsed
- * (`../support/layoutShift.ts`). Its first case is its own red, a page that moves once parsed, which the recorder must
- * count against a load.
+ * (`../support/layoutShift.ts`). Its first two cases are its own red, a page that moves once loaded and one that moves
+ * once parsed while its load is still held back, each of which the recorder must count against a load.
  *
  * The tall pass is there because the API counts only nodes in view: a box below the first screen that changes size once
  * the page is parsed moves boxes nobody measures at 844 or 900 px. At 4000 px most pages stand whole in view, and the
@@ -16,7 +16,7 @@
  * client navigation presses the link on. A walk of one address is a page no link of the site leads to, such as a mailed
  * link's, and has no client navigation. Where the way differs between the widths, a case names a walk for each, and a
  * width it names none for has no way to the page. The landing's cases carry `@landing`, which CI runs again under each
- * state `scripts/ops/seed/seed.js :: SEED_LANDING` seeds, and the signed-in roles' `@signed-in`, the leg holding the
+ * state `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, and the signed-in roles' `@signed-in`, the leg holding the
  * administrator's session.
  *
  * A still page proves nothing about a page never reached, so each case asserts what answered: a hard load's status and
@@ -561,6 +561,60 @@ test("a paragraph pushed down by a block inserted above it moves", async ({ page
   await page.goto(MOVING);
   await settle(page, record);
   expect(totalOf(countedOf(record, "load")), "the recorder counts the paragraph's move against the load").toBeGreaterThan(0);
+});
+
+/**
+ * The guard's red for the load rule's boundary: the same move, made once the document is parsed but while its `load`
+ * is still held back by an image the case answers only after the move, so a rule counting from the end of loading,
+ * rather than from `DOMContentLoaded`, drops it. The page notes whether `load` had begun when it moved.
+ */
+const MOVING_EARLY = "/layout-guard-moving-early";
+
+const HELD_IMAGE = "/layout-guard-held.gif";
+
+const MOVING_EARLY_PAGE = `<!doctype html>
+<html lang="de">
+  <body>
+    <p>Absatz</p>
+    <img src="${HELD_IMAGE}" width="1" height="1" alt="" />
+    <script>
+      addEventListener("DOMContentLoaded", () =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const [navigation] = performance.getEntriesByType("navigation");
+            document.documentElement.dataset.loadBegunAtMove = String(navigation.loadEventStart > 0);
+            const block = document.createElement("div");
+            block.style.height = "100px";
+            document.body.prepend(block);
+          }),
+        ),
+      );
+    </script>
+  </body>
+</html>`;
+
+/** A 1 × 1 transparent GIF, the held image's body once the case lets `load` come. */
+const GIF = Buffer.from("R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==", "base64");
+
+test("a paragraph pushed down after the parse and before the load ends moves", async ({ page }) => {
+  const record = await recordShifts(page);
+  let release = () => {};
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(MOVING_EARLY, (route) => route.fulfill({ contentType: "text/html", body: MOVING_EARLY_PAGE }));
+  await page.route(HELD_IMAGE, async (route) => {
+    await released;
+    await route.fulfill({ contentType: "image/gif", body: GIF });
+  });
+  // Not to `load`, which the held image keeps back until the move has been reported.
+  await page.goto(MOVING_EARLY, { waitUntil: "domcontentloaded" });
+  await expect.poll(() => record.length, { message: "the block's move is reported while the image is held" }).toBeGreaterThan(0);
+  expect(await page.locator("html").getAttribute("data-load-begun-at-move"), "the block moved before the load began").toBe("false");
+  release();
+  await page.waitForLoadState("load");
+  await settle(page, record);
+  expect(totalOf(countedOf(record, "load")), "the recorder counts the move between the parse and the load").toBeGreaterThan(0);
 });
 
 for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) {

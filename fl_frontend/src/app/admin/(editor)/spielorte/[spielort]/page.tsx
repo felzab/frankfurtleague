@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-
 import { ROUTES } from "@/core/routes";
 import { getSpielort } from "@/features/spielorte/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -41,8 +39,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** A venue's editor, on its one read by id and its write on the version it was read at. */
-export default function SpielortEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SpielortEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 async function readEditor(params: Props["params"]) {

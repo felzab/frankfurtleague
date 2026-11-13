@@ -1,8 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -106,8 +105,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The match editor, on its one view read. */
-export default function SpielEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SpielEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */
@@ -187,7 +186,7 @@ const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
  * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
  * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
  * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
- * it lapsed on, as every other page under that chip does; one an exit or a decision ended lapsed on no day, and its line
+ * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due lapsed on no day, and its line
  * says the answer is missing. A discarded proposal reads as the agreement the fixture counts. An answer about a slot the
  * match has left is drawn as given beside that slot, which it alone is about. A row about a slot the match has left that
  * holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time that
@@ -210,7 +209,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   }
   const { answer } = row;
   // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
-  if (answer === null) return { ...shown, chip: { tone: "warn", label: ANSWER_MISSING }, line: WORDS.answerBy(dayOf(row.due_by)) };
+  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: WORDS.answerBy(dayOf(row.due_by)) };
   const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
   if (row.state === "invalid") {
     const slot = SERVER_COPY.season.labelled(

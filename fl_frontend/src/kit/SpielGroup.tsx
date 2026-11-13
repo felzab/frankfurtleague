@@ -21,16 +21,20 @@ export function SpielGroup({
   head,
   spiele,
   columns = "own",
+  level = 3,
 }: {
   head: Copy;
   spiele: ReadonlyArray<SpielRowProps & { id: string }>;
   columns?: Columns;
+  /** The head's rung, `GroupHead`'s. */
+  level?: 2 | 3;
 }) {
   return (
     <section className={groupBox(columns)}>
       <GroupHead
         text={head}
         inset="rows"
+        level={level}
       />
       <SpielList
         matches={spiele}

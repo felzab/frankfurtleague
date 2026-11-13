@@ -99,15 +99,23 @@ commit until it ends.
   once the whole page is rendered, and the browser paints it as it parses it.
 - A slow device may paint that document in pieces while it parses, a table before its later rows.
 - A page that finds nothing, is refused or throws while the server renders it arrives as Next's bare
-  error document. Its body is empty, so the visitor sees a bare ground in the device's own colour
-  scheme until the page's code runs and draws the segment's not-found or error page in its frame.
-  On a light device, a visitor who chose the dark theme sees a white ground first.
+  error document. Its body is empty, so the visitor sees a bare ground until the page's code runs
+  and draws the segment's not-found or error page in its frame.
+- The ground of a bare error document rendered per request, and of Next's own not-found document
+  for an address no route matches, is in the device's own colour scheme: the head carries the root
+  layout's `color-scheme` meta. On a light device, a visitor who chose the dark theme sees a white
+  ground first.
+- A bare error document prerendered at build time carries no such meta, since Next builds that
+  shell without the page's viewport, so its ground is white on every device. Two stand in the
+  build: the area's catch-all at `/area/<anything>`, which answers 404, and Next's global error
+  document.
 - A client navigation keeps the page it leaves until the next one is complete, since Next's router
   makes it a transition and a transition never hides content it has revealed. The page fade runs
   once, between two finished pages.
-- The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which tells Next's
-  checks that a navigation into any route may block and that a route's prerendered shell may be
-  empty.
+- The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which lifts the
+  build's check that a route's prerendered shell holds something, for every route. It leaves the
+  development server's check of a navigation between two pages below the root as Next sets it by
+  default: `next dev` still checks such a navigation and warns.
 
 **One fact says a navigation is under way**: the address it goes to, which
 `fl_frontend/src/kit/WholePage.tsx :: WholePages`, placed around every route by the root layout,

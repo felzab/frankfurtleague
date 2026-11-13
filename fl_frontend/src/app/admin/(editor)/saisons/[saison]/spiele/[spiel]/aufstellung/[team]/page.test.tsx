@@ -8,7 +8,6 @@ import { COPY } from "@/core/copy";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
-import type { ReactElement } from "react";
 
 const TEAM = "6890a1b2c3d4e5f607250012";
 const OTHER_TEAM = "6890a1b2c3d4e5f607250011";
@@ -64,11 +63,12 @@ describe("a club's line-up at the league's address", () => {
   // The harm: a save sent for the other club of the match, or another match, which writes that line-up unseen and
   // answers „Gespeichert“; past the team's lock, too, the league's editor stands open.
   it("saves for the match and the club the page read, on the version it read, the team's lock past", async () => {
-    const shell = AdminAufstellungPage({
-      params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
-      searchParams: Promise.resolve({}),
-    }) as ReactElement<{ editor: Promise<ReactElement> }>;
-    render(await shell.props.editor);
+    render(
+      await AdminAufstellungPage({
+        params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
 
     // The squad's one pupil: „Aufstellen“ is that pupil's alone.
     await userEvent.click(screen.getByRole("button", { name: new RegExp(`^${LINEUP_WORDS.pick}`) }));

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { NOT_SENT_CHIP, SENT_CHIP } from "@/kit/stateChips";
+import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
@@ -94,7 +93,7 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, s
   if (out !== undefined) return out;
   const waiting = waitingOf(row);
   if (waiting === null) return SENT_CHIP;
-  return status === "past" ? { ...waiting, tone: "neutral" } : waiting;
+  return status === "past" ? outOfPlayChip(waiting) : waiting;
 }
 
 /**
@@ -110,8 +109,8 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 }
 
 /** The season editor, on the season's one admin read. */
-export default function SaisonSettingsPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SaisonSettingsPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 async function readEditor(params: Props["params"]) {

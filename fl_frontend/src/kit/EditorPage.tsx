@@ -116,7 +116,7 @@ function DangerRow({ act }: { act: DangerAct }) {
  * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
  * apart from the fields the bar saves as GitHub's danger zone stands apart from a repository's settings; an
  * editor with none of its acts open draws no such box. The fields are the kit's, bound to `editor`'s draft by
- * the page's own client code, which the template's server half, `EditorShell`, awaits.
+ * the page's own client code, which the page renders once it has read the record.
  *
  * A lock is a state, said once: one muted line under the title, after the Vorschau, names why fields stand locked,
  * each reason once (`COPY.template.lockLine`), and each locked field shows the lock at its label (`isLocked`), so the

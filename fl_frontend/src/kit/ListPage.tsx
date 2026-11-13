@@ -414,10 +414,12 @@ async function ListBody({ list }: { list: ListContent }) {
             <div
               key={group.spiel.id}
               className={SPIEL_CARD_CLASSES}>
+              {/* Each matchday's head stands directly under the page's title, with no section between. */}
               <SpielGroup
                 head={group.head}
                 spiele={[group.spiel]}
                 columns="outer"
+                level={2}
               />
             </div>
           ))}

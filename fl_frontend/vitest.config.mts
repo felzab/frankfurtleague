@@ -2,7 +2,8 @@ import { defineConfig } from "vitest/config";
 
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
- * nowhere else. A project setting none runs under the `test` Vitest sets (https://vitest.dev/config/env).
+ * nowhere else. A project setting none runs under the shell's `NODE_ENV`, or under `test`, which Vitest sets where
+ * the shell sets none.
  */
 const PRODUCTION_BUILD = [
   "src/instrumentation.test.ts",
@@ -10,6 +11,9 @@ const PRODUCTION_BUILD = [
   "src/core/instrumentation.test.ts",
   "src/app/api/client-error/route.test.ts",
 ];
+
+/** The suites of the server `next dev` builds, which run under the `NODE_ENV` it sets. */
+const DEVELOPMENT_BUILD = ["src/instrumentation.development.test.ts"];
 
 /** The database suites of the client `next dev` builds, which run under the `NODE_ENV` it sets. */
 const DEVELOPMENT_BUILD_DB = ["src/core/db.development.db.test.ts"];
@@ -39,14 +43,14 @@ export default defineConfig({
       jsdom: { url: "http://localhost/", pretendToBeVisual: true },
     },
     // Each project's name opens with its tier's, `unit` or `db`: the scripts in `package.json` the gate runs select a
-    // tier by that prefix, so a project named otherwise would run nowhere.
+    // tier by that prefix, so a project named otherwise would run nowhere. Each inherits the options above, `extends`
+    // defaulting to `true` (https://vitest.dev/guide/projects).
     projects: [
       {
-        extends: true,
         test: {
           name: "unit",
           include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
-          exclude: ["src/**/*.db.test.ts", ...PRODUCTION_BUILD],
+          exclude: ["src/**/*.db.test.ts", ...PRODUCTION_BUILD, ...DEVELOPMENT_BUILD],
           // Past Vitest's five seconds: the slowest case, `src/kit/Lineup.test.tsx`'s line-up of eleven,
           // took 6.5 s in a whole run on a loaded 16-core machine (2026-11). Four times that, rounded
           // up to the next ten seconds, as the workflow sets each job's `timeout-minutes`; hooks keep
@@ -60,15 +64,15 @@ export default defineConfig({
         },
       },
       {
-        extends: true,
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        extends: true,
+        test: { name: "unit-development", include: DEVELOPMENT_BUILD, env: { NODE_ENV: "development" } },
+      },
+      {
         test: { name: "db", include: ["src/**/*.db.test.ts"], exclude: DEVELOPMENT_BUILD_DB, ...DB_TIER },
       },
       {
-        extends: true,
         test: { name: "db-development", include: DEVELOPMENT_BUILD_DB, env: { NODE_ENV: "development" }, ...DB_TIER },
       },
     ],
