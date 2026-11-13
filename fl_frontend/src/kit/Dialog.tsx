@@ -97,7 +97,8 @@ export function RouteDialog({
     return () => {
       // Next hides a departed intercepted route rather than unmounting it, and the browser moves focus off a hidden
       // element only later, so the focus is released here as an unmount releases it, and React Aria gives it back to
-      // the element that opened the dialog.
+      // the element that opened the dialog, which held it while the pop-up's page was read, the page beneath staying
+      // live for that navigation (`PageContent`).
       const focused = box?.ownerDocument.activeElement;
       if (focused instanceof HTMLElement && box?.contains(focused)) focused.blur();
     };
