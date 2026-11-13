@@ -11,8 +11,10 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
+
+import type { MongoClient } from "mongodb";
 
 // A replica set, as the store the library's adapter writes in transactions is.
 const { mongod, closing } = await startJudgedReplicaSet();
