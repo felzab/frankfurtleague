@@ -349,20 +349,13 @@ const CLASS_LIST_CONSTANT = {
   name: "^[A-Z][A-Z0-9_]*_CLASSES$",
   match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
 };
-/** The kit's placeholder builders, each taking a class list as its argument. */
-const CLASS_LIST_CALLEES = "^(?:placeholderBar|buttonPlaceholder)$";
 /** A kit component's prop holding a class list, suffixed as `className` is, so one selector reads every one. */
 const CLASS_LIST_PROP = "^[a-z][A-Za-z0-9]*Class$";
 /** The class a recipe's call adds to its own, `buttonLook({ class })`, under either of the two keys `tv` takes. */
 const RECIPE_CLASS_KEY = "^class(?:Name)?$";
 
 /** Where the kit writes a class list beyond the plugin's defaults, which read a `className` and a `tv` config alone. */
-const CLASS_LIST_SELECTORS = [
-  ...getDefaultSelectors(),
-  CLASS_LIST_CONSTANT,
-  { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
-  { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
-];
+const CLASS_LIST_SELECTORS = [...getDefaultSelectors(), CLASS_LIST_CONSTANT, { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP }];
 /**
  * A recipe call's key, read in any call, since a recipe is any function a `tv` call returned, but an assertion's matcher
  * (`toEqual`, `toMatchObject`), whose object is a value expected, never a recipe's options: the plugin reads a value under
@@ -380,7 +373,6 @@ const UNSUFFIXED_CONSTANT =
 /** Each place a class list stands, as the plugin reads it: its defaults' and `CLASS_LIST_SELECTORS`'. */
 const CLASS_LIST_SITES = [
   `JSXAttribute[name.name=/^className$|${CLASS_LIST_PROP}/] > JSXExpressionContainer`,
-  `CallExpression[callee.name=/${CLASS_LIST_CALLEES}/]`,
   `Property[key.name=/${RECIPE_CLASS_KEY}/]`,
   'CallExpression[callee.name="tv"]',
   "VariableDeclarator[id.name=/_CLASSES$/]",
@@ -706,15 +698,14 @@ const DESIGN_BANS = [
     }),
   ),
   // A page arrives whole, inside the one boundary at the root, which no navigation replaces: a boundary anywhere below
-  // it would commit its fallback on a navigation into its page and paint the page in steps again. A template's wait goes
-  // through `PageWait`, which under the root draws its children alone. Next's own boundaries are the same thing by
-  // other names: a route's loading file, and a component loaded apart, whose import waits in one.
+  // it would commit its fallback on a navigation into its page and paint the page in steps. Next's own boundaries are
+  // the same thing by other names: a route's loading file, and a component loaded apart, whose import waits in one.
   importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
       message:
-        "A page arrives whole inside the one boundary at the root, in src/kit/WholePage.tsx: hand a template its content as a promise, and its `PageWait` holds the read.",
+        "A page arrives whole inside the one boundary at the root, in src/kit/WholePage.tsx: hand a template its content as a promise, which the template awaits.",
     },
     PRODUCTION,
     { allow: ["src/kit/WholePage.tsx"] },

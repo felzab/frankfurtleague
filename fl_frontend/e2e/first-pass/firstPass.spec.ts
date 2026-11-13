@@ -42,7 +42,7 @@ test("an application whose 14 days lapsed is deleted, and the seat that confirme
   await mailedMessage("lea.lehmann@example.com", SUBJECT.deleted, SINCE_THE_START);
 
   await page.goto(`/admin/saisons/${SAISON}/bewerbungen`);
-  // A row the pass leaves first: the list's placeholder holds no Lärche either.
+  // A row the pass leaves first: a list not yet drawn holds no Lärche either.
   await expect(page.getByRole("main").getByRole("link", { name: "Espe", exact: true })).toBeVisible();
   await expect(page.getByRole("main").getByRole("link", { name: "Lärche", exact: true })).toHaveCount(0);
 });
