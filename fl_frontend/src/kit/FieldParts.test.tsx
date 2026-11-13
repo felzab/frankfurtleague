@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { ComboBox } from "./ComboBox";
+import { DateField } from "./DateField";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
 import { Select } from "./Select";
@@ -64,7 +66,8 @@ describe("a field's label", () => {
 // The harm: a keyboard user passes over every value a record holds fixed, and a screen reader never reads it, which no
 // sighted reader sees.
 describe("a locked field", () => {
-  it("is reached by Tab and read as read-only, a select's chosen answer included", async () => {
+  it("is reached by Tab and read as read-only, a select's and a combo box's chosen answer and a date included", async () => {
+    const options = [{ id: "a", label: { record: "Gruppe A" } }];
     render(
       <>
         <KitTextField
@@ -75,18 +78,32 @@ describe("a locked field", () => {
         />
         <Select
           label={COPY.signIn.address}
-          options={[{ id: "a", label: { record: "Gruppe A" } }]}
+          options={options}
           isLocked
           value="a"
         />
+        <ComboBox
+          label={COPY.signIn.address}
+          options={options}
+          isLocked
+          value="a"
+        />
+        <DateField
+          label={COPY.signIn.address}
+          isLocked
+          value="2027-03-14"
+        />
       </>,
     );
-    const fields = screen.getAllByRole<HTMLInputElement>("textbox");
-    expect(fields.map((field) => field.value)).toStrictEqual(["Lena", "Gruppe A"]);
-    for (const field of fields) {
+    const boxes = [...screen.getAllByRole<HTMLInputElement>("textbox"), screen.getByRole<HTMLInputElement>("combobox")];
+    expect(boxes.map((box) => box.value)).toStrictEqual(["Lena", "Gruppe A", "Gruppe A"]);
+    // A date's day, month and year are each a stop of their own, read-only by their ARIA state.
+    const segments = screen.getAllByRole("spinbutton");
+    expect(segments.map((segment) => segment.textContent)).toStrictEqual(["14", "03", "2027"]);
+    for (const field of [...boxes, ...segments]) {
       await userEvent.tab();
       expect(document.activeElement).toBe(field);
-      expect(field.readOnly).toBe(true);
+      expect(field instanceof HTMLInputElement ? field.readOnly : field.getAttribute("aria-readonly") === "true").toBe(true);
     }
   });
 });
