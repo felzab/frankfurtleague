@@ -299,11 +299,12 @@ jobs:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
     timeout-minutes: 16
-    # Four legs, each on a runner and a stack of its own, by Playwright project
+    # Six legs, each on a runner and a stack of its own, every case on every event
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
-    # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
-    # project across two databases. `fail-fast: false`, or a red leg cancels the others and their
-    # verdicts are lost. `first-pass` depends on `administrator` alone, so it rides the desktop leg.
+    # jobs"). The journeys split by Playwright project: a project's seeded people are its own, where a
+    # `--shard` would split the cases of one project across two databases. `fail-fast: false`, or a red
+    # leg cancels the others and their verdicts are lost. `first-pass` depends on `administrator` alone,
+    # so it rides the desktop leg.
     strategy:
       fail-fast: false
       matrix:
@@ -313,12 +314,19 @@ jobs:
           - leg: phone
             projects: --project=phone
           # The layout-shift guard (`fl_frontend/e2e/layout/shift.spec.ts`), on stacks of its own: the public leg
-          # re-seeds its database for each state of the landing, and the signed-in leg's setup enrols the
-          # administrator's passkey, which `--no-deps` spares the public one.
+          # re-seeds its database for each state of the landing, and the signed-in legs' setup enrols the
+          # administrator's passkey, which `--no-deps` spares the public one. The guard's cases only read, so its
+          # signed-in ones split by case with `--shard` (https://playwright.dev/docs/test-sharding), each shard
+          # running the setups on its own stack: in three, each takes about as long as the public leg, which then
+          # sets the job's length.
           - leg: layout-public
             projects: --project=layout --no-deps --grep-invert @signed-in
-          - leg: layout-signed-in
-            projects: --project=layout --grep @signed-in
+          - leg: layout-signed-in-1
+            projects: --project=layout --grep @signed-in --shard=1/3
+          - leg: layout-signed-in-2
+            projects: --project=layout --grep @signed-in --shard=2/3
+          - leg: layout-signed-in-3
+            projects: --project=layout --grep @signed-in --shard=3/3
     name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
