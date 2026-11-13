@@ -370,7 +370,7 @@ def overview_of(
                 name=row.get(PARTY_NAME_FIELD),
                 deadline=row[ROW_DEADLINE],
                 # No reason: the next close ends none of these rows, as judged above.
-                lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, now=now),
+                lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, spiel=spiel_raw, austritte=austritte, now=now),
             )
         )
     rows.extend(
