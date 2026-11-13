@@ -280,6 +280,8 @@ class TeamNotice:
     # A move's notice alone: the slot moved to, and whether a request about it follows.
     moved_to: Mapping[str, Any] | None = None
     asked_again: bool | None = None
+    # A call-off's alone: the event it names.
+    sonderereignis: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -292,6 +294,7 @@ class RefereeNotice:
     address: str
     moved_to: Mapping[str, Any] | None = None
     asked_again: bool | None = None
+    sonderereignis: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -402,6 +405,8 @@ async def handed_out(
         names = {"team1_name": appointment["team1"], "team2_name": appointment["team2"]}
         if kind == "spiel_moved":
             names |= {"moved_to": data["moved_to"], "asked_again": data["asked_again"]}
+        if kind == "spiel_cancelled":
+            names |= {"sonderereignis": data["sonderereignis"]}
         to_a_referee = kind == "spiel_einteilung_lifted" or data.get("recipient") == "schiedsrichter"
         if to_a_referee:
             notice = RefereeNotice(spielbestaetigung_id=row_id, spiel_id=row.get("spiel_id"), old=old, address=mail.to, **names)
@@ -1921,9 +1926,9 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
             address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN
         )
         assert [notice.address for notice in second.schiedsrichter_spiel_cancelled] == [REFEREE_EMAIL]
-        assert {(notice.old.date, notice.old.time) for notice in [*second.spiel_cancelled, *second.schiedsrichter_spiel_cancelled]} == {
-            (NEXT_WEEK, "18:00:00")
-        }
+        # Each names the event its mail is worded by.
+        told = [*second.spiel_cancelled, *second.schiedsrichter_spiel_cancelled]
+        assert {(notice.old.date, notice.old.time, notice.sonderereignis) for notice in told} == {(NEXT_WEEK, "18:00:00", "ausgefallen")}
 
     def test_a_no_show_entered_before_the_day_tells_every_party_once(self, mongo_replica_set_url: str):
         """Nobody is due at the ground, though the no-show decides the fixture: the closing owes every party its notice."""
@@ -1939,6 +1944,10 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
             address(team_id, seat) for team_id in (ALPHA, BETA) for seat in KONTAKT_ROLLEN
         )
         assert [notice.address for notice in second.schiedsrichter_spiel_cancelled] == [REFEREE_EMAIL]
+        # Named, so no mail promises a new request about a match the no-show decided.
+        assert {notice.sonderereignis for notice in [*second.spiel_cancelled, *second.schiedsrichter_spiel_cancelled]} == {
+            "nichtantreten_team1"
+        }
         assert (third.spiel_cancelled, third.schiedsrichter_spiel_cancelled) == ([], [])
 
     def test_a_no_show_entered_on_the_day_tells_nobody(self, mongo_replica_set_url: str):

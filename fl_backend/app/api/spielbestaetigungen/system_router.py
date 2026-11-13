@@ -45,6 +45,7 @@ from app.api.spielbestaetigungen.services import (
     build_reminder_filter,
     build_request_filter,
     build_unasked_filter,
+    cancelled_notice_of,
     compose_asked_update,
     compose_closing_update,
     compose_reminder_update,
@@ -356,6 +357,8 @@ async def sweep_spielbestaetigungen(
                     moved_to=spiel_mail_slot_of(spiel_of(row)) if stays else None,
                     asked_again=stays,
                 )
+            elif reason == "cancelled":
+                data = cancelled_notice_of(party_kind=party["kind"], appointment=appointment, sonderereignis=spiel_of(row)["sonderereignis"])
             else:
                 data = notice_data_of(reason=reason, party_kind=party["kind"], appointment=appointment)
             if party["kind"] == "schiedsrichter":

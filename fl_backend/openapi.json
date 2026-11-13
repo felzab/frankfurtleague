@@ -12543,7 +12543,7 @@
         "type": "object"
       },
       "FLSpielNoticeData": {
-        "description": "A party's word that a fixture it was asked about was called off: the slot it was asked about.",
+        "description": "A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event.",
         "properties": {
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
@@ -12560,6 +12560,16 @@
             ],
             "title": "Recipient",
             "type": "string"
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielNoticeEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -12569,6 +12579,15 @@
         ],
         "title": "FLSpielNoticeData",
         "type": "object"
+      },
+      "FLSpielNoticeEvent": {
+        "enum": [
+          "ausgefallen",
+          "annulliert",
+          "nichtantreten_team1",
+          "nichtantreten_team2"
+        ],
+        "type": "string"
       },
       "FLSpielPageResponse": {
         "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where\neach side stands, each side's line-up from the moment its club stores one, and what the public may read of its\nreport, null where none is stored.",

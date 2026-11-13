@@ -18,6 +18,7 @@ from app.api.outbox.schemas import (
     FLSpielMailEntry,
     FLSpielMovedData,
     FLSpielNoticeData,
+    FLSpielNoticeEvent,
     FLSpielVorschlagDiscardedData,
 )
 from app.api.outbox.services import OwedMail
@@ -964,15 +965,25 @@ def notice_data_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, 
     """The notice a closing for `reason`, or a discard, owes a party of `party_kind`."""
 
     recipient = "schiedsrichter" if party_kind == "schiedsrichter" else "team"
-    # A move's notice is `moved_notice_of`'s, which names the slot moved to as well.
-    if reason == "cancelled":
-        return FLSpielNoticeData(kind="spiel_cancelled", recipient=recipient, appointment=appointment)
+    # A move's notice is `moved_notice_of`'s, which names the slot moved to as well, and a call-off's is
+    # `cancelled_notice_of`'s, which names the event.
     if reason == "schiedsrichter_switched" or (reason in REASONS_OWING_A_REFEREE and recipient == "schiedsrichter"):
         return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if reason == "discarded":
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
     raise ValueError(f"a closing for {reason} owes no notice")
+
+
+def cancelled_notice_of(*, party_kind: str, appointment: FLSpielMailAppointment, sonderereignis: FLSpielNoticeEvent) -> FLSpielNoticeData:
+    """The notice a closing for `cancelled` owes a party of `party_kind`: the slot it was asked about, and what befell it."""
+
+    return FLSpielNoticeData(
+        kind="spiel_cancelled",
+        recipient="schiedsrichter" if party_kind == "schiedsrichter" else "team",
+        appointment=appointment,
+        sonderereignis=sonderereignis,
+    )
 
 
 def moved_notice_of(

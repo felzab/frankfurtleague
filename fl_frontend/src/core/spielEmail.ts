@@ -6,7 +6,7 @@ import { dayOf, formatDateLong, formatDayAndTime, formatInstant, formatTime, tim
 import { ROUTES } from "./routes";
 import { SERVER_COPY } from "./serverCopy";
 
-import type { Copy } from "./copy";
+import type { Copy, Words } from "./copy";
 import type { Fact, Mail, Paragraph, Sentence } from "./emailShell";
 import type {
   FLAufstellungReminderData,
@@ -142,21 +142,53 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
 }
 
 /**
- * The word that a fixture a party was asked about moved where no request about its new slot goes now, or was called off:
- * the slot it was asked about, and on a move the slot it went to where it holds one. No button, nothing being left to
- * answer here.
+ * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, what
+ * the event means for the result as the match page's callout says it, and only for a match called off, which alone is
+ * set again, the request or Einteilung that would follow.
+ */
+function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
+  const day = dayOf(appointment.date);
+  const { cancelled } = WORDS;
+  const { consequence } = COPY.spielplan.sonderereignis;
+  const lead = (words: { before: (subject: Words) => Copy; after: Copy }, subject: Words): Sentence =>
+    around(words.before(subject), moment(appointment), words.after);
+  const spiel = paarung(appointment);
+
+  switch (sonderereignis) {
+    case "ausgefallen":
+      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [
+        lead(cancelled.ausgefallen, spiel),
+        consequence.notScored,
+        WORDS.reinstated[recipient],
+      ]);
+    case "annulliert":
+      return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel), consequence.notScored]);
+    // The side that stayed away, then the one the match is counted for.
+    case "nichtantreten_team1":
+    case "nichtantreten_team2": {
+      const [absent, opponent] =
+        sonderereignis === "nichtantreten_team1" ? [appointment.team1, appointment.team2] : [appointment.team2, appointment.team1];
+      return noticeEmail(cancelled.nichtantreten.subject(day), origin, [
+        lead(cancelled.nichtantreten, { record: absent }),
+        consequence.nichtantreten({ record: opponent }),
+      ]);
+    }
+    // A mail naming no event promises nothing it may not keep.
+    case null:
+    case undefined:
+      return noticeEmail(cancelled.none.subject(day), origin, [lead(cancelled.none, spiel)]);
+  }
+}
+
+/**
+ * The word that a fixture a party was asked about moved where no request about its new slot goes now, or will not be
+ * played: the slot it was asked about, and on a move the slot it went to where it holds one. No button, nothing being
+ * left to answer here.
  */
 export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
-  const { recipient, appointment } = data;
+  if (data.kind === "spiel_cancelled") return cancelledEmail(data, origin);
 
-  if (data.kind === "spiel_cancelled") {
-    return noticeEmail(WORDS.cancelledSubject(dayOf(appointment.date)), origin, [
-      around(WORDS.cancelled.before(paarung(appointment)), moment(appointment), WORDS.cancelled.after),
-      WORDS.reinstated[recipient],
-    ]);
-  }
-
-  const { moved_to: movedTo, asked_again: askedAgain } = data;
+  const { recipient, appointment, moved_to: movedTo, asked_again: askedAgain } = data;
 
   // Taken off the fixture by the move: the void notice, naming the slot left alone.
   if (movedTo === null && !askedAgain) {

@@ -3181,13 +3181,23 @@ export const FLSpielNoticeDataRecipient = {
   schiedsrichter: "schiedsrichter",
 } as const;
 
+export type FLSpielNoticeEvent = (typeof FLSpielNoticeEvent)[keyof typeof FLSpielNoticeEvent];
+
+export const FLSpielNoticeEvent = {
+  ausgefallen: "ausgefallen",
+  annulliert: "annulliert",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+} as const;
+
 /**
- * A party's word that a fixture it was asked about was called off: the slot it was asked about.
+ * A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event.
  */
 export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
   kind: "spiel_cancelled";
   recipient: FLSpielNoticeDataRecipient;
+  sonderereignis?: FLSpielNoticeEvent | null;
 }
 
 /**
