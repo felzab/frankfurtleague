@@ -7,6 +7,7 @@ import { createContext, startTransition, Suspense, useContext, useEffect, useOpt
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { tv } from "./tv";
@@ -51,7 +52,8 @@ const NavigationContext = createContext<Navigation | null>(null);
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
- * Next's own link status is held.
+ * Next's own link status is held. A screen reader hears the wait from this one status region, which holds „Lädt“ for as
+ * long as the frames' bar shows, and then the new page's title, which Next announces.
  */
 export function WholePages({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -73,6 +75,12 @@ export function WholePages({ children }: { children: ReactNode }) {
     <WholeContext value>
       <NavigationContext value={{ pending, shown, navigate }}>
         <Suspense fallback={null}>{children}</Suspense>
+        {/* Standing empty from the first paint, since a live region announces a change to what it holds. */}
+        <span
+          role="status"
+          className="sr-only">
+          {shown ? COPY.shared.loading : null}
+        </span>
       </NavigationContext>
     </WholeContext>
   );
