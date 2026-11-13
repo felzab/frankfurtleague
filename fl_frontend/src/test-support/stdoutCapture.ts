@@ -1,45 +1,68 @@
-import { afterAll, assert } from "vitest";
+import { afterAll, afterEach, assert, beforeEach } from "vitest";
 
 /** Test-only: every export below replaces `process.stdout.write` for the length of a call or a file. */
 
-/** A run's stdout: the chunks that opened like documents verbatim, and those chunks parsed. */
-type WrittenLines = { raw: string[]; documents: Record<string, unknown>[] };
+/**
+ * Where `fl_frontend/src/core/logging.ts` stands in a stack: a chunk is the logger's when the logger's own frame
+ * wrote it, so a library's line, however it is shaped, passes on to the stream untouched.
+ */
+const LOGGER_FRAME = /[\\/]src[\\/]core[\\/]logging\.ts:\d+/;
 
-function beginCapture(): { written: WrittenLines; restore: () => void } {
-  const written: WrittenLines = { raw: [], documents: [] };
+/** Whether the write in progress is the logger's: its frame stands right below the replaced `write`. */
+const writtenByTheLogger = (): boolean => LOGGER_FRAME.test(new Error("the write's caller").stack ?? "");
+
+/** The stream's own `write`, bound, for every chunk a capture passes on. */
+type Write = (chunk: unknown, ...rest: unknown[]) => boolean;
+
+/**
+ * Replaces `process.stdout.write` with one handing each of the logger's chunks to `read` and every other chunk to
+ * the stream. A chunk `read` refuses is a fault of the capture, recorded rather than thrown into the code that wrote.
+ */
+function beginCapture(read: (raw: string) => void): { faults: string[]; restore: () => void } {
+  const faults: string[] = [];
   const original = process.stdout.write;
+  const passOn = original.bind(process.stdout) as Write;
 
   process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const text = String(chunk);
-    // The runner's own reporter shares this stream, so a chunk that is not a document goes on to it
-    // rather than being swallowed here.
-    if (!text.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    written.raw.push(text);
-    // Here rather than in each suite: a writer that emitted two documents in one chunk would
-    // otherwise be read as one by every caller.
-    assert.ok(text.endsWith("\n") && !text.slice(0, -1).includes("\n"), `one document per line, got ${text}`);
-    written.documents.push(JSON.parse(text) as Record<string, unknown>);
+    if (!writtenByTheLogger()) return passOn(chunk, ...rest);
+    const raw = String(chunk);
+    try {
+      // The logger writes each line in one call ending in a newline, so a chunk without one is a writer this
+      // capture misreads.
+      if (!raw.endsWith("\n")) throw new Error("a log line written without its newline");
+      read(raw);
+    } catch (error) {
+      faults.push(`${error instanceof Error ? error.message : String(error)}: ${raw}`);
+    }
     return true;
   }) as typeof process.stdout.write;
 
   return {
-    written,
+    faults,
     restore: () => {
       process.stdout.write = original;
     },
   };
 }
 
-/** The awaited twin, for a route handler or a backend call that writes its line asynchronously. */
+/**
+ * Every JSON document the logger writes while `run` runs, for a route handler or a backend call that writes its line
+ * asynchronously; a chunk that is no one document fails the call once `run` has ended.
+ */
 export async function documentsWrittenByAsync(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
-  const { written, restore } = beginCapture();
+  const documents: Record<string, unknown>[] = [];
+  const { faults, restore } = beginCapture((raw) => {
+    if (raw.slice(0, -1).includes("\n")) throw new Error("more than one document in one write");
+    documents.push(JSON.parse(raw) as Record<string, unknown>);
+  });
   try {
     await run();
   } finally {
     restore();
   }
+  assert(faults.length === 0, `the logger wrote what the capture cannot read:\n${faults.join("\n")}`);
 
-  return written.documents;
+  return documents;
 }
 
 /** One line `fl_frontend/src/core/logging.ts :: logger` wrote, read back from either of its two formats. */
@@ -70,7 +93,7 @@ function readPlain(raw: string, level: LoggedLine["level"]): LoggedLine {
       // Not yet the fields: a brace inside the message.
     }
   }
-  assert.fail(`a plain log line without its fields: ${raw}`);
+  throw new Error("a plain log line without its fields");
 }
 
 /** The JSON document a production build writes, its `trace_id`, `timestamp` and `service` set aside. */
@@ -88,31 +111,37 @@ function readDocument(raw: string): LoggedLine {
   return { level: level as LoggedLine["level"], message: String(message), fields, stack, raw };
 }
 
+/** One of the logger's chunks, in whichever of its two formats it was written. */
+function readLine(raw: string): LoggedLine {
+  const level = PLAIN_LINE.exec(raw)?.[1] as LoggedLine["level"] | undefined;
+  return level === undefined ? readDocument(raw) : readPlain(raw, level);
+}
+
 /**
- * Every line the application's logger writes from this call to the end of the file, in either format: a case
- * reads the stream the logger really writes rather than a double of the logger. Called at module level, before the
- * subject's import, so a line written while the subject loads is caught too. A chunk that is no log line goes on to
- * the runner's reporter. The plain format carries no `trace_id` and the error only as its stack, so a case asserting
- * either beyond the stack runs under the `unit-production` project (`fl_frontend/vitest.config.mts`).
+ * Every line the application's logger writes from this call to the end of the file, in either format: a case reads
+ * the stream the logger really writes rather than a double of the logger. Called at module level, before the subject's
+ * import, so a line written while the subject loads is caught too.
+ * - Each case begins with no line, so it reads only what it wrote; `clear` empties the lines mid-case.
+ * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
+ * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
+ *   throwing into the code that wrote it.
+ * The plain format carries no `trace_id` and the error only as its stack, so a case asserting either beyond the stack
+ * runs under the `unit-production` project (`fl_frontend/vitest.config.mts`).
  */
 export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } {
   const lines: LoggedLine[] = [];
-  const original = process.stdout.write;
-
-  process.stdout.write = ((chunk: unknown, ...rest: unknown[]) => {
-    const raw = String(chunk);
-    const level = PLAIN_LINE.exec(raw)?.[1] as LoggedLine["level"] | undefined;
-    if (level === undefined && !raw.startsWith("{")) return (original as (...args: unknown[]) => boolean).call(process.stdout, chunk, ...rest);
-    // The logger writes each line in one call ending in a newline, so a chunk without one is a writer this
-    // capture misreads.
-    assert.ok(raw.endsWith("\n"), `one log line per write, got ${raw}`);
-    lines.push(level === undefined ? readDocument(raw) : readPlain(raw, level));
-    return true;
-  }) as typeof process.stdout.write;
-
-  afterAll(() => {
-    process.stdout.write = original;
+  const { faults, restore } = beginCapture((raw) => {
+    lines.push(readLine(raw));
   });
+
+  beforeEach(() => {
+    lines.length = 0;
+  });
+  afterEach(() => {
+    const unread = faults.splice(0);
+    assert(unread.length === 0, `the logger wrote what the capture cannot read:\n${unread.join("\n")}`);
+  });
+  afterAll(restore);
 
   return {
     lines: () => [...lines],
