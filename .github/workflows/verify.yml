@@ -429,19 +429,27 @@ jobs:
       # The landing's cases again under each other state `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, as
       # `local.sh --e2e --landing=<state>` does: the seed in mongosh's environment, its read-back, then the frontend
       # recreated, since Next keeps the landing's read in memory for minutes. Every state runs, and each failed one is
-      # named before the step fails. Each state's HTML report goes to a folder of its own, through the reporter's
-      # `PLAYWRIGHT_HTML_OUTPUT_DIR`, which wins over the config's folder: in one folder each run would replace the last.
+      # named before the step fails, `(stack)` beside one whose seed, read-back or recreate failed before its cases ran.
+      # Each state's HTML report goes to a folder of its own, through the reporter's `PLAYWRIGHT_HTML_OUTPUT_DIR`, which
+      # wins over the config's folder: in one folder each run would replace the last. `!cancelled()`, so a red main run
+      # still leaves every state its verdict: a step's `if` without a status function implies `success()`
+      # (https://docs.github.com/en/actions/reference/workflows-and-actions/expressions).
       - name: Run the landing's cases under each of its states
-        if: matrix.leg == 'layout-public'
+        if: ${{ !cancelled() && matrix.leg == 'layout-public' }}
         run: |
           base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
           failed=()
           for state in running-two-one-side countdown countdown-with-opening decided window none; do
             echo "::group::The landing ${state}"
-            docker compose exec -T --env "SEED_LANDING=${state}" mongo \
-              mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
-            docker compose exec -T backend python -m app.readback
-            docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend
+            # In a condition, where `-e` stops nothing, so a failed state is named and the next one runs.
+            if ! { docker compose exec -T --env "SEED_LANDING=${state}" mongo \
+                     mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js \
+                   && docker compose exec -T backend python -m app.readback \
+                   && docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend; }; then
+              failed+=("$state (stack)")
+              echo "::endgroup::"
+              continue
+            fi
             docker run --rm --init --ipc=host --network=host \
               --user "$(id -u):$(id -g)" \
               --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
@@ -453,7 +461,8 @@ jobs:
             echo "::endgroup::"
           done
           if (( ${#failed[@]} )); then
-            echo "::error::The landing moved while it loaded under: ${failed[*]}"
+            printf -v named '%s, ' "${failed[@]}"
+            echo "::error::The landing's cases failed under: ${named%, }"
             exit 1
           fi
       - name: Keep the report of a failed run
