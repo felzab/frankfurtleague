@@ -107,7 +107,8 @@ const OPENERS = {
  * What a hard load of an end was measured to answer: its status, and whether its server's document holds the frame's
  * `main`. Next's streaming guide gives a not-found two answers (https://nextjs.org/docs/app/guides/streaming, under
  * „The HTTP contract“): a `notFound()` met before the response begins answers 404, and one met after keeps the 200 the
- * response began with and adds `noindex`, its document holding the frame's `main` where the frame streamed before it.
+ * response began with and adds `noindex`. No boundary stands in the tree, so nothing of a frame is sent before it:
+ * the document is Next's bare error document and holds no `main`, which the browser then draws with the card.
  */
 type Served = { readonly status: number; readonly main: boolean };
 
@@ -395,7 +396,7 @@ const VISITOR: Walk[] = [
   ["/saisons/2026/teams", `/saisons/2026/teams/${ID}`],
   ["/saisons/2026", `/saisons/2026/spiele/${ID}`],
   // The planned season, which the public does not read: its address answers the page for a season not found.
-  [missing("/saisons/2028", { status: 200, main: true })],
+  [missing("/saisons/2028", { status: 200, main: false })],
   // The addresses that answer for the season the site is on, which the classic frame's header and footer link.
   ["/", "/saisons"],
   ["/", "/saisons/tabelle"],
@@ -504,7 +505,7 @@ const ADMINISTRATOR: Walk[] = [
   ["/admin", more("/admin/address-changes")],
   ["/admin", more("/admin/log")],
   // An administration address no page holds, its card leading to `/admin`.
-  [missing("/admin/nowhere", { status: 200, main: true })],
+  [missing("/admin/nowhere", { status: 200, main: false })],
   // The landing a signed-in person's way goes through, which sends an administrator on to `/admin`.
   ["/area"],
   ...ACCOUNT("/admin"),
