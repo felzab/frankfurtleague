@@ -17,7 +17,7 @@ import { isOwnSaison } from "../../ownSaison";
 import { spielChipOf } from "./spielChip";
 
 import type { FLSpielerSelfKaderRow } from "@/core/generated/client/types";
-import type { ReadContent, ReadWait } from "@/kit/ReadPage";
+import type { ReadContent } from "@/kit/ReadPage";
 import type { StatTile } from "@/kit/StatTiles";
 import type { Metadata, ResolvingMetadata } from "next";
 
@@ -95,14 +95,6 @@ async function readSaison(of: Promise<string | null>): Promise<ReadContent> {
   };
 }
 
-/** The wait: the four tiles, none with a line under its value, and two match cards. */
-const WAIT: ReadWait = {
-  groups: [
-    { kind: "tiles", layout: "four", line: false },
-    { title: COPY.page.spiele, kind: "spiele", count: 2 },
-  ],
-};
-
 /**
  * A pupil's own Übersicht of one season: where they play, as four tiles, and their club's matches, each under its
  * matchday with the pupil's place in the line-up. Another season is the frame's season button's; the page has no act,
@@ -115,7 +107,6 @@ export function SpielerOverview({ saison }: { saison: Promise<string | null> }) 
       scope="area"
       title={{ route: "spielerOverview" }}
       width="content"
-      wait={WAIT}
       record={readSaison(saison)}
     />
   );

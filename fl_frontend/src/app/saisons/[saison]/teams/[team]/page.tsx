@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { ClubHead, ClubHeadPlaceholder } from "@/kit/ClubHead";
-import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
+import { ClubHead } from "@/kit/ClubHead";
+import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
@@ -57,14 +57,6 @@ export default function TeamPage({ params }: Props) {
   return (
     <ReadPage
       scope="saison"
-      wait={{
-        club: <ClubHeadPlaceholder />,
-        groups: [
-          { kind: "tiles", layout: "four" },
-          { title: COPY.page.spiele, kind: "timeline", count: 3, matches: true },
-          { kind: "folds", folds: <ReadFoldsPlaceholder count={1} /> },
-        ],
-      }}
       record={readRecord(params)}
     />
   );
