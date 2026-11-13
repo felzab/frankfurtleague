@@ -469,25 +469,19 @@ async def sweep_spielbestaetigungen(
         austritte = _austritte(junctions)
         vereine = list(junctions.values())
 
-        # Each unclosed row about an Ansetzung its fixture left: the mint's to close where its party is asked about the new
-        # one now, oldest first, so the newest is the slot its request names as left. Any other waits for the close step,
-        # which shuts it and tells of it first.
+        # Each row holding its party's question about an Ansetzung its fixture left, oldest first, so the newest is the
+        # slot a request names as left, where its party is asked about the new one now: an unclosed one the mint's to
+        # close, a held discard kept, the move leaving it its club's answer to the slot left. Any other waits for the
+        # close step, which shuts it and tells of it first.
         moved: dict[tuple[Any, tuple[str, Any]], list[Mapping[str, Any]]] = {}
-        # Each held discard about an Ansetzung its fixture left, where its club is asked about the new one now: the move
-        # leaves it its club's answer to the slot left, so nothing closes it, and the close step tells nothing of it.
-        # The slot it told its club stands is the one the request names as left.
         discards_left: dict[tuple[Any, tuple[str, Any]], list[Mapping[str, Any]]] = {}
         waiting: set[Any] = set()
         for row in sorted(read, key=lambda row: row["_id"]):
             spiel = by_id[row["spiel_id"]]
             if row["ansetzung"]["digest"] == digests[spiel["_id"]]:
                 continue
-            if row.get("closed") is not None:
-                if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
-                    discards_left.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
-                continue
             if asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
-                moved.setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
+                (moved if row.get("closed") is None else discards_left).setdefault((spiel["_id"], party_key(row["party"])), []).append(row)
             else:
                 waiting.add(spiel["_id"])
 

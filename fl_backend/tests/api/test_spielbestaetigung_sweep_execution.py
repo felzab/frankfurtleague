@@ -769,6 +769,28 @@ class TestADiscardedDeclineIsNotAskedAgain:
         ]
         assert moved.new_ansetzungen == []
 
+    def test_a_move_onto_today_ends_the_discard_and_tells_its_club(self, mongo_replica_set_url: str):
+        """Nobody is asked about a match on its own day, so the close step tells the discarded club of the move.
+
+        Kept as the club's answer to the slot left, the discard would tell it nothing, and the slot it was told stands
+        would end telling nobody.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await discard(database, BETA)
+            await move(database, client, SPIEL, date=TODAY)
+
+            return await sweep(database, client), row_of(await rows(database), team_id=BETA)
+
+        told, discarded = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+
+        today = {"team1": "Alpha", "team2": "Beta", "date": TODAY, "time": "18:00:00", "spielort": "Sportpark"}
+        assert sorted((sorted(r.address for r in notice.recipient), notice.moved_to, notice.stays) for notice in told.new_ansetzungen) == [
+            (sorted(address(team_id, seat) for seat in KONTAKT_ROLLEN), today, True) for team_id in (ALPHA, BETA)
+        ]
+        assert discarded["closed"] == {"reason": "ansetzung_changed", "discarded": True, "matched": False}
+
     def test_moved_away_and_back_it_is_told_of_the_move_and_that_no_request_follows(self, mongo_replica_set_url: str):
         """Back on the slot its discarded decline answers, the club owes no request, so the move is told on its own.
 
@@ -884,9 +906,9 @@ class TestTheCloseEndingARowStoresWhetherItAnsweredTheFixture:
         ("change", "team_id", "closed"),
         [
             pytest.param({}, ALPHA, {"reason": "spiel_past", "discarded": True, "matched": True}, id="a discard ended at its slot"),
-            # Held through the move, it ends at its own kick-off about the slot the fixture left.
+            # A move onto a slot gone by, which nobody is asked about, ends it about the slot the fixture left.
             pytest.param(
-                {"time": "19:00:00"}, ALPHA, {"reason": "spiel_past", "discarded": True, "matched": False}, id="a discard the match left"
+                {"time": "19:00:00"}, ALPHA, {"reason": "ansetzung_changed", "discarded": True, "matched": False}, id="a discard the match left"
             ),
             # The result entered with the kick-off corrected, ahead of the pass: the agreement was to the match played.
             pytest.param(

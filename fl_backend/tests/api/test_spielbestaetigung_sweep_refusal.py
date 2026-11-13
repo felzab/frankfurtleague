@@ -184,12 +184,20 @@ class TestADiscardEndsWhereAnAgreementWouldEnd:
     def test_the_close_ends_it(self, overrides: dict[str, Any], now: datetime, reason: str):
         assert reason_to_end(row=DISCARDED, spiel=spiel(**overrides), austritte={}, now=now) == reason
 
-    def test_one_about_a_slot_the_fixture_left_ends_once_its_own_day_has_passed(self):
-        """The move keeps it, the club's answer to that Ansetzung; kept past its day it would be read by every pass for good."""
+    def test_one_about_a_slot_the_fixture_left_is_kept_while_its_club_is_asked_about_the_new_one(self):
+        """The move the mint asks about keeps it, the club's answer to that Ansetzung, until its own kick-off.
+
+        Kept past its day it would be read by every pass for good, and kept through a move nobody is asked about its club
+        would be told nothing of the move.
+        """
 
         moved = spiel(time="19:00:00")
+        asked_about = [reason_to_end(row=DISCARDED, spiel=moved, austritte={}, now=now) for now in (NOW, THE_DAY_AFTER)]
+        # Past the slot left, a fixture moved onward to a day still to come keeps it until that slot's own kick-off.
+        moved_on = reason_to_end(row=DISCARDED, spiel=spiel(date=days_after(day=TODAY, days=9)), austritte={}, now=THE_DAY_AFTER)
+        onto_today = reason_to_end(row=DISCARDED, spiel=spiel(date=TODAY), austritte={}, now=NOW)
 
-        assert [reason_to_end(row=DISCARDED, spiel=moved, austritte={}, now=now) for now in (NOW, THE_DAY_AFTER)] == [None, "spiel_past"]
+        assert (asked_about, moved_on, onto_today) == ([None, "ansetzung_changed"], "spiel_past", "ansetzung_changed")
 
 
 # `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.

@@ -866,7 +866,8 @@ REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
 # discard its club's answer to the Ansetzung left, and a referee change, never a club's. A club taken off the fixture,
-# which `reason_to_close` names as a move, ends it too: `reason_to_end` asks that apart.
+# and a move the mint asks nothing about, which `reason_to_close` names as a move, end it too: `reason_to_end` asks
+# those apart.
 REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
@@ -952,6 +953,11 @@ def reason_to_end(
     reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now)
     # A club taken off is told so whatever its row holds: its discard told it the date stands, a match it no longer plays.
     if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER or not still_a_party(row=row, spiel=spiel):
+        return reason
+
+    # A move the mint asks nothing about, onto today or a slot it cannot ask, is told here or by nobody: kept, the
+    # discard would leave its club at the slot it was told stands.
+    if reason == "ansetzung_changed" and not asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
         return reason
 
     # Its own kick-off, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
