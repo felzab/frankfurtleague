@@ -248,7 +248,9 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "ergebnis_side_emptied",
   "spieltag_occupied",
   "eligibility_team_not_in_saison",
-  // A fixture's confirmation answered, closed or left by its fixture since the page offering an act on it was read.
+  // A Spielbestätigung moved since the page offering an act on it was read: answered or closed, its proposal no longer
+  // open, no longer the referee's own, or due to be shut by the close pass's next run, its Ansetzung left by the
+  // fixture or the fixture decided, called off, kicked off or fielding a club gone by its day.
   "ansetzung_not_enterable",
   "ansetzung_not_discardable",
   "ansetzung_not_adoptable",
