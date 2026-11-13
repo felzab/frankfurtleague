@@ -5,11 +5,13 @@ import { tv } from "./tv";
 import type { ReactNode } from "react";
 
 /**
- * The parts every block's placeholder is drawn with. A block that waits for its content draws its own placeholder
- * from its own recipe, its boxes, padding and gaps the block's, every text replaced by a `PlaceholderLine` at that
- * text's line height and every glyph, plaque or control by a `placeholderBar` of its size, so the placeholder stands
- * as tall and as wide as the block will and cannot drift from it. A template's wait is its blocks' placeholders,
- * laid out as the blocks are, inside `Waiting`.
+ * The parts a block's placeholder is drawn with by hand. A block waits in one of two ways. The list template's school
+ * tiles wait as themselves: the tiles drawn from their sample inside `Pending`, whose rules turn the block's own
+ * markup into its wait, so it holds none of the parts here. Every other block draws its own placeholder from its own
+ * recipe, its boxes, padding and gaps the block's, every text replaced by a `PlaceholderLine` at that text's line
+ * height and every glyph, plaque or control by a `placeholderBar` of its size, so the placeholder stands as tall and
+ * as wide as the block will. A template's wait is its blocks' waits of either kind, laid out as the blocks are, inside
+ * `Waiting`.
  *
  * A wait is the page at its real size, since the browser restores a reload against it. Every part above a streamed
  * hole stands at exactly its landed height. A list draws its own usual size, at most 30 rows or cards, the number its
@@ -118,8 +120,8 @@ export function Placeholder({ layoutClass = "", children }: { layoutClass?: stri
 }
 
 /**
- * Waiting for a template's content: its blocks' placeholders. The box standing in the content's place is busy. A
- * template places it as its one boundary's fallback;
+ * Waiting for a template's content: its blocks' placeholders, or the blocks themselves in `Pending`. The box standing
+ * in the content's place is busy. A template places it as its one boundary's fallback;
  * `layoutClass` is the box the content will stand in, such as a column's gaps.
  */
 export function Waiting({ layoutClass = "", children }: { layoutClass?: string; children: ReactNode }) {
