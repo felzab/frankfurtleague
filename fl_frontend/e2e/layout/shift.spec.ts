@@ -265,10 +265,12 @@ function expectAnswered(answer: Answer, end: End | undefined): void {
 
 /**
  * That the page standing is the one measured: its frame's `main` drawn, found by its tag, since a pop-up's modal hides
- * the page under it from the accessibility tree; and where the page is an end, its card's title.
+ * the page under it from the accessibility tree; and where the page is an end, its card's title. The visible `main`
+ * alone: Next keeps the page a client navigation left in the document, hidden, and the tag matches its `main` too
+ * (https://nextjs.org/docs/app/guides/preserving-ui-state#testing).
  */
 async function expectArrived(page: Page, end: End | undefined): Promise<void> {
-  await expect(page.locator("main"), "the frame drew its main").toBeVisible();
+  await expect(page.locator("main").filter({ visible: true }), "the frame drew its main").toBeVisible();
   if (end !== undefined) await expect(page.getByRole("heading", { level: 1, name: end.card, exact: true })).toBeVisible();
 }
 
