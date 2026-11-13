@@ -123,7 +123,15 @@ export default defineConfig<JourneyOptions>({
       name: "layout",
       dependencies: ["administrator", "layout-sessions"],
       testMatch: "layout/**/*.spec.ts",
-      use: devices["Desktop Chrome"],
+      // Each case its own unit, so CI's `--shard` splits the guard's one file by case rather than handing it whole to one
+      // shard. Its cases only read, so a case may run on any stack; under the one worker they still run in file order.
+      fullyParallel: true,
+      use: {
+        ...devices["Desktop Chrome"],
+        // The track the root always keeps, as a desktop browser draws it: headless Chromium is launched with
+        // `--hide-scrollbars`, which leaves a track of 0 px, and the launch option filters that one argument out.
+        launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
+      },
     },
   ],
 });

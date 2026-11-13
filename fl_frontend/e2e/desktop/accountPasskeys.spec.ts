@@ -34,7 +34,8 @@ test("a person's passkey on Sicherheit: set up, then removed, which ends this de
   // Removed on its own touch: this device's session goes with it, and the browser leaves for the sign-in.
   const beforeTheRemoval = await assertionsSigned(context);
   await rows().first().click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+  // The question is named: the toast an act answers in is an `alertdialog` too.
+  await page.getByRole("alertdialog", { name: "Passkey löschen?" }).getByRole("button", { name: "Löschen" }).click();
   await expect(page).toHaveURL((url) => url.pathname === "/signin");
   // The signed-out form's press, which only a request bearing no live session is shown: a session the removal left
   // alive draws the signed-in card under the same „Anmelden“ heading instead.
@@ -66,7 +67,7 @@ test("a passkey holder's address change and deletion each run behind the touch",
   // The deletion's link, mailed from Konto, and its act behind the touch.
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+  await page.getByRole("alertdialog", { name: "Konto löschen?" }).getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(HOLDER, "Konto löschen", before);
   await page.goto(link);
   await expect(page.getByRole("main").getByRole("heading", { name: "Konto löschen" })).toBeVisible();

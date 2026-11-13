@@ -475,6 +475,12 @@ that started it, which reads that checkout's `.tmp-e2e/`, or from another checko
 naming that folder (`fl_frontend/e2e/support/journey.ts :: E2E_DIR`); `E2E_BASE_URL` names an origin
 other than `http://localhost:3000` (`fl_frontend/playwright.config.ts`).
 
+**`--e2e --landing=<state>` re-seeds the running end-to-end stack with the landing in that state**,
+one of `scripts/ops/seed/seed.js :: LANDING_STATES`: the seed runs again with `SEED_LANDING` in
+mongosh's environment, the read-back judges it, and the frontend alone is recreated, so no read of
+the earlier state stays cached. It builds nothing and keeps the stack's keys, its sign-in store and
+its images, so sessions and passkeys survive it; with no end-to-end stack running it refuses.
+
 **The checkers are Python, and one kernel makes their answers comparable**,
 `scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
 (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is handed a
@@ -510,10 +516,11 @@ its pinned release.
 running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 
 - **`journeys`** runs the Playwright journeys against the end-to-end stack, raised from the images
-  the `images` job built, in four legs, each on a runner and a stack of its own: `desktop` with
-  `first-pass`, `phone`, and the layout-shift guard's two, `layout-public`, which re-seeds its
+  the `images` job built, in six legs, each on a runner and a stack of its own: `desktop` with
+  `first-pass`, `phone`, and the layout-shift guard's four, `layout-public`, which re-seeds its
   database under each state of the landing (`scripts/ops/seed/seed.js :: LANDING_STATES`) and runs
-  the landing's cases again, and `layout-signed-in`.
+  the landing's cases again, and `layout-signed-in-1` to `-3`, whose cases Playwright's `--shard`
+  splits in three.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
 - **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
