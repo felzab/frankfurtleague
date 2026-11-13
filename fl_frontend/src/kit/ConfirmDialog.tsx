@@ -126,7 +126,14 @@ type Holder = { holder: string };
  * presses. The press closes the question for good before the browser asks, and the act answers in a toast: done in its
  * verb's word from the catalogue's (`TouchVerb`), or its refusal, the question's opening button standing again.
  */
-type Touch = { touch?: never } | { verb: TouchVerb; touch: Holder };
+type Touch =
+  | { touch?: never; doneShown?: never }
+  | {
+      verb: TouchVerb;
+      touch: Holder;
+      /** The holder shows a done act itself, as a form's line over the boxes it emptied, so the toast carries a refusal alone. */
+      doneShown?: true;
+    };
 
 /** A question as the part asking it is handed it, before that part opens it its own way: its words and its act. */
 export type ConfirmQuestion = ConfirmWords & Act & Touch;
@@ -138,7 +145,7 @@ type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Tou
  * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
  * sign-in client's chunk with it, ahead of the question it will ask.
  */
-type Unasked = Act & { touch?: Holder; open: HeldOpen; trigger?: never; control?: never } & {
+type Unasked = Act & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
   [Word in keyof ConfirmWords]?: never;
 };
 
@@ -183,7 +190,10 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
       // which React commits with its effects, React Aria's lifting of the modal's `inert` among them, in a microtask queued
       // ahead of the touch's first `await`, so before the browser asks and within the press Safari asks of it.
       setOpen(false);
-      startAct(async () => toastAnswer(await act(undefined), done));
+      startAct(async () => {
+        const answered = await act(undefined);
+        if (!answered.ok || props.doneShown !== true) toastAnswer(answered, done);
+      });
       return;
     }
     startAct(async () => {
