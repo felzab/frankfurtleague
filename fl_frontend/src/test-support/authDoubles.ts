@@ -359,8 +359,11 @@ const lookupBy =
     return answer === null ? networkFailure() : answerAt(path, answer);
   };
 
-/** `ADMIN_EMAIL`'s grant and nothing for any other address, which fails its read as an unreachable backend does. */
-const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED : null);
+/**
+ * `ADMIN_EMAIL`'s grant, and no answer for any other address: a read of one the suite did not answer fails its case,
+ * and a suite meaning a backend that fails the read says so with `answerTheLookup(() => null)`.
+ */
+const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED : undefined);
 
 /**
  * Answers the gate's backend read with a live seat for every address, and a grant beside it for each

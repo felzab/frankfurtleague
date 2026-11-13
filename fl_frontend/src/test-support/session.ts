@@ -50,12 +50,14 @@ export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
   /** Signs a fresh session in for `next` and arrives with its cookie, or with none for nobody. */
   arriveAs: (next: Visitor) => Promise<void>;
   store: MemoryStore;
+  /** Every sign-in mail the code owed through the Postausgang since the case began, rendered as the drain sends it. */
+  outbox: ReturnType<typeof registerAuthDoubles>;
 } {
   let current: Visitor = visitor;
   // The visitor's own address alone: any other read goes on to the case's answer, which names it.
   answerTheLookup((email) => (current !== null && email === asSignInIdentifier(current.email) ? fixtureOf(current) : undefined));
   doubleNextRequest();
-  registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) } });
+  const outbox = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) } });
   const store = memoryStore(STORE);
 
   const arriveAs = async (next: Visitor): Promise<void> => {
@@ -75,5 +77,5 @@ export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
   // After `doubleNextRequest`'s own, which empties the request first.
   beforeEach(() => arriveAs(visitor));
 
-  return { arriveAs, store };
+  return { arriveAs, store, outbox };
 }
