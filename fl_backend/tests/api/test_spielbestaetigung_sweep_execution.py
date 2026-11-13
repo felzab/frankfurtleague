@@ -48,7 +48,7 @@ from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection
+from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW, drained
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
@@ -456,7 +456,7 @@ async def a_pass(
         saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
         outbox_collection=database[Collection.OUTBOX],
-        aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+        aufstellungen_collection=collections.get("aufstellungen", database[Collection.AUFSTELLUNGEN]),
         db=client,
         today=today,
         now=clock_of(today) if now is None else now,
@@ -490,10 +490,13 @@ async def unstamp(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBESTAETIGUNGEN].update_many({}, {"$set": {"asked_at": None}})
 
 
-async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataResponse:
+async def move(
+    database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, *, spiele: Any = None, **overrides: Any
+) -> FLPatchSpielDataResponse:
     """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves; its dry run's answer.
 
-    Confirming the later results its dry run says it deletes, as the editor's question does.
+    Confirming the later results its dry run says it deletes, as the editor's question does. `spiele` is the fixtures
+    the save itself writes through, a stand-in where a case names one; the dry run reads the database's.
     """
 
     stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
@@ -506,7 +509,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
             spiel_id=spiel_id,
             spiel_data=spiel_data,
             db=client,
-            spiele_collection=database[Collection.SPIELE],
+            spiele_collection=database[Collection.SPIELE] if dry_run or spiele is None else spiele,
             teams_collection=database[Collection.TEAMS],
             saisons_collection=database[Collection.SAISONS],
             saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -1669,7 +1672,7 @@ def numbered_spiele(count: int, date: str, **fields: Any) -> list[dict[str, Any]
 ROUND_TRIPS_A_ROW = 1
 
 # The worst call's commands beside its rows.
-SWEEP_OTHER_COMMANDS = 36
+SWEEP_OTHER_COMMANDS = 40
 
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
@@ -2107,3 +2110,138 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
 
         # The premise: every row closed for the call-off all the same.
         assert (second.closed, second.spiel_cancelled, second.schiedsrichter_spiel_cancelled) == (3, [], [])
+
+
+# --- A SAVE MOVING A FIXTURE beside a step of the pass. No referee is booked, whom both would write, so the fixture is the
+# one document the two share.
+
+# Inside the window, so a party asked already is asked about it at once.
+LATER = days_after(day=TODAY, days=10)
+
+
+class ThenTheRivalAfterTheNthJoinedRead(InterleavedCollection):
+    """The fixtures, running the rival once the pass's `nth` read of them through the name join has answered.
+
+    Every step reads them so, its first read of them; the steps ahead of the one a case is about are counted off.
+    """
+
+    def __init__(self, collection: Any, rival: Rival, *, nth: int) -> None:
+        super().__init__(collection, rival, after="aggregate")
+        self._nth = nth
+
+    async def run_the_rival(self) -> None:
+        self.passes += 1
+        if self.passes == self._nth and self._rival is not None:
+            rival, self._rival = self._rival, None
+            await rival()
+
+
+class TestASaveLandingInsideAStepLeavesNoMailAboutTheSlotTheFixtureLeft:
+    """Each step writes the fixtures it acts on, as the save writes the fixture, so the two conflict and the step reads again."""
+
+    def test_the_close(self, mongo_replica_set_url: str):
+        """Moved onto today, the close tells of the move; moved on again under it, the mint asks about the new slot instead."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await move(database, client, SPIEL, date=TODAY)
+
+            async def move_on() -> None:
+                await move(database, client, SPIEL, date=LATER)
+
+            # The close's read of the fixtures is the pass's first.
+            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=1)
+            return await a_pass_through(database, client, spiele=cast(Any, interleaved))
+
+        passed = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
+
+        assert passed.new_ansetzungen == []
+        assert sorted((request.ansetzung.date, (request.moved_from or {}).get("date")) for request in passed.requests) == [
+            (LATER, NEXT_WEEK),
+            (LATER, NEXT_WEEK),
+        ]
+
+    def test_the_mint(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_on() -> None:
+                await move(database, client, SPIEL, date=LATER)
+
+            # A fresh league: the close reads no row and so no fixture, and the mint's read of the window is the first.
+            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=1)
+            return await a_pass_through(database, client, spiele=cast(Any, interleaved)), await rows(database)
+
+        passed, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)])
+
+        assert [request.ansetzung.date for request in passed.requests] == [LATER, LATER]
+        assert [row["ansetzung"]["date"] for row in stored] == [LATER, LATER]
+
+    def test_the_reminder(self, mongo_replica_set_url: str):
+        """A reminder of a slot the fixture left asks the club to confirm a match nobody plays then."""
+
+        later = days_after(day=FORTNIGHT, days=1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+
+            async def move_on() -> None:
+                await move(database, client, SPIEL, date=later)
+
+            # The close's read of the fixtures and the mint's come first, the reminder's third.
+            interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=3)
+            answer = await a_pass(database, client, today=REMINDER, spiele=cast(Any, interleaved))
+            return await handed_out(database, client, answer, now=clock_of(REMINDER)), await rows(database)
+
+        passed, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
+
+        # The premise: the move landed after the mint, which would otherwise have asked about the new slot at once.
+        assert passed.requests == []
+        assert passed.reminders == []
+        assert [row["reminded_at"] for row in stored] == [None, None]
+
+    def test_the_lineup_reminder(self, mongo_replica_set_url: str):
+        """Sent, it asks for a line-up by a mark the fixture left, and its keys then hold back the one the new day owes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            async def move_on() -> None:
+                # Fifty-three and a half hours out, before the window.
+                await move(database, client, SPIEL, date="2126-04-17")
+
+            # The line-up step alone reads the line-ups, after its read of the fixtures.
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.AUFSTELLUNGEN], move_on)
+            answer = await a_pass(database, client, today=LINEUP_TODAY, now=LINEUP_NOW, aufstellungen=cast(Any, interleaved))
+            return await handed_out(database, client, answer, now=LINEUP_NOW)
+
+        reminded = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, "2126-04-16", schiedsrichter=None)])
+
+        assert reminded.aufstellungen == []
+
+
+class TestAPassLandingInsideASaveLeavesItsFormSaving:
+    """The pass's write to the fixture moves no `version`, and the save's own write still meets it."""
+
+    def test_the_save_runs_again_on_the_version_its_form_read_and_commits(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            answers: list[FLSpielbestaetigungSweepResponse] = []
+
+            async def a_pass_beside() -> None:
+                answers.append(await a_pass(database, client))
+
+            # The save's first read of the fixtures: its payload carries the version the form read before the pass.
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SPIELE], a_pass_beside)
+            outcome = await outcome_of(move(database, client, SPIEL, spiele=cast(Any, interleaved), date=LATER))
+            stored = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+
+            return interleaved, outcome, stored, await handed_out(database, client, answers[0], now=NOW)
+
+        interleaved, outcome, stored, passed = on_a_league(
+            mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, schiedsrichter=None)]
+        )
+
+        # The premise: the pass acted on the fixture, asking both clubs about the slot it held as the pass ran.
+        assert [request.ansetzung.date for request in passed.requests] == [NEXT_WEEK, NEXT_WEEK]
+        # Serially the save reads the fixtures three times in its transaction; a fourth is its run again.
+        interleaved.assert_landed_inside(serially=3)
+        assert outcome == COMMITTED
+        # The save's own raise alone.
+        assert stored is not None
+        assert (stored["date"], stored["version"]) == (LATER, 1)

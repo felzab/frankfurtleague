@@ -25,6 +25,7 @@ from app.api.spielbestaetigungen.crud import (
     JUDGED_SPIEL_FIELDS,
     anchor_the_mailboxes_told,
     anchor_the_referees_told,
+    anchor_the_spiele_acted_on,
     pull_named_spiele,
 )
 from app.api.spielbestaetigungen.schemas import (
@@ -329,6 +330,10 @@ async def sweep_spielbestaetigungen(
         }
         taken = batch.took([row for row in rows if row["_id"] in reasons][: batch.share])
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="close", saison_id=saison_id)
+        # Ahead of the writes: the fixtures the rows taken were judged against, so a save moving one since this attempt
+        # read conflicts with it rather than leaving a notice about the slot the save left.
+        if taken:
+            await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"] for row in taken], session=session)
 
         owing = [row for row in taken if notice_owed(row=row, reason=reasons[row["_id"]], spiel=spiele[row["spiel_id"]], now=now)]
         addresses = await _referee_addresses(
@@ -590,8 +595,12 @@ async def sweep_spielbestaetigungen(
         batch.took([spiel for spiel, _ in taken])
         refuse_a_stalled_page(read=len(spiele), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="mint", saison_id=saison_id)
 
-        # Ahead of the writes, so a seat emptied or re-addressed since this attempt read is a conflict before any work
-        # rather than a mail to the mailbox it left.
+        # Ahead of the writes, so a fixture moved, or a seat emptied or re-addressed, since this attempt read is a conflict
+        # before any work rather than a mail about the slot or to the mailbox it left.
+        if taken:
+            await anchor_the_spiele_acted_on(
+                spiele_collection=spiele_collection, spiel_ids=[spiel["_id"] for spiel, _ in taken], session=session
+            )
         seated = sorted({junctions[team_id]["_id"] for _, plan in taken for team_id in plan.seated}, key=str)
         if seated:
             await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=seated, session=session)
@@ -660,7 +669,11 @@ async def sweep_spielbestaetigungen(
         refuse_a_stalled_page(read=len(rows), moved=len(taken) + len(batch.refused), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
 
         if taken:
-            # Ahead of the writes, as the mint anchors them: the seats the reminders' mailboxes were read off.
+            # Ahead of the writes, as the mint anchors them: the fixtures the reminders state, and the seats their
+            # mailboxes were read off.
+            await anchor_the_spiele_acted_on(
+                spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"] for row, _ in taken], session=session
+            )
             await anchor_the_mailboxes_told(
                 saison_teams_collection=saison_teams_collection,
                 saison_team_ids=sorted({junctions[row["party"]["team_id"]]["_id"] for row, _ in taken}, key=str),
@@ -785,7 +798,9 @@ async def sweep_spielbestaetigungen(
         refuse_a_stalled_page(read=len(spiele), moved=len(told) + len(batch.refused), page=SWEEP_PAGE, clock="aufstellung", saison_id=saison_id)
 
         if mails:
-            # Ahead of the writes, as the mint anchors them: the seats the reminders' mailboxes were read off.
+            # Ahead of the writes, as the mint anchors them: the fixtures the reminders state and time, and the seats their
+            # mailboxes were read off.
+            await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=list(told), session=session)
             await anchor_the_mailboxes_told(
                 saison_teams_collection=saison_teams_collection,
                 saison_team_ids=sorted({row_id for row_ids in told.values() for row_id in row_ids}, key=str),
