@@ -7,7 +7,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { tv } from "./tv";
-import { LinkHint, NavigationLink, PageWait } from "./WholePage";
+import { NavigationLink, PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -130,10 +130,7 @@ export function AccountList({ entries }: { entries: ReadonlyArray<AccountEntry> 
               size={18}
             />
           </span>
-          <span className={slots.words()}>
-            {entry.label}
-            <LinkHint />
-          </span>
+          <span className={slots.words()}>{entry.label}</span>
           <RowEnd />
         </NavigationLink>
       ))}

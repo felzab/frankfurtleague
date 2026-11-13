@@ -1,20 +1,26 @@
 "use client";
 
-// Imports nothing of the kit's: every kit module drawing a link takes `NavigationLink` from here, and a kit module this
-// one imported could close a cycle through one of them, whose module would then be read before it is defined.
-import { createContext, startTransition, Suspense, useContext, useOptimistic } from "react";
-import NextLink, { useLinkStatus } from "next/link";
+// Imports nothing of the kit's but `tv`, which imports no kit module: every kit module drawing a link takes
+// `NavigationLink` from here, and a kit module this one imported could close a cycle through one of them, whose module
+// would then be read before it is defined.
+import { createContext, startTransition, Suspense, useContext, useEffect, useOptimistic, useState } from "react";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 
 import { ROUTES } from "@/core/routes";
+
+import { tv } from "./tv";
 
 import type { ComponentProps, ReactNode } from "react";
 
 /** Whether the pages below arrive whole, no part of a page waiting in a boundary of its own (`PageWait`). */
 const WholeContext = createContext(false);
 
-/** Where a client navigation goes: its address as the browser resolves it, and that address's path and query apart. */
-type Pending = { href: string; path: string; search: string };
+/**
+ * A client navigation under way: where it goes, its address as the browser resolves it with that address's path and
+ * query apart, and the address of the page it was pressed on, which a link's relative address is resolved against.
+ */
+type Pending = { href: string; path: string; search: string; from: URL };
 
 /** Next's own two options for a navigation, which every navigating control of the kit hands over as it would to Next. */
 type NavigateOptions = { replace?: boolean; scroll?: boolean };
@@ -22,8 +28,16 @@ type NavigateOptions = { replace?: boolean; scroll?: boolean };
 type Navigation = {
   /** The address a client navigation is on its way to, from the press until the render that commits its page. */
   pending: Pending | null;
+  /** Whether the pending navigation has lasted `SHOWN_AFTER`, from when the sign shows until the commit. */
+  shown: boolean;
   navigate: (href: string, options?: NavigateOptions) => void;
 };
+
+/**
+ * How long a navigation is pending before its sign shows: the fast ones, most of them, end sooner and show nothing, as
+ * Primer shows no loading state for a short wait, and a wait past it is told.
+ */
+const SHOWN_AFTER = 200;
 
 const NavigationContext = createContext<Navigation | null>(null);
 
@@ -42,9 +56,11 @@ const NavigationContext = createContext<Navigation | null>(null);
 export function WholePages({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pending, setPending] = useOptimistic<Pending | null>(null);
+  const shown = useShownAfterDelay(pending !== null);
   const navigate = (href: string, { replace = false, scroll = true }: NavigateOptions = {}) => {
-    const url = new URL(href, window.location.href);
-    const next = { href: `${url.pathname}${url.search}${url.hash}`, path: url.pathname, search: url.search };
+    const from = new URL(window.location.href);
+    const url = new URL(href, from);
+    const next = { href: `${url.pathname}${url.search}${url.hash}`, path: url.pathname, search: url.search, from };
     // A second press of the address already on its way asks nothing new of the server.
     if (next.href === pending?.href) return;
     startTransition(() => {
@@ -55,10 +71,81 @@ export function WholePages({ children }: { children: ReactNode }) {
   };
   return (
     <WholeContext value>
-      <NavigationContext value={{ pending, navigate }}>
+      <NavigationContext value={{ pending, shown, navigate }}>
         <Suspense fallback={null}>{children}</Suspense>
       </NavigationContext>
     </WholeContext>
+  );
+}
+
+/**
+ * Whether `on` has held for `SHOWN_AFTER`: one timer from the moment it turns on, which a second navigation superseding
+ * the first leaves running, so the sign never gaps; off the moment `on` is.
+ */
+function useShownAfterDelay(on: boolean) {
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    if (!on) return;
+    const timer = window.setTimeout(() => setWaited(true), SHOWN_AFTER);
+    return () => {
+      window.clearTimeout(timer);
+      setWaited(false);
+    };
+  }, [on]);
+  return on && waited;
+}
+
+/**
+ * Which of a list's addresses the pending navigation goes to, so the list marks it current at the press: each resolved
+ * against the page it was pressed on, as the browser resolves a link's, a tab's `?tab=2` among them; one naming a query
+ * only where the navigation carries that query, one naming none by its path alone.
+ */
+export function usePressed<Href extends string>(hrefs: ReadonlyArray<Href>): Href | undefined {
+  const pending = useContext(NavigationContext)?.pending ?? null;
+  if (pending === null) return undefined;
+  return hrefs.find((href) => {
+    const { pathname, search } = new URL(href, pending.from);
+    return pathname === pending.path && (search === "" || search === pending.search);
+  });
+}
+
+/** Whether the pending navigation stays on the page's own path, as a filter or a tab does. */
+const staysOnPath = (pending: Pending) => pending.path === pending.from.pathname;
+
+/** The query of a navigation pending to the page's own path, as a filter changes it; `null` while none is. */
+export function usePendingQuery(): URLSearchParams | null {
+  const pending = useContext(NavigationContext)?.pending ?? null;
+  return pending !== null && staysOnPath(pending) ? new URLSearchParams(pending.search) : null;
+}
+
+const bar = tv({
+  // Never pressed and never read: the page under it stays the one to press, and the spoken status says the same.
+  base: "pointer-events-none fixed inset-x-0 z-20 h-0.75 opacity-0 data-shown:opacity-100 data-shown:transition-opacity data-shown:duration-(--motion-in)",
+  variants: {
+    // At the top edge of the page area, under the band on a phone and under the title strip beside the rail on desktop,
+    // its start following the rail's width as it collapses; under the classic header.
+    placement: {
+      rail: "top-(--rail-band) lg:start-(--rail-width) lg:top-(--rail-strip)",
+      classic: "top-(--classic-header)",
+    },
+  },
+});
+
+/**
+ * The one sign that a navigation is under way: a thin bar at the top of the page area, which each frame places once,
+ * outside every link and every scroll box. It shows once a navigation has been pending `SHOWN_AFTER`, fading in where
+ * motion is welcome and at once where it is not, keeps pulsing under both, and goes in the render that commits the new
+ * page. Its segment is the brand green, which keeps 4.5:1 on every ground of the page in both themes.
+ */
+export function NavigationBar({ placement }: { placement: "rail" | "classic" }) {
+  const shown = useContext(NavigationContext)?.shown ?? false;
+  return (
+    <span
+      aria-hidden
+      data-shown={shown || undefined}
+      className={bar({ placement })}>
+      <span className="block size-full animate-pulse rounded-full bg-brand" />
+    </span>
   );
 }
 
@@ -125,25 +212,4 @@ export function NavigationLink({
  */
 export function PageWait({ fallback, children }: { fallback: ReactNode; children: ReactNode }) {
   return useContext(WholeContext) ? children : <Suspense fallback={fallback}>{children}</Suspense>;
-}
-
-/**
- * The pending hint on a pressed link, Next's recipe (`useLinkStatus`): always rendered and taking no room, a dot that
- * fades in only once the navigation has taken 100 ms and pulses until it commits, so a fast one shows nothing. Placed
- * absolutely with no offset, it stands at its static place, after the words in a line of text and at the start of a flex
- * or grid link, and moves nothing. It must stand inside Next's link, whose status it reads. Outside `WholePages` it
- * draws nothing: a page streaming in its parts commits its placeholders within a few frames of the press, before the
- * hint's delay ends.
- */
-export function LinkHint() {
-  const { pending } = useLinkStatus();
-  if (!useContext(WholeContext)) return null;
-  return (
-    <span
-      aria-hidden
-      data-pending={pending || undefined}
-      className="group/hint pointer-events-none absolute ms-1 mt-1.5 opacity-0 transition-opacity duration-(--motion-in) data-pending:opacity-100 data-pending:delay-100">
-      <span className="block size-1.5 rounded-full bg-current opacity-60 group-data-pending/hint:animate-pulse" />
-    </span>
-  );
 }

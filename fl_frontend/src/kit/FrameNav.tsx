@@ -27,7 +27,7 @@ import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { LinkHint, NavigationLink, PageWait, useNavigate } from "./WholePage";
+import { NavigationLink, PageWait, useNavigate, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -434,6 +434,17 @@ function useCurrent<Entry extends { href: Route; own: boolean; home: boolean }>(
   return own.find((entry) => entry.href === href);
 }
 
+/**
+ * The entry a list marks current: from the press of an entry of its own, the one the navigation goes to, so the mark
+ * moves at once; else the one the address belongs to (`useCurrent`).
+ */
+function useMarked<Entry extends { href: Route; own: boolean; home: boolean }>(entries: ReadonlyArray<Entry>) {
+  const current = useCurrent(entries);
+  const own = entries.filter((entry) => entry.own);
+  const pressed = usePressed(own.map((entry) => entry.href));
+  return pressed === undefined ? current : own.find((entry) => entry.href === pressed);
+}
+
 // The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
 // `data-selected`; a menu's chosen entry is marked otherwise, by its check.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
@@ -483,7 +494,7 @@ export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?
 
 function RailEntryList({ groups: given, prefetch, listless }: { groups: ReadonlyArray<RailGroup>; prefetch?: true; listless?: true }) {
   const groups = useEntries(given, listless);
-  const current = useCurrent(groups.flatMap((group) => group.entries));
+  const current = useMarked(groups.flatMap((group) => group.entries));
   return (
     // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
     // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
@@ -520,10 +531,7 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
                       size={18}
                     />
                   </span>
-                  <span className={railFade()}>
-                    {entry.label}
-                    <LinkHint />
-                  </span>
+                  <span className={railFade()}>{entry.label}</span>
                 </NavigationLink>
               </RailTooltip>
             ))}
@@ -729,7 +737,7 @@ export function BarPlaces() {
 function Places({ groups: given, bar, extra, account, prefetch, listless }: FrameMenu & { listless?: true }) {
   const groups = useEntries(given, listless);
   const entries = groups.flatMap((group) => group.entries);
-  const current = useCurrent(entries);
+  const current = useMarked(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const rest = groups
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
@@ -754,10 +762,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
           />
           {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
               the words stand centred, so the room their columns leave them parts two labels. */}
-          <span className="max-w-full truncate">
-            {entry.label}
-            <LinkHint />
-          </span>
+          <span className="max-w-full truncate">{entry.label}</span>
         </NavigationLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
@@ -793,10 +798,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                         glyph={entry.icon}
                         size={18}
                       />
-                      <span>
-                        {entry.label}
-                        <LinkHint />
-                      </span>
+                      {entry.label}
                     </NavigationLink>
                   ))}
                 </div>
@@ -809,10 +811,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                       href={link.href}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
-                      <span>
-                        {link.label}
-                        <LinkHint />
-                      </span>
+                      {link.label}
                     </NavigationLink>
                   ))}
                 </div>
@@ -930,18 +929,13 @@ const back = tv({
 export function BackControl({ href }: { href: Route }) {
   const guard = useLeaveGuard();
   const navigate = useNavigate();
-  // The words in a box of their own, which the link's pending hint follows; the button's press opens a dialog, so it
-  // leads to no link whose status a hint could read.
-  const content = (hint: ReactNode) => (
+  const content = (
     <>
       <Icon
         glyph="back"
         size={18}
       />
-      <span>
-        {COPY.shared.back}
-        {hint}
-      </span>
+      {COPY.shared.back}
     </>
   );
 
@@ -951,7 +945,7 @@ export function BackControl({ href }: { href: Route }) {
         href={href}
         data-kit-focus="ring"
         className={back({ host: "link" })}>
-        {content(<LinkHint />)}
+        {content}
       </NavigationLink>
     );
   }
@@ -969,7 +963,7 @@ export function BackControl({ href }: { href: Route }) {
         <AriaButton
           data-kit-focus="ring"
           className={back({ host: "aria" })}>
-          {content(null)}
+          {content}
         </AriaButton>
       }
     />

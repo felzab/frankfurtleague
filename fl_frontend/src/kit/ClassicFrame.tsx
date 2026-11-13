@@ -10,6 +10,7 @@ import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
 import { ToastRegion } from "./Toast";
+import { NavigationBar } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -92,6 +93,7 @@ export function ClassicFrame({
           />
         </div>
       </header>
+      <NavigationBar placement="classic" />
 
       {children}
 

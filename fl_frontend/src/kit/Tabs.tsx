@@ -1,10 +1,12 @@
+"use client";
+
 import { COPY } from "@/core/copy";
 
 import { hoverLook } from "./hoverStyles";
 import { PlaceholderLine } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
-import { NavigationLink } from "./WholePage";
+import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -55,7 +57,7 @@ export function TabsPlaceholder({ count, children }: { count: number; children: 
  * chosen tab's content, the page's own. Each link is the tab alone, `?tab=<id>`, which the browser and
  * Next's router alike resolve against the page's own address, so Back, a reload and a shared link keep the
  * view; the chosen tab is the one the server read from the
- * address (`chosenTab`). Plain links, because React Aria's tabs replace their server-rendered links when
+ * address (`chosenTab`), or from a tab's press the one the navigation goes to. Plain links, because React Aria's tabs replace their server-rendered links when
  * they hydrate and drop a link click whose press they did not see begin: a press held across hydration did
  * nothing (adobe/react-spectrum#8239). On a phone the row scrolls sideways, and where the browser drives
  * animations from a scroll, the edge with more to read fades through the `kit-scroll-fade` keyframes in the
@@ -76,6 +78,9 @@ export function Tabs({
   children: ReactNode;
 }) {
   const { row, tab } = tabs();
+  const hrefOf = (id: string) => `?${new URLSearchParams({ [TAB_PARAM]: id }).toString()}`;
+  const pressed = usePressed(entries.map((entry) => hrefOf(entry.id)));
+  const chosen = entries.find((entry) => hrefOf(entry.id) === pressed)?.id ?? selectedKey;
   return (
     <div className="grid gap-4">
       <nav
@@ -91,8 +96,8 @@ export function Tabs({
               key={entry.id}
               className="shrink-0">
               <NavigationLink
-                href={`?${new URLSearchParams({ [TAB_PARAM]: entry.id }).toString()}`}
-                aria-current={entry.id === selectedKey ? "page" : undefined}
+                href={hrefOf(entry.id)}
+                aria-current={entry.id === chosen ? "page" : undefined}
                 data-kit-focus="inset"
                 className={tab({
                   class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })} aria-[current=page]:border-brand aria-[current=page]:text-fg`,

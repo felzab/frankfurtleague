@@ -14,6 +14,7 @@ import { useRailCollapsed } from "./RailState";
 import { railFade } from "./railStyles";
 import { Placeholder, placeholderBar, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 import { tv } from "./tv";
+import { usePressed } from "./WholePage";
 
 const trigger = tv({
   slots: {
@@ -108,10 +109,17 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
   const collapsed = useRailCollapsed();
   const path = usePathname();
   const params = useParams();
+  const links =
+    saison === null
+      ? []
+      : saison.entries.map(({ id }) => ({ id, href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }) }));
+  // From the press of another season, the button names the one the navigation goes to.
+  const pressed = usePressed(links.map((link) => link.href));
   if (saison === null) return null;
 
   const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: saison.entries.length < 2 });
-  const active = saison.entries.find((entry) => entry.id === saison.active);
+  const shown = links.find((link) => link.href === pressed)?.id ?? saison.active;
+  const active = saison.entries.find((entry) => entry.id === shown);
   return (
     <div className={place()}>
       <Menu
@@ -122,10 +130,10 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
         // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
         width={placement === "rail" ? "trigger" : "content"}
         groups={[
-          saison.entries.map(({ id }) => ({
+          links.map(({ id, href }) => ({
             kind: "link" as const,
             label: COPY.shared.saisonName(id),
-            href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
+            href,
             isCurrent: id === saison.active,
             // The browser's Back skips a season switch, returning to the page before the season's pages.
             replace: true,
@@ -144,12 +152,12 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
                   />
                 </span>
                 <span className={lines()}>
-                  <span className={name()}>{COPY.shared.saisonName(saison.active)}</span>
+                  <span className={name()}>{COPY.shared.saisonName(shown)}</span>
                   <span className={span()}>{active?.span}</span>
                 </span>
               </>
             ) : (
-              COPY.shared.saisonName(saison.active)
+              COPY.shared.saisonName(shown)
             )}
             <span className={arrow()}>
               <Icon

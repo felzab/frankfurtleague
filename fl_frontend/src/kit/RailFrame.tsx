@@ -27,7 +27,7 @@ import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
-import { LinkHint, NavigationLink, PageWait } from "./WholePage";
+import { NavigationBar, NavigationLink, PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -166,10 +166,7 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>
-                      {COPY.template.account}
-                      <LinkHint />
-                    </span>
+                    <span className={railFade()}>{COPY.template.account}</span>
                   </NavigationLink>
                 </RailTooltip>
               )}
@@ -177,6 +174,7 @@ export function RailFrame({
           </aside>
 
           <div className="flex min-h-dvh min-w-0 flex-col">
+            <NavigationBar placement="rail" />
             {/* The strip's ground, its hairline and its toggle, drawn here, in the layout a navigation keeps mounted,
                 rather than by each page: they stand on every frame of a page's change and of its wait, and only the
                 title `RailPage` lays over them changes. A picture of its own in a page's cross-fade, as the band is. The
@@ -376,10 +374,7 @@ export function RailPage({
                 href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                <span>
-                  {page.title}
-                  <LinkHint />
-                </span>
+                {page.title}
               </NavigationLink>
             ))}
           </nav>
