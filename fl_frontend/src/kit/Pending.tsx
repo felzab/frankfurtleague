@@ -8,19 +8,28 @@ import type { ReactNode } from "react";
  *
  * - `data-kit-bar` on a part that is one bar of its own box, as `TeamPlaque` and `Chip` carry it.
  * - `data-kit-bar="words"` on an inline `span` around a value's words, whose bar is as wide as each line of them. The
- *   `span` is the words' own: a text beside an element in one parent has no box a rule could reach.
+ *   `span` is the words' own, inside their slot's element: a text beside an element in one parent has no box a rule
+ *   could reach, and a slot that is a flex or grid item is no inline box, so its bar would not follow its lines.
  *
  * On a landed page the marks do nothing, and each rule sets a paint property and none a box, so the waiting block is
  * laid out as the landed one is, by the one recipe, and cannot drift from it as a placeholder drawn by hand does. A
  * part left unmarked shows its sample's underscores.
  *
  * The sample is kept beside its block, in the block's file, and has the shape of what lands: as many rows, and in each
- * slot the read fills as many words, as the block usually holds, short enough to fit the slot, since a cut one shows
- * the cut's „…“. Those words are `waitSample`'s, runs of underscores, never ink a person reads, only width: a public
+ * slot the read fills as many words, as the block usually holds. It fits its slot on the narrowest phone, since a slot
+ * that cuts its text draws the cut's „…“ in its own ink after the bar. A number's sample is as long as the longest
+ * figure its slot usually holds and never one character, which is a stub no eye takes for a bar. What is known before
+ * the read is passed as it is.
+ *
+ * The sample's words are `waitSample`'s, runs of underscores, which are width and never words a person reads: a public
  * page is prerendered, so a fallback's markup reaches every reader and every crawler, and a made-up name in it would be
- * content the site never published. What is known before the read is passed as it is. A link in the sample has no address (`href: null`), which HTML
- * calls a placeholder for a link: nothing follows it, Next prefetches nothing for it, and it is no client component,
- * so a block of links waits as markup alone.
+ * content the site never published. Under forced colours the browser sets the rules' colours aside for the person's
+ * own, as it does every colour of the site, so the bars are gone and the sample stands in their text colour as the
+ * blanks an underscore is the sign for. The rules do not opt out of that (`forced-color-adjust`): it would put the
+ * site's faint tint over a contrast the person chose.
+ *
+ * A link in the sample has no address (`href: null`), which HTML calls a placeholder for a link: nothing follows it,
+ * Next prefetches nothing for it, and it is no client component, so a block of links waits as markup alone.
  *
  * It holds a block's place and no more, so the page's layout keeps two rules around it. The layout owns every box above
  * the wait: a title, a toolbar and a table's head stand outside the boundary, drawn before any read. And the waiting
