@@ -50,8 +50,11 @@ export function Switch({
               className={switchTrack({ selected })}>
               <span className={switchThumb({ selected })} />
             </span>
-            {label}
-            {lock.isMarked && <LockMark />}
+            {/* One grid item, so the lock mark follows the label in its column rather than wrapping under the track. */}
+            <span>
+              {label}
+              {lock.isMarked && <LockMark />}
+            </span>
           </>
         )}
       </SwitchButton>

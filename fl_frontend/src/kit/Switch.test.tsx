@@ -27,4 +27,20 @@ describe("a locked switch", () => {
     expect(control.getAttribute("aria-readonly")).toBe("true");
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  // The harm: the row is a grid of the track and its words, and a mark standing as a third item wraps under the track,
+  // away from the label it marks. No layout runs here, so the case reads the markup that decides it.
+  it("holds its lock mark with its label, apart from the track", () => {
+    const label = COPY.shared.withObject(COPY.admin.spiel.ergebnis, "enter");
+    render(
+      <Switch
+        label={label}
+        isLocked
+      />,
+    );
+    const words = screen.getByText(label);
+
+    expect(words.querySelector("svg")).not.toBeNull();
+    expect(words.querySelector("[data-kit-focus]")).toBeNull();
+  });
 });
