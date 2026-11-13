@@ -32,9 +32,11 @@ export default defineConfig({
   // vite-tsconfig-paths nor @vitejs/plugin-react is needed.
   resolve: { tsconfigPaths: true },
   test: {
-    // Read by `src/core/config.ts`: a test imports a module that reads the environment, and never
-    // the variables a deployment sets.
+    // Read by `src/core/config.ts`, which every name here overrides the shell's value of.
     env: { ...TEST_ENVIRONMENT },
+    // Writes the secret files `SECRETS_DIR` names, once for the run, before any worker starts
+    // (https://vitest.dev/config/globalsetup).
+    globalSetup: ["src/test-support/testEnvironment.mts"],
     setupFiles: ["src/test-support/setup.ts", "src/test-support/dom.ts"],
     // Node by default: most suites test server code. A file rendering into a document opts in with
     // `// @vitest-environment jsdom` (https://vitest.dev/guide/environment).

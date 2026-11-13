@@ -1,5 +1,6 @@
 import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, caseRunning, networkFailure } from "@/test-support/backend.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
+import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
@@ -36,18 +37,15 @@ export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as
 /** A secret's reader in `fl_frontend/src/core/config.ts`, by its exported name, as a double answers it. */
 type SecretReaders = Readonly<Record<string, () => string | undefined>>;
 
+/** The run's own secret files, as the real config reads them, so a double hands a suite the same values. */
 const SECRET_DOUBLES: SecretReaders = {
-  // Reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
-  // `AUTH_SECRET`, so neither environment name needs setting for a run.
-  authSecret: () => "fabricated-test-secret-not-a-credential",
-  // The key the sign-in gate's one backend read is made with.
-  internalApiKeySystem: () => "fabricated-system-not-a-credential",
-  // The keys every other call the request makes goes with, read by the real client on the file's backend.
-  internalApiKeyBase: () => "fabricated-base-not-a-credential",
-  internalApiKeyAdmin: () => "fabricated-admin-not-a-credential",
+  authSecret: () => TEST_SECRETS.auth_secret,
+  internalApiKeySystem: () => TEST_SECRETS.internal_api_key_system,
+  internalApiKeyBase: () => TEST_SECRETS.internal_api_key_base,
+  internalApiKeyAdmin: () => TEST_SECRETS.internal_api_key_admin,
 };
 
-/** The config every sign-in suite runs `fl_frontend/src/core/auth/library.ts` under, `secrets` over the readers' defaults. */
+/** A config standing in for the real one where a suite must vary a value per file, `secrets` over the run's own. */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
   const config = {
     ...GATE_BACKEND_CONFIG,
@@ -60,7 +58,7 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, 
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
-   the config above omits, and with one a suite left on the real adapter would reach for a server
+   the run's secret files omit, and with one a suite left on the real adapter would reach for a server
    rather than fail at once. */
 const DB_DOUBLE: DoubledExports = { signInStore: () => ({ db: () => ({}) }) };
 
@@ -153,25 +151,22 @@ function doubleOutbox(): {
 }
 
 type AuthDoubles = {
-  /** By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. */
+  /** By the `fl_frontend/src/core/<name>.ts` each replaces, over the store client's default. */
   readonly core?: Readonly<Record<string, ModuleDouble>>;
   /** By the bare specifier each replaces. */
   readonly specifiers?: Readonly<Record<string, ModuleDouble>>;
 };
 
 /**
- * Doubles, through `vi.doMock`, the config and the store client `fl_frontend/src/core/auth/library.ts` builds on, and
- * answers on the file's backend (`fl_frontend/src/test-support/backend.ts`) the lookup its grant is read over and the
- * Postausgang its mails are owed through.
+ * Doubles, through `vi.doMock`, the store client `fl_frontend/src/core/auth/library.ts` builds on, and answers on the
+ * file's backend the lookup its grant is read over and the Postausgang its mails are owed through. The library runs
+ * under the real config, over the run's environment and secret files, unless `core` names a `config` of its own.
  */
 export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doubleOutbox`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleOutbox's: read the record registerAuthDoubles answers.");
-  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [
-    `@/core/${name}.ts`,
-    double,
-  ]);
+  const modules = Object.entries({ db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [`@/core/${name}.ts`, double]);
 
   // The grant is read over the lookup, so without an answer no suite has an administrator at all. Only where nothing
   // else answers it: a suite answering the lookup, before this or after it, or the whole backend itself, keeps its own.

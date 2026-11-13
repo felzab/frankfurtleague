@@ -20,7 +20,7 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 const { getAdminSaison, getAdminSaisons } = await import("./queries.ts");
 const { internalApiKeyAdmin } = await import("@/core/config.ts");
 
-/** The key tier a request went out on, read off its key: the config double gives each tier a key of its own. */
+/** The key tier a request went out on, read off its key: the run's secret files give each tier a key of its own. */
 const tierOf = (authorization: string | null): string =>
   authorization === `Bearer ${internalApiKeyAdmin()}` ? "admin" : String(authorization);
 

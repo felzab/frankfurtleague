@@ -3,6 +3,7 @@
 import { ADMIN_EMAIL, answerTheLookup, ORIGIN } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
 import { signedInRequest } from "@/test-support/session.ts";
+import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { afterEach, describe, expect, it } from "vitest";
 
 /** An address the file answers no lookup for. */
@@ -14,6 +15,7 @@ const { arriveAs, store, outbox } = signedInRequest();
 // Imported after the helper's doubles, as a suite's subject is.
 const { auth } = await import("@/core/auth/library.ts");
 const { cookies } = await import("next/headers");
+const { frontend_config, internalApiKeyAdmin } = await import("@/core/config.ts");
 
 /** Asks the sign-in library to mail `email` a code, as the sign-in page's send does. */
 const sendCode = (email: string) => auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
@@ -23,6 +25,14 @@ const failures = new Map<string, string>();
 afterEach(({ task, onTestFinished: finished }) => {
   finished(() => {
     failures.set(task.name, (task.result?.errors ?? []).map(({ message }) => String(message)).join("\n"));
+  });
+});
+
+describe("the request", () => {
+  it("runs under the real config, over the run's environment and its secret files", () => {
+    // The environment's name, which no stand-in of the config carries, and a key read off the run's own file.
+    expect(frontend_config.APP_ENV).toBe("local");
+    expect(internalApiKeyAdmin()).toBe(TEST_SECRETS.internal_api_key_admin);
   });
 });
 
