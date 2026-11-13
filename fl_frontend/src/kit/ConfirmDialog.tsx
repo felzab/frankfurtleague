@@ -84,6 +84,9 @@ export function TriggerButton({ trigger, tone }: { trigger: Trigger; tone: Tone 
   );
 }
 
+/** The transition an act runs in, as `useTransition` returns it: whether it is running, and how to start it. */
+type ActTransition = ReturnType<typeof useTransition>;
+
 /**
  * What opens the question: its own trigger, which it draws; the open state another control holds, as the kit's `Dialog`
  * takes it; or a control in a look of the frame's own that is no button, such as the band's „‹ Zurück“, which asks
@@ -94,20 +97,32 @@ type Opening<T extends Tone> =
   | {
       trigger: Trigger<T>;
       open?: never;
+      transition?: never;
       control?: never;
     }
-  | {
+  | ({
       /** The open state, held by the control that asks, such as the save bar a held-back save answers on. */
       open: HeldOpen;
       trigger?: never;
       control?: never;
-    }
+    } & HeldAct)
   | {
       /** A pressable React Aria control the kit draws in a look of its own, never the kit's `Button`. */
       control: ReactElement;
       trigger?: never;
       open?: never;
+      transition?: never;
     };
+
+/** What a holder of the open state may also hold: the act's running, lifted up to it. */
+type HeldAct = {
+  /**
+   * The holder's transition, which the act runs in instead of the question's own, so the holder shows the act running
+   * where its press stands and refuses a second press while it does: a touched act runs after its question closed, and
+   * a held question draws no trigger to show it on.
+   */
+  transition?: ActTransition;
+};
 
 type Act = {
   /**
@@ -145,9 +160,10 @@ type ConfirmDialogProps<T extends Tone> = ConfirmWords & { tone: T } & Act & Tou
  * from the first render, as a held dialog must be, it takes no words, having none to say. A touch's holder mounts the
  * sign-in client's chunk with it, ahead of the question it will ask.
  */
-type Unasked = Act & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
-  [Word in keyof ConfirmWords]?: never;
-};
+type Unasked = Act &
+  HeldAct & { touch?: Holder; doneShown?: never; open: HeldOpen; trigger?: never; control?: never } & {
+    [Word in keyof ConfirmWords]?: never;
+  };
 
 /**
  * The question before an act that cannot be undone: the act and its record, one short sentence of consequence over
@@ -159,7 +175,8 @@ type Unasked = Act & { touch?: Holder; doneShown?: never; open: HeldOpen; trigge
  *
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`Touch`): React Aria's modal
  * makes the rest of the page inert, and a password manager draws its prompt in the page. The final press closes the
- * question, then asks the touch and runs the act, its answer a toast, the trigger busy until it lands.
+ * question, then asks the touch and runs the act, its answer a toast, the trigger busy until it lands, or the press of
+ * the holder of the open state, which hands its own transition for it (`HeldAct`).
  */
 export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Unasked) {
   const { trigger, control, open, onConfirm, touch } = props;
@@ -167,7 +184,8 @@ export function ConfirmDialog<T extends Tone>(props: ConfirmDialogProps<T> | Una
   const done = props.touch !== undefined && props.verb !== undefined ? COPY.shared.toast.done[props.verb] : null;
   const router = useRouter();
   const [isOpen, setOpen] = useOpenUntilHidden(open);
-  const [isBusy, startAct] = useTransition();
+  const ownAct = useTransition();
+  const [isBusy, startAct] = props.transition ?? ownAct;
   const [refusal, setRefusal] = useState<FormStatus>(null);
   // A refusal goes with the dialog however it closes, its holder's state or the page hiding included, so it never
   // greets the next opening: reset while rendering, as React's guide adjusts state to a changed prop. Reset as it opens
