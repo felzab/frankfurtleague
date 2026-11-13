@@ -96,7 +96,7 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
   return {
     id: grant.id,
     name: { record: grant.address, address: true },
-    chip: isOwner ? { tone: "neutral", label: WORDS.owner } : { tone: "success", label: COPY.admin.role },
+    chip: { tone: "success", label: isOwner ? WORDS.owner : COPY.admin.role },
     cells: { since: dayOf(grant.effective_from) },
     sideActs: 1,
     acts: (
