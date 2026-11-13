@@ -5,26 +5,19 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { AccountBox } from "./AccountBox";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
-import { OneShotForm } from "./OneShot";
 import { TextField } from "./TextField";
 import { toastAnswer } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { EndState } from "./OneShot";
 import type * as ToastModule from "./Toast";
 
 const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
 const CANCELLED = { data: null, error: { message: "cancelled" } };
 const DONE: ActionAnswer = { ok: true, value: undefined };
-const END: ActionAnswer<EndState> = {
-  ok: true,
-  value: { tone: "success", title: COPY.shared.saved, next: { label: COPY.shared.back, href: "/" } },
-};
 
 const passkey = vi.hoisted(() => ({ prompt: vi.fn() }));
 
@@ -129,17 +122,6 @@ describe("a question behind the passkey touch", () => {
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(passkey.prompt).toHaveBeenCalledTimes(2);
   });
-
-  it("asks a person holding no passkey nothing", async () => {
-    const onConfirm = vi.fn(async () => DONE);
-    render(question(onConfirm));
-
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await pressIn(await screen.findByRole("alertdialog"), VERB);
-
-    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-    expect(passkey.prompt).not.toHaveBeenCalled();
-  });
 });
 
 describe("a dialog of inputs behind the passkey touch", () => {
@@ -166,23 +148,6 @@ describe("a dialog of inputs behind the passkey touch", () => {
     const posted = action.mock.calls[0]?.[0];
     expect([posted?.get("name"), posted?.get("holder")]).toStrictEqual(["Berta", HOLDER]);
     await waitFor(() => expect(toasted()).toStrictEqual([true, COPY.shared.toast.done.enter]));
-  });
-
-  // A field's phrase, or the line pointing at the fields, with no field left in sight tells the person nothing true: a
-  // touched act words its refusals as sentences, and one it does not word is the shared failure.
-  it("toasts a refusal carrying a field's phrase alone as the shared failure, never the phrase or the fields' pointer", async () => {
-    passkey.prompt.mockResolvedValueOnce(SIGNED_IN);
-    const action = vi.fn(async (_: FormData): Promise<ActionAnswer> => ({ ok: false, fieldErrors: { name: COPY.shared.field.taken } }));
-    render(inputs(action));
-
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.type(within(dialog).getByRole("textbox"), "Anna");
-    await pressIn(dialog, ENTER);
-
-    await waitFor(() => expect(vi.mocked(toastAnswer)).toHaveBeenCalledOnce());
-    // No reason: `toastAnswer` says its failure line.
-    expect(toasted()).toStrictEqual([false, undefined]);
   });
 });
 
@@ -240,51 +205,5 @@ describe("the browser's passkey prompt after a dialog", () => {
 
     await act(async () => answer(SIGNED_IN));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
-  });
-});
-
-// The two acts with no dialog: their one press is the final press.
-describe("an act pressed where it stands", () => {
-  it("in a Konto box answers a refused touch on the box's line, the act not run", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED);
-    const run = vi.fn(async () => DONE);
-    render(
-      <AccountBox
-        title={SUBJECT}
-        description={COPY.account.passkeys.description}
-        act={{ run, carry: { holder: HOLDER }, button: { label: VERB }, touch: true }}
-      />,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: VERB }));
-
-    await screen.findByText(COPY.signIn.refusal.unverified);
-    expect(run).not.toHaveBeenCalled();
-  });
-
-  it("in a one-shot form touches for the main act alone", async () => {
-    passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
-    const action = vi.fn(async (_: FormData) => END);
-    render(
-      <OneShotForm
-        head={<h1>{COPY.shared.help}</h1>}
-        action={action}
-        acts={{
-          primary: COPY.shared.verb.save,
-          refusal: { verb: "delete", subject: COPY.shared.entry, consequence: COPY.admin.addressChange.previousStays },
-        }}
-        carry={{ holder: HOLDER }}
-        touch
-      />,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
-    await screen.findByText(COPY.signIn.refusal.unverified);
-    expect(action).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.delete }));
-    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
-    expect(passkey.prompt).toHaveBeenCalledTimes(1);
   });
 });

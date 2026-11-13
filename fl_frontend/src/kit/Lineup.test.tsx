@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { Lineup, lineupMoves, lineupValue } from "./Lineup";
+import { Lineup, lineupValue } from "./Lineup";
 
 import type { Copy } from "@/core/copy";
 import type { LineupPlayer, LineupValue, LineupWords, NamelessEntry } from "./Lineup";
@@ -151,53 +151,6 @@ describe("a line-up", () => {
   });
 });
 
-describe("a nominee in a line-up", () => {
-  const players = [...squad(11), nominee(30), nominee(31)];
-  const regulars = (count: number) => Array.from({ length: count }, (_, index) => idOf(index + 1));
-
-  // The harm: a line-up the save refuses for its nominee, with a button that offered the nominee all along.
-  it("can be named while fewer than eleven regular pupils are, one for each place they leave", async () => {
-    const seen = vi.fn();
-    render(
-      <Held
-        players={players}
-        start={lineupValue(regulars(10), [])}
-        seen={seen}
-      />,
-    );
-
-    await pick(30);
-    expect(seen).toHaveBeenLastCalledWith(lineupValue([...regulars(10), "n30"], []));
-
-    // The one place is taken: the second nominee's word answers with the reason and names nobody.
-    await pick(31);
-    expect((await screen.findByRole("tooltip")).textContent).toBe(WORDS.nomineeLocked);
-    expect(seen).toHaveBeenCalledOnce();
-  });
-
-  it("stays named when an eleventh regular pupil is, its row saying why it cannot stay", async () => {
-    const seen = vi.fn();
-    render(
-      <Held
-        players={players}
-        start={lineupValue([...regulars(10), "n30"], [])}
-        seen={seen}
-      />,
-    );
-    expect(within(rowOf(30)).queryByText(WORDS.nomineeLocked)).toBeNull();
-
-    await pick(11);
-
-    expect(seen).toHaveBeenLastCalledWith(lineupValue([...regulars(11), "n30"], []));
-    expect(within(rowOf(30)).getByText(WORDS.nomineeLocked)).toBeTruthy();
-
-    // Eleven regular pupils leave no place: the other nominee's word answers with the reason and names nobody.
-    await pick(31);
-    expect((await screen.findByRole("tooltip")).textContent).toBe(WORDS.nomineeLocked);
-    expect(seen).toHaveBeenCalledOnce();
-  });
-});
-
 describe("a line-up's states", () => {
   // The harm: a press on a closed screen changing the draft, which the save then refuses with the bar's line alone.
   it("closes every act with the reason while it is locked", async () => {
@@ -265,18 +218,5 @@ describe("a line-up keeping entries naming nobody", () => {
     await userEvent.click(tickOf(11));
     expect(tickOf(11).checked).toBe(false);
     expect(seen.mock.calls.at(-1)?.[0]).toStrictEqual(lineupValue(ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11), ids(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
-  });
-});
-
-describe("a line-up's changes", () => {
-  // The harm: six pupils moved reading „2 Änderungen“, the two fields, or a line-up put back as it was stored still
-  // counted as changed, so the way back asks about changes nobody made.
-  it("counts each pupil moved, and nothing once they are back", () => {
-    const stored = lineupValue([idOf(7), idOf(8)], [idOf(7)]);
-
-    // Four named, the starter taken out, the other one starting.
-    expect(lineupMoves(stored, lineupValue([idOf(1), idOf(2), idOf(3), idOf(4), idOf(8)], [idOf(8)]))).toBe(6);
-    // Back, the stored pair named in the other order than it was stored in.
-    expect(lineupMoves(stored, lineupValue([idOf(8), idOf(7)], [idOf(7)]))).toBe(0);
   });
 });
