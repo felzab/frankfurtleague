@@ -94,8 +94,8 @@ export function ClassicSections({ children }: { children: ReactNode }) {
 
 const head = tv({
   slots: {
-    // Over a hairline across the column, which parts the head from what the page says.
-    root: "grid gap-3 border-b border-border pb-6",
+    // Parted from what the page says by space alone, as the text's sections are from each other.
+    root: "grid gap-3 pb-6",
     // A lead paragraph a step above the text from `lg`, in the muted grey the landing's lead takes.
     lead: "max-w-measure text-base text-fg-muted lg:text-xl",
     date: "text-sm text-fg-muted",
