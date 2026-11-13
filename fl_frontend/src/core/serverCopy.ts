@@ -477,7 +477,8 @@ export const SERVER_COPY = catalogue({
           welcome: "Herzlich willkommen.",
         },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
-        fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
+        /** No later mail names a colour set after the Zusage, so none is promised. */
+        fixedNoColour: "Die Gruppe steht fest.",
         signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
       },
       absage: {
@@ -644,7 +645,8 @@ export const SERVER_COPY = catalogue({
         `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
-      valid: "Der Link gilt bis zum Ende der Registrierung.",
+      /** The registration's end closes no link: an entry past it is a Nachnominierung through the same link. */
+      valid: "Der Link gilt bis zum Ende der Saison.",
     },
 
     /**
