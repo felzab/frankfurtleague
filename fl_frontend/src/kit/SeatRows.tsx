@@ -1,12 +1,9 @@
-import { COPY, textOf } from "@/core/copy";
+import { textOf } from "@/core/copy";
 
-import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
+import { PartyHead } from "./AnswerRows";
 import { actRow, cardSurface, stacked } from "./cardStyles";
-import { EMAIL_WORDS } from "./Facts";
 import { SideActsScope } from "./SideActs";
 import { sideActsForm } from "./sideActsForm";
-import { SideActsPlaceholder } from "./SideActsPlaceholder";
-import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -94,41 +91,5 @@ export function SeatRows({
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * The seats while they are read: three rows, each a name and a chip over the muted line, drawn from the rows' recipe, so
- * each stands as a seat's row will. The line's words are set unseen, an address wrapping in a phone's column as it will.
- * `readOnly` is the seats of a page that only shows them: its line names the seat alone and its row ends with its words.
- * Any other draws the one act every seat carries, „Sitz bearbeiten“, beside the words, in the form the list's box gives
- * it (`SideActsPlaceholder`).
- */
-export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?: boolean; readOnly?: boolean }) {
-  const s = seatRows({ bare });
-  const row = actRow({ opens: false, sideActs: !readOnly });
-  return (
-    <div className={s.root()}>
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          className={s.row()}>
-          <span className={row.frame()}>
-            <span className={row.words({ class: "gap-1" })}>
-              <PartyHeadPlaceholder />
-              <PlaceholderSentence
-                textClass={row.line()}
-                words={COPY.admin.seatLine(["trainer"], readOnly ? null : EMAIL_WORDS, null)}
-              />
-            </span>
-            {!readOnly && (
-              <span className={row.acts()}>
-                <SideActsPlaceholder act={COPY.shared.withObject(COPY.team.seat, "edit")} />
-              </span>
-            )}
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }

@@ -8,7 +8,6 @@ import { formatNumber } from "@/core/format";
 import { smallCaps } from "./cardStyles";
 import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
@@ -222,29 +221,6 @@ export function ScoreRows({
           {said}
         </p>
       )}
-    </div>
-  );
-}
-
-/** The score's rows while the match is read: its goals' column and two sides, the shoot-out's column being the rare one. */
-export function ScoreRowsPlaceholder() {
-  const slots = scoreRows({ columns: 1 });
-  return (
-    <div className={slots.root()}>
-      {SIDES.map((side) => (
-        <div
-          key={side}
-          className={slots.row({ place: side })}>
-          <span className={slots.side()}>
-            <span className={placeholderBar("h-6 w-10")} />
-            <PlaceholderLine
-              textClass={slots.name()}
-              widthClass="w-24"
-            />
-          </span>
-          <span className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${SCORE_FIELD_CLASSES}`)} />
-        </div>
-      ))}
     </div>
   );
 }

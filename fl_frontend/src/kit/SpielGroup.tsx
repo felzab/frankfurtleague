@@ -1,6 +1,6 @@
 import { stacked } from "./cardStyles";
-import { GroupHead, GroupHeadPlaceholder } from "./GroupHead";
-import { SpielList, SpielListPlaceholder, spielSubgrid } from "./SpielRow";
+import { GroupHead } from "./GroupHead";
+import { SpielList, spielSubgrid } from "./SpielRow";
 
 import type { Copy } from "@/core/copy";
 import type { SpielRowProps } from "./SpielRow";
@@ -38,19 +38,5 @@ export function SpielGroup({
         columns={columns}
       />
     </section>
-  );
-}
-
-/** Matches under their head while they are read: the head's line and `count` rows as bars, at the group's own size. */
-export function SpielGroupPlaceholder({ count = 1, columns = "own" }: { count?: number; columns?: Columns }) {
-  return (
-    <div className={groupBox(columns)}>
-      <GroupHeadPlaceholder inset="rows" />
-      <SpielListPlaceholder
-        count={count}
-        bare
-        columns={columns}
-      />
-    </div>
   );
 }

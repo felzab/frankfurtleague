@@ -25,24 +25,15 @@ export type ChipProps = { tone: "success" | "info" | "warn" | "danger" | "neutra
 /**
  * A status said in one word, which belongs to a name: set directly after it on its line, as every row holds it
  * (`nameWithChips`), or in the status column of a list that is a table. A page never places one: the
- * blocks that carry a name render it from their `chip` prop. In a block drawn while its content is read it is one bar
- * of its own box (`data-kit-bar`).
+ * blocks that carry a name render it from their `chip` prop.
  */
 export function Chip({ tone, label, spoken }: ChipProps) {
   if (spoken === undefined) {
-    return (
-      <span
-        data-kit-bar
-        className={chip({ tone })}>
-        {label}
-      </span>
-    );
+    return <span className={chip({ tone })}>{label}</span>;
   }
 
   return (
-    <span
-      data-kit-bar
-      className={chip({ tone })}>
+    <span className={chip({ tone })}>
       <span aria-hidden>{label}</span>
       <span className="sr-only">{spoken}</span>
     </span>

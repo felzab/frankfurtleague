@@ -102,7 +102,7 @@ export const statusLine = tv({
  * count and one more, the 12-px start inset, the 8-px gap, the 16-px arrow and the 8-px end inset, with 2 px to spare
  * as a text field keeps them.
  */
-export const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
+const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
 
 /**
  * The edge a value is typed into: 32 px with a mouse, 40 px and 16-px text on a touch screen, transparent inside

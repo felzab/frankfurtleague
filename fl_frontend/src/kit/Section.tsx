@@ -1,22 +1,13 @@
-import { isValidElement } from "react";
-
 import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
-import { FieldPairPlaceholder, FieldPlaceholder } from "./FieldPair";
-import { FieldRowsPlaceholder, subgroup } from "./FieldRows";
 import { FieldStack } from "./FieldStack";
-import { fieldFrame, fieldRoot, statusLine } from "./fieldStyles";
-import { FormFooterPlaceholder } from "./FormFooter";
 import { HelpPopover } from "./HelpPopover";
-import { ScoreRowsPlaceholder } from "./ScoreRows";
-import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 const sectionTitle = tv({
   base: "text-base font-semibold",
@@ -64,8 +55,8 @@ export const editorHead = tv({ base: "grid gap-1 text-sm text-fg-muted" });
 
 /**
  * The lock line's place: one line at every width, the same height whether it names a lock, a closed record's reason or
- * nothing, and in the editor's wait, so nothing under the title moves when the editor lands. `h-5` is `text-sm`'s
- * 1.25-rem line; the words are chosen to fit a 360-px phone, and the cut with „…“ only guards a larger font.
+ * nothing, so the first box stands at one place under the title on every editor. `h-5` is `text-sm`'s 1.25-rem line;
+ * the words are chosen to fit a 360-px phone, and the cut with „…“ only guards a larger font.
  */
 export const lockSlot = tv({ base: "h-5 truncate" });
 
@@ -83,132 +74,6 @@ export function SectionRule() {
  * from the row above by the hairline every stacked part takes.
  */
 export const dangerRow = tv({ base: `flex min-h-14 items-center gap-3 px-4 py-2 lg:min-h-13 ${stacked()}` });
-
-/**
- * One row of a section as its placeholder draws it: one field at the standard width, two forming one value as
- * `FieldPair` sets them, `FieldRows`' rows of one kind by what they hold, a match's score, the hairline between two
- * groups of fields (`SectionRule`), a subgroup's name over the rows after it, a field whose label the section's title
- * is (`titled`, at its width), the section's footer strip with its acts (`SectionAct`) by their labels, last, or the
- * placeholder of whatever else the section holds, such as its facts' or a table's.
- */
-export type FieldRow =
-  | "field"
-  | "pair"
-  | "subhead"
-  | "score"
-  | "rule"
-  | { rows: 2 | 3; holds: "count" | "day" }
-  | { titled: "field" | "paragraph" }
-  | { acts: readonly [Copy, ...Copy[]] }
-  | ReactElement;
-
-/** A titled field's frame: a single line at the standard width, or a paragraph at the box's. */
-const TITLED_CLASSES = { field: fieldFrame.variants.width.standard, paragraph: fieldFrame.variants.width.full } as const;
-
-function RowPlaceholder({ row }: { row: FieldRow }) {
-  if (isValidElement(row)) return row;
-  if (row === "rule") return <SectionRule />;
-  if (row === "pair") return <FieldPairPlaceholder />;
-  if (row === "field") return <FieldPlaceholder />;
-  if (row === "score") return <ScoreRowsPlaceholder />;
-  if (row === "subhead")
-    return (
-      <PlaceholderLine
-        // The subgroup's space above its name, and under it the name's own 8 px, taken back out of the stack's 16.
-        textClass={subgroup().name({ class: "-mb-2 not-first:mt-2" })}
-        widthClass="w-24"
-      />
-    );
-  if ("titled" in row)
-    return (
-      <div className={fieldRoot()}>
-        <span className={placeholderBar(`rounded-lg ${TITLED_CLASSES[row.titled]}`)} />
-      </div>
-    );
-  if ("acts" in row)
-    return (
-      <FormFooterPlaceholder place="section">
-        {row.acts.map((act) => (
-          <span
-            key={act}
-            className={buttonPlaceholder()}>
-            {act}
-          </span>
-        ))}
-      </FormFooterPlaceholder>
-    );
-  return (
-    <FieldRowsPlaceholder
-      rows={row.rows}
-      holds={row.holds}
-    />
-  );
-}
-
-/**
- * A danger row while its record is read: its name, what the act does and the button's words, the first two set unseen so
- * each stands as many lines as it will beside the button.
- */
-export type DangerRowWait = { name: Copy; consequence: Copy; act: Copy };
-
-/**
- * A section while the record filling it is read: the section's own box, its title's line over its rule, and its
- * fields' placeholders row by row in the fields' own `FieldStack`, so the box stands as tall as the section will. An
- * editor's danger box takes `danger` in their place, one flat row each, and a box holding a list edge to edge `list`,
- * the list's own placeholder, over `rows` where the section holds fields or acts under its list.
- */
-export function SectionPlaceholder(
-  props:
-    | { rows: ReadonlyArray<FieldRow>; danger?: never; list?: ReactElement }
-    | { danger: ReadonlyArray<DangerRowWait>; rows?: never; list?: never }
-    | { list: ReactElement; rows?: never; danger?: never },
-) {
-  const slots = boxHead({ ruled: true });
-  return (
-    <div className={cardSurface({ class: props.danger === undefined ? "grid" : `grid ${dangerEdge()}` })}>
-      <div className={slots.head()}>
-        <PlaceholderLine
-          textClass="text-base font-semibold"
-          widthClass="w-1/3"
-        />
-      </div>
-      {props.list !== undefined && <div className="grid">{props.list}</div>}
-      {props.rows !== undefined && (
-        <div className={slots.content()}>
-          <FieldStack>
-            {props.rows.map((row, index) => (
-              <RowPlaceholder
-                key={index}
-                row={row}
-              />
-            ))}
-          </FieldStack>
-        </div>
-      )}
-      {props.danger !== undefined && (
-        <div className="grid">
-          {props.danger.map(({ name, consequence, act }) => (
-            <div
-              key={name}
-              className={dangerRow()}>
-              <div className="grid min-w-0 flex-1">
-                <PlaceholderSentence
-                  textClass="text-sm font-semibold"
-                  words={name}
-                />
-                <PlaceholderSentence
-                  textClass={statusLine({ placement: "column", tone: "resting" })}
-                  words={consequence}
-                />
-              </div>
-              <span className={buttonPlaceholder()}>{act}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * A form's or a settings page's group of fields: a box exactly as tall as its content, its 16-px title over a
