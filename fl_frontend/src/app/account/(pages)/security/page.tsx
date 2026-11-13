@@ -1,9 +1,7 @@
-import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
 
 import { requires } from "@/core/action";
 import { PASSKEY_LIMIT } from "@/core/auth/enrolment";
-import { getAccountSession } from "@/core/auth/guards";
 import { isFreshForEnrolment, PASSKEY_FACTOR } from "@/core/auth/sessionStamps";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -54,43 +52,10 @@ async function SecurityContent() {
   );
 }
 
-/** The page's two boxes while they are read, the passkeys' holding `rows` of them, the devices' one device. */
-function SecurityWait({ rows }: { rows: number }) {
-  return (
-    <>
-      <AccountBoxPlaceholder
-        description={COPY.account.passkeys.description}
-        rows={rows}
-        foot={COPY.shared.withObject(COPY.signIn.passkeyTitle, "setUp")}
-      />
-      <AccountBoxPlaceholder
-        description={COPY.account.devices.description(1)}
-        foot={COPY.shared.withObject(COPY.account.devices.allOthers, "signOut")}
-      />
-    </>
-  );
-}
-
-/**
- * The wait as the session's sign-in shapes it, from the lookup the page's own read shares: a passkey's sign-in holds
- * the passkey that made it, and a code's commonly holds none: a person holding one signs in with it, and one holding
- * none is offered a set-up at every code sign-in.
- */
-async function waitOfFactor() {
-  const served = await getAccountSession();
-  return <SecurityWait rows={served?.session.authFactor === PASSKEY_FACTOR ? 1 : 0} />;
-}
-
-/**
- * Sicherheit: the passkeys, and „Alle anderen abmelden“. Before any read the wait holds a passkey's row, the taller
- * form, which a rail page's wait draws where the read decides.
- */
+/** Sicherheit: the passkeys, and „Alle anderen abmelden“. */
 export default function AccountSecurityPage() {
   return (
-    <AccountPage
-      route="accountSecurity"
-      wait={<SecurityWait rows={1} />}
-      waitOnceRead={waitOfFactor()}>
+    <AccountPage route="accountSecurity">
       <SecurityContent />
     </AccountPage>
   );
