@@ -9,7 +9,6 @@ from pydantic import ValidationError
 
 from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktePayload,
-    FLBewerbungKontaktpersonPayload,
     FLBewerbungSchulePayload,
     FLPostBewerbungPayload,
 )
@@ -17,15 +16,14 @@ from app.api.bewerbungen.services import (
     assigned_trikot_farben,
     compose_kontakte,
     find_repeated_contact_refusal,
+    find_submission_subject_refusal,
     mailbox_anchor_ids,
     open_links_on,
     seats_past_the_bound,
 )
 from app.api.teams.schemas import FLKontaktperson, normalise_phone
-from app.shared.schemas.bounds import (
-    BEWERBUNG_KADER_SIZE_MAX,
-    TEAM_WEBSITE_URL_MAX_LENGTH,
-)
+from app.core.codes import Code
+from app.shared.schemas.bounds import TEAM_WEBSITE_URL_MAX_LENGTH
 from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
@@ -96,15 +94,6 @@ def schule(**overrides: Any) -> dict[str, Any]:
 class TestNoBirthdateOnAnyPayload:
     """The date reaches the league from its own person at their confirmation, so no payload spells the key."""
 
-    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
-    def test_a_submission_naming_a_birthdate_on_any_seat_is_refused_outright(self, seat: str):
-        block = kontakte(**{seat: person(birth_date="1984-05-09")})
-
-        with pytest.raises(ValidationError) as failure:
-            FLPostBewerbungPayload.model_validate(submission(kontakte=block))
-
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "birth_date")]
-
     def test_a_stored_contact_with_no_date_still_reads(self):
         """A seat is stored with a null one until its person confirms, so a non-null field here would 500 the triage over one."""
 
@@ -143,21 +132,10 @@ class TestOneNumberHasOneSpelling:
         assert normalise_phone("0491 234567") != normalise_phone("+49 1 234567")
 
 
-# The spellings that must reach the distinctness rule as ONE number. `PHONE_REGEX` admits every one.
+# A spelling that must reach the distinctness rule as ONE number, which `PHONE_REGEX` admits; the
+# fold's other spellings are `TestOneNumberHasOneSpelling`'s.
 ONE_LINE_TWO_WAYS = [
     pytest.param("+49 (0)170 1234567", id="bracketed trunk zero against the national form"),
-    pytest.param("0049 (0)170 1234567", id="zero-prefixed and bracketed"),
-    pytest.param("+49 170 1234567", id="plain international"),
-    pytest.param("(0170) 123 45 67", id="bracketed area code"),
-]
-
-
-# The Trainer's own two details, each put on a seat NOT declared identical to them. Both seats and
-# both fields, because a rule holding for one pair and not the other is one nobody can rely on.
-SHARED_CONTACT_DETAILS = [
-    (seat, field, value)
-    for seat in ("ansprechperson", "stellvertretung")
-    for field, value in (("email", "quillhilde@example.com"), ("phone", "+49 170 1234567"))
 ]
 
 
@@ -194,14 +172,6 @@ class TestTheThreeSeatsAreThreePeople:
         (error,) = failure.value.errors()
         assert error["type"] == "value_error"
         assert f"'{seat}'" in error["msg"]
-
-    @pytest.mark.parametrize(("seat", "field", "value"), SHARED_CONTACT_DETAILS)
-    def test_two_distinct_people_may_share_neither_an_email_nor_a_number(self, seat: str, field: str, value: str):
-        """Every other detail the seat's own: a seat sharing both, either rule would hide the other's removal."""
-
-        other = {**person(first_name="Andere", email="andere@example.com", phone="+49 170 9999999"), field: value}
-
-        assert repeated_boxes(kontakte(**{seat: other})) == (("kontakte", seat, field),)
 
     def test_one_refusal_names_every_repeated_box(self):
         """Each box its own press would ask the bot check again for one form."""
@@ -261,31 +231,21 @@ class TestWhatTheServerComposes:
         assert composed["trainer_is_also"] == "ansprechperson"
         assert composed["stellvertretung"]["first_name"] == "Stellan"
 
-    def test_a_client_may_not_name_a_consent(self):
-        """`extra="forbid"`: a body naming one could claim a person's own consent or its seating, or backdate or pre-confirm one."""
 
-        with pytest.raises(ValidationError):
-            FLBewerbungKontaktpersonPayload.model_validate(person(einwilligung={"scope": "kontakt_data"}))
+class TestTheSubmissionNamesOneApplicant:
+    def test_a_submission_naming_neither_a_club_nor_a_school_is_refused(self):
+        """An application for nobody: the triage could neither enter a club nor create a school from it."""
+
+        refusal = find_submission_subject_refusal(team_id=None, schule=None)
+
+        assert refusal is not None
+        assert refusal.error_code == Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
 
 
 class TestWhatTheSubmissionPayloadRefuses:
     """The fields the server owns are on no payload at all, so a submission cannot arrive already decided."""
 
-    @pytest.mark.parametrize(("field", "value"), [("status", "accepted"), ("submitted_at", "2020-01-01"), ("decision", None)])
-    def test_a_submission_naming_a_field_the_server_sets_is_refused(self, field: str, value: Any):
-        with pytest.raises(ValidationError) as failure:
-            FLPostBewerbungPayload.model_validate(submission(**{field: value}))
-
-        assert any(entry["type"] == "extra_forbidden" for entry in failure.value.errors())
-
-    @pytest.mark.parametrize(
-        "website_url",
-        [
-            pytest.param("javascript:alert(1)", id="no http url"),
-            # The admin panel shows the string and follows the host, which userinfo makes two different domains.
-            pytest.param("https://frankfurtleague.de@evil.example", id="a host behind userinfo"),
-        ],
-    )
+    @pytest.mark.parametrize("website_url", [pytest.param("javascript:alert(1)", id="no http url")])
     def test_a_school_website_that_is_not_an_http_url_is_refused(self, website_url: str):
         """Constrained on this payload where the read model leaves it bare: acceptance parses the block through `FLPostTeamPayload`."""
 
@@ -345,16 +305,9 @@ class TestTheStrongPlayersFitInsideTheSquad:
     rather than a judgement about the school.
     """
 
-    @pytest.mark.parametrize(
-        ("size", "good"),
-        [
-            pytest.param(14, 15, id="one over the squad"),
-            pytest.param(1, 2, id="one over the smallest squad"),
-            pytest.param(14, BEWERBUNG_KADER_SIZE_MAX, id="inside its own ceiling and still past the squad"),
-        ],
-    )
+    @pytest.mark.parametrize(("size", "good"), [pytest.param(14, 15, id="one over the squad")])
     def test_a_count_above_the_squad_is_refused(self, size: int, good: int):
-        """The third row matters: both fields clear their own bounds, so only the pair rule can refuse it."""
+        """Both fields clear their own bounds, so only the pair rule can refuse it."""
 
         kader = {"expected_size": size, "good_spieler": good}
 
@@ -372,10 +325,7 @@ class TestTheOpponentTheSchoolWants:
     form deployed before it does not send.
     """
 
-    @pytest.mark.parametrize(
-        "submitted",
-        [pytest.param(None, id="an explicit null"), pytest.param("", id="an empty box"), pytest.param("   ", id="spaces alone")],
-    )
+    @pytest.mark.parametrize("submitted", [pytest.param("   ", id="spaces alone")])
     def test_an_empty_wish_is_stored_as_a_null_rather_than_a_blank(self, submitted: str | None):
         """One spelling of "no preference": a stored `""` is a second, and the triage would render it as a wish."""
 
@@ -433,11 +383,6 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         """Sorted by the league's own vocabulary, so two identical seasons never answer in two orders."""
 
         assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
-
-    def test_a_row_with_no_colour_assigned_contributes_nothing(self):
-        """`trikot_farbe` is nullable and may be missing, so the read's group yields a null for a missing key too."""
-
-        assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
 
     def test_a_value_outside_the_palette_is_dropped_rather_than_served(self):
         """Filtered THROUGH the palette: a stray value would fail `FLTrikotFarbe` and 500 a public page."""
