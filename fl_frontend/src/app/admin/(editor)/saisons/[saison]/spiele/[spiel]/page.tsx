@@ -248,12 +248,13 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
  * answer's day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its
  * day, and its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so
  * and the day it lapsed on, as every other page under that chip does. A row about a slot the match has left, or about
- * a call-off since undone, asks nothing about the match as it stands: the party reads as not asked.
+ * a call-off since undone, asks nothing about the match as it stands, and a row in time that nobody could be mailed on
+ * has asked nothing yet: the party reads as not asked.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
-  if (row === undefined || row.state === "invalid" || row.state === "cancelled") {
+  if (row === undefined || row.state === "invalid" || row.state === "cancelled" || (row.state === "valid" && row.asked_at === null)) {
     return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   }
   const deadline = dayOf(row.deadline);
