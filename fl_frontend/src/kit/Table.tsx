@@ -14,6 +14,7 @@ import { RoleMark } from "./RoleMark";
 import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
+import { sideActsForm } from "./sideActsForm";
 import { SideActsPlaceholder } from "./SideActsPlaceholder";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
@@ -157,8 +158,9 @@ export type TableRow = {
        * one or two kit buttons, each the trigger of its dialog, as a card's act row holds them: on one line under the
        * row's words where the list is stacked, at the row's end where it is a table. Side acts (`SideActs`) are their
        * labelled buttons at the row's end where the list is a table, and one „⋯“ at its end, across its lines, where
-       * it is stacked; a list some row of which carries three or more folds them at every width. A row the reader can
-       * do nothing to takes none, and a table none of whose rows takes any draws no act column.
+       * it is stacked; a list some row of which carries more than its buttons hold folds them at every width
+       * (`sideActsForm`). A row the reader can do nothing to takes none, and a table none of whose rows takes any draws
+       * no act column.
        */
       acts?: ReactElement;
       /**
@@ -864,11 +866,9 @@ export function Table({
   // Any row's acts give the whole table its column, whose head names nothing, as the chevrons' does.
   const hasActs = rows.some((row) => row.acts !== undefined);
   const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose, stack });
-  // The list decides its rows' side acts' form, once for all of them: one „⋯“ at every width where some row carries
-  // three, more than a table's row holds as buttons beside its words.
-  const folds = rows.some((row) => (row.sideActs ?? 0) > 2);
+  const sideActs = sideActsForm(rows);
   // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
-  const acts = !hasActs ? undefined : rows.some((row) => (row.sideActs ?? 0) > 0) ? "folded" : "under";
+  const acts = !hasActs ? undefined : sideActs.carried ? "folded" : "under";
   const shares = columns.some((column) => column.cut === true);
   const parts = table({ stacks, acts, shares });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
@@ -1038,7 +1038,7 @@ export function Table({
                         className={parts.acts()}>
                         {row.acts !== undefined && (
                           <div className={parts.actsLine()}>
-                            <SideActsScope folds={folds}>{row.acts}</SideActsScope>
+                            <SideActsScope folds={sideActs.foldsEverywhere}>{row.acts}</SideActsScope>
                           </div>
                         )}
                       </td>

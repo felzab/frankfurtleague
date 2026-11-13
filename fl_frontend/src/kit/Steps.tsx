@@ -1,6 +1,7 @@
 import { COPY } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
+import { BlockBox } from "./BlockBox";
 import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { Link } from "./Link";
@@ -78,9 +79,7 @@ export function Steps({ items, band, closed }: { items: readonly Step[]; band: P
   const slots = steps();
   return (
     <>
-      {/* The container the steps' columns read, since a query reads an ancestor; `w-full`, since a container's width
-          counts none of its content. */}
-      <div className="@container w-full">
+      <BlockBox>
         <ol className={slots.list()}>
           {items.map((item, index) => (
             <li
@@ -96,7 +95,7 @@ export function Steps({ items, band, closed }: { items: readonly Step[]; band: P
             </li>
           ))}
         </ol>
-      </div>
+      </BlockBox>
       <PageWait fallback={<BandPlaceholder sentence={closed} />}>
         <Band band={band} />
       </PageWait>

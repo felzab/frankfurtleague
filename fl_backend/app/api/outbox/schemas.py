@@ -16,7 +16,8 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # member written from the facts that write holds.
 
 # The mails owed through `POST /outbox/sign_in`: the sign-in library's own, which no league write owes, and the
-# deletion notice, which one does too. Each secret one rides in the row's `secret`, never here.
+# deletion notice, which one does too. Each secret one rides in the row's `secret`, never here. On `BaseModel`, as that
+# payload declares them; every other member is only served, by the hand-out.
 
 
 class FLSignInCodeData(BaseModel):
@@ -43,7 +44,7 @@ class FLDeletionNoticeData(BaseModel):
 FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData | FLDeletionNoticeData, Field(discriminator="kind")]
 
 
-class FLBanData(BaseModel):
+class FLBanData(BaseReadModel):
     """The ban's own notice, the one mail a ban does not stop."""
 
     kind: Literal["ban"]
@@ -51,7 +52,7 @@ class FLBanData(BaseModel):
     barred_until_saison_id: str
 
 
-class FLGrantData(BaseModel):
+class FLGrantData(BaseReadModel):
     """One step of what changes who holds the administration, as every holder in effect and the person named are told it."""
 
     kind: Literal["grant"]
@@ -65,7 +66,7 @@ class FLGrantData(BaseModel):
     effective_from: AwareDatetime | None
 
 
-class FLAddressChangeLinkData(BaseModel):
+class FLAddressChangeLinkData(BaseReadModel):
     """The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`."""
 
     kind: Literal["address_change_link"]
@@ -74,7 +75,7 @@ class FLAddressChangeLinkData(BaseModel):
     holder: FLAdminTier | None
 
 
-class FLAddressChangeNoticeData(BaseModel):
+class FLAddressChangeNoticeData(BaseReadModel):
     """The address on file's mail about an address change, its link minted at the hand-out into `stop.token_hashes`.
 
     On the person's own `account` way the link confirms or declines the change before the new mailbox is asked, and once
@@ -87,7 +88,7 @@ class FLAddressChangeNoticeData(BaseModel):
     holder: FLAdminTier | None
 
 
-class FLAddressChangeEffectiveData(BaseModel):
+class FLAddressChangeEffectiveData(BaseReadModel):
     """The replaced address's notice that the change took effect."""
 
     kind: Literal["address_change_effective"]
@@ -95,13 +96,13 @@ class FLAddressChangeEffectiveData(BaseModel):
     instant: AwareDatetime
 
 
-class FLAddressChangeDiscardedData(BaseModel):
+class FLAddressChangeDiscardedData(BaseReadModel):
     """The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file."""
 
     kind: Literal["address_change_discarded"]
 
 
-class FLSchiedsrichterConfirmationData(BaseModel):
+class FLSchiedsrichterConfirmationData(BaseReadModel):
     """A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return."""
 
     kind: Literal["schiedsrichter_confirmation"]
@@ -109,7 +110,7 @@ class FLSchiedsrichterConfirmationData(BaseModel):
     deadline: CustomDateString
 
 
-class FLSpielMailAppointment(BaseModel):
+class FLSpielMailAppointment(BaseReadModel):
     """A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour."""
 
     team1: str
@@ -125,7 +126,7 @@ class FLSpielMailAnsetzung(FLSpielMailAppointment):
     spielort: str | None
 
 
-class FLSpielRequestData(BaseModel):
+class FLSpielRequestData(BaseReadModel):
     """A club's request to confirm a fixture, or the reminder of it, each leading to the club's own pages."""
 
     kind: Literal["spiel_request", "spiel_reminder"]
@@ -142,7 +143,7 @@ class FLSpielRequestData(BaseModel):
     moved_from: FLSpielMailAppointment | None
 
 
-class FLSpielEinteilungData(BaseModel):
+class FLSpielEinteilungData(BaseReadModel):
     """A referee's word that they are booked onto a fixture, which they answer on their own panel."""
 
     kind: Literal["spiel_einteilung"]
@@ -152,7 +153,7 @@ class FLSpielEinteilungData(BaseModel):
     moved_from: FLSpielMailAppointment | None
 
 
-class FLSpielMovedData(BaseModel):
+class FLSpielMovedData(BaseReadModel):
     """A party's word that a fixture it was asked about left that slot, owed where no request about its new slot goes now.
 
     The mail's own request carries the move where the new slot is asked at once (`FLSpielRequestData.moved_from`).
@@ -175,32 +176,32 @@ class FLSpielMovedData(BaseModel):
 type FLSpielNoticeEvent = Literal["ausgefallen", "annulliert", "nichtantreten_team1", "nichtantreten_team2"]
 
 
-class FLSpielNoticeData(BaseModel):
+class FLSpielNoticeData(BaseReadModel):
     """A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event."""
 
     kind: Literal["spiel_cancelled"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
-    # Defaulted, as a row owed before the field was written has none: its mail names no event.
+    # A row queued without an event names none, and its mail names no event.
     sonderereignis: FLSpielNoticeEvent | None = Field(default=None)
 
 
-class FLSpielEinteilungLiftedData(BaseModel):
+class FLSpielEinteilungLiftedData(BaseReadModel):
     """A referee's word that they were taken off a fixture after being told of it: the slot they were told of."""
 
     kind: Literal["spiel_einteilung_lifted"]
     appointment: FLSpielMailAppointment
 
 
-class FLSpielVorschlagDiscardedData(BaseModel):
+class FLSpielVorschlagDiscardedData(BaseReadModel):
     """A club's word that the league kept the date it declined and proposed another for: the slot that stands."""
 
     kind: Literal["spiel_vorschlag_discarded"]
     appointment: FLSpielMailAppointment
 
 
-class FLAufstellungReminderData(BaseModel):
+class FLAufstellungReminderData(BaseReadModel):
     """A club's one reminder that it has entered no line-up for a fixture: the pairing, the kick-off and the ground, and where it is entered."""
 
     kind: Literal["aufstellung_reminder"]
@@ -215,7 +216,7 @@ class FLAufstellungReminderData(BaseModel):
     due_at: AwareDatetime
 
 
-class FLSpielMailEntry(BaseModel):
+class FLSpielMailEntry(BaseReadModel):
     """A fixture as a mail lists it: its two sides in the fixture's order, its day and its hour where it holds them."""
 
     team1: str
@@ -224,7 +225,7 @@ class FLSpielMailEntry(BaseModel):
     time: CustomTimeString | None
 
 
-class FLAustrittNoticeData(BaseModel):
+class FLAustrittNoticeData(BaseReadModel):
     """An opponent's word that a club left the season, owed at the exit's own write: the fixtures left open between them."""
 
     kind: Literal["austritt_notice"]
@@ -234,7 +235,7 @@ class FLAustrittNoticeData(BaseModel):
     spiele: list[FLSpielMailEntry] = Field(min_length=1)
 
 
-class FLRegistrierungLinkData(BaseModel):
+class FLRegistrierungLinkData(BaseReadModel):
     """A pupil's confirmation link; the window its mail states is a published bound, never carried here."""
 
     kind: Literal["registrierung_confirmation"]
@@ -243,7 +244,7 @@ class FLRegistrierungLinkData(BaseModel):
     saison_id: str
 
 
-class FLRegistrierungAbsageData(BaseModel):
+class FLRegistrierungAbsageData(BaseReadModel):
     """A team's decline, to a pupil whose address was confirmed."""
 
     kind: Literal["registrierung_absage"]
@@ -252,7 +253,7 @@ class FLRegistrierungAbsageData(BaseModel):
     reason: FLRegistrierungDecisionReason | None
 
 
-class FLInvitationData(BaseModel):
+class FLInvitationData(BaseReadModel):
     """A team's registration link, to one confirmed contact seat, for the pupils to register through."""
 
     kind: Literal["invitation"]
@@ -261,7 +262,7 @@ class FLInvitationData(BaseModel):
     saison_id: str
 
 
-class FLBewerbungLinkData(BaseModel):
+class FLBewerbungLinkData(BaseReadModel):
     """One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
 
     `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
@@ -276,7 +277,7 @@ class FLBewerbungLinkData(BaseModel):
     deadline: CustomDateString
 
 
-class FLBewerbungReceivedData(BaseModel):
+class FLBewerbungReceivedData(BaseReadModel):
     """The Ansprechperson's receipt, which carries their own link: their seats and every other seat still to answer."""
 
     kind: Literal["bewerbung_received"]
@@ -287,7 +288,7 @@ class FLBewerbungReceivedData(BaseModel):
     deadline: CustomDateString
 
 
-class FLBewerbungZusageData(BaseModel):
+class FLBewerbungZusageData(BaseReadModel):
     """An acceptance, to one person of the application, naming the seats they were entered for."""
 
     kind: Literal["bewerbung_zusage"]
@@ -301,7 +302,7 @@ class FLBewerbungZusageData(BaseModel):
     trikot_farbe: FLTrikotFarbe | None
 
 
-class FLBewerbungAbsageData(BaseModel):
+class FLBewerbungAbsageData(BaseReadModel):
     """A decline, to one person of the application, with the administrator's reason verbatim."""
 
     kind: Literal["bewerbung_absage"]
@@ -311,7 +312,7 @@ class FLBewerbungAbsageData(BaseModel):
     reason: str
 
 
-class FLBewerbungObjectionData(BaseModel):
+class FLBewerbungObjectionData(BaseReadModel):
     """A contact's Widerspruch, to the Ansprechperson, naming the seats it emptied: it stands as the deletion notice too."""
 
     kind: Literal["bewerbung_objection"]
@@ -321,7 +322,7 @@ class FLBewerbungObjectionData(BaseModel):
     deadline: CustomDateString
 
 
-class FLKontaktLinkData(BaseModel):
+class FLKontaktLinkData(BaseReadModel):
     """One person an administrator seated on a team's season row, asked to confirm."""
 
     kind: Literal["kontakt_confirmation"]
@@ -514,7 +515,7 @@ class FLOutboxRow(BaseModel):
     delivery: FLOutboxDelivery | None
 
 
-class FLOutboxHandout(BaseModel):
+class FLOutboxHandout(BaseReadModel):
     """One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret."""
 
     id: CustomObjectId

@@ -59,7 +59,7 @@ export function ComboBox({
   free?: FreeText;
   isRequired?: boolean;
   isDisabled?: boolean;
-  /** Held fixed by its record: disabled, its label marked with the lock (`useFieldLock`). */
+  /** Held fixed by its record: read-only, its label marked with the lock (`useFieldLock`). */
   isLocked?: boolean;
   name?: string;
   value?: string | null;
@@ -91,7 +91,8 @@ export function ComboBox({
       }}
       onInputChange={setText}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
           label={label}

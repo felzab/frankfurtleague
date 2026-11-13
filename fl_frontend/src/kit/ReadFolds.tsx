@@ -1,5 +1,6 @@
 import { textOf } from "@/core/copy";
 
+import { BlockBox } from "./BlockBox";
 import { CardFold } from "./CardFold";
 import { card as cardLook, stacked } from "./cardStyles";
 import { GroupHead } from "./GroupHead";
@@ -26,15 +27,12 @@ export type FoldedCard = {
 const SPLIT_FOLDS_CLASSES = "grid content-start items-start gap-3 @2xl:grid-cols-2";
 const folds = (count: number) => (count > 1 ? SPLIT_FOLDS_CLASSES : "grid");
 
-/**
- * The container the folds' columns read, since a query reads an ancestor; `w-full`, since a container's width counts
- * none of its content.
- */
+/** The folds' grid, in the box its columns read. */
 function FoldsBox({ count, children }: { count: number; children: ReactNode }) {
   return (
-    <div className="@container w-full">
+    <BlockBox>
       <div className={folds(count)}>{children}</div>
-    </div>
+    </BlockBox>
   );
 }
 

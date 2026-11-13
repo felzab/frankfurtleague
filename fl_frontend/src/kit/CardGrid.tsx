@@ -1,3 +1,4 @@
+import { BlockBox } from "./BlockBox";
 import { CardLink, CardPlaceholder } from "./Card";
 import { Waiting } from "./Skeleton";
 import { tv } from "./tv";
@@ -32,11 +33,9 @@ export function CardGrid({
   children: ReactNode;
 }) {
   return (
-    // The container the grid's columns read, since a query reads an ancestor; `w-full`, since a container's width counts
-    // none of its content, and a parent starting its children would shrink it to nothing.
-    <div className="@container w-full">
+    <BlockBox>
       <div className={grid({ across })}>{children}</div>
-    </div>
+    </BlockBox>
   );
 }
 

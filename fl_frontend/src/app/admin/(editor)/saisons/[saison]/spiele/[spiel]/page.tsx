@@ -18,7 +18,7 @@ import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/gen
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
-import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
+import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
 import { spielerName } from "@/features/spieler/constants";
@@ -243,24 +243,24 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   return { version: bericht.version, text: WORDS.fromReport(WORDS.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
-/** The party's open row about the fixture's Ansetzung as it stands, closed ones being about one it left. */
-const openRowOf = (rows: readonly FLSpielbestaetigungEditorRow[], party: (row: FLSpielbestaetigungEditorRow) => boolean) =>
-  rows.find((row) => row.closed === null && party(row));
-
 /**
- * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
- * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
- * An answer that lapsed unanswered, which the party can no longer give, says so and the day it lapsed on, as every
- * other page under that chip does.
+ * One party's answer as a row, by the state its newest row reads as: its name, its answer's chip, and under them the
+ * answer's day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its
+ * day, and its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so
+ * and the day it lapsed on, as every other page under that chip does. A row about a slot the match has left, or about
+ * a call-off since undone, asks nothing about the match as it stands: the party reads as not asked.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
   // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
-  if (row === undefined) return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
+  if (row === undefined || row.state === "invalid" || row.state === "cancelled") {
+    return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
+  }
+  const deadline = dayOf(row.deadline);
+  if (row.state === "expired") return { ...shown, chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(deadline) };
   const { answer } = row;
+  // Unanswered and in time: its party may still answer.
   if (answer === null) {
-    const deadline = dayOf(row.deadline);
-    if (row.expired) return { ...shown, chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(deadline) };
     return { ...shown, chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: WORDS.answerBy(deadline) };
   }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
@@ -273,9 +273,16 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   return { ...shown, chip: DECLINED_CHIP, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
-/** Each party's answer about the fixture as it stands: both clubs, then the referee where a booking names one. */
+/**
+ * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
+ * the answer or that it lapsed: both clubs, then the referee where a booking names one. A match carrying an event takes
+ * no confirmation, the event ending every question about it, so it shows none, as the referee's own list shows the
+ * event in their place.
+ */
 function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
+  if (spiel.sonderereignis !== null) return [];
+  // The rows are served newest first, so a party's first row is its newest.
   const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
       ? []
@@ -284,7 +291,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             side,
             { record: team.name },
             team.shorthand,
-            openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
+            rows.find((row) => row.party.kind === "team" && row.party.team_id === team.team_id),
           ),
         ];
   const booked = spiel.schiedsrichter;
@@ -297,7 +304,7 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
             "schiedsrichter",
             { record: booked.name },
             null,
-            openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
+            rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
           ),
         ];
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
@@ -366,6 +373,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <SpielEditor
       title={nameOf(saved)}
+      chip={adminSpielChipOf(saved)}
       preview={previewOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}

@@ -1,6 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { formatDateWithWeekday, formatOrdinal, formatTime } from "@/core/format";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { SPIELORT_WORDS } from "./Facts";
@@ -11,7 +12,6 @@ import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 import type { Counts } from "./Table";
 
@@ -97,18 +97,10 @@ const MATCH_WAIT = [
   { label: fact.spielort, value: SPIELORT_WORDS, words: true },
 ] as const satisfies ReadonlyArray<{ label: string; value: string; line?: string; words?: true }>;
 
-/**
- * The container a grid of tiles takes its columns from, the column the tiles stand in, since a query reads an ancestor;
- * `w-full`, since a container's width counts none of its content.
- */
-function TilesColumn({ children }: { children: ReactNode }) {
-  return <div className="@container w-full">{children}</div>;
-}
-
 /** A match's tiles while it is read, `five`'s own grid at `MATCH_WAIT`'s words. */
 function MatchTilesPlaceholder() {
   return (
-    <TilesColumn>
+    <BlockBox>
       <div className={tiles({ layout: "five" }).root()}>
         {MATCH_WAIT.map((item, index) => {
           const words = "words" in item;
@@ -136,7 +128,7 @@ function MatchTilesPlaceholder() {
           );
         })}
       </div>
-    </TilesColumn>
+    </BlockBox>
   );
 }
 
@@ -147,7 +139,7 @@ function MatchTilesPlaceholder() {
 export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["layout"]; line?: boolean }) {
   if (layout === "five") return <MatchTilesPlaceholder />;
   return (
-    <TilesColumn>
+    <BlockBox>
       <div className={tiles({ layout }).root()}>
         {Array.from({ length: 4 }, (_, index) => {
           const slots = tiles({ layout });
@@ -173,7 +165,7 @@ export function StatTilesPlaceholder({ layout, line = true }: { layout: Layout["
           );
         })}
       </div>
-    </TilesColumn>
+    </BlockBox>
   );
 }
 
@@ -196,7 +188,7 @@ function TileValue({ item }: { item: StatTile }) {
  */
 export function StatTiles({ layout, items }: Layout) {
   return (
-    <TilesColumn>
+    <BlockBox>
       <dl className={tiles({ layout }).root()}>
         {items.map((item, index) => {
           const slots = tiles({ layout, words: item.words, wide: layout === "five" && index === 4 });
@@ -227,6 +219,6 @@ export function StatTiles({ layout, items }: Layout) {
           );
         })}
       </dl>
-    </TilesColumn>
+    </BlockBox>
   );
 }

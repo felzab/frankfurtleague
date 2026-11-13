@@ -93,7 +93,8 @@ export function RadioGroup({
       name={name}
       defaultValue={defaultValue}
       isRequired={lock.isRequired}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
         isRequired={lock.isRequired}

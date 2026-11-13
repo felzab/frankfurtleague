@@ -29,7 +29,7 @@ export function RowAct({
   holder,
   locked,
 }: {
-  verb: "remove" | "withdraw" | "discard";
+  verb: "remove" | "withdraw";
   subject: Copy;
   consequence: Copy;
   facts: ReadonlyArray<Fact>;

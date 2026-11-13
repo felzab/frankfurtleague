@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 
-import { landingTargetOf, placesOf } from "./utils";
+import { landingTargetOf, owesSignInStep, placesOf } from "./utils";
 
 import type { SubjectSession } from "@/core/subject";
 
@@ -35,5 +35,15 @@ describe("where a person's landing sends them", () => {
     expect(landingOf(person({ seats: [TEAM, PAST_TEAM], schiedsrichter: [{ schiedsrichter_id: "6890a1b2c3d4e5f607250041" }] }))).toBe(
       ROUTES.areaRoles.path(),
     );
+  });
+});
+
+// The harm: the landing and the chooser redirect before anything is drawn, so a session owing the administrator's step
+// would open a person's pages, and an administrator's would loop back to the sign-in, with nothing said.
+describe("whether a session owes a step of the sign-in", () => {
+  it("holds for a granted address whose session the administration refuses, and for no other", () => {
+    expect(owesSignInStep(person({ admin_tier: "administration" }))).toBe(true);
+    expect(owesSignInStep(person({ admin_tier: "administration" }, true))).toBe(false);
+    expect(owesSignInStep(person({ seats: [TEAM] }))).toBe(false);
   });
 });

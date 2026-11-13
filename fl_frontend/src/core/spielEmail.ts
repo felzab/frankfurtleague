@@ -173,9 +173,8 @@ function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNotic
         consequence.nichtantreten({ record: opponent }),
       ]);
     }
-    // A mail naming no event promises nothing it may not keep.
+    // A row queued without an event names none, and a mail naming no event promises nothing it may not keep.
     case null:
-    case undefined:
       return noticeEmail(cancelled.none.subject(day), origin, [lead(cancelled.none, spiel)]);
   }
 }

@@ -1,6 +1,7 @@
 import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
@@ -72,15 +73,12 @@ export const spielPairs = tv({
   },
 });
 
-/**
- * The list of `spielPairs`' boxes in the container its columns read, since a query reads an ancestor; `w-full`, since a
- * container's width counts none of its content.
- */
+/** The list of `spielPairs`' boxes, in the box its columns read. */
 export function SpielPairList({ children }: { children: ReactNode }) {
   return (
-    <div className="@container w-full">
+    <BlockBox>
       <div className={spielPairs().list()}>{children}</div>
-    </div>
+    </BlockBox>
   );
 }
 

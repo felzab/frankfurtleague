@@ -11,13 +11,14 @@ const TITLE = COPY.shared.toast.failure;
 
 const compiled = compiledGlobals();
 
-// The queue is the module's own, shared by every test here: each toast runs out before the next test, on
-// the timer its region started.
+// The queue is the module's own, shared by every test here: each toast leaves before the next test, a done act's on
+// the timer its region started and any other by its close button, pressed while the test's region still stands.
 beforeEach(() => {
   vi.useFakeTimers();
 });
 
 afterEach(() => {
+  for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) if (close.isConnected) act(() => close.click());
   act(() => vi.runAllTimers());
   vi.useRealTimers();
 });
@@ -81,5 +82,23 @@ describe("an act's answer as its toast", () => {
 
     const toast = screen.getByText(title).closest<HTMLElement>("[data-kit-focus='ring']");
     expect(toast?.querySelector(`.${hue}`)).toBeTruthy();
+  });
+
+  // The harm: a refusal gone before its person read it, the toast being the one place it is said.
+  it("lets a done act's toast leave by itself and keeps a refusal until it is closed", () => {
+    render(<ToastRegion frame="rail" />);
+    act(() => {
+      toastAnswer({ ok: true, value: undefined }, COPY.shared.toast.agreed);
+      toastAnswer({ ok: false, reason: COPY.shared.failure.stale }, COPY.shared.toast.agreed);
+    });
+
+    act(() => vi.runAllTimers());
+
+    expect(screen.queryByText(COPY.shared.toast.agreed)).toBeNull();
+    expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy();
+
+    act(() => screen.getByRole("button", { name: COPY.shared.close }).click());
+
+    expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
   });
 });

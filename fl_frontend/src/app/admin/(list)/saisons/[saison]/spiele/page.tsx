@@ -10,14 +10,13 @@ import { chosenTab } from "@/kit/tabChoice";
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { matchRowOf } from "@/features/spiele/blocks";
+import { adminSpielChipOf, matchRowOf } from "@/features/spiele/blocks";
 import { getAdminSpielplan } from "@/features/spiele/queries";
 import { spieltagNamer } from "@/features/spieltage/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
-import type { ChipProps } from "@/kit/Chip";
 import type { SpieltageContent } from "@/kit/ListPage";
 import type { SpielRowProps } from "@/kit/SpielRow";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -34,17 +33,12 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   return metadataFor(read(saison), () => pageMetadata(parent, ROUTES.adminSpiele, ROUTES.adminSpiele.path(saison)));
 }
 
-/** That the match's date is not yet confirmed, while nothing has befallen it: its row carries an event's chip by itself. */
-function chipOf(spiel: FLSpielJoinedAdmin): ChipProps | undefined {
-  return spiel.sonderereignis === null && spiel.ansetzung_confirmed === false ? { tone: "warn", label: WORDS.provisional } : undefined;
-}
-
 /**
  * One match's card, opening its editor: as the Spielplan shows it, the pairing with each side's goals, and beside
  * when it is played its chip. A side the draw has not settled shows where it comes from.
  */
 function cardOf(saison: string, spiel: FLSpielJoinedAdmin): SpielRowProps & { id: string } {
-  const chip = chipOf(spiel);
+  const chip = adminSpielChipOf(spiel);
   return {
     ...matchRowOf(spiel),
     href: ROUTES.adminSpiel.path(saison, spiel.id),

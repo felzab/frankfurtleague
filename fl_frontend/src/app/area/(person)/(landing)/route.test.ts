@@ -18,9 +18,10 @@ async function sentTo(): Promise<string> {
   return address;
 }
 
-// What `/area` decides beyond `landingTargetOf`, whose own cases are `features/roles/utils.test.ts`'s.
+// What `/area` decides beyond `landingTargetOf` and `owesSignInStep`, whose own cases are `features/roles/utils.test.ts`'s.
 describe("/area", () => {
-  // Sent on to its places, the session would open a person's pages while it owes the administrator's step.
+  // Sent on to its places, the session would open a person's pages while it owes the administrator's step: the one case
+  // holding that the route asks `owesSignInStep` at all.
   it("sends a granted address's session the administration refuses to the sign-in's landing", async () => {
     session.read = () => Promise.resolve(person({ admin_tier: "administration" }));
     expect(await sentTo()).toBe(ROUTES.signInLanding.path());
