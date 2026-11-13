@@ -149,6 +149,10 @@ const inRow = (text: string, to: string): Step => ({ row: text, to });
 
 const addressOfStep = (step: Step): string => (typeof step === "string" ? step : step.to);
 
+/** A step's name in a case's title: its address, and a row's text beside it, since two rows of a list lead to one address's pattern. */
+const nameOfStep = (step: Step): string =>
+  typeof step !== "string" && "row" in step ? `${step.to} in the row ${step.row}` : addressOfStep(step);
+
 /** The card a step's page ends in, if it ends in one. */
 const endOf = (step: Step): End | undefined => (typeof step !== "string" && "card" in step ? step : undefined);
 
@@ -570,6 +574,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         const steps = isSteps(each) ? each : each[Number(width) as Width];
         if (steps === undefined) continue;
         const target = addressOfStep(steps.at(-1) ?? steps[0]);
+        const name = nameOfStep(steps.at(-1) ?? steps[0]);
         const end = endOf(steps.at(-1) ?? steps[0]);
         const before = steps.length > 1 ? steps.at(-2) : undefined;
         const origin = before === undefined ? undefined : addressOfStep(before);
@@ -579,7 +584,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         test.describe(`at ${width} px`, () => {
           test.use(device);
 
-          test(`${target} by a hard load`, { tag }, async ({ page }) => {
+          test(`${name} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
             expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
@@ -589,7 +594,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
 
           if (origin !== undefined) {
             for (const [way, words] of Object.entries(WAYS) as [Way, string][]) {
-              test(`${target} by the link on ${origin}, ${words}`, { tag }, async ({ page }) => {
+              test(`${name} by the link on ${origin}, ${words}`, { tag }, async ({ page }) => {
                 const record = await recordShifts(page);
                 // Counted, or refused, from before the origin's load, whose hydration starts its prefetches.
                 const requests = way === "warm" ? routerRequests(page) : undefined;
@@ -623,7 +628,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         test.describe(`at ${width} by ${String(TALL)} px`, () => {
           test.use({ ...device, viewport: { width: device.viewport.width, height: TALL } });
 
-          test(`${target} by a hard load`, { tag }, async ({ page }) => {
+          test(`${name} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
             expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
