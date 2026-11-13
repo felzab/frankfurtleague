@@ -196,6 +196,8 @@ export type LockReason = keyof typeof LOCK;
 
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
+// The same name bound, `shared`'s entry, which the catalogue's own phrases binding a word to the name use.
+const saisonNameBound = (id: string) => boundBy("Saison", id);
 // A group matchday by its place, `shared`'s entry, which the application form's wished opponent names the first by.
 const spieltagName = (position: number) => `${formatOrdinal(position)} Spieltag`;
 // A team's season, Deine Einträge's fact, which the deletion list's label for a registration names it by.
@@ -245,9 +247,11 @@ export const waitWords = (wait: Wait) =>
 /**
  * „bis 12.11.2026, 17:54“, „nach 15 Tagen“, „für die Saison 2027“, „Erst ab 16 Jahren“: the words of a phrase joined by
  * no-break spaces, so a line never ends on a preposition or an article apart from its value, nor on a number apart from
- * its unit. A phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Prose before words with
- * no value, „bis zum Ende der Saison“, breaks as any words do. A mail's subject joins nothing: it is one header line,
- * which a mail program shows and searches as typed.
+ * its unit. A phrase of several words takes each as a part: `boundBy("für", "die", saison)`. Only the spaces it joins
+ * bind, so a value holding a space of its own comes bound: a season's name as `saisonNameBound`, and a short instant,
+ * whose date and time `formatInstantShort` binds. Prose before words with no value, „bis zum Ende der Saison“, breaks
+ * as any words do. A mail's subject joins nothing: it is one header line, which a mail program shows and searches as
+ * typed.
  */
 export const boundBy = (...parts: string[]) => parts.join("\u00A0");
 
@@ -477,7 +481,7 @@ export const COPY = catalogue({
      * „Gültig bis Saison 2027“, so the line never ends on „Saison“ apart from its year. Everywhere else the name keeps
      * its plain space: a mail's subject, a tab's title and any words a person matches or searches as typed.
      */
-    saisonNameBound: (id: string) => boundBy("Saison", id),
+    saisonNameBound,
 
     /**
      * The bot check's one answer a person can act on, its click shown or its judgement against the token; a check that
@@ -1281,8 +1285,8 @@ export const COPY = catalogue({
           : `${boundBy(formatNumber(count), "Teams")} bekommen ihren Link per E-Mail.`,
 
       /** The activation: its subject, „Auf Saison 2027 umstellen?“, and the season the site shows from then on. */
-      onto: (saison: string) => boundBy("Auf", saisonName(saison)),
-      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonName(saison))}.`,
+      onto: (saison: string) => boundBy("Auf", saisonNameBound(saison)),
+      activateConsequence: (saison: string) => `Die Website zeigt ab sofort ${boundBy("die", saisonNameBound(saison))}.`,
       /** The activation's question, over the season the site leaves and the one it takes. */
       activateQuestion: "Die Website wechselt die Saison.",
       /** Why the activation cannot run yet: the season the site shows owes results, or this one's matchdays owe dates. */
@@ -1436,7 +1440,7 @@ export const COPY = catalogue({
       active: "Aktiv",
       enterDescription: "Ein bekanntes Team oder eine neue Schule",
       /** The field group over the season's fields in „Team eintragen“. */
-      inSaison: (saison: string) => boundBy("In", "der", saisonName(saison)),
+      inSaison: (saison: string) => boundBy("In", "der", saisonNameBound(saison)),
       /** Under Name and Kürzel once changed: a finished season keeps the name it was played under. */
       renameReach: "Gilt für laufende und geplante Saisons",
       /** The public text on the club's page. */
