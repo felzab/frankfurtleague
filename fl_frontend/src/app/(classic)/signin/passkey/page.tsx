@@ -39,8 +39,9 @@ async function readView(searchParams: Props["searchParams"]) {
   // enforces is judged per request, beside the session lifetimes.
   const step = await getPasskeyStep();
   if (step === null) {
-    // A session the step does not hold goes on to the landing with the address a mailed link asked for, which the
-    // landing honours where the allowlist holds it.
+    // The proxy sends a session holding no step on before the render; one whose step ended since, a window closing or
+    // a passkey enrolled in another tab, goes on from here, with the address a mailed link asked for where the
+    // allowlist holds it.
     const asked = (await searchParams)[RETURN_PARAMETER];
     redirect(withReturnAddress(ROUTES.signInLanding.path(), typeof asked === "string" ? asked : null));
   }
