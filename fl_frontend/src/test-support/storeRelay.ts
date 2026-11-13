@@ -12,6 +12,10 @@ import type { Socket } from "node:net";
 export class StoreRelay {
   private hung = false;
   private refusing = false;
+  /** Whether a connection opened now goes unanswered for as long as it stays open. */
+  private ignoringOpenings = false;
+  /** The connections opened while `ignoringOpenings`, none of whose requests reaches the server. */
+  private readonly ignored = new Set<Socket>();
   /** The command whose first request hangs the relay, as its name opens a BSON key. */
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
@@ -28,6 +32,7 @@ export class StoreRelay {
       inbound.destroy();
       return;
     }
+    if (this.ignoringOpenings) this.ignored.add(inbound);
     const outbound = dial(this.mongod.getMappedPort(27017), this.mongod.getHost());
     for (const socket of [inbound, outbound]) {
       this.sockets.add(socket);
@@ -41,7 +46,7 @@ export class StoreRelay {
       }
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
-      if (!this.hung) outbound.write(chunk);
+      if (!this.hung && !this.ignored.has(inbound)) outbound.write(chunk);
       else this.stranded.add(inbound);
     });
     outbound.on("data", (chunk) => inbound.write(chunk));
@@ -76,6 +81,31 @@ export class StoreRelay {
       return await body();
     } finally {
       this.resume();
+    }
+  }
+
+  /**
+   * Runs `during` while the store accepts each connection the client opens and answers none of its
+   * requests, its handshake included, then `after` while connections opened from then on are answered
+   * and those opened during `during` still are not, as a store recovering from an overload. Connections
+   * opened before are answered throughout, and every one left unanswered is ended once `after` settles.
+   * Answers each callback's outcome and how many connections went unanswered.
+   */
+  async ignoreOpenings<T>(during: () => Promise<unknown>, after: () => Promise<T>): Promise<{ during: unknown; after: T; ignored: number }> {
+    this.ignoringOpenings = true;
+    try {
+      let duringOutcome: unknown;
+      try {
+        duringOutcome = await during();
+      } finally {
+        this.ignoringOpenings = false;
+      }
+      const ignored = this.ignored.size;
+      return { during: duringOutcome, after: await after(), ignored };
+    } finally {
+      for (const socket of this.ignored) socket.destroy();
+      this.ignored.clear();
+      this.endStranded();
     }
   }
 

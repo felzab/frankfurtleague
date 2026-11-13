@@ -14,6 +14,8 @@ const { mongod, closing } = await startJudgedReplicaSet();
 const relay = new StoreRelay(mongod);
 closing(() => relay.close());
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
+/** The address the next client `db.ts` builds is given. */
+let storeUrl = RELAYED_URL;
 
 const logged: Record<string, unknown>[] = [];
 
@@ -23,7 +25,7 @@ const PRODUCTION_DB = "@/core/db.ts";
 
 registerAuthDoubles({
   core: {
-    config: configDouble({}, { mongodbUri: () => RELAYED_URL }),
+    config: configDouble({}, { mongodbUri: () => storeUrl }),
     db: overriding(PRODUCTION_DB, {}),
     logging: {
       logger: {
@@ -51,6 +53,10 @@ const { readServedSession } = await import("./auth/session.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
 const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);
+// One whose pool keeps no connection idle, as a pool the store's outage emptied: every read opens its own.
+storeUrl = `${RELAYED_URL}&maxIdleTimeMS=1`;
+const openingClient = await storeOf(`${import.meta.resolve("./db.ts")}?openings`);
+storeUrl = RELAYED_URL;
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -87,6 +93,33 @@ describe("the sign-in store's client bounds a cold start", () => {
     );
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
+  });
+});
+
+describe("the sign-in store's client bounds a connection's opening", () => {
+  /* The pool opens two connections at once at most, and a checkout that gives up on an opening leaves it running: only
+     the opening's own bound frees its place, without which every read waits out its checkout once two openings hang. */
+  it("serves a read once the store answers again, two openings it never answered having filled the pool's places", async () => {
+    await openingClient.connect();
+    // Past the pool's idle bound, so the connection the connect checked out is pruned rather than handed to a read.
+    await pause(10);
+    const read = () => openingClient.db("store_bound").collection("probe").findOne({});
+
+    const { during, after, ignored } = await relay.ignoreOpenings(
+      () =>
+        settledWithin(STAGE_BOUND, "the reads the store never answered", () =>
+          Promise.all([read().catch((error: unknown) => error), read().catch((error: unknown) => error)]),
+        ),
+      // Two stages: an opening that timed out marks the server unknown, so the read selects it again before it opens one.
+      () => settledWithin(STAGE_BOUND * 2, "the read after the store answered again", read),
+    );
+
+    expect(ignored, "the reads opened no connection the store left unanswered").toBe(2);
+    assert.ok(
+      Array.isArray(during) && during.every((outcome) => outcome instanceof MongoError),
+      `the unanswered reads settled with ${String(during)}`,
+    );
+    expect(after).toBe(null);
   });
 });
 
