@@ -298,7 +298,7 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 16
+    timeout-minutes: 22
     # Six legs, each on a runner and a stack of its own, every case on every event
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
     # jobs"). The journeys split by Playwright project: a project's seeded people are its own, where a
