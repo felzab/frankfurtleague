@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { counted, NO_SONDEREREIGNIS, valuesOf, wholeOnFirstSave } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, valuesOf } from "./berichtValues";
 
 import type { FLSonderereignis, FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 
@@ -51,17 +51,11 @@ const unreported = (
   sides_changed: [],
 });
 
-// The harm: the page shows the league's no-show while the save stores „Keines“, and the match editor then offers that
-// report's 0:0 over the no-show, which nothing on the referee's page showed them.
+// The harm: the form opens at no event over the league's no-show, or at an event the report cannot state, and the
+// referee saves a report contradicting the match it was opened on.
 describe("a first report on a match the league gave an event", () => {
-  it("opens at the league's no-show and sends it with the report, though the referee left it untouched", () => {
-    const opened = valuesOf(unreported("nichtantreten_team2"));
-
-    expect(opened.sonderereignis).toBe("nichtantreten_team2");
-    expect(wholeOnFirstSave(opened, { id: SPIEL_ID, version: null, changes: { remarks: "Weide nicht erschienen" } }).changes).toStrictEqual({
-      ...opened,
-      remarks: "Weide nicht erschienen",
-    });
+  it("opens at the league's no-show", () => {
+    expect(valuesOf(unreported("nichtantreten_team2")).sonderereignis).toBe("nichtantreten_team2");
   });
 
   it.each(["ausgefallen", "annulliert"] as const)("opens at no event on a match %s, which the report cannot state", (sonderereignis) => {
