@@ -1,3 +1,4 @@
+import { cacheCalls, NEXT_CACHE_DOUBLE, NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest.ts";
 import { beforeAll, beforeEach, vi } from "vitest";
 
 import type { AdminRefusal } from "@/core/auth/guards.ts";
@@ -6,38 +7,8 @@ import type { SubjectSession } from "@/core/subject.ts";
 // Every double here is registered with `vi.doMock`, which reaches only the modules a suite imports
 // after it: a suite calls these first and imports its subject with `await import`.
 
-/** One invalidation a write made through `next/cache`: the export it called, and what it handed it. */
-export type CacheCall = { name: string; args: unknown[] };
-
-/** Every invalidation since the case began, `doubleActionRequest` emptying it before each case. */
-export const cacheCalls: CacheCall[] = [];
-
-const recorded = (names: readonly string[]): Record<string, (...args: unknown[]) => void> =>
-  Object.fromEntries(
-    names.map((name) => [
-      name,
-      (...args: unknown[]): void => {
-        cacheCalls.push({ name, args });
-      },
-    ]),
-  );
-
-/**
- * `next/cache` as a server action meets it, every invalidation recorded into `cacheCalls`, for a
- * suite that doubles its packages itself. `cacheLife` and `cacheTag` declare a cached read rather than
- * clear one, so they record nothing.
- */
-export const NEXT_CACHE_DOUBLE = {
-  ...recorded(["updateTag", "refresh", "revalidateTag", "revalidatePath"]),
-  cacheLife: (): undefined => undefined,
-  cacheTag: (): undefined => undefined,
-};
-
-/** The headers the doubled request arrived with: none, unless a suite sets the edge's own here. */
-const incomingHeaders = new Headers();
-
-/** `next/headers` for a request carrying `incomingHeaders`, for a suite that doubles its packages itself. */
-export const NEXT_HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers(incomingHeaders)) };
+// Kept importable here for the suites not yet moved onto `nextRequest.ts`, which now holds them.
+export { cacheCalls, NEXT_CACHE_DOUBLE, NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest.ts";
 
 /** One line an action logged: its level, its message, the fields beside them, and an error line's attached error. */
 type LoggedLine = { level: "debug" | "info" | "warn" | "error"; message: string; meta: unknown; attached?: unknown };

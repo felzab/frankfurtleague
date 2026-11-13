@@ -1,5 +1,7 @@
 import { defineConfig } from "vitest/config";
 
+import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
+
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
  * nowhere else. A project setting none runs under the shell's `NODE_ENV`, or under `test`, which Vitest sets where
@@ -32,7 +34,7 @@ export default defineConfig({
   test: {
     // Read by `src/core/config.ts`: a test imports a module that reads the environment, and never
     // the variables a deployment sets.
-    env: { SKIP_ENV_VALIDATION: "true" },
+    env: { ...TEST_ENVIRONMENT },
     setupFiles: ["src/test-support/setup.ts", "src/test-support/dom.ts"],
     // Node by default: most suites test server code. A file rendering into a document opts in with
     // `// @vitest-environment jsdom` (https://vitest.dev/guide/environment).
