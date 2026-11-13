@@ -47,9 +47,14 @@ def _spiel(**fields: Any) -> dict[str, Any]:
 
 
 def _read(
-    url: str, spiel: Mapping[str, Any], *, rows: Sequence[Mapping[str, Any]] = (), aufstellungen: Sequence[Mapping[str, Any]] = ()
+    url: str,
+    spiel: Mapping[str, Any],
+    *,
+    rows: Sequence[Mapping[str, Any]] = (),
+    aufstellungen: Sequence[Mapping[str, Any]] = (),
+    today: str = "2026-04-27",
 ) -> FLSpieleAdminSingleResponse:
-    """The editor's read of `spiel` on 27 April, beside what is stored for it, the away club having left the season on 1 May."""
+    """The editor's read of `spiel` at noon `today`, beside what is stored for it, the away club having left the season on 1 May."""
 
     async def body() -> FLSpieleAdminSingleResponse:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
@@ -78,7 +83,7 @@ def _read(
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
-                now=clock.german_instant("2026-04-27", "12:00:00"),
+                now=clock.german_instant(today, "12:00:00"),
             )
 
     return on_the_seed_loop(body())
@@ -107,6 +112,27 @@ def test_an_answer_stands_past_its_deadline_and_a_club_out_by_the_match_day_laps
         str(agreed["_id"]): ("agreed", None, "2026-04-25"),
         str(left["_id"]): ("expired", None, "2026-04-29"),
         str(referees["_id"]): ("expired", "2026-04-25", "2026-04-25"),
+    }
+
+
+def test_a_row_an_exit_or_a_move_ended_before_its_answer_was_due_is_dated_by_nothing(mongo_replica_set_url: str):
+    """Read the day after the match, every deadline gone by: the away club left on 1 May, its own deadline that day.
+
+    The home club's row is about the slot of 25 April the match left. Dated, either would read „Abgelaufen am …“ for an
+    answer nobody owed: the exit and the move ended each row before it was due.
+    """
+
+    spiel = _spiel()
+    left = documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": AWAY}, deadline="2026-05-01")
+    moved = documents.spielbestaetigung_document(
+        {**spiel, "date": "2026-04-25"}, party={"kind": "team", "team_id": HOME}, deadline="2026-04-18", closed={"reason": "ansetzung_changed"}
+    )
+
+    answer = _read(mongo_replica_set_url, spiel, rows=[left, moved], today="2026-05-03")
+
+    assert {str(row.id): (row.state, row.lapsed_on) for row in answer.spielbestaetigungen} == {
+        str(left["_id"]): ("expired", None),
+        str(moved["_id"]): ("invalid", None),
     }
 
 

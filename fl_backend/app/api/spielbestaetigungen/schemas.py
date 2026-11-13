@@ -108,6 +108,13 @@ class FLSpielbestaetigungClosed(BaseReadModel):
     discarded: bool = Field(default=False)
 
 
+class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
+    # Whether the row answered its fixture as the pass's close that ended it read the fixture, so a correction since
+    # re-judges nothing; served to nobody, the row's state being what a page reads. Null where no such close wrote it:
+    # held, closed otherwise, or closed before the close stored it, each judged against the fixture as it stands.
+    matched: bool | None = None
+
+
 class _FLSpielbestaetigungFields(BaseModel):
     """Every field a confirmation row stores and an administrator reads alike: all but the anchor."""
 
@@ -135,7 +142,9 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFields):
 
 
 class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
-    """One confirmation as `spielbestaetigungen` stores it, with the anchor no read serves."""
+    """One confirmation as `spielbestaetigungen` stores it, with the anchor and the close's judgement no read serves."""
+
+    closed: FLSpielbestaetigungClosedRecord | None
 
 
 # --- The administrator: a row settled on its party's behalf.

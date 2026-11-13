@@ -848,22 +848,46 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
         assert (discarded in told) is (reason == "cancelled")
 
 
-class TestADiscardEndedAtItsKickOffStillReadsAsTheAgreementCounted:
-    def test_the_pass_after_the_day_keeps_the_discards_mark(self, mongo_replica_set_url: str):
+class TestTheCloseEndingARowStoresWhetherItAnsweredTheFixture:
+    """What a closed row reads as is `state_of`'s, held in the default tier; this holds what the close stores for it to read."""
+
+    @pytest.mark.parametrize(
+        ("change", "team_id", "closed"),
+        [
+            pytest.param({}, ALPHA, {"reason": "spiel_past", "discarded": True, "matched": True}, id="a discard ended at its slot"),
+            # Held through the move, it ends at its own kick-off about the slot the fixture left.
+            pytest.param(
+                {"time": "19:00:00"}, ALPHA, {"reason": "spiel_past", "discarded": True, "matched": False}, id="a discard the match left"
+            ),
+            # The result entered with the kick-off corrected, ahead of the pass: the agreement was to the match played.
+            pytest.param(
+                {"time": "18:30:00", "team1.tore": 2, "team2.tore": 1, "ergebnis": "2:1"},
+                BETA,
+                {"reason": "spiel_decided", "matched": True},
+                id="an agreement retimed as it is decided",
+            ),
+        ],
+    )
+    def test_the_pass_after_the_day_stores_the_mark_and_the_judgement(
+        self, mongo_replica_set_url: str, change: dict[str, Any], team_id: ObjectId, closed: dict[str, Any]
+    ):
         """Its end overwriting the mark, the editor would read the club agreed until the match and declined from the next pass on.
 
-        What the mark reads as is `state_of`'s, held in the default tier.
+        And judged again on each read, a kick-off corrected after the pass would turn one club's answer invalid beside the
+        other's, about the one slot both answered.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            discarded = await alphas_discard_beside_betas_agreement(database, client)
+            await alphas_discard_beside_betas_agreement(database, client)
+            if change:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": change})
             await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
 
-            return await rows(database, _id=discarded)
+            return row_of(await rows(database), team_id=team_id)
 
-        (stored,) = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+        stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        assert stored["closed"] == {"reason": "spiel_past", "discarded": True}
+        assert stored["closed"] == closed
 
 
 class TestAMovedSpielAsksAgain:
@@ -1215,7 +1239,7 @@ class TestARowClosesOnceItsDayHasPassed:
 
         assert on_the_day.closed == 0
         assert after.closed == 3
-        assert [row["closed"] for row in stored] == [{"reason": "spiel_past"}] * 3
+        assert [row["closed"] for row in stored] == [{"reason": "spiel_past", "matched": True}] * 3
         assert row_of(stored, team_id=ALPHA)["answer"] == answered["answer"]
         # A day gone by is no new Ansetzung: nobody is told it moved, nor asked again.
         assert (after.new_ansetzungen, after.schiedsrichter_new_ansetzungen, after.requests, after.einteilungen) == ([], [], [], [])
