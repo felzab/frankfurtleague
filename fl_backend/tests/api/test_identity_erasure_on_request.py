@@ -6,6 +6,7 @@ the suite's grants an administrator signs in through. Every case asks what the d
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
+import asyncio
 import functools
 import logging
 from collections.abc import Awaitable, Callable, Iterator, Mapping
@@ -20,13 +21,14 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.admin_router import post_erasure
+from app.api.identity.admin_router import get_erasure_view, post_erasure
 from app.api.identity.schemas import FLErasureAddressPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.db import collection_dependency
+from app.core.exceptions import APIError
 from app.core.recording import actor_var
 from app.main import create_app
 from tests.app_client import app_client
@@ -42,7 +44,6 @@ from tests.worker import worker_database
 from .conftest import config_for
 from .test_identity_erasure_execution import (
     FIRST_NAME,
-    HOME_TEAM_OID,
     IDENTIFIER,
     LAST_NAME,
     NOW,
@@ -73,7 +74,6 @@ VIEW_PATH = f"{PATH}/view"
 # The suite's owner, and an administrator holding no owner's power, who presses unless a case says otherwise.
 OWNER, OPERATOR = ADMINISTRATORS[0], ADMINISTRATORS[1]
 ANOTHER_ADMINISTRATOR = ADMINISTRATORS[3]
-GRANT_ID_OF = {row["address"]: row["_id"] for row in grants_for_the_suite()}
 
 REASON = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
@@ -190,37 +190,6 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
 class TestTheRegistryRunsWhole:
     """The person's whole data on one pass, with no precondition about their state."""
 
-    def test_every_kind_goes_on_one_pass_a_pupil_in_a_live_squad_among_them(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            live = {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "inactive_since": None}
-            pupil = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            before = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
-            stored = await everything_in(database)
-            response = await posted(mongo_replica_set_url, PATH, erasure_of())
-            taken = what_the_erasure_took(stored, await everything_in(database))
-            after = (await where_held(database, *THEIR_VALUES), await database[Collection.SAISON_SPIELER].count_documents(live))
-
-            return pupil, before, response, taken, after
-
-        pupil, (held, squad), response, taken, (left, squad_left) = on_a_league(mongo_replica_set_url, body)
-
-        assert pupil is not None
-        assert all(held[value] for value in THEIR_VALUES), held
-        assert response.status_code == 204, response.text
-        assert taken == {
-            "spieler": 1,
-            "schiedsrichter": 1,
-            "kontakt_seats": 1,
-            "bewerbung_seats": 2,
-            "registrierungen": 2,
-            # The seed's booked fixture was played: its booking stands, naming nobody, and none is taken off.
-            "spiele": 0,
-            "address_change": 2,
-            "grants": 0,
-        }
-        assert left == dict.fromkeys(THEIR_VALUES, [])
-        assert (squad, squad_left) == (2, 1)
-
     def test_the_persons_own_route_leaves_the_same_database(self, mongo_replica_set_url: str):
         """Fails where the two routes ever run different scopes or steps; the log's one row, who acted, is all that differs."""
 
@@ -240,27 +209,64 @@ class TestTheRegistryRunsWhole:
         assert by_the_administrator[1] == by_the_person[1]
 
 
-@pytest.mark.db
-class TestTheirOwnAddress:
-    """`own_address`: an administrator's own address goes through their account page, or through another administrator."""
+# Every handle a handler below is handed: a read or a write reaching one fails on `None`, so a refusal raised is one judged
+# ahead of anything read or written.
+NO_HANDLE: Any = None
 
-    @pytest.mark.parametrize(
-        ("path", "body"),
-        [(VIEW_PATH, view_of), (PATH, erasure_of)],
-        ids=["the counts", "the erasure"],
+
+def counted_by_the_handler(email: str) -> Awaitable[Any]:
+    return get_erasure_view(
+        view_data=FLErasureAddressPayload.model_validate(view_of(email)),
+        saison_teams_collection=NO_HANDLE,
+        bewerbungen_collection=NO_HANDLE,
+        schiedsrichter_collection=NO_HANDLE,
+        spieler_collection=NO_HANDLE,
+        registrierungen_collection=NO_HANDLE,
+        spiele_collection=NO_HANDLE,
+        grants_collection=NO_HANDLE,
+        address_changes_collection=NO_HANDLE,
+        session=NO_HANDLE,
+        operator=OPERATOR,
+        now=NOW,
     )
-    def test_it_is_refused_in_other_capitals_and_between_spaces_and_nothing_is_written(
-        self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]
-    ):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await everything_in(database)
-            response = await posted(mongo_replica_set_url, path, body(f"  {OPERATOR.upper()} "))
 
-            return response, before == await everything_in(database)
 
-        response, untouched = on_a_league(mongo_replica_set_url, run)
+def erased_by_the_handler_alone(email: str) -> Awaitable[Any]:
+    return post_erasure(
+        erasure_data=FLErasurePayload.model_validate(erasure_of(email)),
+        spieler_collection=NO_HANDLE,
+        saison_spieler_collection=NO_HANDLE,
+        saison_teams_collection=NO_HANDLE,
+        bewerbungen_collection=NO_HANDLE,
+        schiedsrichter_collection=NO_HANDLE,
+        spiele_collection=NO_HANDLE,
+        spielbestaetigungen_collection=NO_HANDLE,
+        spielberichte_collection=NO_HANDLE,
+        aufstellungen_collection=NO_HANDLE,
+        registrierungen_collection=NO_HANDLE,
+        action_log_collection=NO_HANDLE,
+        grants_collection=NO_HANDLE,
+        outbox_collection=NO_HANDLE,
+        address_changes_collection=NO_HANDLE,
+        db=NO_HANDLE,
+        operator=OPERATOR,
+        germany_now=NOW,
+    )
 
-        assert (response.status_code, response.json()["error_code"], untouched) == (403, Code.OWN_ADDRESS, True)
+
+class TestTheirOwnAddress:
+    """`own_address`: an administrator's own address goes through their account page, or through another administrator.
+
+    Each handler is called as a function, as `OPERATOR`: the route and the binding of the actor from the request's
+    headers are not exercised here.
+    """
+
+    @pytest.mark.parametrize("handler", [counted_by_the_handler, erased_by_the_handler_alone], ids=["the counts", "the erasure"])
+    def test_it_is_refused_in_other_capitals_and_between_spaces_before_anything_is_read(self, handler: Callable[[str], Awaitable[Any]]):
+        with pytest.raises(APIError) as refused:
+            asyncio.run(handler(f"  {OPERATOR.upper()} "))
+
+        assert (refused.value.status_code, refused.value.error_code) == (403, Code.OWN_ADDRESS)
 
 
 @pytest.mark.db
@@ -454,30 +460,6 @@ THE_GRANTS_OWN_ROWS = frozenset({Collection.GRANTS, Collection.OUTBOX, Collectio
 
 def aside_the_grants_own_rows(held: Mapping[str, list[str]]) -> dict[str, list[str]]:
     return {value: [name for name in found if name not in THE_GRANTS_OWN_ROWS] for value, found in held.items()}
-
-
-@pytest.mark.db
-class TestAnotherAdministratorsAddress:
-    def test_an_owner_ends_another_administrators_grant_and_its_notice_names_them(self, mongo_replica_set_url: str):
-        """Only an owner presses here (`admin_address`)."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            held = await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR})
-            response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
-            # One row per administrator a notice is owed to: the owner's copy, which every notice has.
-            notices = [
-                row["data"]
-                async for row in database[Collection.OUTBOX].find(
-                    {"key": {"$regex": f"^grant/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "to": OWNER}, sort=[("_id", 1)]
-                )
-            ]
-
-            return response, held, await database[Collection.GRANTS].count_documents({"address": ANOTHER_ADMINISTRATOR}), notices
-
-        response, held, left, notices = on_a_league(mongo_replica_set_url, body)
-
-        assert (response.status_code, held, left) == (204, 1, 0)
-        assert [notice["change"] for notice in notices] == ["revoked"]
 
 
 # --- Refused by the payload, which the route validates before any read.

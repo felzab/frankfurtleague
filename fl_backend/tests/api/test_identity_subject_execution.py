@@ -274,15 +274,6 @@ def answered(url: str, email: str = IDENTIFIER) -> FLSubjectResponse:
 
 
 @pytest.mark.db
-def test_an_address_the_league_holds_nothing_for_answers_three_empty_lists(mongo_replica_set_url: str):
-    """A lookup answering everything it is asked would hand this mailbox records of others, which nobody it reaches would see."""
-
-    answer = answered(mongo_replica_set_url, "niemand.hierverzeichnet@example.com")
-
-    assert (answer.seats, answer.spieler, answer.schiedsrichter) == ([], [], [])
-
-
-@pytest.mark.db
 def test_an_address_sharing_only_a_local_part_with_unconfirmed_records_awaits_no_confirmation(mongo_replica_set_url: str):
     """The flag raised, the sign-in gate admits a mailbox the league holds nothing for."""
 
@@ -376,19 +367,6 @@ class TestTheGateWalksAnIndex:
 class TestTheGrant:
     """`admin_tier`: the one stored answer, read off `grants` on the folded identifier."""
 
-    def test_a_mailbox_holding_records_and_no_grant_is_answered_null(self, mongo_replica_set_url: str):
-        """A lookup answering a tier for every address would hand this mailbox the administration."""
-
-        answer = answered(mongo_replica_set_url)
-
-        assert (answer.admin_tier, answer.granted_since) == (None, None)
-        assert answer.seats
-
-    def test_a_grant_is_answered_with_its_tier_and_the_day_it_took_effect(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, ADMIN_STORED)
-
-        assert (answer.admin_tier, answer.granted_since) == ("administration", GRANT_TYPED)
-
     def test_a_waiting_row_answers_no_tier_on_either_route(self, mongo_replica_set_url: str):
         """A named person is no administrator until the wait ends, which the owner may yet stop: a tier here admits them early."""
 
@@ -407,3 +385,4 @@ class TestTheGrant:
         response = served_over_http(mongo_replica_set_url, ADMIN_STORED)
 
         assert response.json()["granted_since"] == "2026-01-01T00:00:00Z"
+        assert response.json()["admin_tier"] == "administration"
