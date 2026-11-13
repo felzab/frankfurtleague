@@ -103,17 +103,24 @@ const OPENERS = {
 } as const;
 
 /**
- * An address whose page ends in its frame's card, named by the card's title: one no page holds, or one the session is
- * refused. Its server sends the shell of the root's boundary alone, and the browser draws the frame and the card: a
- * `notFound()` met once the response has begun keeps the shell's status and adds `noindex` (Next's streaming guide,
- * https://nextjs.org/docs/app/guides/streaming, under „The HTTP contract“).
+ * What a hard load of an end was measured to answer: its status, and whether its server's document holds the frame's
+ * `main`. Next's streaming guide gives a not-found two answers (https://nextjs.org/docs/app/guides/streaming, under
+ * „The HTTP contract“): a `notFound()` met before the response begins answers 404, and one met after keeps the 200 the
+ * response began with and adds `noindex`, its document holding the frame's `main` where the frame streamed before it.
  */
-type End = { readonly to: string; readonly card: string };
+type Served = { readonly status: number; readonly main: boolean };
+
+/**
+ * An address whose page ends in its frame's card, named by the card's title: one no page holds, or one the session is
+ * refused. The browser draws the frame and the card, and the server's document carries the not-found's `noindex`. An
+ * end without `served` pins neither its status nor its document's frame.
+ */
+type End = { readonly to: string; readonly card: string; readonly served?: Served };
 
 /** An address no page holds. */
-const missing = (to: string): End => ({ to, card: "Seite nicht gefunden" });
+const missing = (to: string, served?: Served): End => ({ to, card: "Seite nicht gefunden", served });
 /** A team's address the session holds no seat on. */
-const refused = (to: string): End => ({ to, card: "Kein Zugang" });
+const refused = (to: string, served: Served): End => ({ to, card: "Kein Zugang", served });
 
 /** A step of a walk: the address of a link in view, of one in what a control opens, or of a page ending in its card. */
 type Step = string | End | { readonly open: keyof typeof OPENERS; readonly to: string };
@@ -249,18 +256,22 @@ async function load(page: Page, address: string): Promise<Answer> {
 
 /**
  * That a hard load's server answered the page measured: a page with 200 and its frame's `main` in the document, where a
- * 502, Next's bare error document or a page the browser had to draw again holds none. An end's document holds no frame
- * of its server's, only the not-found's `noindex`; its status, which Next states only for a `notFound()` met after the
- * response has begun, the case reports for its run to read rather than asserting it.
+ * 502, Next's bare error document or a page the browser had to draw again holds none. An end answers the not-found's
+ * `noindex`, with the status and the frame it was measured to answer; one that pins neither reports its status for its
+ * run to read.
  */
 function expectAnswered(answer: Answer, end: End | undefined): void {
-  if (end === undefined) {
-    expect(answer.status, "the page answered").toBe(200);
-    expect(answer.text, "the server's document holds the frame's main").toContain("<main");
+  const served = end === undefined ? { status: 200, main: true } : end.served;
+  if (end !== undefined) {
+    expect(answer.text, "the server's document is a not-found answer").toMatch(/<meta name="robots" content="noindex/);
+  }
+  if (served === undefined) {
+    test.info().annotations.push({ type: "status", description: String(answer.status) });
     return;
   }
-  test.info().annotations.push({ type: "status", description: String(answer.status) });
-  expect(answer.text, "the server's document is a not-found answer").toMatch(/<meta name="robots" content="noindex/);
+  expect(answer.status, "the page answered").toBe(served.status);
+  if (served.main) expect(answer.text, "the server's document holds the frame's main").toContain("<main");
+  else expect(answer.text, "the server's document holds no main").not.toContain("<main");
 }
 
 /**
@@ -376,7 +387,7 @@ const VISITOR: Walk[] = [
   ["/saisons/2026/teams", `/saisons/2026/teams/${ID}`],
   ["/saisons/2026", `/saisons/2026/spiele/${ID}`],
   // The planned season, which the public does not read: its address answers the page for a season not found.
-  [missing("/saisons/2028")],
+  [missing("/saisons/2028", { status: 200, main: true })],
   // The addresses that answer for the season the site is on, which the classic frame's header and footer link.
   ["/", "/saisons"],
   ["/", "/saisons/tabelle"],
@@ -397,7 +408,10 @@ const ACCOUNT = (...home: Steps): Walk[] => [
   ["/account", "/account/entries"],
 ];
 
-/** A person's area at an address no page holds, whose card leads to `/area`, which sends the person on to their place. */
+/**
+ * A person's area at an address no page holds, whose card leads to `/area`, which sends the person on to their place.
+ * Its answer is not pinned: it answers 404 where every other end answers 200, a difference the site has yet to settle.
+ */
 const AREA: Walk[] = [
   [missing("/area/nowhere")],
   [missing("/area/nowhere"), "/area"],
@@ -436,7 +450,7 @@ const CONTACT: Walk[] = [
   ["/account", TEAM, more(`${TEAM}/registrierungen`)],
   ["/account", TEAM, `${TEAM}/spiele`, `${TEAM}/spiele/${ID}`],
   // A team's address no page holds, at a team the contact holds no seat on: the card refusing it.
-  [refused("/area/team/000000000000000000000000/2027/nowhere")],
+  [refused("/area/team/000000000000000000000000/2027/nowhere", { status: 200, main: false })],
   ...ACCOUNT("/account", TEAM),
 ];
 
@@ -480,7 +494,7 @@ const ADMINISTRATOR: Walk[] = [
   ["/admin", more("/admin/address-changes")],
   ["/admin", more("/admin/log")],
   // An administration address no page holds, its card leading to `/admin`.
-  [missing("/admin/nowhere")],
+  [missing("/admin/nowhere", { status: 200, main: true })],
   // The landing a signed-in person's way goes through, which sends an administrator on to `/admin`.
   ["/area"],
   ...ACCOUNT("/admin"),
