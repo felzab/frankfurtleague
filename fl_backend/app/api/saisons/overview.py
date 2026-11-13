@@ -26,7 +26,6 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     build_holding_filter,
     build_triage_rows_filter,
-    discard_owes_a_notice,
     parties_told_of_the_change,
     party_key,
     reason_to_end,
@@ -129,7 +128,7 @@ class FLOverviewVorschlagRow(BaseModel):
 
     Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
     names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
-    discard tells the date stands, none once its kick-off has come.
+    discard tells the date stands.
     """
 
     kind: Literal["vorschlag_open"]
@@ -356,7 +355,7 @@ def overview_of(
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]] if discard_owes_a_notice(row=row, now=now) else [], names=names),
+                    discard_recipients=recipients_named([row[ROW_PARTY]], names=names),
                 )
             )
             continue

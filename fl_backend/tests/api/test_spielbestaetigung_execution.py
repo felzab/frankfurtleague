@@ -663,6 +663,21 @@ class TestTheDiscard:
 
         assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 1)
 
+    def test_a_proposal_on_a_spiel_carrying_an_event_is_refused_before_the_pass_closes_it(self, mongo_replica_set_url: str):
+        """Discarded, the club would be told „Termin bleibt“ of a match called off.
+
+        The save closes no row, so a page read before the event reaches a row the pass has yet to shut.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
+            await save(database, client, await spiel_now(database), sonderereignis="ausgefallen")
+            outcome = await outcome_of(discard_row(database, client, ROW1))
+
+            return outcome, (await row_now(database, ROW1))["closed"], await database[Collection.OUTBOX].count_documents({})
+
+        assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 0)
+
 
 async def adopt(
     database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None, today: str = TODAY
@@ -733,6 +748,19 @@ class TestTheAdoption:
 
         assert (outcome, reason) == (Code.ANSETZUNG_NOT_ADOPTABLE, "discarded")
         assert slot != PROPOSAL
+
+    def test_a_proposal_on_a_spiel_carrying_an_event_is_refused_before_the_pass_closes_it(self, mongo_replica_set_url: str):
+        """Adopted, a match called off would be moved to the proposed date, its rows read as a move rather than a call-off."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
+            await save(database, client, await spiel_now(database), sonderereignis="ausgefallen")
+            outcome = await outcome_of(adopt(database, client, ROW1))
+            spiel = await spiel_now(database)
+
+            return outcome, (spiel["date"], spiel["time"])
+
+        assert on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ADOPTABLE, (DATE, TIME))
 
     @pytest.mark.parametrize(
         ("since", "today", "code"),

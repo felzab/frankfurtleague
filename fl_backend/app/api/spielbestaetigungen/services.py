@@ -18,6 +18,7 @@ from app.api.outbox.schemas import (
     FLSpielMailEntry,
     FLSpielMovedData,
     FLSpielNoticeData,
+    FLSpielNoticeEvent,
     FLSpielVorschlagDiscardedData,
 )
 from app.api.outbox.services import OwedMail
@@ -256,8 +257,12 @@ def team_state_of(
 ) -> FLSpielbestaetigungTeamState | None:
     """What a team's own pages show of its unclosed row about the fixture as it stands: `state_of`'s state, or `None`.
 
-    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off.
+    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off or decided.
     """
+
+    # Ahead of the pass's close, which takes the row off these pages: a lapsed row would read that the league decides.
+    if _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) == "spiel_decided":
+        return None
 
     match state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open):
         case "valid" | "vorschlag" | "expired" | "agreed" | "declined" as state:
@@ -534,8 +539,12 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
-    """`build_discardable_filter` asked of the row read, and the row about the fixture as it stands: what a discard and an adoption act on."""
+def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> bool:
+    """`build_discardable_filter` asked of the row read, on a row the pass's next close leaves open: what a discard and an adoption act on.
+
+    The close's own judgement, so neither acts on a row a save has overtaken before the hourly pass shuts it: about an
+    Ansetzung the fixture left, or on a fixture decided, called off, kicked off or fielding a club gone by its day.
+    """
 
     party, answer = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("answer") or {}
 
@@ -544,20 +553,23 @@ def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: M
         and answer.get("kind") == "declined"
         and answer.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
-        and ansetzung_digest_of(spiel) == spielbestaetigung_raw["ansetzung"]["digest"]
+        and _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) is None
     )
 
 
-def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
     """Why a discard of this row must be refused, or `None`."""
 
-    return None if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel) else discard_refusal()
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
+        return None
+
+    return discard_refusal()
 
 
-def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
     """Why an adoption of this row must be refused, or `None`: the discard's condition, under the adoption's own code."""
 
-    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel):
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
         return None
 
     return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
@@ -931,15 +943,6 @@ def parties_told_of_the_change(
     return told
 
 
-def discard_owes_a_notice(*, row: Mapping[str, Any], now: datetime) -> bool:
-    """Whether a discard owes the club a notice that the date stands: about a slot to come.
-
-    No stamp asked, as `notice_owed` asks one: the decline it discards was the club's own answer, given signed in.
-    """
-
-    return _notice_to_come(row=row, reason="discarded", spiel={}, now=now)
-
-
 def spiel_mail_appointment_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tuple[str, str]) -> FLSpielMailAppointment:
     """The slot a row was about, as a notice about it states it, the clubs named as `vereinsnamen_of` names them."""
 
@@ -964,15 +967,25 @@ def notice_data_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, 
     """The notice a closing for `reason`, or a discard, owes a party of `party_kind`."""
 
     recipient = "schiedsrichter" if party_kind == "schiedsrichter" else "team"
-    # A move's notice is `moved_notice_of`'s, which names the slot moved to as well.
-    if reason == "cancelled":
-        return FLSpielNoticeData(kind="spiel_cancelled", recipient=recipient, appointment=appointment)
+    # A move's notice is `moved_notice_of`'s, which names the slot moved to as well, and a call-off's is
+    # `cancelled_notice_of`'s, which names the event.
     if reason == "schiedsrichter_switched" or (reason in REASONS_OWING_A_REFEREE and recipient == "schiedsrichter"):
         return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if reason == "discarded":
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
 
     raise ValueError(f"a closing for {reason} owes no notice")
+
+
+def cancelled_notice_of(*, party_kind: str, appointment: FLSpielMailAppointment, sonderereignis: FLSpielNoticeEvent) -> FLSpielNoticeData:
+    """The notice a closing for `cancelled` owes a party of `party_kind`: the slot it was asked about, and what befell it."""
+
+    return FLSpielNoticeData(
+        kind="spiel_cancelled",
+        recipient="schiedsrichter" if party_kind == "schiedsrichter" else "team",
+        appointment=appointment,
+        sonderereignis=sonderereignis,
+    )
 
 
 def moved_notice_of(

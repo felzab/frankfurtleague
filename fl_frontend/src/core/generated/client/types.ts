@@ -3181,13 +3181,23 @@ export const FLSpielNoticeDataRecipient = {
   schiedsrichter: "schiedsrichter",
 } as const;
 
+export type FLSpielNoticeEvent = (typeof FLSpielNoticeEvent)[keyof typeof FLSpielNoticeEvent];
+
+export const FLSpielNoticeEvent = {
+  ausgefallen: "ausgefallen",
+  annulliert: "annulliert",
+  nichtantreten_team1: "nichtantreten_team1",
+  nichtantreten_team2: "nichtantreten_team2",
+} as const;
+
 /**
- * A party's word that a fixture it was asked about was called off: the slot it was asked about.
+ * A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event.
  */
 export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
   kind: "spiel_cancelled";
   recipient: FLSpielNoticeDataRecipient;
+  sonderereignis?: FLSpielNoticeEvent | null;
 }
 
 /**
@@ -3529,7 +3539,7 @@ export interface FLSpielbestaetigungAppointment {
  *
  * Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
  * names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
- * discard tells the date stands, none once its kick-off has come.
+ * discard tells the date stands.
  */
 export interface FLOverviewVorschlagRow {
   adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];

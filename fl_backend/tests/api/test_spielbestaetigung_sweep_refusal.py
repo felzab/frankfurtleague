@@ -6,13 +6,14 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
+    AnsetzungState,
     compose_ansetzung,
     deadline_of,
-    discard_owes_a_notice,
     notice_owed,
     parties_told_of_the_change,
     reason_to_close,
     request_is_due,
+    team_state_of,
 )
 from app.core import clock
 
@@ -153,11 +154,6 @@ class TestANoticeIsAboutASlotStillToCome:
         assert reason_to_close(row=asked, spiel=moved_and_taken_off, austritte={}, now=KICK_OFF) == "schiedsrichter_switched"
         assert notice_owed(row=asked, reason="schiedsrichter_switched", spiel=moved_and_taken_off, now=KICK_OFF) is False
 
-    def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
-        owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
-
-        assert owed == [True, False]
-
 
 class TestASaveNamesOnlyThoseItsOwnChangeTells:
     def test_a_second_move_before_the_pass_names_nobody_the_first_already_tells(self):
@@ -175,3 +171,20 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
         ]
 
         assert told == [[TEAM], []]
+
+
+class TestATeamsPagesDropARowItsMatchDecided:
+    @pytest.mark.parametrize(
+        "decided",
+        [pytest.param({"ergebnis": "2:1"}, id="a result"), pytest.param({"sonderereignis": "nichtantreten_team2"}, id="a no-show")],
+    )
+    @pytest.mark.parametrize("answer", [pytest.param(None, id="unanswered"), pytest.param({"kind": "agreed"}, id="agreed")])
+    def test_before_the_pass_closes_it(self, decided: dict[str, Any], answer: dict[str, Any] | None):
+        """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
+
+        unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
+        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+
+        assert (
+            team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
+        )

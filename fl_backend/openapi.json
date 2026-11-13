@@ -7839,7 +7839,7 @@
         "type": "object"
       },
       "FLOverviewVorschlagRow": {
-        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question\nnames them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the\ndiscard tells the date stands, none once its kick-off has come.",
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question\nnames them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the\ndiscard tells the date stands.",
         "properties": {
           "adoption_recipients": {
             "items": {
@@ -12543,7 +12543,7 @@
         "type": "object"
       },
       "FLSpielNoticeData": {
-        "description": "A party's word that a fixture it was asked about was called off: the slot it was asked about.",
+        "description": "A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event.",
         "properties": {
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
@@ -12560,6 +12560,16 @@
             ],
             "title": "Recipient",
             "type": "string"
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielNoticeEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -12569,6 +12579,15 @@
         ],
         "title": "FLSpielNoticeData",
         "type": "object"
+      },
+      "FLSpielNoticeEvent": {
+        "enum": [
+          "ausgefallen",
+          "annulliert",
+          "nichtantreten_team1",
+          "nichtantreten_team2"
+        ],
+        "type": "string"
       },
       "FLSpielPageResponse": {
         "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where\neach side stands, each side's line-up from the moment its club stores one, and what the public may read of its\nreport, null where none is stored.",
@@ -26262,7 +26281,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/discard": {
       "post": {
-        "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that\nthe date stands.",
+        "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and the club is told that the date stands.",
         "operationId": "spielbestaetigungen_discard_spielbestaetigung",
         "parameters": [
           {

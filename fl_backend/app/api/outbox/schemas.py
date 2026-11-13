@@ -170,13 +170,20 @@ class FLSpielMovedData(BaseModel):
     asked_again: bool
 
 
+# The events a fixture's call-off notice is sent for: an abandonment, and a no-show entered on or after its day, decide
+# the fixture, which owes its parties no notice.
+type FLSpielNoticeEvent = Literal["ausgefallen", "annulliert", "nichtantreten_team1", "nichtantreten_team2"]
+
+
 class FLSpielNoticeData(BaseModel):
-    """A party's word that a fixture it was asked about was called off: the slot it was asked about."""
+    """A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event."""
 
     kind: Literal["spiel_cancelled"]
     # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
     recipient: Literal["team", "schiedsrichter"]
     appointment: FLSpielMailAppointment
+    # Defaulted, as a row owed before the field was written has none: its mail names no event.
+    sonderereignis: FLSpielNoticeEvent | None = Field(default=None)
 
 
 class FLSpielEinteilungLiftedData(BaseModel):
