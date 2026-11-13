@@ -6,6 +6,7 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
+    AnsetzungState,
     compose_ansetzung,
     deadline_of,
     discard_owes_a_notice,
@@ -13,6 +14,7 @@ from app.api.spielbestaetigungen.services import (
     parties_told_of_the_change,
     reason_to_close,
     request_is_due,
+    team_state_of,
 )
 from app.core import clock
 
@@ -175,3 +177,20 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
         ]
 
         assert told == [[TEAM], []]
+
+
+class TestATeamsPagesDropARowItsMatchDecided:
+    @pytest.mark.parametrize(
+        "decided",
+        [pytest.param({"ergebnis": "2:1"}, id="a result"), pytest.param({"sonderereignis": "nichtantreten_team2"}, id="a no-show")],
+    )
+    @pytest.mark.parametrize("answer", [pytest.param(None, id="unanswered"), pytest.param({"kind": "agreed"}, id="agreed")])
+    def test_before_the_pass_closes_it(self, decided: dict[str, Any], answer: dict[str, Any] | None):
+        """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
+
+        unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
+        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+
+        assert (
+            team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
+        )
