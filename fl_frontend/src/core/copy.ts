@@ -1379,8 +1379,8 @@ export const COPY = catalogue({
       search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
       received: RECEIVED,
-      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen 12.11.2026“. */
-      receivedOn: (day: CalendarDay) => boundBy(RECEIVED, formatDate(day)),
+      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen am 12.11.2026“. */
+      receivedOn: (day: CalendarDay) => `${RECEIVED} ${boundBy("am", formatDate(day))}`,
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",
