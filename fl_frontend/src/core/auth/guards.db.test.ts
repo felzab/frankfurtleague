@@ -1,6 +1,7 @@
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { MongoClient } from "mongodb";
@@ -14,16 +15,13 @@ let requestHeaders: Headers | undefined;
 // under test is the one it builds.
 const PRODUCTION_DB = "@/core/db.ts";
 
-/** Each error line written, which the index build's failures are among. */
-const errors: string[] = [];
+/** Every line the real logger writes, the index build's failures among them. */
+const log = captureLog();
 
 registerAuthDoubles({
   core: {
     config: configDouble({}, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: overriding(PRODUCTION_DB, {}),
-    logging: {
-      logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },
-    },
   },
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
@@ -51,10 +49,13 @@ const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 // Production's indexes under every case, so the library is driven over what it meets there, and an
 // empty store, each case signing the administrator in afresh.
 beforeEach(async () => {
-  errors.length = 0;
+  log.clear();
   await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
   await buildAuthIndexes();
-  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  expect(
+    log.lines().flatMap(({ level, message }) => (level === "ERROR" ? [message] : [])),
+    "an index of the sign-in store was left unbuilt",
+  ).toStrictEqual([]);
 });
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is

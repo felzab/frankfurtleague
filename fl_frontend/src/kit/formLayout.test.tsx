@@ -25,7 +25,6 @@ import { TextField } from "./TextField";
 import type { ReactElement } from "react";
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
-vi.mock("./useBotCheck", () => ({ useBotCheck: () => ({ widget: null, takeToken: vi.fn() }) }));
 
 const FIRST = COPY.shared.firstName;
 const SECOND = COPY.shared.lastName;

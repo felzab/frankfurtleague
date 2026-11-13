@@ -12,8 +12,11 @@ vi.doMock("@/core/config.ts", () => ({
   internalApiKeySystem: () => "system-key-double",
   internalApiKeyAdmin: () => "admin-key-double",
 }));
-vi.doMock("@/core/afterResponse.ts", () => ({
-  drainSoon: () => {
+// Next's `after`, recording rather than running what the client schedules behind the response: the real
+// `src/core/afterResponse.ts :: drainSoon` schedules each drain through it, and nothing else here does.
+vi.doMock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  after: () => {
     drains += 1;
   },
 }));

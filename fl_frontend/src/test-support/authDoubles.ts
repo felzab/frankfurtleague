@@ -1,10 +1,10 @@
+import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, caseRunning, networkFailure } from "@/test-support/backend.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
+import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
-import { afterAll, assert, beforeEach, vi } from "vitest";
-
-import { APINetworkError } from "@/core/errors.ts";
+import { assert, beforeEach, onTestFinished, vi } from "vitest";
 
 import type { auth as AuthInstance } from "@/core/auth/library.ts";
 import type { MailSender } from "@/core/emailShell.ts";
@@ -37,15 +37,15 @@ export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as
 /** A secret's reader in `fl_frontend/src/core/config.ts`, by its exported name, as a double answers it. */
 type SecretReaders = Readonly<Record<string, () => string | undefined>>;
 
+/** The run's own secret files, as the real config reads them, so a double hands a suite the same values. */
 const SECRET_DOUBLES: SecretReaders = {
-  // Reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
-  // `AUTH_SECRET`, so neither environment name needs setting for a run.
-  authSecret: () => "fabricated-test-secret-not-a-credential",
-  // The key the sign-in gate's one backend read is made with.
-  internalApiKeySystem: () => "fabricated-system-not-a-credential",
+  authSecret: () => TEST_SECRETS.auth_secret,
+  internalApiKeySystem: () => TEST_SECRETS.internal_api_key_system,
+  internalApiKeyBase: () => TEST_SECRETS.internal_api_key_base,
+  internalApiKeyAdmin: () => TEST_SECRETS.internal_api_key_admin,
 };
 
-/** The config every sign-in suite runs `fl_frontend/src/core/auth/library.ts` under, `secrets` over the readers' defaults. */
+/** A config standing in for the real one where a suite must vary a value per file, `secrets` over the run's own. */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
   const config = {
     ...GATE_BACKEND_CONFIG,
@@ -58,7 +58,7 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, 
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
-   the config above omits, and with one a suite left on the real adapter would reach for a server
+   the run's secret files omit, and with one a suite left on the real adapter would reach for a server
    rather than fail at once. */
 const DB_DOUBLE: DoubledExports = { signInStore: () => ({ db: () => ({}) }) };
 
@@ -98,10 +98,13 @@ type SentMail = {
 /** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */
 type MailAnswer = (mail: SentMail) => "accepted" | "lost" | Promise<"accepted" | "lost">;
 
+/** The path the sign-in library owes its mails through, as the generated call spells it below the base path. */
+const OUTBOX_SIGN_IN_PATH = "/outbox/sign_in";
+
 /**
- * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,
- * then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the suite's own key, and sent; every
- * other mail is owed by the backend's own write and drained by nothing here.
+ * Answers the Postausgang's enqueue on the backend and drains it in one step: a sign-in mail owed is recorded as the
+ * backend would store it, then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the
+ * suite's own key, and sent; every other mail is owed by the backend's own write and drained by nothing here.
  */
 function doubleOutbox(): {
   sent: SentMail[];
@@ -114,7 +117,11 @@ function doubleOutbox(): {
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
 
-  const outboxPostSignIn = async (payload: FLOutboxSignInPayload): Promise<void> => {
+  answerInEveryCase(async ({ method, path, body }) => {
+    if (method !== "POST" || path !== OUTBOX_SIGN_IN_PATH) return undefined;
+    const payload = body as FLOutboxSignInPayload;
+
+    // Imported at the request, after the suite's own doubles, so the config and the kinds are the ones it loaded.
     const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
       import("@/core/config.ts"),
       import("@/core/mailKinds.ts"),
@@ -125,19 +132,13 @@ function doubleOutbox(): {
     assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.kind}`);
     const mail = { to: payload.to, ...renderMail(message) };
 
-    if ((await answering(mail)) === "lost") {
-      throw new APINetworkError({ message: "Request failed.", traceId: "0" });
-    }
+    // A backend that never answered the enqueue, as the client meets one: the request fails on the network.
+    if ((await answering(mail)) === "lost") return networkFailure();
 
     owed.push(payload);
     sent.push(mail);
-  };
-
-  // Imported after this call by the suite, so the modules it loads owe through the double.
-  vi.doMock("@/core/generated/client/sdk.ts", async () => ({
-    ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
-    outboxPostSignIn,
-  }));
+    return new Response(null, { status: 204 });
+  });
 
   // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.
   beforeEach(() => {
@@ -150,28 +151,26 @@ function doubleOutbox(): {
 }
 
 type AuthDoubles = {
-  /** By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. */
+  /** By the `fl_frontend/src/core/<name>.ts` each replaces, over the store client's default. */
   readonly core?: Readonly<Record<string, ModuleDouble>>;
   /** By the bare specifier each replaces. */
   readonly specifiers?: Readonly<Record<string, ModuleDouble>>;
 };
 
 /**
- * Doubles, through `vi.doMock`, the config, the store client and the mailer `fl_frontend/src/core/auth/library.ts`
- * builds on, and the lookup its grant is read over.
+ * Doubles, through `vi.doMock`, the store client `fl_frontend/src/core/auth/library.ts` builds on, and answers on the
+ * file's backend the lookup its grant is read over and the Postausgang its mails are owed through. The library runs
+ * under the real config, over the run's environment and secret files, unless `core` names a `config` of its own.
  */
 export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
-  // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather
+  // The mailer is always `doubleOutbox`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleOutbox's: read the record registerAuthDoubles answers.");
-  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [
-    `@/core/${name}.ts`,
-    double,
-  ]);
+  const modules = Object.entries({ db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [`@/core/${name}.ts`, double]);
 
-  // The grant is read over the lookup, so without an answer no suite has an administrator at all. A
-  // suite answering the lookup itself, before this or after it, keeps its own answer.
-  if (!lookupAnswered) answerTheLookup((email) => (email === ADMIN_EMAIL ? GRANTED : null));
+  // The grant is read over the lookup, so without an answer no suite has an administrator at all. Only where nothing
+  // else answers it: a suite answering the lookup, before this or after it, or the whole backend itself, keeps its own.
+  answerWhereUnanswered(lookupBy(() => (lookupAnswer() === undefined ? DEFAULT_LOOKUP : undefined)));
 
   // Each reaches only the modules the suite imports after this call.
   const doubles: [string, ModuleDouble][] = [...modules, ...Object.entries(specifiers)];
@@ -309,40 +308,76 @@ export async function sessionByCode(
 
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
 export const GATE_BACKEND_CONFIG = {
-  API_URL: "http://backend.test",
+  API_URL: BACKEND_ORIGIN,
 } as const;
 
 /** What the lookup answers an address holding nothing, which every answer below builds on. */
 export const HOLDS_NOTHING = NO_RECORDS;
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = deepFrozen({ ...HOLDS_NOTHING, admin_tier: "administration" as const, granted_since: "2026-01-01T00:00:00Z", account: false });
+export const GRANTED = deepFrozen({
+  ...HOLDS_NOTHING,
+  admin_tier: "administration" as const,
+  granted_since: "2026-01-01T00:00:00Z",
+  account: false,
+});
 
-/** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
-let lookupAnswered = false;
+/** How the lookup answers one address: its records, `null` for a backend that fails the read, or `undefined` to leave it to the case. */
+type LookupAnswer = (email: string) => LookupFixture | null | undefined;
+
+/** The file's lookup answer, named outside any case, which `registerAuthDoubles`' default must not replace. */
+let fileLookup: LookupAnswer | undefined;
+
+/** The running case's own lookup answer, ahead of the file's until the case ends. */
+let caseLookup: LookupAnswer | undefined;
+
+/** Whether a lookup answer stands on the backend yet: it stands once, reading whichever answer holds at each request. */
+let lookupStands = false;
+
+/** The answer a lookup meets now: the case's own, else the file's. */
+const lookupAnswer = (): LookupAnswer | undefined => caseLookup ?? fileLookup;
+
+/** The two reads the lookup answers, as the generated calls spell them below the base path. */
+const LOOKUP_PATHS: ReadonlySet<string> = new Set(["/identity/subject", "/identity/sign_in"]);
 
 /**
- * Answers the lookup and the sign-in gate by the address each posts, in the shape each reads; `null`
- * fails the read as an unreachable backend does.
+ * Answers the subject read and the sign-in gate on the file's backend by the address each posts, in the shape each
+ * reads: `null` fails the read on the network, as an unreachable backend does, and `undefined` leaves it to the case's
+ * own answer. Called outside a case it answers every case of the file; inside one, the rest of that case alone, the
+ * file's answer holding again from the next.
  */
-function answerTheLookup(answerFor: (email: string) => LookupFixture | null): void {
-  lookupAnswered = true;
-  const original = globalThis.fetch;
+export function answerTheLookup(answerFor: LookupAnswer): void {
+  if (!lookupStands) answerInEveryCase(lookupBy(lookupAnswer));
+  lookupStands = true;
+  if (!caseRunning()) {
+    fileLookup = answerFor;
+    return;
+  }
 
-  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-    const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
-    const answer = answerFor(email ?? "");
-    if (answer === null) return Promise.reject(new TypeError("fetch failed"));
-
-    const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
-    return Promise.resolve(
-      new Response(JSON.stringify(answerAt(path, answer)), { status: 200, headers: { "content-type": "application/json" } }),
-    );
-  }) as typeof globalThis.fetch;
-  afterAll(() => {
-    globalThis.fetch = original;
+  caseLookup = answerFor;
+  onTestFinished(() => {
+    caseLookup = undefined;
   });
 }
+
+/** The lookup answering through whichever answer `current` reads at each request. */
+const lookupBy =
+  (current: () => LookupAnswer | undefined) =>
+  ({ method, path, body }: { method: string; path: string; body: unknown }): unknown => {
+    const answerFor = current();
+    if (method !== "POST" || !LOOKUP_PATHS.has(path) || answerFor === undefined) return undefined;
+    const { email } = (body ?? {}) as { email?: string };
+    const answer = answerFor(email ?? "");
+    if (answer === undefined) return undefined;
+
+    return answer === null ? networkFailure() : answerAt(path, answer);
+  };
+
+/**
+ * `ADMIN_EMAIL`'s grant, and no answer for any other address: a read of one the suite did not answer fails its case,
+ * and a suite meaning a backend that fails the read says so with `answerTheLookup(() => null)`.
+ */
+const DEFAULT_LOOKUP: LookupAnswer = (email) => (email === ADMIN_EMAIL ? GRANTED : undefined);
 
 /**
  * Answers the gate's backend read with a live seat for every address, and a grant beside it for each

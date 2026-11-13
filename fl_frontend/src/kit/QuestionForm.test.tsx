@@ -1,19 +1,18 @@
 // @vitest-environment jsdom
 import { Activity } from "react";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { QuestionForm } from "./QuestionForm";
 import { TextField } from "./TextField";
-import { toastAnswer } from "./Toast";
+import { ToastRegion } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 import type { AskedInput } from "./QuestionForm";
-import type * as ToastModule from "./Toast";
 
 type Input = { email: string };
 
@@ -33,12 +32,6 @@ vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: acts.touch } }),
   usePreloadedAuthClient: () => undefined,
 }));
-// Read off the call rather than the region: the toast queue is the module's own, and a toast outlives its test.
-vi.mock("./Toast", async (original) => {
-  const toast = await original<typeof ToastModule>();
-  return { ...toast, toastAnswer: vi.fn(toast.toastAnswer) };
-});
-
 const box = () => screen.getByRole<HTMLInputElement>("textbox");
 
 const FORM = (
@@ -56,9 +49,17 @@ const FORM = (
   </QuestionForm>
 );
 
-/** The form typed and pressed. */
+/** The question the press opens, by its name: a toast is an alert dialog too. */
+const QUESTION = COPY.shared.question(COPY.admin.erasure.object, "delete");
+
+/** The form typed and pressed, the frame's toast region beside it. */
 async function press() {
-  render(FORM);
+  render(
+    <>
+      {FORM}
+      <ToastRegion frame="rail" />
+    </>,
+  );
   await userEvent.type(box(), ADDRESS);
   await userEvent.click(screen.getByRole("button", { name: VERB }));
 }
@@ -67,9 +68,13 @@ beforeEach(() => {
   acts.read.mockReset();
   acts.act.mockReset();
   acts.touch.mockReset();
-  vi.mocked(toastAnswer).mockClear();
   acts.read.mockResolvedValue(READ);
   acts.touch.mockResolvedValue({ data: { status: true, email: HOLDER }, error: null });
+});
+
+// The toast queue is the module's own, so a toast outlives its case: each is closed while the case's region stands.
+afterEach(() => {
+  for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 });
 
 describe("a form asking its question over what the press read", () => {
@@ -79,7 +84,7 @@ describe("a form asking its question over what the press read", () => {
     acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
     await press();
 
-    const question = await screen.findByRole("alertdialog");
+    const question = await screen.findByRole("alertdialog", { name: QUESTION });
     expect(within(question).getByText(SENTENCE)).toBeTruthy();
     expect(acts.touch).not.toHaveBeenCalled();
     await userEvent.click(within(question).getByRole("button", { name: VERB }));
@@ -90,7 +95,8 @@ describe("a form asking its question over what the press read", () => {
     await waitFor(() => {
       expect(box().value).toBe("");
     });
-    expect(vi.mocked(toastAnswer)).not.toHaveBeenCalled();
+    // The line alone: a toast would say it a second time.
+    expect(screen.getAllByText(COPY.admin.erased)).toHaveLength(1);
   });
 
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
@@ -99,13 +105,13 @@ describe("a form asking its question over what the press read", () => {
     const { rerender } = render(<Activity mode="visible">{FORM}</Activity>);
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await screen.findByText(COPY.admin.erased);
 
     await userEvent.type(box(), ADDRESS);
     expect(screen.queryByText(COPY.admin.erased)).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await screen.findByText(COPY.admin.erased);
 
     rerender(<Activity mode="hidden">{FORM}</Activity>);
@@ -120,14 +126,13 @@ describe("a form asking its question over what the press read", () => {
     acts.act.mockResolvedValue({ ok: false, reason: COPY.admin.erasure.partial });
     await press();
 
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
-    await waitFor(() => {
-      expect(vi.mocked(toastAnswer)).toHaveBeenLastCalledWith({ ok: false, reason: COPY.admin.erasure.partial }, COPY.shared.toast.done.delete);
-    });
-    expect([screen.queryByRole("alertdialog"), box().value]).toStrictEqual([null, ADDRESS]);
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
+    const toast = await screen.findByRole("alertdialog", { name: COPY.admin.erasure.partial });
+    expect(toast.querySelector(".text-danger")).toBeTruthy();
+    expect([screen.queryByRole("alertdialog", { name: QUESTION }), box().value]).toStrictEqual([null, ADDRESS]);
 
     await userEvent.click(screen.getByRole("button", { name: VERB }));
-    await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: VERB }));
+    await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));
     await waitFor(() => {
       expect(acts.act).toHaveBeenCalledTimes(2);
     });

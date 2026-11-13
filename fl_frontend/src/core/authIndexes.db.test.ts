@@ -11,6 +11,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -35,17 +36,11 @@ const DB_DOUBLE = overriding(PRODUCTION_DB, {
   },
 });
 
-/** Each error line written, as the logger was handed it. */
-const errors: { event: string; fields: unknown }[] = [];
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: () => undefined,
-    error: (event: string, _error: unknown, fields: unknown) => void errors.push({ event, fields }),
-  },
-};
+/** Each error line written, by its event and fields. */
+const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
@@ -57,7 +52,6 @@ registerAuthDoubles({
   core: {
     config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => replicaSetUrl(mongod) }),
     db: DB_DOUBLE,
-    logging: LOGGING_DOUBLE,
   },
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
@@ -76,7 +70,7 @@ const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {
-  errors.length = 0;
+  log.clear();
   requestHeaders = undefined;
   await store().dropDatabase();
 });
@@ -124,6 +118,7 @@ describe("the index build against a real store", () => {
 
     await buildAuthIndexes();
 
+    const errors = errorLines();
     expect(errors.length, JSON.stringify(errors)).toBe(1);
     expect(errors[0]).toStrictEqual({
       event: "auth.index_unbuilt",
