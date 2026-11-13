@@ -64,7 +64,7 @@ function requestCookies() {
 
 /**
  * Every cookie the case's code set or deleted, as the response carries it back to the browser: read off its
- * `Set-Cookie` lines, a deleted cookie written empty and expired at the epoch, as Next deletes one.
+ * `Set-Cookie` lines, a deleted cookie read back with no value and expired at the epoch, as Next deletes one.
  */
 export const writtenCookies = (): ReturnType<ResponseCookies["getAll"]> => new ResponseCookies(responseHeaders).getAll();
 
