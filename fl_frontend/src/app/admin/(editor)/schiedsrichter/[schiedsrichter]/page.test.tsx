@@ -60,13 +60,11 @@ const { default: SchiedsrichterEditorPage } = await import("./page");
 /** The chips the editor sets after the referee's name. */
 async function chipsFor(read: FLSchiedsrichterSingleResponse) {
   state.read = read;
-  const shell = SchiedsrichterEditorPage({
+  const editor = (await SchiedsrichterEditorPage({
     params: Promise.resolve({ schiedsrichter: ID }),
     searchParams: Promise.resolve({}),
-  }) as ReactElement<{
-    editor: Promise<ReactElement<Parameters<typeof SchiedsrichterEditor>[0]>>;
-  }>;
-  const { chip, flag } = (await shell.props.editor).props;
+  })) as ReactElement<Parameters<typeof SchiedsrichterEditor>[0]>;
+  const { chip, flag } = editor.props;
   return { chip, flag };
 }
 

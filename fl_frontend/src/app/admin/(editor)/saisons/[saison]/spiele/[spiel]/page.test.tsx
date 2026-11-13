@@ -63,11 +63,10 @@ const { default: SpielEditorPage } = await import("./page");
 /** The editor the page draws over `view`. */
 async function editorOver(view: FLSpieleAdminSingleResponse) {
   served = view;
-  const shell = SpielEditorPage({
+  return (await SpielEditorPage({
     params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }),
     searchParams: Promise.resolve({}),
-  }) as ReactElement<{ editor: Promise<ReactElement<Parameters<typeof SpielEditor>[0]>> }>;
-  return await shell.props.editor;
+  })) as ReactElement<Parameters<typeof SpielEditor>[0]>;
 }
 
 describe("the match editor's links to the line-ups", () => {

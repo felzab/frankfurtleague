@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
 import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
@@ -106,8 +105,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The match editor, on its one view read. */
-export default function SpielEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SpielEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */

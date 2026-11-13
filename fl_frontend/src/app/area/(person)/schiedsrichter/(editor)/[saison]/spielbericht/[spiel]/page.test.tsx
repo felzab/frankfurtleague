@@ -56,10 +56,12 @@ vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: () => Promise.res
 
 /** The pupils each side's player lists offer, each by id and whether it can be picked. */
 async function offered() {
-  const page = SpielberichtPage({ params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }) } as Parameters<typeof SpielberichtPage>[0]) as {
-    props: { editor: Promise<ReactElement<{ squads: Record<"team1" | "team2", Option[]> }>> };
-  };
-  const { squads } = (await page.props.editor).props;
+  const page = (await SpielberichtPage({ params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }) } as Parameters<
+    typeof SpielberichtPage
+  >[0])) as ReactElement<{
+    squads: Record<"team1" | "team2", Option[]>;
+  }>;
+  const { squads } = page.props;
   const of = (options: readonly Option[]) => options.map(({ id, isDisabled }) => ({ id, disabled: isDisabled === true }));
   return { team1: of(squads.team1), team2: of(squads.team2) };
 }

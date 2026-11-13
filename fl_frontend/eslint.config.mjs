@@ -706,7 +706,7 @@ const DESIGN_BANS = [
       regex: packageUnder("react"),
       importNames: ["Suspense"],
       message:
-        "No boundary stands in the tree: a page arrives as one document, and a navigation keeps the page it leaves until the next is complete. Hand a template its content as a promise, which the template awaits.",
+        "No boundary stands in the tree: a page arrives as one document, and a navigation keeps the page it leaves until the next is complete. A page awaits its read and returns its view; a template takes its content as promises where several reads run side by side.",
     },
     PRODUCTION,
   ),

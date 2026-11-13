@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, formatDate } from "@/core/format";
@@ -42,8 +40,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The team editor, on the club's one view read in the season its address names. */
-export default function TeamEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function TeamEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */

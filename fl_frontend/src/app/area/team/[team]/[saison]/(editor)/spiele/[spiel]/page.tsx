@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -109,6 +107,6 @@ async function readEditor(params: Props["params"]) {
 }
 
 /** A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up. */
-export default function AufstellungPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function AufstellungPage({ params }: Props) {
+  return await readEditor(params);
 }

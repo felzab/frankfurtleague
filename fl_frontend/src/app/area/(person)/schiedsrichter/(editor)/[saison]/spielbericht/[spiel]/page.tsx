@@ -1,7 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
 import { StatusPage } from "@/kit/StatusPage";
 
 import { requires } from "@/core/action";
@@ -90,8 +89,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The report's form, on its one read, or the status card saying why the fixture takes no report from this referee. */
-export default function SpielberichtPage({ params }: Props) {
-  return <EditorShell editor={readPage(params)} />;
+export default async function SpielberichtPage({ params }: Props) {
+  return await readPage(params);
 }
 
 /** A pupil by number and name as the squad lists them; one no record holds is „anonym“, as every page names them. */

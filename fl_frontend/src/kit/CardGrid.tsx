@@ -37,8 +37,8 @@ export function CardGrid({
   );
 }
 
-/** The chooser's cards once the person's places are read. */
-async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
+/** The role chooser's places, each a card linking it, the page arriving whole with them. */
+export async function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
   return (
     <CardGrid across={3}>
       {(await choices).map((choice) => (
@@ -49,9 +49,4 @@ async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray
       ))}
     </CardGrid>
   );
-}
-
-/** The role chooser's places, each a card linking it, read under the titled strip, the page arriving whole with them. */
-export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
-  return <RoleChoicesOnceRead choices={choices} />;
 }

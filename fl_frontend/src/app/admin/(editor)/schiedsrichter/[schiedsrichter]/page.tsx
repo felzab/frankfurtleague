@@ -1,8 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -53,8 +51,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** A referee's editor, on its one read by id and its write on the version it was read at. */
-export default function SchiedsrichterEditorPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SchiedsrichterEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /**

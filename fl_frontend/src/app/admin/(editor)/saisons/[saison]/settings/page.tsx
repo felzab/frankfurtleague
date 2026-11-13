@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
 import { NOT_SENT_CHIP, SENT_CHIP } from "@/kit/stateChips";
 
 import { getAdminSession } from "@/core/auth/guards";
@@ -110,8 +109,8 @@ function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
 }
 
 /** The season editor, on the season's one admin read. */
-export default function SaisonSettingsPage({ params }: Props) {
-  return <EditorShell editor={readEditor(params)} />;
+export default async function SaisonSettingsPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 async function readEditor(params: Props["params"]) {
