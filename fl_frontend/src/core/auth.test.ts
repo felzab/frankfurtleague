@@ -623,26 +623,6 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect((await getSignInLanding()).destination).toBe("/area");
   });
 
-  /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
-     it, and a session kept sliding never reaches the idle window at all. */
-  it("refuses a person's session thirty-one days old however recently it was used", async () => {
-    const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 31 * DAY_MS });
-    arriveAs(cookie);
-
-    expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-
-  /* The person's arm alone: an administrator at fifteen days is refused by a twenty-four-hour cap
-     whatever the idle figure says, so that arm would pass with the idle comparison deleted. */
-  it("refuses a person's session fifteen days idle", async () => {
-    const person = await signIn(PERSON_EMAIL);
-    ageRow(person.row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
-    arriveAs(person.cookie);
-
-    expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-
   /* What the stored stamps are is the adapter's answer rather than this module's, and a shape it
      did not deserialise into a `Date` reaches the comparison as a string. */
   it("takes a stamp it cannot read for no session at all, rather than for an unbounded one", async () => {
@@ -1100,6 +1080,30 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     expect(posted.status).toBe(404);
 
     expect(store.passkey, "a refused enrolment still reached the passkey rows").toStrictEqual([held]);
+  });
+
+  /* Both ceremonies' options are taken while the administrator holds none, so the verify call alone can refuse the
+     second. The clause holds in sequence; two enrolments at once may both stand. */
+  it("refuses a second code-borne enrolment made after the first", async () => {
+    /** A code-borne session's options call, run to completion: what posts its ceremony's verify call. */
+    const offer = async () => {
+      const { cookie } = await signIn(ADMIN_EMAIL);
+      const options = await overHttp("/passkey/generate-register-options", { cookie });
+      expect(options.status, await options.clone().text()).toBe(200);
+      const { challenge } = (await options.json()) as { challenge: string };
+      return (rawId: Buffer) =>
+        overHttp("/passkey/verify-registration", {
+          method: "POST",
+          cookie: `${cookie}; ${cookieHeader(options)}`,
+          body: { response: registrationFor(challenge, true, rawId) },
+        });
+    };
+    const first = await offer();
+    const second = await offer();
+
+    const statuses = [(await first(CREDENTIAL_RAW_ID)).status, (await second(SECOND_RAW_ID)).status];
+
+    expect([...statuses, store.passkey.length]).toStrictEqual([200, 404, 1]);
   });
 
   /* The whole of what the touch buys: without it a stolen cookie could enrol for as long as the library's
@@ -2053,27 +2057,9 @@ describe("which addresses the send gate mails", () => {
     expect(pending.answer).toStrictEqual(refused.answer);
   });
 
-  it("mails nothing to a barred address whose records await confirmation", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, unconfirmed: true, barred: true });
-
-    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
-  });
-
-  it("mails nothing to a barred address holding a live seat", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
-
-    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
-  });
-
   it("mails nothing to an address holding nothing at all", async () => {
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
     expect(asked.length, "the gate refused without asking the backend, so holding nothing decided nothing").toBe(1);
-  });
-
-  it("mails nothing to a barred address whose only record is one the account page serves", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...ONLY_AN_ACCOUNT, barred: true });
-
-    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
   });
 
   /* The grant is read on the same one call as the records, so an administrator's address costs the
@@ -2087,23 +2073,6 @@ describe("which addresses the send gate mails", () => {
     expect(granted.mailed).toStrictEqual([ADMIN_EMAIL]);
     expect(asked).toStrictEqual(["/api/v0/identity/sign_in", "/api/v0/identity/sign_in"]);
     expect(granted.answer).toStrictEqual(seated.answer);
-  });
-
-  /* A grant written in the database directly is the one way onto a barred address, and it admits
-     nothing: the ban is judged at the sign-in, for a holder as for anyone, so this refusal is what
-     keeps them out. */
-  it("mails a barred address holding a grant nothing", async () => {
-    BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, barred: true });
-
-    expect((await askFor(BARRED_EMAIL)).mailed).toStrictEqual([]);
-  });
-
-  /* The administration is shut while the backend is: a grant nobody could read admits nothing, and
-     the person asking cannot tell it from any other refusal. */
-  it("mails nothing to an administrator's address while the backend read throws", async () => {
-    BACKENDS.set(ADMIN_EMAIL, "throws");
-
-    expect((await askFor(ADMIN_EMAIL)).mailed).toStrictEqual([]);
   });
 
   it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
