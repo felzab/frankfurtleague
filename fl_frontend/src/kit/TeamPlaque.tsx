@@ -31,11 +31,22 @@ const plaqueLook = tv({
  */
 export type Plaque = RecordText | { quelle: Copy | null };
 
-/** The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. */
+/**
+ * The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. In a block
+ * drawn while its content is read it is one bar of its own box (`data-kit-bar`).
+ */
 export function TeamPlaque({ plaque: held, muted = false, struck = false }: { plaque: Plaque; muted?: boolean; struck?: boolean }) {
   return "record" in held ? (
-    <span className={plaqueLook({ known: true, muted, struck })}>{held.record}</span>
+    <span
+      data-kit-bar
+      className={plaqueLook({ known: true, muted, struck })}>
+      {held.record}
+    </span>
   ) : (
-    <span className={plaqueLook({ known: false })}>{held.quelle}</span>
+    <span
+      data-kit-bar
+      className={plaqueLook({ known: false })}>
+      {held.quelle}
+    </span>
   );
 }

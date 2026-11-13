@@ -198,6 +198,30 @@
   @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }
 
+/* A block drawn while its content is read, the kit's `Pending`: the block's own markup, in which these rules draw as a
+   bar each part the block marks `data-kit-bar`, what the read brings, and touch nothing else, so what the page knows
+   before the read, a title, a label, a glyph, a control, stands real. Each declaration is a paint property and none
+   sets a box, so the block waits at exactly the size it lands at. Unlayered, so no utility's colour outranks them. The
+   bar's colour and its pulse are `skeleton-bar`'s, running under reduced motion as it does. */
+
+/* A marked part is one bar of its own box, in its own corners, as a plaque or a chip is: its ink gone, its ground the
+   bar's. */
+[data-kit-pending] :is([data-kit-bar], [data-kit-bar] *) {
+  color: transparent;
+}
+
+[data-kit-pending] [data-kit-bar] {
+  @apply animate-pulse bg-bar-ink/12;
+}
+
+/* The look of a value's words, in this one rule. They are marked on an inline element around them, whose box is each
+   line's words, so the bar is as wide as they are, line by line; it stands 0.75em tall on the middle of the line, the
+   height of a placeholder's line, where the box itself is as tall as the face. Without this rule the words are a bar
+   of their whole box, as every marked part is. */
+[data-kit-pending] [data-kit-bar="words"] {
+  background: linear-gradient(--alpha(var(--bar-ink) / 12%), --alpha(var(--bar-ink) / 12%)) center / 100% 0.75em no-repeat;
+}
+
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
    value is, the tint fading to the place's own background. */
 @keyframes kit-target {
