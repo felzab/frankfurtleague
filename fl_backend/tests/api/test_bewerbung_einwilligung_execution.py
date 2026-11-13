@@ -517,6 +517,33 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
 
         assert (notices, document["erasure_announced_at"]) == (2, TODAY)
 
+    def test_a_seat_written_beside_a_standing_objection_keeps_its_notice(self, mongo_replica_set_url: str):
+        """The objection still takes the application on the day its notice named, so a write on another seat owes no second one."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], answer="declined", now=MAIL_NOW)
+            await post_kontakt_seat(
+                bewerbung_id=BEWERBUNG_OID,
+                seat="trainer",
+                seat_data=FLBewerbungKontaktSeatPayload(
+                    first_name="Thessaly",
+                    last_name=LAST_NAME,
+                    email=f"thessaly@{MAIL_DOMAIN}",
+                    phone="+49 170 7654321",
+                    version=(await stored(database))["version"],
+                ),
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                outbox_collection=database[Collection.OUTBOX],
+                db=client,
+                today=TODAY,
+                germany_now=MAIL_NOW,
+            )
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)["erasure_announced_at"] == TODAY
+
     def test_an_ansprechperson_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
         """A stranger names a mailbox past the bound as Ansprechperson and declines their own link: that mailbox has heard of nothing."""
 

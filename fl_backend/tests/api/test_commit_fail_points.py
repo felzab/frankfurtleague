@@ -231,11 +231,14 @@ class TestThePersonsOwnErasure:
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
-    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(self, mongo_replica_set_url: str):
+    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catches any step writing off the erasure's session: that write would stand while the commit taking the rest failed.
 
         Their records span every arm, a report names the pupil and the log their act, so each step reaching them writes.
-        Refused without the transient label, so nothing reruns the erasure and the database read after it is the rollback's.
+        Refused without the transient label, so nothing reruns the erasure and the database read after it is the rollback's;
+        the journal, which a restore replays, holds no line of an erasure that never landed.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -266,11 +269,13 @@ class TestThePersonsOwnErasure:
 
             return commits.answered, before, await _every_document(database)
 
-        commits, before, after = on_their_league(mongo_replica_set_url, body)
+        with caplog.at_level(logging.INFO):
+            commits, before, after = on_their_league(mongo_replica_set_url, body)
 
         # The premise first: one commit, refused, so what follows is the rollback's state.
         assert commits == [NO_SUCH_TRANSACTION]
         assert [name for name in sorted(before.keys() | after.keys()) if before.get(name) != after.get(name)] == []
+        assert journal_records(caplog) == []
 
 
 async def _every_document(database: AsyncDatabase) -> dict[str, list[Any]]:
