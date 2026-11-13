@@ -16,11 +16,13 @@ import shareImage from "./share-image.png";
 
 import type { Metadata, Viewport } from "next";
 
-// Every face is `optional`, whose specification leaves out for that view a face not in within the browser's short
-// block period, so no text is drawn in a stand-in and then again in the face, a redraw that moves the league table's
-// and the search's figures. Measured in headless Chromium on a slow first visit, a late face is still swapped in at the
-// load event, about 2 s after the first paint, with a layout shift of at most 0.0006. Anton's stand-in is the global styles' own face, fitted to the capitals Anton sets:
-// the automatic one fits lowercase.
+// Every face is `optional`: its specification uses a face only where it has loaded for the text's first paint, and
+// never draws text in the face once it has been painted in a stand-in, a redraw that moves the league table's and the
+// search's figures. Headless Chromium breaks the second promise on a slow first visit: it swaps a late face in at the
+// load event, about 2 s after the first paint, with a layout shift of at most 0.0006, measured on every throttled load
+// and on no unthrottled one. The `expect` link below holds the first paint until the body is parsed and waits for no
+// font, so a face loaded by then is used and one arriving later still swaps. Anton's stand-in is the global styles' own
+// face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
