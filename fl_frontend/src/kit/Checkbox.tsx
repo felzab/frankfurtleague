@@ -4,9 +4,8 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 
 import { textOf } from "@/core/copy";
 
-import { MessageLine } from "./FieldParts";
+import { MessageLine, useFieldLock } from "./FieldParts";
 import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 import { Icon } from "./Icon";
 import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
@@ -43,15 +42,17 @@ export function CheckboxPlaceholder({ label, description }: { label: string; des
 
 /**
  * The field either box stands in, React Aria's, holding on its root what a person did to the box before the page
- * hydrated (`useEarlyEdit`) and reading its form's closed state.
+ * hydrated (`useEarlyEdit`), and read-only in a closed form (`useFieldLock`).
  */
-function BoxField({ isDisabled, ...field }: Omit<CheckboxFieldProps, "isDisabled"> & { isDisabled: boolean }) {
+function BoxField({ isDisabled, ...field }: Omit<CheckboxFieldProps, "isDisabled" | "isReadOnly"> & { isDisabled: boolean }) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(isDisabled, false);
   return (
     <CheckboxField
       ref={root}
       {...field}
-      isDisabled={useDisabled(isDisabled)}
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}
     />
   );
 }
@@ -78,7 +79,7 @@ const tick = tv({
   slots: {
     root: "flex justify-center",
     target:
-      "group/toggle flex size-8 cursor-pointer items-center justify-center data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:size-10",
+      "group/toggle flex size-8 cursor-pointer items-center justify-center data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default pointer-coarse:size-10",
   },
   variants: {
     // Dimmed as a locked act is, the pointing hand kept, since a press is answered with the reason.

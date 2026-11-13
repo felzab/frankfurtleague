@@ -126,9 +126,10 @@ function DangerRow({ act }: { act: DangerAct }) {
  * line names no field and no box carries a note for it. The line's place stands in every editor, empty where nothing
  * is locked, at one line's height in every state and in the wait (`lockSlot`), so nothing moves when the editor lands.
  * The warn hue is left to what a change being made will cause. A record its season no longer lets change opens
- * `closed`, read-only rather than open to a save the write refuses: every field disabled, its reason in the lock line,
+ * `closed`, read-only rather than open to a save the write refuses: every field read-only, its reason in the lock line,
  * and neither the danger box nor the bar, since there is nothing to save. The chip after the title
- * stays the record's own state, as its list and its card show it: the form says the lock, the chip never. A danger box
+ * is the record's own state, as its list and its card show it, a phase that locks the record included, such as a
+ * line-up's „Gesperrt“, and the lock line says why. A danger box
  * whose acts are about more than the closed record stays (`outlivesClosed`), as a club is retired from the league and
  * not from a finished season.
  */
@@ -151,8 +152,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
-   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
-   * changes, which the bar's status line counts.
+   * its day and its result or that none is stored yet. Never the unsaved changes, which the bar's status line counts.
    */
   lead?: Copy;
   /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */

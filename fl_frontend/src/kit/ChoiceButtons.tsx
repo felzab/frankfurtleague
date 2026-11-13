@@ -87,7 +87,8 @@ export function Segmented({
       isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
           label={label}
@@ -172,7 +173,8 @@ export function ToggleBoxes({
       isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
         isRequired={lock.isRequired}

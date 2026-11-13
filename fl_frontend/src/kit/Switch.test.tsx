@@ -24,7 +24,7 @@ describe("a locked switch", () => {
     // A person's click, as a browser delivers it: a bare dispatched event reaches even a disabled input in jsdom.
     await userEvent.click(control);
 
-    expect(control.disabled).toBe(true);
+    expect(control.getAttribute("aria-readonly")).toBe("true");
     expect(onChange).not.toHaveBeenCalled();
   });
 });

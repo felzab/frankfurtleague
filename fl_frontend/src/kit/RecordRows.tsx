@@ -1,13 +1,13 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useContext, useId, useState } from "react";
 
 import { Button } from "./Button";
 import { buttonPlaceholder } from "./buttonStyles";
 import { smallCaps, stacked } from "./cardStyles";
 import { CheckboxPlaceholder } from "./Checkbox";
 import { messageLine } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
+import { FormClosed } from "./formClosed";
 import { Icon } from "./Icon";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
@@ -234,7 +234,7 @@ export function RecordRows<Row extends EditorRow>({
   errors?: Readonly<Record<string, Copy>>;
 }) {
   const slots = recordRows({ beside: cells.beside !== undefined || cells.room !== undefined });
-  const isClosed = useDisabled(false);
+  const isClosed = useContext(FormClosed);
   const lineId = useId();
   const [held, setHeld] = useState<Keys>(() => ({ keys: rows.map((_, index) => index), next: rows.length }));
 

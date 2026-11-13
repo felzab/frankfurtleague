@@ -61,7 +61,7 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
 /**
  * Whether a field asks for a value, to the eye and to assistive technology alike: never in a closed form or on a
  * locked field, since a value nobody can change asks nothing of the reader. React Aria sets `required` or
- * `aria-required` from `isRequired` whatever `isDisabled` says, so a field hands it this answer, never its own prop.
+ * `aria-required` from `isRequired` whatever `isReadOnly` says, so a field hands it this answer, never its own prop.
  */
 function asksForValue(isRequired: boolean, isClosed: boolean, isLocked: boolean): boolean {
   return isRequired && !isClosed && !isLocked;
@@ -84,20 +84,25 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
 }
 
 /**
- * A field's disabled state, its required state and whether its label carries the lock mark. A field `isLocked` is one
- * its record holds fixed, such as a season's points once it has begun: disabled, and marked at its label, so what
- * stands locked is seen at the field while the editor's lock line says why. A closed form disables every field and
- * marks none, since its one reason covers them all and a mark on each would single out nothing. Neither asks for a
- * value (`asksForValue`), so `isRequired` is what the field hands React Aria and its label.
+ * A field's read-only state, its required state and whether its label carries the lock mark, the one place a lock or a
+ * closed form decides them. A field `isLocked` is one its record holds fixed, such as a season's points once it has
+ * begun: read-only, and marked at its label, so what stands locked is seen at the field while the editor's lock line
+ * says why. A closed form makes every field read-only and marks none, since its one reason covers them all and a mark
+ * on each would single out nothing. Read-only rather than disabled, since the value is the record's own: React Aria's
+ * `isReadOnly` keeps the field in the keys' order and its value readable, where a disabled field is passed over.
+ * `isDisabled` stays the field's own, for a value unavailable until something else is given, which no lock lifts.
+ * Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands React
+ * Aria and its label.
  */
 export function useFieldLock(
   isDisabled: boolean,
   isLocked: boolean,
   isRequired = false,
-): { isDisabled: boolean; isMarked: boolean; isRequired: boolean } {
+): { isDisabled: boolean; isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
   const isClosed = useContext(FormClosed);
   return {
-    isDisabled: isClosed || isDisabled || isLocked,
+    isDisabled,
+    isReadOnly: isClosed || isLocked,
     isMarked: isLocked && !isClosed,
     isRequired: asksForValue(isRequired, isClosed, isLocked),
   };
