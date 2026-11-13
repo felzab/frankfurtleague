@@ -151,13 +151,6 @@ function Body({ state }: { state: SaisonState }) {
 }
 
 /**
- * The card's body at every width: at least the tallest state's, the running season's last and next match, each a 40-px
- * head over a 100-px match card, three hairlines between and under them, so no state moves what stands beside or under
- * the card. From `lg` that reserve is taller than the hero's text, so it sets the hero's height in every state.
- */
-const BODY_CLASSES = "min-h-[calc(17.5rem+3px)]";
-
-/**
  * The season's card beside the hero, the one part of the landing that changes with the season's state: the kit's
  * card in every state, the season's name in its head with the state's chip, and the state's own content in its
  * body. It carries no link to the matches, since the hero's „Spielplan“ button beside it leads there. Rendered on a
@@ -168,9 +161,7 @@ export function SaisonBlock({ title, state }: { title: Copy; state: SaisonState 
     <Card
       title={title}
       chip={STATE_CHIP[state.kind]}>
-      <div className={BODY_CLASSES}>
-        <Body state={state} />
-      </div>
+      <Body state={state} />
     </Card>
   );
 }

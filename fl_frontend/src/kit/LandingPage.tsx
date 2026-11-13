@@ -31,9 +31,8 @@ const hero = tv({
     // The lead's paragraphs, 12 px apart, a step closer than the words and the acts under them.
     lead: "grid gap-3 text-base text-fg-muted",
     acts: "flex flex-wrap gap-3",
-    // From `lg` the card stands beside both rows, from the title's top to the words' foot. Its reserved body, the same
-    // for every state, is taller than the text column, so it sets the hero's height, which no read decides. A grid of
-    // one, so the card fills it.
+    // From `lg` the card stands beside both rows, from the title's top to the words' foot, the taller of the two setting
+    // the hero's height. A grid of one, so the card fills it.
     aside: "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid lg:self-stretch",
     // The gap between the landing's sections, 48 px on a phone and 64 px from `lg`.
     sections: "grid gap-12 pt-12 lg:col-span-2 lg:gap-16 lg:pt-16",
