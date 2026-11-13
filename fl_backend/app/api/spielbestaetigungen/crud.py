@@ -9,12 +9,16 @@ from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
 from app.api.spielbestaetigungen.services import (
     ANSETZUNG_QUELLEN,
+    CLOSE_FIELDS,
     AnsetzungState,
     austritt_notices_of,
+    austritt_recipients_of,
     build_austritt_spiele_filter,
+    build_held_filter,
     build_season_reasons_filter,
 )
-from app.api.spiele.services import build_named_spiele_pipeline
+from app.api.spiele.schemas import FLSpielRecipient
+from app.api.spiele.services import build_named_spiele_pipeline, recipients_named
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
@@ -244,3 +248,68 @@ async def owe_the_austritt_notices_in_session(
     await enqueue_mails(
         outbox_collection=outbox_collection, session=session, mails=[mail for mails in notices.values() for mail in mails], now=now
     )
+
+
+# What the exit's recipients judge a fixture by: its sides, slot and event, as the notices read them, and the ground and
+# the booked referee, which a referee row's close compares.
+AUSTRITT_RECIPIENT_SPIEL_FIELDS: Final = [*AUSTRITT_SPIEL_FIELDS, "spielort.spielort_id", "schiedsrichter.schiedsrichter_id"]
+
+
+async def pull_austritt_recipients(
+    *,
+    spiele_collection: ReadCollection,
+    spielbestaetigungen_collection: ReadCollection,
+    schiedsrichter_collection: ReadCollection,
+    saison_id: str,
+    team_id: Any,
+    start_date: str,
+    vereine: Mapping[Any, Mapping[str, Any]],
+    now: datetime,
+) -> list[tuple[str | None, list[FLSpielRecipient]]]:
+    """Whom an exit of the club would mail, each by name beside the day an exit reaches them from (`austritt_recipients_of`).
+
+    `vereine` maps every club of the season to its season row, its seats, exit and name among it. Read outside a
+    transaction, as the page reading it is: a write landing under it is judged by its own.
+    """
+
+    spiele = await pull_whole_from_db(
+        collection=spiele_collection,
+        # An exit is taken from the season's start on, so these are every fixture one can reach.
+        db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=start_date),
+        what=f"team {team_id}'s fixtures in season {saison_id}",
+        projection=AUSTRITT_RECIPIENT_SPIEL_FIELDS,
+    )
+    rows = (
+        await pull_whole_from_db(
+            collection=spielbestaetigungen_collection,
+            db_filter={**build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]), "party.kind": "schiedsrichter"},
+            what=f"team {team_id}'s fixtures' held referee confirmations",
+            projection=CLOSE_FIELDS,
+        )
+        if spiele
+        else []
+    )
+    reached = austritt_recipients_of(team_id=team_id, spiele=spiele, vereine=vereine, rows=rows, now=now)
+
+    referee_ids = list({party["schiedsrichter_id"] for _, party in reached if party["kind"] == "schiedsrichter"})
+    referees = (
+        await pull_many_from_db(
+            collection=schiedsrichter_collection,
+            db_filter={"_id": {"$in": referee_ids}},
+            projection={"name": 1},
+            # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
+            limit=len(referee_ids),
+        )
+        if referee_ids
+        else []
+    )
+    names = {
+        **{("team", club_id): row.get("name") for club_id, row in vereine.items()},
+        **{("schiedsrichter", row["_id"]): row["name"] for row in referees},
+    }
+
+    by_day: dict[str | None, list[Mapping[str, Any]]] = {}
+    for day, party in reached:
+        by_day.setdefault(day, []).append(party)
+
+    return [(day, recipients_named(parties, names=names)) for day, parties in by_day.items()]

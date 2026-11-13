@@ -19,12 +19,14 @@ import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
 
+import { exitFactsOf } from "./exitFacts";
 import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
+import type { FLAustrittRecipients } from "@/core/generated/client/types";
 import type { AustrittRules, SeatRules, TeamRules } from "@/features/teams/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
@@ -58,9 +60,28 @@ export type TeamRow = {
   invitation: InvitationView;
   /** Why a seat's link goes nowhere: the club left. */
   sendLocked?: Copy;
-  /** The exit's act, which a club already out of the season no longer offers. */
-  exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy } | null;
+  /** The exit's act, which a club already out of the season no longer offers, with whom an exit would mail by day. */
+  exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy; recipients: readonly FLAustrittRecipients[] } | null;
 };
+
+/** The exit's day, and under it whom an exit from the day typed mails: held here, so each opening starts on today. */
+function ExitDay({ exit, isRequired }: { exit: NonNullable<TeamRow["exit"]>; isRequired: boolean }) {
+  const [day, setDay] = useState<CalendarDay | null>(exit.today);
+  return (
+    <>
+      <DateField
+        label={WORDS.austrittFrom}
+        name="date"
+        isRequired={isRequired}
+        value={day}
+        onChange={setDay}
+        minValue={exit.earliest}
+        consequence={WORDS.austrittLine}
+      />
+      <Facts facts={exitFactsOf(exit.recipients, day)} />
+    </>
+  );
+}
 
 /**
  * The team editor, the record of one club in one season: the club, its address and its row of the season, saved together
@@ -307,15 +328,10 @@ export function TeamEditor({
                   maxLength={austrittRules.reasonMax}
                   description={WORDS.austrittReasonDescription}
                 />
-                <DateField
-                  label={WORDS.austrittFrom}
-                  name="date"
+                <ExitDay
+                  exit={exit}
                   isRequired={austrittRules.required.date}
-                  defaultValue={exit.today}
-                  minValue={exit.earliest}
-                  consequence={WORDS.austrittLine}
                 />
-                <Facts facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.austrittMailTo }]} />
               </>
             ),
           },

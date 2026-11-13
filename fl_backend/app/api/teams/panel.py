@@ -1,18 +1,20 @@
-"""What a team's own pages read: its Übersicht and its matches.
+"""What a team's own pages read, its Übersicht and its matches, and what the team editor reads.
 
 Apart from `schemas.py`, which the fixture's models import: these read models are built from a fixture's and a
 confirmation's, so they stand above both.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.aufstellungen.schemas import FLAufstellungMarks
+from app.api.invitations.schemas import FLTeamLinkState
 from app.api.saisons.schemas import FLTeamPageSpiel
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, FLSpielbestaetigungTeamState, FLSpielbestaetigungViewAnsetzung
-from app.api.teams.schemas import FLTeamSeat
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
+from app.api.spiele.schemas import FLSpielRecipient
+from app.api.teams.schemas import FLTeamGruppeOffer, FLTeamMembership, FLTeamRecord, FLTeamSaisonFacts, FLTeamSeat
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielerPosition, FLSpielerStufe, FLSpielSide, FLTrikotFarbe
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class FLTeamPanelSpielbestaetigung(BaseModel):
@@ -104,3 +106,35 @@ class FLTeamSpieleResponse(BaseAPIResponse):
     team_id: CustomObjectId
     saison_id: str
     spiele: list[FLTeamPanelSpiel]
+
+
+class FLAustrittRecipients(BaseReadModel):
+    """Whom an exit of the club mails, by the day it reaches them from: an exit dated on or before `date` mails them."""
+
+    # Null where an exit of any day reaches them, as it reaches an undated fixture.
+    date: CustomOptionalDateString
+    # Each by the name its own record holds: an opponent through a confirmed seat, and a referee the pass tells.
+    recipients: list[FLSpielRecipient]
+
+
+class FLTeamSaisonAdminResponse(BaseAPIResponse):
+    """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
+
+    # The one count this page saves on (`composite_version`).
+    version: int = Field(ge=0)
+    team: FLTeamRecord
+    saison: FLTeamSaisonFacts
+    # Null for a club holding no row of the season, a retired one reached through the list's filter.
+    membership: FLTeamMembership | None
+    gruppen: list[FLTeamGruppeOffer]
+    # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
+    gruppe_locked: bool
+    # The colours another row of the season holds, which `trikot_farbe_taken` refuses; this club's own stays open to it.
+    taken_trikot_farben: list[FLTrikotFarbe]
+    # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
+    retire_blocked_by: str | None
+    # Null with `membership`.
+    link: FLTeamLinkState | None
+    # Whom an exit would mail, as its write and the next pass would; empty for a club holding no row of the season, and
+    # once it has left, an exit being recorded once.
+    austritt_recipients: list[FLAustrittRecipients]

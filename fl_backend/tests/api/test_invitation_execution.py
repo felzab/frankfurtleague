@@ -18,6 +18,7 @@ from app.api.invitations.services import (
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
 from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -187,7 +188,10 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
         outbox_collection=database[Collection.OUTBOX],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         today=TODAY,
+        now=clock.german_instant(TODAY, "12:00:00"),
     )
 
 

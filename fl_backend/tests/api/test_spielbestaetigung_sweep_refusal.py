@@ -249,7 +249,7 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
         first, second = spiel(time="19:00:00"), spiel(time="20:00:00")
 
         told = [
-            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, austritte={}, now=NOW)
+            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, stored_austritte={}, changed_austritte={}, now=NOW)
             for stored, changed in ((spiel(), first), (first, second))
         ]
 

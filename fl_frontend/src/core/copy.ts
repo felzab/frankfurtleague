@@ -1459,8 +1459,6 @@ export const COPY = catalogue({
        * and that its seats lose the line-up's page and its reminders, so the league alone enters a line-up from then.
        */
       austrittLine: "Offene Anfragen zu Spielen ab diesem Tag enden, Aufstellungen trägt die Liga ein.",
-      /** „E-Mail an“'s value in the exit's dialog. */
-      austrittMailTo: "Gegner und eingeteilte Schiedsrichter",
       /** The danger box's two consequences, under the act's name and in its question alike, as a venue's. */
       retireConsequence: "Das Team steht für neue Saisons nicht mehr zur Auswahl.",
       reactivateConsequence: "Das Team steht wieder zur Auswahl.",

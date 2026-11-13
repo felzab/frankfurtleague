@@ -826,11 +826,13 @@ async def preview_spiel_save(
         what=f"fixture {spiel_id}'s held confirmations",
         projection=CLOSE_FIELDS,
     )
+    austritte = {team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None}
     told = parties_told_of_the_change(
         rows=rows,
         stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
         changed=judged.patched.model_dump(context={"keep_oid": True}),
-        austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
+        stored_austritte=austritte,
+        changed_austritte=austritte,
         now=now,
     )
     names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)

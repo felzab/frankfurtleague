@@ -2868,6 +2868,50 @@
         "title": "FLAustrittPayload",
         "type": "object"
       },
+      "FLAustrittRecipients": {
+        "description": "Whom an exit of the club mails, by the day it reaches them from: an exit dated on or before `date` mails them.",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Recipients",
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "recipients"
+        ],
+        "title": "FLAustrittRecipients",
+        "type": "object"
+      },
       "FLAustrittType": {
         "enum": [
           "disqualifikation",
@@ -17679,6 +17723,13 @@
       "FLTeamSaisonAdminResponse": {
         "description": "What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.",
         "properties": {
+          "austritt_recipients": {
+            "items": {
+              "$ref": "#/components/schemas/FLAustrittRecipients"
+            },
+            "title": "Austritt Recipients",
+            "type": "array"
+          },
           "gruppe_locked": {
             "title": "Gruppe Locked",
             "type": "boolean"
@@ -17749,7 +17800,8 @@
           "gruppe_locked",
           "taken_trikot_farben",
           "retire_blocked_by",
-          "link"
+          "link",
+          "austritt_recipients"
         ],
         "title": "FLTeamSaisonAdminResponse",
         "type": "object"
