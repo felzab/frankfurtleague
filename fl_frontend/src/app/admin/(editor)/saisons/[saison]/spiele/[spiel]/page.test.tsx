@@ -37,6 +37,7 @@ const VIEW: FLSpieleAdminSingleResponse = {
   },
   aufstellungen: { team1: { count: 14, starters: 11 }, team2: null },
   saison_status: "active",
+  saison_begun: true,
   schiedsrichter: [],
   spielbericht: null,
   spielbestaetigungen: [],
@@ -83,6 +84,20 @@ describe("the match editor's links to the line-ups", () => {
         name: words.ofTeam({ record: "Eiche" }),
         line: words.missing,
       },
+    ]);
+  });
+});
+
+describe("the match editor before its season's start", () => {
+  // The harm: an event the write refuses before the start offered as a choice, so the save fails only once it is made.
+  it("closes the events that record the match and leaves a call-off and a strike-out open", async () => {
+    const editor = await editorOver({ ...VIEW, saison_begun: false });
+
+    expect(editor.props.begun).toBe(false);
+    expect(editor.props.sonderereignisse.filter(({ isDisabled }) => isDisabled === true).map(({ id }) => id)).toStrictEqual([
+      "nichtantreten_team1",
+      "nichtantreten_team2",
+      "abgebrochen",
     ]);
   });
 });

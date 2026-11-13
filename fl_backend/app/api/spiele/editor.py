@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import Field
 
 from app.api.aufstellungen.schemas import FLAufstellungSummary
+from app.api.saisons.services import has_started
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
@@ -35,6 +36,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
+from app.core import clock
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -123,6 +125,9 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     # On the response rather than on the fixture: the editor alone asks it, to open a finished season's match read-only,
     # which the save refuses, and a fixture carries no season-scoped state.
     saison_status: FLSaisonStatus
+    # `has_started` on the season's start, as the save judges it: before it, the save takes no result
+    # (`ergebnis_before_saison_start`), so the editor locks the result's fields.
+    saison_begun: bool
     # Every live venue and referee, and the fixture's own where it has retired, so a booking stays named.
     spielorte: list[FLSpielEditorSpielort]
     schiedsrichter: list[FLSpielEditorSchiedsrichter]
@@ -304,7 +309,7 @@ async def read_spiel_editor(
     (saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations), aufstellungen = await asyncio.gather(
         asyncio.gather(
             # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
-            pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"]),
+            pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status", "start_date"]),
             pull_many_from_db(
                 collection=spielorte_collection,
                 db_filter=_offered(booked_spielort),
@@ -349,6 +354,7 @@ async def read_spiel_editor(
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
         saison_status=saison_raw["status"],
+        saison_begun=has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now)),
         spielorte=[FLSpielEditorSpielort.model_validate(row) for row in spielorte_raw],
         schiedsrichter=[
             FLSpielEditorSchiedsrichter.model_validate(

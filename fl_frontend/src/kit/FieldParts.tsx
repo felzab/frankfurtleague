@@ -85,6 +85,18 @@ export function useFieldLock(isDisabled: boolean, isLocked: boolean): { isDisabl
   return { isDisabled: isClosed || isDisabled || isLocked, isMarked: isLocked && !isClosed };
 }
 
+/** The lock mark after a locked control's label, a field's or a switch's alike, `useFieldLock`'s `isMarked`. */
+export function LockMark() {
+  return (
+    <span className={lockMark()}>
+      <Icon
+        glyph="locked"
+        size={16}
+      />
+    </span>
+  );
+}
+
 /**
  * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
  * own such as a consent's question, which stands as it was shown. A locked field's label takes the lock mark in the
@@ -94,16 +106,7 @@ export function FieldLabel({ label, isRequired, isLocked = false }: { label: Wor
   return (
     <Label className={fieldLabel()}>
       {textOf(label)}
-      {isLocked ? (
-        <span className={lockMark()}>
-          <Icon
-            glyph="locked"
-            size={16}
-          />
-        </span>
-      ) : (
-        <RequiredMark isRequired={isRequired} />
-      )}
+      {isLocked ? <LockMark /> : <RequiredMark isRequired={isRequired} />}
     </Label>
   );
 }

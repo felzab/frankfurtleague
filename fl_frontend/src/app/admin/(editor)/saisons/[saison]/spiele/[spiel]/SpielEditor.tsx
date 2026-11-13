@@ -26,7 +26,7 @@ import { SpielortFields } from "../../../../../SpielortFields";
 import { adoptsBerichtOf, holdsProposal, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, Words } from "@/core/copy";
+import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
@@ -63,7 +63,8 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
  * its own; the report's goals and every party's answer, read-only; and last a link to each side's line-up, which its
  * own page saves. Saved together from the editor's bar; a save that would delete a later match's result the server
- * holds back with its question, which the bar asks.
+ * holds back with its question, which the bar asks. Until the season's start the result's switch and figures stand
+ * locked and „Übernehmen“ is not offered, the write taking no result before it.
  */
 export function SpielEditor({
   title,
@@ -71,6 +72,7 @@ export function SpielEditor({
   record,
   save,
   phase,
+  begun,
   sides,
   quellen,
   clubs,
@@ -94,6 +96,8 @@ export function SpielEditor({
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   phase: FLSaisonPhase;
+  /** The season has started: before it, the write takes no result, so the result's fields stand locked. */
+  begun: boolean;
   /** Each side's club as stored, by its name and its plaque, `null` while the side is open. */
   sides: { team1: ScoreSide | null; team2: ScoreSide | null };
   /** Where each side comes from in the bracket, in full, `null` where it follows nothing. */
@@ -148,6 +152,9 @@ export function SpielEditor({
   // called off or struck out carries none.
   const resultShown = !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
   const scored = resultShown && draft.hasResult;
+  // Before the start the write takes no result: the fields stand locked, and a result stored earlier stands as it is.
+  const resultLocked = !begun;
+  const locks: LockReason[] = resultLocked ? ["untilStart"] : [];
   const shootOut = scored && admitsShootOut(phase, { tore: goals(draft.tore1) }, { tore: goals(draft.tore2) }, sonderereignis) && bothSides;
   const shootOutTyped = draft.shootOut1 !== "" || draft.shootOut2 !== "";
   const storedScore =
@@ -231,6 +238,7 @@ export function SpielEditor({
       lead={preview}
       editor={editor}
       closed={closed}
+      locks={locks}
       {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
       sections={framed([
         {
@@ -335,8 +343,15 @@ export function SpielEditor({
                 name="hasResult"
                 isSelected={resultShown && draft.hasResult}
                 isDisabled={!bothSides || !resultShown}
+                isLocked={resultLocked}
                 onChange={(on) => set("hasResult", on)}
-                {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
+                {...(resultLocked
+                  ? {}
+                  : !resultShown
+                    ? { description: WORDS.byEvent }
+                    : bothSides
+                      ? {}
+                      : { description: WORDS.needsBothSides })}
               />
               {scored && (
                 <ScoreRows
@@ -347,6 +362,7 @@ export function SpielEditor({
                     values: [draft.tore1, draft.tore2],
                     onChange: (side, value) => set(side === 0 ? "tore1" : "tore2", value),
                     isRequired: true,
+                    isLocked: resultLocked,
                   }}
                   // By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait.
                   shootOut={
@@ -358,6 +374,7 @@ export function SpielEditor({
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
                           isRequired: shootOutTyped,
+                          isLocked: resultLocked,
                         }
                       : null
                   }
@@ -365,7 +382,7 @@ export function SpielEditor({
                   {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
                 />
               )}
-              {adoption !== null && !holdsProposal(adoption, draft) && (
+              {adoption !== null && !resultLocked && !holdsProposal(adoption, draft) && (
                 <AdoptLine
                   text={adoption.text}
                   onAdopt={() => {

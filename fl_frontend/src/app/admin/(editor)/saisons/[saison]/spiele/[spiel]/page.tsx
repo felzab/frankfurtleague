@@ -30,7 +30,7 @@ import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -340,14 +340,16 @@ async function readEditor(params: Props["params"]) {
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const closed = view.saison_status === "past";
 
-  // A no-show needs both sides: while one is open, the write refuses it, so it is offered disabled.
+  // An event recording the match waits for the season's start, and a no-show needs both sides: the write refuses
+  // either, so it is offered disabled. A call-off and a strike-out record nothing and stay open before the start.
+  const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      const open = !bothSides && isNoShow(event);
-      return open ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.team.fromStart };
+      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];
 
@@ -358,6 +360,7 @@ async function readEditor(params: Props["params"]) {
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
       phase={saved.saison_phase}
+      begun={begun}
       sides={{
         team1: saved.team1 === null ? null : { name: { record: saved.team1.name }, plaque: { record: saved.team1.shorthand } },
         team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },

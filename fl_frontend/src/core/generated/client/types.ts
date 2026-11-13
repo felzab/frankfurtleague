@@ -5233,6 +5233,7 @@ export interface FLSpielbestaetigungViewAnsetzung {
  */
 export interface FLSpieleAdminSingleResponse {
   aufstellungen: FLSpielEditorAufstellungen;
+  saison_begun: boolean;
   saison_status: FLSaisonStatus;
   schiedsrichter: FLSpielEditorSchiedsrichter[];
   spiel: FLSpielJoinedAdmin;

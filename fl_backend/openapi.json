@@ -14586,6 +14586,10 @@
           "aufstellungen": {
             "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
           },
+          "saison_begun": {
+            "title": "Saison Begun",
+            "type": "boolean"
+          },
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
           },
@@ -14641,6 +14645,7 @@
         "required": [
           "spiel",
           "saison_status",
+          "saison_begun",
           "spielorte",
           "schiedsrichter",
           "teams",

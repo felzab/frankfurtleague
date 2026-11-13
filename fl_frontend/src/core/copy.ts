@@ -183,6 +183,8 @@ const LOCK = {
    * which no match takes before the start, the start date itself.
    */
   sinceStart: "seit Saisonbeginn",
+  /** The season's start is still to come, before which no match takes a result. */
+  untilStart: "bis Saisonbeginn",
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */

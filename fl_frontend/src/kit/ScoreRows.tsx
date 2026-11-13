@@ -6,7 +6,7 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { smallCaps } from "./cardStyles";
-import { RequiredMark } from "./FieldParts";
+import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
 import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
@@ -33,6 +33,8 @@ type ScoreColumn = {
   values: readonly [string, string];
   onChange: (side: 0 | 1, value: string) => void;
   isRequired: boolean;
+  /** Held fixed by its record: both fields disabled, a headed column's head marked with the lock (`useFieldLock`). */
+  isLocked?: boolean;
 };
 
 /**
@@ -137,10 +139,12 @@ export function ScoreRows({
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
+  // Only the shoot-out's column has a head to mark: the goals' fields are named by their hidden label alone.
+  const shootOutLock = useFieldLock(false, shootOut?.isLocked ?? false);
   const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
       {shown.head ?? shown.label}
-      <RequiredMark isRequired={shown.isRequired} />
+      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shown.isRequired} />}
     </span>
   );
   const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
@@ -152,7 +156,7 @@ export function ScoreRows({
       <span>{formatNumber(figures[side])}</span>
     </span>
   );
-  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired }: ScoreColumn) => (
+  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired, isLocked }: ScoreColumn) => (
     <div
       // Keyed by what it posts, so a column opening beside it leaves a field and its focus where they are.
       key={names[side]}
@@ -164,6 +168,7 @@ export function ScoreRows({
         holds={2}
         kind="digits"
         isRequired={isRequired}
+        isLocked={isLocked}
         value={values[side]}
         onChange={(value) => onChange(side, value)}
       />
