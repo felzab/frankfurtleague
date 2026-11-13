@@ -37,7 +37,9 @@ export const startLostMailboxChange = action({
   paths: { address: "address", email: "email" },
   examples: { address: COPY.shared.field.exampleAddress, email: COPY.shared.field.exampleAddress },
   run: async ({ address, email }) => {
-    if (await accountStandsAt(email)) return { ok: false, fieldErrors: { email: COPY.shared.field.taken } };
+    // The dialog has closed before the answer, so its toast says the sentence, never the box's phrase.
+    if (await accountStandsAt(email))
+      return { ok: false, errorCode: "address_change_taken", reason: SERVER_COPY.refusalLine.address_change_taken };
     await addressChangePostAddressChangeAdmin({ address, email });
     return { ok: true, value: undefined };
   },

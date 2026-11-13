@@ -38,8 +38,10 @@ const DISQUALIFIED = {
 };
 // An address the ban list holds, whichever write would mail it a link.
 const ADDRESS_BARRED = "Diese E-Mail-Adresse steht auf der Sperrliste.";
-// An address the administration holds, whichever act reached for it: a ban, an erasure or an address change.
+// An address the administration holds, whichever act reached for it: an addition, a ban, an erasure or an address change.
 const ADDRESS_OF_ADMINISTRATION = "Diese Adresse gehört zur Verwaltung.";
+// An address change's new address another person stands at, on the start's toast and on the re-send's alike.
+const NEW_ADDRESS_TAKEN = "Die neue Adresse ist schon vergeben.";
 // The new address's answer, the title of its done page, a waiting change's opening on that title.
 const ADDRESS_CONFIRMED = "Adresse bestätigt";
 
@@ -112,10 +114,6 @@ export const SERVER_COPY = catalogue({
     kontakt_email_taken: COPY.shared.field.taken,
     kontakt_phone_taken: COPY.shared.field.taken,
     kader_rolle_taken: COPY.shared.field.taken,
-    grant_exists: COPY.shared.field.taken,
-    // The address tool's new address: another pupil signs in on it, or an entry names it.
-    address_change_taken: COPY.shared.field.taken,
-    address_change_occupied: COPY.shared.field.taken,
   } satisfies Partial<Record<Code, string>>,
 
   /**
@@ -155,7 +153,13 @@ export const SERVER_COPY = catalogue({
     /** An address change's start, for an address holding no record. */
     address_change_nothing: COPY.admin.nothingAtAddress,
     /** The re-send's own, which holds no box to set the field's phrase on. */
-    address_change_new_taken: "Die neue Adresse ist schon vergeben.",
+    address_change_new_taken: NEW_ADDRESS_TAKEN,
+    /**
+     * The start's new address: another pupil signs in on it, or an entry names it. Its dialog has closed before the
+     * answer, which a toast says.
+     */
+    address_change_taken: NEW_ADDRESS_TAKEN,
+    address_change_occupied: NEW_ADDRESS_TAKEN,
     /** A person's own start pressed again too soon after the last mail its change owed: the edge's own rate refusal. */
     address_change_started_recently: COPY.shared.failure.tooManyAttempts,
     /** A venue retired while matches still to come are booked there, named by their numbers so they can be moved first. */
@@ -168,6 +172,8 @@ export const SERVER_COPY = catalogue({
         : undefined,
     /** An addition or a handover naming an address the ban list holds. */
     grant_barred: ADDRESS_BARRED,
+    /** An addition naming an address a grant holds, in effect or waiting, which its dialog's toast says. */
+    grant_exists: ADDRESS_OF_ADMINISTRATION,
     /** A club the form or the acceptance picked that already stands in the season. */
     bewerbung_picked_team_already_entered: "Diese Schule spielt in dieser Saison schon mit.",
     /** An application's club retired since the acceptance opened. */
