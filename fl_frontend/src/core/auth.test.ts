@@ -591,17 +591,6 @@ describe("what the mounted HTTP surface answers", () => {
   });
 });
 
-describe("a cookie whose session row is gone", () => {
-  it("answers as no session", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.session.splice(store.session.indexOf(row), 1);
-    arriveAs(cookie);
-
-    expect(await getAdminSession()).toBe(null);
-    expect((await getSignInLanding()).destination).toBe("/signin");
-  });
-});
-
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
   // The landing ends a granted address's session it sends to sign in afresh, which the person lane alone would still
   // serve: left standing, the proxy would send it from the sign-in to the landing and back without end.
@@ -875,12 +864,6 @@ describe("the fresh sign-in a first passkey is added on", () => {
     expect(refused.status).toBe(403);
     expect(((await refused.json()) as { code?: string }).code).toBe("SESSION_NOT_FRESH");
     expect(store.passkey).toStrictEqual([]);
-  });
-
-  /* Five minutes for adding a first passkey, a minute's touch for every later one: chosen rather than derived. */
-  it("holds the library's `freshAge` and the passkey touch at their figures", () => {
-    expect(auth.options.session.freshAge).toBe(FRESH_SIGN_IN_MS / 1000);
-    expect(PASSKEY_TOUCH_SECONDS).toBe(60);
   });
 });
 

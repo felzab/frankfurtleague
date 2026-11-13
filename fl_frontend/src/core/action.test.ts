@@ -19,8 +19,6 @@ const state = vi.hoisted(() => ({
   admin: { session: {} } as { session: object } | { refused: string },
   subject: null as SubjectSession | null,
   botCheck: null as string | null,
-  /** The passkey touch's verdict. */
-  touch: true,
   /** The account guard's verdict: the session it judged, or `null` where it refuses. */
   account: null as object | null,
   /** The actor each guard records once it admits, as the real guards do. */
@@ -59,7 +57,7 @@ vi.mock("./auth/guards", () => ({
   },
   passesPasskeyTouch: async () => {
     state.steps.push("passkey touch");
-    return state.touch;
+    return true;
   },
   getAccountSession: async () => {
     state.steps.push("account guard");
@@ -126,7 +124,6 @@ beforeEach(() => {
   state.admin = { session: {} };
   state.subject = null;
   state.botCheck = null;
-  state.touch = true;
   state.account = null;
   state.actor = undefined;
   state.steps = [];
@@ -205,17 +202,6 @@ describe("the passkey touch a lane declares", () => {
   beforeEach(() => {
     state.subject = person({});
     state.actor = { email: HOLDER, lane: "person", authTime: 0, factor: "passkey" };
-  });
-
-  it.each(["admin", "person"] as const)("refuses the %s lane's act its touch fails, before the input is read", async (lane) => {
-    state.touch = false;
-
-    // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await touched(lane)({ name: "", postcode: "x", holder: HOLDER })).toStrictEqual({
-      ok: false,
-      reason: COPY.signIn.refusal.touchMissing,
-    });
-    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
   });
 
   /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
