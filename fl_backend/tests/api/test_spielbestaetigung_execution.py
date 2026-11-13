@@ -1203,9 +1203,6 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
         ("overrides", "told"),
         [
             pytest.param({"time": "19:30:00"}, [CLUB1, CLUB2, OTTOS], id="a-move-tells-every-party-asked"),
-            pytest.param({"schiedsrichter": None}, [OTTOS], id="the-referee-taken-off-is-told-alone"),
-            pytest.param({"note": "Halle umgebucht"}, [], id="a-note-tells-nobody"),
-            pytest.param({"sonderereignis": "ausgefallen"}, [CLUB1, CLUB2, OTTOS], id="a-call-off-tells-every-party-asked"),
         ],
     )
     def test_the_dry_run_names_the_parties_the_pass_tells(

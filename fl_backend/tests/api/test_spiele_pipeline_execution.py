@@ -317,13 +317,14 @@ class TestTheRefereeIsServedOnceAgreed:
         assert on_a_refereed_spiel(mongo_replica_set_url, rows, body, spiel=spiel) == (True, False)
 
     def test_a_replaced_referees_open_row_is_not_the_booked_ones(self, mongo_replica_set_url: str):
+        """Their agreement, read as the booked referee's, would publish one who was never asked."""
+
         spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, party=REPLACED_REFEREE)]
+        rows = [a_referee_row(spiel, party=REPLACED_REFEREE, answer={**agreed(), "by": {"kind": "schiedsrichter"}})]
 
         assert on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
 
-    @pytest.mark.parametrize("moved", [False], ids=["about the slot as it stands"])
-    def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_replica_set_url: str, moved: bool):
+    def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_replica_set_url: str):
         """Re-booked after declining, they hold no open row until the next pass asks: read as never asked, they would show."""
 
         spiel = a_refereed_spiel()
@@ -332,13 +333,7 @@ class TestTheRefereeIsServedOnceAgreed:
             a_referee_row(spiel, _id=LATER_ROW, answer=DECLINED, closed=CLOSED_BY_THE_DECLINE),
         ]
 
-        async def body(database: AsyncDatabase) -> bool | None:
-            if moved:
-                await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": {"time": "19:30:00"}})
-
-            return await einsatz(database)
-
-        assert on_a_refereed_spiel(mongo_replica_set_url, rows, body, spiel=spiel) is False
+        assert on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
 
     def test_their_latest_answer_about_a_slot_the_spiel_left_withholds_them(self, mongo_replica_set_url: str):
         """The pass closed the agreement for the move: read without its stand, it publishes a referee who never agreed to this slot."""
