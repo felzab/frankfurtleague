@@ -25,6 +25,7 @@ import { ZusageDialog } from "./ZusageDialog";
 import type { Copy, Words } from "@/core/copy";
 import type {
   FLBracketFault,
+  FLOverviewParty,
   FLOverviewRow,
   FLSpielJoinedAdmin,
   FLSpielRecipientSchiedsrichter,
@@ -105,6 +106,16 @@ function faultLine(fault: FLBracketFault): Copy {
   }
 }
 
+/**
+ * A fixture's answers still due, by the party owing first, as the match editor words that party's row: by the day it is
+ * due by, a club's deadline and a referee's kick-off day, and a club whose request was never mailed as not asked.
+ */
+function dueLine(parties: readonly FLOverviewParty[]): Copy {
+  const [owing] = parties.toSorted((one, other) => one.due_by.localeCompare(other.due_by));
+  if (owing === undefined) return WORDS.missing(COPY.area.answer);
+  return owing.asked_at === null ? SPIEL.notAsked : SPIEL.answerBy(dayOf(owing.due_by));
+}
+
 /** Whether the Zusage's write asks for the party's row, which its segments choose. */
 const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
 
@@ -135,11 +146,9 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
       const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
       // The earliest day a party's answer lapsed on.
       const lapsed = row.parties.flatMap(({ lapsed_on }) => (lapsed_on === null ? [] : [lapsed_on])).toSorted()[0];
-      // Still due, a club of the row answers by today; a referee, whom no deadline binds, until the kick-off.
-      const due = row.parties.some(({ party }) => party.kind === "team") ? WORDS.answerDue : WORDS.missing(COPY.area.answer);
       const shown =
         row.kind === "spielbestaetigung_due" || lapsed === undefined
-          ? { line: due }
+          ? { line: dueLine(row.parties) }
           : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(lapsed)) };
       const [first, ...rest] = parties;
       return first === undefined

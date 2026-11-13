@@ -43,7 +43,7 @@ from app.api.spiele.schemas import (
 from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
 from app.core import clock
 from app.core.collections import Collection
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -113,9 +113,11 @@ class FLOverviewParty(BaseModel):
     spielbestaetigung_id: CustomObjectId
     party: FLSpielbestaetigungParty
     name: CustomNonEmptyString
-    deadline: CustomDateString
-    # The day the party's answer is due by, as the match editor's row serves it: a club's `deadline`, and a referee's
-    # slot, whom no deadline binds.
+    # The day the party's request was first mailed, as the match editor's row serves it; null where it was never mailed,
+    # its club holding no confirmed seat, so the league enters its Zusage.
+    asked_at: CustomOptionalDateString
+    # The day the party's answer is due by, as the match editor's row serves it: a club's stored deadline, and a
+    # referee's slot, whom no deadline binds.
     due_by: CustomDateString
     # The day the party's answer lapsed, its `due_by` gone by; null while it may still answer, as a referee may until
     # the kick-off.
@@ -377,7 +379,7 @@ def overview_of(
                 spielbestaetigung_id=row["_id"],
                 party=row[ROW_PARTY],
                 name=row.get(PARTY_NAME_FIELD),
-                deadline=row[ROW_DEADLINE],
+                asked_at=row["asked_at"],
                 due_by=due_by_of(row),
                 # No reason: the next close ends none of these rows, as judged above.
                 lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, spiel=spiel_raw, austritte=austritte, now=now),
