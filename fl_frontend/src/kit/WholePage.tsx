@@ -44,8 +44,8 @@ const NavigationContext = createContext<Navigation | null>(null);
  * throws while the server renders it is answered with Next's bare error document, in which the browser draws the
  * segment's not-found or error page once the page's code runs. A client navigation keeps the page it leaves until the
  * new one is complete: Next's router makes it a transition, and a transition never hides content already shown. The
- * layout placing it exports `instant = false`, which tells Next's checks that a navigation into any route may block and
- * that a route's prerendered shell may be empty.
+ * layout placing it exports `instant = false`, which lifts Next's check that a route's prerendered shell is not empty
+ * for every route; Next's development check still flags a navigation between two pages below it that blocks.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
@@ -104,6 +104,23 @@ export function usePressed<Href extends string>(hrefs: ReadonlyArray<Href>): Hre
 /** Whether the pending navigation stays on the page's own path, as a filter or a tab does. */
 const staysOnPath = (pending: Pending) => pending.path === pending.from.pathname;
 
+/** The match pop-up's address segment by segment, each of its two dynamic segments `[name]`. */
+const POP_UP = ROUTES.spiel.path("[saison]", "[spiel]").split("/");
+
+/**
+ * Whether the pending navigation leaves the page it was pressed on: one neither staying on its path nor opening the
+ * match pop-up, whose address the root's intercepting route catches from every page, so the page stays beneath it.
+ * Decided from the address, so no caller has a flag to forget.
+ */
+const leavesPage = (pending: Pending) => {
+  if (staysOnPath(pending)) return false;
+  const segments = pending.path.split("/");
+  return !(
+    segments.length === POP_UP.length &&
+    POP_UP.every((segment, index) => (segment.startsWith("[") ? segments[index] !== "" : segment === segments[index]))
+  );
+};
+
 /** The query of a navigation pending to the page's own path, as a filter changes it; `null` while none is. */
 export function usePendingQuery(): URLSearchParams | null {
   const pending = useContext(NavigationContext)?.pending ?? null;
@@ -144,10 +161,11 @@ export function NavigationBar({ placement }: { placement: "rail" | "classic" }) 
 }
 
 /**
- * The page's own content, which a frame places it in: `inert` while a navigation to another path is pending, so nothing
+ * The page's own content, which a frame places it in: `inert` while a navigation leaving the page is pending, so nothing
  * typed, pressed or selected in a page being left reaches it, and it leaves the accessibility tree; the frame around it
  * stays pressable, so a second press still wins, and the bar says what inertness alone would not. A navigation staying
- * on the path, a filter's or a tab's, leaves the page live. It draws no box (`display: contents`), so it moves nothing
+ * on the path, a filter's or a tab's, leaves the page live, and so does one opening the match pop-up over it, so the
+ * match pressed keeps its focus for the pop-up to give back when it closes (`leavesPage`). It draws no box (`display: contents`), so it moves nothing
  * and takes no picture of its own in a page's cross-fade.
  */
 export function PageContent({ children }: { children: ReactNode }) {
@@ -155,7 +173,7 @@ export function PageContent({ children }: { children: ReactNode }) {
   return (
     <div
       className="contents"
-      inert={pending !== null && !staysOnPath(pending)}>
+      inert={pending !== null && leavesPage(pending)}>
       {children}
     </div>
   );

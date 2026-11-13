@@ -133,20 +133,25 @@ describe("a navigation under `WholePages`", () => {
     expect(bar()).toBeNull();
   });
 
-  // The harm: text typed into a page being left is lost with it, and a filter or a tab that froze its own page would
-  // take its focus away.
-  it("makes the page's content inert while a navigation leaves its path, and leaves it live for one changing the query", async () => {
+  // The harm: text typed into a page being left is lost with it, and a filter, a tab or a match opening its pop-up
+  // that froze its own page would take its focus away, which the pop-up then has nothing to give back to.
+  it("makes the page's content inert while a navigation leaves it, and leaves it live for one changing the query or opening the match pop-up", async () => {
     const { router } = heldRouter();
     page(
       router,
       <>
         {link("?tab=2", "Spieltag 2")}
+        {link("/saisons/2025-26/spiele/0123456789abcdef01234567", "Spiel")}
         {link("/admin/spielorte", "Spielorte")}
       </>,
     );
     const content = () => screen.getByText("Spieltag 2").closest("[inert]");
 
     fireEvent.click(screen.getByText("Spieltag 2"));
+    expect(content()).toBeNull();
+    await arrive();
+
+    fireEvent.click(screen.getByText("Spiel"));
     expect(content()).toBeNull();
     await arrive();
 

@@ -18,7 +18,9 @@ const LINK_MARK_CLASSES = `text-brand underline ${hoverLook({ host: "link", answ
 
 const link = tv({
   variants: {
-    // Underlined inside running text alone; a link standing on its own is known by its place. A row's
+    // Underlined inside running text, and a link standing on its own is known by its place, save one: the title strip's
+    // way to a record's own page after its chip, which takes the text's mark (`frameLink`'s `link`), since words alone
+    // there read as the chip's sentence going on. A row's
     // link is its record's name, stretched over the row it stands in, so the whole row opens the record.
     // A card's link is the whole card, filling under the pointer as a row does.
     placement: {

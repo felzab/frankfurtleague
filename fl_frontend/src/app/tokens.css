@@ -31,10 +31,12 @@
     --brand-solid-hover: #1b5123;
     --on-brand: #ffffff;
     --brand-accent: #8fc752;
+    /* Each status hue's word keeps 4.5:1 on a chip, its own 12 % tint over the page, a card or a card's head, in both
+       themes, with a unit to spare for the browser's composite of the tint. */
     --success: #006a3e;
     --info: #1853c6;
-    --warn: #865400;
-    --danger: #b71920;
+    --warn: #855300;
+    --danger: #b61920;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
     /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. Its
@@ -65,7 +67,7 @@
     --success: #57c886;
     --info: #7ea7f3;
     --warn: #ecae30;
-    --danger: #e96c64;
+    --danger: #eb7c75;
 
     --menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
     --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);

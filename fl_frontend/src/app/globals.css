@@ -54,11 +54,12 @@
   --font-sans--font-feature-settings: "lnum";
 }
 
-/* Anton's stand-in until the face arrives, tuned by hand because the site sets Anton in capitals alone, where
-   next/font's own stand-in, scaled to Anton's average lowercase letter, draws a title about 30 % wider than Anton,
-   moving what stands beside it and breaking it over a line more. Here Arial is scaled to Anton's average capital, by
-   the frequency of each letter in German, and its line box takes Anton's ascent and descent, so a title stands as
-   wide and as tall as it will within a few pixels. */
+/* Anton's stand-in, which a view draws while the face is not in: on a slow first visit the browser still puts the face
+   in its place at about the page's load event, whatever `optional` asks, so a title is drawn in both. It is tuned by
+   hand because the site sets Anton in capitals alone, where next/font's own stand-in, scaled to Anton's average
+   lowercase letter, draws a title about 30 % wider than Anton, moving what stands beside it and breaking it over a line
+   more. Here Arial is scaled to Anton's average capital, by the frequency of each letter in German, and its line box
+   takes Anton's ascent and descent, so a title stands as wide and as tall as Anton's within a few pixels. */
 @font-face {
   font-family: "Anton Fallback";
   src: local("Arial");

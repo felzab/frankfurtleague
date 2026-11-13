@@ -44,21 +44,25 @@ describe("an act's answer as its toast", () => {
     expect(toast?.querySelector(`.${hue}`)).toBeTruthy();
   });
 
-  // The harm: a refusal gone before its person read it, the toast being the one place it is said.
-  it("lets a done act's toast leave by itself and keeps a refusal until it is closed", () => {
+  // The harm: a refusal or a partial outcome gone before its person read it, the toast being the one place it is said,
+  // such as a ban whose sign-ins run on.
+  it("lets a done act's toast leave by itself and keeps a refusal and a partial outcome until each is closed", () => {
     render(<ToastRegion frame="rail" />);
     act(() => {
       toastAnswer({ ok: true, value: undefined }, COPY.shared.toast.agreed);
       toastAnswer({ ok: false, reason: COPY.shared.failure.stale }, COPY.shared.toast.agreed);
+      toastAnswer({ ok: false, reason: COPY.admin.banList.partial.sessions, warn: true }, COPY.shared.toast.agreed);
     });
 
     act(() => vi.runAllTimers());
 
     expect(screen.queryByText(COPY.shared.toast.agreed)).toBeNull();
     expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy();
+    expect(screen.getByText(COPY.admin.banList.partial.sessions)).toBeTruthy();
 
-    act(() => screen.getByRole("button", { name: COPY.shared.close }).click());
+    for (const close of screen.getAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 
     expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
+    expect(screen.queryByText(COPY.admin.banList.partial.sessions)).toBeNull();
   });
 });

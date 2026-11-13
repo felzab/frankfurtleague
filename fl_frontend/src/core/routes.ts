@@ -421,5 +421,9 @@ export const ROLE_ROOTS: Partial<Record<keyof typeof ROUTES, `/${string}`>> = {
 export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 
-/** The landing's section on how a school joins the league, its fragment on `ROUTES.home`. */
+/**
+ * The landing's section on how a school joins the league, its fragment on `ROUTES.home`. No page links to it: it stays
+ * because the site's footer handed out `/#bewerbung` for applying before it led to the application's own address, and
+ * the copies of that address people keep should still reach the section.
+ */
 export const JOIN_SECTION = "bewerbung";
