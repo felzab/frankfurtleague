@@ -31,6 +31,12 @@ export const SIGNED_IN_BY_CODE = {
 } as const;
 
 /**
+ * A referee no journey signs in as, whom the guard signs in by a mailed code a moment before reading the passkey's
+ * offer, which stands for five minutes after a sign-in: `../layout/shift.spec.ts` signs them in itself, never a setup.
+ */
+export const NEWCOMER = "carla.conrad@example.com";
+
+/**
  * Where a code's role's session is kept between the setup and the guard: beside the administrator's, with the stack's
  * keys, never in the run's output, which a failed CI run uploads.
  */
