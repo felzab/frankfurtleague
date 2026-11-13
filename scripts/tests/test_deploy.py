@@ -66,6 +66,7 @@ def deploy(
     new: str = containers(),
     previous: str = containers(),
     new_up: int = 0,
+    previous_up: int = 0,
     one_offs: str = "",
     unread: dict[str, str] | None = None,
 ) -> tuple[int, str, str, list[str], str]:
@@ -84,6 +85,7 @@ def deploy(
     (engine / f"containers.{NEW}").write_bytes(new.encode())
     (engine / f"containers.{PREVIOUS}").write_bytes(previous.encode())
     (engine / f"up.{NEW}").write_bytes(str(new_up).encode())
+    (engine / f"up.{PREVIOUS}").write_bytes(str(previous_up).encode())
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
@@ -154,6 +156,16 @@ def test_a_read_compose_cannot_answer_judges_nothing_live(read: str):
     assert f"so the stack went back to {PREVIOUS}, which is live." in last_line(err), err
     assert SAID_HEALTHY not in out + err
     assert not reloaded_nginx(calls), calls
+
+
+def test_a_rollback_whose_build_does_not_come_up_is_never_called_live():
+    code, out, err, calls, pinned = deploy(new_up=1, previous_up=1)
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    assert f"{PREVIOUS} did not come up either" in last_line(err), err
+    assert "which is live" not in out + err
 
 
 def test_a_rollback_whose_build_reads_unhealthy_is_never_called_live():
