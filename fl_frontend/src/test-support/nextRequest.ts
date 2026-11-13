@@ -68,9 +68,13 @@ export const NEXT_HEADERS_DOUBLE = {
   cookies: () => Promise.resolve(requestCookies()),
 };
 
-/** The request every later read of `next/headers` serves, for the rest of the case. */
+/**
+ * The request every later read of `next/headers` serves, for the rest of the case: a new visitor's, so no cookie the
+ * code wrote for the one before it still answers.
+ */
 export function arriveWith(headers: HeadersInit): void {
   incomingHeaders = new Headers(headers);
+  responseHeaders = new Headers();
 }
 
 /**

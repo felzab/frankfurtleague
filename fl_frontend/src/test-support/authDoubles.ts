@@ -1,9 +1,9 @@
-import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, networkFailure } from "@/test-support/backend.ts";
+import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, caseRunning, networkFailure } from "@/test-support/backend.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
-import { assert, beforeEach, vi } from "vitest";
+import { assert, beforeEach, onTestFinished, vi } from "vitest";
 
 import type { auth as AuthInstance } from "@/core/auth/library.ts";
 import type { MailSender } from "@/core/emailShell.ts";
@@ -175,7 +175,7 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles 
 
   // The grant is read over the lookup, so without an answer no suite has an administrator at all. Only where nothing
   // else answers it: a suite answering the lookup, before this or after it, or the whole backend itself, keeps its own.
-  answerWhereUnanswered(lookupBy(() => (lookupAnswer === undefined ? DEFAULT_LOOKUP : undefined)));
+  answerWhereUnanswered(lookupBy(() => (lookupAnswer() === undefined ? DEFAULT_LOOKUP : undefined)));
 
   // Each reaches only the modules the suite imports after this call.
   const doubles: [string, ModuleDouble][] = [...modules, ...Object.entries(specifiers)];
@@ -330,20 +330,39 @@ export const GRANTED = deepFrozen({
 /** How the lookup answers one address: its records, `null` for a backend that fails the read, or `undefined` to leave it to the case. */
 type LookupAnswer = (email: string) => LookupFixture | null | undefined;
 
-/** The suite's lookup answer, which `registerAuthDoubles`' default must not replace, and which a later one does. */
-let lookupAnswer: LookupAnswer | undefined;
+/** The file's lookup answer, named outside any case, which `registerAuthDoubles`' default must not replace. */
+let fileLookup: LookupAnswer | undefined;
+
+/** The running case's own lookup answer, ahead of the file's until the case ends. */
+let caseLookup: LookupAnswer | undefined;
+
+/** Whether a lookup answer stands on the backend yet: it stands once, reading whichever answer holds at each request. */
+let lookupStands = false;
+
+/** The answer a lookup meets now: the case's own, else the file's. */
+const lookupAnswer = (): LookupAnswer | undefined => caseLookup ?? fileLookup;
 
 /** The two reads the lookup answers, as the generated calls spell them below the base path. */
 const LOOKUP_PATHS: ReadonlySet<string> = new Set(["/identity/subject", "/identity/sign_in"]);
 
 /**
  * Answers the subject read and the sign-in gate on the file's backend by the address each posts, in the shape each
- * reads, for the rest of the file: `null` fails the read on the network, as an unreachable backend does, and `undefined`
- * leaves it to the case's own answer. A later call replaces the answer.
+ * reads: `null` fails the read on the network, as an unreachable backend does, and `undefined` leaves it to the case's
+ * own answer. Called outside a case it answers every case of the file; inside one, the rest of that case alone, the
+ * file's answer holding again from the next.
  */
 export function answerTheLookup(answerFor: LookupAnswer): void {
-  if (lookupAnswer === undefined) answerInEveryCase(lookupBy(() => lookupAnswer));
-  lookupAnswer = answerFor;
+  if (!lookupStands) answerInEveryCase(lookupBy(lookupAnswer));
+  lookupStands = true;
+  if (!caseRunning()) {
+    fileLookup = answerFor;
+    return;
+  }
+
+  caseLookup = answerFor;
+  onTestFinished(() => {
+    caseLookup = undefined;
+  });
 }
 
 /** The lookup answering through whichever answer `current` reads at each request. */

@@ -74,8 +74,12 @@ export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
     arriveWith({ ...ORIGIN, cookie });
   };
 
-  // After `doubleNextRequest`'s own, which empties the request first.
-  beforeEach(() => arriveAs(visitor));
+  // After `doubleNextRequest`'s own, which empties the request first, and on an empty store, so no row of an earlier
+  // case answers this one.
+  beforeEach(async () => {
+    for (const rows of Object.values(store)) rows.length = 0;
+    await arriveAs(visitor);
+  });
 
   return { arriveAs, store, outbox };
 }

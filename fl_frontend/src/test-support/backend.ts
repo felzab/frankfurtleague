@@ -102,6 +102,9 @@ const network = {
   inFlight: new Set<InFlight>(),
 };
 
+/** Whether a case is running, from the setup file's `beforeEach` to the end of its `afterEach` wait. */
+export const caseRunning = (): boolean => network.running !== undefined;
+
 /** Where a request sent now is sent: in a case, after one, or before the first. */
 const originNow = (): string =>
   network.running !== undefined
@@ -332,7 +335,7 @@ export type Backend = {
 export function serveHost(origin: string, answer: HostAnswer): readonly HostRequest[] {
   assert(new URL(origin).origin === origin, `a host is served by its origin alone, not ${origin}`);
   assert(origin !== new URL(BACKEND_ORIGIN).origin, "the backend's origin is served by serveBackend");
-  const hosts = network.running === undefined ? network.fileHosts : network.caseHosts;
+  const hosts = caseRunning() ? network.caseHosts : network.fileHosts;
   assert(!hosts.has(origin), `${origin} is served already`);
   const host: Host = { answer, taken: [] };
   hosts.set(origin, host);
