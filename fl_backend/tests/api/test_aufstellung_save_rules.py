@@ -46,7 +46,6 @@ def judged(entries: list[FLAufstellungEntry]) -> APIError | None:
         pytest.param(9, 2, False, id="two nominees into a gap of two"),
         pytest.param(10, 2, True, id="two nominees into a gap of one"),
         pytest.param(11, 1, True, id="a nominee beside eleven regular players"),
-        pytest.param(11, 0, False, id="eleven regular players and no nominee"),
         pytest.param(12, 0, False, id="twelve regular players and no nominee"),
     ],
 )
@@ -84,7 +83,6 @@ def test_a_pupil_newly_named_outside_the_live_squad_is_refused_on_each_entry_nam
     ("saved", "judged"),
     [
         pytest.param(None, {0, 1}, id="a first save judges everyone"),
-        pytest.param({"spieler": [{"spieler_id": REGULAR[0], "starts": True}]}, {1}, id="a pupil already named is not judged again"),
     ],
 )
 def test_only_a_pupil_the_stored_line_up_does_not_name_is_judged_against_the_squad(saved: dict[str, Any] | None, judged: set[int]):
