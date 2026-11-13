@@ -219,6 +219,8 @@ const VALID_UNTIL = "Gültig bis";
 const ENTERED_ON = "Eingetragen am";
 // The day a grant took effect, a column's head, a fact's label and a row's line alike.
 const SINCE = "Seit";
+// The day an application or a registration came in, a column's head, a fact's label and a row's line alike.
+const RECEIVED = "Eingegangen";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -1376,7 +1378,9 @@ export const COPY = catalogue({
     bewerbung: {
       search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
-      received: "Eingegangen",
+      received: RECEIVED,
+      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen 12.11.2026“. */
+      receivedOn: (day: CalendarDay) => boundBy(RECEIVED, formatDate(day)),
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",
