@@ -46,7 +46,8 @@ type Back = Route | Promise<Route | null>;
 
 /**
  * What stands at the start of the rail's head and of the phone's band: the logo, or an area's own way back in its
- * place. A way back still being read waits as the control's own placeholder, and the logo stands where it answers none.
+ * place, which the page arrives with; the logo stands where it answers none. Its `PageWait` draws the control's own
+ * placeholder only outside `WholePages`.
  */
 function HeadStart({ back }: { back?: Back }) {
   const logo = <Brand ground="band" />;
@@ -120,8 +121,8 @@ export function RailFrame({
       : [];
   const entries = groups.flatMap((group) => group.entries);
 
-  // The menus read the address and the seasons, which no prerender knows: each streams in its own boundary,
-  // so the frame around them is drawn without waiting.
+  // The menus read the address and the seasons, which no prerender knows: under `WholePages` they arrive with the
+  // page they frame, and each part's `PageWait` would let the frame be drawn without them only outside it.
   const frame = (
     <MenuScope value={{ groups, bar, extra, account, prefetch }}>
       <LeaveGuardProvider>
@@ -135,8 +136,8 @@ export function RailFrame({
             <div className="flex h-(--rail-strip) shrink-0 items-center bg-brand-solid px-6 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)]">
               <HeadStart back={back} />
             </div>
-            {/* Each part the menus' reads hold back stands meanwhile as its own placeholder, at its own size, so
-                nothing in the rail moves when it lands. */}
+            {/* Outside `WholePages`, each part the menus' reads hold back would stand meanwhile as its own
+                placeholder, at its own size, so nothing in the rail moved when it landed. */}
             <PageWait fallback={<SaisonButtonPlaceholder placement="rail" />}>
               <SaisonButton placement="rail" />
             </PageWait>
@@ -214,7 +215,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
           not drawn over them (`tokens.css`). */}
       <header className="@container sticky top-0 z-20 flex h-(--rail-band) shrink-0 items-center gap-2 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:hidden">
         {editor ? (
-          // The list's address needs the season the rail fills in, read while the band streams.
+          // The list's address needs the season the rail fills in, which the page arrives with.
           <PageWait fallback={<BackPlaceholder />}>
             <EditorBack />
           </PageWait>
@@ -303,7 +304,8 @@ export function RailPage({
   /**
    * The page's one icon-only way on beside its title, after its chip, such as the Spielplan's magnifier to
    * the Spielsuche: the kit's link, which its tooltip names. It may wait for the page's address, as the
-   * magnifier names its season, so it streams in a boundary of its own, its icon button's place held meanwhile.
+   * magnifier names its season, which the page arrives with; outside `WholePages` its `PageWait` holds its icon
+   * button's place meanwhile.
    */
   action?: ReactElement;
   /**

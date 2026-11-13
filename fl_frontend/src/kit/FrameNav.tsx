@@ -76,8 +76,8 @@ export type Saisons = {
 };
 
 /**
- * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
- * settles; `null` where the person has no season yet.
+ * A frame's seasons, read for the frame and handed down unawaited, so the read runs beside the page's own; `null`
+ * where the person has no season yet.
  */
 type SaisonFrame = {
   saisons: Promise<Saisons | null>;
@@ -120,7 +120,8 @@ export function SaisonScope({ value, children }: { value: SaisonScopeValue; chil
   const [chosen, setChosen] = useState<string>();
   return (
     <SaisonContext value={{ ...value, chosen }}>
-      {/* Reads the address, which no prerender knows, so it waits in a boundary of its own, drawing nothing. */}
+      {/* Reads the address, which no prerender knows: the root's boundary holds it with the page under `WholePages`,
+          and outside it its own `PageWait`, drawing nothing. */}
       <PageWait fallback={null}>
         <SaisonMemory choose={setChosen} />
       </PageWait>
@@ -473,10 +474,10 @@ const railRule = tv({
 });
 
 /**
- * The rail's entries in their groups, the current one in the brand colour on the muted fill. Where the address names
- * the season they stand at once as it spells them, and the seasons' read, landing, keeps them or, for a season the
- * frame does not hold, leads them to its standard: the not-found page stands in the frame, and a menu following an
- * unknown season would lead every entry to another not-found page.
+ * The rail's entries in their groups, the current one in the brand colour on the muted fill, led by the seasons' read:
+ * for a season the frame does not hold, to its standard, since the not-found page stands in the frame, and a menu
+ * following an unknown season would lead every entry to another not-found page. Outside `WholePages`, where the
+ * address names the season, they stand meanwhile as it spells them.
  */
 export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
   return (
@@ -603,8 +604,8 @@ const avatar = tv({
 });
 
 /**
- * The person signed in, read for the frame and handed down unawaited, so the frame streams before the session
- * is judged; `null` for a session the area turns away, whose page sends it on.
+ * The person signed in, read for the frame and handed down unawaited, so the read runs beside the page's own;
+ * `null` for a session the area turns away, whose page sends it on.
  */
 export type AccountRead = Promise<Account | null>;
 
@@ -720,7 +721,7 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
-  // At once as the address spells them, as the rail's entries are (`RailEntries`).
+  // Outside `WholePages`, as the address spells them meanwhile, as the rail's entries are (`RailEntries`).
   return menu === null ? null : (
     <PageWait
       fallback={
@@ -998,8 +999,8 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`). Where the address names the season it stands at once, as the rail's
- * entries do (`RailEntries`).
+ * declares the list it belongs to (`placeOf`). Outside `WholePages`, where the address names the season, it stands
+ * meanwhile as the rail's entries do (`RailEntries`).
  */
 export function EditorBack() {
   const groups = useContext(MenuContext)?.groups ?? [];

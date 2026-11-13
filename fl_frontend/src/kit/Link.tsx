@@ -155,7 +155,8 @@ type Card = {
 const ELSEWHERE = /^https?:\/\//;
 
 /**
- * The one way to go somewhere: Next's link, prefetching on hover and in view. The icon placement alone names its glyph
+ * The one way to go somewhere: Next's link through `NavigationLink`, prefetching on hover and in view, its press the
+ * pending navigation the frames' bar shows. The icon placement alone names its glyph
  * by React Aria's tooltip (`IconLink`), which every route loads with this module. Its ring comes from `:focus-visible`
  * in the focus file, hugging the words inside text.
  */

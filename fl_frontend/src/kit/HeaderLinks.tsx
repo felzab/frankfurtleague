@@ -27,8 +27,8 @@ type HeaderLinksProps = {
 
 /**
  * The links at the address `path`: its page's link marked, or from its press the link a navigation goes to, and a sheet
- * that goes with the page it led from, since the layout outlives the page. `null` while a page with a dynamic segment
- * streams its address, where no link is marked.
+ * that goes with the page it led from, since the layout outlives the page. `null` in the placeholder `HeaderLinks`
+ * draws outside `WholePages`, where no link is marked.
  */
 function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string | null }) {
   const hrefs = links.map((link) => link.href);
@@ -101,9 +101,9 @@ function LinksAtAddress(props: HeaderLinksProps) {
 
 /**
  * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. Every link is known before any read, so the band stands whole in the first frame.
- * Past a dynamic segment the prerendered shell holds no address, so it holds the same links unmarked, which is why the
- * boundary stands here and not in the page.
+ * one button opening them as a sheet. Every link is known before any read. Under `WholePages` the band arrives with the
+ * page, its link marked; outside it, past a dynamic segment the prerendered shell holds no address, so its `PageWait`
+ * holds the same links unmarked there.
  */
 export function HeaderLinks(props: HeaderLinksProps) {
   return (

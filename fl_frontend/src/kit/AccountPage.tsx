@@ -19,11 +19,11 @@ type AccountRoute = "account" | "accountSignIn" | "accountSecurity" | "accountAp
 
 /**
  * A Konto page: its title in the strip and its boxes one under another in the 760-px column, each an `AccountBox`.
- * The boxes are read in the template's one boundary, the column holding meanwhile the placeholders the page names in
- * `wait`, its own boxes' (`AccountBoxPlaceholder`) or its list's (`AccountListPlaceholder`) in their order, so the
- * title stands at once. The page places them as it places the boxes, from the box's own module, which Konto's pages
- * alone import. `waitOnceRead` is the wait as a first read shapes it, for a box the reader's role decides, `wait`
- * standing until it answers.
+ * Under `WholePages` the page arrives with its boxes read. `wait` is what the template's `PageWait` draws outside it
+ * while they are read: the placeholders of its own boxes (`AccountBoxPlaceholder`) or of its list
+ * (`AccountListPlaceholder`) in their order, so the title stands at once. The page places them as it places the boxes,
+ * from the box's own module, which Konto's pages alone import. `waitOnceRead` is that wait as a first read shapes it,
+ * for a box the reader's role decides, `wait` standing until it answers.
  */
 export function AccountPage({
   route,
@@ -51,8 +51,9 @@ export function AccountPage({
 }
 
 /**
- * The boxes in a wait a first read shapes, the page's own `wait` standing until that read answers. The static shell
- * draws `wait` knowing no reader, and it is what an ordinary load shows: React reveals no streamed boundary within
+ * The boxes in a wait a first read shapes, outside `WholePages`, the page's own `wait` standing until that read
+ * answers. The static shell draws `wait` knowing no reader, and it is what an ordinary load shows: React reveals no
+ * streamed boundary within
  * 300 ms of the first paint (`$RC` in its Fizz runtime), so reads landing inside that are revealed as one and the shaped
  * wait never stands; it serves a load whose boxes outlast that alone. A box only one role holds therefore belongs in no
  * wait.

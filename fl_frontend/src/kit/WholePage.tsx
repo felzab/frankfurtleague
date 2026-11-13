@@ -47,7 +47,7 @@ const NavigationContext = createContext<Navigation | null>(null);
  * step once it is rendered, however slowly its bytes arrive; a page that throws while rendering on the server is drawn
  * again in the browser inside that shell. A client navigation keeps the page it leaves until the new one is complete:
  * the boundary is already revealed, and a transition never hides content it has revealed. The layout placing it
- * exports `instant = false`, which lets a navigation block on a page reading uncached data.
+ * exports `instant = false`, which tells Next's navigation checks that a navigation into any route may block.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
