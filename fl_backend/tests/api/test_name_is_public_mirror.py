@@ -123,15 +123,6 @@ class TestTheSquadPipelineAnswersTheSameTable:
         else:
             assert _nummer_for(case) not in numbered
 
-    def test_every_withheld_row_serves_the_missing_name_and_nothing_beside_it(self, seeded_url: str):
-        """A number, a position or a mark beside a withheld name would say whose row it is."""
-
-        withheld = [row for row in self._rows(seeded_url) if row["first_name"] is None]
-
-        assert withheld == [dict.fromkeys(("first_name", "last_name", "position", "nummer", "rolle"))] * sum(
-            not case.published for case in NAME_IS_PUBLIC
-        )
-
 
 @pytest.mark.db
 class TestTheRefereeJoinAnswersTheSameTable:

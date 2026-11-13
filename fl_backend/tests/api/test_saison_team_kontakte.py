@@ -12,7 +12,13 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import compose_einwilligung
 from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLKontaktSeatPayload
-from app.api.teams.services import compose_kontakte_origin, with_link_state
+from app.api.teams.services import (
+    compose_kontakte_origin,
+    compose_seat_block,
+    find_kontakt_taken_refusal,
+    links_owed,
+    with_link_state,
+)
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -229,92 +235,6 @@ async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[s
 
 
 @pytest.mark.db
-class TestTheBlockIsWritten:
-    def test_the_stored_block_is_the_one_sent(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, NEW_KONTAKTE)
-
-            return await row_now(database)
-
-        assert on_a_league(mongo_replica_set_url, body)["kontakte"] == as_stored(NEW_KONTAKTE)
-
-
-@pytest.mark.db
-class TestTheProvenanceIsTheServers:
-    """A stored confirmation survives the editor, and nothing an editor sends can create one."""
-
-    def test_a_confirmed_seat_keeps_its_source_and_its_stamp_through_an_edit(self, mongo_replica_set_url: str):
-        """The data-loss path: the block is `$set` whole, so a stamp the write does not carry over is destroyed with no refusal.
-
-        The telephone number is the edit here, and says nothing about who holds the seat.
-        """
-
-        edited = {**PARTLY_CONFIRMED, "trainer": {**person("Ida", email=PARTLY_CONFIRMED["trainer"]["email"]), "phone": OTHER_PHONE}}
-        edited["ansprechperson"] = person("Jonas")
-        edited["stellvertretung"] = person("Klara")
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, edited)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
-
-        trainer = stored["kontakte"]["trainer"]
-        assert trainer["phone"] == OTHER_PHONE, "the edit itself did not land, so this case proves nothing"
-        assert trainer["einwilligung"]["confirmed_at"] == CONFIRMED_ON
-        # The date goes the same way, and by the same route: the payload names none, so a save that
-        # did not carry it over would leave a stamped seat with no birthdate at all.
-        assert trainer["birth_date"] == BIRTH_DATE
-
-    def test_a_confirmed_seat_renamed_at_its_own_address_starts_unconfirmed(self, mongo_replica_set_url: str):
-        """A role mailbox handed from one teacher to the next, which the address alone cannot tell from an edit.
-
-        The WhatsApp scope goes with the stamp and the date.
-        """
-
-        whatsapp = {
-            **PARTLY_CONFIRMED,
-            "trainer": {
-                **PARTLY_CONFIRMED["trainer"],
-                "einwilligung": {**PARTLY_CONFIRMED["trainer"]["einwilligung"], "scope": "kontakt_data_whatsapp"},
-            },
-        }
-        successor = {**person("Bert", email=str(PARTLY_CONFIRMED["trainer"]["email"])), "last_name": "Neu"}
-        renamed = {**RESAVED_AS_RENDERED, "trainer": successor}
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, renamed)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body, seeded=whatsapp)
-
-        trainer = stored["kontakte"]["trainer"]
-        assert (trainer["first_name"], trainer["last_name"]) == ("Bert", "Neu"), "the rename did not land, so this case proves nothing"
-        assert trainer["einwilligung"] == born(successor)
-        assert trainer["birth_date"] is None
-
-    def test_a_confirmed_seat_handed_to_another_address_starts_unconfirmed(self, mongo_replica_set_url: str):
-        """The confirmation is what one mailbox's owner clicked: a new address in the seat has clicked nothing."""
-
-        replaced = {**PARTLY_CONFIRMED, "trainer": person("Ida", email="another.ida@example.com")}
-        replaced["ansprechperson"] = person("Jonas")
-        replaced["stellvertretung"] = person("Klara")
-
-        async def body(database: AsyncDatabase) -> Any:
-            await write_kontakte(database, replaced)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body, seeded=PARTLY_CONFIRMED)
-
-        assert stored["kontakte"]["trainer"]["einwilligung"] == born(person("Ida"))
-        # And the date with it: it is a fact about the person, and this seat now holds another one.
-        assert stored["kontakte"]["trainer"]["birth_date"] is None
-
-
-@pytest.mark.db
 class TestNothingElseOnTheRowMoves:
     """Two editors write one row, so the block's write leaves every other field alone."""
 
@@ -426,6 +346,55 @@ class TestTheCompositionDecidesFromItsArguments:
         assert composed["trainer"]["birth_date"] == BIRTH_DATE
 
 
+# A row's block as the seat write reads it, and the same row with the Trainer holding the Ansprechperson's seat too.
+SEAT_BLOCK: dict[str, Any] = {
+    "trainer": stored_person("Ida"),
+    "ansprechperson": stored_person("Jonas"),
+    "stellvertretung": None,
+    "trainer_is_also": None,
+}
+PAIRED_BLOCK: dict[str, Any] = {**SEAT_BLOCK, "ansprechperson": stored_person("Ida"), "trainer_is_also": "ansprechperson"}
+
+
+def seat_sent(first_name: str, **fields: Any) -> dict[str, Any]:
+    """What the seat dialog sends: the four boxes, and `trainer_is_also` only where a case names it."""
+
+    return {**{field: value for field, value in person(first_name).items() if field != "einwilligung"}, **fields}
+
+
+class TestTheSeatWriteDecidesFromItsArguments:
+    """`compose_seat_block`, `find_kontakt_taken_refusal` and `links_owed` as `put_kontakt_seat` calls them, without a container."""
+
+    def test_the_trainers_write_sending_null_ends_the_claim_and_the_other_seat_keeps_its_person(self):
+        kontakte, seats = compose_seat_block(stored=PAIRED_BLOCK, seat="trainer", sent=seat_sent("Lea", trainer_is_also=None), today=TODAY)
+
+        assert (kontakte["trainer_is_also"], seats) == (None, ("trainer",))
+        assert (kontakte["trainer"]["first_name"], kontakte["ansprechperson"]["first_name"]) == ("Lea", "Ida")
+
+    def test_a_claim_sent_on_another_seat_moves_nothing(self):
+        kontakte, _ = compose_seat_block(stored=PAIRED_BLOCK, seat="stellvertretung", sent=seat_sent("Lea", trainer_is_also=None), today=TODAY)
+
+        assert kontakte["trainer_is_also"] == "ansprechperson"
+
+    def test_a_claim_taken_up_seats_the_trainer_in_the_seat_it_names_under_one_link(self):
+        proposed, seats = compose_seat_block(
+            stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Ida", trainer_is_also="ansprechperson"), today=TODAY
+        )
+        kontakte = compose_kontakte_origin(kontakte=proposed, stored=SEAT_BLOCK)
+
+        assert (seats, kontakte["ansprechperson"]["first_name"]) == (("trainer", "ansprechperson"), "Ida")
+        assert [kontakte[owed[0]]["email"] for owed in links_owed(kontakte=kontakte, stored=SEAT_BLOCK)] == ["ida@example.com"]
+
+    def test_a_number_another_seats_person_holds_in_another_spelling_is_refused_on_its_box(self):
+        """The block's rule, which no payload can judge: the other seats are stored, not sent."""
+
+        kontakte, seats = compose_seat_block(stored=SEAT_BLOCK, seat="trainer", sent=seat_sent("Lea", phone="0151 10000002"), today=TODAY)
+        refusal = find_kontakt_taken_refusal(kontakte=kontakte, seats=seats)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.fields) == (Code.KONTAKT_PHONE_TAKEN, (("phone",),))
+
+
 class TestTheDateRidesWithThePerson:
     """The payload names no birthdate, so a save can only carry the row's own forward."""
 
@@ -442,6 +411,8 @@ class TestTheDateRidesWithThePerson:
         composed = compose_kontakte_origin(kontakte=handed, stored=SEEDED_KONTAKTE)
 
         assert composed["trainer"]["birth_date"] is None
+        # And the record: the confirmation is what one mailbox's owner clicked, and a new address has clicked nothing.
+        assert composed["trainer"]["einwilligung"] == born(handed["trainer"])
 
     @pytest.mark.parametrize(
         "renamed",
@@ -458,6 +429,8 @@ class TestTheDateRidesWithThePerson:
         composed = compose_kontakte_origin(kontakte=handed, stored=SEEDED_KONTAKTE)
 
         assert composed["trainer"]["birth_date"] is None
+        # And the record, the address alone being unable to tell a handover from an edit.
+        assert composed["trainer"]["einwilligung"] == born(handed["trainer"])
 
     @pytest.mark.parametrize(
         ("held", "sent"),

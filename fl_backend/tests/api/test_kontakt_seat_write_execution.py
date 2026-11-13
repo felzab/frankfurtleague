@@ -212,7 +212,6 @@ class TestTheTrainersSecondSeat:
     @pytest.mark.parametrize(
         ("sent", "claim", "ansprechperson"),
         [
-            pytest.param({"trainer_is_also": None}, None, "Ida", id="null ends the claim and the other seat keeps its person"),
             pytest.param({}, "ansprechperson", "Lea", id="left out, the claim stands"),
         ],
     )
@@ -228,27 +227,6 @@ class TestTheTrainersSecondSeat:
 
         assert row["kontakte"]["trainer_is_also"] == claim
         assert row["kontakte"]["ansprechperson"]["first_name"] == ansprechperson
-
-    def test_a_claim_sent_on_another_seat_moves_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, "stellvertretung", sent_person("Lea", trainer_is_also=None))
-
-            return await row_and_mails(database)
-
-        row, _ = on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
-
-        assert row["kontakte"]["trainer_is_also"] == "ansprechperson"
-
-    def test_a_claim_taken_up_seats_the_trainer_in_the_seat_it_names(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, "trainer", sent_person("Ida", trainer_is_also="ansprechperson"))
-
-            return await row_and_mails(database)
-
-        row, mails = on_a_row(mongo_replica_set_url, body, kontakte=block())
-
-        assert row["kontakte"]["ansprechperson"]["first_name"] == "Ida"
-        assert [mail.to for mail in mails] == ["ida@example.com"]
 
 
 LINK = "seat-write-trainer-link"
@@ -321,7 +299,6 @@ class TestTheRefusals:
         ("sent", "code", "field"),
         [
             pytest.param({"email": "JONAS@example.com"}, Code.KONTAKT_EMAIL_TAKEN, "email", id="an address on the sign-in fold"),
-            pytest.param({"phone": "0151 10000002"}, Code.KONTAKT_PHONE_TAKEN, "phone", id="a number in another spelling"),
         ],
     )
     def test_what_another_seats_person_holds_is_refused_on_its_box(

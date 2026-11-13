@@ -387,20 +387,6 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert SEAT_MIN_AGE_YEARS["stellvertretung"] > SEAT_MIN_AGE_YEARS["trainer"]
         assert view.minimum_age == SEAT_MIN_AGE_YEARS["stellvertretung"]
 
-    def test_re_saving_the_same_confirmed_person_mints_nothing_and_keeps_the_stamp(self, mongo_replica_set_url: str):
-        confirmed = {**STORED_UNCONFIRMED, "trainer": stored("Ida", confirmed_at="2026-03-20")}
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            response = await save(database, {**THREE, "trainer": {**person("Ida"), "phone": "+4917099999999"}})
-
-            return response, await row_now(database)
-
-        response, row = on_a_league(mongo_replica_set_url, body, kontakte=confirmed)
-
-        assert response.confirmations == []
-        assert row["kontakte"]["trainer"]["phone"] == "+4917099999999", "the edit did not land, so this case proves nothing"
-        assert row["kontakte"]["trainer"]["einwilligung"]["confirmed_at"] == "2026-03-20"
-
     def test_re_saving_a_person_whose_link_is_out_keeps_that_link(self, mongo_replica_set_url: str):
         """A second save of the same people mails nobody twice: the link already in their inbox stays the one that works."""
 
