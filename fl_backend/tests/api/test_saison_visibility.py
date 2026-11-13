@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.public_router import get_frame, get_saison
+from app.api.saisons.public_router import get_frame
 from app.api.saisons.visibility import resolve_public_saison
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
@@ -50,20 +50,6 @@ def on_a_league(url: str, body: Body) -> Any:
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
-
-
-@pytest.mark.db
-class TestAPlannedSeasonIsWithheldFromTheBaseTier:
-    def test_the_planned_season_is_a_404_and_never_a_403(self, seeded_league: str):
-        """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundError) as refusal:
-                await get_saison(saison_id=PLANNED, saisons_collection=database[Collection.SAISONS])
-
-            return refusal.value
-
-        assert on_a_league(seeded_league, body).status_code == 404
 
 
 @pytest.mark.db

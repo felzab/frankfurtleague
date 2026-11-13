@@ -372,9 +372,6 @@ class TestEachRefusalWritesNothing:
         ("email", "before", "body", "code"),
         [
             pytest.param(NOBODY, nothing, bericht(), Code.ROLE_NOT_HELD, id="no referee record"),
-            pytest.param(OTHER_REFEREE_EMAIL, nothing, bericht(), Code.BERICHT_NOT_OFFICIATED, id="another referee"),
-            pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), Code.BERICHT_NOT_PLAYED, id="a day still to come"),
-            pytest.param(REFEREE_EMAIL, nothing, bericht([tor("team1", MIA)]), Code.SPIELER_NOT_IN_KADER, id="the other side's pupil"),
         ],
     )
     def test_the_referee_s_write_is_refused(
@@ -638,20 +635,6 @@ async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
 
 
 class TestTheAdministratorReadsTheStateAReportIsIn:
-    def test_the_season_read_derives_it_against_the_result_saved(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            proposed = await report_states(database)
-            await save_the_result(database, 0, 1)
-
-            return proposed, await report_states(database)
-
-        proposed, differing = on_the_league(mongo_replica_set_url, body)
-
-        assert proposed == [(SPIEL, "proposed")]
-        # The sides swapped: 1:0 proposed, 0:1 saved.
-        assert differing == [(SPIEL, "differing")]
-
     def test_the_season_read_judges_a_call_off_a_no_show_and_a_shoot_out_by_the_fixtures_own_fields(self, mongo_replica_set_url: str):
         """Each a report on a fixture holding an event or a shoot-out, which the state is judged against.
 

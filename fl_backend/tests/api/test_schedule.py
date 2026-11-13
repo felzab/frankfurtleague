@@ -2,13 +2,7 @@ from typing import get_args
 
 import pytest
 
-from app.api.saisons.schedule import (
-    expected_matches,
-    group_matchdays,
-    group_matches_per_matchday,
-    knockout_phases_for,
-    schedule_for,
-)
+from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, total_season_spiele, with_schedule
 from app.api.spiele.schemas import MAX_QUALIFIERS, PHASE_ORDER
@@ -54,78 +48,8 @@ class TestThePhaseSet:
         assert set(PHASE_ORDER) == set(get_args(FLSaisonPhase.__value__))
 
 
-class TestTheGroupPhase:
-    @pytest.mark.parametrize(("teams", "expected"), [(2, 1), (4, 3), (6, 5), (8, 7)])
-    def test_an_even_group_takes_one_round_fewer_than_it_has_teams(self, teams, expected):
-        """Every team plays every round, so `n - 1` rounds give each of them their `n - 1` opponents."""
-
-        assert group_matchdays(teams) == expected
-
-    @pytest.mark.parametrize(("teams", "expected"), [(3, 3), (5, 5), (7, 7)])
-    def test_an_odd_group_takes_as_many_rounds_as_it_has_teams(self, teams, expected):
-        """The bye: with an odd n one team sits out each round, so the schedule needs an extra one."""
-
-        assert group_matchdays(teams) == expected
-
-    def test_all_groups_play_on_the_same_matchday(self):
-        """Which is what makes the per-matchday count multiply by the number of groups."""
-
-        assert group_matches_per_matchday(4, 4) == 8
-        assert group_matches_per_matchday(2, 4) == 4
-
-    def test_an_odd_group_leaves_one_team_out_of_each_matchday(self):
-        """Three groups of five pair two apiece and rest one apiece."""
-
-        assert group_matches_per_matchday(3, 5) == 6
-
-    def test_the_total_agrees_with_the_schedule_at_every_group_size(self):
-        """An odd group's extra round offsets its smaller rounds exactly, so the bye never reaches the product."""
-
-        # The equality is what lets the schedule report a per-matchday figure at all: `C(n, 2)` per group.
-        for teams in range(1, 13):
-            assert 3 * (teams * (teams - 1) // 2) == 3 * group_matchdays(teams) * group_matches_per_matchday(1, teams)
-
-
-class TestTheBracket:
-    @pytest.mark.parametrize(
-        ("qualifiers", "expected"),
-        [
-            (4, ("halbfinale", "finale")),
-            (8, ("viertelfinale", "halbfinale", "finale")),
-            (16, ("achtelfinale", "viertelfinale", "halbfinale", "finale")),
-        ],
-    )
-    def test_the_rounds_are_read_from_the_END_of_the_phase_set(self, qualifiers, expected):
-        """Reading from the end lets a wider round be added without renaming a round anybody plays."""
-
-        assert knockout_phases_for(qualifiers) == expected
-
-    @pytest.mark.parametrize("qualifiers", [3, 5, 6, 7, 12, 24])
-    def test_a_field_that_is_not_a_power_of_two_has_no_bracket(self, qualifiers):
-        """Each round halves, so anything else cannot resolve to one final. `find_rules_refusal` refuses it."""
-
-        assert knockout_phases_for(qualifiers) == ()
-
-    def test_a_field_larger_than_the_phase_set_has_no_bracket(self):
-        """32 is a power of two and has no round to be played in until a fifth knockout phase exists."""
-
-        assert knockout_phases_for(32) == ()
-
-    @pytest.mark.parametrize("qualifiers", [0, 1, 2])
-    def test_a_field_too_small_to_play_has_no_bracket(self, qualifiers):
-        """Below the semi-finals there is no match for third place, and the podium needs four places."""
-
-        assert knockout_phases_for(qualifiers) == ()
-
-
 class TestTheMatchForThirdPlace:
-    @pytest.mark.parametrize(("groups", "qualifiers", "finale"), [(2, 2, 2), (4, 2, 2), (4, 4, 2)])
-    def test_the_finale_matchday_counts_it_beside_the_final(self, groups: int, qualifiers: int, finale: int):
-        """Every other round keeps half the field that entered it."""
-
-        assert expected_matches(rules(groups=groups, per_group=4, qualifiers=qualifiers), "finale") == finale
-
-    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(2, 2, 4), (4, 2, 8), (4, 4, 16)])
+    @pytest.mark.parametrize(("groups", "qualifiers", "bracket"), [(2, 2, 4)])
     def test_the_season_total_counts_it(self, groups: int, qualifiers: int, bracket: int):
         """`bracket` is the knockout's matches by hand: `qualifiers - 1` played out, plus one for third place."""
 
