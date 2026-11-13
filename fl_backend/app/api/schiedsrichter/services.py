@@ -541,6 +541,9 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     # One row: a fixture's season always stands, and the read joins it by its id.
     [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
+    # As the report's own read judges its form open, in `kader_is_open`.
+    reportable = takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
+    submitted_at = None if bericht is None else bericht.get("submitted_at")
 
     def team_name(side: str) -> str | None:
         team = spiel.get(side)
@@ -565,22 +568,26 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
-        # As the report's own read judges its form open, in `kader_is_open`.
-        reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
-        submitted_at=None if bericht is None else bericht.get("submitted_at"),
+        reportable=reportable,
+        submitted_at=submitted_at,
+        bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
     )
+
+
+def owes_a_bericht(*, reportable: bool, submitted_at: datetime | None, sonderereignis: str | None) -> bool:
+    """Whether the referee owes the fixture's report: one it takes now and none sent, on a fixture that kept its slot.
+
+    An abandoned one included, which used the ground and the referee: a no-show used neither, so its report stays open
+    to write and nobody owes it.
+    """
+
+    return reportable and submitted_at is None and sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT
 
 
 def is_open_work(spiel: FLSchiedsrichterSpiel) -> bool:
-    """Whether the fixture waits on the referee: a booking to answer, or a report owed.
+    """Whether the fixture waits on the referee: a booking to answer, or a report owed."""
 
-    A report is owed only on a fixture that kept its slot, an abandoned one included, which used the ground and the
-    referee: a no-show used neither, so its report stays open to write and nobody owes it.
-    """
-
-    return spiel.state == "valid" or (
-        spiel.reportable and spiel.submitted_at is None and spiel.sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT
-    )
+    return spiel.state == "valid" or spiel.bericht_owed
 
 
 def _by_day(spiel: FLSchiedsrichterSpiel) -> tuple[bool, str, str, str]:

@@ -37,6 +37,7 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   past: false,
   reportable: false,
   submitted_at: null,
+  bericht_owed: false,
   ...overrides,
 });
 

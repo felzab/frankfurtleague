@@ -198,13 +198,16 @@ class TestTheSeasonsFixtures:
 
         answer = answered(mongo_replica_set_url, own_spiele())
 
-        assert [(entry.spiel_id, entry.state, entry.reportable, entry.submitted_at is not None) for entry in answer.spiele] == [
-            (REPORT_OWED, "agreed", True, False),
-            (TO_ANSWER, "valid", False, False),
-            (CALLED_OFF, "cancelled", False, False),
-            (TO_COME, "agreed", False, False),
-            (STRUCK_OUT, None, False, False),
-            (REPORTED, None, True, True),
+        assert [
+            (entry.spiel_id, entry.state, entry.reportable, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis)
+            for entry in answer.spiele
+        ] == [
+            (REPORT_OWED, "agreed", True, False, True, None),
+            (TO_ANSWER, "valid", False, False, False, None),
+            (CALLED_OFF, "cancelled", False, False, False, "annulliert"),
+            (TO_COME, "agreed", False, False, False, None),
+            (STRUCK_OUT, None, False, False, False, "ausgefallen"),
+            (REPORTED, None, True, True, False, None),
         ]
 
     def test_a_fixture_answers_its_bookings_newest_row_as_it_stands(self, mongo_replica_set_url: str):

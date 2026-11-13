@@ -11,31 +11,32 @@ from typing import Any
 from bson import ObjectId
 
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSpiel
-from app.api.schiedsrichter.services import order_self_spiele
+from app.api.schiedsrichter.services import order_self_spiele, owes_a_bericht
 
 
 def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: Any) -> FLSchiedsrichterSpiel:
-    """A fixture to come, agreed and owing no report, its id ordered by `spiel_nr`."""
+    """A fixture to come, agreed and owing no report, its id ordered by `spiel_nr`; owed its report as the read serves it."""
 
-    return FLSchiedsrichterSpiel.model_validate(
-        {
-            "spiel_id": ObjectId(f"6890a1b2c3d4e5f607e600{10 + spiel_nr:02d}"),
-            "team1_name": "Adler",
-            "team2_name": "Biber",
-            "date": date,
-            "time": time,
-            "spielort": None,
-            "sonderereignis": None,
-            "spielbestaetigung_id": None,
-            "state": "agreed",
-            "reason": None,
-            "entered": False,
-            "past": False,
-            "reportable": False,
-            "submitted_at": None,
-            **fields,
-        }
-    )
+    served = {
+        "spiel_id": ObjectId(f"6890a1b2c3d4e5f607e600{10 + spiel_nr:02d}"),
+        "team1_name": "Adler",
+        "team2_name": "Biber",
+        "date": date,
+        "time": time,
+        "spielort": None,
+        "sonderereignis": None,
+        "spielbestaetigung_id": None,
+        "state": "agreed",
+        "reason": None,
+        "entered": False,
+        "past": False,
+        "reportable": False,
+        "submitted_at": None,
+        **fields,
+    }
+    owed = owes_a_bericht(reportable=served["reportable"], submitted_at=served["submitted_at"], sonderereignis=served["sonderereignis"])
+
+    return FLSchiedsrichterSpiel.model_validate({**served, "bericht_owed": owed})
 
 
 def served(spiele: list[FLSchiedsrichterSpiel]) -> list[int]:
