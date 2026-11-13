@@ -27,6 +27,7 @@ from app.api.spielbestaetigungen.services import (
     ansetzung_digest_of,
     austritte_of,
     build_closable_filter,
+    joined_decision_of,
     lapsed_on,
     reason_of,
     team_state_of,
@@ -275,6 +276,10 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
+    # A fixture decided, called off or fielding a club out by its day owes no line-up, as the line-up's reminder judges it.
+    if joined_decision_of(spiel_raw) is not None:
+        return None
+
     own = spiel_raw[OWN_AUFSTELLUNG_AS]
     stored = aufstellung_stands(own[0] if own else None)
 
@@ -383,13 +388,7 @@ async def get_team_overview(
 
         marks = _marks_of(spiel, now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
-        if (
-            marks is not None
-            and not marks.stored
-            and marks.phase != "locked"
-            and spiel.get("ergebnis") is None
-            and spiel.get("sonderereignis") is None
-        ):
+        if marks is not None and not marks.stored and marks.phase != "locked":
             aufstellungen.append(
                 FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), side=_side_of(spiel, team_id), marks=marks)
             )

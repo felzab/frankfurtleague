@@ -93,7 +93,8 @@ class FLTeamPanelSpiel(FLTeamPageSpiel):
 
     # The state of the date the league asked the team to confirm, null where no row asks the team about the fixture as it stands.
     spielbestaetigung: FLSpielbestaetigungTeamState | None
-    # Null for a fixture holding no day or no hour, which owes no line-up.
+    # Null for a fixture holding no day or no hour, or one decided, called off or fielding a club out by its day, each
+    # owing no line-up.
     aufstellung: FLAufstellungMarks | None
 
 

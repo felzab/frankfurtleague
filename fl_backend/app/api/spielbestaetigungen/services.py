@@ -380,11 +380,13 @@ def team_state_of(
 ) -> FLSpielbestaetigungTeamState | None:
     """What a team's own pages show of its unclosed row about the fixture as it stands: `state_of`'s state, or `None`.
 
-    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off or decided.
+    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off, decided or fielding a
+    club out by its day.
     """
 
-    # Ahead of the pass's close, which takes the row off these pages: a lapsed row would read that the league decides.
-    if _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) == "spiel_decided":
+    # Ahead of the pass's close, which takes the row off these pages: a lapsed row would read that the league decides,
+    # and an exit ends the question, which never lapsed.
+    if _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) in {"spiel_decided", "austritt"}:
         return None
 
     match state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open):

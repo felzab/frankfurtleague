@@ -271,3 +271,12 @@ class TestATeamsPagesDropARowItsMatchDecided:
         assert (
             team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
         )
+
+    @pytest.mark.parametrize("answer", [pytest.param(None, id="unanswered"), pytest.param({"kind": "declined"}, id="declined")])
+    def test_or_its_opponent_left_by_its_day(self, answer: dict[str, Any] | None):
+        """Inside its deadline, an exit ends the question: kept until the close, the row would read „Abgelaufen“ or as its answer."""
+
+        unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
+        state = AnsetzungState(spiel=spiel(), vereine=[{"team_id": BETA, "austritt": {"date": TODAY}}])
+
+        assert team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=NOW, vorschlag_open=None) is None
