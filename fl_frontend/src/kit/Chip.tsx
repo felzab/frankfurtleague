@@ -3,15 +3,16 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 
 const chip = tv({
-  // The tint is 12 % of the hue over whatever surface the row stands on.
   base: "inline-flex h-5 shrink-0 items-center rounded-md px-2 text-xs font-medium whitespace-nowrap",
   variants: {
+    // Each hue on its own opaque tint, a pair the contrast rule measures, so the ground beneath the chip never reaches
+    // its word.
     tone: {
-      success: "bg-success/12 text-success",
-      info: "bg-info/12 text-info",
-      warn: "bg-warn/12 text-warn",
-      danger: "bg-danger/12 text-danger",
-      neutral: "bg-fg-muted/12 text-fg-muted",
+      success: "bg-success-tint text-success",
+      info: "bg-info-tint text-info",
+      warn: "bg-warn-tint text-warn",
+      danger: "bg-danger-tint text-danger",
+      neutral: "bg-fg-muted-tint text-fg-muted",
     },
   },
 });
