@@ -194,7 +194,7 @@ describe("the match editor's answers", () => {
     },
     {
       reads: "agreed, its row closed at the kick-off",
-      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past" } })],
+      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past", discarded: false } })],
       shown: { chip: agreed, line: { record: "05.11.2026" } },
     },
     {
@@ -203,7 +203,7 @@ describe("the match editor's answers", () => {
       rows: [
         row("agreed", {
           answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
-          closed: { reason: "discarded" },
+          closed: { reason: "discarded", discarded: false },
         }),
       ],
       shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
@@ -220,7 +220,11 @@ describe("the match editor's answers", () => {
       rows: [row("invalid", { ansetzung: { ...ansetzung, date: "2026-11-07", time: "15:00:00" }, answer: agreement })],
       shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.admin.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
     },
-    { reads: "about a call-off since undone", rows: [row("cancelled", { closed: { reason: "cancelled" } })], shown: notAsked },
+    {
+      reads: "about a call-off since undone",
+      rows: [row("cancelled", { closed: { reason: "cancelled", discarded: false } })],
+      shown: notAsked,
+    },
     // Minted while the club held no confirmed seat, so no mail asked it: chased for an answer, it has no link to give one.
     { reads: "in time that nobody could be mailed on", rows: [row("valid", { asked_at: null })], shown: notAsked },
   ])("draws the first club's newest row $reads by the state it reads as", async ({ rows, shown }) => {

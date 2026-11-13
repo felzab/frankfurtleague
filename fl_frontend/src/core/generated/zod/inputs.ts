@@ -2010,7 +2010,9 @@ export const SpieleGetSpielParams = zod.object({
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+ * A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
+ * no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
+ * nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
  * later results the save would delete, which the save's `voided_results` must name back.
  * @summary Update a Spiel
  */

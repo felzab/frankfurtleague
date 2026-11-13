@@ -281,14 +281,16 @@ class TestEachKindLandsOnItsCard:
                     "party": home,
                     "name": "Lessing",
                     "deadline": "2026-03-14",
+                    "due_by": "2026-03-14",
                     "lapsed_on": "2026-03-14",
                 },
-                # The clubs' deadline binds no referee, who answers until the kick-off.
+                # The clubs' deadline binds no referee, who answers until the kick-off: due by the fixture's day.
                 {
                     "spielbestaetigung_id": str(ROWS[5]["_id"]),
                     "party": referee,
                     "name": "Anna Körner",
                     "deadline": "2026-03-14",
+                    "due_by": "2026-03-20",
                     "lapsed_on": None,
                 },
             ],

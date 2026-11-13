@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     build_holding_filter,
     build_triage_rows_filter,
+    due_by_of,
     lapsed_on,
     parties_told_of_the_change,
     party_key,
@@ -113,8 +114,11 @@ class FLOverviewParty(BaseModel):
     party: FLSpielbestaetigungParty
     name: CustomNonEmptyString
     deadline: CustomDateString
-    # The day the party's answer lapsed, a club's `deadline` gone by; null while it may still answer, as a referee
-    # may until the kick-off, whom no deadline binds.
+    # The day the party's answer is due by, as the match editor's row serves it: a club's `deadline`, and a referee's
+    # slot, whom no deadline binds.
+    due_by: CustomDateString
+    # The day the party's answer lapsed, its `due_by` gone by; null while it may still answer, as a referee may until
+    # the kick-off.
     lapsed_on: CustomDateString | None
 
 
@@ -369,6 +373,7 @@ def overview_of(
                 party=row[ROW_PARTY],
                 name=row.get(PARTY_NAME_FIELD),
                 deadline=row[ROW_DEADLINE],
+                due_by=due_by_of(row),
                 # No reason: the next close ends none of these rows, as judged above.
                 lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, spiel=spiel_raw, austritte=austritte, now=now),
             )

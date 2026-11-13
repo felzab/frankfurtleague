@@ -51,12 +51,16 @@ async function dueRowOver(kind: "spielbestaetigung_due" | "spielbestaetigung_ove
   return { chip: row?.chip, line: row?.line };
 }
 
-/** A party owing its answer, its row's stored deadline and the day it lapsed on, `null` while it may still answer. */
+/**
+ * A party owing its answer, its row's stored deadline and the day it lapsed on, `null` while it may still answer; due by
+ * that deadline, or a referee by the fixture's day.
+ */
 const party = (kind: "team" | "schiedsrichter", deadline: string, lapsed_on: string | null): FLOverviewParty => ({
   spielbestaetigung_id: kind === "team" ? "64b0000000000000000000a1" : "64b0000000000000000000a2",
   party: kind === "team" ? { kind, team_id: "64b000000000000000000003" } : { kind, schiedsrichter_id: "64b000000000000000000005" },
   name: kind === "team" ? "Ahorn" : "Kiefer",
   deadline,
+  due_by: kind === "team" ? deadline : "2026-11-14",
   lapsed_on,
 });
 
