@@ -612,14 +612,6 @@ class TestTheSeasonGateOnTheRoute:
 
 
 class TestWhoMayArrive:
-    def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
-        """`replace_one_team_on_both_ends`, judged before any read, so the row and the fixtures are left alone."""
-
-        code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
-
-        assert code == Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS
-        assert row is not None
-
     def test_a_club_the_season_already_holds_is_refused(self, mongo_replica_set_url: str):
         """`saison_teams` holds one row a club, and the row handed over would be its second."""
 

@@ -73,7 +73,7 @@ describe("a ban", () => {
     expect(store.reached).toContain(`end ${ADDRESS}`);
   });
 
-  // Each stands behind a write that cannot be taken back, so the dialog must say what did not follow.
+  // The sign-out follows a write that cannot be taken back, so the dialog must say it did not follow.
   it.each([["the sign-out failed", { end: failing }, PARTIAL.sessions]])(
     "keeps its button for a second press and says what did not follow where %s",
     async (_case, failures, reason) => {

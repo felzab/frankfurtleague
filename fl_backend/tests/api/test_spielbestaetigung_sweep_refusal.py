@@ -12,6 +12,7 @@ from app.api.spielbestaetigungen.services import (
     notice_owed,
     parties_told_of_the_change,
     reason_to_close,
+    reason_to_end,
     request_is_due,
     team_state_of,
 )
@@ -120,6 +121,33 @@ class TestWhyARowCloses:
         assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, now=NOW) == reason
 
 
+# A club's decline the administrator discarded: its row closed, the decline its answer to the Ansetzung.
+DISCARDED = row(TEAM, answer={"kind": "declined"}, closed={"reason": "discarded"})
+
+THE_DAY_AFTER = noon(days_after(day=spiel()["date"], days=1))
+
+
+class TestADiscardEndsWhereAnAgreementWouldEnd:
+    """Kept, the discard would count as its club's agreement in the public verdict where an agreement no longer counts."""
+
+    @pytest.mark.parametrize(
+        ("overrides", "now", "reason"),
+        [
+            pytest.param({"team1": {"team_id": ALPHA, "tore": 2}}, NOW, "spiel_decided", id="decided"),
+            pytest.param({}, THE_DAY_AFTER, "spiel_past", id="its day gone by"),
+        ],
+    )
+    def test_the_close_ends_it(self, overrides: dict[str, Any], now: datetime, reason: str):
+        assert reason_to_end(row=DISCARDED, spiel=spiel(**overrides), austritte={}, now=now) == reason
+
+    def test_one_about_a_slot_the_fixture_left_ends_once_its_own_day_has_passed(self):
+        """The move keeps it, the club's answer to that Ansetzung; kept past its day it would be read by every pass for good."""
+
+        moved = spiel(time="19:00:00")
+
+        assert [reason_to_end(row=DISCARDED, spiel=moved, austritte={}, now=now) for now in (NOW, THE_DAY_AFTER)] == [None, "spiel_past"]
+
+
 # `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
 KICK_OFF = clock.german_instant(spiel()["date"], spiel()["time"]).astimezone(clock.GERMANY)
 
@@ -136,6 +164,20 @@ class TestANoticeIsAboutASlotStillToCome:
         owed = [notice_owed(row=asked, reason="cancelled", spiel=called_off, now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
 
         assert owed == [True, False]
+
+    @pytest.mark.parametrize(
+        ("now", "moved_to"),
+        [
+            pytest.param(THE_DAY_AFTER, days_after(day=spiel()["date"], days=7), id="off a day gone by"),
+            pytest.param(NOW, days_after(day=TODAY, days=-1), id="onto a day gone by"),
+        ],
+    )
+    def test_a_move_is_told_while_either_day_is_to_come(self, now: datetime, moved_to: str):
+        """Its slot left void and the fixture's asked afresh, a party is told of either while it still lies ahead."""
+
+        asked = row(TEAM, asked_at=TODAY)
+
+        assert notice_owed(row=asked, reason="ansetzung_changed", spiel=spiel(date=moved_to), now=now) is True
 
     def test_a_closing_other_than_a_move_is_about_the_slot_its_row_asked(self):
         """The fixture moved a week on and its referee taken off, both after the kick-off: the referee is told nothing.

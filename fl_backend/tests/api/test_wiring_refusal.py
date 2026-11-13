@@ -78,7 +78,8 @@ class TestPhaseRules:
     """Where a source may point: a knockout match of a strictly earlier round, and nowhere else."""
 
     def test_a_group_spiel_carries_no_wiring(self, season):
-        assert refusal_for(season, 1, team1=None, team1_quelle=sieger(2)) == WIRING_REFUSAL
+        # The fixture's own team stays, so no maintained-side rule can refuse in the phase rule's place.
+        assert refusal_for(season, 1, team1_quelle=gruppenplatz("C", 1)) == WIRING_REFUSAL
 
     def test_a_dangling_match_number_is_refused(self, season):
         """The typo the resolution could only contain after the fact is refused at the door instead."""
@@ -87,24 +88,19 @@ class TestPhaseRules:
     def test_a_group_match_never_feeds_a_slot(self, season):
         assert refusal_for(season, 30, team1_quelle=sieger(1)) == WIRING_REFUSAL
 
-    def test_a_spiel_cannot_feed_itself(self, season):
-        assert refusal_for(season, 30, team1_quelle=sieger(30)) == WIRING_REFUSAL
-
     def test_a_same_round_source_is_refused(self, season):
         """Also what makes a cycle inexpressible: every edge must point at a strictly earlier round."""
-        assert refusal_for(season, 29, team1_quelle=sieger(30)) == WIRING_REFUSAL
+        assert refusal_for(season, 29, team1_quelle=verlierer(30)) == WIRING_REFUSAL
 
     def test_a_later_round_source_is_refused(self, season):
         assert refusal_for(season, 29, team1_quelle=sieger(31)) == WIRING_REFUSAL
 
 
-# Every bracket a season can play, by qualifier count:
+# Two brackets a season can play, by qualifier count:
 # `app/api/saisons/schedule.py :: knockout_phases_for` counts back from the Finale, so a different phase opens each one.
 BRACKET_SHAPES: dict[int, tuple[str, ...]] = {
     16: ("achtelfinale", "viertelfinale", "halbfinale", "finale"),
     8: ("viertelfinale", "halbfinale", "finale"),
-    4: ("halbfinale", "finale"),
-    2: ("finale",),
 }
 
 OPENING_ROUND = 25

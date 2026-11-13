@@ -67,14 +67,6 @@ RUNNING_WINDOW: Mapping[str, Any] = {"open": True, "start": "2026-03-01", "end":
 NOT_YET_OPEN_SAISON = "2028"
 ALREADY_CLOSED_SAISON = "2029"
 
-ADDRESS: Mapping[str, Any] = {
-    "street": "Hanauer Landstraße",
-    "house_number": "12a",
-    "postcode": "60314",
-    "district": "Ostend",
-    "city": "Frankfurt am Main",
-}
-
 # The colours `OPEN_SAISON` has assigned, in the palette's order rather than the junction's, and the
 # one another season holds -- which the answer for `OPEN_SAISON` may not carry.
 OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
@@ -112,12 +104,14 @@ def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str |
         description=DESCRIPTION,
         website_url=f"https://{website_host(name)}",
         schulform=SCHULFORM,
-        address=dict(ADDRESS),
         inactive_since=inactive_since,
     )
 
 
-def seed_the_public_corpus(mongo_replica_set_url: str) -> Iterator[str]:
+# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# from being left as a claim.
+@pytest.fixture(scope="module")
+def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     """Every way a window can stand, the clubs, and one season's assigned colours, in `CORPUS_DATABASE`."""
 
     client = MongoClient(mongo_replica_set_url)
@@ -158,13 +152,6 @@ def seed_the_public_corpus(mongo_replica_set_url: str) -> Iterator[str]:
                 yield mongo_replica_set_url
     finally:
         client.close()
-
-
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
-# from being left as a claim.
-@pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
-    yield from seed_the_public_corpus(mongo_replica_set_url)
 
 
 def seeded_with(mongo_replica_set_url: str, saisons: list[dict[str, Any]]) -> str:

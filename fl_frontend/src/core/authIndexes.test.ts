@@ -68,12 +68,15 @@ const { auth } = await import("./auth/library.ts");
 /** The collections the build writes to, each a table of the library's. */
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
-/** A duplicate-key refusal as the server words it, quoting the address the unique index met twice. */
-const DUPLICATE_ADDRESS = new MongoServerError({
-  message: 'E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "vorstand@example.org" }',
+/** A session's cookie value, which a refusal of its unique index quotes. */
+const TOKEN = "q4Xv0dTzS1mBa9kRcLwE";
+
+/** A duplicate-key refusal as the server words it, quoting the value the unique index met twice. */
+const DUPLICATE_TOKEN = new MongoServerError({
+  message: `E11000 duplicate key error collection: auth.session index: session_token_uidx dup key: { token: "${TOKEN}" }`,
   code: 11000,
   codeName: "DuplicateKey",
-  keyValue: { email: "vorstand@example.org" },
+  keyValue: { token: TOKEN },
 });
 
 /** What an unreachable store answers every build: no server code at all. */
@@ -104,20 +107,21 @@ beforeEach(() => {
 
 describe("the sign-in store's index build", () => {
   it("builds every other index where one is refused, and logs the refused one by its name and code alone", async () => {
-    answer = (build) => (build.collection === "user" ? Promise.reject(DUPLICATE_ADDRESS) : Promise.resolve("built"));
+    // The first of its collection's builds, so a run stopping at a refusal leaves the ones after it unasked.
+    answer = (build) => (build.name === "session_token_uidx" ? Promise.reject(DUPLICATE_TOKEN) : Promise.resolve("built"));
 
     await buildAuthIndexes();
 
-    const refused = builds.filter(({ collection }) => collection === "user").map(({ name }) => name);
-    expect(refused.length, "the address index was not asked for, so no refusal was driven").toBe(1);
+    const session = builds.filter(({ collection }) => collection === "session").map(({ name }) => name);
+    expect(session[0], "the token index was not asked for first, so no refusal ahead of others was driven").toBe("session_token_uidx");
+    assert.ok(session.length > 1, "nothing after the refused index was asked for");
     expect(lines).toStrictEqual([
       {
         event: "auth.index_unbuilt",
-        fields: { index: refused[0], name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
+        fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
-    assert.ok(builds.length > 1, "nothing beside the refused index was asked for");
-    assert.ok(!JSON.stringify(lines).includes("@"), "the line quoted the address the refusal named");
+    assert.ok(!JSON.stringify(lines).includes(TOKEN), "the line quoted the value the refusal named");
   });
 
   /* The client reconnects once the store answers, and a restart is

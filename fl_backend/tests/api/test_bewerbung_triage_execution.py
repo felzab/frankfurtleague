@@ -73,6 +73,8 @@ TODAY = "2126-04-01"
 
 # The administrator the request is attributed to. Distinctive, so a sweep for it cannot hit seed data.
 ADMIN_EMAIL = "triage.quillhilde@example.com"
+# The administrator the suite binds for a handler called directly, outside any request.
+BOUND_ADMINISTRATOR = "admin@frankfurtleague.de"
 
 # Fixed rather than generated, so a failure names the same row every run.
 EXISTING_OID = ObjectId("6890a1b2c3d4e5f607910001")
@@ -1280,7 +1282,7 @@ class TestCorrectingOneContactAddress:
 
         rows = on_a_league(mongo_replica_set_url, body)
 
-        assert [row["record_id"] for row in rows] == [CORRECTION_BEWERBUNG]
+        assert [(row["by"], row["record_id"]) for row in rows] == [(BOUND_ADMINISTRATOR, CORRECTION_BEWERBUNG)]
         # The new address is nobody's to find in the log.
         assert CORRECTED_EMAIL not in str(rows)
 
@@ -1693,7 +1695,6 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert linked["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(mails[0].token or "")]
         assert stored["confirmations"]["ansprechperson"]["declined_at"] is None
         assert stored["confirmations"]["ansprechperson"]["deadline"] == confirmation_deadline_from(today=TODAY)
-        # Two would leave the new person standing in the seat beside the link its last holder was sent.
 
     def test_a_write_composed_before_the_seat_moved_leaves_the_person_seated_since(self, mongo_replica_set_url: str):
         """A page read before a Widerspruch and a reseat would hand the new holder the address typed for the one who left."""

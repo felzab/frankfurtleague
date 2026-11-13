@@ -16,7 +16,7 @@ class TestWhatCountsAsASwap:
         )
 
         assert refusal is not None
-        # The pick of two clubs is what is refused, so on both boxes, as one club named twice is.
+        # The pick of two clubs is what is refused, so on both boxes.
         assert (refusal.error_code, refusal.status, refusal.fields) == (
             Code.SWAP_NOT_A_SWAP,
             HTTPStatus.UNPROCESSABLE_CONTENT,

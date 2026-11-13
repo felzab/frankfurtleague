@@ -139,13 +139,13 @@ def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema:
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, today: str = TODAY) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     return await sweep_registrierungen(
         saison_id=SAISON_ID,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
         db=client,
-        today=today,
+        today=TODAY,
     )
 
 

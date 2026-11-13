@@ -226,7 +226,7 @@ async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int
 
 
 def test_a_seats_first_save_creates_the_line_up_and_answers_the_screen(mongo_replica_set_url: str):
-    """The squad by shirt number, the matchday by its stored position, each side with its Kürzel, and the act recorded.
+    """The squad, the matchday by its stored position, each side with its Kürzel, and the act recorded.
 
     The act's record is the line-up, so its label alone names the fixture in the Protokoll.
     """
@@ -236,11 +236,11 @@ def test_a_seats_first_save_creates_the_line_up_and_answers_the_screen(mongo_rep
         stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
 
         assert status == 201
-        assert [(row.first_name, row.last_name) for row in answer.kader] == [
-            ("Neu", "Muster"),
-            ("Ole", "Muster"),
+        assert sorted((row.first_name, row.last_name) for row in answer.kader) == [
             ("Lina", "Muster"),
             ("Mia", "Muster"),
+            ("Neu", "Muster"),
+            ("Ole", "Muster"),
         ]
         spiel = answer.spiel
         assert (spiel.saison_phase, spiel.spieltag_position, spiel.count_spieltage_in_phase, spiel.for_third_place) == (

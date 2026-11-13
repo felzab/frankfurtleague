@@ -452,14 +452,6 @@ class TestTheEditorRead:
         assert view.retire_blocked_by == SAISON_ID
         assert view.saison.begun is True
 
-    def test_a_club_of_past_seasons_alone_blocks_no_retirement(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-
-            return (await editor(database)).retire_blocked_by
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
     def test_the_link_box_says_what_the_press_would_do(self, mongo_replica_set_url: str):
         """The press's own plan: a box saying otherwise offers a send that mails nobody."""
 

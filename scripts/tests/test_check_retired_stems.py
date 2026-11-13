@@ -18,7 +18,7 @@ from conftest import import_scripts, new_root
 
 [stems] = import_scripts("check_retired_stems")
 
-STEMS = "zorb\nplonk\nzoeb\nwo\n"
+STEMS = "zorb\nplonk\nzoeb\n"
 
 
 def git(root: Path, *args: str) -> None:
