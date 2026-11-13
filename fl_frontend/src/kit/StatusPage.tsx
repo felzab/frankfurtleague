@@ -1,9 +1,8 @@
-import { Suspense } from "react";
-
 import { buttonPlaceholder } from "./buttonStyles";
 import { RailPage } from "./RailFrame";
 import { placeholderBar, Waiting } from "./Skeleton";
 import { RailCardBody, statusCard } from "./StatusCard";
+import { PageWait } from "./WholePage";
 
 import type { RailPageHead } from "./RailFrame";
 import type { RailCard } from "./StatusCard";
@@ -45,12 +44,12 @@ export function StatusPage(props: { card: Promise<RailCard> | RailCard } & Omit<
       scope={props.scope}
       title={props.title}>
       {props.card instanceof Promise ? (
-        <Suspense fallback={<RailCardPlaceholder />}>
+        <PageWait fallback={<RailCardPlaceholder />}>
           <CardOnceRead
             card={props.card}
             scope={props.scope}
           />
-        </Suspense>
+        </PageWait>
       ) : (
         <RailCardBody
           card={props.card}

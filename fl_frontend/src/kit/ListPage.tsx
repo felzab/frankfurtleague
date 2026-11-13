@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { COPY } from "@/core/copy";
 
 import { BracketTree, BracketTreePlaceholder } from "./BracketTree";
@@ -29,6 +27,7 @@ import { Table, TablePlaceholder } from "./Table";
 import { Tabs, TabsPlaceholder } from "./Tabs";
 import { TeamHead, TeamHeadPlaceholder } from "./TeamHead";
 import { SCHOOL_TILES_SAMPLE, SchoolTiles } from "./TileGrid";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -447,7 +446,7 @@ async function ToolbarActOnceRead({ act, side }: { act: Promise<ListCreate>; sid
 /** A toolbar act as stated, or in a boundary of its own while the read words it. */
 function ToolbarActOf({ act, side = false }: { act: ListCreate | ListActOnceRead; side?: boolean }) {
   return "label" in act ? (
-    <Suspense
+    <PageWait
       fallback={
         <ToolbarActPlaceholder
           label={act.label}
@@ -458,7 +457,7 @@ function ToolbarActOf({ act, side = false }: { act: ListCreate | ListActOnceRead
         act={act.act}
         side={side}
       />
-    </Suspense>
+    </PageWait>
   ) : (
     <ToolbarAct
       act={act}
@@ -720,9 +719,9 @@ export function ListPage({
           <div className={TOOLBAR_CLASSES}>
             {search !== undefined && <ListSearchField {...search} />}
             {filters !== undefined && (
-              <Suspense fallback={<FiltersPlaceholder count={filterCount} />}>
+              <PageWait fallback={<FiltersPlaceholder count={filterCount} />}>
                 <FiltersOnceRead filters={filters} />
-              </Suspense>
+              </PageWait>
             )}
             {(side !== undefined || create !== undefined) && (
               <ToolbarActs>
@@ -737,19 +736,19 @@ export function ListPage({
             )}
             {link !== undefined && (
               <div className="ms-auto">
-                <Suspense
+                <PageWait
                   fallback={
                     <Placeholder>
                       <span className={buttonPlaceholder()}>{link.label}</span>
                     </Placeholder>
                   }>
                   <LinkOnceRead link={link} />
-                </Suspense>
+                </PageWait>
               </div>
             )}
           </div>
         )}
-        <Suspense
+        <PageWait
           fallback={
             <ListWait>
               <ListPlaceholder list={list} />
@@ -757,7 +756,7 @@ export function ListPage({
           }>
           {notice !== undefined && <NoticeOnceRead notice={notice} />}
           <ListBody list={list} />
-        </Suspense>
+        </PageWait>
       </ListQueryScope>
     </RailPage>
   );

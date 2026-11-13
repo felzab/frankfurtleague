@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import NextLink from "next/link";
 
 import { COPY } from "@/core/copy";
@@ -10,6 +9,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -44,9 +44,9 @@ export function AccountPage({
       scope="area"
       title={{ route }}>
       <div className={formColumn()}>
-        <Suspense fallback={waiting(wait)}>
+        <PageWait fallback={waiting(wait)}>
           {waitOnceRead === undefined ? children : <WaitOnceRead wait={waitOnceRead.then(waiting)}>{children}</WaitOnceRead>}
-        </Suspense>
+        </PageWait>
       </div>
     </RailPage>
   );
@@ -60,7 +60,7 @@ export function AccountPage({
  * wait.
  */
 async function WaitOnceRead({ wait, children }: { wait: Promise<ReactNode>; children: ReactNode }) {
-  return <Suspense fallback={await wait}>{children}</Suspense>;
+  return <PageWait fallback={await wait}>{children}</PageWait>;
 }
 
 /** A Konto page holding none of the records its boxes would show: the blank slate in one box, the page's own mark over it. */

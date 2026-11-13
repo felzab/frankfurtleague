@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, Suspense, use, useContext, useEffect, useState } from "react";
+import { createContext, use, useContext, useEffect, useState } from "react";
 import NextLink from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 
@@ -28,6 +28,7 @@ import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -121,9 +122,9 @@ export function SaisonScope({ value, children }: { value: SaisonScopeValue; chil
   return (
     <SaisonContext value={{ ...value, chosen }}>
       {/* Reads the address, which no prerender knows, so it waits in a boundary of its own, drawing nothing. */}
-      <Suspense fallback={null}>
+      <PageWait fallback={null}>
         <SaisonMemory choose={setChosen} />
-      </Suspense>
+      </PageWait>
       {children}
     </SaisonContext>
   );
@@ -469,7 +470,7 @@ const railRule = tv({
  */
 export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
   return (
-    <Suspense
+    <PageWait
       fallback={
         <RailEntryList
           {...props}
@@ -477,7 +478,7 @@ export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?
         />
       }>
       <RailEntryList {...props} />
-    </Suspense>
+    </PageWait>
   );
 }
 
@@ -712,7 +713,7 @@ export function BarPlaces() {
   const menu = useContext(MenuContext);
   // At once as the address spells them, as the rail's entries are (`RailEntries`).
   return menu === null ? null : (
-    <Suspense
+    <PageWait
       fallback={
         <Places
           {...menu}
@@ -720,7 +721,7 @@ export function BarPlaces() {
         />
       }>
       <Places {...menu} />
-    </Suspense>
+    </PageWait>
   );
 }
 
@@ -813,7 +814,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
       )}
       {account !== undefined && (
         // The bar's places stand drawn while the session is judged; the account's keeps its column, drawn as it waits.
-        <Suspense
+        <PageWait
           fallback={
             <Placeholder layoutClass="h-full">
               <PlacePlaceholder
@@ -823,7 +824,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
             </Placeholder>
           }>
           <AccountPlace account={account} />
-        </Suspense>
+        </PageWait>
       )}
     </nav>
   );
@@ -995,7 +996,7 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 export function EditorBack() {
   const groups = useContext(MenuContext)?.groups ?? [];
   return (
-    <Suspense
+    <PageWait
       fallback={
         <EditorBackTo
           groups={groups}
@@ -1003,7 +1004,7 @@ export function EditorBack() {
         />
       }>
       <EditorBackTo groups={groups} />
-    </Suspense>
+    </PageWait>
   );
 }
 

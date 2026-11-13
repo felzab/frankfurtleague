@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { Callout } from "./Callout";
 import { stacked } from "./cardStyles";
 import { ClassicPage, PageHead } from "./ClassicPage";
@@ -7,6 +5,7 @@ import { Contents } from "./Contents";
 import { Link } from "./Link";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -220,8 +219,8 @@ export function ProseWait({
   wait: ComponentProps<typeof ProseLinksPlaceholder>;
 }) {
   return (
-    <Suspense fallback={<ProseLinksPlaceholder {...wait} />}>
+    <PageWait fallback={<ProseLinksPlaceholder {...wait} />}>
       <ProseOnceRead sections={sections} />
-    </Suspense>
+    </PageWait>
   );
 }

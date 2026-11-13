@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense } from "react";
+import { Fragment } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +13,7 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -115,7 +116,7 @@ function LinksAtAddress(props: HeaderLinksProps) {
  */
 export function HeaderLinks(props: HeaderLinksProps) {
   return (
-    <Suspense
+    <PageWait
       fallback={
         <PlacedLinks
           {...props}
@@ -123,6 +124,6 @@ export function HeaderLinks(props: HeaderLinksProps) {
         />
       }>
       <LinksAtAddress {...props} />
-    </Suspense>
+    </PageWait>
   );
 }

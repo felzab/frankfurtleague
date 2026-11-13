@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { EmptyBox } from "./EmptyState";
@@ -14,6 +12,7 @@ import { SpielPairList, spielPairs } from "./SpielRow";
 import { StatTiles, StatTilesPlaceholder } from "./StatTiles";
 import { Timeline, TimelinePlaceholder } from "./Timeline";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { ComponentProps, ReactElement } from "react";
@@ -224,7 +223,7 @@ async function ReadBody({ scope, width, named }: { scope: "saison" | "area"; wid
  */
 export function ReadPage({ scope, wait, width, ...named }: { scope: "saison" | "area"; wait: ReadWait; width?: ReadWidth } & Named) {
   return (
-    <Suspense
+    <PageWait
       fallback={
         <RailPage
           scope={scope}
@@ -248,7 +247,7 @@ export function ReadPage({ scope, wait, width, ...named }: { scope: "saison" | "
         width={width}
         named={named}
       />
-    </Suspense>
+    </PageWait>
   );
 }
 

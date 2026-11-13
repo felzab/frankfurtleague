@@ -1,6 +1,5 @@
-import { Suspense } from "react";
-
 import { SignInPlaceholder } from "./SignInPage";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -19,8 +18,8 @@ async function SignInBody({ view }: { view: Promise<ReactNode> }) {
  */
 export function SignInShell({ title, view }: { title: Copy | null; view: Promise<ReactNode> }) {
   return (
-    <Suspense fallback={<SignInPlaceholder title={title} />}>
+    <PageWait fallback={<SignInPlaceholder title={title} />}>
       <SignInBody view={view} />
-    </Suspense>
+    </PageWait>
   );
 }

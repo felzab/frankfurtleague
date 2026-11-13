@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { COPY, textOf } from "@/core/copy";
 
 import { buttonPlaceholder } from "./buttonStyles";
@@ -13,6 +11,7 @@ import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleto
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -261,9 +260,9 @@ function PopupPlaceholder() {
 export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
   return (
     <RouteDialog beneath={beneath}>
-      <Suspense fallback={<PopupPlaceholder />}>
+      <PageWait fallback={<PopupPlaceholder />}>
         <PopupBody popup={popup} />
-      </Suspense>
+      </PageWait>
     </RouteDialog>
   );
 }

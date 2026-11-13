@@ -89,6 +89,24 @@ deliberate: the Docker builder stage has **no reachable backend or sign-in store
 tried to prerender its data would fail the image build, and a prefetched shell carries nothing a
 read past the wait decides. A `"use cache"` body may not call it, so the wait stands at its caller.
 
+**Every page arrives whole**: no part of a page waits behind a placeholder of its own. A placeholder
+committed on each click cost more than the read it stood for, since React holds a boundary's reveal
+for 300 ms after the last one, and a page fade holds every commit until it ends.
+
+- The root layout (`fl_frontend/src/app/layout.tsx`) places
+  `fl_frontend/src/kit/WholePage.tsx :: WholePages` around every route.
+- Every template and frame waits for a read in `PageWait`, which under `WholePages` draws no
+  placeholder, so no boundary stands below the layout two pages share.
+- A client navigation therefore keeps the page it leaves until the next one is complete, as a
+  transition never hides content it has revealed. The page fade runs once, between two finished
+  pages.
+- A hard load sends the prerendered shell, which is empty, and then the page once it is rendered.
+- The root layout exports `instant = false`, which lets the build accept a page reading uncached data
+  outside every boundary; the build refuses every such route without it.
+
+Without `WholePages` and the export, every `PageWait` is a `Suspense` boundary drawing its
+placeholder, and a page streams in its parts.
+
 ## Styling and copy
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.

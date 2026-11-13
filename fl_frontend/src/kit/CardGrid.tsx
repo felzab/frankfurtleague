@@ -1,8 +1,7 @@
-import { Suspense } from "react";
-
 import { CardLink, CardPlaceholder } from "./Card";
 import { Waiting } from "./Skeleton";
 import { tv } from "./tv";
+import { PageWait } from "./WholePage";
 
 import type { ReactNode } from "react";
 import type { CardLinkProps } from "./Card";
@@ -61,7 +60,7 @@ async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray
  */
 export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
   return (
-    <Suspense
+    <PageWait
       fallback={
         <Waiting>
           <CardGrid across={3}>
@@ -71,6 +70,6 @@ export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLi
         </Waiting>
       }>
       <RoleChoicesOnceRead choices={choices} />
-    </Suspense>
+    </PageWait>
   );
 }

@@ -1,7 +1,6 @@
-import { Suspense } from "react";
-
 import { RailColumn, RailPage } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
+import { PageWait } from "@/kit/WholePage";
 
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -20,7 +19,7 @@ export default function TeamNotFound() {
     <RailColumn>
       {/* The choice waits on the frame's seats, which a page's read has waited on before it ends here. Where they have
           not reached the browser yet, the strip stands with its title's bar and no card, never the other end's. */}
-      <Suspense
+      <PageWait
         fallback={
           <RailPage
             scope="area"
@@ -38,7 +37,7 @@ export default function TeamNotFound() {
             />
           }
         />
-      </Suspense>
+      </PageWait>
     </RailColumn>
   );
 }
