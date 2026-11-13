@@ -12,7 +12,7 @@ import { answering } from "@/kit/useFormAction";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { STANDING_CHIP } from "@/features/bewerbungen/standing";
+import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 
 import { AcceptFields } from "../[bewerbung]/AcceptFields";
@@ -52,7 +52,11 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
   return form;
 }
 
-/** A row of the check page: entered with its chip, turned away with why and its way back, else what the run will write. */
+/**
+ * A row of the check page, its state in its „Stand“ column whatever the run did: entered, „Angenommen“; turned away for
+ * its Kürzel, that chip; else the application's own standing, with why it was turned away where it was and its way back
+ * to its card.
+ */
 function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefined, open: (id: string) => void): TableRow {
   const draft = run.drafts[row.id];
   const cells = {
@@ -67,7 +71,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
   return {
     ...base,
     onOpen: () => open(row.id),
-    ...(refused?.taken === true ? { chip: { tone: "danger", label: WORDS.shorthandTaken } } : {}),
+    chip: refused?.taken === true ? { tone: "danger", label: WORDS.shorthandTaken } : STANDING_CHIP[standingOf(row)],
     ...(line === undefined ? {} : { refusal: line }),
   };
 }

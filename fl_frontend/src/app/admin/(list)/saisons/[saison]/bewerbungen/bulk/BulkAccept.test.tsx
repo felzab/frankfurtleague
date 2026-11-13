@@ -31,6 +31,8 @@ const row = (id: string, name: string) =>
     wunschfarbe: "rot",
     wunschgegner: null,
     people: 1,
+    status: "submitted",
+    seats_confirmed: 3,
   }) as FLBewerbungListRow;
 
 const run = (taken: readonly string[] = []) => (
@@ -104,6 +106,23 @@ describe("a finished Sammel-Zusage", () => {
 
     expect((await screen.findByRole("heading", { name: COPY.admin.bewerbung.acceptedCount(1) })).tagName).toBe("H2");
     expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+  });
+});
+
+// Every row of a „Stand“ column states a value, and a row the run has not written yet has no outcome to draw it from:
+// nothing but this case reads that cell before the run's one confirm.
+describe("the check page's „Stand“ column", () => {
+  it("states each application's standing before the run writes it", async () => {
+    const { rerender } = render(run());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+    rerender(run());
+    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
+    rerender(run());
+
+    const rowOf = (school: string) => screen.getByText(school).closest("tr") as HTMLElement;
+    for (const school of ["Goethe-Gymnasium", "Schiller-Schule"]) {
+      expect(within(rowOf(school)).queryAllByText(COPY.admin.bewerbung.complete)).not.toHaveLength(0);
+    }
   });
 });
 
