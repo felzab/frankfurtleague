@@ -18,7 +18,7 @@ import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/gen
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
-import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
+import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
 import { spielerName } from "@/features/spieler/constants";
@@ -373,6 +373,7 @@ async function readEditor(params: Props["params"]) {
   return (
     <SpielEditor
       title={nameOf(saved)}
+      chip={adminSpielChipOf(saved)}
       preview={previewOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
