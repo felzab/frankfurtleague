@@ -66,13 +66,14 @@ def sent_address(email: str) -> str:
     return payload.kontakt.email
 
 
-def test_a_save_moves_a_retired_confirmed_referee_s_address_never_and_a_respelled_domain_moves_nothing():
-    """The save is refused whole on the move; a domain in capitals is the same mailbox, so it lands and owes no link."""
+def test_a_save_moves_a_retired_confirmed_referee_s_address_never_and_a_respelled_address_moves_nothing():
+    """The save is refused whole on the move; an address in capitals is the same mailbox, so it lands and owes no link."""
 
     moved = find_confirmed_address_refusal(
         stored=confirmed_row(inactive_since="2026-03-01"), payload_email=sent_address("a.koerner@neuepost.example.org")
     )
-    respelled = sent_address("anna.koerner@EXAMPLE.com")
+    # The local part in capitals too: the address validator folds a domain itself, a local part only the league's fold.
+    respelled = sent_address("Anna.Koerner@EXAMPLE.com")
     serving = confirmed_row(inactive_since=None)
 
     assert moved is not None and moved.error_code == Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE
