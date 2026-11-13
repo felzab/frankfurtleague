@@ -1,7 +1,4 @@
-import { UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
-import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
+import { CONFIRMED_CHIP, OBJECTED_CHIP, RETIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -24,17 +21,16 @@ export function confirmationStateOf({
 }
 
 /**
- * The chip after a referee's name, the list's and the editor's head alike: „Stillgelegt“ once retired, else where an
- * entry not yet confirmed stands. A confirmed entry has none here: the editor's head names no default, and the list's
- * „Stand“ column draws „Bestätigt“ in its place.
+ * The chip after a referee's name, the list's „Stand“ column's and the editor's head alike: „Stillgelegt“ once retired,
+ * else where the entry stands.
  */
-export function refereeChip(referee: Pick<FLSchiedsrichter, "inactive_since" | "einwilligung" | "confirmation">): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
+export function refereeChip(referee: Pick<FLSchiedsrichter, "inactive_since" | "einwilligung" | "confirmation">): ChipProps {
+  if (referee.inactive_since !== null) return RETIRED_CHIP;
   switch (confirmationStateOf(referee)) {
     case "confirmed":
-      return undefined;
+      return CONFIRMED_CHIP;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
+      return OBJECTED_CHIP;
     case "unanswered":
     case "unasked":
       return UNCONFIRMED_CHIP;

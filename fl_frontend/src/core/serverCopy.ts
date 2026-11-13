@@ -265,8 +265,6 @@ export const SERVER_COPY = catalogue({
       bewerbungen: COPY.page.adminBewerbungen,
     } satisfies Record<FLOverviewCardName, string>,
     answerDue: "Antwort heute fällig",
-    /** By the deadline the clubs' answer was due on, the earliest where the row's clubs were given several. */
-    answerOverdue: (deadline: CalendarDay) => `Antwort ${boundBy("seit", formatDate(deadline))} überfällig`,
     /** What a fixture lacks, by its own word: „Termin“, or the label its box carries in the match editor. */
     missing: (label: Copy) => `${label} fehlt`,
     /** A report awaiting the administrator, by the state it reads in. */
@@ -1269,7 +1267,7 @@ export const SERVER_COPY = catalogue({
    */
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
-    objected: "Widersprochen",
+    objected: COPY.admin.objected,
   },
 
   /**

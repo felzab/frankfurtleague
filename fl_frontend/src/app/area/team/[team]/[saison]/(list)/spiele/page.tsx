@@ -6,6 +6,7 @@ import { EXPIRED_CHIP } from "@/kit/stateChips";
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
 import { headedMatchOf } from "@/features/spiele/blocks";
 import { getTeamSpiele } from "@/features/spiele/queries";
@@ -44,7 +45,7 @@ function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps
   if (spielbestaetigung === "expired") return EXPIRED_CHIP;
   if (aufstellung === null || aufstellung.stored) return undefined;
   if (aufstellung.phase === "open") return { tone: "warn", label: missing(SERVER_COPY.season.spiel.aufstellung) };
-  if (aufstellung.phase === "overdue") return { tone: "danger", label: COPY.area.team.aufstellung.overdueOnCard };
+  if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.area.team.aufstellung.overdueOnCard };
   return undefined;
 }
 

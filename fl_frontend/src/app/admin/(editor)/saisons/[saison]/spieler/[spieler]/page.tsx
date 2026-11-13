@@ -18,7 +18,7 @@ import { ROUTES } from "@/core/routes";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, stufeOptions } from "@/features/spieler/options";
 import { getSpielerSaison } from "@/features/spieler/queries";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -147,12 +147,12 @@ async function readEditor(params: Props["params"]) {
   if (located === null) notFound();
   const { id, saison, found } = located;
   const { kader } = found;
-  const chip = rowChip(kader);
+  const chip = rowState(kader);
 
   return (
     <SpielerEditor
       title={{ record: kaderName(found.person) }}
-      {...(chip === undefined ? {} : { chip })}
+      chip={chip}
       record={{ id, version: found.version, values: valuesOf(found) }}
       saison={saison}
       save={saveSpieler}

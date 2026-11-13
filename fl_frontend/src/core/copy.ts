@@ -169,8 +169,6 @@ const PRIVACY_NOTICE = "Datenschutz";
 const RETIREMENT = "Stilllegung";
 // An act locked until its people confirmed: a pupil's admission and an application's acceptance alike.
 const AFTER_CONFIRMATION = "Erst nach Bestätigung";
-// The season's start having passed, as an act's reason.
-const LOCKED_SINCE_START = "Seit Saisonbeginn gesperrt";
 
 /**
  * Each reason an editor's fields can stand locked for, as its lock line says it after „Gesperrt“, in the order the
@@ -187,10 +185,15 @@ const LOCK = {
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
   departed: "seit dem Ausscheiden",
+  /** The person confirmed their entry, which fixes the address their sign-in is keyed to: only an address change moves it. */
+  confirmed: "seit der Bestätigung",
 } as const;
 
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
+
+// The season's start having passed, as an act's reason, in the lock line's words.
+const LOCKED_SINCE_START = `Gesperrt ${LOCK.sinceStart}`;
 
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
@@ -213,6 +216,8 @@ const BANS = "Sperren";
 const EFFECTIVE_FROM = "Gilt ab";
 // A link's last moment, a fact's label and a row's line alike.
 const VALID_UNTIL = "Gültig bis";
+// The day a record was entered, a fact's label and a row's line alike.
+const ENTERED_ON = "Eingetragen am";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -1078,6 +1083,8 @@ export const COPY = catalogue({
     /** The chip of a contact seat, and of a registration where it says confirmed. */
     confirmed: "Bestätigt",
     expired: "Abgelaufen",
+    /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
+    objected: "Widersprochen",
     erased: DELETED,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
@@ -1104,7 +1111,7 @@ export const COPY = catalogue({
       after: AFTER,
       fromNow: "Ab sofort",
       mailTo: "E-Mail an",
-      enteredOn: "Eingetragen am",
+      enteredOn: ENTERED_ON,
       effectiveFrom: EFFECTIVE_FROM,
     },
     /** The place of an address the log's erasure step replaced, in „Wer“. */
@@ -1453,10 +1460,9 @@ export const COPY = catalogue({
     /** The Spieler list and its editor. */
     spieler: {
       search: "Spieler suchen",
-      /** A row's chips, and with `inKader` the state filter's options. */
+      /** A row's chips, and with `team.active` the state filter's options. */
       nominee: "Nachnominiert",
       deregistered: "Ausgetragen",
-      inKader: "Im Kader",
       nummerDouble: "Nummer doppelt",
       /** The editor's boxes and fields. */
       person: "Person",
@@ -1532,6 +1538,12 @@ export const COPY = catalogue({
       duration: "Dauer",
       /** The column naming the day a ban ends. */
       until: VALID_UNTIL,
+      /**
+       * A ban's line on a phone, whose box leaves its three columns out, in their order: the Grund, which says what it is,
+       * then each date after its column's label, „Beleidigungen · Gültig bis Saison 2027 · Eingetragen am 12.11.2026“.
+       */
+      phoneLine: (reason: Words, until: Copy, day: CalendarDay) =>
+        lineOf([textOf(reason), boundBy(VALID_UNTIL, until), boundBy(ENTERED_ON, formatDate(day))]),
       durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
       /** The toast once the ban stands, by what did not follow it. */
       partial: {

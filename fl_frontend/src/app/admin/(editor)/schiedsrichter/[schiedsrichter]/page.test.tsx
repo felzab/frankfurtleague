@@ -49,12 +49,6 @@ const confirmed = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleRespo
 
 const sent: FLOutboxStatus = { state: "sent", delivery: null, undeliverable: false };
 const barred: FLOutboxStatus = { state: "barred", delivery: null, undeliverable: true };
-// A complaint follows a delivery: the person confirmed through the link, then marked the mail as spam.
-const complaint: FLOutboxStatus = {
-  state: "sent",
-  delivery: { state: "complaint", reason: null, at: "2026-11-04T08:00:00Z" },
-  undeliverable: true,
-};
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
@@ -86,18 +80,11 @@ describe("the chips after a referee's name", () => {
     });
   });
 
-  it("set a confirmed entry's mail trouble alone, it carrying no state chip", async () => {
-    expect(await chipsFor(confirmed(complaint))).toStrictEqual({
-      chip: { tone: "danger", label: COPY.admin.delivery.complaint },
-      flag: undefined,
-    });
-  });
-
   it("set the state's chip alone where the mail met none", async () => {
     expect(await chipsFor(unanswered(sent))).toStrictEqual({
       chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
       flag: undefined,
     });
-    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: undefined, flag: undefined });
+    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: { tone: "success", label: COPY.admin.confirmed }, flag: undefined });
   });
 });
