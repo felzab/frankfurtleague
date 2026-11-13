@@ -3,7 +3,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, Final, NamedTuple
+from typing import Any, Final, Literal, NamedTuple
 
 from app.api.bewerbungen.services import days_after
 from app.api.invitations.services import confirmed_recipients
@@ -972,10 +972,9 @@ def spiel_mail_ansetzung_of(view: FLSpielbestaetigungViewAnsetzung) -> FLSpielMa
 def notice_data_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, appointment: FLSpielMailAppointment) -> FLOutboxData:
     """The notice a closing for `reason`, or a discard, owes a party of `party_kind`."""
 
-    recipient = "schiedsrichter" if party_kind == "schiedsrichter" else "team"
     # A move's notice is `moved_notice_of`'s, which names the slot moved to as well, and a call-off's is
     # `cancelled_notice_of`'s, which names the event.
-    if reason == "schiedsrichter_switched" or (reason in REASONS_OWING_A_REFEREE and recipient == "schiedsrichter"):
+    if reason == "schiedsrichter_switched" or (reason in REASONS_OWING_A_REFEREE and party_kind == "schiedsrichter"):
         return FLSpielEinteilungLiftedData(kind="spiel_einteilung_lifted", appointment=appointment)
     if reason == "discarded":
         return FLSpielVorschlagDiscardedData(kind="spiel_vorschlag_discarded", appointment=appointment)
@@ -983,12 +982,18 @@ def notice_data_of(*, reason: FLSpielbestaetigungClosedReason, party_kind: str, 
     raise ValueError(f"a closing for {reason} owes no notice")
 
 
+def _recipient_of(party_kind: str) -> Literal["team", "schiedsrichter"]:
+    """Who a notice to a party of `party_kind` is worded for."""
+
+    return "schiedsrichter" if party_kind == "schiedsrichter" else "team"
+
+
 def cancelled_notice_of(*, party_kind: str, appointment: FLSpielMailAppointment, sonderereignis: FLSpielNoticeEvent) -> FLSpielNoticeData:
     """The notice a closing for `cancelled` owes a party of `party_kind`: the slot it was asked about, and what befell it."""
 
     return FLSpielNoticeData(
         kind="spiel_cancelled",
-        recipient="schiedsrichter" if party_kind == "schiedsrichter" else "team",
+        recipient=_recipient_of(party_kind),
         appointment=appointment,
         sonderereignis=sonderereignis,
     )
@@ -1001,7 +1006,7 @@ def moved_notice_of(
 
     return FLSpielMovedData(
         kind="spiel_moved",
-        recipient="schiedsrichter" if party_kind == "schiedsrichter" else "team",
+        recipient=_recipient_of(party_kind),
         appointment=appointment,
         moved_to=moved_to,
         asked_again=asked_again,
