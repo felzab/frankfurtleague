@@ -452,7 +452,7 @@ async function ListBody({ list }: { list: ListContent }) {
  * in it shows its empty state in its place.
  *
  * The page arrives whole: every part it reads, the list and whatever its read decides around it, holds the page until
- * it is drawn.
+ * it is rendered, and the page is sent as one document.
  */
 export function ListPage({
   head,
