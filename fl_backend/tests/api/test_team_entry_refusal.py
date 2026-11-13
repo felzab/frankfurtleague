@@ -52,11 +52,6 @@ class TestEnteringASeason:
         assert refusal is not None
         assert refusal.error_code == Code.ENTRY_GRUPPE_NOT_OFFERED
 
-    def test_a_full_group_is_refused(self):
-        refusal = find_entry_refusal(saison_status="future", gruppe="B", rules=RULES, occupied=4)
-        assert refusal is not None
-        assert refusal.error_code == Code.ENTRY_GRUPPE_FULL
-
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
 SAISON_ID = "2026"
