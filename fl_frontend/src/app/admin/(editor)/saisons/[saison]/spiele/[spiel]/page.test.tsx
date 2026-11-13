@@ -108,12 +108,22 @@ describe("the match editor's links to the line-ups", () => {
   });
 
   // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
-  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs.
-  it("draws no row for a match carrying any event", async () => {
+  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs; or
+  // drawn with no row, so the league loses the way to the line-up it still enters and the counts it stored.
+  it("keeps each side's row on a match carrying any event, saying nothing is owed", async () => {
     for (const sonderereignis of Object.values(FLSonderereignis)) {
       const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
 
-      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([]);
+      const words = COPY.area.team.aufstellung;
+      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([
+        {
+          id: "team1",
+          href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM1}`,
+          name: words.ofTeam({ record: "Ahorn" }),
+          line: words.counts(14, 11, 11),
+        },
+        { id: "team2", href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM2}`, name: words.ofTeam({ record: "Eiche" }) },
+      ]);
     }
   });
 });
@@ -250,12 +260,26 @@ describe("the match editor's answers", () => {
     expect(editor.props.answers.find(({ id }) => id === "schiedsrichter")?.line).toStrictEqual(line);
   });
 
-  // The harm: a party drawn as owing an answer on a match an event ended, which takes none.
-  it("draws no answer for a match carrying any event", async () => {
+  // The harm: a party drawn as owing an answer on a match an event ended, which takes none; or an answer a party gave
+  // dropped with it, so the league loses what a club said of the match.
+  it("keeps only the answers given on a match carrying any event", async () => {
+    const referee = "64b000000000000000000005";
+    const rows = [
+      row("expired"),
+      row("declined", { party: { kind: "team", team_id: TEAM2 }, answer: { ...agreement, kind: "declined" } }),
+      row("agreed", { party: { kind: "schiedsrichter", schiedsrichter_id: referee }, answer: agreement }),
+    ];
     for (const sonderereignis of Object.values(FLSonderereignis)) {
-      const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis }, spielbestaetigungen: [row("cancelled")] });
+      const editor = await editorOver({
+        ...VIEW,
+        spiel: { ...VIEW.spiel, sonderereignis, schiedsrichter: { schiedsrichter_id: referee, name: "Kiefer", payment: 25 } },
+        spielbestaetigungen: rows,
+      });
 
-      expect(editor.props.answers, sonderereignis).toStrictEqual([]);
+      expect(
+        editor.props.answers.map(({ id }) => id),
+        sonderereignis,
+      ).toStrictEqual(["team2", "schiedsrichter"]);
     }
   });
 });

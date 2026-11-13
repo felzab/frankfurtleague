@@ -236,51 +236,50 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
 
 /**
  * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
- * the answer or that it lapsed: both clubs, then the referee where a booking names one. A match carrying an event takes
- * no confirmation, the event ending every question about it, so it shows none, as the referee's own list shows the
- * event in their place.
+ * the answer or that it lapsed: both clubs, then the referee where a booking names one. An event ends every question
+ * still owed about the match, so on a match carrying one only a party that agreed or declined shows, its answer being
+ * what it said of the match before the event.
  */
 function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
-  if (spiel.sonderereignis !== null) return [];
+  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
+    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row)] : [];
   // The rows are served newest first, so a party's first row is its newest.
   const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
       ? []
-      : [
-          answerRow(
-            side,
-            { record: team.name },
-            team.shorthand,
-            rows.find((row) => row.party.kind === "team" && row.party.team_id === team.team_id),
-          ),
-        ];
+      : party(
+          side,
+          { record: team.name },
+          team.shorthand,
+          rows.find((row) => row.party.kind === "team" && row.party.team_id === team.team_id),
+        );
   const booked = spiel.schiedsrichter;
   // A booking naming nobody, which an erasure leaves on a played match, has no party to ask or to answer.
   const referee =
     booked === null || booked.name === null
       ? []
-      : [
-          answerRow(
-            "schiedsrichter",
-            { record: booked.name },
-            null,
-            rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
-          ),
-        ];
+      : party(
+          "schiedsrichter",
+          { record: booked.name },
+          null,
+          rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
+        );
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
 }
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
  * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
- * too. A side the draw has not settled has no club to name one; a match with no day or hour owes none, and one carrying
- * any event owes none either, as the club's own pages read it, so neither shows a row.
+ * too. A side the draw has not settled has no club to name one, and a match with no day or hour owes none, so neither
+ * shows a row. A match carrying any event owes none either, as the club's own pages read it, yet the league still enters
+ * its line-ups: each row stays with what is stored, and nothing on it says one is owed.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
+  if (spiel.date === null || spiel.time === null) return [];
   // The served marks read the clock alone and never the event, so the page judges the event itself.
-  if (spiel.date === null || spiel.time === null || spiel.sonderereignis !== null) return [];
+  const owed = spiel.sonderereignis === null;
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];
@@ -288,14 +287,15 @@ function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowPro
     const stored = aufstellungen[side];
     const mark = marks[side];
     // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
-    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase === "locked" ? "overdue" : mark.phase];
+    const chip = !owed || mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase === "locked" ? "overdue" : mark.phase];
+    const line = stored !== null ? words.counts(stored.count, stored.starters, STARTERS_MAX) : owed ? words.missing : undefined;
     return [
       {
         id: side,
         href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
         name: words.ofTeam({ record: club.name }),
         ...(chip === undefined ? {} : { chip }),
-        line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
+        ...(line === undefined ? {} : { line }),
       },
     ];
   });
