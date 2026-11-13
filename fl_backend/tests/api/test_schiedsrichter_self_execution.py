@@ -199,8 +199,7 @@ class TestTheSeasonsFixtures:
         answer = answered(mongo_replica_set_url, own_spiele())
 
         assert [
-            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis)
-            for entry in answer.spiele
+            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
         ] == [
             (REPORT_OWED, "agreed", False, True, None),
             (TO_ANSWER, "valid", False, False, None),
