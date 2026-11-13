@@ -81,4 +81,20 @@ describe("one club's matches under their matchdays", () => {
 
     expect(landed.querySelector("main")?.textContent).toBe(COPY.shared.empty.none(COPY.page.spiele));
   });
+
+  // The harm: a matchday's head a rung too low, so a screen reader's outline skips from the page's title to a third
+  // level with no second between, and nothing on screen shows it.
+  it("heads each matchday on the rung under the page's title", async () => {
+    const head = COPY.shared.spieltag(1);
+    const spiel = {
+      id: "6890a1b2c3d4e5f607250021",
+      when: COPY.spielplan.when(null, null),
+      team1: { name: { record: "Heim" }, plaque: { record: "HEI" } },
+      team2: { name: { record: "Gast" }, plaque: { record: "GAS" } },
+    };
+    const { landed } = await drawn({ groups: [{ head, spiel }], empty: EMPTY });
+
+    expect(landed.querySelector("main h2")?.textContent).toBe(head);
+    expect(landed.querySelector("main h3")).toBeNull();
+  });
 });
