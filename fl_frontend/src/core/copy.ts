@@ -216,6 +216,8 @@ const BANS = "Sperren";
 const EFFECTIVE_FROM = "Gilt ab";
 // A link's last moment, a fact's label and a row's line alike.
 const VALID_UNTIL = "Gültig bis";
+// The day a record was entered, a fact's label and a row's line alike.
+const ENTERED_ON = "Eingetragen am";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -1109,7 +1111,7 @@ export const COPY = catalogue({
       after: AFTER,
       fromNow: "Ab sofort",
       mailTo: "E-Mail an",
-      enteredOn: "Eingetragen am",
+      enteredOn: ENTERED_ON,
       effectiveFrom: EFFECTIVE_FROM,
     },
     /** The place of an address the log's erasure step replaced, in „Wer“. */
@@ -1536,6 +1538,12 @@ export const COPY = catalogue({
       duration: "Dauer",
       /** The column naming the day a ban ends. */
       until: VALID_UNTIL,
+      /**
+       * A ban's line on a phone, whose box leaves its three columns out, in their order: the Grund, which says what it is,
+       * then each date after its column's label, „Beleidigungen · Gültig bis Saison 2027 · Eingetragen am 12.11.2026“.
+       */
+      phoneLine: (reason: Words, until: Copy, day: CalendarDay) =>
+        lineOf([textOf(reason), boundBy(VALID_UNTIL, until), boundBy(ENTERED_ON, formatDate(day))]),
       durationSaisons: (count: number) => (count === 1 ? "1\u00A0Saison" : boundBy(formatNumber(count), "Saisons")),
       /** The toast once the ban stands, by what did not follow it. */
       partial: {

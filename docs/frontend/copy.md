@@ -150,6 +150,10 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
   done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
+- **A column a narrow box leaves out** holds no fact the row shows nowhere else: where the row
+  itself opens no page or dialog holding it, the row's phone line carries it, after its column's
+  label where the value alone would not say what it is („Gültig bis Saison 2027“). An act's
+  question is no such place, since nobody opens a removal to read a date.
 - **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
   day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
 - **A lock is said once, in an editor's lock line**, muted under its title: the reasons alone, each

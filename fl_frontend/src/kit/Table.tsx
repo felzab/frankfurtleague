@@ -56,7 +56,9 @@ type TableColumn = {
   /**
    * A secondary column, such as the day an administrator's access began: left out on a phone, a box narrower than
    * 42 rem on any screen, whose row keeps its name, its chips after it and at most a narrow column. Every secondary
-   * column leaves at that one width, so the room it frees is the name's and its chips' wherever the row stacks.
+   * column leaves at that one width, so the room it frees is the name's and its chips' wherever the row stacks. What
+   * it holds stands somewhere a phone still reaches: a page or a dialog the row itself opens, or else the row's
+   * `phoneLine`, after the column's label where the value alone would not say what it is.
    */
   (
     | { hideOnPhone?: boolean; phoneOnly?: never; narrow?: never }
