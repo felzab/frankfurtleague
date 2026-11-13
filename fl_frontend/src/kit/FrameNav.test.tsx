@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 
-import type { ReactNode } from "react";
 import type { RailGroup, Saisons } from "./FrameNav";
 
 const address = vi.hoisted(() => ({ path: "", saison: undefined as string | undefined, team: undefined as string | undefined }));
@@ -19,8 +20,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined }),
 }));
 
-// The sheet's list, drawn in place: how the sheet opens is its own test's.
-vi.mock("./Sheet", () => ({ Sheet: ({ children }: { children: ReactNode }) => <>{children}</> }));
+// jsdom lays nothing out, so it sees nothing come into view, which is how React Aria's sheet knows it has slid in.
+beforeEach(() => {
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe(): void {}
+      disconnect(): void {}
+    },
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const GROUPS: RailGroup[] = [
   { entries: [{ id: "overview", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }] },
@@ -62,6 +75,18 @@ describe("the entry marked as the current page", () => {
     await renderMenus(ROUTES.adminSaisons.path(), null);
 
     expect(lit()).toEqual([ROUTES.adminSaisons.title, ROUTES.adminSaisons.title]);
+    // „Mehr“'s sheet, holding the two season pages the bar leaves out, which lead to that address too.
+    await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
+    const sheet = await screen.findByRole("dialog", { name: COPY.template.more });
+    expect(
+      within(sheet)
+        .getAllByRole("link")
+        .map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      [ROUTES.adminSpiele.title, ROUTES.adminSaisons.path()],
+      [ROUTES.adminTeams.title, ROUTES.adminSaisons.path()],
+    ]);
+    expect(within(sheet).queryAllByRole("link", { current: "page" })).toEqual([]);
   });
 
   it("is the one season page of a frame holding no season, at the address it leads to meanwhile", async () => {
