@@ -19,7 +19,7 @@ const brand = tv({
       // The wordmark gives way to the mark alone where the band runs short, as at 200 % text, and in the
       // rail collapsed to its glyphs, where the mark takes a 24-px box so the rail head's 24-px inset
       // centres it in the 72-px rail; `lg:`, since the same band heads a phone's frame. On a touch screen the link is
-      // the kit's 40-px control at least, the mark alone centred in it.
+      // the kit's 40-px control at least, its content centred in it.
       band: {
         root: "justify-center pointer-coarse:h-10 pointer-coarse:min-w-10",
         mark: "text-brand-accent lg:group-data-collapsed:w-6",
