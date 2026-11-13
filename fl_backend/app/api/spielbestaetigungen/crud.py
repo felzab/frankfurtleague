@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any, Final
 
@@ -201,6 +201,22 @@ async def anchor_the_referees_told(
     """
 
     await anchor_in_db(collection=schiedsrichter_collection, db_filter={"_id": {"$in": list(schiedsrichter_ids)}}, session=session)
+
+
+async def anchor_the_spiele_acted_on(
+    *,
+    spiele_collection: AsyncCollection,
+    spiel_ids: Iterable[Any],
+    # Committed on its own, the anchor conflicts with no save.
+    session: AsyncClientSession,
+) -> None:
+    """Write the fixtures a step of the pass writes rows or owes mails about, as it read them.
+
+    A save moving one of them writes nothing else the step writes, so without this write both commit and the step's
+    mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left it.
+    """
+
+    await anchor_in_db(collection=spiele_collection, db_filter={"_id": {"$in": sorted(set(spiel_ids), key=str)}}, session=session)
 
 
 # --- An Austritt's opponents.
