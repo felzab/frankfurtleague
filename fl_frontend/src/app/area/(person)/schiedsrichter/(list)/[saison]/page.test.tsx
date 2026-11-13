@@ -1,26 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
-
-import { SchiedsrichterOverview } from "./page";
 
 import type { FLSchiedsrichterSpiel } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { ReactElement } from "react";
 
-const state = vi.hoisted(() => ({ spiele: [] as unknown[] }));
+/** The games the backend holds for the referee in 2027, which each case sets. */
+const held = { spiele: [] as FLSchiedsrichterSpiel[] };
 
-vi.mock("@/features/roles/resolvers", () => ({
-  requireRole: () => Promise.resolve({}),
-  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
-}));
-vi.mock("@/features/roles/queries", () => ({
-  readOwnSaisons: () => Promise.resolve({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
-}));
-vi.mock("@/features/schiedsrichter/queries", () => ({
-  getOwnSpiele: () => Promise.resolve({ saison_id: "2027", spiele: state.spiele }),
-}));
+const SAISON_2027 = { id: "2027", start_date: "2026-09-01", end_date: "2027-07-31" };
+
+// The page's three reads: the seasons the referee's bookings stand in, the public frame naming the running season, and
+// the referee's games of the address's season. Any other read, another season's games among them, fails the case.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/schiedsrichter/self/saisons") return { saisons: [SAISON_2027] };
+  if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
+  if (path === "/schiedsrichter/self/spiele/2027") return { saison_id: "2027", spiele: held.spiele };
+  return undefined;
+});
+// A referee, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "5f00000000000000000000ee" }] } });
+const { SchiedsrichterOverview } = await import("./page");
 
 /** A booking still to answer, a fixture to come; each case moves what it is about. */
 const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel => ({
@@ -46,7 +51,7 @@ type Row = { chip?: ChipProps; acts?: ReactElement<{ id: string }> };
 
 /** The rows the page draws for these games. */
 async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
-  state.spiele = [...spiele];
+  held.spiele = [...spiele];
   const page = SchiedsrichterOverview({ saison: Promise.resolve("2027") }) as {
     props: { list: { content: Promise<{ cards: ReadonlyArray<{ rows: readonly Row[] }> }> } };
   };
