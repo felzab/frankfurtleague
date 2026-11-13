@@ -699,8 +699,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     the two 18 seats carry that too.
 25. **The Ansprechperson and the seat holders as recipients**: whether the mails naming the other
     seats make the Ansprechperson a recipient under Art. 4(9), as section 3 and the notice treat
-    them. And whether the notice must also name every seat holder of a season row as a recipient of
-    the other seats' names and whether each confirmed (section 3), which it does not say.
+    them. The same holds for every seat holder of a season row, whom section 3 and the notice name
+    as a recipient of the other seats' names and of whether each confirmed.
 26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
