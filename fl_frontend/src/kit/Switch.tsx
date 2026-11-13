@@ -27,7 +27,7 @@ export function SwitchPlaceholder({ label }: { label: string }) {
 
 /**
  * A yes or no that takes effect at once, or reveals an optional part of a saved form beneath it. Its
- * label names the action the switch performs, never the state it shows. Held fixed by its record, it stands disabled
+ * label names the action the switch performs, never the state it shows. Held fixed by its record, it stands read-only
  * with the lock mark after its label, as a field's label carries it (`useFieldLock`).
  */
 export function Switch({
@@ -56,7 +56,8 @@ export function Switch({
       name={name}
       isSelected={isSelected}
       onChange={onChange}
-      isDisabled={lock.isDisabled}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <SwitchButton className={toggleRow({ in: "field" })}>
         {({ isSelected: selected }) => (
           <>

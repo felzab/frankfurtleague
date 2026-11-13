@@ -126,7 +126,7 @@ function DangerRow({ act }: { act: DangerAct }) {
  * line names no field and no box carries a note for it. The line's place stands in every editor, empty where nothing
  * is locked, at one line's height in every state and in the wait (`lockSlot`), so nothing moves when the editor lands.
  * The warn hue is left to what a change being made will cause. A record its season no longer lets change opens
- * `closed`, read-only rather than open to a save the write refuses: every field disabled, its reason in the lock line,
+ * `closed`, read-only rather than open to a save the write refuses: every field read-only, its reason in the lock line,
  * and neither the danger box nor the bar, since there is nothing to save. The chip after the title
  * is the record's own state, as its list and its card show it, a phase that locks the record included, such as a
  * line-up's „Gesperrt“, and the lock line says why. A danger box

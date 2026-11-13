@@ -10,6 +10,8 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { FieldLabel, MessageLine } from "./FieldParts";
 import { FormClosed } from "./formClosed";
+import { Select } from "./Select";
+import { TextField as KitTextField } from "./TextField";
 
 import type { ComponentProps } from "react";
 
@@ -56,6 +58,36 @@ describe("a field's label", () => {
       `${COPY.signIn.address} *`,
       COPY.signIn.address,
     ]);
+  });
+});
+
+// The harm: a keyboard user passes over every value a record holds fixed, and a screen reader never reads it, which no
+// sighted reader sees.
+describe("a locked field", () => {
+  it("is reached by Tab and read as read-only, a select's chosen answer included", async () => {
+    render(
+      <>
+        <KitTextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isLocked
+          value="Lena"
+        />
+        <Select
+          label={COPY.signIn.address}
+          options={[{ id: "a", label: { record: "Gruppe A" } }]}
+          isLocked
+          value="a"
+        />
+      </>,
+    );
+    const fields = screen.getAllByRole<HTMLInputElement>("textbox");
+    expect(fields.map((field) => field.value)).toStrictEqual(["Lena", "Gruppe A"]);
+    for (const field of fields) {
+      await userEvent.tab();
+      expect(document.activeElement).toBe(field);
+      expect(field.readOnly).toBe(true);
+    }
   });
 });
 

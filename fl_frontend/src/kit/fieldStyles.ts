@@ -7,6 +7,11 @@ import { tv } from "./tv";
  * combo box opens. Each is a `tv()` recipe, which the class lint reads. A border's colour is named
  * because a border naming none takes its element's text colour.
  *
+ * A disabled control dims to half, since nothing can be done with it until something else is given. A read-only one, a
+ * locked or a closed field, keeps the enabled colours, since its value is the record's own data to read, as Carbon's
+ * read-only state keeps the enabled text colour, and a pressable box or answer drops its pointing hand, since a press
+ * changes nothing.
+ *
  * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
  * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
  * the exception that criterion makes for inline targets. A control drawn at that height is its own target; one drawn
@@ -249,7 +254,7 @@ export const toggleField = tv({ base: "grid w-full grid-cols-[auto_minmax(0,1fr)
  * a line's 20 px, by the touch rule at this file's head.
  */
 export const toggleRow = tv({
-  base: "group/toggle cursor-pointer items-start text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 pointer-coarse:py-2.5",
+  base: "group/toggle cursor-pointer items-start text-sm text-fg data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default pointer-coarse:py-2.5",
   variants: {
     // A radio's answer stands alone; a checkbox's or a switch's row takes its field's two columns.
     in: {
@@ -314,7 +319,7 @@ export const radioList = tv({
  */
 export const choiceCard = tv({
   slots: {
-    card: `grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand ${hoverLook({ host: "aria" })}`,
+    card: `grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 rounded-lg border border-border-control bg-transparent p-4 text-sm text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default data-selected:border-brand data-selected:inset-ring-1 data-selected:inset-ring-brand ${hoverLook({ host: "aria" })}`,
     words: "grid gap-1",
     title: "font-semibold",
     line: "text-xs text-fg-muted",
@@ -436,7 +441,7 @@ export const choiceGroup = tv({
  * declined one on a card as on the page. Under the pointer and pressed, chosen or not, each takes the one hover layer.
  */
 export const choiceButton = tv({
-  base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-selected:font-semibold",
+  base: "inline-flex cursor-pointer items-center justify-center text-sm font-medium whitespace-nowrap text-fg transition-colors duration-(--motion-state) data-disabled:cursor-default data-disabled:opacity-50 data-readonly:cursor-default data-selected:font-semibold",
   variants: {
     kind: {
       // Drawn inside its frame's 2-px inset and 1-px edge, 26 px with a mouse and 34 on a touch screen; its press target
