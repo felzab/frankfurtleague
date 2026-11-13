@@ -222,6 +222,13 @@ class TestANewlyNamedPupilIsInTheSquad:
 
         assert refused_with(Code.SPIELER_NOT_IN_KADER, find_not_in_kader_refusal(context=context(), new=new))
 
+    def test_a_live_pupil_of_the_other_side_is_refused(self):
+        """The second side's pupil credited to the first: a squad of the two sides together would take them."""
+
+        new = newly_named(FLSpielberichtBerichtPayload.model_validate(payload([tor("team1", LIVE2)])), None, spiel())
+
+        assert refused_with(Code.SPIELER_NOT_IN_KADER, find_not_in_kader_refusal(context=context(), new=new))
+
 
 # The clubs `spiel` fields, as the report's last write found them.
 SIDES: dict[FLSpielSide, ObjectId | None] = {"team1": TEAM1, "team2": TEAM2}
