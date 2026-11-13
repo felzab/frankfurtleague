@@ -163,7 +163,7 @@ async function readEditor(params: Props["params"]) {
       team={team.id}
       saison={saison.id}
       title={{ record: team.full_name }}
-      {...(chip === undefined ? {} : { chip })}
+      chip={chip}
       {...(closed === undefined ? {} : { closed })}
       record={{ id: team.id, version: read.version, values: valuesOf(team, membership) }}
       save={saveTeam}
