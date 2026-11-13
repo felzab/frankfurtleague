@@ -52,6 +52,7 @@ describe("an act's answer as its toast", () => {
       toastAnswer({ ok: true, value: undefined }, COPY.shared.toast.agreed);
       toastAnswer({ ok: false, reason: COPY.shared.failure.stale }, COPY.shared.toast.agreed);
       toastAnswer({ ok: false, reason: COPY.admin.banList.partial.sessions, warn: true }, COPY.shared.toast.agreed);
+      toastAnswer({ ok: true, value: undefined, note: COPY.admin.banList.partial.notice, warn: true }, COPY.shared.toast.agreed);
     });
 
     act(() => vi.runAllTimers());
@@ -59,10 +60,12 @@ describe("an act's answer as its toast", () => {
     expect(screen.queryByText(COPY.shared.toast.agreed)).toBeNull();
     expect(screen.getByText(COPY.shared.failure.stale)).toBeTruthy();
     expect(screen.getByText(COPY.admin.banList.partial.sessions)).toBeTruthy();
+    expect(screen.getByText(COPY.admin.banList.partial.notice)).toBeTruthy();
 
     for (const close of screen.getAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
 
     expect(screen.queryByText(COPY.shared.failure.stale)).toBeNull();
     expect(screen.queryByText(COPY.admin.banList.partial.sessions)).toBeNull();
+    expect(screen.queryByText(COPY.admin.banList.partial.notice)).toBeNull();
   });
 });
