@@ -818,7 +818,15 @@ async def swap_gruppen(
         # judgement conflicts and the retry judges the season it left.
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # The fixtures the rewrite moves, read once for the refusal below too, so the two cannot disagree.
+        refuse(
+            find_gruppe_swap_refusal(
+                team1_gruppe=gruppe_of.get(swap_data.team1_id),
+                team2_gruppe=gruppe_of.get(swap_data.team2_id),
+                saison_status=str(saison_raw["status"]),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+            )
+        )
+
         gruppenphase_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={
@@ -828,15 +836,6 @@ async def swap_gruppen(
             },
             projection=["team1.team_id", "team2.team_id"],
             session=session,
-        )
-
-        refuse(
-            find_gruppe_swap_refusal(
-                team1_gruppe=gruppe_of.get(swap_data.team1_id),
-                team2_gruppe=gruppe_of.get(swap_data.team2_id),
-                saison_status=str(saison_raw["status"]),
-                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
-            )
         )
 
         rewritten = await _rewrite_gruppenphase_sides(

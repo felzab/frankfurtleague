@@ -863,14 +863,6 @@ async def replace_saison_team(
             session=session,
         )
 
-        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
-        spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id"],
-            session=session,
-        )
-
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
@@ -878,6 +870,14 @@ async def replace_saison_team(
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
+        )
+
+        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
+        spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            projection=["team1.team_id", "team2.team_id"],
+            session=session,
         )
 
         # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
