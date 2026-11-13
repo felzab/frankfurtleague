@@ -598,7 +598,7 @@ def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
     """The round this season's bracket opens on, or `None` where it plays none.
 
     Off the rounds the season holds rather than a phase name: four
-    qualifiers open at the Halbfinale, two at the Finale.
+    qualifiers open at the Halbfinale, sixteen at the Achtelfinale.
     """
 
     ranks = [PHASE_RANK[spiel.saison_phase] for spiel in spiele if spiel.saison_phase != "gruppenphase"]

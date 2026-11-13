@@ -39,7 +39,7 @@ reads like a constant of this league is nearly always one some season chose for 
   - one pupil's registration to play it (`registrierungen`);
   - one minted registration link (`invitations`);
   - one party's answer about one fixture's Ansetzung (`spielbestaetigungen`);
-  - one fixture's report by its referee or an administrator (`spielberichte`);
+  - one fixture's report by its referee (`spielberichte`);
   - one club's line-up for one fixture (`aufstellungen`);
   - one change of the address a person signs in on (`address_changes`);
   - one barred address (`ban_list`);
