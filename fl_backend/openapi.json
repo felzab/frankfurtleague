@@ -11683,7 +11683,7 @@
         "type": "object"
       },
       "FLSpielEditorAufstellungMarks": {
-        "description": "Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.",
+        "description": "Each side's line-up marks, off the clock alone, as the club's own pages are served them.\n\nNull for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,\nwhich a page reads off its `sonderereignis`, as the club's own pages do.",
         "properties": {
           "team1": {
             "anyOf": [
@@ -12595,7 +12595,8 @@
         "required": [
           "kind",
           "recipient",
-          "appointment"
+          "appointment",
+          "sonderereignis"
         ],
         "title": "FLSpielNoticeData",
         "type": "object"
@@ -14266,7 +14267,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungEditorRow": {
-        "description": "A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.\n\n`expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed\nthat the party may still answer, or open that it may not.",
+        "description": "A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.\n\nThe close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or\nunasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
@@ -14307,10 +14308,6 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Deadline",
             "type": "string"
-          },
-          "expired": {
-            "title": "Expired",
-            "type": "boolean"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -14355,6 +14352,19 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
             "type": "string"
+          },
+          "state": {
+            "enum": [
+              "valid",
+              "vorschlag",
+              "agreed",
+              "declined",
+              "expired",
+              "invalid",
+              "cancelled"
+            ],
+            "title": "State",
+            "type": "string"
           }
         },
         "required": [
@@ -14368,7 +14378,7 @@
           "reminded_at",
           "answer",
           "closed",
-          "expired"
+          "state"
         ],
         "title": "FLSpielbestaetigungEditorRow",
         "type": "object"

@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import Field
 
 from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
-from app.api.aufstellungen.services import aufstellung_marks
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.saisons.services import has_started
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
@@ -26,7 +26,7 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
@@ -110,20 +110,24 @@ class FLSpielEditorAufstellungen(BaseReadModel):
 
 
 class FLSpielEditorAufstellungMarks(BaseReadModel):
-    """Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour."""
+    """Each side's line-up marks, off the clock alone, as the club's own pages are served them.
+
+    Null for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,
+    which a page reads off its `sonderereignis`, as the club's own pages do.
+    """
 
     team1: FLAufstellungMarks | None
     team2: FLAufstellungMarks | None
 
 
 class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
-    """A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
+    """A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.
 
-    `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
-    that the party may still answer, or open that it may not.
+    The close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or
+    unasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.
     """
 
-    expired: bool
+    state: FLSpielbestaetigungState
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
@@ -279,17 +283,19 @@ async def _aufstellungen_of(
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
         projection=["team_id", "spieler.starts"],
     )
-    entries_by_club: dict[Any, list[Mapping[str, Any]]] = {row["team_id"]: row["spieler"] for row in stored_raw}
+    stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
 
     def summary_of(side: FLSpielSide) -> FLAufstellungSummary | None:
-        entries = None if side not in fielded else entries_by_club.get(fielded[side])
-        return None if entries is None else FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
+        saved = None if side not in fielded else stored_by_club.get(fielded[side])
+        if saved is None:
+            return None
+        entries = saved["spieler"]
+        return FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
 
     def marks_of(side: FLSpielSide) -> FLAufstellungMarks | None:
         if side not in fielded:
             return None
-        # Stored as every reader calls it (`aufstellung_stands`): a line-up emptied stays due.
-        stored = bool(entries_by_club.get(fielded[side]))
+        stored = aufstellung_stands(stored_by_club.get(fielded[side]))
         return aufstellung_marks(date=spiel.date, time=spiel.time, stored=stored, now=now)
 
     return (
@@ -369,8 +375,8 @@ async def read_spiel_editor(
     vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
 
-    def expired(row: Mapping[str, Any]) -> bool:
-        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None) == "expired"
+    def state(row: Mapping[str, Any]) -> FLSpielbestaetigungState:
+        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None)
 
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
@@ -385,7 +391,7 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "expired": expired(row)}) for row in confirmations],
+        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "state": state(row)}) for row in confirmations],
         aufstellungen=aufstellungen,
         aufstellung_marks=marks,
     )
