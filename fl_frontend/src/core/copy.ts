@@ -1245,6 +1245,9 @@ export const COPY = catalogue({
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
       linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
+      /** The links table's chip of a link mailed, and the column of the day it was. */
+      linkSent: "Gesendet",
+      sentOn: "Gesendet am",
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",

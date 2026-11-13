@@ -11,13 +11,15 @@ import { TablePlaceholder } from "@/kit/Table";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
-import { dayOf } from "@/core/format";
+import { dayOf, formatDate } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
+import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
+import { adminTeamChip } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -26,9 +28,10 @@ import { SaisonEditor } from "./SaisonEditor";
 import { valuesOf } from "./saisonValues";
 import { saveSaison } from "./saveSaison";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
-import type { TableHead } from "@/kit/Table";
+import type { ChipProps } from "@/kit/Chip";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
@@ -37,7 +40,16 @@ const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
 /** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
-const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link, width: "phrase" }] };
+const LINKS_HEAD: TableHead = {
+  nameLabel: TEAM,
+  linked: false,
+  state: { label: COPY.admin.schiedsrichter.state },
+  // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
+  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
+};
+
+/** A link mailed, the state its press has reached: this table alone draws it, beside the amber „Nicht gesendet“. */
+const SENT: ChipProps = { tone: "success", label: WORDS.linkSent };
 
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = <FieldPlaceholder key="select" />;
@@ -85,15 +97,18 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 }
 
 /**
- * A team's registration link as its row states it: the season finished, which shuts every link whatever else stood;
- * the club gone; the press passing it over; or its link's state.
+ * A team's registration link as its row's chip states it, the record's own state whatever the season's: the club out of
+ * the season in its exit's red; the press passing it over for want of a confirmed address, or no link minted yet, each
+ * amber, waiting on a person or a press as an unsent link does; else unsent or sent.
  */
-function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): Words {
-  if (status === "past") return COPY.template.closed;
-  if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
-  if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
-  if (!row.has_link) return WORDS.noLinkYet;
-  return row.sent_at === null ? WORDS.linkNotSent : WORDS.linkSentOn(dayOf(row.sent_at));
+function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): ChipProps {
+  const out = team?.austritt == null ? undefined : adminTeamChip(null, team.austritt.type);
+  if (out !== undefined) return out;
+  if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") {
+    return { tone: "warn", label: WORDS.noConfirmedAddress };
+  }
+  if (!row.has_link) return { tone: "warn", label: WORDS.noLinkYet };
+  return row.sent_at === null ? NOT_SENT : SENT;
 }
 
 /** The season editor, on the season's one admin read. */
@@ -222,16 +237,14 @@ async function readEditor(params: Props["params"]) {
       incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
         head: LINKS_HEAD,
-        rows: invitations.map((row) => ({
+        rows: invitations.map((row): TableRow => ({
           id: row.team_id,
           name: { record: row.team_name },
-          cells: {
-            link: linkOf(
-              row,
-              teams.find((team) => team.team_id === row.team_id),
-              saison.status,
-            ),
-          },
+          chip: linkOf(
+            row,
+            teams.find((team) => team.team_id === row.team_id),
+          ),
+          cells: row.sent_at === null ? {} : { sentOn: { record: formatDate(dayOf(row.sent_at)) } },
         })),
         mailed: mailed.length,
       }}
