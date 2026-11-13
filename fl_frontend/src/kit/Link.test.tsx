@@ -86,8 +86,8 @@ describe("the kit's link", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
-  // A prefetch dropped on the way costs a placeholder on the next press, and one added costs a server render per link in
-  // view: neither shows in any page's look.
+  // A prefetch dropped on the way costs the next press a wait for its server render, and one added costs a server render
+  // per link in view: neither shows in any page's look.
   it("asks Next's link for the prefetch it is given: the whole page, nothing, or the shell where none is given", () => {
     render(
       <>
