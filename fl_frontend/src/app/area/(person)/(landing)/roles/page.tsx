@@ -5,7 +5,7 @@ import { RailPage } from "@/kit/RailFrame";
 
 import { ROUTES } from "@/core/routes";
 import { requireSubjectSession } from "@/features/roles/resolvers";
-import { placeOf, placesOf } from "@/features/roles/utils";
+import { owesSignInStep, placeOf, placesOf } from "@/features/roles/utils";
 import { pageMetadata } from "@/shared/utils/metadata";
 
 import type { CardLinkProps } from "@/kit/Card";
@@ -18,9 +18,7 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 /** Every place the person holds, each a card's link: a team by its name over its season and seats, the rest by their area. */
 async function readChoices(): Promise<ReadonlyArray<CardLinkProps>> {
   const subject = await requireSubjectSession(ROUTES.areaRoles.path());
-  // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh sign-in or its
-  // passkey step, which the sign-in's landing sends it on to, not a person's places.
-  if (!subject.isAdmin && subject.records.admin_tier !== null) redirect(ROUTES.signInLanding.path());
+  if (owesSignInStep(subject)) redirect(ROUTES.signInLanding.path());
   return placesOf(subject).map((target) => {
     const { href, name, seats } = placeOf(target);
     return { href, title: name, ...(seats === undefined ? {} : { line: seats }) };
