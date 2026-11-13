@@ -39,14 +39,7 @@ const ENTRIES = COPY.account.entries;
  * sign in; another account's is refused at the press, nothing on a signed-out request naming whose it is.
  */
 export default function AccountErasurePage() {
-  return (
-    <MailedPage
-      page={readState()}
-      // The address and the one kind of record most people hold, a pupil's entry or a contact's seat.
-      facts={2}
-      act={COPY.page.accountErasure}
-    />
-  );
+  return <MailedPage page={readState()} />;
 }
 
 // `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
