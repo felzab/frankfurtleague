@@ -211,7 +211,9 @@ describe("the notice of a club's exit", () => {
     const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
 
     expect(labels).toStrictEqual(["14. März 2027 um 15:30", "21. März 2027", COPY.spielplan.when(null, null)]);
-    // The lead alone: nothing mails the walkover, so a sentence saying the league writes again is a promise nobody keeps.
-    expect(mail?.paragraphs[0]).toHaveLength(1);
+    // The lead alone, before the block or after it: nothing mails the walkover, so a sentence saying the league writes
+    // again is a promise nobody keeps.
+    expect(mail?.paragraphs).toStrictEqual([[expect.anything()]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 });
