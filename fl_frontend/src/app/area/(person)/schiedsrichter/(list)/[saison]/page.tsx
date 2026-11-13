@@ -2,7 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
-import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -61,7 +61,7 @@ type Standing = { chip?: ChipProps; adds?: Words; open?: true };
  * or never asked, carries no chip.
  */
 function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
-  if (spiel.bericht_owed) return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(SPIEL.spielbericht) } };
+  if (spiel.bericht_owed) return { chip: owedChip(SERVER_COPY.overview.missing(SPIEL.spielbericht)) };
   if (spiel.sonderereignis !== null) return { chip: eventChipOf(spiel.sonderereignis, spiel.team1_name, spiel.team2_name) };
   if (!spiel.officiates) return { chip: { tone: "neutral", label: SERVER_COPY.area.schiedsrichter.unbooked } };
   if (spiel.state === "cancelled") return {};
@@ -69,7 +69,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
     return { chip: DECLINED_CHIP, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
   }
   if (spiel.state === "valid" && !spiel.past) {
-    return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, open: true };
+    return { chip: owedChip(SERVER_COPY.overview.missing(COPY.area.answer)), open: true };
   }
   if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
   if (spiel.state === "agreed") {
