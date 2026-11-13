@@ -954,7 +954,6 @@ class TestEveryRecordOfAnArm:
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.
-[EMPTIED] = [step for step in ERASURE_STEPS if step.run is end_an_emptied_change_in_session]
 _STEP_OF_CODE = {step.run.__code__: step.run.__name__ for step in ERASURE_STEPS}
 
 
@@ -1007,8 +1006,8 @@ class WritesRecorded:
         return recorded
 
 
-class TestEachStepWritesWhatItDeclares:
-    def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_what_that_step_declares(self, mongo_replica_set_url: str):
+class TestTheChangeOfAPupilsAddress:
+    def test_a_pupils_erasure_ends_the_change_of_an_address_it_empties_writing_the_changes_alone(self, mongo_replica_set_url: str):
         """Gwendolyn holds a pupil row alone, so the season's erasure of it leaves her change nothing to move."""
 
         writes: dict[str, set[str]] = {}
@@ -1021,7 +1020,7 @@ class TestEachStepWritesWhatItDeclares:
 
         change = on_a_league(mongo_replica_set_url, body)
 
-        assert writes[EMPTIED.run.__name__] == {str(collection) for collection in EMPTIED.reaches}
+        assert writes[end_an_emptied_change_in_session.__name__] == {str(Collection.ADDRESS_CHANGES)}
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
         assert (change["ended"]["kind"], change["address"], change["email"]) == ("discarded", None, None)
 

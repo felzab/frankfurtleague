@@ -86,7 +86,6 @@ from app.api.spieler.services import CAPPED_SQUAD_ROW
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
-    find_swap_pair_refusal,
     has_taken_place,
 )
 from app.core.codes import Code
@@ -788,9 +787,6 @@ async def swap_gruppen(
     Every group fixture fielding either club has that side rewritten with it, so each group stays a round robin; neither
     `tore` nor `austritt` moves.
     """
-
-    # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
-    refuse(find_swap_pair_refusal(team1_id=swap_data.team1_id, team2_id=swap_data.team2_id))
 
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])

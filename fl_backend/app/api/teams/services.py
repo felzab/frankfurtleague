@@ -1515,19 +1515,6 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
-    """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
-
-    if team1_id != team2_id:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.SWAP_NOT_A_SWAP,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("team1_id",), ("team2_id",)),
-    )
-
-
 def find_gruppe_swap_refusal(
     *,
     team1_gruppe: str | None,
@@ -1553,6 +1540,7 @@ def find_gruppe_swap_refusal(
             fields=(("team1_id",), ("team2_id",)),
         )
 
+    # One club named on both sides reads its one group twice, so it is refused here as no swap.
     if team1_gruppe == team2_gruppe:
         return WriteRefusal(
             error_code=Code.SWAP_NOT_A_SWAP,
