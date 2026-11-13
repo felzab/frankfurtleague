@@ -201,11 +201,11 @@ def _reason_now(
 ) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's next close would shut this row, read off its own judge: a page never shows or refuses otherwise than it records."""
 
-    return reason_to_end(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state), now=now)
+    return reason_to_close(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state), now=now)
 
 
 def austritte_of(ansetzung_state: AnsetzungState) -> dict[Any, str]:
-    """Each club's exit day off the season rows `ansetzung_state` holds, as `reason_to_end` and `lapsed_on` take them."""
+    """Each club's exit day off the season rows `ansetzung_state` holds, as `reason_to_close` and `lapsed_on` take them."""
 
     return {row.get("team_id"): str(date) for row in ansetzung_state.vereine if (date := (row.get("austritt") or {}).get("date")) is not None}
 
@@ -317,11 +317,10 @@ def answers_at_its_end(
 ) -> bool:
     """Whether a row ending for `reason` answers `spiel`: what the pass's close stores as `closed.matched`.
 
-    A row the match ended is judged with the fixture's time read as its own; never a discard, which is held through a
-    move and ended at its own kick-off, about a slot it may have left.
+    A row the match ended is judged with the fixture's time read as its own, a discard as an agreement.
     """
 
-    if reason in REASONS_JUDGED_AT_THE_KICK_OFF and not was_discarded(spielbestaetigung_raw):
+    if reason in REASONS_JUDGED_AT_THE_KICK_OFF:
         spiel = {**spiel, "time": spielbestaetigung_raw["ansetzung"]["time"]}
 
     return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(spiel)
@@ -861,14 +860,8 @@ def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]
 
 
 # A closing that settles the party's one answer about its Ansetzung rather than ending the question: a second answer
-# needs a new digest, which only a move mints.
+# needs a new digest, which only a move mints. It ends where an agreement ends, a move among them (`reason_to_close`).
 REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
-
-# What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
-# discard its club's answer to the Ansetzung left, and a referee change, never a club's. A club taken off the fixture,
-# and a move the mint asks nothing about, which `reason_to_close` names as a move, end it too: `reason_to_end` asks
-# those apart.
-REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
 def build_holding_filter() -> dict[str, Any]:
@@ -901,9 +894,10 @@ def _referee_id(spiel: Mapping[str, Any]) -> Any:
 def reason_to_close(
     *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime
 ) -> FLSpielbestaetigungClosedReason | None:
-    """Why this unclosed row stops applying to its fixture as it stands, or `None`; `austritte` maps clubs to exit days.
+    """Why this row holding its party's question stops applying to its fixture as it stands, or `None`; `austritte` maps clubs to exit days.
 
-    The mint asks it of every row it would write, so the close shuts nothing the mint asked.
+    A discard ends for what an agreement ends for. The mint asks it of every row it would write, so the close shuts
+    nothing the mint asked.
     """
 
     ansetzung = row["ansetzung"]
@@ -941,27 +935,8 @@ def _kicked_off(ansetzung: Mapping[str, Any], *, now: datetime) -> bool:
     return is_played(date=ansetzung["date"], time=ansetzung["time"], now=now)
 
 
-# What `reason_to_end` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
+# What `reason_to_close` and `notice_owed` read of a row: the projection every reader of the close's judgement takes.
 CLOSE_FIELDS: Final = ["saison_id", "spiel_id", "party", "ansetzung", "asked_at", "closed"]
-
-
-def reason_to_end(
-    *, row: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime
-) -> FLSpielbestaetigungClosedReason | None:
-    """Why the pass's close shuts a row holding its party's question, or `None`."""
-
-    reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now)
-    # A club taken off is told so whatever its row holds: its discard told it the date stands, a match it no longer plays.
-    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER or not still_a_party(row=row, spiel=spiel):
-        return reason
-
-    # A move the mint asks nothing about, onto today or a slot it cannot ask, is told here or by nobody: kept, the
-    # discard would leave its club at the slot it was told stands.
-    if reason == "ansetzung_changed" and not asked_with_its_move(row=row, spiel=spiel, austritte=austritte, now=now):
-        return reason
-
-    # Its own kick-off, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.
-    return "spiel_past" if _kicked_off(row["ansetzung"], now=now) else None
 
 
 def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime, asked_before: bool) -> bool:
@@ -1136,15 +1111,15 @@ def parties_told_of_the_change(
     """The party of each of a fixture's `rows` holding its question that the pass closes owing a notice once `stored` is `changed`.
 
     The clubs' exits as they stand and as the act leaves them, the same mapping twice where the act records none.
-    Judged by the close's own rules (`reason_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
-    mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a party
-    is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
+    Judged by the close's own rules (`reason_to_close`, `notice_owed`), so the page naming whom an act mails and the
+    pass mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a
+    party is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
     """
 
     told: list[Mapping[str, Any]] = []
     for row in rows:
-        reason = reason_to_end(row=row, spiel=changed, austritte=changed_austritte, now=now)
-        if reason is None or reason == reason_to_end(row=row, spiel=stored, austritte=stored_austritte, now=now):
+        reason = reason_to_close(row=row, spiel=changed, austritte=changed_austritte, now=now)
+        if reason is None or reason == reason_to_close(row=row, spiel=stored, austritte=stored_austritte, now=now):
             continue
         if notice_owed(row=row, reason=reason, spiel=changed, now=now):
             told.append(row["party"])

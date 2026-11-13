@@ -30,7 +30,7 @@ from app.api.spielbestaetigungen.services import (
     lapsed_on,
     parties_told_of_the_change,
     party_key,
-    reason_to_end,
+    reason_to_close,
 )
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_OWING_NOTHING,
@@ -213,7 +213,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
         {"$project": {"rules": 1}},
         {"$lookup": {"from": Collection.SPIELE, "pipeline": build_spiele_pipeline(db_filter={"saison_id": saison_id}), "as": SPIELE_AS}},
         # The rows in the administrator's queue: a standing proposal, a deadline passed, or due today. Each one still has
-        # to speak for its fixture as it stands, which `reason_to_end` judges below.
+        # to speak for its fixture as it stands, which `reason_to_close` judges below.
         {
             "$lookup": {
                 "from": Collection.SPIELBESTAETIGUNGEN,
@@ -296,7 +296,7 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
 
 
 def _austritte(spiele: Iterable[FLSpielJoinedInternal]) -> dict[Any, str]:
-    """Each club's exit day, as the fixtures' joined sides carry it: what `reason_to_end` asks of a row's clubs."""
+    """Each club's exit day, as the fixtures' joined sides carry it: what `reason_to_close` asks of a row's clubs."""
 
     return {
         side.team_id: side.austritt.date
@@ -344,7 +344,7 @@ def overview_of(
     for row in read[QUEUE_ROWS_AS]:
         spiel_raw = spiele_raw.get(row["spiel_id"])
         # A row about an Ansetzung its fixture has left, or one the next pass ends, asks the administrator nothing.
-        if spiel_raw is None or reason_to_end(row=row, spiel=spiel_raw, austritte=austritte, now=now) is not None:
+        if spiel_raw is None or reason_to_close(row=row, spiel=spiel_raw, austritte=austritte, now=now) is not None:
             continue
         spiel = by_id[row["spiel_id"]]
         answer = row[ROW_ANSWER]

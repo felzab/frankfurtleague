@@ -107,8 +107,9 @@ class FLSpielbestaetigungClosed(BaseReadModel):
 
 class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
     # Both served to nobody, the row's state being what a page reads.
-    # True on a discard the pass closed again, `reason` then naming that end: the row still reads as the agreement the
-    # public fixture counted. Absent from a row no such close wrote.
+    # True on a discard the pass closed again, `reason` then naming that end: ended for neither a move nor a call-off,
+    # the row reads as the agreement the public fixture counted where it answered the fixture at its end (`matched`),
+    # and as `reason` reads otherwise. Absent from a row no such close wrote.
     discarded: bool = Field(default=False)
     # Whether the row answered its fixture as the pass's close that ended it read the fixture, so a correction since
     # re-judges nothing. Null where no such close wrote it: held, closed otherwise, or closed before the close stored
