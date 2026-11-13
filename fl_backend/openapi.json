@@ -7696,6 +7696,11 @@
             "title": "Deadline",
             "type": "string"
           },
+          "due_by": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Due By",
+            "type": "string"
+          },
           "lapsed_on": {
             "anyOf": [
               {
@@ -7742,6 +7747,7 @@
           "party",
           "name",
           "deadline",
+          "due_by",
           "lapsed_on"
         ],
         "title": "FLOverviewParty",
@@ -14258,6 +14264,11 @@
       },
       "FLSpielbestaetigungClosed": {
         "properties": {
+          "discarded": {
+            "default": false,
+            "title": "Discarded",
+            "type": "boolean"
+          },
           "reason": {
             "enum": [
               "ansetzung_changed",
@@ -14274,7 +14285,8 @@
           }
         },
         "required": [
-          "reason"
+          "reason",
+          "discarded"
         ],
         "title": "FLSpielbestaetigungClosed",
         "type": "object"
@@ -26676,7 +26688,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises\nno `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches\nnothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {

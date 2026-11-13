@@ -25,6 +25,7 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, 
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     ansetzung_digest_of,
+    austritte_of,
     build_closable_filter,
     lapsed_on,
     reason_of,
@@ -262,7 +263,10 @@ def _spielbestaetigung_of(
 
     reason = reason_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now)
     return _Spielbestaetigung(
-        row=own, state=state, vorschlag_open=vorschlag_open, lapsed_on=lapsed_on(spielbestaetigung_raw=own, reason=reason, now=now)
+        row=own,
+        state=state,
+        vorschlag_open=vorschlag_open,
+        lapsed_on=lapsed_on(spielbestaetigung_raw=own, reason=reason, spiel=spiel_raw, austritte=austritte_of(ansetzung_state), now=now),
     )
 
 

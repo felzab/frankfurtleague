@@ -68,6 +68,7 @@ from app.api.spielbestaetigungen.services import (
     team_mails,
     vereinsnamen_of,
     view_ansetzung_of,
+    was_discarded,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -342,7 +343,7 @@ async def sweep_spielbestaetigungen(
         told_referees: set[Any] = set()
         for row in owing:
             reason, party = reasons[row["_id"]], row["party"]
-            # Named as the requests are, off the fixture as it stands: a club replaced since holds no season row to name it by.
+            # The clubs the row asked about, off the season rows read by its own clubs.
             names = vereinsnamen_of(
                 spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiele[row["spiel_id"]], vereine=list(junctions.values()))
             )
@@ -398,7 +399,8 @@ async def sweep_spielbestaetigungen(
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_holding_filter()},
-                update=compose_closing_update(reason=reasons[row["_id"]]),
+                # A held row is closed again only as a discard: its end keeps the mark of what it answered.
+                update=compose_closing_update(reason=reasons[row["_id"]], discarded=was_discarded(row)),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
@@ -439,10 +441,15 @@ async def sweep_spielbestaetigungen(
         digests = {spiel["_id"]: ansetzung_digest_of(spiel) for spiel in spiele}
         by_id = {spiel["_id"]: spiel for spiel in spiele}
 
+        # The clubs each row asked about too, as the close step reads them: a move's notice names the slot left by them,
+        # and its rows are judged against their exits.
         junctions = await _junctions(
             saison_teams_collection=saison_teams_collection,
             saison_id=saison_id,
-            team_ids=[spiel[side]["team_id"] for spiel in spiele for side in ("team1", "team2")],
+            team_ids=[
+                *(spiel[side]["team_id"] for spiel in spiele for side in ("team1", "team2")),
+                *(row["ansetzung"][side] for row in read for side in ("team1_id", "team2_id")),
+            ],
             session=session,
         )
         austritte = _austritte(junctions)

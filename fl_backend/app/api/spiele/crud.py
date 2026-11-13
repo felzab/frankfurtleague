@@ -891,6 +891,16 @@ async def _save_moving_nothing(
     return FLPatchSpielDataResponse(voided_results=[], version=stored.version, recipients=None)
 
 
+async def _bracket_moves(judged: _JudgedSave, *, collections: SpielSaveCollections, session: AsyncClientSession) -> bool:
+    """Whether resolving the season's bracket as it stands would rewrite any fixture: the advancement's own resolution."""
+
+    resolution = await _resolve_one_saison(
+        teams_collection=collections.teams, saison_id=judged.saison_id, rules=judged.rules, spiele=judged.season, session=session
+    )
+
+    return bool(resolution.advancements)
+
+
 async def save_spiel_in_session(
     *,
     spiel_id: CustomObjectId,
@@ -921,8 +931,13 @@ async def save_spiel_in_session(
 
     # The fixture's one count moves for a change alone: a save storing what stands, as an adoption of the result its
     # fields already hold, raises no version that would refuse every other open editor, and the Protokoll records no
-    # change nobody made.
-    if not judged.releases and document == stored.model_dump(context={"keep_oid": True}, include=written):
+    # change nobody made. Only where resolving the bracket would move nothing either, as the dry run resolves it: on a
+    # stale bracket it names results the resolution voids, and a save skipping it would refuse their confirmation.
+    if (
+        not judged.releases
+        and document == stored.model_dump(context={"keep_oid": True}, include=written)
+        and not await _bracket_moves(judged, collections=collections, session=session)
+    ):
         return await _save_moving_nothing(
             spiel_id=spiel_id,
             stored=stored,

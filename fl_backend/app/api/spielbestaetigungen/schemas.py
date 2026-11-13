@@ -17,7 +17,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -101,8 +101,11 @@ class FLSpielbestaetigungAnswer(BaseModel):
     reason: CustomNonEmptyString | None
 
 
-class FLSpielbestaetigungClosed(BaseModel):
+class FLSpielbestaetigungClosed(BaseReadModel):
     reason: FLSpielbestaetigungClosedReason
+    # True on a discard the pass closed again where an agreement beside it ends, `reason` then naming that end: the
+    # row still reads as the agreement the public fixture counted. Absent from a row no such close wrote.
+    discarded: bool = Field(default=False)
 
 
 class _FLSpielbestaetigungFields(BaseModel):

@@ -621,8 +621,13 @@ class TestTheReads:
 
 
 async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> None:
+    """The result as the save stores it, the bracket's resolution with it: the winner fielded on the quarter-final it feeds."""
+
     await database[Collection.SPIELE].update_one(
         {"_id": SPIEL}, {"$set": {"team1.tore": team1, "team2.tore": team2, "ergebnis": f"{team1}:{team2}"}}
+    )
+    await database[Collection.SPIELE].update_one(
+        {"_id": VIERTELFINALE}, {"$set": {"team1": {"team_id": TEAM1 if team1 > team2 else TEAM2, "tore": None}}}
     )
 
 

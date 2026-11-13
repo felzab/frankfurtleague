@@ -27,7 +27,7 @@ from app.api.spielberichte.schemas import (
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
-from app.api.spielbestaetigungen.services import AnsetzungState, due_by_of, lapsed_on, reason_of, state_of
+from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -129,8 +129,8 @@ class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
     state: FLSpielbestaetigungState
     # The day the party's answer is due by: a club's `deadline`, and a referee's slot, whom no deadline binds.
     due_by: CustomDateString
-    # The day its answer lapsed, `due_by`; null on an answered row and on one an exit, a decision, a call-off or a move
-    # ended, which never lapsed.
+    # The day its answer lapsed, `due_by`; null on an answered row, on one a call-off or a move ended, and on one an exit
+    # or a decision ended before its answer was due (`lapsed_on`).
     lapsed_on: CustomDateString | None
 
 
@@ -378,6 +378,7 @@ async def read_spiel_editor(
     )
     vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
+    austritte = austritte_of(ansetzung_state)
 
     def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:
         reason = reason_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)
@@ -386,7 +387,7 @@ async def read_spiel_editor(
                 **row,
                 "state": state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None),
                 "due_by": due_by_of(row),
-                "lapsed_on": lapsed_on(spielbestaetigung_raw=row, reason=reason, now=now),
+                "lapsed_on": lapsed_on(spielbestaetigung_raw=row, reason=reason, spiel=ansetzung_state.spiel, austritte=austritte, now=now),
             }
         )
 

@@ -3485,6 +3485,8 @@ export interface FLSpielbestaetigungPartySchiedsrichter {
 export interface FLOverviewParty {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  due_by: string;
   lapsed_on: string | null;
   /** @minLength 1 */
   name: string;
@@ -5145,6 +5147,7 @@ export const FLSpielbestaetigungClosedReason = {
 } as const;
 
 export interface FLSpielbestaetigungClosed {
+  discarded: boolean;
   reason: FLSpielbestaetigungClosedReason;
 }
 

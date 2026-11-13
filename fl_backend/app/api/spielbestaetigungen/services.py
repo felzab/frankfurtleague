@@ -174,11 +174,13 @@ def _reason_now(
 ) -> FLSpielbestaetigungClosedReason | None:
     """Why the pass's next close would shut this row, read off its own judge: a page never shows or refuses otherwise than it records."""
 
-    austritte = {
-        row.get("team_id"): str(date) for row in ansetzung_state.vereine if (date := (row.get("austritt") or {}).get("date")) is not None
-    }
+    return reason_to_end(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte_of(ansetzung_state), now=now)
 
-    return reason_to_end(row=spielbestaetigung_raw, spiel=ansetzung_state.spiel, austritte=austritte, now=now)
+
+def austritte_of(ansetzung_state: AnsetzungState) -> dict[Any, str]:
+    """Each club's exit day off the season rows `ansetzung_state` holds, as `reason_to_end` and `lapsed_on` take them."""
+
+    return {row.get("team_id"): str(date) for row in ansetzung_state.vereine if (date := (row.get("austritt") or {}).get("date")) is not None}
 
 
 def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], now: datetime) -> bool:
@@ -214,24 +216,86 @@ def due_by_of(spielbestaetigung_raw: Mapping[str, Any]) -> str:
     return str(spielbestaetigung_raw["deadline"])
 
 
-def lapsed_on(*, spielbestaetigung_raw: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason | None, now: datetime) -> str | None:
+# The reasons a row can end for that a lapse may come before: its own kick-off, a decision and an exit, each with a
+# moment `_ended_at` reads. A move, a call-off or a referee's change reads as such on every page, dating nothing.
+REASONS_A_LAPSE_PRECEDES: Final = frozenset({"spiel_past", "spiel_decided", "austritt"})
+
+
+def _due_before(spielbestaetigung_raw: Mapping[str, Any], *, moment: datetime) -> bool:
+    """Whether the row's answer was due before `moment`: a club's deadline day gone by, a referee's slot kicked off."""
+
+    if spielbestaetigung_raw["party"]["kind"] == "schiedsrichter":
+        ansetzung = spielbestaetigung_raw["ansetzung"]
+        return is_played(date=ansetzung["date"], time=ansetzung["time"], now=moment)
+
+    return clock.german_day(moment) > str(spielbestaetigung_raw["deadline"])
+
+
+def _ended_at(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime) -> datetime:
+    """When the row stopped taking an answer, `now` at the latest: the first of its kick-off, an exit and a decision.
+
+    Read off the facts rather than off the reason a close stored, so the order the pass and the administrator acted in
+    dates nothing differently. `austritte` maps clubs to exit days.
+    """
+
+    ansetzung = spielbestaetigung_raw["ansetzung"]
+    # The fixture's day as `reason_to_close` reads it, or the row's where the fixture lost its date.
+    tag = spiel.get("date") or ansetzung["date"]
+    moments = [now, clock.german_instant(ansetzung["date"], ansetzung["time"])]
+    # An exit ends a club's fixtures from its own day on, as `decision_of` counts it.
+    moments += [
+        clock.german_instant(day, "00:00:00")
+        for team_id in (ansetzung["team1_id"], ansetzung["team2_id"])
+        if (day := austritte.get(team_id)) is not None and day <= tag
+    ]
+    # No record stores the day a result was entered: the match's own kick-off stands for it, as the record says it was played.
+    if has_taken_place(spiel):
+        moments.append(clock.german_instant(tag, spiel.get("time") or "00:00:00"))
+
+    return min(moments)
+
+
+def lapsed_on(
+    *,
+    spielbestaetigung_raw: Mapping[str, Any],
+    reason: FLSpielbestaetigungClosedReason | None,
+    spiel: Mapping[str, Any],
+    austritte: Mapping[Any, str],
+    now: datetime,
+) -> str | None:
     """The day an unanswered row's answer lapsed, its `due_by_of`, or `None`; `reason` is `reason_of`'s.
 
-    Only a lapse dates a row: its slot kicked off, or a club's deadline went by with nothing else ending it. A row an
-    exit, a decision, a call-off or a move ended never lapsed, whatever its deadline says.
+    A row lapsed where its answer was due before it ended (`_ended_at`), whichever of its kick-off, a decision and an
+    exit ended it: an exit or a decision before the due day leaves nothing lapsed, and one after it ends a lapse.
     """
 
     if spielbestaetigung_raw.get("answer") is not None:
         return None
 
-    if reason == "spiel_past" or (reason is None and _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now)):
-        return due_by_of(spielbestaetigung_raw)
+    if reason is not None and reason not in REASONS_A_LAPSE_PRECEDES:
+        return None
 
-    return None
+    ended = _ended_at(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel, austritte=austritte, now=now)
+
+    return due_by_of(spielbestaetigung_raw) if _due_before(spielbestaetigung_raw, moment=ended) else None
 
 
-def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState) -> bool:
-    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel)
+def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState, at_its_kick_off: bool = False) -> bool:
+    spiel = ansetzung_state.spiel
+    # A row closed at its kick-off answered the fixture as it then stood, `reason_to_close` testing the digest first:
+    # a kick-off time corrected once the match began, as a result is entered, moves no answer given to it.
+    if at_its_kick_off:
+        spiel = {**spiel, "time": spielbestaetigung_raw["ansetzung"]["time"]}
+
+    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(spiel)
+
+
+def was_discarded(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whether the row is a decline whose proposal the league discarded: held as `discarded`, or ended since with the mark kept."""
+
+    closed = spielbestaetigung_raw.get("closed")
+
+    return isinstance(closed, Mapping) and (closed["reason"] in REASONS_ANSWERING_THE_ANSETZUNG or closed.get("discarded") is True)
 
 
 def state_of(
@@ -244,7 +308,8 @@ def state_of(
     """What a page shows of a row, the first state matching winning: an answered row never reads as lapsed.
 
     A closed row reads by the reason it was closed for, as the public fixture counts it: a discarded decline as the
-    agreement to the date the league kept, and any answer only while the Ansetzung it answered still stands.
+    agreement to the date the league kept, before and after the pass ends it where an agreement ends, and any answer
+    only while the Ansetzung it answered still stands.
     """
 
     answer = spielbestaetigung_raw.get("answer")
@@ -260,8 +325,9 @@ def state_of(
         return "cancelled"
 
     # Ahead of the decline it closed: the public fixture counts a discarded proposal as its club's agreement while the
-    # slot stands, so read as the decline, one page would call the date confirmed and refused at once.
-    if reason in REASONS_ANSWERING_THE_ANSETZUNG:
+    # slot stands, so read as the decline, one page would call the date confirmed and refused at once. Never judged at
+    # its kick-off: a discard is held through a move and ended at its own kick-off, about a slot it may have left.
+    if was_discarded(spielbestaetigung_raw):
         return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
 
     if isinstance(answer, Mapping) and answer["kind"] == "declined":
@@ -270,7 +336,8 @@ def state_of(
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
     if isinstance(answer, Mapping):
-        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
+        answers = _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, at_its_kick_off=reason == "spiel_past")
+        return "agreed" if answers else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"
@@ -488,14 +555,21 @@ def view_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetz
 
 
 def vereinsnamen_of(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> tuple[str, str]:
-    """The clubs a notice about a moved row names: each side as the fixture fields it now, a side it lost by its season row."""
+    """The clubs a notice about the slot a row asked about names: each club the row asked about by its season row.
+
+    `ansetzung_state.vereine` holds the season rows of the row's own clubs. A club taken off the fixture since is still
+    the one asked about; only a replaced club, whose season row passed to the incoming one, is named by the fixture's side.
+    """
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     names = {row.get("team_id"): row.get("name") for row in ansetzung_state.vereine}
 
     def side_name(slot: str, snapshot_key: str) -> str:
+        own = names.get(snapshot[snapshot_key])
+        if own is not None:
+            return str(own)
         side = ansetzung_state.spiel.get(slot)
-        return str(side["name"]) if isinstance(side, Mapping) else str(names.get(snapshot[snapshot_key]) or "")
+        return str(side["name"]) if isinstance(side, Mapping) else ""
 
     return side_name("team1", "team1_id"), side_name("team2", "team2_id")
 
@@ -935,8 +1009,10 @@ def compose_asked_update(*, today: str) -> dict[str, Any]:
     return {"$set": {"asked_at": today}}
 
 
-def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason) -> dict[str, Any]:
-    return {"$set": {"closed": {"reason": reason}}}
+def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, discarded: bool = False) -> dict[str, Any]:
+    """`discarded` where the row closed is a held discard, whose meaning `was_discarded` reads on after its end."""
+
+    return {"$set": {"closed": {"reason": reason, "discarded": True} if discarded else {"reason": reason}}}
 
 
 # --- The notices a closing owes, owed through the Postausgang in the closing's own transaction.
