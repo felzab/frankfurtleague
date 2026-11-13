@@ -698,15 +698,14 @@ const DESIGN_BANS = [
     }),
   ),
   // A page arrives whole, inside the one boundary at the root, which no navigation replaces: a boundary anywhere below
-  // it would commit its fallback on a navigation into its page and paint the page in steps again. A template's wait goes
-  // through `PageWait`, which under the root draws its children alone. Next's own boundaries are the same thing by
-  // other names: a route's loading file, and a component loaded apart, whose import waits in one.
+  // it would commit its fallback on a navigation into its page and paint the page in steps. Next's own boundaries are
+  // the same thing by other names: a route's loading file, and a component loaded apart, whose import waits in one.
   importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
       message:
-        "A page arrives whole inside the one boundary at the root, in src/kit/WholePage.tsx: hand a template its content as a promise, and its `PageWait` holds the read.",
+        "A page arrives whole inside the one boundary at the root, in src/kit/WholePage.tsx: hand a template its content as a promise, which the template awaits.",
     },
     PRODUCTION,
     { allow: ["src/kit/WholePage.tsx"] },
