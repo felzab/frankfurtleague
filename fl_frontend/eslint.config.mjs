@@ -697,31 +697,31 @@ const DESIGN_BANS = [
       allow,
     }),
   ),
-  // A page arrives whole, inside the one boundary at the root, which no navigation replaces: a boundary anywhere below
-  // it would commit its fallback on a navigation into its page and paint the page in steps. Next's own boundaries are
-  // the same thing by other names: a route's loading file, and a component loaded apart, whose import waits in one.
+  // No boundary stands anywhere in the tree: a page opened by address is one document the browser paints as it
+  // arrives, and a client navigation keeps the page it leaves until the next is complete. A boundary would commit its
+  // fallback on a navigation into its page and paint the page in steps. Next's own boundaries are the same thing by
+  // other names: a route's loading file, and a component loaded apart, whose import waits in one.
   importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
       message:
-        "A page arrives whole inside the one boundary at the root, in src/kit/WholePage.tsx: hand a template its content as a promise, which the template awaits.",
+        "No boundary stands in the tree: a page arrives as one document, and a navigation keeps the page it leaves until the next is complete. Hand a template its content as a promise, which the template awaits.",
     },
     PRODUCTION,
-    { allow: ["src/kit/WholePage.tsx"] },
   ),
   importBan(
     {
       regex: packageUnder("next/dynamic"),
       message:
-        "A component loaded apart waits in a boundary of its own, which would paint its page in steps: import it, and the page arrives whole inside the root's boundary.",
+        "A component loaded apart waits in a boundary of its own, which would paint its page in steps: import it, and the page arrives as one document.",
     },
     PRODUCTION,
   ),
   syntaxBan(
     syntax(
       "Program",
-      "No route holds a loading file: it is a boundary around its segment, which a navigation would show in place of the page it leaves. The page arrives whole inside the root's boundary in src/kit/WholePage.tsx.",
+      "No route holds a loading file: it is a boundary around its segment, which a navigation would show in place of the page it leaves. A page arrives as one document, with no boundary above it.",
     ),
     LOADING_FILE,
   ),

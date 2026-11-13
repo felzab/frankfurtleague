@@ -119,7 +119,7 @@ export function SaisonScope({ value, children }: { value: SaisonScopeValue; chil
   const [chosen, setChosen] = useState<string>();
   return (
     <SaisonContext value={{ ...value, chosen }}>
-      {/* Reads the address, which no prerender knows: the root's boundary holds it with the page. */}
+      {/* Reads the address, which no prerender knows: it renders with the page, at the page's request. */}
       <SaisonMemory choose={setChosen} />
       {children}
     </SaisonContext>

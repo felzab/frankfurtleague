@@ -128,7 +128,7 @@
      standing on it, which the page scrolls under, would stay in the page beneath, and a fading part would show what
      scrolled under them over them: each carries a `view-transition-name` of its own, `band`, `bar`, `strip` or `title`,
      so it is pictured apart. The groups paint in the order their names were captured, and a name only in the new state
-     is captured after every name of the old one, so a part React's streamed reveal brings in would paint over them;
+     is captured after every name of the old one, so a part only the new page holds would paint over them;
      `z-index` is what lifts the four over any other group, the strip and the title a step below the band and the bar,
      since on a phone the title scrolls under the band. The strip's ground precedes the title in the document, so of
      the two at one step the title paints over it. The classic band and the rail's phone band share `band`, and the

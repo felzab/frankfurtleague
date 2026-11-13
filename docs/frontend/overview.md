@@ -89,28 +89,30 @@ deliberate: the Docker builder stage has **no reachable backend or sign-in store
 tried to prerender its data would fail the image build, and a prefetched shell carries nothing a
 read past the wait decides. A `"use cache"` body may not call it, so the wait stands at its caller.
 
-**Every page arrives whole**: no part of a page waits behind a placeholder of its own. A placeholder
-committed on each click cost more than the read it stood for, since React holds a boundary's reveal
-for 300 ms after the last one, and a page fade holds every commit until it ends.
+**Every page arrives whole**: no `Suspense` boundary stands anywhere in the tree, so no part of a
+page waits behind a placeholder of its own. A placeholder costs more than the read it stands for,
+since React holds a boundary's reveal for 300 ms after the last one, and a page fade holds every
+commit until it ends.
 
-- The root layout (`fl_frontend/src/app/layout.tsx`) places
-  `fl_frontend/src/kit/WholePage.tsx :: WholePages` around every route. It holds the one `Suspense`
-  boundary of the tree, mounted once for the session, whose fallback draws nothing.
-- No boundary stands below the layout two pages share: a template or a frame reads inside the
-  root's. Lint refuses `Suspense` outside `WholePage.tsx`, `next/dynamic` and any route's
-  `loading.tsx`.
-- A client navigation therefore keeps the page it leaves until the next one is complete, as a
-  transition never hides content it has revealed. The page fade runs once, between two finished
-  pages.
-- A page opened by address sends the prerendered shell, the themed ground, at once, and React reveals
-  the whole page in one step once it is rendered, however slowly its bytes arrive. A page that throws
-  while rendering on the server is drawn again in the browser inside that shell.
-- The root layout exports `instant = false`, which tells Next's navigation checks that a navigation
-  into any route may block.
+- Lint refuses `Suspense`, `next/dynamic` and any route's `loading.tsx` in production code.
+- A page opened by address, by a reload or by a typed address, is one document. The server sends it
+  once the whole page is rendered, and the browser paints it as it parses it.
+- A slow device may paint that document in pieces while it parses, a table before its later rows.
+- A page that finds nothing, is refused or throws while the server renders it arrives as Next's bare
+  error document. Its body is empty, so the visitor sees a bare ground in the device's own colour
+  scheme until the page's code runs and draws the segment's not-found or error page in its frame.
+  On a light device, a visitor who chose the dark theme sees a white ground first.
+- A client navigation keeps the page it leaves until the next one is complete, since Next's router
+  makes it a transition and a transition never hides content it has revealed. The page fade runs
+  once, between two finished pages.
+- The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which tells Next's
+  checks that a navigation into any route may block and that a route's prerendered shell may be
+  empty.
 
-**One fact says a navigation is under way**: the address it goes to, which `WholePages` sets as
-optimistic state inside the navigation's own transition, so it ends in the render that commits the
-page. Every navigating control feeds it through `WholePage.tsx :: NavigationLink`, the one reader of
+**One fact says a navigation is under way**: the address it goes to, which
+`fl_frontend/src/kit/WholePage.tsx :: WholePages`, placed around every route by the root layout,
+sets as optimistic state inside the navigation's own transition, so it ends in the render that
+commits the page. Every navigating control feeds it through `WholePage.tsx :: NavigationLink`, the one reader of
 `next/link`, which lint holds, or `useNavigate` for a control navigating on its own press.
 
 - Each frame places one `NavigationBar` at the top of its page area. It shows once a navigation has

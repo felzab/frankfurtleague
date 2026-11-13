@@ -1,12 +1,13 @@
 /**
  * E2E · no page moves while it loads: every page each role reaches in the made-up seed's three seasons, at a phone's
  * size and a desktop's, by a hard load, by a client navigation from the link a person presses, and by a hard load at a
- * viewport 4000 px tall. Its budget is zero (`../support/layoutShift.ts`). Its first case is its own red, a page that
- * moves, which the recorder must report.
+ * viewport 4000 px tall. Its budget is zero, for a hard load from the moment its document is parsed
+ * (`../support/layoutShift.ts`). Its first case is its own red, a page that moves once parsed, which the recorder must
+ * count against a load.
  *
- * The tall pass is there because the API counts only nodes in view: a wait below the first screen that lands at another
- * size moves boxes nobody measures at 844 or 900 px. At 4000 px most pages stand whole in view, and the frame's `main`
- * holds the footer at the bottom of the screen, so the footer moves for nothing that grows above it.
+ * The tall pass is there because the API counts only nodes in view: a box below the first screen that changes size once
+ * the page is parsed moves boxes nobody measures at 844 or 900 px. At 4000 px most pages stand whole in view, and the
+ * frame's `main` holds the footer at the bottom of the screen, so the footer moves for nothing that grows above it.
  *
  * Each case is a walk: its first address is loaded, each later one is the address of the first visible link on the page
  * before it that matches it, `<id>` standing for a record's id the seed mints anew on every run. A step a person reaches
@@ -32,7 +33,7 @@
 import { expect } from "@playwright/test";
 
 import { ADMINISTRATOR_STATE, test as journey } from "../support/journey";
-import { expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } from "../support/layoutShift";
+import { countedOf, expectStill, NEWCOMER, recordShifts, sessionFile, settle, totalOf } from "../support/layoutShift";
 import { signInWithCode } from "../support/signIn";
 import { standInForTurnstile } from "../support/turnstileStandIn";
 
@@ -122,8 +123,11 @@ const missing = (to: string, served?: Served): End => ({ to, card: "Seite nicht 
 /** A team's address the session holds no seat on. */
 const refused = (to: string, served: Served): End => ({ to, card: "Kein Zugang", served });
 
-/** A step of a walk: the address of a link in view, of one in what a control opens, or of a page ending in its card. */
-type Step = string | End | { readonly open: keyof typeof OPENERS; readonly to: string };
+/**
+ * A step of a walk: the address of a link in view, of one in what a control opens, of one in the list row showing a
+ * text, or of a page ending in its card.
+ */
+type Step = string | End | { readonly open: keyof typeof OPENERS; readonly to: string } | { readonly row: string; readonly to: string };
 
 /** The addresses walked to the page measured, the first loaded and the last being that page. */
 type Steps = readonly [string | End, ...Step[]];
@@ -139,6 +143,8 @@ const more = (to: string): Step => ({ open: "more", to });
 const saison = (to: string): Step => ({ open: "saison", to });
 /** The link in the account's menu. */
 const account = (to: string): Step => ({ open: "account", to });
+/** The link in a list's row showing `text`, for a record no other row's place singles out. */
+const inRow = (text: string, to: string): Step => ({ row: text, to });
 
 const addressOfStep = (step: Step): string => (typeof step === "string" ? step : step.to);
 
@@ -181,10 +187,11 @@ async function press(control: Locator, phone: boolean): Promise<void> {
 }
 
 /**
- * Where `step`'s link stands on the settled page: in view, or in what its control opens, which is pressed and waited
- * for. A control a person cannot see fails the walk.
+ * Where `step`'s link stands on the settled page: in view, in the visible rows of the kit's lists showing its text, or
+ * in what its control opens, which is pressed and waited for. A control a person cannot see fails the walk.
  */
 async function scopeOf(page: Page, record: ShiftRecord, step: Step, phone: boolean): Promise<Locator> {
+  if (typeof step !== "string" && "row" in step) return page.locator("[data-kit-row]").filter({ hasText: step.row, visible: true });
   if (typeof step === "string" || !("open" in step)) return page.locator(":root");
   const opener = OPENERS[step.open];
   if (opener.phoneOnly && !phone) return page.locator(":root");
@@ -369,6 +376,7 @@ const VISITOR: Walk[] = [
   // The erasure's link is mailed, so a visitor without one meets its refusal.
   ["/erasure"],
   ["/erasure/done"],
+  ["/", "/bewerbung"],
   ["/", "/bewerbung/2028"],
   ["/registrierung?token=made-up-kastanie-invitation"],
   ["/registrierung/done"],
@@ -437,6 +445,8 @@ const REFEREE: Walk[] = [
   ["/area/schiedsrichter", "/area/schiedsrichter/2027"],
   ["/area/schiedsrichter/2027", saison("/area/schiedsrichter/2026")],
   ["/area/schiedsrichter", `/area/schiedsrichter/2027/spielbericht/${ID}`],
+  // The report of the running season's no-show she is booked to, which leads no list: its row shows the event's chip.
+  ["/area/schiedsrichter/2027", inRow("Nicht angetreten", `/area/schiedsrichter/2027/spielbericht/${ID}`)],
   ["/area/schiedsrichter/2026", `/area/schiedsrichter/2026/spielbericht/${ID}`],
   ...ACCOUNT("/area/schiedsrichter"),
 ];
@@ -513,7 +523,8 @@ const ROLES: Record<Role, readonly Walk[]> = {
 };
 
 /**
- * The guard's own red: a page whose paragraph a block pushes down a moment after it has loaded and painted, served by
+ * The guard's own red: a page whose paragraph a block pushes down a moment after it has loaded and painted, long after
+ * its parse, so the load's budget counts it, served by
  * the case itself at an address of the stack's origin, never by the stack. A real navigation, since the recorder's
  * init script runs in each new document, which `page.setContent` writes into the blank one instead.
  */
@@ -544,7 +555,7 @@ test("a paragraph pushed down by a block inserted above it moves", async ({ page
   await page.route(MOVING, (route) => route.fulfill({ contentType: "text/html", body: MOVING_PAGE }));
   await page.goto(MOVING);
   await settle(page, record);
-  expect(totalOf(record), "the recorder reports the paragraph's move").toBeGreaterThan(0);
+  expect(totalOf(countedOf(record, "load")), "the recorder counts the paragraph's move against the load").toBeGreaterThan(0);
 });
 
 for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) {
@@ -570,7 +581,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${target} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
+            expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
             await expectArrived(page, end);
             await expectSignedIn(page, role);
           });
@@ -592,7 +603,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
                 }
                 await page.evaluate((mark) => Reflect.set(window, mark, true), MARK);
                 const left = page.url();
-                await expectStill(page, record, async () => {
+                await expectStill(page, record, "press", async () => {
                   await press(link, phone);
                   // Left the origin: the link's own address, or the page an address answering for another sends it to.
                   await expect(page).toHaveURL((url) => url.href !== left);
@@ -614,7 +625,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${target} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
+            expectAnswered(await expectStill(page, record, "load", () => load(page, address)), end);
             await expectArrived(page, end);
             await expectSignedIn(page, role);
           });

@@ -13,6 +13,9 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import type { IconName } from "./Icon";
 
+/** A link's own mark, as running text shows it: the brand's colour and an underline, which thickens under the pointer. */
+const LINK_MARK_CLASSES = `text-brand underline ${hoverLook({ host: "link", answer: "line" })}`;
+
 const link = tv({
   variants: {
     // Underlined inside running text alone; a link standing on its own is known by its place. A row's
@@ -21,7 +24,7 @@ const link = tv({
     placement: {
       // Under the pointer every link of words takes an underline and its full colour, as a link answers, and one
       // underlined already in text thickens its line. A link drawn as a row, a card or a button takes their layer.
-      text: `text-brand underline ${hoverLook({ host: "link", answer: "line" })}`,
+      text: LINK_MARK_CLASSES,
       standalone: `text-brand ${hoverLook({ host: "link", answer: "underline" })}`,
       // A name struck through, such as a player who did not turn up: the pointer's underline joins the strike.
       struck: `text-brand line-through ${hoverLook({ host: "link", answer: "struckUnderline" })}`,
@@ -51,7 +54,7 @@ const link = tv({
 /**
  * A link the frames draw themselves, as tall as every control, 32 px under a mouse and 40 px under a finger,
  * coloured by the ground it stands on: the classic header's on the dark-green band, the title strip's legal
- * pages, „Konto“ at a signed-out rail's foot.
+ * pages and a record's way to its own page, „Konto“ at a signed-out rail's foot.
  */
 export const frameLink = tv({
   base: "flex h-8 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--motion-state) pointer-coarse:h-10",
@@ -65,6 +68,9 @@ export const frameLink = tv({
       bandMuted: `text-on-brand/75 ${hoverLook({ host: "link", answer: "bandUnderline" })}`,
       // The title strip's: muted until the pointer is over it.
       strip: `text-fg-muted ${hoverLook({ host: "link", answer: "fullUnderline" })}`,
+      // The strip's way to a record's own page, after the record's chip: marked as a link in running text is, since
+      // muted words beside a chip read as the chip's sentence going on.
+      link: LINK_MARK_CLASSES,
       // The rail's foot: filled under the pointer as the rail's entries are.
       rail: `text-fg ${hoverLook({ host: "link" })}`,
     },
@@ -134,7 +140,7 @@ type Footer = { placement: "footer" } & (Worded | { children: ReactNode; label?:
 type Contents = { placement: "contents"; current: boolean } & Worded;
 
 /** A link a frame draws, as tall as every control, in the tone of the ground it stands on (`frameLink`). */
-type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "rail" } & Worded;
+type Frame = { placement: "frame"; tone: "band" | "bandMuted" | "strip" | "link" | "rail" } & Worded;
 
 type Card = {
   placement: "card";

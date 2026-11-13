@@ -296,7 +296,7 @@ export function RailPage({
   action?: ReactElement;
   /**
    * A way to the record's public page, such as a match editor's to the match's own page, in words at the strip's end
-   * as the strip's legal links stand; absent until the record has one.
+   * as the strip's legal links stand, underlined as a link in running text is; absent until the record has one.
    */
   link?: { href: Route; label: Copy };
   /** The editor's bar, at the foot of the content from the rail's separator to the edge. */
@@ -326,7 +326,7 @@ export function RailPage({
             <Link
               href={link.href}
               placement="frame"
-              tone="strip"
+              tone="link"
               fullPage
               label={link.label}
             />

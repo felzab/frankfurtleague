@@ -3,7 +3,7 @@
 // Imports nothing of the kit's but `tv`, which imports no kit module: every kit module drawing a link takes
 // `NavigationLink` from here, and a kit module this one imported could close a cycle through one of them, whose module
 // would then be read before it is defined.
-import { createContext, startTransition, Suspense, useContext, useEffect, useOptimistic, useState } from "react";
+import { createContext, startTransition, useContext, useEffect, useOptimistic, useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -39,12 +39,13 @@ const SHOWN_AFTER = 200;
 const NavigationContext = createContext<Navigation | null>(null);
 
 /**
- * The pages under it arrive whole, inside one boundary that is mounted once for the session and draws nothing while it
- * waits. A page opened by address sends its shell, the site's themed ground, at once and reveals the whole page in one
- * step once it is rendered, however slowly its bytes arrive; a page that throws while rendering on the server is drawn
- * again in the browser inside that shell. A client navigation keeps the page it leaves until the new one is complete:
- * the boundary is already revealed, and a transition never hides content it has revealed. The layout placing it
- * exports `instant = false`, which tells Next's navigation checks that a navigation into any route may block.
+ * The pages under it, with no boundary above them. A page opened by address is one document, which the server sends
+ * once it has rendered the whole page and the browser paints as it parses it. A page that finds nothing, is refused or
+ * throws while the server renders it is answered with Next's bare error document, in which the browser draws the
+ * segment's not-found or error page once the page's code runs. A client navigation keeps the page it leaves until the
+ * new one is complete: Next's router makes it a transition, and a transition never hides content already shown. The
+ * layout placing it exports `instant = false`, which tells Next's checks that a navigation into any route may block and
+ * that a route's prerendered shell may be empty.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
@@ -66,11 +67,7 @@ export function WholePages({ children }: { children: ReactNode }) {
       else router.push(href, { scroll });
     });
   };
-  return (
-    <NavigationContext value={{ pending, shown, navigate }}>
-      <Suspense fallback={null}>{children}</Suspense>
-    </NavigationContext>
-  );
+  return <NavigationContext value={{ pending, shown, navigate }}>{children}</NavigationContext>;
 }
 
 /**
