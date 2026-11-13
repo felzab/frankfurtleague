@@ -1,5 +1,6 @@
 import { formatNumber } from "@/core/format";
 
+import { BlockBox } from "./BlockBox";
 import { checkpoint } from "./Timeline";
 import { tv } from "./tv";
 
@@ -33,9 +34,7 @@ const line = tv({
 export function StepsLine({ items }: { items: readonly LineStep[] }) {
   const slots = line();
   return (
-    // The container the stages' columns read, since a query reads an ancestor; `w-full`, since a container's width
-    // counts none of its content.
-    <div className="@container w-full">
+    <BlockBox>
       <ol className={slots.list()}>
         {items.map((item, index) => (
           <li
@@ -51,6 +50,6 @@ export function StepsLine({ items }: { items: readonly LineStep[] }) {
           </li>
         ))}
       </ol>
-    </div>
+    </BlockBox>
   );
 }
