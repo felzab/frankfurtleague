@@ -8,9 +8,11 @@ import { tv } from "./tv";
  * because a border naming none takes its element's text colour.
  *
  * A disabled control dims to half, since nothing can be done with it until something else is given. A read-only one, a
- * locked or a closed field, keeps the enabled colours, since its value is the record's own data to read, as Carbon's
- * read-only state keeps the enabled text colour, and a pressable box or answer drops its pointing hand, since a press
- * changes nothing.
+ * locked or a closed field, keeps its text in the enabled colour, since its value is the record's own data to read, and
+ * says it takes no edit by the rest, as Carbon's read-only states pattern draws it: a field's frame takes the hairline's
+ * quieter edge, the frame and its input the arrow cursor, and a signifier, a date's calendar or a select's or a combo
+ * box's arrow, the tone of a disabled glyph (`fieldSignifier`); a pressable box or answer drops its pointing hand, since
+ * a press changes nothing. Each follows React Aria's own `data-readonly` on the field's root.
  *
  * The touch rule: every pressable control's press target is at least the kit's control height on a touch screen,
  * 40 px (32 with a mouse), as WCAG 2.5.8's target size asks with the kit's own figure; a link inside running text is
@@ -111,7 +113,7 @@ const triggerHolds = { 2: "w-[calc(3ch+2.875rem)]" } as const;
  * its whole height by the touch rule at this file's head, the edge lying inside the frame's inset.
  */
 export const fieldFrame = tv({
-  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger data-disabled:opacity-50 data-invalid:inset-ring-danger pointer-coarse:text-base",
+  base: "rounded-lg bg-transparent text-sm text-fg inset-ring inset-ring-border-control transition-[color,outline-color,box-shadow] duration-(--motion-state) group-data-invalid:inset-ring-danger group-data-readonly:cursor-default group-data-readonly:inset-ring-border data-disabled:opacity-50 data-invalid:inset-ring-danger pointer-coarse:text-base",
   variants: {
     // A field's width says what it holds, since a person reads the length of a field as the length of its answer:
     // three widths at one left edge, each with the same 12-px inset, so the values of a box start at one x whatever
@@ -171,7 +173,7 @@ export const fieldFrame = tv({
 export const fieldUnit = tv({
   slots: {
     frame: "flex w-fit items-center gap-1.5 group-data-disabled:opacity-50",
-    value: "h-full min-w-0 bg-transparent font-numeric",
+    value: "h-full min-w-0 bg-transparent font-numeric group-data-readonly:cursor-default",
     unit: "shrink-0 text-fg",
   },
   variants: {
@@ -182,9 +184,16 @@ export const fieldUnit = tv({
   },
 });
 
+/**
+ * A field's signifier, the glyph saying what a press on the field opens: muted, and on a read-only field in the tone a
+ * disabled glyph takes, muted at half (`monthArrow`), as Carbon gives a read-only field's signifier `$icon-disabled`.
+ */
+export const fieldSignifier = tv({ base: "text-fg-muted group-data-readonly:opacity-50" });
+
 /** The button at a field's end, a date's calendar or a combo box's arrow: as tall and as wide as the field. */
 export const fieldButton = tv({
-  base: `flex h-full w-8 shrink-0 items-center justify-center text-fg-muted transition-colors duration-(--motion-state) pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "full" })}`,
+  extend: fieldSignifier,
+  base: `flex h-full w-8 shrink-0 items-center justify-center transition-colors duration-(--motion-state) pointer-coarse:w-10 ${hoverLook({ host: "aria", answer: "full" })}`,
 });
 
 /** A calendar's way to the month before or after: a control of its own size, since the calendar's head has no height to fill. */
@@ -193,7 +202,7 @@ export const monthArrow = tv({
 });
 
 /** The text a combo box or a search field is typed into, filling its frame between the frame's other parts. */
-export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent" });
+export const groupInput = tv({ base: "h-full min-w-0 flex-1 bg-transparent group-data-readonly:cursor-default" });
 
 /** A search field's magnifier, at the frame's start. */
 export const searchGlyph = tv({ base: "flex shrink-0 items-center ps-3 pe-2 text-fg-muted" });
