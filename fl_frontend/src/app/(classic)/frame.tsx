@@ -2,7 +2,7 @@ import { ClassicFrame } from "@/kit/ClassicFrame";
 
 import { INSTAGRAM_URL, THREADS_URL } from "@/core/brand";
 import { COPY } from "@/core/copy";
-import { JOIN_SECTION, LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
+import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes";
 import { SPONSORS } from "@/features/meta/constants";
 
 import type { HeaderLink } from "@/kit/HeaderLinks";
@@ -18,10 +18,10 @@ const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, p
   href: ROUTES[route].path(),
 }));
 
-/** The footer's „Liga“ group and the sitemap page's, with the way to applying, which the landing's section words for every state of the window. */
+/** The footer's „Liga“ group and the sitemap page's, with the application's address, which answers in every state of the window. */
 export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   ...LIGA_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
-  { label: COPY.template.bewerbung, href: `${ROUTES.home.path()}#${JOIN_SECTION}` },
+  { label: COPY.template.bewerbung, href: ROUTES.bewerbungRoot.path() },
   { label: COPY.template.account, href: ROUTES.signIn.path() },
 ];
 
