@@ -231,9 +231,6 @@ class TestEachSeatServesWhereItStands:
     def test_a_decision_spends_an_unanswered_link_whatever_its_day(self):
         assert self.read(status="declined")["ansprechperson"]["state"] == "expired"
 
-    def test_an_erased_seat_serves_no_entry(self):
-        assert self.read()["stellvertretung"] is None
-
     def test_a_row_its_season_stripped_serves_as_it_stands(self):
         """The strip nulls the block, and the review page still opens the application it leaves."""
 

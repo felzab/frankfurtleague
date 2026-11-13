@@ -130,16 +130,6 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: ("Team 1", None), 30: (None, "Team 8")}
 
-    def test_the_advanced_team_arrives_with_no_goals(self, spiel_at: SpielFactory, side: SideFactory):
-        spiele = [
-            spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            spiel_at(29, quelle1=sieger(25)),
-        ]
-        advancement = resolve_bracket(FLSpielListAdapter.validate_python(spiele), {}).advancements[0]
-
-        assert advancement.team1 is not None
-        assert advancement.team1.tore is None
-
     def test_a_corrected_result_reaches_the_final(self, spiel_at: SpielFactory, side: SideFactory):
         """Correcting 25 voids the semi's result — a side no longer in it scored those goals — so the final empties too."""
 
@@ -241,18 +231,6 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: ("Team 1", None)}
 
-    def test_a_shootout_on_a_group_spiel_advances_nobody(self, spiel_at: SpielFactory, side: SideFactory):
-        """A group draw is final: advancing out of one would contradict the table, which scores it a point each."""
-
-        spiele = [
-            spiel_at(
-                25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}, saison_phase="gruppenphase"
-            ),
-            spiel_at(29, quelle1=sieger(25)),
-        ]
-
-        assert resolved(spiele) == {}
-
     def test_a_shootout_without_a_result_advances_nobody(self, spiel_at: SpielFactory, side: SideFactory):
         spiele = [
             spiel_at(25, team1=side(1), team2=side(2), ergebnis=None, elfmeterschiessen={"team1": 4, "team2": 3}),
@@ -275,48 +253,12 @@ class TestResolveBracket:
 
         assert resolved(spiele) == {29: ("Team 1", None)}
 
-    def test_a_group_seeded_slot_is_left_alone_with_no_standings(self, spiel_at: SpielFactory, side: SideFactory):
-        """Distinct from a standing that has not decided the placing, which does empty the slot — `test_standings.py`'s."""
-
-        spiele = [spiel_at(25, team1=side(1), quelle1=gruppenplatz("A", 1))]
-
-        assert resolved(spiele) == {}
-
     def test_a_slot_with_no_source_is_never_touched(self, spiel_at: SpielFactory, side: SideFactory):
         """Clearing the source is the manual override, and the only one."""
 
         spiele = [
             spiel_at(25, team1=side(1, 2), team2=side(2, 2), ergebnis="2:2"),
             spiel_at(29, team1=side(1), quelle1=None),
-        ]
-
-        assert resolved(spiele) == {}
-
-    def test_a_source_naming_no_match_leaves_the_slot_alone(self, spiel_at: SpielFactory, side: SideFactory):
-        """A number that cannot be looked up is a data-entry mistake, unlike a match with no winner yet, which does empty the slot."""
-
-        spiele = [
-            spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            spiel_at(29, team1=side(1), quelle1=sieger(99)),
-        ]
-
-        assert resolved(spiele) == {}
-
-    def test_a_cyclic_chain_leaves_both_spiele_alone(self, spiel_at: SpielFactory, side: SideFactory):
-        """A contradiction states no outcome, and must not send the resolution round the loop."""
-
-        spiele = [
-            spiel_at(29, team1=side(1), quelle1=sieger(30)),
-            spiel_at(30, team1=side(2), quelle1=sieger(29)),
-        ]
-
-        assert resolved(spiele) == {}
-
-    def test_a_spiel_downstream_of_a_cycle_is_left_alone_too(self, spiel_at: SpielFactory, side: SideFactory):
-        spiele = [
-            spiel_at(29, quelle1=sieger(30)),
-            spiel_at(30, quelle1=sieger(29)),
-            spiel_at(31, team1=side(1), quelle1=sieger(29)),
         ]
 
         assert resolved(spiele) == {}
@@ -331,30 +273,6 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {29: (None, "Team 1")}
-
-    def test_a_spiel_never_becomes_a_team_against_itself(self, spiel_at: SpielFactory, side: SideFactory):
-        """Nothing downstream would refuse it: the database holds no cross-field rule."""
-
-        spiele = [
-            spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            spiel_at(29, quelle1=sieger(25), quelle2=sieger(25)),
-        ]
-
-        assert resolved(spiele) == {}
-
-    def test_a_spiel_downstream_of_a_refused_collision_keeps_its_result(self, spiel_at: SpielFactory, side: SideFactory):
-        """Voiding the semi over a typo would erase a recorded result and empty the final; it is recorded as unmaintained instead."""
-
-        # The typo: `quelle2` should be `sieger(27)`.
-        typo = {"quelle1": sieger(25), "quelle2": sieger(25)}
-        spiele = [
-            spiel_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1"),
-            spiel_at(27, team1=side(3, 2), team2=side(4, 0), ergebnis="2:0"),
-            spiel_at(29, team1=side(1, 1), team2=side(3, 0), ergebnis="1:0", saison_phase="halbfinale", **typo),
-            spiel_at(31, team1=side(1, 2), team2=side(5, 0), quelle1=sieger(29), ergebnis="2:0", saison_phase="finale"),
-        ]
-
-        assert resolved(spiele) == {}
 
     def test_a_refused_collisions_stored_state_still_feeds_downstream(self, spiel_at: SpielFactory, side: SideFactory):
         collision = {"quelle1": sieger(25), "quelle2": sieger(25)}

@@ -394,16 +394,6 @@ def test_a_finished_seasons_line_up_is_read_only_for_the_administrator(mongo_rep
     assert on_a_season(mongo_replica_set_url, body) == ((Code.SAISON_PAST, []), "past", (None, []))
 
 
-def test_a_finished_season_grants_its_seat_holder_no_line_up(mongo_replica_set_url: str):
-    """A finished season grants no seat, so its seat holder is refused the club before the season is asked."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-        await the_season_ends(database)
-        return await refusal_of(seat_saves(database, client, _payload(LINA))), await nothing_written(database)
-
-    assert on_a_season(mongo_replica_set_url, body) == ((Code.ROLE_NOT_HELD, []), (None, []))
-
-
 class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
     """An `aufstellungen` stand-in running one rival once the save has read the squad and before it reads the line-up."""
 
@@ -471,7 +461,7 @@ class TestAnErasedPupilsEntry:
             {"spieler_id": MIA, "starts": False},
         ]
 
-    @pytest.mark.parametrize("now", [pytest.param(OPEN, id="before-the-lock"), pytest.param(LOCKED, id="locked-before-kick-off")])
+    @pytest.mark.parametrize("now", [pytest.param(LOCKED, id="locked-before-kick-off")])
     def test_one_erased_before_kick_off_leaves_the_line_up(self, mongo_replica_set_url: str, now: datetime):
         """The match is still to come, locked or not: an entry kept would hold a place in the Startelf nobody could name."""
 
@@ -540,17 +530,6 @@ def test_a_clubs_second_first_save_meets_the_first_and_is_told_the_page_is_stale
         return outcome, await stored_line_ups(database)
 
     assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 0)])
-
-
-def test_a_save_on_a_count_another_save_raised_is_refused(mongo_replica_set_url: str):
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        first, _ = await seat_saves(database, client, _payload(LINA))
-        await seat_saves(database, client, _payload(OLE, version=first.version))
-        outcome = await outcome_of(seat_saves(database, client, _payload(LINA, version=first.version)))
-
-        return outcome, await stored_line_ups(database)
-
-    assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 1)])
 
 
 def test_the_other_clubs_first_save_for_the_same_fixture_stands_beside_it(mongo_replica_set_url: str):

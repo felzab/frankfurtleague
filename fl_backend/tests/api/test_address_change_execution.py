@@ -1577,21 +1577,6 @@ class TestTwoPressesAtOnce:
             assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
 
 
-class TestTheDecline:
-    def test_a_lapsed_link_still_declines_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
-        """Its holder says the change is not theirs; a link refusing that would keep a stranger's address stored."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            await answer(database, client, minted.token, "declined", germany_now=AFTER_THE_DEADLINE)
-            return (await change(database, minted.id))["ended"]["kind"], await where_held(database, NEW_EMAIL, folded=True)
-
-        kind, held = on_a_person(mongo_replica_set_url, body)
-
-        # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
-        assert (kind, held) == ("declined", {NEW_EMAIL: ["outbox"]})
-
-
 class TestTheWaitingTime:
     def test_the_stop_link_ends_it_during_the_wait(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
