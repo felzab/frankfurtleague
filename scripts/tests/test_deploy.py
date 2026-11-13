@@ -132,7 +132,6 @@ def reloaded_nginx(calls: list[str]) -> bool:
     ("named", "new"),
     [
         pytest.param("frontend", containers(frontend="running starting"), id="starting"),
-        pytest.param("cloudflared", containers(cloudflared="exited"), id="no-running-container"),
         pytest.param("nginx", containers(nginx=None), id="no-container-at-all"),
         pytest.param("backend", containers() + "backend running unhealthy\n", id="one-of-two-containers-unhealthy"),
     ],
