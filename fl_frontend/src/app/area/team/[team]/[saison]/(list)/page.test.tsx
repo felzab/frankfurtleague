@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { agreeSpielbestaetigung, declineSpielbestaetigung } from "./answerSpielbestaetigung";
-import TeamOverviewPage from "./page";
 
 import type {
   FLAufstellungPhase,
@@ -17,21 +19,33 @@ import type {
 import type { CardActRowProps } from "@/kit/Card";
 import type { ReactElement } from "react";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+const TEAM = "6af32ed4205642a3fd5ee7e1";
+
+/** The team's overview as the backend holds it, which each case sets. */
+const stored = { read: undefined as FLTeamOverviewResponse | undefined };
 
 const DONE = { ok: true, value: undefined } as const;
 
+// The answers are server functions, which a client reaches over the network: the row's press is what is judged.
 vi.mock("./answerSpielbestaetigung", () => ({ agreeSpielbestaetigung: vi.fn(), declineSpielbestaetigung: vi.fn() }));
-vi.mock("@/features/teams/queries", () => ({ getTeamOverview: () => Promise.resolve(state.read) }));
-vi.mock("@/features/roles/resolvers", () => ({
-  requireTeamSeats: () => Promise.resolve([{ team_id: "6af32ed4205642a3fd5ee7e1", saison_id: "2027" }]),
-  readAsSeatHolder: <Read,>(read: () => Promise<Read>) => read(),
-}));
-vi.mock("@/core/clock", () => ({ now: () => new Date("2026-11-10T12:00:00+01:00") }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+
+// The league's calendar day the deadlines and the decline's proposal are judged by, set before the session is made so
+// its stamps share the clock.
+vi.setSystemTime(new Date("2026-11-10T12:00:00+01:00"));
+
+// The page's one read: the overview of the team and the season the address names. Any other, another club's or
+// another season's among them, fails the case.
+serveBackend(({ method, path }) => (method === "GET" && path === `/teams/${TEAM}/saisons/2027/self/overview` ? stored.read : undefined));
+// A contact seated on the team in its running season, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { seats: [seat({ team_id: TEAM, saison_id: "2027", saison_status: "active" })] } });
+const { default: TeamOverviewPage } = await import("./page");
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+afterAll(() => {
+  vi.useRealTimers();
 });
 
 const spielbestaetigung = (overrides: Partial<FLTeamPanelSpielbestaetigung>): FLTeamPanelSpielbestaetigung => ({
@@ -51,8 +65,8 @@ async function rowsOf(
   card: string,
   held: Partial<Pick<FLTeamOverviewResponse, "spielbestaetigungen" | "aufstellungen" | "registrierungen">>,
 ): Promise<ReadonlyArray<CardActRowProps & { id: string }>> {
-  state.read = {
-    team_id: "6af32ed4205642a3fd5ee7e1",
+  stored.read = {
+    team_id: TEAM,
     saison_id: "2027",
     name: "Ahorn",
     shorthand: "AHO",
@@ -66,9 +80,7 @@ async function rowsOf(
     seats: [],
     ...held,
   } satisfies FLTeamOverviewResponse;
-  const page = TeamOverviewPage({ params: Promise.resolve({ team: "6af32ed4205642a3fd5ee7e1", saison: "2027" }) } as Parameters<
-    typeof TeamOverviewPage
-  >[0]) as {
+  const page = TeamOverviewPage({ params: Promise.resolve({ team: TEAM, saison: "2027" }) } as Parameters<typeof TeamOverviewPage>[0]) as {
     props: { list: { content: Promise<{ cards: ReadonlyArray<{ id: string; rows: ReadonlyArray<CardActRowProps & { id: string }> }> }> } };
   };
   const { cards } = await page.props.list.content;
