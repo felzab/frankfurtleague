@@ -10,7 +10,8 @@ import { BracketTree } from "./BracketTree";
 import type { ComponentProps } from "react";
 import type { BracketMatch, BracketRound } from "./BracketTree";
 
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 

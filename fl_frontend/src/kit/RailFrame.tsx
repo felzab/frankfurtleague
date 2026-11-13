@@ -29,7 +29,7 @@ import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
+import { LinkHint, PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -170,7 +170,10 @@ export function RailFrame({
                         size={18}
                       />
                     </span>
-                    <span className={railFade()}>{COPY.template.account}</span>
+                    <span className={railFade()}>
+                      {COPY.template.account}
+                      <LinkHint />
+                    </span>
                   </NextLink>
                 </RailTooltip>
               )}
@@ -377,7 +380,10 @@ export function RailPage({
                 href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.title}
+                <span>
+                  {page.title}
+                  <LinkHint />
+                </span>
               </NextLink>
             ))}
           </nav>

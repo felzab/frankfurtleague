@@ -103,6 +103,9 @@ for 300 ms after the last one, and a page fade holds every commit until it ends.
 - A hard load sends the prerendered shell, which is empty, and then the page once it is rendered.
 - The root layout exports `instant = false`, which lets the build accept a page reading uncached data
   outside every boundary; the build refuses every such route without it.
+- A pressed link whose page takes longer than 100 ms shows Next's pending hint,
+  `fl_frontend/src/kit/WholePage.tsx :: LinkHint`, until the page commits: the kit's `Link` and the
+  frames' own links carry it.
 
 Without `WholePages` and the export, every `PageWait` is a `Suspense` boundary drawing its
 placeholder, and a page streams in its parts.

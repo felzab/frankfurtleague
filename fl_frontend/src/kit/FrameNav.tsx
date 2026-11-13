@@ -28,7 +28,7 @@ import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
+import { LinkHint, PageWait } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -521,7 +521,10 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
                       size={18}
                     />
                   </span>
-                  <span className={railFade()}>{entry.label}</span>
+                  <span className={railFade()}>
+                    {entry.label}
+                    <LinkHint />
+                  </span>
                 </NextLink>
               </RailTooltip>
             ))}
@@ -753,7 +756,10 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
           />
           {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
               the words stand centred, so the room their columns leave them parts two labels. */}
-          <span className="max-w-full truncate">{entry.label}</span>
+          <span className="max-w-full truncate">
+            {entry.label}
+            <LinkHint />
+          </span>
         </NextLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
@@ -789,7 +795,10 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                         glyph={entry.icon}
                         size={18}
                       />
-                      {entry.label}
+                      <span>
+                        {entry.label}
+                        <LinkHint />
+                      </span>
                     </NextLink>
                   ))}
                 </div>
@@ -803,7 +812,10 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                       prefetch={link.prefetch}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
-                      {link.label}
+                      <span>
+                        {link.label}
+                        <LinkHint />
+                      </span>
                     </NextLink>
                   ))}
                 </div>
@@ -921,13 +933,18 @@ const back = tv({
 export function BackControl({ href }: { href: Route }) {
   const guard = useLeaveGuard();
   const router = useRouter();
-  const content = (
+  // The words in a box of their own, which the link's pending hint follows; the button's press opens a dialog, so it
+  // leads to no link whose status a hint could read.
+  const content = (hint: ReactNode) => (
     <>
       <Icon
         glyph="back"
         size={18}
       />
-      {COPY.shared.back}
+      <span>
+        {COPY.shared.back}
+        {hint}
+      </span>
     </>
   );
 
@@ -937,7 +954,7 @@ export function BackControl({ href }: { href: Route }) {
         href={href}
         data-kit-focus="ring"
         className={back({ host: "link" })}>
-        {content}
+        {content(<LinkHint />)}
       </NextLink>
     );
   }
@@ -955,7 +972,7 @@ export function BackControl({ href }: { href: Route }) {
         <AriaButton
           data-kit-focus="ring"
           className={back({ host: "aria" })}>
-          {content}
+          {content(null)}
         </AriaButton>
       }
     />
