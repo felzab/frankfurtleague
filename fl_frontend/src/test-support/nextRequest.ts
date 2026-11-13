@@ -62,6 +62,12 @@ function requestCookies() {
   return store;
 }
 
+/**
+ * Every cookie the case's code set or deleted, as the response carries it back to the browser: read off its
+ * `Set-Cookie` lines, a deleted cookie written empty and expired at the epoch, as Next deletes one.
+ */
+export const writtenCookies = (): ReturnType<ResponseCookies["getAll"]> => new ResponseCookies(responseHeaders).getAll();
+
 /** `next/headers` for a request carrying what `arriveWith` set, its `cookies()` writing onto the response. */
 export const NEXT_HEADERS_DOUBLE = {
   headers: () => Promise.resolve(new Headers(incomingHeaders)),
