@@ -1019,6 +1019,31 @@ class TestASavedResultCarriesThroughTheBracket:
         assert advancement.voided_sonderereignis == (None if after_the_advancement else stored_event)
 
 
+class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
+    """The dry run resolves the bracket over the season, so a save skipping the resolution would refuse the results it confirmed.
+
+    A stale bracket is no state any route leaves, so it is seeded as a direct write would leave it.
+    """
+
+    def test_the_save_resolves_the_bracket_and_deletes_the_results_it_was_confirmed(self, mongo_replica_set_url: str):
+        quarter, semi = bracket_season()
+        # Beta won the quarter-final, but the semi-final still fields the club it beat.
+        stale = [quarter, {**semi, "team1": side(ALPHA, 2)}]
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            unchanged = await payload_for(database, VIERTELFINALE)
+            preview = await call_patch(database, client, VIERTELFINALE, unchanged, dry_run=True)
+            saved = await call_patch(database, client, VIERTELFINALE, unchanged, confirming=preview.voided_results)
+
+            return preview, saved, await spiele_now(database)
+
+        preview, saved, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=stale)
+
+        assert [advancement.spiel_nr for advancement in preview.advanced_to] == [HALBFINALE_NR]
+        assert saved.voided_results == preview.voided_results
+        assert (spiele[HALBFINALE_NR]["team1"]["team_id"], spiele[HALBFINALE_NR]["ergebnis"]) == (BETA, None)
+
+
 class TestASaveOpenedOnAnOlderVersionIsRefused:
     """The editor's save carries the `version` it was served, and the save answers the one its next save sends."""
 
