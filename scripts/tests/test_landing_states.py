@@ -26,11 +26,24 @@ DEFAULT: Final = "running"
 
 
 def _seed_states() -> set[str]:
-    """The keys of the seed's `LANDING_STATES` object, each a line of its own two spaces in."""
+    """The keys of the seed's `LANDING_STATES` object, each a line of its own two spaces in.
+
+    Every other line two spaces in is a closing brace or a comment, so a state written in a shape
+    this reader does not take, a method or a spread, fails rather than going unread.
+    """
     text = SEED.read_text(encoding="utf-8")
     block = re.search(r"^const LANDING_STATES = \{\n(.*?)^\};$", text, re.MULTILINE | re.DOTALL)
     assert block, f"{SEED.name} holds no `const LANDING_STATES = {{ … }};` block"
-    return set(re.findall(r'^  "?([\w-]+)"?: ', block[1], re.MULTILINE))
+    states: set[str] = set()
+    unread: list[str] = []
+    for line in re.findall(r"^  \S.*$", block[1], re.MULTILINE):
+        key = re.match(r'  "?([\w-]+)"?: ', line)
+        if key:
+            states.add(key[1])
+        elif not line.startswith(("  }", "  //", "  /*", "  *")):
+            unread.append(line.strip())
+    assert unread == [], f"{SEED.name}'s LANDING_STATES holds {unread}, which this reader takes for no state"
+    return states
 
 
 def _one_line(text: str, pattern: str, where: str) -> set[str]:
