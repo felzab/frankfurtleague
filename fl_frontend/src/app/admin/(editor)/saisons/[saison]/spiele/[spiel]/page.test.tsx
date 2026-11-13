@@ -2,6 +2,7 @@ import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
 import type { ReactElement } from "react";
@@ -120,7 +121,7 @@ describe("the match editor's answers", () => {
   });
 
   // The harm: a lapsed answer drawn as one still open, so the league waits on a club the backend no longer lets answer.
-  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Offen“ where it is still in time", async () => {
+  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Antwort fehlt“ where it is still in time", async () => {
     const row = (team_id: string, expired: boolean) => ({
       id: `64b0000000000000000000${team_id === TEAM1 ? "a1" : "a2"}`,
       saison_id: "2027",
@@ -138,7 +139,7 @@ describe("the match editor's answers", () => {
 
     expect(editor.props.answers.map(({ chip }) => chip)).toStrictEqual([
       { tone: "neutral", label: COPY.admin.expired },
-      { tone: "warn", label: COPY.template.open },
+      { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) },
     ]);
   });
 });

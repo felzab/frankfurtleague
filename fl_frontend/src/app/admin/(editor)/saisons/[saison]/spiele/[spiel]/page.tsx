@@ -254,11 +254,13 @@ const openRowOf = (rows: readonly FLSpielbestaetigungEditorRow[], party: (row: F
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
-  // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
-  const open = { tone: "warn", label: COPY.template.open } as const;
-  if (row === undefined) return { ...shown, chip: open, line: WORDS.notAsked };
+  // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
+  if (row === undefined) return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   const { answer } = row;
-  if (answer === null) return { ...shown, chip: row.expired ? EXPIRED_CHIP : open, line: WORDS.answerBy(dayOf(row.deadline)) };
+  if (answer === null) {
+    const waiting = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) } as const;
+    return { ...shown, chip: row.expired ? EXPIRED_CHIP : waiting, line: WORDS.answerBy(dayOf(row.deadline)) };
+  }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   if (answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
   const { vorschlag, reason } = answer;
