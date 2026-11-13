@@ -1,23 +1,36 @@
-import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { describe, expect, it } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { ROUTES } from "@/core/routes";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 
-const link = vi.hoisted(() => ({ forget: vi.fn<(page: string) => Promise<void>>(async () => undefined) }));
+import type { FLPostRegistrierungResponse } from "@/core/generated/client/types";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-// Cloudflare's own verdict, which `core/turnstile.test.ts` judges.
-vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => null }));
-// The cookie the proxy set, which only Next's request scope holds.
-vi.mock("@/core/mailedLink", () => ({ forgetMailedLink: link.forget }));
+/** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/). */
+const BOT_CHECK_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 
-const { calls } = doubleApiAnswers(() => Promise.resolve({ registrierung_id: "6890a1b2c3d4e5f607190001" }));
+/**
+ * Cloudflare's verdict, asked over the network by the real bot check, for the rest of the case: it passes the token the
+ * form posts and answers nothing else, which fails the case. Served inside the case, so the record it hands back holds
+ * that case's requests alone.
+ */
+const serveSiteverify = () =>
+  serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
+    method === "POST" && url.pathname === "/turnstile/v0/siteverify" && (body as { response?: string }).response === BOT_CHECK_TOKEN
+      ? { success: true, "error-codes": [] }
+      : undefined,
+  );
+// The registration's one write, answered as the backend stores it.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === "/registrierungen"
+    ? ({ registrierung_id: "6890a1b2c3d4e5f607190001" } satisfies FLPostRegistrierungResponse)
+    : undefined,
+);
+doubleNextRequest();
 
-// Both after the double: the page's module reads the link's view through the generated client too.
+// Both after the doubles: the page's module reads the link's view through the generated client too.
 const { submitRegistrierung } = await import("./submitRegistrierung");
 const { REPLAY_FIELD } = await import("./invitation");
 
@@ -29,7 +42,7 @@ const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
   token: TOKEN,
   [REPLAY_FIELD]: KEY,
-  [TURNSTILE_FIELD]: "token",
+  [TURNSTILE_FIELD]: BOT_CHECK_TOKEN,
   first_name: "Mia",
   last_name: "Sommer",
   email: "mia@schule.de",
@@ -44,21 +57,20 @@ const posted = (entries: Readonly<Record<string, string>>) => {
   return formData;
 };
 
-beforeEach(() => {
-  link.forget.mockClear();
-});
-
 describe("the registration a press sends", () => {
   // The harm: a press whose answer was lost, sent again under another key, is a second registration and a second mail;
   // an untouched optional box sent as "" is refused by the write's pattern, on a box the pupil never filled in.
   it("sends the form's replay key and the boxes as the write spells them, forgets the link once done, and leads on", async () => {
+    const siteverify = serveSiteverify();
     const thrown: unknown = await submitRegistrierung(posted(BOXES)).catch((error: unknown) => error);
     // Next's redirect, thrown past the action, names the done page; the link's own page would read the forgotten link.
     const [kind, , address] = (thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "").split(";");
     expect([kind, address]).toStrictEqual(["NEXT_REDIRECT", ROUTES.registrierungDone.path()]);
 
-    expect(calls[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
-    expect(requestsOf(calls)[0]?.body).toStrictEqual({
+    expect(siteverify).toHaveLength(1);
+    expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /registrierungen"]);
+    expect(backend.sent[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
+    expect(backend.sent[0]?.body).toStrictEqual({
       token: TOKEN,
       first_name: "Mia",
       last_name: "Sommer",
@@ -67,7 +79,10 @@ describe("the registration a press sends", () => {
       position: null,
       stufe: null,
     });
-    // The next person at a shared browser opening the plain address meets no earlier pupil's link.
-    expect(link.forget).toHaveBeenCalledWith(ROUTES.registrierung.path());
+    // The next person at a shared browser opening the plain address meets no earlier pupil's link: its cookie is
+    // deleted on the registration's own path, the path it was set on, carrying no value and expired at the epoch.
+    expect(writtenCookies().map(({ name, value, path, expires }) => ({ name, value, path, expires }))).toStrictEqual([
+      { name: "mailed_link", value: undefined, path: ROUTES.registrierung.path(), expires: new Date(0) },
+    ]);
   });
 });

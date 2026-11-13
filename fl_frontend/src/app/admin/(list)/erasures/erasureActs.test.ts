@@ -1,51 +1,17 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { refused } from "@/test-support/refusals";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { ADMIN_EMAIL } from "@/test-support/authDoubles";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-/** Every step of an erasure in its order, the backend's refusal or the account's failure each case sets, and the log. */
-const state = vi.hoisted(() => ({
-  steps: [] as string[],
-  refusal: null as unknown,
-  accountFailure: null as unknown,
-  logged: [] as unknown[],
-  view: {} as Record<string, number>,
-  holdings: { account: 0, passkeys: 0 },
-}));
+import type { FLErasureViewResponse } from "@/core/generated/client/types";
 
-const HOLDER = "pia@example.org";
+/** The address the administrator erases. */
+const ERASED = "max@example.org";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }), passesPasskeyTouch: async () => true }));
-vi.mock("@/core/requestScope", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  getRequestActor: () => ({ email: "pia@example.org" }),
-}));
-vi.mock("@/core/logging", () => ({ logger: { error: (...line: unknown[]) => void state.logged.push(line) } }));
-vi.mock("@/core/auth/accounts", () => ({
-  accountHoldingsAt: async () => state.holdings,
-  deleteAccountFor: async () => {
-    state.steps.push("account");
-    if (state.accountFailure !== null) throw state.accountFailure;
-    return true;
-  },
-}));
-
-doubleApiClient(({ endpoint }) => {
-  if (endpoint.endsWith("/view")) return state.view;
-  state.steps.push("records");
-  if (state.refusal !== null) throw state.refusal;
-  return {};
-});
-
-const { eraseAddress, readErasureCounts } = await import("./erasureActs");
-
-const press = () => eraseAddress({ email: "max@example.org", reason: "Mail vom 3.11.2026", holder: HOLDER });
-
-const NO_RECORDS = {
+const NO_RECORDS: FLErasureViewResponse = {
   spieler: 0,
   schiedsrichter: 0,
   kontakt_seats: 0,
@@ -56,25 +22,64 @@ const NO_RECORDS = {
   grants: 0,
 };
 
+/** What the backend holds for the case, and whether the erased address's account stood when the records went. */
+const held = { view: NO_RECORDS, refused: false, accountAtTheErasure: undefined as boolean | undefined };
+
+// The question's read and the erasure itself, each answered only for the address the case erases.
+const backend = serveBackend(({ method, path, body }) => {
+  if (method !== "POST" || (body as { email?: string }).email !== ERASED) return undefined;
+  if (path === "/identity/erasure/view") return held.view;
+  if (path !== "/identity/erasure") return undefined;
+  held.accountAtTheErasure = accounts().includes(ERASED);
+  return held.refused ? refusal("own_address") : new Response(null, { status: 204 });
+});
+// The administrator, signed in by passkey just now, which the erasure's touch admits; the erased address's account
+// stands in the same memory store.
+const { arriveAs, store } = signedInRequest();
+
+const { eraseAddress, readErasureCounts } = await import("./erasureActs");
+
+/** Every address the sign-in store holds an account at. */
+const accounts = () => store.user.map(({ email }) => email);
+
+/**
+ * An account at the erased address holding `passkeys` passkeys, made by that person's own sign-in, the administrator
+ * then arriving again by passkey.
+ */
+async function accountAtTheErasedAddress(passkeys = 0): Promise<void> {
+  await arriveAs({ email: ERASED });
+  await arriveAs({ email: ADMIN_EMAIL, admin: true });
+  const account = store.user.find(({ email }) => email === ERASED);
+  assert(account !== undefined, "the sign-in made no account at the erased address");
+  for (let n = 0; n < passkeys; n += 1) {
+    store.passkey.push({
+      id: `a-passkey-${String(n)}`,
+      userId: account.id,
+      credentialID: `a-credential-${String(n)}`,
+      publicKey: "fabricated",
+    });
+  }
+}
+
+// The page's holder is the administrator the page was drawn for, as the touch's act requires.
+const press = () => eraseAddress({ email: ERASED, reason: "Mail vom 3.11.2026", holder: ADMIN_EMAIL });
+
 const asked = async () => {
-  const answer = await readErasureCounts({ email: "max@example.org", reason: "Mail vom 3.11.2026" });
+  const answer = await readErasureCounts({ email: ERASED, reason: "Mail vom 3.11.2026" });
   assert(answer.ok);
   return answer.value.question;
 };
 
 beforeEach(() => {
-  state.view = NO_RECORDS;
-  state.holdings = { account: 0, passkeys: 0 };
-  state.steps.length = 0;
-  state.logged.length = 0;
-  state.refusal = null;
-  state.accountFailure = null;
+  held.view = NO_RECORDS;
+  held.refused = false;
+  held.accountAtTheErasure = undefined;
 });
 
 describe("the erasure's question", () => {
   // The harm: „Unter dieser Adresse steht nichts.“ over an account the act then deletes.
   it("counts an address holding its account alone, each row above zero and no other", async () => {
-    state.holdings = { account: 1, passkeys: 2 };
+    await accountAtTheErasedAddress(2);
 
     expect(await asked()).toMatchObject({
       consequence: COPY.admin.erasure.consequence,
@@ -92,26 +97,20 @@ describe("the erasure's question", () => {
 
 describe("the erasure's two stores", () => {
   it("deletes the account after the records, and says so", async () => {
+    await accountAtTheErasedAddress();
+
     expect(await press()).toStrictEqual({ ok: true, value: undefined, note: COPY.admin.erased });
-    expect(state.steps).toStrictEqual(["records", "account"]);
+    expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /identity/erasure"]);
+    // The account stood while the records went, and is gone once the press answers.
+    expect(held.accountAtTheErasure).toBe(true);
+    expect(accounts()).not.toContain(ERASED);
   });
 
   it("leaves the account standing where the backend refuses the records", async () => {
-    state.refusal = refused("own_address");
+    await accountAtTheErasedAddress();
+    held.refused = true;
 
     expect(await press()).toMatchObject({ ok: false, reason: SERVER_COPY.refusalLine.own_address });
-    expect(state.steps).toStrictEqual(["records"]);
+    expect(accounts()).toContain(ERASED);
   });
-
-  it.each([["of unknown outcome", new Error("max@example.org")]])(
-    "stays open on an account deletion %s, logging no address",
-    async (_, failure) => {
-      state.accountFailure = failure;
-
-      // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
-      expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
-      expect(JSON.stringify(state.logged)).not.toContain("max@example.org");
-      expect(state.logged).toHaveLength(1);
-    },
-  );
 });

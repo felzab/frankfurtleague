@@ -1,6 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { person } from "@/test-support/subjectFixtures";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -46,30 +46,29 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
   version: 3,
 };
 
-/** What the report's read answers, and every write the save sends. */
-const state = vi.hoisted(() => ({ read: null as unknown, sent: [] as { endpoint: string; body: unknown }[] }));
+/** What the report's read answers. */
+const state = { read: READ };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/subject", () => ({ getSubjectSession: async () => person({}) }));
-
-// The backend client itself is replaced, so the read and the write run through the real generated calls.
-const calls = doubleApiClient((call) => {
-  if (call.method === "GET") return state.read;
-  state.sent.push({ endpoint: call.endpoint, body: JSON.parse(call.body ?? "null") });
-  return { ...(state.read as FLSpielberichtSchiedsrichterResponse), version: 4 };
+// The report's read and its write, each answered only at the match the case names: a save reaching for another match
+// goes unanswered and fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (path !== `/spielberichte/${SPIEL_ID}/bericht`) return undefined;
+  if (method === "GET") return state.read;
+  return method === "PUT" ? { ...state.read, version: 4 } : undefined;
 });
+// A referee's session, through the real sign-in library: the read and the write run behind the person's guard.
+signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "64b0000000000000000000aa" }] } });
 
 const { saveBericht } = await import("./saveBericht");
 
 beforeEach(() => {
-  calls.length = 0;
   state.read = READ;
-  state.sent = [];
 });
 
-const sentPayload = () => state.sent[0]?.body as FLSpielberichtPayload | undefined;
+/** Every write the save sent, by the request the backend saw. */
+const writes = () => backend.sent.filter(({ method }) => method !== "GET");
+
+const sentPayload = () => writes()[0]?.body as FLSpielberichtPayload | undefined;
 
 // The harm: a report written onto another match than the one the form showed, which nobody would notice there.
 describe("the report's save", () => {
@@ -77,11 +76,11 @@ describe("the report's save", () => {
     const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Zehn Minuten zu spät" } });
 
     expect(answer).toStrictEqual({ ok: true, value: 4 });
-    expect(calls.map(({ method, endpoint }) => [method, endpoint])).toStrictEqual([
+    expect(backend.sent.map(({ method, path }) => [method, path])).toStrictEqual([
       ["GET", `/spielberichte/${SPIEL_ID}/bericht`],
       ["PUT", `/spielberichte/${SPIEL_ID}/bericht`],
     ]);
-    expect(calls.some(({ endpoint }) => endpoint.includes(OTHER_SPIEL_ID))).toBe(false);
+    expect(backend.sent.some(({ path }) => path.includes(OTHER_SPIEL_ID))).toBe(false);
     expect(sentPayload()?.version).toBe(3);
   });
 });
@@ -118,7 +117,7 @@ describe("each row the save sends", () => {
     });
 
     expect(answer).toStrictEqual({ ok: false, fieldErrors: { "changes.cards.0.spieler_id": COPY.shared.field.required } });
-    expect(state.sent).toHaveLength(0);
+    expect(writes()).toHaveLength(0);
   });
 
   it("sends no stored row whose pupil left with the club its side no longer fields, though the form left it unchanged", async () => {
@@ -131,6 +130,6 @@ describe("each row the save sends", () => {
     const answer = await saveBericht({ id: SPIEL_ID, version: 3, changes: { remarks: "Nachgetragen" } });
 
     expect(answer).toStrictEqual({ ok: false, fieldErrors: { "changes.scorers.0.spieler_id": COPY.shared.field.required } });
-    expect(state.sent).toHaveLength(0);
+    expect(writes()).toHaveLength(0);
   });
 });

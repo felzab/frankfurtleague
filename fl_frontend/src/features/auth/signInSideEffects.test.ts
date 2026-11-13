@@ -7,7 +7,7 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
+import { serveBackend, serveHost } from "@/test-support/backend.ts";
 import { answerAt } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
@@ -31,8 +31,15 @@ const BACKENDS: Readonly<Record<string, LookupFixture>> = {
   [GRANTED]: { ...HOLDS_NOTHING, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
 };
 
-/** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
-function answerFromTheBackend({ path, body }: { path: string; body: unknown }): unknown {
+/** The gate's read and the subject's, by the path each is spelled at below the base path. */
+const LOOKUPS: ReadonlySet<string> = new Set(["/identity/sign_in", "/identity/subject"]);
+
+/**
+ * Answers the backend read for the address its body names; an address named nowhere holds nothing. Any other request
+ * goes unanswered, which fails the case it was sent in.
+ */
+function answerFromTheBackend({ method, path, body }: { method: string; path: string; body: unknown }): unknown {
+  if (method !== "POST" || !LOOKUPS.has(path)) return undefined;
   const asked = ((body ?? {}) as { email?: string }).email ?? "";
   const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
 
@@ -41,6 +48,17 @@ function answerFromTheBackend({ path, body }: { path: string; body: unknown }): 
 
 // Registered ahead of the imports below, whose graph reaches the real client through the gate.
 const { sent: asked } = serveBackend(answerFromTheBackend);
+
+/** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/). */
+const BOT_CHECK_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+
+// Cloudflare's verdict, asked over the network by the real bot check: it passes the token every attempt posts and
+// answers nothing else, which fails the case. This file's subject is what the gate does past the check.
+serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
+  method === "POST" && url.pathname === "/turnstile/v0/siteverify" && (body as { response?: string }).response === BOT_CHECK_TOKEN
+    ? { success: true, "error-codes": [] }
+    : undefined,
+);
 
 /** `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. */
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
@@ -58,8 +76,6 @@ const NEXT_SERVER_DOUBLE = overriding("next/server", {
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass.
 const { sent } = registerAuthDoubles({
-  // Passed at its module: this file's subject is what the gate does past the bot check.
-  core: { turnstile: { turnstileRefusal: () => Promise.resolve(null) } },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
     "next/server": NEXT_SERVER_DOUBLE,
@@ -96,7 +112,7 @@ interface Attempt {
 async function signInWith(email: string): Promise<Attempt> {
   const submitted = new FormData();
   submitted.set("email", email);
-  submitted.set(TURNSTILE_FIELD, "XXXX.DUMMY.TOKEN.XXXX");
+  submitted.set(TURNSTILE_FIELD, BOT_CHECK_TOKEN);
 
   const mailedBefore = sent.length;
   const storedBefore = store.verification.length;
