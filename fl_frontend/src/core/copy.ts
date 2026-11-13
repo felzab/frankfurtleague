@@ -1085,6 +1085,11 @@ export const COPY = catalogue({
     /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
     objected: "Widersprochen",
     erased: DELETED,
+    /**
+     * Why a choice waits for the season's start: the team editor's exit, whose route before the start is the replacement,
+     * and the match editor's events that record the match, offered disabled until then.
+     */
+    fromStart: "Erst ab Saisonbeginn",
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
@@ -1438,8 +1443,6 @@ export const COPY = catalogue({
       /** The exit's row and its dialog's title. */
       austrittAct: "Aus der Saison nehmen",
       austrittRowLine: "Das Team scheidet aus dieser Saison aus.",
-      /** The exit's reason while locked: before the season's start the replacement is the route. */
-      fromStart: "Erst ab Saisonbeginn",
       austrittReasonDescription: "Steht ohne Namen auf der Website",
       /**
        * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,

@@ -142,7 +142,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
         : {
             earliest: dayOf(saison.start_date),
             today: dayIn(now()),
-            ...(saison.begun ? {} : { locked: WORDS.fromStart }),
+            ...(saison.begun ? {} : { locked: COPY.admin.fromStart }),
           },
   };
 }
