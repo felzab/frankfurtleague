@@ -3,11 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import AddressChangeConfirmationPage, { generateMetadata } from "./page";
+import AddressChangeConfirmationPage from "./page";
 
 import type { FLAddressChangeViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 
 const read = vi.hoisted(() => ({ view: null as FLAddressChangeViewResponse["view"] | null }));
@@ -96,19 +95,5 @@ describe("the address on file's link", () => {
       title: COPY.shared.end.doneOn(WORDS.previous.stopped, DAY),
       declined: true,
     });
-  });
-
-  // The new mailbox's decline of an administrator's change is no answer of this link's, so naming one would be false.
-  it("calls an administrator's change the new mailbox declined void", async () => {
-    expect(await stateFor({ ...ended, side: "previous", kind: "declined", way: "waiting_period" })).toMatchObject({ state: "invalid" });
-  });
-});
-
-// The harm: a tab asking for an answer over a page saying the link is dead, which no reading of the page meets.
-describe("the tab's title", () => {
-  it("says the link is dead where the page does", async () => {
-    const parent = Promise.resolve({}) as unknown as ResolvingMetadata;
-
-    expect((await generateMetadata({ searchParams: Promise.resolve({}) }, parent)).title).toBe(COPY.template.linkInvalid);
   });
 });

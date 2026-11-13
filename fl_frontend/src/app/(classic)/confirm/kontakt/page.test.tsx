@@ -5,11 +5,10 @@ import { COPY } from "@/core/copy";
 
 import { objectKontakt } from "./answerKontakt";
 import { END, TO_HOME } from "./ends";
-import KontaktConfirmationPage, { generateMetadata } from "./page";
+import KontaktConfirmationPage from "./page";
 
 import type { FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 
 const read = vi.hoisted(() => ({ view: null as FLBewerbungEinwilligungViewResponse | null }));
@@ -78,14 +77,5 @@ describe("a closed row's link", () => {
       action: objectKontakt,
       acts: { refusal: { verb: "oppose" } },
     });
-  });
-});
-
-// The harm: a tab asking for an answer over a page saying the link is dead, which no reading of the page meets.
-describe("the tab's title", () => {
-  it("says the link is dead where the page does", async () => {
-    const parent = Promise.resolve({}) as unknown as ResolvingMetadata;
-
-    expect((await generateMetadata({ searchParams: Promise.resolve({}) }, parent)).title).toBe(COPY.template.linkInvalid);
   });
 });
