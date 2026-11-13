@@ -727,8 +727,14 @@ def reason_to_close(
 
     ansetzung = row["ansetzung"]
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
-    # First, ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it
-    # stands, or the row's where the fixture lost its date.
+    # First: a party taken off the fixture is told so, never that the match it no longer plays or officiates was called
+    # off, decided or moved, a call-off's notice promising it the next request. A club taken off is the move's to tell,
+    # which words it as taken off.
+    if not still_a_party(row=row, spiel=spiel):
+        return "schiedsrichter_switched" if row["party"]["kind"] == "schiedsrichter" else "ansetzung_changed"
+
+    # Ahead of a move, neither leaving a new Ansetzung to announce; on the fixture's day as it stands, or the row's where
+    # the fixture lost its date.
     tag = spiel.get("date") or ansetzung["date"]
     # Ahead of the decision a no-show records: entered before the day, nobody is due at the ground, so its
     # parties are told and shown a call-off.
@@ -738,11 +744,6 @@ def reason_to_close(
     decided = decision_of(spiel=spiel, austritte=[austritte[team_id] for team_id in clubs if team_id in austritte], tag=tag)
     if decided is not None:
         return decided
-
-    party = row["party"]
-    # Ahead of the move: a referee taken off the fixture is owed no notice that it moved.
-    if party["kind"] == "schiedsrichter" and _referee_id(spiel) != party.get("schiedsrichter_id"):
-        return "schiedsrichter_switched"
 
     if ansetzung_digest_of(spiel) != ansetzung["digest"]:
         return "ansetzung_changed"
@@ -799,12 +800,10 @@ def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], no
     )
 
     # Never a row the close would shut: a club gone by the fixture's day, or a lone goal count or
-    # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass.
-    return (
-        asked
-        and reason_to_close(row={"party": {"kind": "team"}, "ansetzung": compose_ansetzung(spiel)}, spiel=spiel, austritte=austritte, now=now)
-        is None
-    )
+    # shoot-out, would otherwise be minted, closed and minted again, a fresh request every pass. Asked as a side's row,
+    # which is a party of the fixture as it stands.
+    minted = {"party": {"kind": "team", "team_id": _side_id(spiel, "team1")}, "ansetzung": compose_ansetzung(spiel)}
+    return asked and reason_to_close(row=minted, spiel=spiel, austritte=austritte, now=now) is None
 
 
 def parties_of(spiel: Mapping[str, Any]) -> list[dict[str, Any]]:
