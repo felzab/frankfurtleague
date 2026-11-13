@@ -2,6 +2,7 @@ import { setTimeout as pause } from "node:timers/promises";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, overriding, registerAuthDoubles, signInByCode } from "@/test-support/authDoubles.ts";
 import { startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { StoreRelay } from "@/test-support/storeRelay.ts";
 import { isAPIError } from "better-auth/api";
 import { MongoError, MongoServerSelectionError } from "mongodb";
@@ -17,7 +18,12 @@ const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnecti
 /** The address the next client `db.ts` builds is given. */
 let storeUrl = RELAYED_URL;
 
-const logged: Record<string, unknown>[] = [];
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
+
+/** Each error line written, its event beside its fields. */
+const errorLines = (): Record<string, unknown>[] =>
+  log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, ...fields }] : []));
 
 // The real `fl_frontend/src/core/db.ts`, which the auth doubles replace by default: the client
 // under test is the one it builds.
@@ -27,14 +33,6 @@ registerAuthDoubles({
   core: {
     config: configDouble({}, { mongodbUri: () => storeUrl }),
     db: overriding(PRODUCTION_DB, {}),
-    logging: {
-      logger: {
-        debug: () => undefined,
-        info: () => undefined,
-        warn: () => undefined,
-        error: (event: string, _error: unknown, fields?: Record<string, unknown>) => void logged.push({ event, ...fields }),
-      },
-    },
   },
 });
 
@@ -144,7 +142,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
      adapter's abort after it (`@better-auth/mongo-adapter :: abortTransactionCommand`). */
   it("ends the adapter's own transaction within three stages' bounds when the store never answers its commit", async () => {
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
-    logged.length = 0;
+    log.clear();
 
     const outcome = await relay.hangFrom("commitTransaction", () =>
       settledWithin(STAGE_BOUND * 3, "the hung commit", () =>
@@ -162,7 +160,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
     // commit's own failure being its caller's to log. Which stage's bound ended the abort is the
     // driver's race between two equal timers, so the line's error name is left unread.
-    expect(logged.map(({ event }) => event)).toStrictEqual(["auth.transaction_left_open"]);
+    expect(errorLines().map(({ event }) => event)).toStrictEqual(["auth.transaction_left_open"]);
   });
 });
 
@@ -181,11 +179,11 @@ describe("the sign-in store's indexes recover with the store", () => {
     client.on("open", counted);
 
     try {
-      logged.length = 0;
+      log.clear();
       await relay.sever(() => buildAuthIndexes());
       assert.ok(
-        logged.some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
-        `the run met no outage: ${JSON.stringify(logged)}`,
+        errorLines().some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
+        `the run met no outage: ${JSON.stringify(errorLines())}`,
       );
       const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
 
@@ -197,7 +195,7 @@ describe("the sign-in store's indexes recover with the store", () => {
       expect(opens, "the client emitted `open`, so this drove a new topology rather than a recovered one").toBe(0);
     } finally {
       client.off("open", counted);
-      logged.length = 0;
+      log.clear();
     }
   });
 });
