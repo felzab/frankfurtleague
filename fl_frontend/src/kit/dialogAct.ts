@@ -74,8 +74,9 @@ export type DialogAct<T extends Tone = Tone> = {
       /**
        * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a
        * passkey presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The
-       * press closes the dialog for good before the browser asks, and the act answers in a toast, a refusal included,
-       * the dialog's opening button standing again for a new try with the inputs typed anew.
+       * press closes the dialog for good before the browser asks, and the act answers in a toast, a refusal in a
+       * sentence of its own, since no field stands to carry a field's phrase, the dialog's opening button standing
+       * again for a new try with the inputs typed anew.
        */
       touch: { holder: string };
     }

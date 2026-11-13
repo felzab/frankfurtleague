@@ -229,6 +229,24 @@ export const SERVER_COPY = catalogue({
     elfmeterschiessen_without_winner: "Das Elfmeterschießen hat keinen Sieger.",
   } satisfies Partial<Record<Rule, string>>,
 
+  /**
+   * The refusals of a dialog closed behind the passkey touch, whose toast says them where no box stands to carry a
+   * field's phrase: each names what was refused, by its box's label, as its lane's `boxless` declares it.
+   */
+  closedDialog: {
+    /** A ban of an address the ban list already holds. */
+    banned: "Diese Adresse ist schon gesperrt.",
+    /** An address box's own rule, by the box. */
+    format: {
+      address: `Die E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
+      previous: `Die bisherige E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
+      next: `Die neue E-Mail-Adresse hat nicht das Format ${COPY.shared.field.exampleAddress}.`,
+    },
+    /** A ban's Grund, left holding nothing but spaces, or holding an address, which outlives the person's erasure. */
+    reasonMissing: "Der Grund fehlt.",
+    reasonWithAddress: "Der Grund enthält eine E-Mail-Adresse.",
+  },
+
   /** The image a shared link's preview shows, by its alt, which a screen reader reads in the preview's place. */
   shareImage: {
     alt: `${COPY.brand.name}, die Fußballliga der Frankfurter Oberstufen: der Pokal über dem Schriftzug`,

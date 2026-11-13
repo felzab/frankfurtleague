@@ -8,6 +8,7 @@ import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
 import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setRequestActor } from "./requestScope";
+import { SERVER_COPY } from "./serverCopy";
 
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
@@ -413,6 +414,56 @@ describe("a list of records", () => {
       errorCode: "payload_refused",
       reason: COPY.shared.failure.stale,
     });
+  });
+});
+
+// The harm: a dialog closed behind the passkey touch answers in a toast, where a box's phrase has no box in sight and the
+// line pointing at the fields points at nothing.
+describe("a screen showing no box with its answer", () => {
+  const { format, reasonMissing, reasonWithAddress } = SERVER_COPY.closedDialog;
+  const Ban = z.object({
+    email: z.string().refine((value) => value.includes("@")),
+    ban_reason: z
+      .string()
+      .min(1)
+      .regex(/^[^|]*$/),
+  });
+
+  /** A ban whose backend refuses what `refused` names, or takes it. */
+  const ban = (refused?: FLRefusedField) =>
+    action({
+      lane: "admin",
+      name: "enterBan",
+      input: Ban,
+      ownWords: ["address_in_free_text", "email_not_accepted"],
+      paths: { email: "email", ban_reason: "ban_reason" },
+      boxless: {
+        email: { value: format.address, email_not_accepted: format.address },
+        ban_reason: { required: reasonMissing, address_in_free_text: reasonWithAddress },
+      },
+      run: async () => {
+        await sends("POST", undefined, refused === undefined ? undefined : failure(422, "payload_refused", [refused]));
+        return { ok: true, value: undefined };
+      },
+    });
+
+  it("answers a box its own rule refused in the box's sentence, by whether it held anything once stripped", async () => {
+    expect(await ban()({ email: "max", ban_reason: "Ein Grund" })).toStrictEqual({ ok: false, reason: format.address });
+    expect(await ban()({ email: "max@example.org", ban_reason: "   " })).toStrictEqual({ ok: false, reason: reasonMissing });
+  });
+
+  it("answers a box the backend's rule refused in the sentence declared for that rule", async () => {
+    const refused: FLRefusedField = { in: "body", kind: "address_in_free_text", ctx: {}, path: ["ban_reason"] };
+
+    expect(await ban(refused)({ email: "max@example.org", ban_reason: "max@example.org" })).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      reason: reasonWithAddress,
+    });
+  });
+
+  it("answers a refusal of a box it declares no sentence for as one it does not word, never with the box's phrase", async () => {
+    expect(await ban()({ email: "max@example.org", ban_reason: "a|b" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
   });
 });
 

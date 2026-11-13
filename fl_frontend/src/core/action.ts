@@ -113,7 +113,21 @@ type Declared<Schema extends z.ZodType> = {
   readonly paths?: { readonly [path: string]: Field<z.output<Schema>> };
   /** The example a box's „Format: …“ message names, by the box; a row's field names it for every row. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
+  /**
+   * A screen whose answer stands where none of its boxes does, a dialog closed behind the passkey touch, whose answer a
+   * toast says: a box's phrase has no subject there, so each refusal of a box is the sentence declared for it here, by
+   * its cause, on the status line. A box's own rule refused in the parse is its `value`, or its `required` where it
+   * held nothing once stripped; a rule or a code the backend refused it by is that rule's kind or that code. A refusal
+   * of a box with no sentence for its cause answers as a refusal the screen does not word.
+   */
+  readonly boxless?: { readonly [F in Field<z.output<Schema>>]?: BoxSentences };
 };
+
+/** A box's sentences for a screen that shows no box with its answer, by the cause of its refusal (`Declared`'s `boxless`). */
+type BoxSentences = { readonly [Cause in "value" | "required" | WordedRule]?: Copy };
+
+/** `boxless` as the builder reads it, by any box's declared path and any cause, as a refused path names them. */
+type SentenceTable = Readonly<Record<string, Readonly<Record<string, Copy | undefined>> | undefined>>;
 
 type Run<Schema extends z.ZodType, Context, Value> = (input: z.output<Schema>, context: Context) => Promise<ActionAnswer<Value>>;
 
@@ -387,7 +401,10 @@ function parsed<Schema extends z.ZodType>(
   raw: unknown,
 ): { input: z.output<Schema> } | { answer: ActionAnswer<never> } {
   const examples: Readonly<Record<string, Copy | undefined>> = declared.examples ?? {};
+  const boxless: SentenceTable | undefined = declared.boxless;
   const fieldErrors: Record<string, Copy> = {};
+  // Each box's sentence where the screen shows no box, by its first issue's cause; `undefined` where it declares none.
+  const sentences: Record<string, Copy | undefined> = {};
   const result = declared.input.safeParse(stripped(posted(raw)), {
     error: (issue) => {
       const path = issue.path ?? [];
@@ -395,7 +412,12 @@ function parsed<Schema extends z.ZodType>(
       const example = field === undefined ? undefined : examples[field.declared];
       const line = fieldMessage(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
       // The first issue on a box is the one it shows.
-      if (field !== undefined) fieldErrors[field.key] ??= line;
+      if (field !== undefined && fieldErrors[field.key] === undefined) {
+        fieldErrors[field.key] = line;
+        const said = boxless?.[field.declared];
+        // The German map asks for a value of every check meeting an empty box, so its line is the parse's own verdict.
+        sentences[field.key] = (line === COPY.shared.field.required ? said?.required : undefined) ?? said?.value;
+      }
       return line;
     },
   });
@@ -405,22 +427,33 @@ function parsed<Schema extends z.ZodType>(
     const field = fieldOf(issue.path);
     return field === undefined || fieldErrors[field.key] === undefined;
   });
-  return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
+  if (unplaced) return { answer: UNEXPECTED };
+  if (boxless === undefined) return { answer: { ok: false, fieldErrors } };
+  // The first box's sentence stands, as the status line shows one; a box worded by none is not this screen's to say.
+  const said = Object.keys(fieldErrors).map((key) => sentences[key]);
+  const [first] = said;
+  return { answer: first !== undefined && said.every((sentence) => sentence !== undefined) ? { ok: false, reason: first } : UNEXPECTED };
 }
 
 const wordsOwn = <Schema extends z.ZodType>(declared: Declared<Schema>, kind: string): boolean =>
   declared.ownWords?.some((own) => own === kind) ?? false;
 
-/** One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own. */
-type Words = { readonly path: FLRefusedField["path"] } & ({ readonly field: Copy } | { readonly line: Copy });
+/**
+ * One refused field in the catalogue's words: a field pattern's phrase for its box, or a sentence of its own, and the
+ * rule's kind or the code it was refused by.
+ */
+type Words = { readonly path: FLRefusedField["path"]; readonly kind: string } & ({ readonly field: Copy } | { readonly line: Copy });
 
 /**
  * Each refusal where this screen shows it: a phrase on the box `paths` names for its path, a sentence on the status
- * line. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined` where
- * a phrase's path has no box here, so no field phrase reaches the status line without its field.
+ * line, or, on a screen showing no box with its answer, the sentence `boxless` declares for the box by the kind it was
+ * refused by. The first a box meets is the one it shows, and the first sentence the one the line shows. `undefined`
+ * where a phrase's path has no box here, or no sentence where no box stands, so no field phrase reaches the status
+ * line without its field.
  */
 function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, refusals: readonly Words[]): ActionAnswer<never> | undefined {
   if (refusals.length === 0) return undefined;
+  const boxless: SentenceTable | undefined = declared.boxless;
   const fieldErrors: Record<string, Copy> = {};
   let reason: Copy | undefined;
   for (const refusal of refusals) {
@@ -431,7 +464,13 @@ function placed<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code
     const field = fieldOf(refusal.path);
     const shown = field === undefined ? undefined : declared.paths?.[field.declared];
     const box = field === undefined || shown === undefined ? undefined : inRows(shown, field.rows);
-    if (box === undefined) return undefined;
+    if (box === undefined || shown === undefined) return undefined;
+    if (boxless !== undefined) {
+      const sentence = boxless[shown]?.[refusal.kind];
+      if (sentence === undefined) return undefined;
+      reason ??= sentence;
+      continue;
+    }
     fieldErrors[box] ??= refusal.field;
   }
   return {
@@ -478,7 +517,7 @@ function worded<Schema extends z.ZodType>(
     return placed(
       declared,
       code,
-      fields.map((refused) => ({ path: refused.path, ...ruleMessage(refused) })),
+      fields.map((refused) => ({ path: refused.path, kind: refused.kind, ...ruleMessage(refused) })),
     );
   }
   if (!wordsOwn(declared, code)) return undefined;
@@ -491,7 +530,7 @@ function worded<Schema extends z.ZodType>(
     return placed(
       declared,
       code,
-      fields.map(({ path, ctx }) => ({ path, ...ruleMessage({ kind: code, ctx, path }) })),
+      fields.map(({ path, ctx }) => ({ path, kind: code, ...ruleMessage({ kind: code, ctx, path }) })),
     );
   }
   // A phrase names no field of its own, so a code naming none has nothing to place it on.
@@ -500,7 +539,7 @@ function worded<Schema extends z.ZodType>(
   return placed(
     declared,
     code,
-    fields.map(({ path }) => ({ path, field: phrase })),
+    fields.map(({ path }) => ({ path, kind: code, field: phrase })),
   );
 }
 

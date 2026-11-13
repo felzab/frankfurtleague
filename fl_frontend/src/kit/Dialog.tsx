@@ -293,9 +293,8 @@ type Opening<T extends Tone> =
  * An act behind the passkey touch is asked as an identity check is, with no modal standing (`DialogAct`'s `touch`):
  * React Aria's modal makes the rest of the page inert, and a password manager draws its prompt in the page. Its press
  * closes the dialog for good, then asks the touch and runs the act, its answer a toast, the trigger busy until it
- * lands. A refusal the server places on a field has no field left to stand on: the toast says what the form's line
- * would, `checkFields` where the fields alone say it, and the inputs are typed anew. Past the browser's own checks, a
- * press meets that only where the record changed under it, such as an address another press entered first.
+ * lands. Its answer has no field left to stand on, so its act words every refusal as a sentence naming what was
+ * refused, such as an address already banned, and the inputs are typed anew at the next opening.
  */
 export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening<T>) {
   const { act, trigger, open, touch, ...form } = props;
@@ -312,14 +311,9 @@ export function Dialog<T extends Tone = "primary">(props: DialogAct<T> & Opening
           // Closed in the press, outside the transition, as a touched question closes (`ConfirmDialog`): committed with
           // the lifting of the modal's `inert` before the touch's first `await` resumes, so before the browser asks.
           setOpen(false);
-          startRun(async () => {
-            const answered = await sent(formData);
-            // A field's message has no field left to stand on: the toast says what the form's line would (`statusOf`).
-            toastAnswer(
-              answered.ok || answered.fieldErrors === undefined ? answered : { ...answered, reason: statusOf(answered, false, false)?.text },
-              done,
-            );
-          });
+          // A field's phrase has no field left to stand on, so the toast says the refusal's sentence alone, or the shared
+          // failure line where the act words none.
+          startRun(async () => toastAnswer(await sent(formData), done));
         };
   const label = actLabel(act);
   // Counted while rendering, as React's guide adjusts state to a changed prop: the count keys `ActDialog`.
