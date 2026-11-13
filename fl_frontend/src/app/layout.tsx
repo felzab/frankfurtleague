@@ -14,7 +14,7 @@ import { SITE_OPEN_GRAPH } from "@/shared/utils/metadata";
 
 import shareImage from "./share-image.png";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 // Every face is `optional`: one not in within the browser's short block period is left out for that view, so no text
 // is drawn in a stand-in and then again in the face, which moved the league table's and the search's figures. Anton's
@@ -79,6 +79,15 @@ export const metadata: Metadata = {
  * place that covers them all.
  */
 export const instant = false;
+
+/**
+ * The browser's own ground and controls in the visitor's system scheme wherever neither the stylesheet nor the theme
+ * script has set them yet. Once the theme script runs it writes the chosen theme's `color-scheme` on the root, which
+ * wins over this.
+ */
+export const viewport: Viewport = {
+  colorScheme: "light dark",
+};
 
 /** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
