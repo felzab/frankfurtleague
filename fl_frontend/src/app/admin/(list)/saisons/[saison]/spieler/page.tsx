@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** What the state filter offers, each by whether a row answers it. */
 const STATES = {
-  inKader: { label: WORDS.inKader, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
+  active: { label: COPY.admin.team.active, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
   nominee: { label: WORDS.nominee, holds: (row: FLSpielerAdminRow) => row.inactive_since === null && row.is_nachnominiert },
   deregistered: { label: WORDS.deregistered, holds: (row: FLSpielerAdminRow) => row.inactive_since !== null },
 };

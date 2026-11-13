@@ -1453,10 +1453,9 @@ export const COPY = catalogue({
     /** The Spieler list and its editor. */
     spieler: {
       search: "Spieler suchen",
-      /** A row's chips, and with `inKader` the state filter's options. */
+      /** A row's chips, and with `team.active` the state filter's options. */
       nominee: "Nachnominiert",
       deregistered: "Ausgetragen",
-      inKader: "Im Kader",
       nummerDouble: "Nummer doppelt",
       /** The editor's boxes and fields. */
       person: "Person",
