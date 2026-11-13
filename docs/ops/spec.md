@@ -816,7 +816,8 @@ Each gap is open, waiting on work, or accepted, with its reason.
 - **A deploy's verdict reads no page.** Accepted: health is each container's healthcheck and
   nginx's reload, so a site whose every page errors can pass ([`runbooks.md`](runbooks.md) §1).
 - **Going back moves the images alone.** Accepted: the compose file and `nginx/` stay as pulled, so
-  the newer configuration fronts the older build.
+  the newer configuration fronts the older build wherever nginx loads it: a start that recreated
+  nginx, a reload nginx confirmed neither way, and any later restart.
 - **Registry tag pruning is manual.** Accepted: a botched delete destroys the builds a hand rollback
   pulls (§1.5).
 - **Revoking admin access ends no session.** Accepted: both processes read the grant on every

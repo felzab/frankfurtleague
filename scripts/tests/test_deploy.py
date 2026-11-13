@@ -103,6 +103,11 @@ def went_back(calls: list[str]) -> bool:
     return any(call.startswith("compose up ") and call.endswith(f"TAG={PREVIOUS}") for call in calls)
 
 
+def reloaded_nginx(calls: list[str]) -> bool:
+    """Whether nginx was sent this checkout's `nginx/`, which going back leaves as pulled and loaded."""
+    return any(call.startswith("compose exec -T nginx nginx -s reload ") for call in calls)
+
+
 @pytest.mark.parametrize(
     ("named", "new"),
     [
@@ -122,6 +127,7 @@ def test_a_service_the_last_read_names_goes_back_although_up_answered_0(named: s
     assert f"so the stack went back to {PREVIOUS}, which is live." in last_line(err) and named in last_line(err), err
     assert f"compose logs --tail=60 {named} TAG={NEW}" in calls, calls
     assert SAID_HEALTHY not in out + err
+    assert not reloaded_nginx(calls), calls
 
 
 def test_a_stopped_one_off_container_names_nothing():
@@ -133,6 +139,7 @@ def test_a_stopped_one_off_container_names_nothing():
     assert SAID_HEALTHY in out
     assert pinned == f"TAG={NEW}\n"
     assert not went_back(calls)
+    assert reloaded_nginx(calls), calls
 
 
 @pytest.mark.parametrize("read", ["ps-fails", "config-fails", "config-empty"])
@@ -146,6 +153,7 @@ def test_a_read_compose_cannot_answer_judges_nothing_live(read: str):
     assert "compose could not read each service's state" in last_line(err), err
     assert f"so the stack went back to {PREVIOUS}, which is live." in last_line(err), err
     assert SAID_HEALTHY not in out + err
+    assert not reloaded_nginx(calls), calls
 
 
 def test_a_rollback_whose_build_reads_unhealthy_is_never_called_live():
