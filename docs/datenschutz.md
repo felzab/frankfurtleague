@@ -136,8 +136,8 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     application or by an administrator, so their data is taken from a third party (Art. 14).
   - Recipients: administrators; an application's Ansprechperson, who is told which other seats are
     still open and which objected, by role alone, at an address that may be unconfirmed; every seat
-    holder of a season row, who sees on the team's overview each other seat's holder by name and
-    whether they confirmed, never their address, telephone number or birthdate
+    holder of a season row, who sees on the team's overview each other seat's holder by name, the
+    seats they hold and whether they confirmed, never their address, telephone number or birthdate
     (`fl_backend/app/api/teams/schemas.py :: FLTeamSeat`).
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
@@ -700,7 +700,8 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 25. **The Ansprechperson and the seat holders as recipients**: whether the mails naming the other
     seats make the Ansprechperson a recipient under Art. 4(9), as section 3 and the notice treat
     them. The same holds for every seat holder of a season row, whom section 3 and the notice name
-    as a recipient of the other seats' names and of whether each confirmed.
+    as a recipient of the other seat holders' names, of the seats each holds and of whether each
+    confirmed.
 26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
