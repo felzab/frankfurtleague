@@ -255,6 +255,9 @@ export const LINE_SEPARATOR = " \u00B7 ";
 /** A row's one muted line: its parts in their order, a part the row lacks left out. */
 const lineOf = (parts: readonly (string | null)[]) => parts.filter((part) => part !== null).join(LINE_SEPARATOR);
 
+// The day a registration link was mailed: the links table's column, and the phrase before its day on a phone's line.
+const SENT_ON = "Gesendet am";
+
 export const COPY = catalogue({
   /** What every area draws from; an area adds a key of its own only for a string this lacks. */
   shared: {
@@ -1260,10 +1263,10 @@ export const COPY = catalogue({
        * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
        * the links table's line on a phone, whose box leaves the „Gesendet am“ column out.
        */
-      linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
+      linkSentOn: (day: CalendarDay) => `${SENT_ON}\u00A0${formatDate(day)}`,
       /** The links table's chip of a link mailed, and the column of the day it was. */
       linkSent: "Gesendet",
-      sentOn: "Gesendet am",
+      sentOn: SENT_ON,
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",
