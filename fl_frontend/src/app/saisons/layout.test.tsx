@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { WholePages } from "@/kit/WholePage";
+import { Suspense } from "react";
+
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -36,13 +37,15 @@ describe("the public season pages' frame", () => {
     onTestFinished(() => {
       address.saison = "2027";
     });
+    // The layout is a server component the server renders once; drawn here by the browser's React, each retry makes
+    // its read anew, so the render stands in a boundary of its own, where a suspended read can settle before the retry.
     await act(async () => {
       render(
-        <WholePages>
+        <Suspense>
           <SaisonsLayout>
             <p>Seite</p>
           </SaisonsLayout>
-        </WholePages>,
+        </Suspense>,
       );
     });
 
