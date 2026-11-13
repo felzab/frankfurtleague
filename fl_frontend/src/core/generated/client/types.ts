@@ -3196,7 +3196,7 @@ export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
   kind: "spiel_cancelled";
   recipient: FLSpielNoticeDataRecipient;
-  sonderereignis?: FLSpielNoticeEvent | null;
+  sonderereignis: FLSpielNoticeEvent | null;
 }
 
 /**

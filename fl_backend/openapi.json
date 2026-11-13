@@ -12595,7 +12595,8 @@
         "required": [
           "kind",
           "recipient",
-          "appointment"
+          "appointment",
+          "sonderereignis"
         ],
         "title": "FLSpielNoticeData",
         "type": "object"
