@@ -80,7 +80,7 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
       return {
         href,
         name: { record: first.team_name },
-        seats: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
+        seats: COPY.account.role.seats(COPY.shared.saisonNameBound(first.saison_id), rollen),
         teamLine: COPY.area.team.accountLine({ record: first.team_shorthand }, rollen),
       };
     }

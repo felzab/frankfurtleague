@@ -104,9 +104,9 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }
-  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonName(saison_id)));
+  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
   for (const { team_name, saison_id } of registrierungen) {
-    add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonName(saison_id)));
+    add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonNameBound(saison_id)));
   }
 
   const count = (label: Copy, figure: number): Fact[] =>
