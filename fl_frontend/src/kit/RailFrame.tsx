@@ -27,7 +27,7 @@ import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
-import { NavigationBar, NavigationLink, PageWait } from "./WholePage";
+import { NavigationBar, NavigationLink, PageContent, PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -384,7 +384,9 @@ export function RailPage({
         {/* The content in one column of at most 1280 px, centred beside the rail on a wide screen, the gutter
             outside it; the editor's bar spans the whole width under it. */}
         <main className="flex w-full min-w-0 flex-1 flex-col px-4 pt-4 pb-8 overflow-anchor-none lg:px-8 lg:pt-8 lg:pb-12">
-          <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
+          <PageContent>
+            <div className="mx-auto flex w-full max-w-content min-w-0 flex-1 flex-col gap-6">{children}</div>
+          </PageContent>
         </main>
       </PageFade>
       {/* Marked, so the column leaves out the bottom bar whose place the page's own bar takes (`RailColumn`). */}
@@ -392,7 +394,7 @@ export function RailPage({
         <div
           data-kit-page-bar
           className="contents">
-          {bar}
+          <PageContent>{bar}</PageContent>
         </div>
       )}
     </>

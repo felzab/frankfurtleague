@@ -10,7 +10,7 @@ import { smallCaps } from "./cardStyles";
 import { HeaderLinks } from "./HeaderLinks";
 import { Link } from "./Link";
 import { ToastRegion } from "./Toast";
-import { NavigationBar } from "./WholePage";
+import { NavigationBar, PageContent } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -95,7 +95,7 @@ export function ClassicFrame({
       </header>
       <NavigationBar placement="classic" />
 
-      {children}
+      <PageContent>{children}</PageContent>
 
       <footer className="shrink-0 border-t border-border bg-bg px-4 lg:px-8">
         <div className="mx-auto grid w-full max-w-classic gap-6 py-6 lg:py-8">

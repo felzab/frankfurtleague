@@ -158,6 +158,24 @@ export function NavigationBar({ placement }: { placement: "rail" | "classic" }) 
 }
 
 /**
+ * The page's own content, which a frame places it in: `inert` while a navigation to another path is pending, so nothing
+ * typed, pressed or selected in a page being left reaches it, and it leaves the accessibility tree; the frame around it
+ * stays pressable, so a second press still wins, and the bar says what inertness alone would not. A navigation staying
+ * on the path, a filter's or a tab's, leaves the page live. It draws no box (`display: contents`), so it moves nothing
+ * and takes no picture of its own in a page's cross-fade.
+ */
+export function PageContent({ children }: { children: ReactNode }) {
+  const pending = useContext(NavigationContext)?.pending ?? null;
+  return (
+    <div
+      className="contents"
+      inert={pending !== null && !staysOnPath(pending)}>
+      {children}
+    </div>
+  );
+}
+
+/**
  * A client navigation fed through the fact `WholePages` holds, for a control that navigates on its own press rather
  * than through a link, as Next's `router.push` and `router.replace` do. Outside `WholePages` it is Next's router alone.
  */
