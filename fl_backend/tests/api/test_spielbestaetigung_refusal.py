@@ -363,7 +363,8 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
     @pytest.mark.parametrize(
         ("fields", "situation", "state"),
         [
-            # Closed at its kick-off, the agreement binds the slot it answered, and no pass asks about the new one yet.
+            # Closed at its kick-off with no judgement stored: the agreement binds the slot it answered, and no pass asks
+            # about the new one yet.
             pytest.param({"answer": AGREED, "closed": {"reason": "spiel_past"}}, {}, "agreed", id="an agreement at its slot"),
             pytest.param({"answer": AGREED, "closed": {"reason": "spiel_past"}}, MOVED, "invalid", id="an agreement the match left"),
             # The league kept the date: the fixture counts the club as agreed, and its mail told it the date stands.
@@ -375,6 +376,24 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
             pytest.param({"answer": DECLINED, "closed": ENDED_AT_KICK_OFF}, {}, "agreed", id="a discard ended at its kick-off"),
             pytest.param({"answer": DECLINED, "closed": ENDED_AT_KICK_OFF}, MOVED, "invalid", id="a discard ended about a slot left"),
             pytest.param({"answer": DECLINED, "closed": ENDED_BY_A_DECISION}, PLAYED, "agreed", id="a discard ended by a decision"),
+            # The result entered with a corrected kick-off before the pass ran: judged as the pass's close will store it.
+            pytest.param({"answer": AGREED}, RETIMED, "agreed", id="an agreement retimed as it is decided, the pass to come"),
+            # Ended by the pass, a row reads by what its close stored, whatever the fixture was corrected to since.
+            pytest.param(
+                {"answer": DECLINED, "closed": {**ENDED_AT_KICK_OFF, "matched": True}}, RETIMED, "agreed", id="a discard retimed once ended"
+            ),
+            pytest.param(
+                {"answer": DECLINED, "closed": {**ENDED_AT_KICK_OFF, "matched": False}},
+                {},
+                "invalid",
+                id="a discard ended about a slot left, moved back",
+            ),
+            pytest.param(
+                {"answer": AGREED, "closed": {"reason": "spiel_decided", "matched": True}},
+                MOVED,
+                "agreed",
+                id="an agreement redated once ended",
+            ),
         ],
     )
     def test_each_reads_by_the_slot_it_answered(self, fields: dict[str, Any], situation: dict[str, Any], state: str):

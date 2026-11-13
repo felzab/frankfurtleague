@@ -288,14 +288,40 @@ def lapsed_on(
     return due_by_of(spielbestaetigung_raw) if _due_before(spielbestaetigung_raw, moment=ended) else None
 
 
-def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState, at_its_kick_off: bool = False) -> bool:
-    spiel = ansetzung_state.spiel
-    # A row closed at its kick-off answered the fixture as it then stood, `reason_to_close` testing the digest first:
-    # a kick-off time corrected once the match began, as a result is entered, moves no answer given to it.
-    if at_its_kick_off:
+# The ends the match itself brings about: a kick-off time corrected once it was played, as a result is entered, moves
+# no answer given to it.
+REASONS_JUDGED_AT_THE_KICK_OFF: Final = frozenset({"spiel_past", "spiel_decided"})
+
+
+def answers_at_its_end(
+    *, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason | None
+) -> bool:
+    """Whether a row ending for `reason` answers `spiel`: what the pass's close stores as `closed.matched`.
+
+    A row the match ended is judged with the fixture's time read as its own; never a discard, which is held through a
+    move and ended at its own kick-off, about a slot it may have left.
+    """
+
+    if reason in REASONS_JUDGED_AT_THE_KICK_OFF and not was_discarded(spielbestaetigung_raw):
         spiel = {**spiel, "time": spielbestaetigung_raw["ansetzung"]["time"]}
 
     return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(spiel)
+
+
+def _answers_the_fixture(
+    spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState, reason: FLSpielbestaetigungClosedReason | None
+) -> bool:
+    """By the judgement the pass's close stored, so nothing the fixture does after a row ended re-judges it.
+
+    A row no such close wrote, open, held or closed without the key, is judged by that close's rule against the fixture as it stands.
+    """
+
+    closed = spielbestaetigung_raw.get("closed")
+    matched = closed.get("matched") if isinstance(closed, Mapping) else None
+    if matched is not None:
+        return matched
+
+    return answers_at_its_end(spielbestaetigung_raw=spielbestaetigung_raw, spiel=ansetzung_state.spiel, reason=reason)
 
 
 def was_discarded(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
@@ -317,7 +343,7 @@ def state_of(
 
     A closed row reads by the reason it was closed for, as the public fixture counts it: a discarded decline as the
     agreement to the date the league kept, before and after the pass ends it where an agreement ends, and any answer
-    only while the Ansetzung it answered still stands.
+    only while the Ansetzung it answered still stands, or stood when the pass ended its row.
     """
 
     answer = spielbestaetigung_raw.get("answer")
@@ -333,10 +359,9 @@ def state_of(
         return "cancelled"
 
     # Ahead of the decline it closed: the public fixture counts a discarded proposal as its club's agreement while the
-    # slot stands, so read as the decline, one page would call the date confirmed and refused at once. Never judged at
-    # its kick-off: a discard is held through a move and ended at its own kick-off, about a slot it may have left.
+    # slot stands, so read as the decline, one page would call the date confirmed and refused at once.
     if was_discarded(spielbestaetigung_raw):
-        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, reason=reason) else "invalid"
 
     if isinstance(answer, Mapping) and answer["kind"] == "declined":
         return "declined"
@@ -344,8 +369,7 @@ def state_of(
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, until the pass asks about the new one.
     if isinstance(answer, Mapping):
-        answers = _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, at_its_kick_off=reason == "spiel_past")
-        return "agreed" if answers else "invalid"
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, reason=reason) else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"
@@ -1024,10 +1048,21 @@ def compose_asked_update(*, today: str) -> dict[str, Any]:
     return {"$set": {"asked_at": today}}
 
 
-def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, discarded: bool = False) -> dict[str, Any]:
-    """`discarded` where the row closed is a held discard, whose meaning `was_discarded` reads on after its end."""
+def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, discarded: bool = False, matched: bool | None = None) -> dict[str, Any]:
+    """`discarded` where the row closed is a held discard, whose meaning `was_discarded` reads on after its end.
 
-    return {"$set": {"closed": {"reason": reason, "discarded": True} if discarded else {"reason": reason}}}
+    `matched` is `answers_at_its_end`'s judgement, which the pass's close stores on every row it ends, so a later
+    correction of the fixture re-judges none of them. A discard, which leaves its row held, and a close whose row reads
+    as its reason whatever it answered store none.
+    """
+
+    closed: dict[str, Any] = {"reason": reason}
+    if discarded:
+        closed["discarded"] = True
+    if matched is not None:
+        closed["matched"] = matched
+
+    return {"$set": {"closed": closed}}
 
 
 # --- The notices a closing owes, owed through the Postausgang in the closing's own transaction.

@@ -35,6 +35,7 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     AnsetzungState,
     ansetzung_digest_of,
+    answers_at_its_end,
     asked_with_its_move,
     aufstellung_reminder_key,
     build_answerable_filter,
@@ -396,11 +397,17 @@ async def sweep_spielbestaetigungen(
             )
 
         for row in taken:
+            reason = reasons[row["_id"]]
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_holding_filter()},
-                # A held row is closed again only as a discard: its end keeps the mark of what it answered.
-                update=compose_closing_update(reason=reasons[row["_id"]], discarded=was_discarded(row)),
+                # A held row is closed again only as a discard: its end keeps the mark of what it answered, and whether
+                # it answered the fixture as the fixture stands at this read.
+                update=compose_closing_update(
+                    reason=reason,
+                    discarded=was_discarded(row),
+                    matched=answers_at_its_end(spielbestaetigung_raw=row, spiel=spiel_of(row), reason=reason),
+                ),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,
