@@ -6,6 +6,7 @@ import { TextField as AriaTextField, Input, TextArea } from "react-aria-componen
 import { useIsSSR } from "react-aria/SSRProvider";
 
 import { COPY, textOf } from "@/core/copy";
+import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
@@ -110,6 +111,26 @@ const KINDS = {
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
 /**
+ * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip and,
+ * behind the passkey touch, no touch: a required box holding only spaces, which the server trims to nothing, and an
+ * address outside the API's rule, such as a host with no dot, which `type=email` takes. Each in the phrase the
+ * server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
+ * field message, and the press goes nowhere while it stands. The sign-in library's own rule and every rule reading a
+ * record stay the server's.
+ */
+function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
+  return (value: string): Copy | null => {
+    const trimmed = value.trim();
+    if (trimmed === "") return isRequired && value !== "" ? COPY.shared.field.required : null;
+    // Past the ceiling the browser's `maxLength`, or the server's, names the length rather than the shape.
+    if (kind === "email" && trimmed.length <= KONTAKT_EMAIL_MAX_LENGTH && !isDeliverableAddress(trimmed)) {
+      return COPY.shared.field.format(COPY.shared.field.exampleAddress);
+    }
+    return null;
+  };
+}
+
+/**
  * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
  * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
  * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
@@ -185,6 +206,7 @@ export function TextField(props: TextFieldProps) {
       defaultValue={props.defaultValue}
       onChange={props.onChange}
       isRequired={isRequired}
+      validate={judgeOf(kind, isRequired)}
       isDisabled={lock.isDisabled}
       maxLength={maxLength}
       minLength={minLength}
