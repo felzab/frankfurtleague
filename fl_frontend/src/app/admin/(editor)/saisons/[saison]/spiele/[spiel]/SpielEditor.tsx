@@ -23,7 +23,7 @@ import { COPY } from "@/core/copy";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, holdsProposal, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, LockReason, Words } from "@/core/copy";
@@ -52,6 +52,9 @@ export type Adoption = Proposal & { text: Copy };
 
 /** A record to book, a venue or a referee, and what the match pays them unless set otherwise. */
 type Booking = { option: Option; price: number };
+
+/** What the editor holds: the match's fields, and whether „Übernehmen“ was pressed. */
+type Draft = SpielValues & { adopting: boolean };
 
 /** What a save sends: the changes, and the report's version where the result was carried over from it. */
 type Sent = EditorSave<SpielValues> & { adoptsBericht: number | null };
@@ -129,12 +132,19 @@ export function SpielEditor({
   /** The match's public page, where the public may read its season: the strip's way there. */
   spielPage?: Route;
 }) {
-  // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
-  const [adopted, setAdopted] = useState(false);
-  const editor = useEditor(record, (change) =>
-    save({ ...change, adoptsBericht: adoptsBerichtOf(adoption, adopted, { ...record.values, ...change.changes }) }),
+  // „Übernehmen“ pressed is one of the draft's changes, so it counts, holds the way back and goes with a discard like any
+  // field, even where the fields already hold the proposal; the save stamps the report with it.
+  const editor = useEditor<Draft>(
+    { ...record, values: { ...record.values, adopting: false } },
+    ({ changes: { adopting, ...changes }, ...change }) =>
+      save({ ...change, changes, adoptsBericht: adoptsBerichtOf(adoption, adopting === true, { ...record.values, ...changes }) }),
   );
-  const { draft, set } = editor;
+  const { draft } = editor;
+  const set = <Key extends keyof SpielValues & string>(key: Key, value: Draft[Key]) => {
+    editor.set(key, value);
+    // A field the proposal sets, changed after „Übernehmen“, takes the press back: the save would stamp nothing.
+    if (adoption !== null && key in adoption.values) editor.set("adopting", false);
+  };
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
   const [creating, setCreating] = useState(false);
@@ -387,14 +397,15 @@ export function SpielEditor({
                   {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
                 />
               )}
-              {adoption !== null && !resultLocked && !holdsProposal(adoption, draft) && (
+              {/* Offered until pressed, where the fields already hold the proposal too: only the press adopts it. */}
+              {adoption !== null && !resultLocked && !draft.adopting && (
                 <AdoptLine
                   text={adoption.text}
                   onAdopt={() => {
                     for (const [key, value] of Object.entries(adoption.values)) {
-                      set(key as keyof SpielValues, value);
+                      editor.set(key as keyof SpielValues, value);
                     }
-                    setAdopted(true);
+                    editor.set("adopting", true);
                   }}
                 />
               )}

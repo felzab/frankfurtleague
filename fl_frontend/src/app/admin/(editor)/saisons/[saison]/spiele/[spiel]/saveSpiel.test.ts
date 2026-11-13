@@ -126,6 +126,15 @@ describe("the match editor's save", () => {
     expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00" }]);
   });
 
+  // The harm: a report agreeing with a result typed in by hand, never adopted, so its cards never reach the public page.
+  it("sends a save changing no field that adopts the report to the write, stamping that report's version", async () => {
+    const answer = await saveSpiel({ ...saving({}), adoptsBericht: 2 });
+
+    expect(answer).toEqual({ ok: true, value: 4 });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}?adopts_bericht=2`]);
+    expect(state.sent).toEqual([SENT_AS_STORED]);
+  });
+
   // The harm: a played match whose referee was erased loses its booking and the fee it recorded on any save of it.
   it("sends a booking naming nobody back as one, with its fee", async () => {
     state.read = { ...STORED, schiedsrichter: { schiedsrichter_id: null, name: null, payment: 25 } };

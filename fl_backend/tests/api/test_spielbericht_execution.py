@@ -700,6 +700,28 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
             SHOOT_OUT: "adopted",
         }
 
+    def test_a_report_agreeing_with_a_result_typed_by_hand_awaits_adoption_and_a_save_changing_nothing_adopts_it(
+        self, mongo_replica_set_url: str
+    ):
+        """Lina's 1:0 reported, and 1:0 typed by the administrator without „Übernehmen“.
+
+        Read as differing, the report could never be adopted: the editor's fields already hold its proposal, so the save
+        adopting it changes no field of the fixture.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            [document] = await stored(database)
+            await save_the_result(database, 1, 0)
+            typed = await season_states(database)
+            # A matchday of its own for the tie the result resolves into, which one matchday cannot field Adler on twice.
+            await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+            await correct_the_feeder(database, client, 1, 0, adopts_bericht=document["version"])
+
+            return typed, await season_states(database)
+
+        assert on_the_league(mongo_replica_set_url, body) == (["proposed"], ["adopted"])
+
 
 VORJAHRESSPIEL = ObjectId("6890a1b2c3d4e5f607e50013")
 
@@ -923,7 +945,8 @@ class TestTheAdoptionIsOneStoredAnswer:
 
             return before, after, await season_states(database)
 
-        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, COMMITTED, ["differing"])
+        # Its goal moved a minute, so the result still matches: the corrected report awaits adoption anew.
+        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, COMMITTED, ["proposed"])
 
     def test_an_erased_pupil_s_emptied_entries_keep_it_adopted(self, mongo_replica_set_url: str):
         """The erasure writes the document, and a report un-adopted by it would take its goals off the public page for good."""
