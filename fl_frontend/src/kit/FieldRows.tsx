@@ -1,5 +1,4 @@
 import { smallCaps } from "./cardStyles";
-import { FieldPlaceholder } from "./FieldPair";
 import { FieldStack } from "./FieldStack";
 import { tv } from "./tv";
 
@@ -62,25 +61,4 @@ export function FieldRows({ label, children }: { label?: Copy; children: readonl
     </div>
   ));
   return label === undefined ? <FieldStack>{rows}</FieldStack> : <FieldSubgroup name={label}>{rows}</FieldSubgroup>;
-}
-
-/**
- * Rows of fields while the record filling them is read, each field's placeholder in the block's own row: counts, each
- * two characters wide, or days, each as wide as a day's figures and its calendar button, as the field in the row is.
- */
-export function FieldRowsPlaceholder({ rows, holds }: { rows: 2 | 3; holds: "count" | "day" }) {
-  const [first, second, ...rest] = Array.from({ length: rows }, (_, index) =>
-    holds === "count" ? (
-      <FieldPlaceholder
-        key={index}
-        holds={2}
-      />
-    ) : (
-      <FieldPlaceholder
-        key={index}
-        kind="date"
-      />
-    ),
-  );
-  return <FieldRows>{[first, second, ...rest]}</FieldRows>;
 }
