@@ -4,8 +4,7 @@ import { useContext, useId, useState } from "react";
 
 import { Button } from "./Button";
 import { smallCaps, stacked } from "./cardStyles";
-import { CheckboxPlaceholder } from "./Checkbox";
-import { messageLine } from "./fieldStyles";
+import { messageLine, toggleBox, toggleField, toggleRow } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { tv } from "./tv";
 
@@ -152,12 +151,18 @@ function RecordRow<Row extends EditorRow>({
         <div className={slots.main()}>{control(cells.main)}</div>
         {cells.beside !== undefined && <div className={slots.beside()}>{control(cells.beside)}</div>}
         {cells.room !== undefined && (
-          // The other list's box as its wait draws it, unseen, unread and unreached: it holds the room the box takes.
+          // The other list's box, drawn from the box's own recipes, unseen, unread and unreached: it holds the room the
+          // box takes.
           <div
             aria-hidden
             inert
             className={slots.beside({ class: "invisible" })}>
-            <CheckboxPlaceholder label={cells.room} />
+            <div className={toggleField()}>
+              <span className={toggleRow({ in: "field" })}>
+                <span className={toggleBox({ shape: "square" })} />
+                <span>{cells.room}</span>
+              </span>
+            </div>
           </div>
         )}
       </div>
