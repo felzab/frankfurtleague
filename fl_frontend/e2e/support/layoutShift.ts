@@ -195,12 +195,13 @@ export const totalOf = (shifts: ShiftRecord): number => shifts.reduce((sum, { va
 
 /**
  * Runs `act`, a load or a navigation, waits until the page stands still, and asserts that nothing moved: the sum of every
- * shift reported since `act` began is zero. Soft, so a test's other loads still report.
+ * shift reported since `act` began is zero. Soft, so a test's other loads still report. Answers what `act` answered.
  */
-export async function expectStill(page: Page, record: ShiftRecord, act: () => Promise<unknown>): Promise<void> {
+export async function expectStill<Answer>(page: Page, record: ShiftRecord, act: () => Promise<Answer>): Promise<Answer> {
   const from = record.length;
-  await act();
+  const answer = await act();
   await settle(page, record);
   const shifts = record.slice(from);
   expect.soft(totalOf(shifts), `the page moved while it loaded:\n${shifts.map(wordsOf).join("\n")}`).toBe(0);
+  return answer;
 }

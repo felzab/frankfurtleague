@@ -18,6 +18,10 @@
  * state `scripts/ops/seed/seed.js :: SEED_LANDING` seeds, and the signed-in roles' `@signed-in`, the leg holding the
  * administrator's session.
  *
+ * A still page proves nothing about a page never reached, so each case asserts what answered: a hard load's status and
+ * the document its server sent, and after every case the frame's `main` the browser drew and, where a page ends in a
+ * card, that card's title. A press must stay in the document it was made in.
+ *
  * On a development machine, a second run against one start of the end-to-end stack passes `--no-deps` and reads the
  * sessions the first saved: the administrator's setup enrols a passkey once per start, and the stack mails an address
  * five codes an hour. The newcomer's session is the one no setup saves: its passkey offer lapses five minutes after its
@@ -96,11 +100,24 @@ const OPENERS = {
   },
 } as const;
 
-/** A step of a walk: the address of a link in view, or of one in what a control opens. */
-type Step = string | { readonly open: keyof typeof OPENERS; readonly to: string };
+/**
+ * An address whose page ends in its frame's card, named by the card's title: one no page holds, or one the session is
+ * refused. Its server sends the shell of the root's boundary alone, and the browser draws the frame and the card: a
+ * `notFound()` met once the response has begun keeps the shell's status and adds `noindex` (Next's streaming guide,
+ * https://nextjs.org/docs/app/guides/streaming, under „The HTTP contract“).
+ */
+type End = { readonly to: string; readonly card: string };
+
+/** An address no page holds. */
+const missing = (to: string): End => ({ to, card: "Seite nicht gefunden" });
+/** A team's address the session holds no seat on. */
+const refused = (to: string): End => ({ to, card: "Kein Zugang" });
+
+/** A step of a walk: the address of a link in view, of one in what a control opens, or of a page ending in its card. */
+type Step = string | End | { readonly open: keyof typeof OPENERS; readonly to: string };
 
 /** The addresses walked to the page measured, the first loaded and the last being that page. */
-type Steps = readonly [string, ...Step[]];
+type Steps = readonly [string | End, ...Step[]];
 
 /** A case: one walk at both widths, or a walk at each width its way differs at. */
 type Walk = Steps | { readonly [W in Width]?: Steps };
@@ -115,6 +132,9 @@ const saison = (to: string): Step => ({ open: "saison", to });
 const account = (to: string): Step => ({ open: "account", to });
 
 const addressOfStep = (step: Step): string => (typeof step === "string" ? step : step.to);
+
+/** The card a step's page ends in, if it ends in one. */
+const endOf = (step: Step): End | undefined => (typeof step !== "string" && "card" in step ? step : undefined);
 
 /** A record's id as the seed mints it, in a walk's address. */
 const ID = "<id>";
@@ -156,7 +176,7 @@ async function press(control: Locator, phone: boolean): Promise<void> {
  * for. A control a person cannot see fails the walk.
  */
 async function scopeOf(page: Page, record: ShiftRecord, step: Step, phone: boolean): Promise<Locator> {
-  if (typeof step === "string") return page.locator(":root");
+  if (typeof step === "string" || !("open" in step)) return page.locator(":root");
   const opener = OPENERS[step.open];
   if (opener.phoneOnly && !phone) return page.locator(":root");
   const control = opener.control(page).filter({ visible: true });
@@ -174,11 +194,11 @@ async function scopeOf(page: Page, record: ShiftRecord, step: Step, phone: boole
  */
 async function walk(page: Page, record: ShiftRecord, steps: Steps, phone: boolean): Promise<{ addresses: string[]; link: Locator }> {
   const [first, ...rest] = steps;
-  const addresses = [first];
+  const addresses = [addressOfStep(first)];
   let link = page.locator("a[href]");
   for (const step of rest) {
     const target = addressOfStep(step);
-    await page.goto(addresses.at(-1) ?? first);
+    await page.goto(addresses.at(-1) ?? addressOfStep(first));
     await settle(page, record);
     const scope = await scopeOf(page, record, step, phone);
     const found = (await visibleLinks(scope)).find((address) => matches(target, address.split("?")[0] ?? address) || address === target);
@@ -215,6 +235,43 @@ async function expectSignedIn(page: Page, role: Role): Promise<void> {
   }
   await expect(page, "the session reached the page rather than the sign-in").not.toHaveURL((url) => url.pathname.startsWith("/signin"));
 }
+
+/** What a hard load answered, after its redirects: the status, and the document's text, read the moment it loaded. */
+type Answer = { status: number; text: string };
+
+async function load(page: Page, address: string): Promise<Answer> {
+  const response = await page.goto(address);
+  if (response === null) throw new Error(`${address} answered no document`);
+  return { status: response.status(), text: await response.text() };
+}
+
+/**
+ * That a hard load's server answered the page measured: a page with 200 and its frame's `main` in the document, where a
+ * 502, Next's bare error document or a page the browser had to draw again holds none. An end's document holds no frame
+ * of its server's, only the not-found's `noindex`; its status, which Next states only for a `notFound()` met after the
+ * response has begun, the case reports for its run to read rather than asserting it.
+ */
+function expectAnswered(answer: Answer, end: End | undefined): void {
+  if (end === undefined) {
+    expect(answer.status, "the page answered").toBe(200);
+    expect(answer.text, "the server's document holds the frame's main").toContain("<main");
+    return;
+  }
+  test.info().annotations.push({ type: "status", description: String(answer.status) });
+  expect(answer.text, "the server's document is a not-found answer").toMatch(/<meta name="robots" content="noindex/);
+}
+
+/**
+ * That the page standing is the one measured: its frame's `main` drawn, found by its tag, since a pop-up's modal hides
+ * the page under it from the accessibility tree; and where the page is an end, its card's title.
+ */
+async function expectArrived(page: Page, end: End | undefined): Promise<void> {
+  await expect(page.locator("main"), "the frame drew its main").toBeVisible();
+  if (end !== undefined) await expect(page.getByRole("heading", { level: 1, name: end.card, exact: true })).toBeVisible();
+}
+
+/** A mark on the page's `window`, which a client navigation keeps and a document load clears. */
+const MARK = "journeyPressedHere";
 
 /** The viewport's height in the tall pass. */
 const TALL = 4000;
@@ -257,7 +314,7 @@ const VISITOR: Walk[] = [
   ["/saisons/2026/teams", `/saisons/2026/teams/${ID}`],
   ["/saisons/2026", `/saisons/2026/spiele/${ID}`],
   // The planned season, which the public does not read: its address answers the page for a season not found.
-  ["/saisons/2028"],
+  [missing("/saisons/2028")],
   // The addresses that answer for the season the site is on, which the classic frame's header and footer link.
   ["/", "/saisons"],
   ["/", "/saisons/tabelle"],
@@ -280,8 +337,8 @@ const ACCOUNT = (...home: Steps): Walk[] => [
 
 /** A person's area at an address no page holds, whose card leads to `/area`, which sends the person on to their place. */
 const AREA: Walk[] = [
-  ["/area/nowhere"],
-  ["/area/nowhere", "/area"],
+  [missing("/area/nowhere")],
+  [missing("/area/nowhere"), "/area"],
   // The chooser `/area` sends a person holding several places to; the seed seats nobody in two, so it shows one card.
   ["/area/roles"],
 ];
@@ -317,7 +374,7 @@ const CONTACT: Walk[] = [
   ["/account", TEAM, more(`${TEAM}/registrierungen`)],
   ["/account", TEAM, `${TEAM}/spiele`, `${TEAM}/spiele/${ID}`],
   // A team's address no page holds, at a team the contact holds no seat on: the card refusing it.
-  ["/area/team/000000000000000000000000/2027/nowhere"],
+  [refused("/area/team/000000000000000000000000/2027/nowhere")],
   ...ACCOUNT("/account", TEAM),
 ];
 
@@ -361,7 +418,7 @@ const ADMINISTRATOR: Walk[] = [
   ["/admin", more("/admin/address-changes")],
   ["/admin", more("/admin/log")],
   // An administration address no page holds, its card leading to `/admin`.
-  ["/admin/nowhere"],
+  [missing("/admin/nowhere")],
   // The landing a signed-in person's way goes through, which sends an administrator on to `/admin`.
   ["/area"],
   ...ACCOUNT("/admin"),
@@ -425,6 +482,7 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
         const steps = isSteps(each) ? each : each[Number(width) as Width];
         if (steps === undefined) continue;
         const target = addressOfStep(steps.at(-1) ?? steps[0]);
+        const end = endOf(steps.at(-1) ?? steps[0]);
         const before = steps.length > 1 ? steps.at(-2) : undefined;
         const origin = before === undefined ? undefined : addressOfStep(before);
         // The landing's cases, which CI runs again under each state the seed can give it.
@@ -436,7 +494,8 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${target} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            await expectStill(page, record, () => page.goto(address));
+            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
+            await expectArrived(page, end);
             await expectSignedIn(page, role);
           });
 
@@ -445,12 +504,18 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
               const record = await recordShifts(page);
               // The walk ends on the origin, settled, its link to the target read and, where a control holds it, open.
               const { link } = await walk(page, record, steps, phone);
+              await page.evaluate((mark) => Reflect.set(window, mark, true), MARK);
               const left = page.url();
               await expectStill(page, record, async () => {
                 await press(link, phone);
                 // Left the origin: the link's own address, or the page an address answering for another sends it to.
                 await expect(page).toHaveURL((url) => url.href !== left);
               });
+              await expectArrived(page, end);
+              expect(
+                await page.evaluate((mark) => Reflect.get(window, mark) === true, MARK),
+                "the press navigated in the page, never by a document load",
+              ).toBe(true);
               await expectSignedIn(page, role);
             });
           }
@@ -462,7 +527,8 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
           test(`${target} by a hard load`, { tag }, async ({ page }) => {
             const record = await recordShifts(page);
             const address = await addressOf(page, record, steps, phone);
-            await expectStill(page, record, () => page.goto(address));
+            expectAnswered(await expectStill(page, record, () => load(page, address)), end);
+            await expectArrived(page, end);
             await expectSignedIn(page, role);
           });
         });
