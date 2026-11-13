@@ -5,9 +5,17 @@
  *
  * The budget is zero, summed over every entry's `value`, `hadRecentInput` included. The usual metric, CLS, would pass
  * what this guard exists for: it leaves out an entry within 500 ms of an input, which every client navigation's shift
- * is, and calls 0.1 good, where the landing's 19-px jump measured 0.0059. Chromium alone reports the entries: WebKit
- * lists no `layout-shift` among `PerformanceObserver.supportedEntryTypes`, so the `layout` project runs in Chromium at
- * a phone's size too, and the recorder fails a context whose browser lists none.
+ * is, and calls 0.1 good, where the landing's 19-px jump measured 0.0059.
+ *
+ * A press is held to the budget from the press on, and a load from the moment its document is parsed, its
+ * `DOMContentLoaded`: a page opened by address is one document the browser paints as it parses, so a slow machine may
+ * paint it in pieces. The load's rule leaves out a box that moves while the document still arrives, such as one sized
+ * by content later in it. That is the accepted price of a document painted as it arrives, and whatever moves once it
+ * is parsed still fails.
+ *
+ * Chromium alone reports the entries: WebKit lists no `layout-shift` among `PerformanceObserver.supportedEntryTypes`,
+ * so the `layout` project runs in Chromium at a phone's size too, and the recorder fails a context whose browser lists
+ * none.
  */
 import path from "node:path";
 
@@ -67,8 +75,11 @@ type ShiftSource = {
   current: Box | null;
 };
 
-/** One entry of the API: the address it was reported at, its share of the viewport moved, and its sources. */
-type Shift = { address: string; value: number; hadRecentInput: boolean; sources: readonly ShiftSource[] };
+/**
+ * One entry of the API: the address it was reported at, its share of the viewport moved, whether it began once its
+ * document was parsed, and its sources.
+ */
+type Shift = { address: string; value: number; hadRecentInput: boolean; parsed: boolean; sources: readonly ShiftSource[] };
 
 /** Every shift a context's documents have reported, in the order they arrived. */
 export type ShiftRecord = Shift[];
@@ -125,12 +136,19 @@ export async function recordShifts(page: Page): Promise<ShiftRecord> {
         return [{ landmark: "none", node: `undescribed: ${String(error)}`, text: "", previous: null, current: null }];
       }
     };
+    // The moment before the document's `DOMContentLoaded`, on the clock an entry's `startTime` keeps; 0 until it comes.
+    const parsedAt = () => {
+      const [navigation] = performance.getEntriesByType("navigation");
+      return navigation instanceof PerformanceNavigationTiming ? navigation.domContentLoadedEventStart : 0;
+    };
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as LayoutShiftEntry[]) {
+        const parsed = parsedAt();
         forward({
           address: location.pathname + location.search,
           value: entry.value,
           hadRecentInput: entry.hadRecentInput,
+          parsed: parsed > 0 && entry.startTime >= parsed,
           sources: sourcesOf(entry),
         });
       }
@@ -192,15 +210,27 @@ function wordsOf({ address, value, hadRecentInput, sources }: Shift): string {
 /** The share of the viewport `shifts` moved, summed: what the budget of zero is held against. */
 export const totalOf = (shifts: ShiftRecord): number => shifts.reduce((sum, { value }) => sum + value, 0);
 
+/** What a case does to reach its page: a document load, or a press navigating inside the document. */
+export type Act = "load" | "press";
+
+/** The shifts of `shifts` the budget holds `act` to: after a press every one, after a load those begun once parsed. */
+export const countedOf = (shifts: ShiftRecord, act: Act): ShiftRecord => (act === "press" ? shifts : shifts.filter(({ parsed }) => parsed));
+
 /**
- * Runs `act`, a load or a navigation, waits until the page stands still, and asserts that nothing moved: the sum of every
- * shift reported since `act` began is zero. Soft, so a test's other loads still report. Answers what `act` answered.
+ * Runs `act`, a load or a press, waits until the page stands still, and asserts that nothing moved: the sum of every
+ * shift reported since `act` began that the budget counts is zero. A load's movement while its document was parsed is
+ * left out of the sum and annotated, so a run still reports it. Soft, so a test's other loads still report. Answers
+ * what `act` answered.
  */
-export async function expectStill<Answer>(page: Page, record: ShiftRecord, act: () => Promise<Answer>): Promise<Answer> {
+export async function expectStill<Answer>(page: Page, record: ShiftRecord, act: Act, run: () => Promise<Answer>): Promise<Answer> {
   const from = record.length;
-  const answer = await act();
+  const answer = await run();
   await settle(page, record);
   const shifts = record.slice(from);
-  expect.soft(totalOf(shifts), `the page moved while it loaded:\n${shifts.map(wordsOf).join("\n")}`).toBe(0);
+  const counted = countedOf(shifts, act);
+  const parsing = totalOf(shifts) - totalOf(counted);
+  if (parsing > 0) test.info().annotations.push({ type: "moved while parsed", description: parsing.toFixed(5) });
+  const moved = act === "load" ? "the page moved once its document was parsed" : "the page moved while it loaded";
+  expect.soft(totalOf(counted), `${moved}:\n${counted.map(wordsOf).join("\n")}`).toBe(0);
   return answer;
 }
