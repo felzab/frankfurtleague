@@ -115,6 +115,29 @@ class TestWhyARowCloses:
                 "ansetzung_changed",
                 id="the club taken off, ahead of the call-off",
             ),
+            # Told it no longer plays or officiates the match, never that it was decided, which reaches nobody.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "team1": {"team_id": ALPHA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of the decision",
+            ),
+            pytest.param(
+                TEAM,
+                {"team1": {"team_id": GAMMA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "ansetzung_changed",
+                id="the club taken off, ahead of the decision",
+            ),
+            # The early no-show's call-off promises a new Einteilung, which a referee taken off never receives.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "sonderereignis": "nichtantreten_team1"},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of a no-show before the day",
+            ),
         ],
     )
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):
