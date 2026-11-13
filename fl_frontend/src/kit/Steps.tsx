@@ -28,8 +28,10 @@ const steps = tv({
     // The number's box, 40 px in the band's green.
     number:
       "row-span-2 flex size-10 items-center justify-center rounded-lg bg-brand-solid font-numeric text-base font-semibold text-on-brand @2xl:row-span-1",
-    // Beside the number down the list, centred on it; across, at the top of the titles' row, under the number.
-    title: "self-center text-base font-semibold @2xl:self-start",
+    // Beside the number down the list, centred on it; across, at the top of the titles' row, under the number. A German
+    // compound wider than its step breaks at a syllable with a hyphen where the browser hyphenates German, and inside
+    // the word where it does not, rather than running out of the step.
+    title: "self-center text-base font-semibold break-words hyphens-auto @2xl:self-start",
     text: "col-start-2 text-sm text-fg-muted @2xl:col-start-1",
     band: `flex flex-wrap items-center justify-between gap-4 ${cardSurface()} px-6 py-4`,
     sentence: "text-base",
