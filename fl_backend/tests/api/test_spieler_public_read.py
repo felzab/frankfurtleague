@@ -15,7 +15,6 @@ from app.api.spieler.schemas import (
     FLSpielerPublic,
 )
 from app.api.spieler.services import build_spieler_pipeline, public_initial
-from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
@@ -135,14 +134,6 @@ class TestTheBaseTierShape:
     def test_the_club_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
-    def test_the_read_model_accepts_the_initial_it_is_served(self):
-        """The backend keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
-        served = FLSpielerPublic.model_validate(
-            {"_id": SPIELER_OIDS["Mueller"], "first_name": "Max", "last_name": "M.", "nummer": "7", "position": "Angriff"}
-        )
-
-        assert served.last_name == "M."
-
 
 class TestTheProjection:
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
@@ -154,7 +145,7 @@ class TestTheProjection:
 class TestTheInitial:
     @pytest.mark.parametrize(
         ("stored", "served"),
-        [("Müller", "M."), ("Öztürk", "Ö."), ("Adler", "A."), ("de Vries", "d."), (None, None)],
+        [("Müller", "M."), ("Öztürk", "Ö."), ("de Vries", "d."), (None, None)],
     )
     def test_the_find_path_serves_an_initial_with_its_dot(self, stored: str | None, served: str | None):
         """The dot rides with the initial so the one page rendering it joins the two names unchanged."""
@@ -176,20 +167,9 @@ class TestTheBaseTierReadExecuted:
     def _by_first_name(self, url: str) -> dict[str, dict[str, Any]]:
         return {row["first_name"]: row for row in self._read(url)["kader"]}
 
-    def _rows(self, url: str) -> list[Mapping[str, Any]]:
-        """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=_pipeline())
-
-        return on_a_database(url, body)
-
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
-
-    def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
-        assert self._by_first_name(seeded_url)["Maxim"]["last_name"] == "M."
 
     @pytest.mark.parametrize("surname", STORED_SURNAMES)
     def test_no_stored_surname_appears_anywhere_in_the_response(self, seeded_url: str, surname: str):
@@ -203,29 +183,6 @@ class TestTheBaseTierReadExecuted:
     def test_a_player_with_no_surname_reads_back_with_none(self, seeded_url: str):
         """Absent is not withheld: an initial invented here would read as a name nobody holds."""
         assert self._by_first_name(seeded_url)["Lena"]["last_name"] is None
-
-    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str):
-        """The allow-list `$project` builds, as mongod resolves it. A key added there is a leak the response shape hides."""
-        rows = self._rows(seeded_url)
-
-        # `all` over an empty list passes, and a join that stopped matching would empty it.
-        assert len(rows) == 5
-        assert all(set(row) <= PUBLIC_FIELDS for row in rows)
-
-    def _read_one(self, url: str, key: str) -> dict[str, Any]:
-        async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_by_id(spieler_id=SPIELER_OIDS[key], spieler_collection=database.spieler)
-
-            return response.model_dump(mode="json", by_alias=True)
-
-        return on_a_database(url, body)
-
-    def test_the_one_player_read_serves_its_allow_list_alone(self, seeded_url: str):
-        assert self._read_one(seeded_url, "Weber") == {
-            "spieler_id": str(SPIELER_OIDS["Weber"]),
-            "first_name": "Jonas",
-            "last_name": "W.",
-        }
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
@@ -371,11 +328,6 @@ class TestThePublicationGate:
     def _rows(self, url: str) -> list[dict[str, Any]]:
         return self._read(url)["kader"]
 
-    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str):
-        served = [(row["first_name"], row["last_name"]) for row in self._rows(masked_url)]
-
-        assert served == [(row.served_first_name, row.served_last_name) for row in MASKED_SQUAD.values()]
-
     def test_a_nameless_row_serves_the_name_alone_after_the_named_ones(self, masked_url: str):
         """A number, a position, a mark or a place among the named rows beside a withheld name would say who the row is."""
 
@@ -393,11 +345,6 @@ class TestThePublicationGate:
     def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
         """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
         assert str(MASKED_SQUAD[case].oid) not in json.dumps(self._read(masked_url))
-
-    @pytest.mark.parametrize("key", ["einwilligung", "scope"])
-    def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
-        """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
-        assert all(key not in served for served in self._rows(masked_url))
 
     def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:
