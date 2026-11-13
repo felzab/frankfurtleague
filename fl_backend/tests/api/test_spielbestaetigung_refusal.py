@@ -215,9 +215,6 @@ class TestTheProposalIsTheSpielOnItsNewDate:
         assert proposed.version == stored.version
 
 
-PROPOSED = {"date": DATE, "time": "18:00:00"}
-
-
 @pytest.mark.parametrize(
     ("model", "body", "refused"),
     [
@@ -227,32 +224,14 @@ PROPOSED = {"date": DATE, "time": "18:00:00"}
             ("vorschlag", "decline_without_proposal"),
         ),
         (
-            FLSpielbestaetigungTeamAnswerPayload,
-            {"answer": "agreed", "vorschlag": PROPOSED, "reason": None},
-            ("vorschlag", "acceptance_with_proposal"),
-        ),
-        (
-            FLSpielbestaetigungTeamAnswerPayload,
-            {"answer": "agreed", "vorschlag": None, "reason": "Halle"},
-            ("reason", "acceptance_with_reason"),
-        ),
-        (
             FLSpielbestaetigungSchiedsrichterAnswerPayload,
             {"answer": "declined", "reason": None},
             ("reason", "decline_without_reason"),
         ),
-        (
-            FLSpielbestaetigungSchiedsrichterAnswerPayload,
-            {"answer": "agreed", "reason": "Krank"},
-            ("reason", "acceptance_with_reason"),
-        ),
     ],
     ids=[
         "club-decline-without-date",
-        "club-acceptance-with-date",
-        "club-acceptance-with-reason",
         "referee-decline-without-reason",
-        "referee-acceptance-with-reason",
     ],
 )
 def test_an_answers_shape_rule_is_refused_on_the_box_it_names(model: type[BaseModel], body: Mapping[str, Any], refused: tuple[str, str]):

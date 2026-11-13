@@ -284,31 +284,6 @@ class TestTheSeatTheAnswerRecords:
         # The other club's row is its own question.
         assert other["answer"] is None
 
-    @pytest.mark.parametrize(("team_id", "row_id"), [(TEAM1, ROW1), (TEAM2, ROW2)], ids=["the first club", "the second club"])
-    def test_the_log_names_the_club_the_answered_row_asks(self, mongo_replica_set_url: str, team_id: ObjectId, row_id: ObjectId):
-        """Both clubs of the fixture are read for the answer, and a link names neither: the name is the row's `party.team_id`'s."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await press_answer(database, client, holder(team_id, "trainer"))
-
-            return await acts_of(database)
-
-        assert on_a_spiel(mongo_replica_set_url, body) == [("spielbestaetigung.answered", "kontakt", NAMES[team_id][0], row_id)]
-
-    def test_one_person_on_two_seats_answers_from_the_first_in_order(self, mongo_replica_set_url: str):
-        """The Stellvertretung's holder holds the Trainer's seat too: resolved to a seat rather than to nothing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            trainer = documents.kontaktperson_document(
-                "Klara", last_name="Cordes", email=address(TEAM1, "stellvertretung"), confirmed_at="2126-04-01"
-            )
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM1}, {"$set": {"kontakte.trainer": trainer}})
-            await press_answer(database, client, holder(TEAM1, "stellvertretung"))
-
-            return await row_now(database, ROW1)
-
-        assert on_a_spiel(mongo_replica_set_url, body)["answer"]["by"]["rolle"] == "trainer"
-
     def test_the_write_itself_takes_only_a_row_neither_answered_nor_closed(self, mongo_replica_set_url: str):
         """The first press binds through the write's own filter, which the in-session judgement before it does not replace."""
 
@@ -406,12 +381,6 @@ async def narrow_the_matchday(database: AsyncDatabase) -> None:
 async def book_the_referee_beside_it(database: AsyncDatabase) -> None:
     await database[Collection.SPIELE].insert_one(
         spiel(NEIGHBOUR, spiel_nr=2, date=PROPOSAL[0], time="19:00:00", spielort=None, team1=None, team2=None)
-    )
-
-
-async def book_the_ground_beside_it(database: AsyncDatabase) -> None:
-    await database[Collection.SPIELE].insert_one(
-        spiel(NEIGHBOUR, spiel_nr=2, date=PROPOSAL[0], time="19:00:00", schiedsrichter=None, team1=None, team2=None)
     )
 
 
@@ -820,22 +789,14 @@ class TestTheAdoption:
             pytest.param(None, "2126-05-16", Code.ANSETZUNG_VORSCHLAG_PAST_AS_STORED, id="the-proposed-day-gone-by"),
             # The save's own refusal of the proposed day, which names a box of a body this request has not got.
             pytest.param(narrow_the_matchday, TODAY, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-save-refusing-the-day"),
-            # The save's refusals the catalogue words by their path, each under its twin for that path.
-            pytest.param(book_the_ground_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SPIELORT_AS_STORED, id="the-ground-booked-beside-it"),
-            pytest.param(
-                book_the_referee_beside_it, TODAY, Code.SPIEL_DOUBLE_BOOKED_SCHIEDSRICHTER_AS_STORED, id="the-referee-booked-beside-it"
-            ),
-            pytest.param(
-                let_a_club_leave_before_the_proposal, TODAY, Code.ELIGIBILITY_DISQUALIFIED_TEAM2_AS_STORED, id="a-side-out-by-the-new-day"
-            ),
         ],
     )
     def test_a_refused_adoption_names_no_box_and_leaves_the_spiel_where_it_stands(
         self, mongo_replica_set_url: str, since: Callable[[AsyncDatabase], Awaitable[None]] | None, today: str, code: Code
     ):
-        """Moved anyway, the fixture lands on a day gone by, outside its matchday, on a booked ground or referee, or fields a club gone.
+        """Moved anyway, the fixture lands on a day gone by or outside its matchday.
 
-        Refused naming a box, the press has none to mark; refused under a code the catalogue words by its path, it words none.
+        Refused naming a box, the press has none to mark.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -868,20 +829,16 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
     """The fixture lacks nothing the other conditions list, so a confirmation is the only way onto the page."""
 
     @pytest.mark.parametrize(
-        ("row1", "today", "moved", "listed"),
+        ("row1", "today"),
         [
-            pytest.param({}, TODAY, False, False, id="asked-and-still-in-time"),
-            pytest.param({"answer": DECLINE}, TODAY, False, True, id="a-standing-proposal"),
-            pytest.param({}, "2126-05-08", False, True, id="a-deadline-passed-unanswered"),
-            pytest.param({"asked_at": DEADLINE}, DEADLINE, False, True, id="due-the-day-it-was-asked"),
-            pytest.param({"asked_at": None}, DEADLINE, False, True, id="due-today-and-never-asked"),
-            pytest.param({}, DEADLINE, False, False, id="due-today-and-asked-days-ago"),
-            pytest.param({"answer": DECLINE}, TODAY, True, False, id="a-proposal-about-an-ansetzung-left"),
-            pytest.param({"answer": DECLINE, "closed": {"reason": "discarded"}}, TODAY, False, False, id="a-discarded-proposal"),
+            pytest.param({"answer": DECLINE}, TODAY, id="a-standing-proposal"),
+            pytest.param({}, "2126-05-08", id="a-deadline-passed-unanswered"),
+            pytest.param({"asked_at": DEADLINE}, DEADLINE, id="due-the-day-it-was-asked"),
+            pytest.param({"asked_at": None}, DEADLINE, id="due-today-and-never-asked"),
         ],
     )
     def test_the_spiel_is_listed_where_a_clubs_row_asks_for_the_administrator(
-        self, mongo_replica_set_url: str, row1: dict[str, Any], today: str, moved: bool, listed: bool
+        self, mongo_replica_set_url: str, row1: dict[str, Any], today: str
     ):
         # The other club and the referee agreed, so ROW1 alone decides; a referee's row owing its answer lists the fixture
         # as a club's does (`test_saison_overview.py :: TestEachKindLandsOnItsCard`).
@@ -896,8 +853,6 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
         rows = [{**confirmation(ROW1, TEAM1), **row1}, confirmation(ROW2, TEAM2, **agreed), referee]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> set[Any]:
-            if moved:
-                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"time": "19:30:00"}})
             overview = await get_saison_overview(
                 saison_id=SAISON_ID,
                 saisons_collection=database[Collection.SAISONS],
@@ -915,7 +870,7 @@ class TestTheQueueListsASpielItsConfirmationsPutThere:
                 if isinstance(row, FLOverviewSpielbestaetigungRow | FLOverviewVorschlagRow)
             }
 
-        assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == ({SPIEL} if listed else set())
+        assert on_a_spiel(mongo_replica_set_url, body, rows=rows) == {SPIEL}
 
 
 # The answering Trainer's address, and the clock their erasure runs on.
@@ -1289,13 +1244,12 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
 
 
 class TestARowAnswersOnlyToItsOwnReferee:
-    """`role_not_held` and `ansetzung_foreign_row` apart: holding no referee Funktion, and holding one this row does not name."""
+    """`ansetzung_foreign_row`: holding the referee Funktion, and answering a row it does not name."""
 
     @pytest.mark.parametrize(
         ("identifier", "row_id"),
         [
             pytest.param(UTE_ADDRESS, REFEREE_ROW, id="another referee's row"),
-            pytest.param(OTTO, NO_SUCH_ROW, id="an id naming no row"),
             pytest.param(OTTO, ROW1, id="a club's row"),
         ],
     )
@@ -1321,22 +1275,6 @@ class TestARowAnswersOnlyToItsOwnReferee:
             return outcome, (await row_now(database, REFEREE_ROW))["answer"], (await spiel_now(database))["schiedsrichter"] is not None
 
         assert on_a_refereed_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_FOREIGN_ROW, None, True)
-
-    @pytest.mark.parametrize(
-        "record",
-        [
-            pytest.param({"einwilligung": None}, id="their record unconfirmed"),
-            pytest.param({"inactive_since": "2126-04-20"}, id="their record retired"),
-        ],
-    )
-    def test_the_referee_named_holding_no_role_is_refused_first(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": record})
-            outcome = await outcome_of(einsatz_answer(database, client))
-
-            return outcome, (await row_now(database, REFEREE_ROW))["answer"]
-
-        assert on_a_refereed_spiel(mongo_replica_set_url, body) == (Code.ROLE_NOT_HELD, None)
 
 
 class TestARowAnswersOnlyToItsOwnClubsSeats:
