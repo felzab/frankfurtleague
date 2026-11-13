@@ -854,6 +854,24 @@ async def preview_spiel_save(
     )
 
 
+async def _hold_the_read_version(
+    *,
+    spiel_id: CustomObjectId,
+    stored: FLSpiel,
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    session: AsyncClientSession,
+) -> None:
+    """Refuse a save on a `version` the fixture has moved past, where the save writes no field of the fixture itself.
+
+    The version off this transaction's read, held by the anchor: a rival save committing since conflicts with it, and
+    the retry reads the version that save left.
+    """
+
+    await anchor_in_db(collection=collections.spiele, db_filter={"_id": spiel_id}, session=session)
+    refuse(find_stale_save_refusal({VERSION_FIELD: stored.version}, version=payload.version))
+
+
 async def _save_moving_nothing(
     *,
     spiel_id: CustomObjectId,
@@ -872,10 +890,7 @@ async def _save_moving_nothing(
     nothing at all.
     """
 
-    # The version off this transaction's read, held by the anchor: a rival save committing since conflicts with it, and
-    # the retry reads the version that save left.
-    await anchor_in_db(collection=collections.spiele, db_filter={"_id": spiel_id}, session=session)
-    refuse(find_stale_save_refusal({VERSION_FIELD: stored.version}, version=payload.version))
+    await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
     refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=[]))
 
     if adopts_bericht is not None:
@@ -935,11 +950,8 @@ async def save_spiel_in_session(
     # fields already hold, raises no version that would refuse every other open editor, and the Protokoll records no
     # change nobody made. Only where resolving the bracket would move nothing either, as the dry run resolves it: on a
     # stale bracket it names results the resolution voids, and a save skipping it would refuse their confirmation.
-    if (
-        not judged.releases
-        and document == stored.model_dump(context={"keep_oid": True}, include=written)
-        and not await _bracket_moves(judged, collections=collections, session=session)
-    ):
+    unchanged = document == stored.model_dump(context={"keep_oid": True}, include=written)
+    if unchanged and not judged.releases and not await _bracket_moves(judged, collections=collections, session=session):
         return await _save_moving_nothing(
             spiel_id=spiel_id,
             stored=stored,
@@ -950,28 +962,35 @@ async def save_spiel_in_session(
             session=session,
         )
 
-    await patch_one_in_db(
-        collection=collections.spiele,
-        db_filter={"_id": spiel_id},
-        update={"$set": document},
-        expected_version=payload.version,
-        session=session,
-        return_document=ReturnDocument.BEFORE,
-    )
-    # A match to come holds no entry naming nobody: a re-dating that puts a played match back among those to come drops
-    # them from its line-ups, as `apply_payload_to_spiel` drops such a booking.
-    if is_played(date=stored.date, time=stored.time, now=now) and not is_played(date=judged.patched.date, time=judged.patched.time, now=now):
-        await drop_nameless_entries(aufstellungen_collection=collections.aufstellungen, spiel_id=spiel_id, session=session)
+    if unchanged:
+        # On a stale bracket the save runs the release and the resolution alone: the fixture's own write and its Protokoll
+        # row would raise its version and record a change nobody made.
+        await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
+    else:
+        await patch_one_in_db(
+            collection=collections.spiele,
+            db_filter={"_id": spiel_id},
+            update={"$set": document},
+            expected_version=payload.version,
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+        # A match to come holds no entry naming nobody: a re-dating that puts a played match back among those to come
+        # drops them from its line-ups, as `apply_payload_to_spiel` drops such a booking.
+        if is_played(date=stored.date, time=stored.time, now=now) and not is_played(
+            date=judged.patched.date, time=judged.patched.time, now=now
+        ):
+            await drop_nameless_entries(aufstellungen_collection=collections.aufstellungen, spiel_id=spiel_id, session=session)
 
-    # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
-    ergebnis_moved = judged.patched.ergebnis != stored.ergebnis
-    await record_act(
-        collection=collections.spiele,
-        action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
-        record_id=spiel_id,
-        label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
-        session=session,
-    )
+        # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
+        ergebnis_moved = judged.patched.ergebnis != stored.ergebnis
+        await record_act(
+            collection=collections.spiele,
+            action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
+            record_id=spiel_id,
+            label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
+            session=session,
+        )
 
     # Before the resolution: a slot this release opens can be refilled by that same resolution, and the reverse order
     # would leave the season one pass behind.
