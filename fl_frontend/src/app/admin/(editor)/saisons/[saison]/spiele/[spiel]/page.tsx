@@ -250,7 +250,8 @@ const openRowOf = (rows: readonly FLSpielbestaetigungEditorRow[], party: (row: F
 /**
  * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
- * An answer that lapsed unanswered, which the party can no longer give, says so as the party's own page does.
+ * An answer that lapsed unanswered, which the party can no longer give, says so and the day it lapsed on, as every
+ * other page under that chip does.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
@@ -258,8 +259,9 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   if (row === undefined) return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   const { answer } = row;
   if (answer === null) {
-    const waiting = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) } as const;
-    return { ...shown, chip: row.expired ? EXPIRED_CHIP : waiting, line: WORDS.answerBy(dayOf(row.deadline)) };
+    const deadline = dayOf(row.deadline);
+    if (row.expired) return { ...shown, chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(deadline) };
+    return { ...shown, chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: WORDS.answerBy(deadline) };
   }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
   if (answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };

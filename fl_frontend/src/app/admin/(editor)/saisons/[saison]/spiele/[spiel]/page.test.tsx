@@ -148,9 +148,10 @@ describe("the match editor's answers", () => {
     });
     const editor = await editorOver({ ...VIEW, spielbestaetigungen: [row(TEAM1, true), row(TEAM2, false)] });
 
-    expect(editor.props.answers.map(({ chip }) => chip)).toStrictEqual([
-      { tone: "neutral", label: COPY.admin.expired },
-      { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) },
+    // The lapsed row's line names the day it lapsed on, as every other page under that chip does, not a day still to come.
+    expect(editor.props.answers.map(({ chip, line }) => ({ chip, line }))).toStrictEqual([
+      { chip: { tone: "neutral", label: COPY.admin.expired }, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+      { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: COPY.admin.spiel.answerBy("2026-11-10") },
     ]);
   });
 });
