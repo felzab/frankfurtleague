@@ -135,7 +135,7 @@ describe("a navigation under `WholePages`", () => {
 
   // The harm: text typed into a page being left is lost with it, and a filter, a tab or a match opening its pop-up
   // that froze its own page would take its focus away, which the pop-up then has nothing to give back to.
-  it("makes the page's content inert while a navigation leaves it, and leaves it live for one changing the query or opening the match pop-up", async () => {
+  it("makes the page's content inert while a navigation leaves it, and not while one changing the query or opening the match pop-up is pending", async () => {
     const { router } = heldRouter();
     page(
       router,

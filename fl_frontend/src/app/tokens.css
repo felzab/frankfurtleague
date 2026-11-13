@@ -4,8 +4,7 @@
 @layer base {
   :root {
     /* The page. A card stands a step brighter than the page in both themes, as the dark card does on its black page: the
-       light page is a grey, its cards white. The grey is as dark as a status chip's tint on it allows while its
-       word keeps 4.5:1, since a chip stands on the page after a page's title and in a card's head. */
+       light page is a grey, its cards white. */
     --bg: #eaeaea;
     /* The rail's fill, and a chosen box's lift: the card's, as in the dark theme. */
     --bg-surface: #ffffff;
@@ -31,12 +30,19 @@
     --brand-solid-hover: #1b5123;
     --on-brand: #ffffff;
     --brand-accent: #8fc752;
-    /* Each status hue's word keeps 4.5:1 on a chip, its own 12 % tint over the page, a card or a card's head, in both
-       themes, with a unit to spare for the browser's composite of the tint. */
     --success: #006a3e;
     --info: #1853c6;
     --warn: #855300;
     --danger: #b61920;
+    /* A status chip's ground, the neutral one's included: its hue at 12 % over a grey halfway between the page and a
+       card, as one opaque colour, so the chip paints the same whatever stands beneath it, the page, a card, a card's
+       head or a row under the pointer, and its word keeps 4.5:1 on it in both themes. Opaque, nothing composites
+       under the word, so the pair the contrast rule measures is the pair the browser paints. */
+    --success-tint: #d7e4df;
+    --info-tint: #dae1ef;
+    --warn-tint: #e7e1d7;
+    --danger-tint: #eddadb;
+    --fg-muted-tint: #e1e1e1;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
     /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. Its
@@ -68,6 +74,11 @@
     --info: #7ea7f3;
     --warn: #ecae30;
     --danger: #eb7c75;
+    --success-tint: #142119;
+    --info-tint: #181d26;
+    --warn-tint: #261e0f;
+    --danger-tint: #251817;
+    --fg-muted-tint: #1d1d1d;
 
     --menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
     --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
@@ -272,6 +283,11 @@
   --color-info: var(--info);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
+  --color-success-tint: var(--success-tint);
+  --color-info-tint: var(--info-tint);
+  --color-warn-tint: var(--warn-tint);
+  --color-danger-tint: var(--danger-tint);
+  --color-fg-muted-tint: var(--fg-muted-tint);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);
   --color-scrim: var(--scrim);

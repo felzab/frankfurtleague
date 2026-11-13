@@ -91,13 +91,13 @@ export function buildSpielRequestEmail(
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
   // A reminder carries no move: the move's own request is the one mail telling of it. A new pairing at its slot is asked
-  // as a request is, its block naming the pairing left.
+  // as a request is, its lead naming the new pairing and its block the pairing left.
   const [subjectLine, lead]: readonly [Copy, Paragraph] =
     movedFrom !== null && !pairingOnly(movedFrom, ansetzung)
       ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
       : kind === "spiel_reminder"
         ? [WORDS.reminderSubject(day), [WORDS.answerMissing({ record: team }), ask]]
-        : [WORDS.requestSubject(day), [ask]];
+        : [WORDS.requestSubject(day), movedFrom === null ? [ask] : [WORDS.newPairing(paarung(ansetzung)), ask]];
 
   return {
     kind: "notice",
@@ -117,14 +117,16 @@ export function buildSpielRequestEmail(
 export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: FLSpielEinteilungData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
   const spiel = paarung(ansetzung);
-  // A new pairing at its slot books the referee as a first Einteilung does, its block naming the pairing left.
+  // A new pairing at its slot books the referee under a first Einteilung's subject, its lead naming the new pairing and
+  // its block the pairing left.
   const moved = movedFrom !== null && !pairingOnly(movedFrom, ansetzung);
+  const lead = moved ? WORDS.moved(spiel) : movedFrom === null ? WORDS.booked(spiel) : WORDS.newPairing(spiel);
 
   return {
     kind: "notice",
     subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
     origin: site,
-    paragraphs: [[moved ? WORDS.moved(spiel) : WORDS.booked(spiel)]],
+    paragraphs: [[lead]],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
@@ -214,15 +216,10 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
     });
   }
 
-  // A new pairing at the slot moved nothing: the slot stands, the block naming the pairing left. The lead says so of the
-  // slot, since the new pairing never stood there. A notice queued with its promise keeps the mail it was queued for.
+  // A new pairing at the slot moved nothing: the subject says the slot stands, the lead names the new pairing, and the
+  // block the pairing left. A notice queued with its promise keeps the mail it was queued for.
   if (pairingOnly(appointment, movedTo) && !askedAgain) {
-    return noticeEmail(
-      WORDS.keptSubject(dayOf(movedTo.date)),
-      origin,
-      [SERVER_COPY.overview.discardConsequence],
-      slotBlock(movedTo, appointment),
-    );
+    return noticeEmail(WORDS.keptSubject(dayOf(movedTo.date)), origin, [WORDS.newPairing(paarung(movedTo))], slotBlock(movedTo, appointment));
   }
 
   return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, slotBlock(movedTo, appointment));
