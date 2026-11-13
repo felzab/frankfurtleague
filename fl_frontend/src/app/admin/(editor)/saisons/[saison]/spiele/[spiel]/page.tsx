@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -209,7 +209,7 @@ function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielb
   }
   const { answer } = row;
   // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
-  if (answer === null) return { ...shown, chip: { tone: "warn", label: ANSWER_MISSING }, line: WORDS.answerBy(dayOf(row.due_by)) };
+  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: WORDS.answerBy(dayOf(row.due_by)) };
   const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
   if (row.state === "invalid") {
     const slot = SERVER_COPY.season.labelled(

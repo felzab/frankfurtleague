@@ -1,7 +1,7 @@
 import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -41,10 +41,10 @@ const UNANSWERED: ReadonlySet<FLTeamPanelSpiel["spielbestaetigung"]> = new Set([
  */
 function openOn({ spielbestaetigung, aufstellung }: FLTeamPanelSpiel): ChipProps | undefined {
   const { missing } = SERVER_COPY.overview;
-  if (UNANSWERED.has(spielbestaetigung)) return { tone: "warn", label: missing(COPY.area.answer) };
+  if (UNANSWERED.has(spielbestaetigung)) return owedChip(missing(COPY.area.answer));
   if (spielbestaetigung === "expired") return EXPIRED_CHIP;
   if (aufstellung === null || aufstellung.stored) return undefined;
-  if (aufstellung.phase === "open") return { tone: "warn", label: missing(SERVER_COPY.season.spiel.aufstellung) };
+  if (aufstellung.phase === "open") return owedChip(missing(SERVER_COPY.season.spiel.aufstellung));
   if (aufstellung.phase === "overdue") return { ...AUFSTELLUNG_CHIP.overdue, label: COPY.area.team.aufstellung.overdueOnCard };
   return undefined;
 }

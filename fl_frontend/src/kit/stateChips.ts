@@ -1,5 +1,6 @@
 import { COPY } from "@/core/copy";
 
+import type { Copy } from "@/core/copy";
 import type { ChipProps } from "./Chip";
 
 /*
@@ -33,6 +34,13 @@ export const ERASED_CHIP: ChipProps = { tone: "neutral", label: COPY.admin.erase
  */
 export const EXPIRED_CHIP: ChipProps = { tone: "neutral", label: COPY.admin.expired };
 
+/**
+ * Something a club or a referee still owes on a match and can still give, in the catalogue's words for what is missing:
+ * an answer to its date, a line-up, a report. The words are the pattern's and the hue is this one, so neither is a
+ * page's to decide.
+ */
+export const owedChip = (missing: Copy): ChipProps => ({ tone: "warn", label: missing });
+
 /** A date a club or a referee agreed to. */
 export const AGREED_CHIP: ChipProps = { tone: "success", label: COPY.admin.spiel.agreed };
 
@@ -51,6 +59,9 @@ export const NOMINEE_CHIP: ChipProps = { tone: "info", label: COPY.admin.spieler
  * ones, on its page and on its list's row.
  */
 export const NOT_SENT_CHIP: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+
+/** A waiting state that nobody can follow any more, as a finished season's link: its own word, grey as out of play. */
+export const outOfPlayChip = (waiting: ChipProps): ChipProps => ({ ...waiting, tone: "neutral" });
 
 /** A club's registration link the season's press mailed, the other side of `NOT_SENT_CHIP` in the season's links. */
 export const SENT_CHIP: ChipProps = { tone: "success", label: COPY.admin.saison.linkSent };
