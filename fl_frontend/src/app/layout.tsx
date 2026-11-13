@@ -73,9 +73,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Every route may block a navigation into it: every page arrives whole, so no navigation into one shows anything before
- * it is read. The root is the highest `instant` config of every route, so `false` here tells Next's navigation checks so
- * for each of them; it is the lowest place that covers them all.
+ * Every route may block a navigation into it: no page has a boundary above it, so no navigation into one shows anything
+ * before it is read, and a route's prerendered shell is empty, which the build would otherwise refuse. The root is the
+ * highest `instant` config of every route, so `false` here tells Next's checks so for each of them; it is the lowest
+ * place that covers them all.
  */
 export const instant = false;
 
@@ -95,7 +96,8 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
         <BrandSprite />
         <RootProviders>
           <ThemeColor />
-          {/* Every page arrives whole, a click keeping the page it leaves until the next is complete. */}
+          {/* No boundary above the pages: a page opened by address is one document, and a click keeps the page it
+              leaves until the next is complete. */}
           <WholePages>
             {children}
             {modal}

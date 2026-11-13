@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { WholePages } from "@/kit/WholePage";
+import { Suspense } from "react";
+
 import { underNext } from "@/test-support/nextContexts";
 import { person, seat } from "@/test-support/subjectFixtures";
 import { act, render, screen } from "@testing-library/react";
@@ -19,19 +20,23 @@ vi.mock("@/core/subject", () => ({ getSubjectSession: () => session.read }));
 // The account's other guard, which Konto's pages ask and its frame does not: its module opens the sign-in store.
 vi.mock("@/core/auth/guards", () => ({ getAccountSession: () => Promise.resolve(null) }));
 
-/** Konto's frame around the list of its pages, for the person the session read answers. */
+/**
+ * Konto's frame around the list of its pages, for the person the session read answers. The layouts are server
+ * components the server renders once; drawn here by the browser's React, each retry makes their reads anew, so the
+ * render stands in a boundary of its own, where a suspended read can settle before the retry.
+ */
 async function renderFor(read: Promise<SubjectSession>) {
   session.read = read;
   await act(async () =>
     render(
       underNext(
-        <WholePages>
+        <Suspense>
           <AccountLayout>
             <AccountListLayout>
               <p>Seite</p>
             </AccountListLayout>
           </AccountLayout>
-        </WholePages>,
+        </Suspense>,
         { pathname: ROUTES.account.path(), params: {} },
       ),
     ),
