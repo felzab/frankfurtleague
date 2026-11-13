@@ -187,6 +187,8 @@ const LOCK = {
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
   departed: "seit dem Ausscheiden",
+  /** The person confirmed their entry, which fixes the address their sign-in is keyed to: only an address change moves it. */
+  confirmed: "seit der Bestätigung",
 } as const;
 
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */

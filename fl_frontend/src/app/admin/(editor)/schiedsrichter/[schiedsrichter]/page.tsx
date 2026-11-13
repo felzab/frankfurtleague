@@ -154,11 +154,7 @@ async function readEditor(params: Props["params"]) {
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}
       rules={SAVE_RULES}
-      address={
-        state === "confirmed" && referee.einwilligung !== null
-          ? { kind: "fixed", confirmed: WORDS.confirmedOn(dayOf(referee.einwilligung.confirmed_at)) }
-          : { kind: "asks" }
-      }
+      address={state === "confirmed" ? "fixed" : "asks"}
       confirmation={confirmationFacts(found)}
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}
       danger={
