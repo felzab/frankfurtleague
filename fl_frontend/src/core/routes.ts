@@ -142,6 +142,11 @@ export const ROUTES = {
    * engine, whatever its window: the sitemap's one season is the season the site is on and not the one taking applications.
    */
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
+  /**
+   * The application's address naming no season, which the footer links to: the form of the season whose window runs
+   * today, drawn in place under that season's title, or the closed card. Unlisted as the season's address is.
+   */
+  bewerbungRoot: { path: () => "/bewerbung" as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
@@ -416,5 +421,5 @@ export const ROLE_ROOTS: Partial<Record<keyof typeof ROUTES, `/${string}`>> = {
 export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 
-/** The landing's section on how a school joins the league, which a link reaches as the fragment of `ROUTES.home`. */
+/** The landing's section on how a school joins the league, its fragment on `ROUTES.home`. */
 export const JOIN_SECTION = "bewerbung";

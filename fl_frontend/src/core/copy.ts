@@ -714,7 +714,7 @@ export const COPY = catalogue({
     /** The footer: the league's group, which holds the sponsors' page, the legal pages' group, and the line over the sponsors' logos. */
     liga: "Liga",
     legal: "Rechtliches",
-    /** The footer's way to the landing's section on applying, which stands whether or not a window is open. */
+    /** The footer's way to the application's address, which answers whether or not a window is open. */
     bewerbung: "Bewerbung",
     oberstufenliga: "Die Frankfurter Oberstufenliga",
     supportedBy: "Mit Unterstützung von",

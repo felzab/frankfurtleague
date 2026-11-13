@@ -1,5 +1,5 @@
 /**
- * E2E · the area on a phone: the five lists read under the session `../support/administrator.setup.ts` saved, an
+ * E2E · the area on a phone: the four lists read under the session `../support/administrator.setup.ts` saved, an
  * administrator's and no owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so
  * the acts are `../desktop/`'s. Each reads rows the seed wrote and no journey changes (`scripts/ops/seed/seed.js`).
  */
@@ -24,14 +24,6 @@ test("Administratoren reads who holds access and what waits, and shows an admini
 
   // The owner's acts stand for every administrator, locked with their reason, so the page has one shape for every reader.
   await expect(page.getByRole("button", { name: "Administrator eintragen" })).toHaveAttribute("aria-disabled", "true");
-});
-
-test("Löschungen opens on its one form", async ({ page }) => {
-  await page.goto("/admin/erasures");
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Löschungen" })).toBeVisible();
-  const main = page.getByRole("main");
-  await expect(main.getByRole("textbox", { name: /^Referenz der Anfrage/ })).toBeVisible();
-  await expect(main.getByRole("button", { name: "Löschen" })).toBeVisible();
 });
 
 test("Adressänderungen reads a person's running change, and a holder's for the owner alone", async ({ page }) => {

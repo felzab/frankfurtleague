@@ -49,7 +49,8 @@ export type Clear = { kind: "clear" };
 
 const slate = tv({
   slots: {
-    root: "grid justify-items-center gap-3 px-4 py-8 text-center",
+    // As wide as its list's place whatever the container aligns, so it centres on the box and not on its own words.
+    root: "grid w-full justify-items-center gap-3 px-4 py-8 text-center",
     mark: "text-fg-muted",
     sentence: "text-base text-fg-muted",
   },
