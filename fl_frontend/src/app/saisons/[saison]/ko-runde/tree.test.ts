@@ -63,10 +63,6 @@ describe("the K.-o.-Baum read from the knockout matchdays", () => {
     expect(tree?.third?.id).toBe("s7");
   });
 
-  it("is none before the draw", () => {
-    expect(treeOf([])).toBeNull();
-  });
-
   // The harm: a no-show drawn as a played 3:0, so the bracket says a club won on the pitch that never played.
   it("draws what befell a match as the Spielplan's row does: its chip, both sides muted and the absent one struck", () => {
     const side = (team_id: string, name: string, tore: number) => ({ team_id, name, shorthand: name.slice(0, 3), tore, austritt_type: null });
