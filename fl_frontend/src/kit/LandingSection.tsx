@@ -32,7 +32,7 @@ export function LandingSection({
   title: Copy;
   /** The page that tells more, such as „Über die Liga“ under the organisers. */
   more?: { label: Copy; href: Route };
-  /** The address's fragment that reaches the section from another page. */
+  /** The address's fragment that reaches the section, so a shared address naming it still opens there. */
   anchor?: string;
   children: ReactNode;
 }) {

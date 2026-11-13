@@ -44,8 +44,8 @@ const NavigationContext = createContext<Navigation | null>(null);
  * throws while the server renders it is answered with Next's bare error document, in which the browser draws the
  * segment's not-found or error page once the page's code runs. A client navigation keeps the page it leaves until the
  * new one is complete: Next's router makes it a transition, and a transition never hides content already shown. The
- * layout placing it exports `instant = false`, which tells Next's checks that a navigation into any route may block and
- * that a route's prerendered shell may be empty.
+ * layout placing it exports `instant = false`, which lifts Next's check that a route's prerendered shell is not empty
+ * for every route; Next's development check still flags a navigation between two pages below it that blocks.
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as

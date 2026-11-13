@@ -144,9 +144,9 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
 }
 
 /**
- * The one shape of the seven pages a mail opens: a question in one card, or a form of boxes in the classic frame's form
- * column (`OneShotForm`). Its state is a function of the link's token and the session beside it, so the whole page waits
- * for the read and arrives whole with it.
+ * The one shape of the pages a mail opens and of the application's address naming no season: a question in one card, or
+ * a form of boxes in the classic frame's form column (`OneShotForm`). Its state is a function of what the page's read
+ * returns, so the whole page waits for the read and arrives whole with it.
  */
 export function MailedPage({ page }: { page: Promise<MailedState> }) {
   return (
