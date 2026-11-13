@@ -376,6 +376,7 @@ const VISITOR: Walk[] = [
   // The erasure's link is mailed, so a visitor without one meets its refusal.
   ["/erasure"],
   ["/erasure/done"],
+  ["/", "/bewerbung"],
   ["/", "/bewerbung/2028"],
   ["/registrierung?token=made-up-kastanie-invitation"],
   ["/registrierung/done"],
