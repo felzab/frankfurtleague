@@ -1092,9 +1092,10 @@ export const COPY = catalogue({
     erased: DELETED,
     /**
      * Why a choice waits for the season's start: the team editor's exit, whose route before the start is the replacement,
-     * and the match editor's events that record the match, offered disabled until then.
+     * and the match editor's events that record the match, offered disabled until then. In the lock line's own words, as
+     * the match editor's line says the same lock above them.
      */
-    fromStart: "Erst ab Saisonbeginn",
+    fromStart: `Gesperrt ${LOCK.untilStart}`,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
