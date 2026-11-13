@@ -6,6 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
+import { CappedRows } from "./CappedRows";
 import { Card, CardActRow } from "./Card";
 import { isEdgeRefusal } from "./edgeRefusal";
 import { EmptyBox, EmptyState } from "./EmptyState";
@@ -127,10 +128,11 @@ export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: Schoo
 
 /**
  * One card of the list template, its rows searched by the text its scope holds, as `ListMatches` searches the matches:
- * a row's name, or the `words` it states where more of it is searched. A card holding a list, such as a referee's
- * games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does and as a
- * table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike on every
- * page. A card of open work stays and says nothing is open, in what was searched as without a search.
+ * a row's name, or the `words` it states where more of it is searched. It shows the first five of the rows the search
+ * leaves and the rest a press away (`CappedRows`), as every card of the template does. A card holding a list, such as a
+ * referee's games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does
+ * and as a table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike
+ * on every page. A card of open work stays and says nothing is open, in what was searched as without a search.
  */
 export function ListCard({
   title,
@@ -155,12 +157,14 @@ export function ListCard({
       {shown.length === 0 ? (
         <EmptyState kind="clear" />
       ) : (
-        shown.map(({ id, words: _words, ...row }) => (
-          <CardActRow
-            key={id}
-            {...row}
-          />
-        ))
+        <CappedRows
+          rows={shown.map(({ id, words: _words, ...row }) => (
+            <CardActRow
+              key={id}
+              {...row}
+            />
+          ))}
+        />
       )}
     </Card>
   );
