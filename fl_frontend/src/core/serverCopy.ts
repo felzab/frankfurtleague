@@ -637,7 +637,8 @@ export const SERVER_COPY = catalogue({
 
     /**
      * A team's registration link, to a confirmed contact seat: the link stands alone in the box, to be passed on
-     * rather than pressed. It names no end date, since a window moved later moves every link with it.
+     * rather than pressed. It names no validity: the link opens a registration only while its season takes them, which
+     * can start or pause after the mail.
      */
     invitation: {
       subject: (team: string) => `Registrierungslink: ${team}`,
@@ -645,8 +646,6 @@ export const SERVER_COPY = catalogue({
         `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
-      /** The registration's end closes no link: an entry past it is a Nachnominierung through the same link. */
-      valid: "Der Link gilt bis zum Ende der Saison.",
     },
 
     /**
