@@ -2148,6 +2148,23 @@ def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> Non
     assert "refused by the fixture hook" in said
 
 
+# Refuses the merge commit after overwriting the index with bytes git cannot read, so the abort and
+# every later `git status` fail as well.
+INDEX_BREAKER: Final = '#!/bin/sh\nprintf broken > "$(git rev-parse --git-dir)/index"\necho "refused by the fixture hook" >&2\nexit 1\n'
+
+
+def test_git_failing_in_the_cleanup_of_a_refused_merge_keeps_the_refusals_exit(tmp_path: Path) -> None:
+    """A `git status` failing after the hooks refused the merge commit replaced exit 6 with exit 2, "refused before the merge"."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    write_shell(tmp_path / "hooks" / "pre-commit", INDEX_BREAKER).chmod(0o755)
+    done = _land(root)
+    assert done.returncode == 6, (done.returncode, done.stderr)
+    assert "refused by the fixture hook" in done.stderr and "read `git status` before anything else" in done.stderr, done.stderr
+    with pytest.raises(RuntimeError, match="index"):
+        git(root, "status", "--porcelain")
+
+
 def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
     done = _land(root, branch)
