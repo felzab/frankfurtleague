@@ -14326,11 +14326,6 @@
       },
       "FLSpielbestaetigungClosed": {
         "properties": {
-          "discarded": {
-            "default": false,
-            "title": "Discarded",
-            "type": "boolean"
-          },
           "reason": {
             "enum": [
               "ansetzung_changed",
@@ -14347,8 +14342,7 @@
           }
         },
         "required": [
-          "reason",
-          "discarded"
+          "reason"
         ],
         "title": "FLSpielbestaetigungClosed",
         "type": "object"

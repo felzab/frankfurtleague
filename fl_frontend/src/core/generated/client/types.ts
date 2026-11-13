@@ -5156,7 +5156,6 @@ export const FLSpielbestaetigungClosedReason = {
 } as const;
 
 export interface FLSpielbestaetigungClosed {
-  discarded: boolean;
   reason: FLSpielbestaetigungClosedReason;
 }
 

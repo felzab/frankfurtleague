@@ -193,7 +193,7 @@ describe("the match editor's answers", () => {
     },
     {
       reads: "agreed, its row closed at the kick-off",
-      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past", discarded: false } })],
+      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past" } })],
       shown: { chip: agreed, line: { record: "05.11.2026" } },
     },
     {
@@ -202,7 +202,7 @@ describe("the match editor's answers", () => {
       rows: [
         row("agreed", {
           answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
-          closed: { reason: "discarded", discarded: false },
+          closed: { reason: "discarded" },
         }),
       ],
       shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
@@ -221,7 +221,7 @@ describe("the match editor's answers", () => {
     },
     {
       reads: "about a call-off since undone",
-      rows: [row("cancelled", { closed: { reason: "cancelled", discarded: false } })],
+      rows: [row("cancelled", { closed: { reason: "cancelled" } })],
       shown: notAsked,
     },
     // Minted while the club held no confirmed seat, so no mail asked it: chased for an answer, it has no link to give one.
