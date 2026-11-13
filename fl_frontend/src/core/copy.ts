@@ -179,8 +179,8 @@ const LOCKED_SINCE_START = "Seit Saisonbeginn gesperrt";
  */
 const LOCK = {
   /**
-   * The season's start has passed, which fixes its scoring, its qualifiers and its clubs; it also stands for the start
-   * date a stored result fixes, so a running season's line keeps to the two reasons a phone's line holds.
+   * The season's start has passed, which fixes its scoring, its qualifiers and its clubs, and once a result is stored,
+   * which no match takes before the start, the start date itself.
    */
   sinceStart: "seit Saisonbeginn",
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
@@ -1226,8 +1226,6 @@ export const COPY = catalogue({
       /** The group swap's two clubs; the swap exchanges their groups. */
       swapFirst: TEAM_PAIR.team1,
       swapSecond: TEAM_PAIR.team2,
-      /** A club or a pair a swap or a replacement can no longer move: one of its matches has taken place. */
-      tookPlace: "Ein Spiel hat stattgefunden",
       /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
       outgoing: "Ausscheidendes Team",
       incoming: "Nachrückendes Team",

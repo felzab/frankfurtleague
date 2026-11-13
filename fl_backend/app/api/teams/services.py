@@ -1534,16 +1534,13 @@ def find_gruppe_swap_refusal(
     team2_gruppe: str | None,
     saison_status: str,
     # `has_started`: a swap rewrites fixtures, and once the season is under
-    # way a fixture is a record of who played it.
+    # way a fixture is a record of who played it. Before the start none holds a result
+    # (`ergebnis_before_saison_start`), so the rewrite hands no record to the other club.
     started: bool,
-    # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
-    # too, and the rewrite would hand it to the other club, `tore` staying where they are.
-    taken_place: bool,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
-    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs, and the one
-    repairable refusal comes last, so nobody does work a terminal refusal wastes. The season's start is the one lock,
+    **The order is the argument**: it narrows from "not a swap" through the season. The season's start is the one lock,
     an exit is recorded only from it (`austritt_before_saison_start`) and the start never moves later past a stored one
     (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
     """
@@ -1575,12 +1572,6 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    if taken_place:
-        return WriteRefusal(
-            error_code=Code.SWAP_SIDES_TAKEN_PLACE,
-            status=HTTPStatus.CONFLICT,
-        )
-
     return None
 
 
@@ -1592,8 +1583,8 @@ TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     """Whether this fixture happened. Not `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
 
-    # An abandonment and a no-show each left a record that a rewrite would hand to another club. A
-    # fixture called off or struck out left none, so its sides are still free to move.
+    # An abandonment and a no-show each left a record of the match. A fixture called off or struck
+    # out left none, so it fixes nothing that a played match fixes.
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
@@ -1630,11 +1621,9 @@ def find_replacement_refusal(
     *,
     saison_status: str,
     # `has_started`: once the season is under way, a club leaves it by its
-    # Austritt and is never replaced.
+    # Austritt and is never replaced. Before the start none of its fixtures holds a result
+    # (`ergebnis_before_saison_start`), so the incoming club inherits no record it never made.
     started: bool,
-    # Whether a fixture the replacement rewrites `has_taken_place`, the swap's rule: the incoming club would
-    # inherit a record it never made.
-    taken_place: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
 ) -> WriteRefusal | None:
@@ -1653,12 +1642,6 @@ def find_replacement_refusal(
     if started:
         return WriteRefusal(
             error_code=Code.REPLACE_SAISON_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if taken_place:
-        return WriteRefusal(
-            error_code=Code.REPLACE_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 

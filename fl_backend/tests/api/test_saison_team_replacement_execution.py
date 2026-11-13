@@ -572,19 +572,6 @@ class TestAStartedSeasonIsNotReplaced:
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 
-    def test_a_spiel_of_the_club_that_has_taken_place_refuses_it(self, mongo_replica_set_url: str):
-        """Before the start, a result entered early: the rewrite moves no `tore`, so the incoming club would inherit it."""
-
-        code, row, spiele = on_a_seeded_season(
-            mongo_replica_set_url,
-            _refused,
-            spiele=[gruppen_spiel(1, WITHDRAWN, RIVAL, ergebnis="1:0", tore=(1, 0)), gruppen_spiel(2, RIVAL, WITHDRAWN)],
-        )
-
-        assert code == Code.REPLACE_SIDES_TAKEN_PLACE
-        assert row is not None, "the junction row was handed over anyway"
-        assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
-
 
 class TestAStartMovedUnderTheReplacementIsJudgedAgain:
     """The season has not started when the replacement judges, and has when it writes: `PATCH /saisons` moved its start."""

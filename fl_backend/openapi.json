@@ -264,7 +264,6 @@
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
-          "replace_sides_taken_place",
           "ergebnis_side_emptied",
           "ergebnis_before_saison_start",
           "retire_blocked",
@@ -309,7 +308,6 @@
           "state_nichtantreten_without_two_sides",
           "swap_not_a_swap",
           "swap_saison_started",
-          "swap_sides_taken_place",
           "austritt_before_saison_start",
           "payload_refused",
           "body_unreadable",
@@ -10213,7 +10211,7 @@
         "type": "object"
       },
       "FLSaisonAdminTeam": {
-        "description": "One club's row of the season as the swap and the replacement list it, graded as each write judges it.\n\n`group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and\n`spiel_taken_place` closes its replacement, which hands the whole schedule over.",
+        "description": "One club's row of the season as the swap and the replacement list it, and as its registration link's row names it.",
         "properties": {
           "austritt": {
             "anyOf": [
@@ -10224,10 +10222,6 @@
                 "type": "null"
               }
             ]
-          },
-          "group_spiel_taken_place": {
-            "title": "Group Spiel Taken Place",
-            "type": "boolean"
           },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
@@ -10240,10 +10234,6 @@
             "title": "Shorthand",
             "type": "string"
           },
-          "spiel_taken_place": {
-            "title": "Spiel Taken Place",
-            "type": "boolean"
-          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -10255,9 +10245,7 @@
           "name",
           "shorthand",
           "gruppe",
-          "austritt",
-          "group_spiel_taken_place",
-          "spiel_taken_place"
+          "austritt"
         ],
         "title": "FLSaisonAdminTeam",
         "type": "object"

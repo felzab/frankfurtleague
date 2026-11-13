@@ -70,7 +70,6 @@ from app.api.teams.schemas import (
     FLTeamSaisonFacts,
 )
 from app.api.teams.services import (
-    TAKEN_PLACE_FIELDS,
     build_team_saisons_pipeline,
     build_team_spiele_filter,
     compose_confirmations_with,
@@ -87,7 +86,6 @@ from app.api.teams.services import (
     find_replacement_refusal,
     find_retire_refusal,
     gruppe_offer,
-    has_taken_place,
     kontakt_row_of,
     links_owed,
     membership_row_ids,
@@ -869,7 +867,7 @@ async def replace_saison_team(
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+            projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
 
@@ -877,14 +875,14 @@ async def replace_saison_team(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
                 started=has_started(start_date=str(saison_raw["start_date"]), today=today),
-                taken_place=any(has_taken_place(spiel) for spiel in spiele),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
         # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
-        # side's name from here. No `tore`: a replacement runs only on fixtures none of which has taken place.
+        # side's name from here. No `tore`: a replacement runs only before the season's start, when no fixture holds
+        # a result.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

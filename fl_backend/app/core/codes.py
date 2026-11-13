@@ -195,11 +195,6 @@ class Code(StrEnum):
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
-    # The replacement moves no `tore`, so a fixture that has taken place would hand its record to the incoming club.
-    # Its own code beside `replace_saison_started`: before the start this is a result entered early, which a cleared
-    # result repairs. The swap's twin of the same rule is `swap_sides_taken_place`, a code per act, since the two refuse
-    # with no path a sentence could tell them apart by.
-    REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
     # Goals, a no-show or an abandonment saved while the season has not started: no match is played before the start,
     # so a fixture of an unstarted season holds no record a swap or a replacement would hand to another club.
@@ -271,8 +266,6 @@ class Code(StrEnum):
     # decides is none: the person's pick is what is refused, so a 422 naming both boxes.
     SWAP_NOT_A_SWAP = auto()
     SWAP_SAISON_STARTED = auto()
-    # `replace_sides_taken_place`'s rule read against the swap, which moves no `tore` either.
-    SWAP_SIDES_TAKEN_PLACE = auto()
     # An exit recorded before the season's start date: before the start a club out of the season is replaced, so no
     # fixture of an unstarted season, which the swap alone rewrites, fields a departed club.
     AUSTRITT_BEFORE_SAISON_START = auto()
