@@ -1,11 +1,10 @@
-import NextLink from "next/link";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { FLLogo } from "./FLLogo";
 import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
+import { NavigationLink } from "./WholePage";
 
 const brand = tv({
   slots: {
@@ -34,7 +33,7 @@ const brand = tv({
 export function Brand({ ground }: { ground: "band" | "page" }) {
   const { root, mark, wordmark } = brand({ ground });
   return (
-    <NextLink
+    <NavigationLink
       href={ROUTES.home.path()}
       aria-label={COPY.brand.name}
       data-kit-focus="ring"
@@ -45,6 +44,6 @@ export function Brand({ ground }: { ground: "band" | "page" }) {
         className={wordmark()}>
         {COPY.brand.name}
       </span>
-    </NextLink>
+    </NavigationLink>
   );
 }

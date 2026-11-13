@@ -94,18 +94,33 @@ committed on each click cost more than the read it stood for, since React holds 
 for 300 ms after the last one, and a page fade holds every commit until it ends.
 
 - The root layout (`fl_frontend/src/app/layout.tsx`) places
-  `fl_frontend/src/kit/WholePage.tsx :: WholePages` around every route.
+  `fl_frontend/src/kit/WholePage.tsx :: WholePages` around every route. It holds the one `Suspense`
+  boundary of the tree, mounted once for the session, whose fallback draws nothing.
 - Every template and frame waits for a read in `PageWait`, which under `WholePages` draws no
-  placeholder, so no boundary stands below the layout two pages share.
+  placeholder, so no boundary stands below the layout two pages share. Lint refuses `Suspense`
+  outside `WholePage.tsx`, `next/dynamic` and any route's `loading.tsx`.
 - A client navigation therefore keeps the page it leaves until the next one is complete, as a
   transition never hides content it has revealed. The page fade runs once, between two finished
   pages.
-- A hard load sends the prerendered shell, which is empty, and then the page once it is rendered.
-- The root layout exports `instant = false`, which lets the build accept a page reading uncached data
-  outside every boundary; the build refuses every such route without it.
-- A pressed link whose page takes longer than 100 ms shows Next's pending hint,
-  `fl_frontend/src/kit/WholePage.tsx :: LinkHint`, until the page commits: the kit's `Link` and the
-  frames' own links carry it.
+- A page opened by address sends the prerendered shell, the themed ground, at once, and React reveals
+  the whole page in one step once it is rendered, however slowly its bytes arrive. A page that throws
+  while rendering on the server is drawn again in the browser inside that shell.
+- The root layout exports `instant = false`, which tells Next's navigation checks that a navigation
+  into any route may block.
+
+**One fact says a navigation is under way**: the address it goes to, which `WholePages` sets as
+optimistic state inside the navigation's own transition, so it ends in the render that commits the
+page. Every navigating control feeds it through `WholePage.tsx :: NavigationLink`, the one reader of
+`next/link`, which lint holds, or `useNavigate` for a control navigating on its own press.
+
+- Each frame places one `NavigationBar` at the top of its page area. It shows once a navigation has
+  been pending 200 ms and goes at the commit; it is a visual sign alone.
+- At the press, every list of links marks the entry the navigation goes to (`usePressed`), and a
+  filter shows its new choice (`usePendingQuery`).
+- While a navigation to another path is pending, the page's content, inside each frame's
+  `PageContent`, is `inert`; the frame stays pressable, and a navigation staying on the path leaves
+  the page live.
+- `NavigationLink` never prefetches the sign-in, which the proxy's matcher skips on a prefetch.
 
 Without `WholePages` and the export, every `PageWait` is a `Suspense` boundary drawing its
 placeholder, and a page streams in its parts.

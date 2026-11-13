@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, use, useContext, useEffect, useState } from "react";
-import NextLink from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
@@ -28,7 +27,7 @@ import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { LinkHint, PageWait } from "./WholePage";
+import { NavigationLink, PageWait, useNavigate, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -77,8 +76,8 @@ export type Saisons = {
 };
 
 /**
- * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
- * settles; `null` where the person has no season yet.
+ * A frame's seasons, read for the frame and handed down unawaited, so the read runs beside the page's own; `null`
+ * where the person has no season yet.
  */
 type SaisonFrame = {
   saisons: Promise<Saisons | null>;
@@ -121,7 +120,8 @@ export function SaisonScope({ value, children }: { value: SaisonScopeValue; chil
   const [chosen, setChosen] = useState<string>();
   return (
     <SaisonContext value={{ ...value, chosen }}>
-      {/* Reads the address, which no prerender knows, so it waits in a boundary of its own, drawing nothing. */}
+      {/* Reads the address, which no prerender knows: the root's boundary holds it with the page under `WholePages`,
+          and outside it its own `PageWait`, drawing nothing. */}
       <PageWait fallback={null}>
         <SaisonMemory choose={setChosen} />
       </PageWait>
@@ -435,6 +435,17 @@ function useCurrent<Entry extends { href: Route; own: boolean; home: boolean }>(
   return own.find((entry) => entry.href === href);
 }
 
+/**
+ * The entry a list marks current: from the press of an entry of its own, the one the navigation goes to, so the mark
+ * moves at once; else the one the address belongs to (`useCurrent`).
+ */
+function useMarked<Entry extends { href: Route; own: boolean; home: boolean }>(entries: ReadonlyArray<Entry>) {
+  const current = useCurrent(entries);
+  const own = entries.filter((entry) => entry.own);
+  const pressed = usePressed(own.map((entry) => entry.href));
+  return pressed === undefined ? current : own.find((entry) => entry.href === pressed);
+}
+
 // The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
 // `data-selected`; a menu's chosen entry is marked otherwise, by its check.
 // Collapsed, the entry clips its words past its glyph's box (`railGlyph`).
@@ -463,10 +474,10 @@ const railRule = tv({
 });
 
 /**
- * The rail's entries in their groups, the current one in the brand colour on the muted fill. Where the address names
- * the season they stand at once as it spells them, and the seasons' read, landing, keeps them or, for a season the
- * frame does not hold, leads them to its standard: the not-found page stands in the frame, and a menu following an
- * unknown season would lead every entry to another not-found page.
+ * The rail's entries in their groups, the current one in the brand colour on the muted fill, led by the seasons' read:
+ * for a season the frame does not hold, to its standard, since the not-found page stands in the frame, and a menu
+ * following an unknown season would lead every entry to another not-found page. Outside `WholePages`, where the
+ * address names the season, they stand meanwhile as it spells them.
  */
 export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
   return (
@@ -484,7 +495,7 @@ export function RailEntries(props: { groups: ReadonlyArray<RailGroup>; prefetch?
 
 function RailEntryList({ groups: given, prefetch, listless }: { groups: ReadonlyArray<RailGroup>; prefetch?: true; listless?: true }) {
   const groups = useEntries(given, listless);
-  const current = useCurrent(groups.flatMap((group) => group.entries));
+  const current = useMarked(groups.flatMap((group) => group.entries));
   return (
     // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
     // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
@@ -508,7 +519,7 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
               <RailTooltip
                 key={entry.id}
                 label={entry.label}>
-                <NextLink
+                <NavigationLink
                   href={entry.href}
                   prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
@@ -521,11 +532,8 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
                       size={18}
                     />
                   </span>
-                  <span className={railFade()}>
-                    {entry.label}
-                    <LinkHint />
-                  </span>
-                </NextLink>
+                  <span className={railFade()}>{entry.label}</span>
+                </NavigationLink>
               </RailTooltip>
             ))}
           </div>
@@ -596,8 +604,8 @@ const avatar = tv({
 });
 
 /**
- * The person signed in, read for the frame and handed down unawaited, so the frame streams before the session
- * is judged; `null` for a session the area turns away, whose page sends it on.
+ * The person signed in, read for the frame and handed down unawaited, so the read runs beside the page's own;
+ * `null` for a session the area turns away, whose page sends it on.
  */
 export type AccountRead = Promise<Account | null>;
 
@@ -692,12 +700,11 @@ export type FrameMenu = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
   /**
-   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“; `prefetch: false` for
-   * „Konto“, whose prefetched sign-in would be drawn before the proxy sends a signed-in person on.
+   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“.
    */
-  extra: ReadonlyArray<{ label: Copy; href: Route; prefetch?: false }>;
+  extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: AccountRead;
-  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep theirs. */
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links prefetch as Next does by default. */
   prefetch?: true;
 };
 
@@ -714,7 +721,7 @@ export function MenuScope({ value, children }: { value: FrameMenu; children: Rea
  */
 export function BarPlaces() {
   const menu = useContext(MenuContext);
-  // At once as the address spells them, as the rail's entries are (`RailEntries`).
+  // Outside `WholePages`, as the address spells them meanwhile, as the rail's entries are (`RailEntries`).
   return menu === null ? null : (
     <PageWait
       fallback={
@@ -731,7 +738,7 @@ export function BarPlaces() {
 function Places({ groups: given, bar, extra, account, prefetch, listless }: FrameMenu & { listless?: true }) {
   const groups = useEntries(given, listless);
   const entries = groups.flatMap((group) => group.entries);
-  const current = useCurrent(entries);
+  const current = useMarked(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const rest = groups
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
@@ -743,7 +750,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
       aria-label={COPY.template.navigation}
       className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
-        <NextLink
+        <NavigationLink
           key={entry.id}
           href={entry.href}
           prefetch={prefetch}
@@ -756,11 +763,8 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
           />
           {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
               the words stand centred, so the room their columns leave them parts two labels. */}
-          <span className="max-w-full truncate">
-            {entry.label}
-            <LinkHint />
-          </span>
-        </NextLink>
+          <span className="max-w-full truncate">{entry.label}</span>
+        </NavigationLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
         <FreshPerPage>
@@ -784,7 +788,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                   className="grid gap-1">
                   {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
                   {group.entries.map((entry) => (
-                    <NextLink
+                    <NavigationLink
                       key={entry.id}
                       href={entry.href}
                       prefetch={prefetch}
@@ -795,28 +799,21 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                         glyph={entry.icon}
                         size={18}
                       />
-                      <span>
-                        {entry.label}
-                        <LinkHint />
-                      </span>
-                    </NextLink>
+                      {entry.label}
+                    </NavigationLink>
                   ))}
                 </div>
               ))}
               {extra.length > 0 && (
                 <div className="grid gap-1 border-t border-border pt-2">
                   {extra.map((link) => (
-                    <NextLink
+                    <NavigationLink
                       key={link.href}
                       href={link.href}
-                      prefetch={link.prefetch}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
-                      <span>
-                        {link.label}
-                        <LinkHint />
-                      </span>
-                    </NextLink>
+                      {link.label}
+                    </NavigationLink>
                   ))}
                 </div>
               )}
@@ -932,30 +929,25 @@ const back = tv({
  */
 export function BackControl({ href }: { href: Route }) {
   const guard = useLeaveGuard();
-  const router = useRouter();
-  // The words in a box of their own, which the link's pending hint follows; the button's press opens a dialog, so it
-  // leads to no link whose status a hint could read.
-  const content = (hint: ReactNode) => (
+  const navigate = useNavigate();
+  const content = (
     <>
       <Icon
         glyph="back"
         size={18}
       />
-      <span>
-        {COPY.shared.back}
-        {hint}
-      </span>
+      {COPY.shared.back}
     </>
   );
 
   if (guard === null) {
     return (
-      <NextLink
+      <NavigationLink
         href={href}
         data-kit-focus="ring"
         className={back({ host: "link" })}>
-        {content(<LinkHint />)}
-      </NextLink>
+        {content}
+      </NavigationLink>
     );
   }
   return (
@@ -966,13 +958,13 @@ export function BackControl({ href }: { href: Route }) {
       tone="danger"
       onConfirm={() => {
         guard.discard();
-        router.push(href);
+        navigate(href);
       }}
       control={
         <AriaButton
           data-kit-focus="ring"
           className={back({ host: "aria" })}>
-          {content(null)}
+          {content}
         </AriaButton>
       }
     />
@@ -1007,8 +999,8 @@ export function ReadBack({ back, none }: { back: Promise<Route | null>; none: Re
 /**
  * „‹ Zurück“ in an editor's band, to the list the rail marks for the editor: a record's page lies under its list,
  * so the way back is read from the address rather than declared by each editor, but for an editor whose route
- * declares the list it belongs to (`placeOf`). Where the address names the season it stands at once, as the rail's
- * entries do (`RailEntries`).
+ * declares the list it belongs to (`placeOf`). Outside `WholePages`, where the address names the season, it stands
+ * meanwhile as the rail's entries do (`RailEntries`).
  */
 export function EditorBack() {
   const groups = useContext(MenuContext)?.groups ?? [];

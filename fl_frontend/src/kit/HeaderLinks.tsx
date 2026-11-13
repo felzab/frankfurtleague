@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment } from "react";
-import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
@@ -13,16 +12,13 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
-import { LinkHint, PageWait } from "./WholePage";
+import { NavigationLink, PageWait, usePressed } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 
-/**
- * A link of the classic header: catalogue words and an address the layout gives. `prefetch: false` for „Konto“: a
- * prefetched sign-in would be drawn before the proxy sends a signed-in person on to their landing.
- */
-export type HeaderLink = { label: Copy; href: Route; prefetch?: false };
+/** A link of the classic header: catalogue words and an address the layout gives. */
+export type HeaderLink = { label: Copy; href: Route };
 
 type HeaderLinksProps = {
   links: ReadonlyArray<HeaderLink>;
@@ -30,46 +26,36 @@ type HeaderLinksProps = {
 };
 
 /**
- * The links at the address `path`: its page's link marked, and a sheet that goes with the page it led from, since the
- * layout outlives the page. `null` while a page with a dynamic segment streams its address, where no link is marked.
+ * The links at the address `path`: its page's link marked, or from its press the link a navigation goes to, and a sheet
+ * that goes with the page it led from, since the layout outlives the page. `null` in the placeholder `HeaderLinks`
+ * draws outside `WholePages`, where no link is marked.
  */
 function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string | null }) {
-  const current =
-    path === null
-      ? null
-      : currentOf(
-          path,
-          links.map((link) => link.href),
-        );
+  const hrefs = links.map((link) => link.href);
+  const pressed = usePressed(hrefs);
+  const current = pressed ?? (path === null ? null : currentOf(path, hrefs));
   return (
     <>
       <nav
         aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
         {links.map((link) => (
-          <NextLink
+          <NavigationLink
             key={link.href}
             href={link.href}
             aria-current={link.href === current ? "page" : undefined}
             data-kit-focus="ring"
             className={frameLink({ tone: link.href === current ? "band" : "bandMuted" })}>
-            <span>
-              {link.label}
-              <LinkHint />
-            </span>
-          </NextLink>
+            {link.label}
+          </NavigationLink>
         ))}
       </nav>
-      <NextLink
+      <NavigationLink
         href={signIn}
-        prefetch={false}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
-        <span>
-          {COPY.template.account}
-          <LinkHint />
-        </span>
-      </NextLink>
+        {COPY.template.account}
+      </NavigationLink>
       <div className="ms-auto lg:hidden">
         <Fragment key={path}>
           <Sheet
@@ -86,19 +72,15 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
-              {[...links, { label: COPY.template.account, href: signIn, prefetch: false } satisfies HeaderLink].map((link) => (
-                <NextLink
+              {[...links, { label: COPY.template.account, href: signIn } satisfies HeaderLink].map((link) => (
+                <NavigationLink
                   key={link.href}
                   href={link.href}
-                  prefetch={link.prefetch}
                   aria-current={link.href === current ? "page" : undefined}
                   data-kit-focus="inset"
                   className={menuEntry({ size: "phone" })}>
-                  <span>
-                    {link.label}
-                    <LinkHint />
-                  </span>
-                </NextLink>
+                  {link.label}
+                </NavigationLink>
               ))}
             </div>
           </Sheet>
@@ -119,9 +101,9 @@ function LinksAtAddress(props: HeaderLinksProps) {
 
 /**
  * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. Every link is known before any read, so the band stands whole in the first frame.
- * Past a dynamic segment the prerendered shell holds no address, so it holds the same links unmarked, which is why the
- * boundary stands here and not in the page.
+ * one button opening them as a sheet. Every link is known before any read. Under `WholePages` the band arrives with the
+ * page, its link marked; outside it, past a dynamic segment the prerendered shell holds no address, so its `PageWait`
+ * holds the same links unmarked there.
  */
 export function HeaderLinks(props: HeaderLinksProps) {
   return (
