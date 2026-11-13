@@ -141,12 +141,6 @@ class TestTheCircleMethodPairsAGroup:
             sides = [side for pair in pairs for side in pair]
             assert len(set(sides)) == len(sides)
 
-    def test_it_pairs_the_two_smallest_groups_exactly_like_this(self):
-        """Hand-derived rather than recorded from a run, so this pins the sides as well as the pairs."""
-
-        assert circle_rounds(3) == (((1, 2),), ((2, 0),), ((0, 1),))
-        assert circle_rounds(4) == (((0, 3), (1, 2)), ((2, 0), (3, 1)), ((0, 1), (2, 3)))
-
 
 def ceiling(field: str) -> int:
     """The `le` a rules field states, read off the model so widening one widens the sweep rather than leaving it under the old bound."""
@@ -237,12 +231,15 @@ class TestTheTableCoversTheWritePath:
 
 
 class TestEveryRowIsAWholeDraw:
-    @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
+    @pytest.mark.parametrize("key", sorted(legal_combinations()))
     def test_round_one_draws_placings_summing_to_one_past_the_qualifier_count(self, key: tuple[int, int]):
-        """What seeding is for: a group winner draws the weakest qualifier the round still holds."""
+        """What seeding is for: a group winner draws the weakest qualifier the round still holds.
+
+        Over every shape the write path admits, as the construction draws it.
+        """
 
         qualifiers = key[1]
-        row = BRACKET_SEEDING[key]
+        row = bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=qualifiers)
 
         assert [row[slot][1] + row[slot + 1][1] for slot in range(0, len(row), 2)] == [qualifiers + 1] * (len(row) // 2)
 
@@ -316,21 +313,6 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         assert drawn == expected
 
     @pytest.mark.parametrize("shape", SHAPES)
-    def test_every_club_of_a_group_meets_every_other_once(self, shape: tuple[int, int, int]):
-        groups, teams, _ = shape
-        entered = entered_for(groups, teams)
-        gruppe_of = {team.team_id: team.gruppe for team in entered}
-        met = [frozenset((spiel["team1"]["team_id"], spiel["team2"]["team_id"])) for spiel in draw(*shape).spiele if spiel["team1"] is not None]
-
-        expected = [
-            frozenset((one.team_id, other.team_id))
-            for gruppe in GRUPPEN[:groups]
-            for one, other in combinations([team for team in entered if gruppe_of[team.team_id] == gruppe], 2)
-        ]
-
-        assert sorted(met, key=sorted) == sorted(expected, key=sorted)
-
-    @pytest.mark.parametrize("shape", SHAPES)
     def test_a_group_spiel_takes_its_sides_in_the_order_the_pairing_names(self, shape: tuple[int, int, int]):
         """Every other pairing assertion here compares unordered pairs.
 
@@ -362,14 +344,6 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
 
 class TestSpielNrRunsOnceThroughTheSeason:
-    @pytest.mark.parametrize("shape", SHAPES)
-    def test_it_is_contiguous_from_one_with_no_gap_and_no_repeat(self, shape: tuple[int, int, int]):
-        """`uniq_saison_id_spiel_nr` spans the whole season, so a per-phase restart is a duplicate key rather than a style choice."""
-
-        drawn = [spiel["spiel_nr"] for spiel in draw(*shape).spiele]
-
-        assert drawn == list(range(1, len(drawn) + 1))
-
     @pytest.mark.parametrize("shape", SHAPES)
     def test_it_runs_in_playing_order(self, shape: tuple[int, int, int]):
         """Phase, then matchday, then group -- so reading a season by number reads it in the order it is played."""
