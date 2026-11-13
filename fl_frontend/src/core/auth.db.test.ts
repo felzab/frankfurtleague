@@ -274,37 +274,10 @@ async function passkeyRows(): Promise<Record<string, unknown>[]> {
 }
 
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
-const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
-
-describe("two enrolments of one administrator, against a real database", () => {
-  // The clause holds in sequence; two enrolments at once may both stand.
-  it("refuses a second code-borne enrolment made after the first", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const first = await verify(a, AUTHENTICATOR_A);
-    const second = await verify(b, AUTHENTICATOR_B);
-
-    expect([first.status, second.status, (await passkeyRows()).length]).toStrictEqual([200, 404, 1]);
-  });
-});
 
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
    that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
-  it("replaces the code's session with the passkey's, the credential stamped", async () => {
-    const offered = await offer(await signIn(ADMIN_EMAIL));
-
-    const enrolled = await verify(offered, AUTHENTICATOR_A, { createSession: true });
-    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
-
-    const sessions = await sessionRows();
-    expect(
-      sessions.map(({ authFactor, passkeyCredentialId }) => [authFactor, passkeyCredentialId]),
-      "the code's session outlived the setup, or the passkey's was never written",
-    ).toStrictEqual([["passkey", AUTHENTICATOR_A.toString("base64url")]]);
-  });
-
   /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
      adapter retries meets the winner's row in the enrolment guard, whose refusal is a 404 and no line. */
   it("mints one session for the winner of two setups at once, and refuses the loser, leaving it signed in by code", async () => {

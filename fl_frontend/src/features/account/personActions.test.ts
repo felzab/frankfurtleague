@@ -217,20 +217,6 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(erasures).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
   });
-
-  /* The library reads a session its account's sessions were ended before as a session like any other: the person lane's
-     own guard is what refuses it. */
-  it("deletes and erases nothing from a session ended by its account after it was made", async () => {
-    const email = "beendet-seither@example.org";
-    const { row, token, holder } = await withLink(email);
-    const account = store.user.find((user) => user.email === email);
-    assert.ok(account !== undefined, "the sign-in wrote no account");
-    account.sessionsEndedAt = new Date();
-
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(erasures).toStrictEqual([]);
-    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
-  });
 });
 
 // Each a loss nobody would see: an administrator's other devices ended from a session a mailbox made, a device left

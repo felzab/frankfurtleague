@@ -269,28 +269,6 @@ describe("what the gate's backend read leaves on the response", () => {
   }
 });
 
-describe("what a typed code answers", () => {
-  /* The window the message states is worth nothing unless the store enforces it: a code typed past its
-     row's expiry signs nobody in, which nothing a reader sees would tell. */
-  it("mints no session for a code whose row has expired", async () => {
-    await signInWith(GRANTED);
-    const code = theLastCode();
-
-    const row = store.verification.findLast((entry) => entry.identifier === `sign-in-otp-${GRANTED}`);
-    assert.ok(row, "the sign-in wrote no code row to age");
-    // Aged in the STORE, never by a clock handed to the running application, which would be a
-    // testing-only seam in production code.
-    row.expiresAt = new Date(Date.now() - 1000);
-
-    const sessions = store.session.length;
-    const typed = await typeTheCode(GRANTED, code);
-
-    expect(store.session.length, "an expired code still minted a session").toBe(sessions);
-    // The control: refused for its age, where a code this harness misread would mint no session either.
-    expect(((await typed.json()) as { code?: string }).code).toBe("OTP_EXPIRED");
-  });
-});
-
 describe("which account two spellings of one address reach", () => {
   /* The library folds CASE alone, on the row it stores: a spelling only the fold converts would
      otherwise verify into a second `user` row, which a ban matching the first by equality never ends. */

@@ -91,12 +91,11 @@ describe("a pupil's own season", () => {
     const page = await landed("2027-03-01");
     expect(page).toContain(COPY.admin.spieler.deregistered);
     expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
-  });
 
-  it("shows a pupil in the squad their place in the line-up", async () => {
-    const page = await landed(null);
-    expect(page).not.toContain(COPY.admin.spieler.deregistered);
-    expect(page).toContain(COPY.area.spieler.lineupPlace.starts);
+    // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
+    const inSquad = await landed(null);
+    expect(inSquad).not.toContain(COPY.admin.spieler.deregistered);
+    expect(inSquad).toContain(COPY.area.spieler.lineupPlace.starts);
   });
 
   // The harm: a tab reading „Übersicht“ over the not-found card, which a season whose read holds no squad row of the

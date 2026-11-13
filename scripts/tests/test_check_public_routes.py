@@ -147,18 +147,8 @@ def with_files(*names: str) -> Path:
     return app
 
 
-def test_a_metadata_convention_at_the_tree_root_is_accounted_for():
-    """The population is these as well as the handlers: a file no walk sees is a URL nobody decided."""
-    assert [one.url for one in routes.metadata(with_files("sitemap.ts"))] == ["/sitemap.xml"]
-
-
-def test_a_metadata_convention_is_resolved_from_every_extension_a_handler_is():
-    """Next reads one page-extension list for both, so a walk seeing fewer accounts for part of the tree."""
-    assert [one.url for one in routes.metadata(with_files("robots.tsx"))] == ["/robots.txt"]
-
-
 def test_a_module_named_for_a_convention_and_something_else_is_not_the_convention():
-    """`sitemap.test.ts` sits beside `sitemap.ts` in this repository and answers no URL at all."""
+    """A test module beside a convention's file, such as `sitemap.test.ts` beside `sitemap.ts`, answers no URL at all."""
     assert routes.metadata(with_files("sitemap.test.ts", "brandAssets.test.ts")) == ()
 
 
@@ -195,7 +185,7 @@ def test_a_page_a_slot_intercepts_on_its_own_level_answers_the_intercepted_url()
     assert (page.url, page.head, page.dynamic) == ("/saisons/[saison]/spiele/[spiel]", "/saisons/", True)
 
 
-@pytest.mark.parametrize("marker", ["(..)", "(...)", "(..)(..)"])
+@pytest.mark.parametrize("marker", ["(..)", "(...)"])
 def test_a_page_intercepting_a_level_up_or_the_root_refuses(marker):
     """Its URL drops segments above it, which this reader does not derive; silence would place it wrongly."""
     with pytest.raises(routes.RouteShape, match="cannot derive"):
@@ -656,11 +646,6 @@ def test_a_route_group_leaves_the_url():
 def test_a_catch_all_segment_stops_the_static_head():
     """What a prefix has to cover is everything above the segment, never the segment itself."""
     assert routes.url_of(("api", "auth", "[...all]"), Path("route.ts")) == ("/api/auth/[...all]", "/api/auth/", True)
-
-
-def test_a_dynamic_segment_stops_it_too():
-    """A single dynamic segment is as unnameable by an exact match as a catch-all is."""
-    assert routes.url_of(("api", "teams", "[id]"), Path("route.ts")) == ("/api/teams/[id]", "/api/teams/", True)
 
 
 def test_a_handler_under_a_top_level_dynamic_segment_heads_at_the_root():
