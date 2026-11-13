@@ -256,10 +256,14 @@ class TestTheAdoptedStateIsDerivedFromTwo:
     def test_the_sides_swapped_read_differing(self):
         assert bericht_state_of(saved(adopted=True), played(0, 1)) == "differing"
 
-    def test_a_result_standing_beside_a_report_nobody_adopted_reads_differing(self):
-        """A result the administrator typed, and a report its referee corrected since its adoption: the goals may still match."""
+    def test_a_result_matching_a_report_nobody_adopted_reads_proposed_and_one_not_matching_differing(self):
+        """A result the administrator typed, or a report its referee corrected since its adoption: the goals may still match.
 
-        assert bericht_state_of(saved(), played(1, 0)) == "differing"
+        Read as differing where they match, the report could never be adopted: the editor's fields already hold it.
+        """
+
+        assert bericht_state_of(saved(), played(1, 0)) == "proposed"
+        assert bericht_state_of(saved(), played(2, 0)) == "differing"
 
     def test_a_spiel_holding_no_result_reads_proposed_however_it_was_stamped(self):
         assert bericht_state_of(saved(), spiel()) == "proposed"

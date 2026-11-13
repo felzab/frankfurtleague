@@ -342,7 +342,8 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
     """The state a report reads in, from the fixture and the adoption.
 
     No result reads `proposed` however the report was stamped, as after a later save emptied the result or on an
-    abandonment still owing its result.
+    abandonment still owing its result; so does a result the proposal matches that nobody adopted, as one typed in by
+    hand or one a correction of the report since its adoption left matching.
     """
 
     if is_cancelled(sonderereignis=spiel_raw.get("sonderereignis")):
@@ -356,10 +357,12 @@ def bericht_state_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any
     if spiel_raw.get("ergebnis") is None:
         return "proposed"
 
-    if bericht.adopted and vorschlag_matches(bericht.ergebnis_vorschlag, spiel_raw):
-        return "adopted"
+    if not vorschlag_matches(bericht.ergebnis_vorschlag, spiel_raw):
+        return "differing"
 
-    return "differing"
+    # Awaiting only its adoption, which the match editor still offers: read as differing, a proposal the fields already
+    # hold could never be adopted, and its cards would never be published.
+    return "adopted" if bericht.adopted else "proposed"
 
 
 def compose_view(
@@ -428,8 +431,8 @@ def compose_new_bericht(
 def compose_bericht_update(payload: FLSpielberichtBerichtPayload, *, sides: Mapping[FLSpielSide, ObjectId | None]) -> dict[str, Any]:
     """A later write of the block: the content replaced, when it was first sent kept, and the adoption cleared with it.
 
-    Cleared in the same update, so an adoption never stands on content its administrator did not see: the report reads
-    `differing` until it is adopted anew.
+    Cleared in the same update, so an adoption never stands on content its administrator did not see: the report
+    awaits the administrator until it is adopted anew.
     """
 
     return {

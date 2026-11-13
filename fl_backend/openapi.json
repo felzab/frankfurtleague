@@ -11285,6 +11285,10 @@
       "FLSchiedsrichterSpiel": {
         "description": "One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.",
         "properties": {
+          "bericht_owed": {
+            "title": "Bericht Owed",
+            "type": "boolean"
+          },
           "date": {
             "anyOf": [
               {
@@ -11438,7 +11442,8 @@
           "entered",
           "past",
           "reportable",
-          "submitted_at"
+          "submitted_at",
+          "bericht_owed"
         ],
         "title": "FLSchiedsrichterSpiel",
         "type": "object"

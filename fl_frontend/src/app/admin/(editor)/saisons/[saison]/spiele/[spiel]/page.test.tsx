@@ -193,6 +193,8 @@ describe("the match editor's answers", () => {
       shown: notAsked,
     },
     { reads: "about a call-off since undone", rows: [row("cancelled", { closed: { reason: "cancelled" } })], shown: notAsked },
+    // Minted while the club held no confirmed seat, so no mail asked it: chased for an answer, it has no link to give one.
+    { reads: "in time that nobody could be mailed on", rows: [row("valid", { asked_at: null })], shown: notAsked },
   ])("draws the first club's newest row $reads by the state it reads as", async ({ rows, shown }) => {
     const editor = await editorOver({ ...VIEW, spielbestaetigungen: rows });
 

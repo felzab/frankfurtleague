@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { SchiedsrichterOverview } from "./page";
 
@@ -37,6 +38,7 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   past: false,
   reportable: false,
   submitted_at: null,
+  bericht_owed: false,
   ...overrides,
 });
 
@@ -101,6 +103,22 @@ describe("a game something befell", () => {
       { tone: "danger", label: words.ausgefallen },
       { tone: "danger", label: words.nichtantretenChip, spoken: words.nichtantreten({ record: "Eiche" }) },
     ]);
+  });
+});
+
+/* The read sorts a game owing its report first among the open work, so a row heading the list under a booking's chip
+   names no work there. A referee's decline empties the slot; booked again by the league on the played game, or a game
+   whose call-off was undone, the row still reads the old booking state. */
+describe("a game owing its report", () => {
+  it("carries „Spielbericht fehlt“ whatever its booking last read", async () => {
+    const owed = { past: true, reportable: true, bericht_owed: true };
+    const rows = await rowsOf(
+      spiel({ spiel_id: "5f0000000000000000000001", state: "declined", reason: "Klausur", ...owed }),
+      spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", ...owed }),
+    );
+
+    const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.admin.spiel.spielbericht) };
+    expect(rows.map(({ chip }) => chip)).toStrictEqual([missing, missing]);
   });
 });
 

@@ -4653,6 +4653,7 @@ export const FLSchiedsrichterSpielState = {
  * One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.
  */
 export interface FLSchiedsrichterSpiel {
+  bericht_owed: boolean;
   date: string | null;
   entered: boolean;
   past: boolean;

@@ -242,7 +242,7 @@ class FLSchiedsrichterSelfPerson(BaseReadModel):
     birth_date: CustomOptionalDateString = None
 
 
-class FLSchiedsrichterSpiel(BaseModel):
+class FLSchiedsrichterSpiel(BaseReadModel):
     """One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe."""
 
     spiel_id: CustomObjectId
@@ -271,6 +271,9 @@ class FLSchiedsrichterSpiel(BaseModel):
     reportable: bool
     # When its report was first sent, whoever wrote it; null where none stands.
     submitted_at: FLUtcInstant | None
+    # Whether the referee owes its report now, which puts the fixture among the open work: one it takes and none sent,
+    # on a fixture that kept its slot, an abandoned one included; a no-show's report stays open to write, owed by nobody.
+    bericht_owed: bool
 
 
 class FLSchiedsrichterSpieleResponse(BaseAPIResponse):
