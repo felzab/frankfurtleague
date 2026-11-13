@@ -54,7 +54,7 @@ export function ClassicPage({
 }
 
 /**
- * A classic page's one title's look, which its placeholder's line takes too: in Anton, at 32 px where it stands on the
+ * A classic page's one title's look: in Anton, at 32 px where it stands on the
  * page, the landing's hero's rung, and at 24 px inside a card, a status card's or a mailed question's.
  */
 export const classicTitle = tv({
