@@ -375,7 +375,7 @@ export const SERVER_COPY = catalogue({
         ausgefallen: {
           subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.ausgefallen}: Spiel am ${formatDateLong(day)}`,
           before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
-          after: " ist ausgefallen.",
+          after: " fällt aus.",
         },
         annulliert: {
           subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.annulliert}: Spiel am ${formatDateLong(day)}`,
