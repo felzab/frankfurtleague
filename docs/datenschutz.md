@@ -701,7 +701,11 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
     seats make the Ansprechperson a recipient under Art. 4(9), as section 3 and the notice treat
     them. The same holds for every seat holder of a season row, whom section 3 and the notice name
     as a recipient of the other seat holders' names, of the seats each holds and of whether each
-    confirmed.
+    confirmed. And if they are: an administrator can seat a person directly on a season row, and
+    the row's confirmed seat holders then read that person's name before the person has received
+    any mail, while the confirmation mail waits in the Postausgang or after its delivery failed.
+    Whether Art. 14(3)(c) owes the information before that first disclosure, or the name is held
+    back until the seat is confirmed.
 26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable
