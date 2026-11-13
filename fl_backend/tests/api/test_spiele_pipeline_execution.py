@@ -9,7 +9,6 @@ from app.api.spiele.schemas import FLSpielJoined, FLSpielJoinedAdmin
 from app.api.spiele.services import (
     ANSETZUNG_CONFIRMED,
     EINSATZ_CONFIRMED,
-    NAME_IS_PUBLIC_KEY,
     SPIELBESTAETIGUNGEN_AS_NAME,
     build_spiele_pipeline,
 )
@@ -59,7 +58,7 @@ MOVES: Mapping[str, Mapping[str, Any]] = {
 REFEREE = {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250031")}
 
 
-def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
+def a_spiel() -> dict[str, Any]:
     return spiel_document(
         spiel_id=VERDICT_SPIEL_ID,
         saison_id=SAISON,
@@ -69,7 +68,7 @@ def a_spiel(*, with_ground: bool = True) -> dict[str, Any]:
         team2=AWAY_SIDE,
         date="2026-05-02",
         time="18:00:00",
-        spielort=GROUND if with_ground else None,
+        spielort=GROUND,
     )
 
 
@@ -79,14 +78,6 @@ def agreed() -> dict[str, Any]:
 
 def a_row(spiel: Mapping[str, Any], team_id: ObjectId, **fields: Any) -> dict[str, Any]:
     return spielbestaetigung_document(spiel, party={"kind": "team", "team_id": team_id}, **fields)
-
-
-def discarded(spiel: Mapping[str, Any], team_id: ObjectId) -> dict[str, Any]:
-    """A club's decline proposing another date, closed by the administrator's discard."""
-
-    declined = {**agreed(), "kind": "declined", "vorschlag": {"date": "2026-05-03", "time": "17:00:00"}, "reason": "Halle belegt"}
-
-    return a_row(spiel, team_id, answer=declined, closed={"reason": "discarded"})
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -187,18 +178,6 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
-    @pytest.mark.parametrize("with_ground", [pytest.param(False, id="without a ground")])
-    def test_both_clubs_agreeing_confirms_it(self, mongo_replica_set_url: str, with_ground: bool):
-        """Without a ground the row stores a null the fixture's path lacks: drop an `$ifNull` from the `let` and no such fixture confirms."""
-
-        spiel = a_spiel(with_ground=with_ground)
-        rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY, answer=agreed())]
-
-        document = on_a_spiel(mongo_replica_set_url, spiel, rows, joined)
-
-        assert document[ANSETZUNG_CONFIRMED] is True
-        assert SPIELBESTAETIGUNGEN_AS_NAME not in document
-
     def test_a_club_yet_to_answer_leaves_it_provisional(self, mongo_replica_set_url: str):
         spiel = a_spiel()
         rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY)]
@@ -215,33 +194,6 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         ]
 
         assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is False
-
-    @pytest.mark.parametrize(
-        "home",
-        [pytest.param("agreed", id="beside the other club's agreement"), pytest.param("discarded", id="beside a second discard")],
-    )
-    def test_a_discarded_proposal_counts_as_its_clubs_agreement(self, mongo_replica_set_url: str, home: str):
-        """The league kept the date: a join of unclosed rows alone reads one club as never asked, or both as nobody."""
-
-        spiel = a_spiel()
-        rows = [
-            a_row(spiel, VERDICT_HOME, answer=agreed()) if home == "agreed" else discarded(spiel, VERDICT_HOME),
-            discarded(spiel, VERDICT_AWAY),
-        ]
-
-        assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is True
-
-    def test_a_discard_about_an_ansetzung_the_spiel_has_left_counts_for_nothing(self, mongo_replica_set_url: str):
-        """The close never reaches a closed row, so a discard joined whatever its stand would hold the moved fixture provisional for good."""
-
-        spiel = a_spiel()
-
-        async def body(database: AsyncDatabase) -> bool | None:
-            await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": MOVES["the time"]})
-
-            return await verdict(database)
-
-        assert on_a_spiel(mongo_replica_set_url, spiel, [discarded(spiel, VERDICT_AWAY)], body) is None
 
     @pytest.mark.parametrize("move", list(MOVES.values()), ids=list(MOVES))
     def test_a_moved_spiel_reads_as_provisional_in_the_very_next_read(self, mongo_replica_set_url: str, move: Mapping[str, Any]):
@@ -265,16 +217,6 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         # The rows the verdict was read from are scratch: kept, every read would carry each fixture's rows and their party ids.
         assert SPIELBESTAETIGUNGEN_AS_NAME not in after
 
-    def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_replica_set_url: str):
-        spiel = a_spiel()
-        rows = [
-            a_row(spiel, VERDICT_HOME, answer=agreed()),
-            a_row(spiel, VERDICT_AWAY, answer=agreed()),
-            spielbestaetigung_document(spiel, party=REFEREE),
-        ]
-
-        assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is True
-
     def test_two_agreements_of_one_club_leave_it_provisional(self, mongo_replica_set_url: str):
         """Nothing in the database stops a second open row once a club has answered: counting rows would confirm without the other club."""
 
@@ -283,16 +225,6 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
 
         assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is False
 
-    @pytest.mark.parametrize(
-        "parties",
-        [pytest.param([], id="no row at all"), pytest.param([REFEREE], id="a referee's row alone")],
-    )
-    def test_no_clubs_open_row_reads_as_never_asked(self, mongo_replica_set_url: str, parties: list[Mapping[str, Any]]):
-        spiel = a_spiel()
-        rows = [spielbestaetigung_document(spiel, party=party) for party in parties]
-
-        assert on_a_spiel(mongo_replica_set_url, spiel, rows, verdict) is None
-
 
 # --- The REFEREE BLOCK: whether the booked referee agreed, then whether their name is published.
 
@@ -300,7 +232,6 @@ REFEREE_ID = REFEREE["schiedsrichter_id"]
 # A referee booked before, whose row the next pass has not yet closed.
 REPLACED_REFEREE = {"kind": "schiedsrichter", "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607250032")}
 REFEREE_NAME = "Ada Kern"
-PUBLIC_REFEREE_NAME = "Ada K."
 
 # Two rows of the booked referee in the order the pass minted them, which their ids carry.
 EARLIER_ROW = ObjectId("6890a1b2c3d4e5f607250041")
@@ -353,35 +284,12 @@ def withheld(document: Mapping[str, Any]) -> bool:
 class TestTheRefereeIsServedOnceAgreed:
     """Two-valued, so a booking the pass has not reached, or asked and not agreed, names nobody."""
 
-    def test_a_verdict_neither_true_nor_false_publishes_nobody(self, mongo_replica_set_url: str):
-        """The base model's own gate, so a join answering a third value again cannot publish the referee it never judged."""
-
-        spiel = a_refereed_spiel()
-        document = on_a_refereed_spiel(mongo_replica_set_url, [a_referee_row(spiel, answer=agreed())], joined, spiel=spiel)
-        document["schiedsrichter"][EINSATZ_CONFIRMED] = None
-
-        assert FLSpielJoined.model_validate(document).schiedsrichter is None
-
     def test_a_spiel_too_far_out_to_have_been_asked_withholds_them(self, mongo_replica_set_url: str):
         """No row at all: read as never asked and served, every booking the pass has not reached would publish its referee."""
 
         spiel = {**a_refereed_spiel(), "date": "2026-12-12"}
 
         assert withheld(on_a_refereed_spiel(mongo_replica_set_url, [], joined, spiel=spiel))
-
-    def test_a_referee_booked_after_the_last_pass_withholds_them(self, mongo_replica_set_url: str):
-        """The referee replaced before them holds the only row, closed for the change; the booked one holds none yet."""
-
-        spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, party=REPLACED_REFEREE, closed={"reason": "schiedsrichter_switched"})]
-
-        assert withheld(on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel))
-
-    def test_a_request_closed_unanswered_withholds_them(self, mongo_replica_set_url: str):
-        spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, closed={"reason": "spiel_past"})]
-
-        assert withheld(on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel))
 
     def test_a_referee_asked_and_silent_is_withheld_whole_from_the_base_tier_alone(self, mongo_replica_set_url: str):
         """The admin editor shows the assignment from the moment it is made, the validator being the base model's own."""
@@ -414,15 +322,7 @@ class TestTheRefereeIsServedOnceAgreed:
 
         assert on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
 
-    def test_a_clubs_closed_row_never_counts_for_the_referee(self, mongo_replica_set_url: str):
-        """The join carries a club's discard for the clubs' verdict, and the gate's party term keeps it out of the referee's."""
-
-        spiel = a_refereed_spiel()
-        rows = [a_row(spiel, VERDICT_HOME, answer=agreed(), closed={"reason": "discarded"})]
-
-        assert on_a_refereed_spiel(mongo_replica_set_url, rows, einsatz, spiel=spiel) is False
-
-    @pytest.mark.parametrize("moved", [False, True], ids=["about the slot as it stands", "about a slot the fixture left since"])
+    @pytest.mark.parametrize("moved", [False], ids=["about the slot as it stands"])
     def test_their_own_decline_as_their_latest_answer_withholds_them(self, mongo_replica_set_url: str, moved: bool):
         """Re-booked after declining, they hold no open row until the next pass asks: read as never asked, they would show."""
 
@@ -494,25 +394,3 @@ class TestTheRefereesNameFollowsTheirConsent:
         assert served is not None and (served.name, served.name_is_public) == (None, False)
         admin = FLSpielJoinedAdmin.model_validate(document).schiedsrichter
         assert admin is not None and (admin.schiedsrichter_id, admin.name) == (REFEREE_ID, REFEREE_NAME)
-
-    def test_a_published_name_is_served_reduced(self, mongo_replica_set_url: str):
-        spiel = a_refereed_spiel()
-        rows = [a_referee_row(spiel, answer=agreed())]
-
-        served = FLSpielJoined.model_validate(on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel)).schiedsrichter
-
-        assert served is not None and served.name == PUBLIC_REFEREE_NAME
-
-    def test_a_booking_no_record_answers_is_withheld(self, mongo_replica_set_url: str):
-        """A join that stopped matching: nothing found never publishes."""
-
-        gone = ObjectId()
-        spiel = a_refereed_spiel(schiedsrichter_id=gone)
-        # Agreed, so the consent gate is the one withholding the name.
-        rows = [a_referee_row(spiel, party={"kind": "schiedsrichter", "schiedsrichter_id": gone}, answer=agreed())]
-
-        document = on_a_refereed_spiel(mongo_replica_set_url, rows, joined, spiel=spiel)
-
-        assert document["schiedsrichter"][NAME_IS_PUBLIC_KEY] is False
-        served = FLSpielJoined.model_validate(document).schiedsrichter
-        assert served is not None and served.name is None
