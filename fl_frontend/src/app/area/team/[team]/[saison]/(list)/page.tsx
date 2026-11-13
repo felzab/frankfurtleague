@@ -115,7 +115,13 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
       return {
         ...base,
         chip: EXPIRED_CHIP,
-        line: line([when, venueOf(ansetzung), COPY.admin.schiedsrichter.expiredOn(deadline), TEAM.leagueDecides]),
+        // A row an exit ended lapsed on no day, its deadline never reached.
+        line: line([
+          when,
+          venueOf(ansetzung),
+          row.lapsed_on === null ? null : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on)),
+          TEAM.leagueDecides,
+        ]),
       };
     case "declined":
       return {

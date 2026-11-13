@@ -108,12 +108,22 @@ describe("the match editor's links to the line-ups", () => {
   });
 
   // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
-  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs.
-  it("draws no row for a match carrying any event", async () => {
+  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs; or
+  // drawn with no row, so the league loses the way to the line-up it still enters and the counts it stored.
+  it("keeps each side's row on a match carrying any event, saying nothing is owed", async () => {
     for (const sonderereignis of Object.values(FLSonderereignis)) {
       const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
 
-      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([]);
+      const words = COPY.area.team.aufstellung;
+      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([
+        {
+          id: "team1",
+          href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM1}`,
+          name: words.ofTeam({ record: "Ahorn" }),
+          line: words.counts(14, 11, 11),
+        },
+        { id: "team2", href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM2}`, name: words.ofTeam({ record: "Eiche" }) },
+      ]);
     }
   });
 });
@@ -133,23 +143,17 @@ describe("the match editor before its season's start", () => {
 });
 
 describe("the match editor's answers", () => {
-  // The harm: a booking an erasure left naming nobody drawn as a party not yet asked, whom nobody can ask.
-  it("draws no referee's row for a booking naming nobody", async () => {
-    const editor = await editorOver({
-      ...VIEW,
-      spiel: { ...VIEW.spiel, schiedsrichter: { schiedsrichter_id: null, name: null, payment: 25 } },
-    });
-
-    expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1", "team2"]);
-  });
-
+  const ansetzung = { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" };
   /** The first club's row reading as `state`, unanswered and open unless `fields` say otherwise. */
-  const row = (state: FLSpielbestaetigungEditorRow["state"], fields: Partial<FLSpielbestaetigungEditorRow> = {}) => ({
+  const row = (
+    state: FLSpielbestaetigungEditorRow["state"],
+    fields: Partial<FLSpielbestaetigungEditorRow> = {},
+  ): FLSpielbestaetigungEditorRow => ({
     id: "64b0000000000000000000a1",
     saison_id: "2027",
     spiel_id: SPIEL_ID,
-    party: { kind: "team" as const, team_id: TEAM1 },
-    ansetzung: { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" },
+    party: { kind: "team", team_id: TEAM1 },
+    ansetzung,
     deadline: "2026-11-10",
     due_by: "2026-11-10",
     lapsed_on: null,
@@ -168,31 +172,53 @@ describe("the match editor's answers", () => {
     reason: null,
   };
   const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: COPY.admin.spiel.notAsked };
+  const lapsed = { tone: "neutral", label: COPY.admin.expired };
+  const missing = SERVER_COPY.overview.missing(COPY.area.answer);
+  const agreed = { tone: "success", label: COPY.admin.spiel.agreed };
 
   // The harm: an answer drawn in a state its party's row is not in: open where the backend lets the party answer
   // nothing more, lapsed or not asked where the party answered, so the league chases or trusts the wrong club.
   it.each([
     {
       reads: "lapsed",
-      rows: [row("expired")],
+      rows: [row("expired", { lapsed_on: "2026-11-10" })],
       // The day it lapsed on, as every other page under that chip says, not a day still to come.
-      shown: { chip: { tone: "neutral", label: COPY.admin.expired }, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+      shown: { chip: lapsed, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
     },
+    // An exit or a decision ended it before its deadline, which it never lapsed on.
+    { reads: "ended on no day", rows: [row("expired")], shown: { chip: lapsed, line: missing } },
     {
       reads: "in time",
       rows: [row("valid")],
-      shown: { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: COPY.admin.spiel.answerBy("2026-11-10") },
+      shown: { chip: { tone: "warn", label: missing }, line: COPY.admin.spiel.answerBy("2026-11-10") },
     },
     {
       reads: "agreed, its row closed at the kick-off",
       rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past" } })],
-      shown: { chip: { tone: "success", label: COPY.admin.spiel.agreed }, line: { record: "05.11.2026" } },
+      shown: { chip: agreed, line: { record: "05.11.2026" } },
+    },
+    {
+      // The fixture counts a decline whose proposal the league discarded as the club's agreement to the date it kept.
+      reads: "agreed by its discarded proposal",
+      rows: [
+        row("agreed", {
+          answer: { ...agreement, kind: "declined", vorschlag: { date: "2026-11-21", time: "16:00:00" } },
+          closed: { reason: "discarded" },
+        }),
+      ],
+      shown: { chip: agreed, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"] },
     },
     {
       // Newer than the agreement under it, which was about the slot the match has left.
       reads: "about a slot the match has left",
       rows: [row("invalid"), row("agreed", { id: "64b0000000000000000000a0", answer: agreement })],
       shown: notAsked,
+    },
+    {
+      // Moved since it agreed: the answer is about its old slot alone, which „not asked“ would hide.
+      reads: "answered about a slot the match has left",
+      rows: [row("invalid", { ansetzung: { ...ansetzung, date: "2026-11-07", time: "15:00:00" }, answer: agreement })],
+      shown: { chip: agreed, line: SERVER_COPY.season.labelled(COPY.admin.facts.before, COPY.spielplan.when("2026-11-07", "15:00:00")) },
     },
     { reads: "about a call-off since undone", rows: [row("cancelled", { closed: { reason: "cancelled" } })], shown: notAsked },
     // Minted while the club held no confirmed seat, so no mail asked it: chased for an answer, it has no link to give one.
@@ -204,12 +230,46 @@ describe("the match editor's answers", () => {
     expect({ chip: first?.chip, line: first?.line }).toStrictEqual(shown);
   });
 
-  // The harm: a party drawn as owing an answer on a match an event ended, which takes none.
-  it("draws no answer for a match carrying any event", async () => {
-    for (const sonderereignis of Object.values(FLSonderereignis)) {
-      const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis }, spielbestaetigungen: [row("cancelled")] });
+  // The harm: a referee, whom the clubs' deadline does not bind, drawn as due or lapsed on it, so the league chases
+  // them days early.
+  it.each([
+    { reads: "in time", fields: { state: "valid" as const }, line: COPY.admin.spiel.answerBy("2026-11-14") },
+    {
+      reads: "lapsed",
+      fields: { state: "expired" as const, lapsed_on: "2026-11-14" },
+      line: COPY.admin.schiedsrichter.expiredOn("2026-11-14"),
+    },
+  ])("dates the referee's answer $reads by the slot's day", async ({ fields, line }) => {
+    const referee = "64b000000000000000000005";
+    const editor = await editorOver({
+      ...VIEW,
+      spiel: { ...VIEW.spiel, schiedsrichter: { schiedsrichter_id: referee, name: "Kiefer", payment: 25 } },
+      spielbestaetigungen: [row("valid", { party: { kind: "schiedsrichter", schiedsrichter_id: referee }, due_by: "2026-11-14", ...fields })],
+    });
 
-      expect(editor.props.answers, sonderereignis).toStrictEqual([]);
+    expect(editor.props.answers.find(({ id }) => id === "schiedsrichter")?.line).toStrictEqual(line);
+  });
+
+  // The harm: a party drawn as owing an answer on a match an event ended, which takes none; or an answer a party gave
+  // dropped with it, so the league loses what a club said of the match.
+  it("keeps only the answers given on a match carrying any event", async () => {
+    const referee = "64b000000000000000000005";
+    const rows = [
+      row("expired"),
+      row("declined", { party: { kind: "team", team_id: TEAM2 }, answer: { ...agreement, kind: "declined" } }),
+      row("agreed", { party: { kind: "schiedsrichter", schiedsrichter_id: referee }, answer: agreement }),
+    ];
+    for (const sonderereignis of Object.values(FLSonderereignis)) {
+      const editor = await editorOver({
+        ...VIEW,
+        spiel: { ...VIEW.spiel, sonderereignis, schiedsrichter: { schiedsrichter_id: referee, name: "Kiefer", payment: 25 } },
+        spielbestaetigungen: rows,
+      });
+
+      expect(
+        editor.props.answers.map(({ id }) => id),
+        sonderereignis,
+      ).toStrictEqual(["team2", "schiedsrichter"]);
     }
   });
 });

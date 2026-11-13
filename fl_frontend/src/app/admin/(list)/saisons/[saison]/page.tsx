@@ -133,12 +133,14 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: Ch
     case "spielbestaetigung_due":
     case "spielbestaetigung_overdue": {
       const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
-      // The earliest deadline a club of the row was given, which its answer lapsed on.
-      const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
+      // The earliest day a party's answer lapsed on.
+      const lapsed = row.parties.flatMap(({ lapsed_on }) => (lapsed_on === null ? [] : [lapsed_on])).toSorted()[0];
+      // Still due, a club of the row answers by today; a referee, whom no deadline binds, until the kick-off.
+      const due = row.parties.some(({ party }) => party.kind === "team") ? WORDS.answerDue : WORDS.missing(COPY.area.answer);
       const shown =
-        row.kind === "spielbestaetigung_due" || deadline === undefined
-          ? { line: WORDS.answerDue }
-          : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(deadline)) };
+        row.kind === "spielbestaetigung_due" || lapsed === undefined
+          ? { line: due }
+          : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(lapsed)) };
       const [first, ...rest] = parties;
       return first === undefined
         ? shown
