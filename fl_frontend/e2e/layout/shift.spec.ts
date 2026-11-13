@@ -275,8 +275,8 @@ const ACCOUNT = (...home: Steps): Walk[] => [
 
 /** A person's area at an address no page holds, whose card leads to `/area`, which sends the person on to their place. */
 const AREA: Walk[] = [
-  ["/area/nirgendwo"],
-  ["/area/nirgendwo", "/area"],
+  ["/area/nowhere"],
+  ["/area/nowhere", "/area"],
   // The chooser `/area` sends a person holding several places to; the seed seats nobody in two, so it shows one card.
   ["/area/roles"],
 ];
@@ -312,7 +312,7 @@ const CONTACT: Walk[] = [
   ["/account", TEAM, more(`${TEAM}/registrierungen`)],
   ["/account", TEAM, `${TEAM}/spiele`, `${TEAM}/spiele/${ID}`],
   // A team's address no page holds, at a team the contact holds no seat on: the card refusing it.
-  ["/area/team/000000000000000000000000/2027/nirgendwo"],
+  ["/area/team/000000000000000000000000/2027/nowhere"],
   ...ACCOUNT("/account", TEAM),
 ];
 
@@ -356,7 +356,7 @@ const ADMINISTRATOR: Walk[] = [
   ["/admin", more("/admin/address-changes")],
   ["/admin", more("/admin/log")],
   // An administration address no page holds, its card leading to `/admin`.
-  ["/admin/nirgendwo"],
+  ["/admin/nowhere"],
   // The landing a signed-in person's way goes through, which sends an administrator on to `/admin`.
   ["/area"],
   ...ACCOUNT("/admin"),
