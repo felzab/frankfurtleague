@@ -315,7 +315,9 @@ def land(register: Path, branch: str, after_dispatch: bool = False) -> int:
         mine = sorted(dirty & set(written))
         if mine:
             git("restore", "--source=HEAD", "--staged", "--worktree", "--", *mine, check=False)
-        clean = not git("status", "--porcelain").strip()
+        # A status git cannot give reads as not clean: a stop raised here would replace this one.
+        status = subprocess.run(("git", "status", "--porcelain"), capture_output=True, check=False)
+        clean = status.returncode == 0 and not status.stdout.strip()
         stop.lines = (*stop.lines, "the merge is aborted" if clean else "read `git status` before anything else")
         # A red already at `HEAD` is no fault of the branch, and no rebase of it can clear it.
         if clean and stop.recheck is not None and _run(*stop.recheck).returncode != 0:

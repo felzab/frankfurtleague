@@ -2148,6 +2148,23 @@ def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> Non
     assert "refused by the fixture hook" in said
 
 
+# Refuses the merge commit after overwriting the index with bytes git cannot read, so the abort and
+# every later `git status` fail as well.
+INDEX_BREAKER: Final = '#!/bin/sh\nprintf broken > "$(git rev-parse --git-dir)/index"\necho "refused by the fixture hook" >&2\nexit 1\n'
+
+
+def test_git_failing_in_the_cleanup_of_a_refused_merge_keeps_the_refusals_exit(tmp_path: Path) -> None:
+    """A `git status` failing after the hooks refused the merge commit replaced exit 6 with exit 2, "refused before the merge"."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    write_shell(tmp_path / "hooks" / "pre-commit", INDEX_BREAKER).chmod(0o755)
+    done = _land(root)
+    assert done.returncode == 6, (done.returncode, done.stderr)
+    assert "refused by the fixture hook" in done.stderr and "read `git status` before anything else" in done.stderr, done.stderr
+    with pytest.raises(RuntimeError, match="index"):
+        git(root, "status", "--porcelain")
+
+
 def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
     done = _land(root, branch)
@@ -2306,27 +2323,20 @@ def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) 
     assert "Traceback" not in done.stderr and git(root, "rev-parse", "HEAD^1") == head
 
 
-def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made."""
+def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_path: Path) -> None:
+    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made.
+
+    A post-commit hook deletes the merged tip's object, so the bookkeeping's first read of the merged commits fails.
+    """
     branch = "worktree-agent-a1b2c3"
     root = _repo(tmp_path, branch=branch)
-    _agent_commit(root, "Docs: A note", NOTE, branch=branch)
+    tip = _agent_commit(root, "Docs: A note", NOTE, branch=branch)
     head = git(root, "rev-parse", "HEAD")
-    real_git = land.git
-
-    def listing_fails(*args: str, check: bool = True) -> str:
-        if args[:1] == ("for-each-ref",):
-            raise land.Stop(2, "git for-each-ref exited 128: planted")
-        return real_git(*args, check=check)
-
-    monkeypatch.setattr(land, "git", listing_fails)
-    monkeypatch.chdir(root)
-    code = land.main([str(_register(tmp_path)), branch])
-    said = capsys.readouterr().err
-    assert code == 10 and "landed as" in said and "planted" in said, said
-    assert git(root, "rev-parse", "HEAD^1") == head and git(root, "status", "--porcelain") == ""
+    write_shell(tmp_path / "hooks" / "post-commit", f'#!/bin/sh\nrm -f "$(git rev-parse --git-dir)/objects/{tip[:2]}/{tip[2:]}"\n').chmod(0o755)
+    done = _land(root, branch)
+    assert done.returncode == 10 and "landed as" in done.stderr and "HEAD^1..HEAD^2 exited 128" in done.stderr, done.stderr
+    assert git(root, "rev-parse", "HEAD^1") == head and git(root, "rev-parse", "HEAD^2") == tip
+    assert git(root, "status", "--porcelain") == ""
 
 
 def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
