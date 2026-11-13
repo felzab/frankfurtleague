@@ -1221,7 +1221,7 @@ export const SERVER_COPY = catalogue({
    */
   entryConfirmation: {
     confirmed: "Eintrag bestätigt",
-    objected: "Widersprochen",
+    objected: COPY.admin.objected,
   },
 
   /**

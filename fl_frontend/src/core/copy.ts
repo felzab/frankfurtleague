@@ -1078,6 +1078,8 @@ export const COPY = catalogue({
     /** The chip of a contact seat, and of a registration where it says confirmed. */
     confirmed: "Bestätigt",
     expired: "Abgelaufen",
+    /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
+    objected: "Widersprochen",
     erased: DELETED,
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,

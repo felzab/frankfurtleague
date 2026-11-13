@@ -1,3 +1,5 @@
+import { NOMINEE_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 
 import type { ChipProps } from "@/kit/Chip";
@@ -11,6 +13,6 @@ const WORDS = COPY.admin.spieler;
  */
 export function rowChip(row: { inactive_since: string | null; is_nachnominiert: boolean; nummer_double?: boolean }): ChipProps | undefined {
   if (row.inactive_since !== null) return { tone: "neutral", label: WORDS.deregistered };
-  if (row.is_nachnominiert) return { tone: "info", label: WORDS.nominee };
+  if (row.is_nachnominiert) return NOMINEE_CHIP;
   return row.nummer_double === true ? { tone: "warn", label: WORDS.nummerDouble } : undefined;
 }

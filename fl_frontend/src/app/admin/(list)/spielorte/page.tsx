@@ -1,5 +1,5 @@
 import { ListPage } from "@/kit/ListPage";
-import { ACTIVE_CHIP } from "@/kit/stateChips";
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { formatEuro } from "@/core/format";
@@ -26,9 +26,7 @@ const rowOf = (spielort: FLSpielort): TableRow => ({
   id: spielort.id,
   name: { record: spielort.name },
   href: ROUTES.adminSpielort.path(spielort.id),
-  ...(spielort.inactive_since === null
-    ? { chip: ACTIVE_CHIP }
-    : { chip: { tone: "neutral" as const, label: COPY.shared.retired }, muted: true }),
+  ...(spielort.inactive_since === null ? { chip: ACTIVE_CHIP } : { chip: RETIRED_CHIP, muted: true }),
   cells: {
     adresse: WORDS.streetWithHouseNumber(spielort.address.street, spielort.address.house_number),
     mietpreis: { record: formatEuro(spielort.default_mietpreis) },

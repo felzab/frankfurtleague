@@ -1,8 +1,7 @@
-import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
 import { deliveryChip } from "./deliveryState";
@@ -36,8 +35,8 @@ const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
   confirmed: CONFIRMED_CHIP,
   valid: UNCONFIRMED_CHIP,
   expired: EXPIRED_CHIP,
-  declined: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
-  erased: { tone: "neutral", label: COPY.admin.erased },
+  declined: OBJECTED_CHIP,
+  erased: ERASED_CHIP,
 };
 
 /** The day the seat's state dates from, a decided application's spent link naming none: its deadline is not why it ended. */

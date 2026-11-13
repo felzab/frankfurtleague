@@ -1,7 +1,4 @@
-import { UNCONFIRMED_CHIP } from "@/kit/stateChips";
-
-import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
+import { OBJECTED_CHIP, RETIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
@@ -29,12 +26,12 @@ export function confirmationStateOf({
  * „Stand“ column draws „Bestätigt“ in its place.
  */
 export function refereeChip(referee: Pick<FLSchiedsrichter, "inactive_since" | "einwilligung" | "confirmation">): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
+  if (referee.inactive_since !== null) return RETIRED_CHIP;
   switch (confirmationStateOf(referee)) {
     case "confirmed":
       return undefined;
     case "objected":
-      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
+      return OBJECTED_CHIP;
     case "unanswered":
     case "unasked":
       return UNCONFIRMED_CHIP;

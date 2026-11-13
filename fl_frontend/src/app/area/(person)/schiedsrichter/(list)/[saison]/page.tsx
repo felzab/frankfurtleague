@@ -2,7 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -62,7 +62,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.sonderereignis !== null) return { chip: eventChipOf(spiel.sonderereignis, spiel.team1_name, spiel.team2_name) };
   if (spiel.state === "cancelled") return {};
   if (spiel.state === "declined") {
-    return { chip: { tone: "danger", label: SPIEL.declined }, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
+    return { chip: DECLINED_CHIP, ...(spiel.reason === null ? {} : { adds: { record: spiel.reason } }) };
   }
   if (spiel.state === "valid" && !spiel.past) {
     return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, open: true };
@@ -70,7 +70,7 @@ function standingOf(spiel: FLSchiedsrichterSpiel): Standing {
   if (spiel.submitted_at !== null) return { chip: { tone: "success", label: COPY.area.schiedsrichter.reported } };
   if (spiel.reportable) return { chip: { tone: "warn", label: SERVER_COPY.overview.missing(SPIEL.spielbericht) } };
   if (spiel.state === "agreed") {
-    return { chip: { tone: "success", label: SPIEL.agreed }, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
+    return { chip: AGREED_CHIP, ...(spiel.entered ? { adds: SPIEL.enteredByLeague } : {}) };
   }
   if (spiel.state === "expired") return { chip: EXPIRED_CHIP };
   return {};

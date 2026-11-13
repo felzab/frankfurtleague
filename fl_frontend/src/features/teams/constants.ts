@@ -1,3 +1,5 @@
+import { RETIRED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 
 import type { Copy } from "@/core/copy";
@@ -34,7 +36,7 @@ export function austrittChip(type: FLAustrittType): ChipProps {
  * draws „Aktiv“ in its place.
  */
 export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
-  if (retiredSince !== null) return { tone: "neutral", label: COPY.shared.retired };
+  if (retiredSince !== null) return RETIRED_CHIP;
   return exit === null ? undefined : { tone: AUSTRITT_TONE[exit], label: austrittState(exit) };
 }
 

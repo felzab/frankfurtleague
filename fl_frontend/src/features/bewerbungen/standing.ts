@@ -1,3 +1,5 @@
+import { DECLINED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { FLKontaktRolle } from "@/core/generated/client/types";
 
@@ -16,7 +18,7 @@ export const STANDING_CHIP: Readonly<Record<Standing, ChipProps>> = {
   incomplete: { tone: "warn", label: WORDS.incomplete },
   complete: { tone: "info", label: WORDS.complete },
   accepted: { tone: "success", label: WORDS.accepted },
-  declined: { tone: "danger", label: COPY.admin.spiel.declined },
+  declined: DECLINED_CHIP,
 };
 
 export const TEAM_DOUBLE: ChipProps = { tone: "warn", label: WORDS.teamDouble };

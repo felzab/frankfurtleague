@@ -2,7 +2,7 @@ import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
 import { PressAct } from "@/kit/PressAct";
-import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, CONFIRMED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -120,11 +120,11 @@ function spielbestaetigungRow(row: FLTeamPanelSpielbestaetigung, team: string, s
     case "declined":
       return {
         ...base,
-        chip: { tone: "danger", label: COPY.admin.spiel.declined },
+        chip: DECLINED_CHIP,
         line: line([when, row.vorschlag === null ? null : COPY.admin.spiel.proposed(whenOf(row.vorschlag))]),
       };
     case "agreed":
-      return { ...base, chip: { tone: "success", label: COPY.admin.spiel.agreed }, line: line([when, venueOf(ansetzung)]) };
+      return { ...base, chip: AGREED_CHIP, line: line([when, venueOf(ansetzung)]) };
   }
 }
 

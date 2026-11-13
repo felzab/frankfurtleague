@@ -12,6 +12,7 @@ import { answering } from "@/kit/useFormAction";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { STANDING_CHIP } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 
 import { AcceptFields } from "../[bewerbung]/AcceptFields";
@@ -60,7 +61,7 @@ function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefine
     shorthand: { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" },
   };
   const base = { id: row.id, name: { record: row.name }, cells };
-  if (outcome?.kind === "accepted") return { ...base, chip: { tone: "success", label: WORDS.accepted } };
+  if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
   return {
