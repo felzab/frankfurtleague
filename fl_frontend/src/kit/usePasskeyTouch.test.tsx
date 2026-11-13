@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Dialog } from "./Dialog";
 import { TextField } from "./TextField";
-import { toastAnswer } from "./Toast";
+import { ToastRegion } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type * as ToastModule from "./Toast";
+import type { ReactElement } from "react";
 
 const HOLDER = "anna@example.com";
 const SIGNED_IN = { data: { status: true, email: HOLDER }, error: null };
@@ -26,16 +26,23 @@ vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: passkey.prompt } }),
   usePreloadedAuthClient: () => undefined,
 }));
-// Read off the call rather than the region: the toast queue is the module's own, and a toast outlives its test.
-vi.mock("./Toast", async (original) => {
-  const toast = await original<typeof ToastModule>();
-  return { ...toast, toastAnswer: vi.fn(toast.toastAnswer) };
-});
-
 beforeEach(() => {
   passkey.prompt.mockReset();
-  vi.mocked(toastAnswer).mockClear();
 });
+
+// The toast queue is the module's own, so a toast outlives its case: each is closed while the case's region stands.
+afterEach(() => {
+  for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
+});
+
+/** What a case draws, with the frame's toast region beside it. */
+const renderWithToasts = (drawn: ReactElement) =>
+  render(
+    <>
+      {drawn}
+      <ToastRegion frame="rail" />
+    </>,
+  );
 
 const VERB = COPY.shared.verb.delete;
 const SUBJECT = COPY.account.passkeys.title;
@@ -70,11 +77,14 @@ const inputs = (action: (formData: FormData) => Promise<ActionAnswer>) => (
 
 const pressIn = (scope: HTMLElement, name: string) => userEvent.click(within(scope).getByRole("button", { name }));
 
-/** What the act's toast said: done or not, in which words. */
-function toasted(): [boolean, Copy | undefined] {
-  const [answer, done] = vi.mocked(toastAnswer).mock.lastCall ?? [];
-  if (answer === undefined) return [false, undefined];
-  return answer.ok ? [true, answer.note ?? done] : [false, answer.reason];
+/** The question's name: a toast is an alert dialog too. */
+const QUESTION = COPY.shared.question(SUBJECT, "delete");
+
+/** Whether the toast saying `words` says the act was done or refused, by its tone. */
+async function toasted(words: Copy): Promise<"done" | "refused" | "neither"> {
+  const toast = await screen.findByRole("alertdialog", { name: words });
+  if (toast.querySelector(".text-success") !== null) return "done";
+  return toast.querySelector(".text-danger") !== null ? "refused" : "neither";
 }
 
 const isBusy = (button: HTMLElement) => button.hasAttribute("data-pending");
@@ -87,38 +97,42 @@ describe("a question behind the passkey touch", () => {
     let answer = (_: typeof SIGNED_IN) => {};
     passkey.prompt.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
     const onConfirm = vi.fn(async () => DONE);
-    render(question(onConfirm, { holder: HOLDER }));
+    renderWithToasts(question(onConfirm, { holder: HOLDER }));
 
     const trigger = screen.getByRole("button", { name: VERB });
     await userEvent.click(trigger);
-    const asked = await screen.findByRole("alertdialog");
+    const asked = await screen.findByRole("alertdialog", { name: QUESTION });
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(asked, VERB);
     await waitFor(() => expect(passkey.prompt).toHaveBeenCalledTimes(1));
     expect(onConfirm).not.toHaveBeenCalled();
-    expect([screen.queryByRole("alertdialog"), isBusy(trigger)]).toStrictEqual([null, true]);
+    expect([screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([null, true]);
 
     await act(async () => answer(SIGNED_IN));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(isBusy(trigger)).toBe(false));
-    expect(toasted()).toStrictEqual([true, COPY.shared.toast.done.delete]);
+    expect(await toasted(COPY.shared.toast.done.delete)).toBe("done");
   });
 
   it("toasts a refused touch, the act not run, its trigger standing for a new question that asks again", async () => {
     passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
     const onConfirm = vi.fn(async () => DONE);
-    render(question(onConfirm, { holder: HOLDER }));
+    renderWithToasts(question(onConfirm, { holder: HOLDER }));
 
     const trigger = screen.getByRole("button", { name: VERB });
     await userEvent.click(trigger);
-    await pressIn(await screen.findByRole("alertdialog"), VERB);
+    await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
-    await waitFor(() => expect(toasted()).toStrictEqual([false, COPY.signIn.refusal.unverified]));
-    expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
+    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
+      0,
+      null,
+      false,
+    ]);
 
     await userEvent.click(trigger);
-    await pressIn(await screen.findByRole("alertdialog"), VERB);
+    await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     expect(passkey.prompt).toHaveBeenCalledTimes(2);
   });
@@ -128,7 +142,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
   it("toasts a refused touch, the act not run, and posts what the next opening's press sends with the holder", async () => {
     passkey.prompt.mockResolvedValueOnce(CANCELLED).mockResolvedValueOnce(SIGNED_IN);
     const action = vi.fn(async (_: FormData) => DONE);
-    render(inputs(action));
+    renderWithToasts(inputs(action));
 
     const trigger = screen.getByRole("button", { name: VERB });
     await userEvent.click(trigger);
@@ -137,7 +151,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
     expect(passkey.prompt).not.toHaveBeenCalled();
 
     await pressIn(dialog, ENTER);
-    await waitFor(() => expect(toasted()).toStrictEqual([false, COPY.signIn.refusal.unverified]));
+    expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
     expect([action.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
 
     await userEvent.click(trigger);
@@ -147,7 +161,7 @@ describe("a dialog of inputs behind the passkey touch", () => {
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
     const posted = action.mock.calls[0]?.[0];
     expect([posted?.get("name"), posted?.get("holder")]).toStrictEqual(["Berta", HOLDER]);
-    await waitFor(() => expect(toasted()).toStrictEqual([true, COPY.shared.toast.done.enter]));
+    expect(await toasted(COPY.shared.toast.done.enter)).toBe("done");
   });
 });
 

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -30,10 +30,21 @@ vi.mock("next/link", async (original) => ({
   ),
 }));
 
-const leave = vi.hoisted(() => ({ signOut: vi.fn(), leaveDocumentFor: vi.fn(), appToast: vi.fn() }));
-vi.mock("@/shared/utils/signOut", () => ({ signOut: leave.signOut }));
+// The document load the sign-out leaves by, which jsdom does not implement.
+const leave = vi.hoisted(() => ({ leaveDocumentFor: vi.fn() }));
 vi.mock("@/shared/utils/documentNavigation", () => ({ leaveDocumentFor: leave.leaveDocumentFor }));
-vi.mock("./Toast", async (original) => ({ ...(await original<Record<string, unknown>>()), appToast: leave.appToast }));
+
+/** The sign-in library's sign-out endpoint, answering `status`, and every request the page sent. */
+function signOutAnswers(status: number) {
+  const sent: Array<{ url: string; method: string | undefined }> = [];
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    sent.push({ url, method: init?.method });
+    return new Response(null, { status });
+  });
+  return sent;
+}
+
+const SIGN_OUT = { url: "/api/auth/sign-out", method: "POST" };
 
 // An administrator: the grant stores no name.
 const ACCOUNT: Account = { role: COPY.admin.role, address: { record: "verwaltung@example.com" } };
@@ -64,6 +75,15 @@ beforeEach(() => {
   vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
   vi.clearAllMocks();
 });
+
+// The toast queue is the module's own, so a toast outlives its case: each is closed while the frame's region stands.
+afterEach(() => {
+  for (const close of screen.queryAllByRole("button", { name: COPY.shared.close })) act(() => close.click());
+  vi.unstubAllGlobals();
+});
+
+/** The frame's toast saying the sign-out failed, where one stands. */
+const failureToast = () => screen.queryByRole("alertdialog", { name: COPY.shared.toast.failure });
 
 // A frame's prefetch dropped between the frame and its menus makes every press of the season pages wait on the server,
 // and one reaching an area's frame costs a server render per entry in view: neither shows in any page's look.
@@ -101,24 +121,25 @@ describe("the menu's prefetch", () => {
 
 describe("the account menu", () => {
   it("signs out with one press and leaves the document for the start page", async () => {
-    leave.signOut.mockResolvedValue(true);
+    const sent = signOutAnswers(200);
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
-    expect(leave.appToast).not.toHaveBeenCalled();
+    expect([sent, failureToast()]).toStrictEqual([[SIGN_OUT], null]);
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {
-    leave.signOut.mockResolvedValue(false);
+    const sent = signOutAnswers(500);
     await renderFrame(Promise.resolve(ACCOUNT));
     await openMenu();
 
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
-    await vi.waitFor(() => expect(leave.appToast).toHaveBeenCalledWith("danger", COPY.shared.toast.failure));
-    expect(leave.leaveDocumentFor).not.toHaveBeenCalled();
+    const toast = await screen.findByRole("alertdialog", { name: COPY.shared.toast.failure });
+    expect(toast.querySelector(".text-danger")).toBeTruthy();
+    expect([sent, leave.leaveDocumentFor.mock.calls]).toStrictEqual([[SIGN_OUT], []]);
   });
 });
