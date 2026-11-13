@@ -300,6 +300,23 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
 
+    def test_the_nearest_dated_position_above_is_what_judges_the_move(self, mongo_replica_set_url: str):
+        """Two dated rows above the subject at different days: the phase's latest one would let this step through."""
+
+        async def body(database: AsyncDatabase) -> APIError:
+            await self._with_a_matchday(database, oid=SECOND_OID, position=2, start=MIDDLE_START)
+            await self._with_a_matchday(database, oid=THIRD_OID, position=3, start=NEIGHBOUR_START)
+
+            # Past the middle matchday's start and short of the last one's.
+            with pytest.raises(APIError) as excinfo:
+                await re_date(database, SPIELTAG_OID, start="2026-06-24", end="2026-06-24")
+
+            return excinfo.value
+
+        refusal = on_a_database(mongo_replica_set_url, body)
+
+        assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
+
     def test_another_seasons_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
         """Every season numbers its own phases from 1, so a query missing the season key reads a stranger's dates as this phase's order."""
 

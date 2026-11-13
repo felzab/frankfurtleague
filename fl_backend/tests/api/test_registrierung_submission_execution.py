@@ -388,11 +388,11 @@ def _served() -> FastAPI:
     return create_app(WIRE_CONFIG)
 
 
-async def over_the_wire(url: str, *, key: str | None) -> Response:
-    """One registration as a request carries it, so the header is parsed as the route handler sends it; `None` sends none."""
+async def over_the_wire(url: str, *, key: str) -> Response:
+    """One registration as a request carries it, so the header is parsed as the route handler sends it."""
 
     async with app_client(url, app=_served(), now=NOW) as http:
-        sent = dict(BASE_AUTH) | ({} if key is None else {"Idempotency-Key": key})
+        sent = dict(BASE_AUTH) | {"Idempotency-Key": key}
         return await http.post(f"/api/v{API_VERSION}/registrierungen", json=payload(), headers=sent)
 
 
