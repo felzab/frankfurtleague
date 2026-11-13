@@ -6,6 +6,8 @@ import { createContext, startTransition, Suspense, useContext, useOptimistic } f
 import NextLink, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
 
+import { ROUTES } from "@/core/routes";
+
 import type { ComponentProps, ReactNode } from "react";
 
 /** Whether the pages below arrive whole, no part of a page waiting in a boundary of its own (`PageWait`). */
@@ -75,14 +77,25 @@ export function useNavigate(): Navigation["navigate"] {
 }
 
 /**
+ * Whether an address is the sign-in's or lies under it, which no link prefetches: the proxy sends a signed-in person on
+ * from a page load of it, but its matcher never runs on a prefetch, so a prefetched sign-in would be drawn for them.
+ */
+function isSignIn(href: string) {
+  const path = href.split(/[?#]/, 1)[0];
+  return path === ROUTES.signIn.path() || path?.startsWith(`${ROUTES.signIn.path()}/`) === true;
+}
+
+/**
  * Next's link, the kit's one, whose client navigation goes through the fact `WholePages` holds: its `onNavigate`, which
  * Next calls for a same-site press only, cancels the link's own dispatch and makes the same one there. A press with a
- * modifier key, another site's address and a download stay the browser's. Outside `WholePages` it is Next's link alone.
+ * modifier key, another site's address and a download stay the browser's. Outside `WholePages` it navigates as Next's
+ * link does. It prefetches as it is told, but never the sign-in (`isSignIn`).
  */
 export function NavigationLink({
   href,
   replace,
   scroll,
+  prefetch,
   ...props
 }: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate"> & { href: string }) {
   const navigation = useContext(NavigationContext);
@@ -92,6 +105,7 @@ export function NavigationLink({
       href={href}
       replace={replace}
       scroll={scroll}
+      prefetch={isSignIn(href) ? false : prefetch}
       onNavigate={
         navigation === null
           ? undefined

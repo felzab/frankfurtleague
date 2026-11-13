@@ -691,12 +691,11 @@ export type FrameMenu = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
   /**
-   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“; `prefetch: false` for
-   * „Konto“, whose prefetched sign-in would be drawn before the proxy sends a signed-in person on.
+   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“.
    */
-  extra: ReadonlyArray<{ label: Copy; href: Route; prefetch?: false }>;
+  extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: AccountRead;
-  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links keep theirs. */
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links prefetch as Next does by default. */
   prefetch?: true;
 };
 
@@ -808,7 +807,6 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                     <NavigationLink
                       key={link.href}
                       href={link.href}
-                      prefetch={link.prefetch}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
                       <span>

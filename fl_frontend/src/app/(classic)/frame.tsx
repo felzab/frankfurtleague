@@ -22,7 +22,7 @@ const SAISON_LINKS: ReadonlyArray<HeaderLink> = SAISONLESS_PAGES.map(({ route, p
 export const LIGA_LINKS: ReadonlyArray<HeaderLink> = [
   ...LIGA_PAGES.map((page) => ({ label: ROUTES[page].title, href: ROUTES[page].path() })),
   { label: COPY.template.bewerbung, href: `${ROUTES.home.path()}#${JOIN_SECTION}` },
-  { label: COPY.template.account, href: ROUTES.signIn.path(), prefetch: false },
+  { label: COPY.template.account, href: ROUTES.signIn.path() },
 ];
 
 /** The legal pages, in the sitemap page's group and, with the sitemap page itself, in the footer's. */
