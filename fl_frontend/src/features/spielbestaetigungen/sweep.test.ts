@@ -1,11 +1,11 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { networkFailure, serveBackend } from "@/test-support/backend.ts";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import { APINetworkError } from "@/core/errors.ts";
 
 const LIST = "/spielbestaetigungen/sweep";
 
-/** The listing's answer, and each season's pass's, which a case sets; an `Error` is thrown, as a failed call throws. */
+/** The listing's answer, and each season's pass's, which a case sets. */
 let listAnswer: () => unknown;
 let passAnswer: (saisonId: string) => unknown;
 
@@ -19,17 +19,22 @@ const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "rem
   ...counts,
 });
 
-const calls = doubleApiClient(async (call: ApiCall) => {
-  const answer = call.endpoint === LIST ? listAnswer() : passAnswer(/^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint)?.[1] ?? "");
-  if (answer instanceof Error) throw answer;
-  assert.ok(call.endpoint.startsWith(LIST), `the pass reached a route nothing here answers: ${call.endpoint}`);
-  return answer;
+/** A season's pass, as the contract spells its path. */
+const SEASON_PASS = /^\/spielbestaetigungen\/sweep\/(\d+)$/;
+
+// The listing read and each season's pass, and nothing else: any other request fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (method === "GET" && path === LIST) return listAnswer();
+  const saisonId = method === "POST" ? SEASON_PASS.exec(path)?.[1] : undefined;
+  return saisonId === undefined ? undefined : passAnswer(saisonId);
 });
 
 const { runSpielSweep } = await import("./sweep.ts");
 
+/** Every request in the order sent. */
+const sent = (): string[] => backend.sent.map(({ method, path }) => `${method} ${path}`);
+
 beforeEach(() => {
-  calls.length = 0;
   listAnswer = () => ({ saison_ids: ["2627", "2728"] });
   passAnswer = (saisonId) => pass(saisonId);
 });
@@ -44,14 +49,14 @@ describe("the fixture confirmation job", () => {
       count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
       open: 0,
     });
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LIST, `${LIST}/2627`, `${LIST}/2728`]);
+    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`, `POST ${LIST}/2728`]);
   });
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
   it("rejects where a season's pass fails, sweeping no season after it", async () => {
-    passAnswer = (saisonId) => (saisonId === "2627" ? new Error("the backend went away") : pass(saisonId));
+    passAnswer = (saisonId) => (saisonId === "2627" ? networkFailure() : pass(saisonId));
 
-    await expect(runSpielSweep()).rejects.toThrow("the backend went away");
-    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LIST, `${LIST}/2627`]);
+    await expect(runSpielSweep()).rejects.toThrow(APINetworkError);
+    expect(sent()).toStrictEqual([`GET ${LIST}`, `POST ${LIST}/2627`]);
   });
 });
