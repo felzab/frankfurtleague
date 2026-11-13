@@ -588,7 +588,10 @@ class TestTheReferencesASaveAnchors:
         ],
     )
     def test_a_save_claiming_or_booking_both_rows_anew_anchors_both(self, saison, seasoned, nr, overrides):
-        """A reopening moves no claim, so its cases are `find_new_bookings`' half alone."""
+        """Lifting a call-off makes both claims as well, so both halves anchor it.
+
+        Clearing a result makes no claim, so `find_new_bookings`' half alone anchors it.
+        """
 
         docs = seasoned(saison)
 
