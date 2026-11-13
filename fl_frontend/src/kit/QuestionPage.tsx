@@ -1,8 +1,6 @@
-import { FieldPlaceholder } from "./FieldPair";
-import { QuestionForm, QuestionFormPlaceholder } from "./QuestionForm";
+import { QuestionForm } from "./QuestionForm";
 import { RailPage } from "./RailFrame";
 import { TextField } from "./TextField";
-import { PageWait } from "./WholePage";
 
 import type { ComponentProps } from "react";
 import type { PageTitle } from "./RailFrame";
@@ -31,9 +29,8 @@ async function FormOnceRead<Input>({
 }
 
 /**
- * A page that is one question: the title in the strip and under it `QuestionForm`, nothing listed beside it. The fields
- * are data rather than elements, so the wait draws each one's placeholder from what the form will draw and the two
- * cannot part. `holder` is a promise, read inside the page's one boundary, which also turns a refused session away.
+ * A page that is one question: the title in the strip and under it `QuestionForm` with its fields, nothing listed beside
+ * it. `holder` is a promise the form awaits, whose read also turns a refused session away.
  */
 export function QuestionPage<Input>({
   title,
@@ -51,26 +48,11 @@ export function QuestionPage<Input>({
     <RailPage
       scope="area"
       title={title}>
-      <PageWait
-        fallback={
-          <QuestionFormPlaceholder verb={form.verb}>
-            {fields.map((field) => (
-              <FieldPlaceholder
-                key={field.name}
-                {...(field.holds === undefined
-                  ? { kind: field.kind === "paragraph" ? "paragraph" : "field" }
-                  : { holds: field.holds, ...(field.unit === undefined ? {} : { unit: field.unit }) })}
-                {...(field.description === undefined ? {} : { description: field.description })}
-              />
-            ))}
-          </QuestionFormPlaceholder>
-        }>
-        <FormOnceRead
-          {...form}
-          holder={holder}
-          fields={fields}
-        />
-      </PageWait>
+      <FormOnceRead
+        {...form}
+        holder={holder}
+        fields={fields}
+      />
     </RailPage>
   );
 }

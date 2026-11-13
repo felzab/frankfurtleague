@@ -5,19 +5,17 @@ import { startTransition, useLayoutEffect, useState, useTransition } from "react
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { askingLook, buttonPlaceholder } from "./buttonStyles";
+import { askingLook } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { FieldStack } from "./FieldStack";
-import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { formColumn } from "./RailFrame";
 import { boxHead } from "./Section";
-import { Waiting } from "./Skeleton";
 import { statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Verb } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
 import type { TouchVerb } from "./dialogAct";
@@ -158,19 +156,5 @@ export function QuestionForm<Input>({
         />
       )}
     </>
-  );
-}
-
-/** A `QuestionForm` while what it needs is read: the placeholders of its fields, then its act's. */
-export function QuestionFormPlaceholder({ verb, children }: { verb: Verb; children: ReactNode }) {
-  return (
-    <Waiting layoutClass={BOX_CLASSES}>
-      <div className={CONTENT_CLASSES}>
-        <FieldStack>{children}</FieldStack>
-      </div>
-      <FormFooterPlaceholder place="strip">
-        <span className={buttonPlaceholder()}>{COPY.shared.verb[verb]}</span>
-      </FormFooterPlaceholder>
-    </Waiting>
   );
 }
