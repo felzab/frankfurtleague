@@ -490,9 +490,8 @@ class Erasure:
 
 @dataclass(frozen=True)
 class ErasureStep:
-    """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
+    """One member of the erasure: whose records it takes, and the function `erase_everything` calls by name."""
 
-    reaches: frozenset[Collection]
     # `None` for a step serving no one kind of person: the full scope alone runs it.
     person_group: PersonGroup | None
     run: Callable[..., Awaitable[Any]]
@@ -501,33 +500,21 @@ class ErasureStep:
 # In the order `erase_everything` runs them: every step reaching a person's references before the
 # step removing the person.
 ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
-    ErasureStep(
-        reaches=frozenset({Collection.SAISON_TEAMS, Collection.BEWERBUNGEN, Collection.SPIELBESTAETIGUNGEN}),
-        person_group="kontakt",
-        run=erase_kontaktperson_in_session,
-    ),
+    ErasureStep(person_group="kontakt", run=erase_kontaktperson_in_session),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
-    ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES, Collection.OUTBOX}), person_group=None, run=end_the_address_changes_in_session),
-    ErasureStep(
-        reaches=frozenset({Collection.SCHIEDSRICHTER, Collection.SPIELE, Collection.SPIELBESTAETIGUNGEN}),
-        person_group="schiedsrichter",
-        run=erase_referee_in_session,
-    ),
-    ErasureStep(reaches=frozenset({Collection.REGISTRIERUNGEN}), person_group="spieler", run=erase_registrierungen_in_session),
-    ErasureStep(
-        reaches=frozenset({Collection.SPIELER, Collection.SAISON_SPIELER, Collection.SPIELBERICHTE, Collection.AUFSTELLUNGEN}),
-        person_group="spieler",
-        run=erase_person_in_session,
-    ),
+    ErasureStep(person_group=None, run=end_the_address_changes_in_session),
+    ErasureStep(person_group="schiedsrichter", run=erase_referee_in_session),
+    ErasureStep(person_group="spieler", run=erase_registrierungen_in_session),
+    ErasureStep(person_group="spieler", run=erase_person_in_session),
     # After the pupil's records went: the season's erasure leaves the address's other records, and their change, standing.
-    ErasureStep(reaches=frozenset({Collection.ADDRESS_CHANGES}), person_group="spieler", run=end_an_emptied_change_in_session),
+    ErasureStep(person_group="spieler", run=end_an_emptied_change_in_session),
     # No kind's alone: a grant is an address's whatever else it holds, so the pupil scope must never run it.
-    ErasureStep(reaches=frozenset({Collection.GRANTS, Collection.OUTBOX}), person_group=None, run=erase_grants_in_session),
+    ErasureStep(person_group=None, run=erase_grants_in_session),
     # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
     # erasure's notices to the administrators who remain.
-    ErasureStep(reaches=frozenset({Collection.OUTBOX}), person_group=None, run=erase_the_mails_in_session),
+    ErasureStep(person_group=None, run=erase_the_mails_in_session),
     # For every erased address, a grantee stopped before it took effect included: a grant act's label holds that address.
-    ErasureStep(reaches=frozenset({Collection.ACTION_LOG}), person_group=None, run=reattribute_administrator_in_session),
+    ErasureStep(person_group=None, run=reattribute_administrator_in_session),
 )
 
 
