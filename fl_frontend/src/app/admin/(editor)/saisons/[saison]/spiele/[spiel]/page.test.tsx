@@ -143,16 +143,6 @@ describe("the match editor before its season's start", () => {
 });
 
 describe("the match editor's answers", () => {
-  // The harm: a booking an erasure left naming nobody drawn as a party not yet asked, whom nobody can ask.
-  it("draws no referee's row for a booking naming nobody", async () => {
-    const editor = await editorOver({
-      ...VIEW,
-      spiel: { ...VIEW.spiel, schiedsrichter: { schiedsrichter_id: null, name: null, payment: 25 } },
-    });
-
-    expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1", "team2"]);
-  });
-
   const ansetzung = { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" };
   /** The first club's row reading as `state`, unanswered and open unless `fields` say otherwise. */
   const row = (

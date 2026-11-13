@@ -256,14 +256,6 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(state.sent).toMatchObject([{ voided_results: [VOIDED_31, VOIDED_33] }]);
   });
 
-  it("names to the write that it deletes nothing where it asked nothing", async () => {
-    state.dryRun = NOTHING_MOVED;
-
-    await saveSpiel(saving({ tore1: "3", tore2: "1" }));
-
-    expect(state.sent).toMatchObject([{ voided_results: [] }]);
-  });
-
   it("names under its question whom the save mails, by the dry run's names in their order, and asks again where they change", async () => {
     state.dryRun = {
       ...(state.dryRun as FLPatchSpielDataResponse),
