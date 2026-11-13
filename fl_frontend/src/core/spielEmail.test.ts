@@ -103,10 +103,29 @@ describe("the notice of a move", () => {
     ];
 
     for (const mail of mails) {
+      const block = mail?.block;
+      const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
+
       // The word in a move's subject and in its sentence alike, each time after a space.
       expect(JSON.stringify(mail)).not.toContain(" verlegt");
+      // The slot named once, and beside it the pairing that held it: a „Neu“ row would repeat the moment left.
+      expect(labels).toStrictEqual([COPY.spielplan.fact.date, COPY.spielplan.fact.time, COPY.admin.facts.before, COPY.spielplan.fact.spielort]);
       expect(JSON.stringify(mail)).toContain(left.team1);
     }
+    // The notice's lead speaks of the slot: the new pairing never stood at it, so it cannot stay there.
+    expect(JSON.stringify(mails[2]?.paragraphs)).not.toContain(replaced.team1);
+  });
+
+  // An hour moved on the same day is a move, whatever the sides did.
+  it("words a new pairing at a new hour of the same day as a move", () => {
+    const replaced = { ...left, team1: "Carl-Schurz-Schule", time: "16:00:00", spielort: "Halle Nord" };
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+
+    expect(JSON.stringify(mail)).toContain(" verlegt");
   });
 
   // The hand-out serves such a row with `stays` at its default, false, and `asked_again` as it was written.
@@ -192,7 +211,9 @@ describe("the notice of a club's exit", () => {
     const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
 
     expect(labels).toStrictEqual(["14. März 2027 um 15:30", "21. März 2027", COPY.spielplan.when(null, null)]);
-    // The lead alone: nothing mails the walkover, so a sentence saying the league writes again is a promise nobody keeps.
-    expect(mail?.paragraphs[0]).toHaveLength(1);
+    // The lead alone, before the block or after it: nothing mails the walkover, so a sentence saying the league writes
+    // again is a promise nobody keeps.
+    expect(mail?.paragraphs).toStrictEqual([[expect.anything()]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 });

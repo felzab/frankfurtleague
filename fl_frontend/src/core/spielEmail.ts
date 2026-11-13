@@ -36,36 +36,40 @@ const moment = ({ date, time }: FLSpielMailAppointment): string => formatDayAndT
 /** A sentence whose moment stands semibold between its two parts. */
 const around = (before: Copy, value: string, after: Copy): Sentence => [before, { strong: value }, after];
 
+/** The day and the hour, one fact to a row, so a reader scanning for the day finds it alone. */
+const whenFacts = ({ date, time }: FLSpielMailAppointment): Fact[] => [
+  { label: FACT.date, value: formatDateLong(dayOf(date)) },
+  { label: FACT.time, value: formatTime(timeOf(time)) },
+];
+
 /**
  * A move's rows: the moment it left, and the one it moved to where it holds one. The block stands under the new
- * pairing, so where the move also changed the sides, the row of the slot left names the pairing it held.
+ * pairing, so where the move also changed the sides, the row of the slot left names the pairing it held. A change
+ * keeping the day and the hour names them once, since a „Neu“ row repeating the moment left reads as a move.
  */
 function moveFacts(from: FLSpielMailAppointment, to: FLSpielMailAppointment | null): Fact[] {
-  const sidesChanged = to !== null && (from.team1 !== to.team1 || from.team2 !== to.team2);
+  if (to === null) return [{ label: WORDS.previous, value: moment(from) }];
+  const sidesChanged = from.team1 !== to.team1 || from.team2 !== to.team2;
+  if (from.date === to.date && from.time === to.time) {
+    return [...whenFacts(to), ...(sidesChanged ? [{ label: WORDS.previous, value: paarung(from) }] : [])];
+  }
   const previous = sidesChanged ? WORDS.previousPairing(paarung(from), moment(from)) : moment(from);
-  return [{ label: WORDS.previous, value: previous }, ...(to === null ? [] : [{ label: WORDS.next, value: moment(to) }])];
+  return [
+    { label: WORDS.previous, value: previous },
+    { label: WORDS.next, value: moment(to) },
+  ];
 }
 
 /** Whether a change kept the day and the hour and changed the sides: a new pairing at its slot, which nothing moved. */
 const pairingOnly = (from: FLSpielMailAppointment, to: FLSpielMailAppointment): boolean =>
   from.date === to.date && from.time === to.time && (from.team1 !== to.team1 || from.team2 !== to.team2);
 
-/**
- * The fixture under its pairing, one fact to a row, so a reader scanning for the day finds it alone; after a move, the
- * moment left and the one moved to in the day's and the time's place.
- */
+/** The fixture under its pairing, its ground last; after a move, the move's rows in the day's and the time's place. */
 function slotBlock(ansetzung: FLSpielMailAnsetzung, movedFrom: FLSpielMailAppointment | null): NonNullable<Mail["block"]> {
-  const { date, time, spielort } = ansetzung;
-  const when: Fact[] =
-    movedFrom === null
-      ? [
-          { label: FACT.date, value: formatDateLong(dayOf(date)) },
-          { label: FACT.time, value: formatTime(timeOf(time)) },
-        ]
-      : moveFacts(movedFrom, ansetzung);
+  const when = movedFrom === null ? whenFacts(ansetzung) : moveFacts(movedFrom, ansetzung);
 
   // A ground nobody assigned, in words: a mail has no glyph for it.
-  return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: spielort ?? COPY.shared.notProvided }] };
+  return { title: paarung(ansetzung), facts: [...when, { label: FACT.spielort, value: ansetzung.spielort ?? COPY.shared.notProvided }] };
 }
 
 /** The deadline and the first-answer rule: any seat of the club answers, so a reader told nothing takes a date already answered for one lost. */
@@ -137,7 +141,7 @@ function unbookedEmail(appointment: FLSpielMailAppointment, origin: string): Mai
   };
 }
 
-/** A notice naming a fixture, the reader's next mail, if any, being the request or the Einteilung it states. */
+/** A notice naming a fixture, with no button: nothing is left to answer, and no later mail is promised. */
 function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, block?: Mail["block"]): Mail {
   return {
     kind: "notice",
@@ -210,13 +214,13 @@ export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData
     });
   }
 
-  // A new pairing at the slot moved nothing: the slot stands, the block naming the pairing left. A notice queued with its
-  // promise keeps the mail it was queued for.
+  // A new pairing at the slot moved nothing: the slot stands, the block naming the pairing left. The lead says so of the
+  // slot, since the new pairing never stood there. A notice queued with its promise keeps the mail it was queued for.
   if (pairingOnly(appointment, movedTo) && !askedAgain) {
     return noticeEmail(
       WORDS.keptSubject(dayOf(movedTo.date)),
       origin,
-      [around(WORDS.kept.before(paarung(movedTo)), moment(movedTo), WORDS.kept.after)],
+      [SERVER_COPY.overview.discardConsequence],
       slotBlock(movedTo, appointment),
     );
   }
