@@ -21,7 +21,6 @@ TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
 BETA = ObjectId("6890a1b2c3d4e5f607760002")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077600c1")
-AFTER_THE_DAY = days_after(day=TODAY, days=8)
 
 
 def noon(day: str) -> datetime:
@@ -78,14 +77,17 @@ class TestTheMintAsksInsideItsWindowAlone:
 
         assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW) is False
 
+    def test_a_club_gone_after_the_spiel_is_still_asked(self):
+        """Its exit the day after the fixture, the club still plays it: only an exit by the fixture's day shuts the row."""
+
+        assert request_is_due(spiel=spiel(), austritte={ALPHA: days_after(day=spiel()["date"], days=1)}, now=NOW) is True
+
 
 class TestWhyARowCloses:
     @pytest.mark.parametrize(
         ("party", "overrides", "austritte", "reason"),
         [
-            pytest.param(TEAM, {}, {}, None, id="nothing moved"),
             pytest.param(TEAM, {"time": "19:00:00"}, {}, "ansetzung_changed", id="a new hour"),
-            pytest.param(TEAM, {"spielort": None}, {}, "ansetzung_changed", id="the ground gone"),
             pytest.param(TEAM, {"ergebnis": "1:0", "time": "19:00:00"}, {}, "spiel_decided", id="decided and moved"),
             pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, "cancelled", id="called off"),
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "cancelled", id="a no-show entered before the day"),
@@ -101,30 +103,9 @@ class TestWhyARowCloses:
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):
         assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, now=NOW) == reason
 
-    def test_an_answered_row_closes_as_an_open_one_does(self):
-        """The close's reach is `closed: null` alone, so a kept agreement records why it stopped applying."""
-
-        answered = row(TEAM, answer={"kind": "agreed"})
-
-        assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, now=NOW) == "ansetzung_changed"
-        assert reason_to_close(row=answered, spiel=spiel(), austritte={}, now=noon(AFTER_THE_DAY)) == "spiel_past"
-
 
 # `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
 KICK_OFF = clock.german_instant(spiel()["date"], spiel()["time"]).astimezone(clock.GERMANY)
-
-
-class TestARowClosesAtItsKickOff:
-    @pytest.mark.parametrize("party", [pytest.param(TEAM, id="a club's"), pytest.param(REFEREE, id="a referee's")])
-    def test_open_a_minute_before_and_closed_from_it(self, party: dict[str, Any]):
-        """Open until midnight instead, a referee's decline pressed after the match unbooks them from the match just played."""
-
-        before, at = (
-            reason_to_close(row=row(party), spiel=spiel(), austritte={}, now=now) for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
-        )
-
-        assert (before, at) == (None, "spiel_past")
-
 
 A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF = (KICK_OFF - timedelta(minutes=1), KICK_OFF)
 

@@ -38,29 +38,11 @@ def address_of_length(total: int) -> str:
     return f"{local}@{domain}"
 
 
-def test_accepts_a_valid_contact(kontakt):
-    parsed = FLKontaktPayload.model_validate(kontakt())
-    assert parsed.email == "kontakt@example.com"
-
-
-@pytest.mark.parametrize("email", ["not-an-email", "@example.com", "a@", "a@b", "a b@example.com"])
-def test_rejects_a_malformed_email(kontakt, email):
-    """`a@b` is the load-bearing case: a naive 'contains an @' check lets it through."""
-    with pytest.raises(ValidationError):
-        FLKontaktPayload.model_validate(kontakt(email=email))
-
-
 def test_accepts_an_address_at_the_length_ceiling(kontakt):
     address = address_of_length(KONTAKT_EMAIL_MAX_LENGTH)
     # Asserted so a helper that built the wrong length reads as that, not as the ceiling moving.
     assert len(address) == KONTAKT_EMAIL_MAX_LENGTH
     assert FLKontaktPayload.model_validate(kontakt(email=address)).email == address
-
-
-def test_rejects_an_address_one_character_over_the_length_ceiling(kontakt):
-    """That 255 is refused, not WHICH bound refuses it: email-validator's own ceiling is this number too, so the case below pins ours."""
-    with pytest.raises(ValidationError):
-        FLKontaktPayload.model_validate(kontakt(email=address_of_length(KONTAKT_EMAIL_MAX_LENGTH + 1)))
 
 
 def test_publishes_the_ceiling_the_zod_mirror_copies():

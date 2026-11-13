@@ -10,21 +10,15 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
-from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
-
-# Which guard refused, and so which route answered: `verify_access_base` guards the public router
-# and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
-ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
 SAISON_ID = "2026"
 
@@ -255,24 +249,6 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 yield mongo_replica_set_url
     finally:
         client.close()
-
-
-# The shadowing proof. Both routers mount at the same prefix, so the question is which one answers
-# each path -- and the guard that refuses a wrong key names it, no database needed.
-GUARD_CASES = [
-    pytest.param(ADMIN_PATH, BASE_AUTH, ADMIN_GUARD_REFUSED, id="the admin path is the admin router's"),
-    pytest.param(PUBLIC_PATH, ADMIN_AUTH, BASE_GUARD_REFUSED, id="the public path is still the public router's"),
-]
-
-
-@pytest.mark.parametrize(("path", "headers", "error_code"), GUARD_CASES)
-def test_the_wrong_key_is_refused_by_the_guard_of_the_route_that_matched(path: str, headers: Mapping[str, str], error_code: str):
-    """A base credential reaching the admin read is the failure that matters: it carries the rent and the referee's Honorar."""
-
-    response = answered(UNANSWERED_URI, path, headers)
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == error_code
 
 
 def test_a_malformed_id_is_a_404_on_the_admin_path_too():

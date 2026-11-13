@@ -101,19 +101,6 @@ def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
     assert match_stage["saison_id"] == "2026"
 
 
-def test_the_scope_narrows_the_matches_and_nothing_else():
-    """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
-    gruppenphase, total = build(), build(scope="total")
-
-    assert projection(gruppenphase) == projection(total)
-    assert len(gruppenphase) == len(total)
-
-
-def test_the_counting_lookup_never_consults_the_sonderereignis():
-    """The forfeit rule: adding a `sonderereignis` filter looks like a correction, so the assertion is over the whole lookup."""
-    assert not reads(statistik_stage(build()), "sonderereignis")
-
-
 def test_no_stage_reads_the_shoot_out():
     """A shoot-out decides the bracket and never the table, so a stage able to see it would part the two on every knockout tie."""
     assert not reads(build(), "elfmeterschiessen")

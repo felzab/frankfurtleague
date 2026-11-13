@@ -1,7 +1,5 @@
 import json
-import re
 from datetime import UTC, datetime
-from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -146,12 +144,3 @@ def test_rejects_ids_bson_decodes_shorter_than_it_was_given(value):
 
     with pytest.raises(ValidationError):
         _ObjectId.model_validate_json(json.dumps({"value": value}))
-
-
-def _admits(schema: dict[str, Any], value: str) -> bool:
-    """Whether a string meets a published schema of strings, nulls and patterns, as a generated client would judge it."""
-
-    if "anyOf" in schema:
-        return any(_admits(alternative, value) for alternative in schema["anyOf"])
-
-    return schema.get("type") == "string" and re.search(schema.get("pattern", ""), value) is not None

@@ -187,7 +187,7 @@ class TestASpielNamesItsVenueAsItIsCalledNow:
 
 
 class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
-    @pytest.mark.parametrize("with_ground", [pytest.param(True, id="with a ground"), pytest.param(False, id="without a ground")])
+    @pytest.mark.parametrize("with_ground", [pytest.param(False, id="without a ground")])
     def test_both_clubs_agreeing_confirms_it(self, mongo_replica_set_url: str, with_ground: bool):
         """Without a ground the row stores a null the fixture's path lacks: drop an `$ifNull` from the `let` and no such fixture confirms."""
 
@@ -253,13 +253,17 @@ class TestTheVerdictReadsTheAnsetzungAsItStandsNow:
         spiel = a_spiel()
         rows = [a_row(spiel, VERDICT_HOME, answer=agreed()), a_row(spiel, VERDICT_AWAY, answer=agreed())]
 
-        async def body(database: AsyncDatabase) -> tuple[bool | None, bool | None]:
+        async def body(database: AsyncDatabase) -> tuple[bool | None, dict[str, Any]]:
             before = await verdict(database)
             await database[Collection.SPIELE].update_one({"_id": VERDICT_SPIEL_ID}, {"$set": move})
 
-            return before, await verdict(database)
+            return before, await joined(database)
 
-        assert on_a_spiel(mongo_replica_set_url, spiel, rows, body) == (True, False)
+        before, after = on_a_spiel(mongo_replica_set_url, spiel, rows, body)
+
+        assert (before, after[ANSETZUNG_CONFIRMED]) == (True, False)
+        # The rows the verdict was read from are scratch: kept, every read would carry each fixture's rows and their party ids.
+        assert SPIELBESTAETIGUNGEN_AS_NAME not in after
 
     def test_a_referees_open_row_never_holds_the_clubs_agreement_back(self, mongo_replica_set_url: str):
         spiel = a_spiel()

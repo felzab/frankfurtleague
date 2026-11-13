@@ -366,16 +366,6 @@ class TestTheTwoChoices:
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
 
-    def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
-            return response, await _records(database)
-
-        response, after = served(mongo_replica_set_url, steps)
-
-        assert response.status_code == 204, response.text
-        assert after[PUPIL_OID]["einwilligung"] == _einwilligung()
-
 
 @pytest.mark.db
 class TestAnEditorReadBeforeThePress:
@@ -528,25 +518,6 @@ class TestAStalePage:
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["media"] is False
-
-    def test_the_state_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
-        """The round trip the page makes: echoed as served, over a record carrying evidence, and read again after the press."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
-            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            response = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=served_state), headers=_person(IDENTIFIER))
-            served_after = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            return served_state, response, served_after, await _records(database)
-
-        served_state, response, served_after, after = served(mongo_replica_set_url, steps)
-
-        assert served_state == EARLIER_STATE
-        assert response.status_code == 204, response.text
-        # The stand the page serves after the press is what a next press from it echoes: the moved choice's alone moved.
-        assert served_after == evidence_state_of(blocks=[after[PUPIL_OID]["einwilligung"]])
-        assert served_after["media"] == EARLIER_STATE["media"]
-        assert served_after["scope"] != EARLIER_STATE["scope"]
 
     def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
         """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""

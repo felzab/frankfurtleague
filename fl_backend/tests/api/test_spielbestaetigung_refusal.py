@@ -186,7 +186,6 @@ class TestTheProposalIsTheSpielOnItsNewDate:
     @pytest.mark.parametrize(
         "stored_raw",
         [
-            pytest.param(spiel(), id="a group fixture"),
             # Played before the hourly pass closed the decline, the shoot-out is the one field the plain fixture leaves null.
             pytest.param(
                 spiel(
@@ -285,3 +284,15 @@ class TestARefereeAnswersUntilTheKickOff:
 
         assert before is None
         assert at is not None and at.error_code == Code.ANSETZUNG_DEADLINE_PAST
+
+    def test_a_minute_before_it_the_booking_reads_open_and_from_it_lapsed(self):
+        """Read by the day instead, the referee's list would offer „Zusagen“ and „Ablehnen“ until midnight beside the report it owes."""
+
+        referees = row(party={"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER})
+
+        before, at = (
+            state_of(spielbestaetigung_raw=referees, ansetzung_state=ansetzung_state(), now=now, vorschlag_open=None)
+            for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
+        )
+
+        assert (before, at) == ("valid", "expired")

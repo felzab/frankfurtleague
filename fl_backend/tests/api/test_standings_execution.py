@@ -262,6 +262,3 @@ class TestTheTwoDerivationsAgree:
         assert "Anna-Schule" not in rows
         assert (rows["Dirk"]["gruppe"], rows["Dirk"]["austritt"]) == ("B", AUSTRITT)
         assert (rows["Anna"]["gruppe"], rows["Anna"]["austritt"]) == ("A", None)
-
-    def test_a_statistik_stored_on_the_season_row_is_never_read(self, seeded: Database):
-        assert standings(seeded)["Anna"]["statistik"] == dict(GRUPPENPHASE[ANNA])

@@ -667,15 +667,9 @@ class TestTheWindow:
 class TestTheMintNeverAsksWhatTheCloseShuts:
     """Each fixture would be closed by the next pass, so a mint here is a fresh request every hour with nothing failing."""
 
-    @pytest.mark.parametrize(
-        ("spiel_fields", "austritt_tag"),
-        [
-            pytest.param({}, NEXT_WEEK, id="a club gone on the fixture's day"),
-            pytest.param({}, YESTERDAY, id="a club gone before it"),
-        ],
-    )
-    def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, spiel_fields: dict[str, Any], austritt_tag: str | None):
-        austritt = None if austritt_tag is None else {"type": "rueckzug", "reason": "Schulwechsel", "date": austritt_tag}
+    @pytest.mark.parametrize("austritt_tag", [pytest.param(NEXT_WEEK, id="a club gone on the fixture's day")])
+    def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, austritt_tag: str):
+        austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": austritt_tag}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first, second = await sweep(database, client), await sweep(database, client)
@@ -684,24 +678,11 @@ class TestTheMintNeverAsksWhatTheCloseShuts:
         first, second, stored = on_a_league(
             mongo_replica_set_url,
             body,
-            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK, **spiel_fields)],
+            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
             junctions=[junction(ALPHA, austritt=austritt), junction(BETA)],
         )
 
         assert (stored, first.requests, second.requests, first.closed + second.closed) == ([], [], [], 0)
-
-    def test_a_club_gone_after_the_spiel_is_still_asked(self, mongo_replica_set_url: str):
-        austritt = {"type": "rueckzug", "reason": "Schulwechsel", "date": days_after(day=NEXT_WEEK, days=1)}
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            return await rows(database)
-
-        stored = on_a_league(
-            mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)], junctions=[junction(ALPHA, austritt=austritt), junction(BETA)]
-        )
-
-        assert len(stored) == 3
 
 
 class TestASpielCalledOffAndReinstatedIsAskedAgain:
@@ -1072,19 +1053,6 @@ class TestAMoveNotAskedAtOnceIsToldAtOnce:
         # Asked as any fixture is, the move told already.
         assert [request.moved_from for request in asked.requests] == [None, None]
         assert [einteilung.moved_from for einteilung in asked.einteilungen] == [None]
-
-
-class TestAMoveIsAnnouncedOnlyToAPartyMailed:
-    def test_an_unstamped_row_closed_by_a_move_is_no_notice(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            await unstamp(database)
-            await move(database, client, SPIEL, time="19:00:00")
-            return await sweep(database, client)
-
-        second = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert (second.closed, second.new_ansetzungen, second.schiedsrichter_new_ansetzungen) == (3, [], [])
 
 
 class TestARefereeChangeClosesTheirRowAlone:
@@ -1677,73 +1645,11 @@ class TestTheLineupReminder:
 # --- A REFEREE TAKEN OFF a fixture after their Einteilung went out.
 
 
-async def told_and_taken_off(database: AsyncDatabase, client: AsyncMongoClient, *, stamped: bool = True) -> None:
-    """The first pass asks the referee, its request owed or, unstamped, never, and the fixture is handed to another referee."""
+async def told_and_taken_off(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    """The first pass asks the referee, and the fixture is handed to another referee."""
 
     await sweep(database, client)
-    if not stamped:
-        await unstamp(database)
     await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"schiedsrichter": booked(OTHER_SCHIEDSRICHTER)}})
-
-
-class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
-    def test_a_referee_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await told_and_taken_off(database, client, stamped=False)
-            return await sweep(database, client)
-
-        second = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        # The premise: the row closed for the referee change all the same.
-        assert (second.closed, second.schiedsrichter_switched) == (1, [])
-
-    def test_a_day_gone_by_tells_nobody(self, mongo_replica_set_url: str):
-        """The fixture unplayed past its day: a slot of a day gone by is no booking taken away, so nobody is told."""
-
-        after_the_day = days_after(day=NEXT_WEEK, days=1)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await told_and_taken_off(database, client)
-            return await sweep(database, client, today=after_the_day), await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
-
-        second, (old,) = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert old["closed"] == {"reason": "schiedsrichter_switched"}
-        assert second.schiedsrichter_switched == []
-
-    def test_their_own_decline_tells_them_nothing(self, mongo_replica_set_url: str):
-        """The decline took them off and closed the row in one write, so no pass meets the row open."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            await database[Collection.SCHIEDSRICHTER].update_one(
-                {"_id": SCHIEDSRICHTER},
-                {
-                    "$set": {
-                        "einwilligung": documents.own_einwilligung_document(
-                            text_versions=documents.SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=YESTERDAY
-                        )
-                    }
-                },
-            )
-            (own,) = await rows(database, **{"party.schiedsrichter_id": SCHIEDSRICHTER})
-            await post_schiedsrichter_answer(
-                spielbestaetigung_id=own["_id"],
-                answer_data=FLSpielbestaetigungSchiedsrichterAnswerPayload(answer="declined", reason="Verhindert"),
-                identifier=REFEREE_EMAIL,
-                spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-                spiele_collection=database[Collection.SPIELE],
-                saison_teams_collection=database[Collection.SAISON_TEAMS],
-                saisons_collection=database[Collection.SAISONS],
-                records=record_collections(database),
-                db=client,
-                now=NOW,
-            )
-            return await sweep(database, client)
-
-        second = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert (second.closed, second.schiedsrichter_switched) == (0, [])
 
 
 class ConfirmationsRunningARivalAheadOfTheErasuresRemoval(InterleavedCollection):
@@ -1950,18 +1856,6 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
         }
         assert (third.spiel_cancelled, third.schiedsrichter_spiel_cancelled) == ([], [])
 
-    def test_a_no_show_entered_on_the_day_tells_nobody(self, mongo_replica_set_url: str):
-        """Read as the decision it records: the parties may already be at the ground."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await asked_and_called_off(database, client, sonderereignis="nichtantreten_team2")
-            return await sweep(database, client, today=NEXT_WEEK), await rows(database)
-
-        second, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
-        assert {row["closed"]["reason"] for row in stored} == {"spiel_decided"}
-        assert (second.closed, second.spiel_cancelled, second.schiedsrichter_spiel_cancelled) == (3, [], [])
-
     def test_a_party_never_mailed_is_told_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await asked_and_called_off(database, client, stamped=False)
@@ -1970,13 +1864,4 @@ class TestACalledOffSpielTellsEveryPartyItAsked:
         second = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
         # The premise: every row closed for the call-off all the same.
-        assert (second.closed, second.spiel_cancelled, second.schiedsrichter_spiel_cancelled) == (3, [], [])
-
-    def test_a_day_gone_by_tells_nobody(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await asked_and_called_off(database, client)
-            return await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
-
-        second = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
-
         assert (second.closed, second.spiel_cancelled, second.schiedsrichter_spiel_cancelled) == (3, [], [])

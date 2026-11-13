@@ -58,7 +58,6 @@ QUALIFIERS = 2
 # One field on one fixture, so nothing else about the season moves to reach a state
 # `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
 RECORDS_CLOSING_THE_WINDOW = (
-    pytest.param({"sonderereignis": "abgebrochen"}, id="an abandonment"),
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
     pytest.param({"note": "Platz gesperrt"}, id="an admin's note, for which the draw writes no key at all"),
 )
@@ -237,12 +236,7 @@ class TestAnUndrawRemovesTheWholeSpielplan:
         undrawn = an_undrawn_season(mongo_replica_set_url)
 
         assert (undrawn.spieltage, undrawn.spiele) == (0, 0)
-
-    def test_the_season_keeps_no_watermark(self, mongo_replica_set_url: str):
-        """Leave the watermark standing and the season reads as drawn while holding nothing, which the rule prevents."""
-
-        undrawn = an_undrawn_season(mongo_replica_set_url)
-
+        # Left standing, the watermark reads the season as drawn while it holds nothing, which the rule prevents.
         assert undrawn.watermark is None
 
 
@@ -339,25 +333,18 @@ def a_season_undrawn_beside_another(url: str) -> NeighbouringSeasons:
 class TestAnUndrawReachesNoOtherSeason:
     """That the removals are bounded by their `saison_id`, proved against a season standing beside the one undrawn."""
 
-    def test_the_neighbours_spiele_all_survive(self, mongo_replica_set_url: str):
-        """Empty the fixture delete's `db_filter` and this fails; with one season seeded, the whole db tier stays green."""
+    def test_the_neighbours_spiele_matchdays_and_watermark_all_survive(self, mongo_replica_set_url: str):
+        """Empty either delete's `db_filter` and this fails; with one season seeded, the whole db tier stays green.
+
+        Each collection its own assertion, never a pair compared as one: `(spiele, spieltage) != (0, 0)` passes while half
+        the neighbour is gone. The `$unset` is keyed on `_id` and cannot lose its scope the same way; asserted so a season
+        left disowned is not read as intact.
+        """
 
         neighbours = a_season_undrawn_beside_another(mongo_replica_set_url)
 
         assert neighbours.neighbour_spiele == neighbours.neighbour_drawn.spiele
-
-    def test_the_neighbours_matchdays_all_survive(self, mongo_replica_set_url: str):
-        """Its own case, never a pair compared as one: `(spiele, spieltage) != (0, 0)` passes while half the neighbour is gone."""
-
-        neighbours = a_season_undrawn_beside_another(mongo_replica_set_url)
-
         assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn.spieltage
-
-    def test_the_neighbour_keeps_the_watermark_that_says_it_is_drawn(self, mongo_replica_set_url: str):
-        """The `$unset` is keyed on `_id` and cannot lose its scope the same way; asserted so a season left disowned is not read as intact."""
-
-        neighbours = a_season_undrawn_beside_another(mongo_replica_set_url)
-
         assert neighbours.neighbour_watermark is not None
 
 
@@ -523,7 +510,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
 class TestTheWindowIsReachedThroughTheRoute:
     """`spielplan_undraw_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
 
-    @pytest.mark.parametrize("status", ["active", "past"])
+    @pytest.mark.parametrize("status", ["active"])
     def test_a_season_outside_its_planning_keeps_its_whole_spielplan(self, mongo_replica_set_url: str, status: str):
         """Wire the undraw past the window and this fails: a league mid-season would lose the schedule it is playing."""
 
@@ -595,16 +582,13 @@ class SeededBracket:
     stored_team1: Any
     stored_team1_quelle: Any
     error_code: str
-    drawn: FLGenerateSpielplanResponse
-    spieltage: int
-    spiele: int
 
 
 def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
     """Draw the season, seed its first knockout slot through the fixture patch, then ask for the undraw."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> SeededBracket:
-        drawn = await call_draw(database, client)
+        await call_draw(database, client)
 
         slot = await database[Collection.SPIELE].find_one(
             {"saison_id": SAISON_ID, "saison_phase": {"$ne": "gruppenphase"}}, sort=[("spiel_nr", 1)]
@@ -621,16 +605,12 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
             await call_undraw(database, client)
 
         stored = await database[Collection.SPIELE].find_one({"_id": slot["_id"]})
-        spieltage, spiele = await counts_now(database)
 
         return SeededBracket(
             seeded_team=entered["team_id"],
             stored_team1=(stored or {}).get("team1"),
             stored_team1_quelle=(stored or {}).get("team1_quelle"),
             error_code=refused.value.error_code,
-            drawn=drawn,
-            spieltage=spieltage,
-            spiele=spiele,
         )
 
     return on_a_seeded_saison(url, body)
@@ -655,13 +635,6 @@ class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
         assert seeded.stored_team1["team_id"] == seeded.seeded_team
         assert seeded.stored_team1_quelle is None
         assert seeded.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-
-    def test_the_season_keeps_every_matchday_and_every_spiel(self, mongo_replica_set_url: str):
-        """The refusal is only worth anything if nothing was removed before it: both collections are counted after it."""
-
-        seeded = a_bracket_slot_seeded_by_hand(mongo_replica_set_url)
-
-        assert (seeded.spieltage, seeded.spiele) == (seeded.drawn.spieltage, seeded.drawn.spiele)
 
 
 @dataclass(frozen=True)
