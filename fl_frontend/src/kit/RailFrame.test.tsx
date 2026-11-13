@@ -82,9 +82,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** The frame's toast saying the sign-out failed, where one stands. */
-const failureToast = () => screen.queryByRole("alertdialog", { name: COPY.shared.toast.failure });
-
 // A frame's prefetch dropped between the frame and its menus makes every press of the season pages wait on the server,
 // and one reaching an area's frame costs a server render per entry in view: neither shows in any page's look.
 describe("the menu's prefetch", () => {
@@ -128,7 +125,8 @@ describe("the account menu", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: COPY.shared.verb.signOut }));
 
     await vi.waitFor(() => expect(leave.leaveDocumentFor).toHaveBeenCalledWith("/"));
-    expect([sent, failureToast()]).toStrictEqual([[SIGN_OUT], null]);
+    // No toast at all, in any words: the person leaves, and nothing is said on the page they leave.
+    expect([sent, screen.queryAllByRole("alertdialog")]).toStrictEqual([[SIGN_OUT], []]);
   });
 
   it("keeps the person in place with the one failure line where the sign-out fails", async () => {
