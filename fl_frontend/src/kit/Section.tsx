@@ -220,7 +220,6 @@ export function SectionPlaceholder(
 export function Section({
   title,
   help,
-  note,
   danger,
   list,
   children,
@@ -228,11 +227,6 @@ export function Section({
   title: Copy;
   /** The section's help behind the ⓘ after its title: a few short declarative lines, one statement each. */
   help?: readonly [Copy, ...Copy[]];
-  /**
-   * What a change causes for the box, in the warn hue under the title, such as a match report's goals once other clubs
-   * play the match; never a lock, which an editor says once under its own title (`EditorPage`).
-   */
-  note?: Copy;
   /** An editor's irreversible and retiring acts, one row each, filling the box's width: `EditorPage`'s danger rows. */
   danger?: ReactNode;
   /**
@@ -267,7 +261,6 @@ export function Section({
             </span>
           )}
         </div>
-        {note !== undefined && <p className="text-sm text-warn">{note}</p>}
       </div>
       {list !== undefined && <div className="grid">{list}</div>}
       {children !== undefined && (
