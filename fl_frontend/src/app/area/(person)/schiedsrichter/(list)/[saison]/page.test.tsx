@@ -36,7 +36,6 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   reason: null,
   entered: false,
   past: false,
-  reportable: false,
   submitted_at: null,
   bericht_owed: false,
   ...overrides,
@@ -95,7 +94,7 @@ describe("a game something befell", () => {
   it("carries the event's own chip, as the Spielplan's row does, whatever the booking says", async () => {
     const rows = await rowsOf(
       spiel({ spiel_id: "5f0000000000000000000001", state: "cancelled", sonderereignis: "ausgefallen" }),
-      spiel({ spiel_id: "5f0000000000000000000002", state: "agreed", past: true, reportable: true, sonderereignis: "nichtantreten_team2" }),
+      spiel({ spiel_id: "5f0000000000000000000002", state: "agreed", past: true, sonderereignis: "nichtantreten_team2" }),
     );
 
     const words = COPY.spielplan.sonderereignis;
@@ -111,7 +110,7 @@ describe("a game something befell", () => {
    whose call-off was undone, the row still reads the old booking state. */
 describe("a game owing its report", () => {
   it("carries „Spielbericht fehlt“ whatever its booking last read", async () => {
-    const owed = { past: true, reportable: true, bericht_owed: true };
+    const owed = { past: true, bericht_owed: true };
     const rows = await rowsOf(
       spiel({ spiel_id: "5f0000000000000000000001", state: "declined", reason: "Klausur", ...owed }),
       spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", ...owed }),
