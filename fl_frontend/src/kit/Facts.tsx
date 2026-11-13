@@ -4,7 +4,6 @@ import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardSurface, stacked } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -71,63 +70,6 @@ const facts = tv({
     },
   },
 });
-
-/**
- * A venue's name while the match is read, set unseen for a placeholder's size alone: it wraps in a narrow box as a
- * real venue does and stands on one line in a wide one. Never shown.
- */
-export const SPIELORT_WORDS = "Sportanlage am Riederwald";
-
-/**
- * A person's e-mail address while it is read, set unseen as a venue's name is: most addresses wrap in a phone's column
- * and stand on one line in a wide one. Never shown.
- */
-export const EMAIL_WORDS = "vorname.nachname@example.com";
-
-/**
- * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
- * over a value's, two a row where `Facts` sets them so. `wraps` is the place of a pair whose value wraps in a narrow
- * column, and words as long as such a value is, set unseen, so the value stands as many lines as it will at every width.
- */
-export function FactsPlaceholder({
-  pairs,
-  look = "boxed",
-  wraps,
-}: {
-  pairs: number;
-  look?: "boxed" | "free";
-  wraps?: { pair: number; words: string };
-}) {
-  const { list, row, term, detail } = facts({ look });
-  return (
-    <div className="@container grid w-full gap-2 text-sm">
-      <div className={list()}>
-        {Array.from({ length: pairs }, (_, index) => (
-          <div
-            key={index}
-            className={row()}>
-            <PlaceholderLine
-              textClass={term()}
-              widthClass="w-1/4"
-            />
-            {index === wraps?.pair ? (
-              <PlaceholderSentence
-                textClass={detail()}
-                words={wraps.words}
-                lines={2}
-              />
-            ) : (
-              <PlaceholderLine
-                textClass={detail()}
-                widthClass="w-1/2"
-              />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
