@@ -4,7 +4,6 @@ import { COPY, textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { AddressWords, addressWords, isAddress } from "./AddressWords";
-import { buttonPlaceholder } from "./buttonStyles";
 import { cardHover, cardSurface, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutRow, CutText } from "./CutText";
@@ -15,8 +14,6 @@ import { RowEnd } from "./RowEnd";
 import { RowPress } from "./RowPress";
 import { SideActsScope } from "./SideActs";
 import { sideActsForm } from "./sideActsForm";
-import { SideActsPlaceholder } from "./SideActsPlaceholder";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TargetMark } from "./TargetMark";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -39,19 +36,16 @@ type TableColumn = {
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
   /**
-   * What the column holds, which sets the least it takes in the table and in its wait alike, so its edges stand where
-   * its placeholder drew them whatever the read holds. Every column whose values are bounded by construction states it,
-   * an enumerated value or a fixed-format one, a head wider than its values too, since its wait's bar would otherwise set
-   * the column (`barOf`). A figures column's bar sets nothing, so one whose head is wider than its figures needs none.
-   * Any other column stating none holds free text, whose width is the record's, and its wait draws a typical value's bar.
+   * What the column holds, which sets the least it takes in the table, so its edges stand at one place whatever the
+   * rows hold. Every column whose values are bounded by construction states it, an enumerated value or a fixed-format
+   * one. Any other column stating none holds free text, whose width is the record's.
    */
   width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: as wide as its
    * longest value while the row has room, sharing what the row leaves free with the name, and cut with „…“ only once the
    * row is full, never narrower than the least `width` sets, whole in its tooltip while it is cut, which a touch never
-   * shows. Its wait draws it at that least, since the words that widen it are not read yet. So a `stack` table, whose
-   * rows open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only
+   * shows. So a `stack` table, whose rows open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only
    * a value bounded to its column's width goes uncut.
    */
   cut?: true;
@@ -226,37 +220,11 @@ export type TableProps = {
   plaqueAlone?: boolean;
 };
 
-/**
- * What a table is before its rows are read: its heads, its columns and how its cells set. A page states it once,
- * beside the rows it reads, so the table and its placeholder are drawn from the one declaration.
- */
+/** A table's heads, its columns and how its cells set, which a page states once, beside the rows it reads. */
 export type TableHead = Pick<
   TableProps,
   "nameLabel" | "rankLabel" | "state" | "columns" | "compact" | "chevronOnPhone" | "plaqueAlone" | "stack"
-> & {
-  /** The rows open nothing, so their wait ends in no chevron. */
-  linked?: false;
-  /**
-   * Where the rows carry the muted line under their name, which their wait draws as a line's bar: `always` where they
-   * carry a `line`, at every width, and `phone` where they carry a `phoneLine` alone, on a box narrower than 42 rem.
-   */
-  line?: "always" | "phone";
-} & (
-    | {
-        /** The labels of the acts a row carries, which its wait draws as buttons; the rows open nothing either. */
-        acts?: ReadonlyArray<Copy>;
-        sideAct?: never;
-      }
-    | {
-        acts?: never;
-        /**
-         * The act every row of a list of side acts (`SideActs`) carries, whose rows open nothing: its wait draws that
-         * act's button where the list is a table, and the „⋯“ where it is stacked, as the rows will stand
-         * (`SideActsPlaceholder`).
-         */
-        sideAct: Copy;
-      }
-  );
+>;
 
 /** A table's rows once read: everything but its head. */
 export type TableBody = Omit<TableProps, keyof TableHead>;
@@ -287,7 +255,7 @@ const PHONE_WRAPS_CLASSES = "@max-2xl:wrap-anywhere @max-2xl:whitespace-normal";
  *
  * A row is 56 px at the least, 52 from `lg`, its hairline among them. Chips the name's line cannot hold stand 2 px under
  * it, and a name over its chips is 42, a plaque standing beside the two lines, so at 6 px of padding, 4 from `lg`, such
- * a row stands exactly as tall as one whose chips stand after its name, and as its wait's rows. A list whose rows carry
+ * a row stands exactly as tall as one whose chips stand after its name. A list whose rows carry
  * their acts under their words pads its rows 12 px, as a card's act row is (`actRow`).
  */
 const table = tv({
@@ -384,8 +352,7 @@ const table = tv({
       narrow: { head: "@max-xs:hidden", cell: "@max-xs:hidden" },
       shown: {},
     },
-    // A column's least width, on its head cell, which the table and its placeholder draw alike, so their edges agree
-    // whatever the rows hold. A minimum, since the name's `w-full` leaves every other column its min-content width
+    // A column's least width, on its head cell, so the column's edges stand at one place whatever the rows hold. A minimum, since the name's `w-full` leaves every other column its min-content width
     // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
     // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
     // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
@@ -571,7 +538,7 @@ function phoneOf(column: TableColumn) {
   return column.narrow === true ? "narrow" : "shown";
 }
 
-/** How a column sets, for its head and its cells alike, in the table and in its placeholder. */
+/** How a column sets, for its head and its cells alike. */
 const columnLook = (column: TableColumn, stacks: Stacks, compact: boolean) =>
   ({
     align: column.figures === true ? "figure" : "start",
@@ -1060,176 +1027,6 @@ export function Table({
           </tbody>
         </table>
       )}
-    </div>
-  );
-}
-
-/** A row's acts while the rows are read: a button's bar for each, by its label. */
-function ActBars({ acts }: { acts: ReadonlyArray<Copy> }) {
-  return acts.map((act) => (
-    <span
-      key={act}
-      className={buttonPlaceholder()}>
-      {act}
-    </span>
-  ));
-}
-
-/**
- * A column's bar while its rows are read. A figure's is a glyph's width, centred, and sets nothing. In a column stating
- * its width (`TableColumn`'s `width`) the bar never widens the column past its head: a share of a width counts nothing
- * towards a cell's least width (CSS Sizing 3, 5.2.1), so the bar fills the column up to a typical value's 80 px, and the
- * column stands as wide in the wait as on the page. A column stating none holds free text, whose words set its width on
- * the page, and its 80-px bar sets it in the wait.
- */
-const barOf = (column: TableColumn) => (column.figures === true ? "mx-auto w-4" : column.width === undefined ? "w-20" : "w-full max-w-20");
-
-/**
- * A table while its rows are read: its own head, the columns' labels as the page states them, over `rows` rows at the
- * rows' height, each cell a bar where its value will stand, set as the column sets its values: a rank and figures
- * centred, a name from the start after a club's plaque where the rows hold clubs, a chip's bar in the status column,
- * the chevron where rows lead on. Drawn with the table's own recipe and the columns' stated widths inside the table's
- * own container, so it takes the form the rows will at every width: a list's rows stacked where its box is narrow, the
- * chip's bar after the name's, the muted line's under it where the rows carry one, a phone's left-out columns left
- * out, a `stack` table's rows stacked as `Table`'s and each row's acts as buttons, which a stacked row sets on a line
- * under its words, a list of side acts its act's button in a table and the „⋯“'s at a stacked row's end
- * (`SideActsPlaceholder`). Each cell's bar stands in a line of the cell's own height, so a row holds its height
- * wherever its lines stack.
- */
-export function TablePlaceholder({
-  head,
-  rows,
-  plaques = false,
-  bare = false,
-}: {
-  head: TableHead;
-  rows: number;
-  /** Whether each row holds a plaque before its name. */
-  plaques?: boolean;
-  bare?: boolean;
-}) {
-  const {
-    nameLabel,
-    rankLabel,
-    state,
-    columns,
-    compact = false,
-    chevronOnPhone = true,
-    plaqueAlone = false,
-    acts,
-    sideAct,
-    line,
-    stack = false,
-  } = head;
-  const hasActs = acts !== undefined || sideAct !== undefined;
-  const linked = head.linked !== false && !hasActs;
-  const stacks = stacksOf({ ranked: rankLabel !== undefined, compact, prose: false, stack });
-  const phoneEnd = { stack, stacks, chevronOnPhone: linked && chevronOnPhone };
-  const actsForm = sideAct !== undefined ? "folded" : acts !== undefined ? "under" : undefined;
-  const chipsOnLine = chipsOnLineOf(state, stacks);
-  const lonePlaque = plaques && plaqueAlone;
-  const parts = table({ stacks, acts: actsForm, chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine });
-  const held = nameWithChips({ led: true });
-  return (
-    <div className={bare ? "@container w-full overflow-hidden" : cardSurface({ class: "@container w-full overflow-hidden" })}>
-      <table
-        className={parts.sheet()}
-        style={stackedTracks(stacks, columns, plaques)}>
-        <thead className={parts.part()}>
-          <tr className={parts.headRow()}>
-            {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
-            <th className={table({ align: "start", compact, stack, stacks }).head()}>{nameLabel}</th>
-            {state !== undefined && <th className={table({ align: "start", width: "chip", stacks, lone: true }).head()}>{state.label}</th>}
-            {columns.map((column, index) => (
-              <th
-                key={column.key}
-                className={table({ ...columnLook(column, stacks, compact), stack }).head()}
-                style={stackedTrack(stacks, index)}>
-                {column.label}
-              </th>
-            ))}
-            {linked && <td className={table({ phone: chevronOnPhone ? "shown" : "hidden", stack, stacks, lone: true }).head()} />}
-            {hasActs && <td className={table({ stacks, lone: true }).head()} />}
-          </tr>
-        </thead>
-        <tbody className={parts.part()}>
-          {Array.from({ length: rows }, (_, index) => (
-            <tr
-              key={index}
-              className={table({ ...phoneEnd, acts: actsForm }).row()}>
-              {rankLabel !== undefined && (
-                <td className={table({ align: "centre", compact }).cell()}>
-                  <span className={placeholderBar("mx-auto h-3 w-3")} />
-                </td>
-              )}
-              <td className={table({ compact, stack, stacks }).name()}>
-                {/* The rows' least width for the name, so the column's edges stand where the rows' will. */}
-                <span className={nameLine({ shape: plaques ? "plaque" : "name", lonePlaque, stacks })}>
-                  {plaques && <span className={placeholderBar("h-6 w-10")} />}
-                  <span className={held.line({ class: nameParts({ lonePlaque }).line() })}>
-                    <PlaceholderLine
-                      textClass={lonePlaque ? "w-1/2 text-sm @max-2xl:hidden" : "w-1/2 text-sm"}
-                      widthClass="w-full"
-                    />
-                    {/* A status column's chip stands after the name on a stacked row. */}
-                    {chipsOnLine === "stacked" && (
-                      <span className={held.chips({ class: parts.lineChips() })}>
-                        <span className={placeholderBar("h-5 w-16")} />
-                      </span>
-                    )}
-                  </span>
-                </span>
-                {line !== undefined && (
-                  // In the muted line's place, in one track as wide as the line's room, so the bar's width is a share of it.
-                  <span className={parts.line({ class: line === "phone" ? "grid-cols-1 @2xl:hidden" : "grid-cols-1" })}>
-                    <PlaceholderLine
-                      textClass=""
-                      widthClass="w-1/3"
-                    />
-                  </span>
-                )}
-              </td>
-              {state !== undefined && (
-                <td className={parts.state()}>
-                  <span className={parts.chips()}>
-                    <span className={placeholderBar("h-5 w-16")} />
-                  </span>
-                </td>
-              )}
-              {columns.map((column, at) => {
-                const s = table({ ...columnLook(column, stacks, compact), stack });
-                return (
-                  <td
-                    key={column.key}
-                    className={s.cell()}
-                    style={stackedTrack(stacks, at)}>
-                    {stack && <span className={s.label()}>{column.label}</span>}
-                    <PlaceholderLine
-                      textClass=""
-                      widthClass={barOf(column)}
-                    />
-                  </td>
-                );
-              })}
-              {linked && (
-                <td
-                  className={table(phoneEnd).end()}
-                  style={stack ? phoneEndStyle(rankLabel, columns) : undefined}>
-                  <RowEnd />
-                </td>
-              )}
-              {hasActs && (
-                <td className={parts.acts()}>
-                  <span className={parts.actsLine()}>
-                    {acts !== undefined && <ActBars acts={acts} />}
-                    {sideAct !== undefined && <SideActsPlaceholder act={sideAct} />}
-                  </span>
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
