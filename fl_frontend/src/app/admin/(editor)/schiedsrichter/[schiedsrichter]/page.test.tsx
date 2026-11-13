@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -9,7 +10,8 @@ import type { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 
 const ID = "64b0000000000000000000a1";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+/** The referee the backend serves at the address's id. */
+const state = { read: null as unknown };
 
 /** An entry asked on 1 November and not yet answered, its last confirmation mail sent without trouble. */
 const unanswered = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleResponse => ({
@@ -50,10 +52,10 @@ const confirmed = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleRespo
 const sent: FLOutboxStatus = { state: "sent", delivery: null, undeliverable: false };
 const barred: FLOutboxStatus = { state: "barred", delivery: null, undeliverable: true };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
-doubleApiClient(() => state.read);
+// The page's one read, of the referee its address names, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === `/schiedsrichter/${ID}` ? state.read : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
 
 const { default: SchiedsrichterEditorPage } = await import("./page");
 

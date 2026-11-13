@@ -1,8 +1,8 @@
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { describe, expect, it, vi } from "vitest";
 
 import { textOf } from "@/core/copy";
-
-import BanListPage from "./page";
 
 import type { Words } from "@/core/copy";
 import type { FLBanListRow } from "@/core/generated/client/types";
@@ -16,9 +16,15 @@ const BAN: FLBanListRow = {
   created_at: "2026-11-12",
 };
 
-vi.mock("@/features/ban-list/queries", () => ({ getBanList: async () => ({ ban_list: [BAN] }) }));
-vi.mock("@/core/auth/guards", () => ({ getAdminSession: async () => ({ user: { email: "admin@example.org" } }) }));
+// Server functions, which the page hands its dialogs and a client reaches over the network: no case presses one.
 vi.mock("./banActs", () => ({ enterBan: () => undefined, liftBan: () => undefined }));
+
+// The page's one read, of the list, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === "/ban_list" ? { ban_list: [BAN] } : undefined));
+// An administrator's session, made by passkey, which the read's guard admits and the page reads its holder off.
+signedInRequest();
+
+const { default: BanListPage } = await import("./page");
 
 type Drawn = { props: { list: { head: TableHead; content: Promise<{ table: { rows: readonly TableRow[] } }> } } };
 

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import AdministratorsPage from "./page";
 
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
 import type { ListCreate } from "@/kit/ListPage";
@@ -14,12 +14,21 @@ const OWNER = "owner@example.org";
 const PAST = "2026-01-01T10:00:00Z";
 const FUTURE = "2999-01-01T10:00:00Z";
 
-const state = vi.hoisted(() => ({ grants: [] as unknown[], changes: [] as unknown[], reader: "" }));
+/** The grants and the running changes the backend serves. */
+const state = { grants: [] as unknown[], changes: [] as unknown[] };
 
-vi.mock("@/features/grants/schemas", () => ({ GRANT_RULES: { required: { email: true, grant_id: true }, emailMax: 254 } }));
-vi.mock("@/features/grants/queries", () => ({ getGrants: () => Promise.resolve({ grants: state.grants }) }));
-vi.mock("@/features/address-change/queries", () => ({ getAddressChanges: () => Promise.resolve({ changes: state.changes }) }));
-vi.mock("@/core/auth/guards", () => ({ getAdminSession: () => Promise.resolve({ user: { email: state.reader } }) }));
+// The page's two reads, through the real guard, queries and generated calls.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/grants") return { grants: state.grants };
+  if (path === "/address_change") return { changes: state.changes };
+  return undefined;
+});
+// The owner's session, made by passkey, which the reads' guard admits and the page reads its reader off; a case reading
+// as another administrator arrives as them.
+const { arriveAs, store } = signedInRequest({ email: OWNER, admin: true });
+
+// Server functions, which the page hands its dialogs and a client reaches over the network: no case presses one.
 vi.mock("@/features/grants/actions", () => ({
   addAdministrator: () => undefined,
   removeAdministrator: () => undefined,
@@ -27,6 +36,8 @@ vi.mock("@/features/grants/actions", () => ({
   stopHandover: () => undefined,
 }));
 vi.mock("@/features/address-change/actions", () => ({ discardChange: () => undefined }));
+
+const { default: AdministratorsPage } = await import("./page");
 
 const grant = (address: string, overrides: Partial<FLGrantRow> = {}) =>
   ({
@@ -51,11 +62,10 @@ type Drawn = {
   };
 };
 
-/** The page as this reader gets it, over the grants and the changes the server answers them. */
-async function read(reader: string, grants: readonly FLGrantRow[], changes: readonly FLAddressChangeAdminOpen[] = []) {
+/** The page as the session signed in gets it, over the grants and the changes the server answers it. */
+async function read(grants: readonly FLGrantRow[], changes: readonly FLAddressChangeAdminOpen[] = []) {
   state.grants = [...grants];
   state.changes = [...changes];
-  state.reader = reader;
   const { props } = AdministratorsPage() as unknown as Drawn;
   const { cards } = (await props.list.content).props;
   const tableOf = (title: string) => cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined;
@@ -75,14 +85,10 @@ const addresses = (rows: ReadonlyArray<{ name: unknown }>) => rows.map(({ name }
 const actsOf = (rows: ReadonlyArray<{ acts?: unknown }>) =>
   rows.map(({ acts }) => (acts as ReactElement<{ locked?: string }> | undefined)?.props.locked ?? (acts === undefined ? "none" : "runs"));
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-
 describe("who holds access and what waits", () => {
   /* An addition listed among those holding access would claim a power its wait still holds back. */
   it("keeps a waiting addition out of those holding access, the owner first", async () => {
-    const { active, waiting } = await read(OWNER, [grant("anna@example.org"), grant("neu@example.org", { effective_from: FUTURE }), THE_OWNER]);
+    const { active, waiting } = await read([grant("anna@example.org"), grant("neu@example.org", { effective_from: FUTURE }), THE_OWNER]);
 
     expect(addresses(active)).toStrictEqual([OWNER, "anna@example.org"]);
     expect(addresses(waiting)).toStrictEqual(["neu@example.org"]);
@@ -92,14 +98,14 @@ describe("who holds access and what waits", () => {
   it("lists a holder's change in its wait and no other", async () => {
     const changes = [change("anna@example.org", FUTURE), change("ben@example.org", null), change("pupil@example.org", FUTURE, null)];
 
-    const { waiting } = await read(OWNER, [THE_OWNER, grant("anna@example.org"), grant("ben@example.org")], changes);
+    const { waiting } = await read([THE_OWNER, grant("anna@example.org"), grant("ben@example.org")], changes);
 
     expect(addresses(waiting)).toStrictEqual(["anna@example.org"]);
   });
 
   /* A card drawn only while something waits moves the page under its reader whenever nothing does. */
   it("draws „Angekündigt“ while nothing waits, saying so", async () => {
-    const { cards, waitingEmpty } = await read(OWNER, [THE_OWNER, grant("anna@example.org")]);
+    const { cards, waitingEmpty } = await read([THE_OWNER, grant("anna@example.org")]);
 
     expect(cards).toStrictEqual([
       { title: COPY.admin.team.active, count: 2 },
@@ -114,7 +120,8 @@ describe("the owner's acts", () => {
   it("show an administrator every act, on the toolbar and on every row, locked as the owner's alone", async () => {
     const handover = grant("anna@example.org", { owner_from: FUTURE });
 
-    const { create, side, active, waiting } = await read("anna@example.org", [THE_OWNER, handover]);
+    await arriveAs({ email: "anna@example.org", admin: true });
+    const { create, side, active, waiting } = await read([THE_OWNER, handover]);
 
     const ownerOnly = COPY.admin.administrators.ownerOnly;
     expect([create.locked, side.locked]).toStrictEqual([ownerOnly, ownerOnly]);
@@ -124,7 +131,12 @@ describe("the owner's acts", () => {
 
   /* The owner's address is folded on the grant and spelled as signed in on the session. */
   it("reach the owner whatever the session's spelling, the owner's own row locked until the handover", async () => {
-    const { create, active } = await read("Owner@Example.org", [THE_OWNER, grant("anna@example.org")]);
+    // The library folds an address it signs in, so a spelling of the owner's own is one its store holds for them.
+    const account = store.user.find(({ email }) => email === OWNER);
+    assert(account !== undefined, "the owner's sign-in stored no account");
+    account.email = "Owner@Example.org";
+
+    const { create, active } = await read([THE_OWNER, grant("anna@example.org")]);
 
     expect(create.locked).toBeUndefined();
     expect(actsOf(active)).toStrictEqual([COPY.admin.administrators.afterHandover, "runs"]);
@@ -133,9 +145,9 @@ describe("the owner's acts", () => {
   it("offer the handover from the administrators in effect, locked while one waits or none stands to take over", async () => {
     const waitingAddition = grant("neu@example.org", { effective_from: FUTURE });
 
-    const open = await read(OWNER, [THE_OWNER, grant("anna@example.org"), waitingAddition]);
-    const locked = await read(OWNER, [THE_OWNER, grant("anna@example.org", { owner_from: FUTURE })]);
-    const alone = await read(OWNER, [THE_OWNER, waitingAddition]);
+    const open = await read([THE_OWNER, grant("anna@example.org"), waitingAddition]);
+    const locked = await read([THE_OWNER, grant("anna@example.org", { owner_from: FUTURE })]);
+    const alone = await read([THE_OWNER, waitingAddition]);
 
     const { options } = (open.side.children as ReactElement<{ options: ReadonlyArray<{ id: string }> }>).props;
     expect(options.map(({ id }) => id)).toStrictEqual(["anna@example.org"]);

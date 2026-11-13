@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
@@ -6,19 +8,23 @@ import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import BewerbungPage from "./page";
-
 import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { SeatRow } from "@/kit/SeatRows";
 
 const ID = "65f0a0a0a0a0a0a0a0a0a0a0";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+/** The application the backend serves at the address's id. */
+const state = { read: null as unknown };
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => undefined }) }));
-vi.mock("@/features/bewerbungen/queries", () => ({ getBewerbungById: () => Promise.resolve(state.read) }));
-vi.mock("@/shared/utils/adminRead", () => ({ adminIdParamOf: () => Promise.resolve(ID) }));
+
+// The page's one read, of the application its address names, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === `/bewerbungen/${ID}` ? state.read : undefined));
+// An administrator's session, made by passkey, which the page's guard admits.
+signedInRequest();
+
+const { default: BewerbungPage } = await import("./page");
 
 const person = {
   first_name: "Anke",
