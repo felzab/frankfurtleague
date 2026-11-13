@@ -1547,7 +1547,7 @@ export const COPY = catalogue({
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
         notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-        both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
+        both: "Die Sperre steht, aber die Anmeldungen laufen weiter und die E-Mail ist nicht gesendet.",
         /** The second press's note, once it ended what the first left running. */
         ended: "Die Anmeldungen sind beendet.",
       },
