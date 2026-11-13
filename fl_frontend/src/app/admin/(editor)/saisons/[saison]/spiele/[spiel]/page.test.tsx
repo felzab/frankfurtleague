@@ -151,6 +151,8 @@ describe("the match editor's answers", () => {
     party: { kind: "team" as const, team_id: TEAM1 },
     ansetzung: { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" },
     deadline: "2026-11-10",
+    due_by: "2026-11-10",
+    lapsed_on: null,
     asked_at: "2026-11-03",
     reminded_at: null,
     answer: null,
