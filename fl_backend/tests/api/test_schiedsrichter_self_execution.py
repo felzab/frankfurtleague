@@ -209,25 +209,19 @@ class TestTheSeasonsFixtures:
             (STRUCK_OUT, None, False, False, False, "ausgefallen"),
             (REPORTED, None, True, True, False, None),
         ]
-
-    def test_a_fixture_answers_its_bookings_newest_row_as_it_stands(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, own_spiele())
-
-        [entry] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
-        assert (entry.spielbestaetigung_id, entry.date, entry.team1_name, entry.team2_name, entry.past) == (
+        # A booking answers its newest row as it stands: not the row closed when it moved, and not Ute's.
+        [to_answer] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
+        assert (to_answer.spielbestaetigung_id, to_answer.date, to_answer.team1_name, to_answer.team2_name, to_answer.past) == (
             ObjectId("6890a1b2c3d4e5f607e50051"),
             "2027-05-20",
             "Adler",
             "Biber",
             False,
         )
-        assert entry.spielort is not None and entry.spielort.name == "Halle Ost"
-
-    def test_the_leagues_answer_is_marked_and_its_reason_not_theirs_to_read(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, own_spiele())
-
-        [entry] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
-        assert (entry.entered, entry.reason) == (True, None)
+        assert to_answer.spielort is not None and to_answer.spielort.name == "Halle Ost"
+        # The league's answer is marked, and its reason is not theirs to read.
+        [to_come] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
+        assert (to_come.entered, to_come.reason) == (True, None)
 
     def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
         answer = answered(mongo_replica_set_url, own_spiele(), saison_status="past")

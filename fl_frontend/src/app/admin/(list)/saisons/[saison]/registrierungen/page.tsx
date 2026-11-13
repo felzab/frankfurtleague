@@ -3,13 +3,12 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
-import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, NOT_SENT_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { getRegistrierungenAdmin } from "@/features/registrierungen/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -43,7 +42,7 @@ const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label:
 /** Whether the pupil answered, and where they did not whether they were ever asked: the row lapses on its day either way. */
 function chipOf(row: FLRegistrierungAdminRow): ChipProps {
   if (row.confirmed) return CONFIRMED_CHIP;
-  return row.unmailed ? NOT_SENT : UNCONFIRMED_CHIP;
+  return row.unmailed ? NOT_SENT_CHIP : UNCONFIRMED_CHIP;
 }
 
 /**

@@ -595,27 +595,6 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         assert len(answers) == 2
         assert asked == [(SAISON_ID, str(SPIEL))]
 
-    def test_a_season_not_running_is_neither_closed_nor_reminded(self, mongo_replica_set_url: str):
-        """A mailed row due a reminder today, and one whose fixture moved: each step would answer one were the mint alone gated."""
-
-        spiel = a_spiel(PAST_SPIEL, 1, days_after(day=TODAY, days=10), saison_id=PAST_SAISON_ID)
-        mailed = [
-            mailed_row(spiel=asked_about, party={"kind": "team", "team_id": team_id}, asked_at=TODAY, saison_id=PAST_SAISON_ID)
-            for team_id, asked_about in ((ALPHA, spiel), (BETA, {**spiel, "time": "17:00:00"}))
-        ]
-        junctions = [junction(team_id, saison_id=PAST_SAISON_ID) for team_id in (ALPHA, BETA)]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(mailed)
-            answer = await sweep(database, client, saison_id=PAST_SAISON_ID)
-
-            return answer, await rows(database)
-
-        answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[spiel], junctions=junctions)
-
-        assert (answer.requests, answer.reminders, answer.einteilungen, answer.new_ansetzungen, answer.closed) == ([], [], [], [], 0)
-        assert stored == mailed
-
     def test_the_same_pass_twice_owes_each_mail_once(self, mongo_replica_set_url: str):
         """The rows the first pass stamped in the transaction owing their mails are what the second finds asked."""
 

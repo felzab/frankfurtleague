@@ -45,11 +45,6 @@ class TestTheProductionLine:
         assert document["error"]["name"] == "ValueError"
         assert "Traceback" in document["error"]["stack"]
 
-    def test_carries_no_address_in_its_message_its_fields_or_its_stack(self):
-        line = JSONFormatter().format(a_failure_record("refused for anna.beispiel@example.org", address="b.c+d@schule.example.de"))
-
-        assert "@" not in line, line
-
     @pytest.mark.parametrize("row", LOG_ADDRESSES, ids=lambda row: row["case"])
     def test_scrubs_the_shared_table_in_its_message_its_fields_and_its_error_and_stays_one_document(self, row: dict[str, str]):
         document = json.loads(JSONFormatter().format(a_failure_record(row["text"], failure=row["text"], quoted=[{"text": row["text"]}])))

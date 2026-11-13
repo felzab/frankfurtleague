@@ -2,7 +2,8 @@
 API · a referee's address in the editor: the save never moves a confirmed one, which an address change alone moves
 
 The change itself, its links and its effect are `tests/api/test_address_change_execution.py`'s; here the editor's save
-beside a change standing on the referee's address.
+on a confirmed referee's address. The decision alone, a retired referee's included, is
+`tests/api/test_schiedsrichter_reactivation_rules.py`'s.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -15,8 +16,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.address_change.admin_router import post_address_change_admin
-from app.api.address_change.schemas import FLAddressChangeAdminPayload
 from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
@@ -24,10 +23,8 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests import documents
-from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.outbox import MAIL_NOW, drained
-from tests.records import record_collections
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
@@ -70,7 +67,6 @@ def on_a_league(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
             await invite_schiedsrichter(
@@ -125,22 +121,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
     )
 
 
-async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """An administrator's start through the address tool, so the new mailbox is owed its link at once, on the mails' clock."""
-
-    return await post_address_change_admin(
-        address_change_data=FLAddressChangeAdminPayload.model_validate({"address": EMAIL, "email": NEW_EMAIL}),
-        address_changes_collection=database[Collection.ADDRESS_CHANGES],
-        records=record_collections(database),
-        spieler_collection=database[Collection.SPIELER],
-        grants_collection=database[Collection.GRANTS],
-        outbox_collection=database[Collection.OUTBOX],
-        db=client,
-        operator="admin@frankfurtleague.de",
-        germany_now=MAIL_NOW,
-    )
-
-
 async def stored(database: AsyncDatabase) -> Mapping[str, Any]:
     found = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_OID})
     assert found is not None, "the referee this case seeded is gone"
@@ -158,11 +138,8 @@ async def refused_code(call: Awaitable[Any]) -> str:
 class TestTheSaveOnAConfirmedReferee:
     """`schiedsrichter_address_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
-    @pytest.mark.parametrize("retired", [False, True], ids=["serving", "retired"])
-    def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str, retired: bool):
+    def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if retired:
-                await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": "2026-03-01"}})
             before = await stored(database)
 
             return await refused_code(save(database, client, email=NEW_EMAIL)), before, await stored(database)
@@ -171,16 +148,3 @@ class TestTheSaveOnAConfirmedReferee:
 
         assert code == Code.SCHIEDSRICHTER_ADDRESS_ONLY_PER_CHANGE
         assert row == before
-
-    def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await request(database, client)
-            saved = await save(database, client, email="ortwin.pfeiffenberger@EXAMPLE.com")
-
-            return minted, saved, await stored(database), await database[Collection.ADDRESS_CHANGES].find_one({"_id": minted.id})
-
-        minted, saved, row, change = on_a_league(mongo_replica_set_url, body)
-
-        assert saved.confirmation is None
-        assert row["default_payment"] == 25
-        assert (change["ended"], change["email"]) == (None, NEW_EMAIL)

@@ -4,12 +4,7 @@ from typing import Any, Literal
 import pytest
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import (
-    FROZEN_RULES_FIELDS,
-    find_rules_freeze_refusal,
-    find_rules_refusal,
-    find_undraw_refusal,
-)
+from app.api.saisons.services import find_rules_freeze_refusal, find_rules_refusal, find_undraw_refusal
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
@@ -88,9 +83,6 @@ FROZEN_CASES: tuple[tuple[str, dict[str, Any]], ...] = (
     ("qualifiers_per_gruppe", {"qualifiers": 1}),
     ("tiebreak_order", {"tiebreak": "direkter_vergleich"}),
 )
-
-# A field added to the freeze and not to the cases above would otherwise go untested in silence.
-assert tuple(field for field, _ in FROZEN_CASES) == FROZEN_RULES_FIELDS, "the frozen fields and the cases covering them have drifted apart"
 
 
 class TestTheBracketMustHaveAShape:

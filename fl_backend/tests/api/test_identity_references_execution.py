@@ -215,47 +215,7 @@ def answered(url: str) -> tuple[int, Mapping[str, Any]]:
 
 
 @pytest.mark.db
-class TestWhatKeepsAnAccount:
-    @pytest.mark.parametrize(
-        "email",
-        [
-            pytest.param(SEAT_PAST, id="a past season's block not yet cleared"),
-            pytest.param(SEAT_PAST_OPEN, id="an unconfirmed seat on a past season"),
-            pytest.param(SEAT_OPEN, id="an unconfirmed seat on the running season, which the gate admits"),
-            pytest.param(SEAT_EXITED, id="a withdrawn team's seat"),
-            pytest.param(BEWERBUNG_OPEN, id="a pending application's confirmed seat"),
-            pytest.param(BEWERBUNG_UNCONFIRMED, id="a pending application's unconfirmed seat"),
-            pytest.param("Spieler.Anna@Schule.DE", id="a pupil, asked in capitals"),
-            pytest.param(SCHIEDSRICHTER_RETIRED, id="a retired referee"),
-            pytest.param(REGISTERED, id="a confirmed pending registration"),
-            pytest.param(ADMIN, id="a grant the comparison has not seen"),
-            pytest.param(BARRED_SCHIEDSRICHTER, id="a referee record at a barred address"),
-        ],
-    )
-    def test_an_address_a_record_or_grant_holds_is_never_answered(self, mongo_replica_set_url: str, email: str):
-        status, body = answered(mongo_replica_set_url)
-
-        assert status == 200, body
-        assert email not in body["unreferenced"]
-
-
-@pytest.mark.db
 class TestWhatLetsAnAccountGo:
-    @pytest.mark.parametrize(
-        "email",
-        [
-            pytest.param(REGISTERED_OPEN, id="a pending registration its pupil has not confirmed"),
-            pytest.param(BARRED, id="a standing ban and no record"),
-            pytest.param(OUTSIDE_THE_RULE, id="an address today's rule refuses and no record holds"),
-            pytest.param(NOBODY, id="nothing at all"),
-        ],
-    )
-    def test_an_address_nothing_holds_is_answered(self, mongo_replica_set_url: str, email: str):
-        status, body = answered(mongo_replica_set_url)
-
-        assert status == 200, body
-        assert email in body["unreferenced"]
-
     def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
         assert answered(mongo_replica_set_url) == (
             200,

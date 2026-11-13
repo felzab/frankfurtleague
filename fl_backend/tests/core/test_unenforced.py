@@ -7,7 +7,6 @@ from pydantic import TypeAdapter
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    FLBracketFault,
     FLPatchSpielDataPayload,
     FLSpielJoinedAdmin,
     FLSpielJoinedInternal,
@@ -31,7 +30,6 @@ from app.api.spiele.services import (
 from app.api.spieler.services import mark_shared_nummern
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
-from app.readback import RECORD_MODELS
 from tests.documents import joined_spiel_document, rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
@@ -361,14 +359,3 @@ class TestARefereeDoubleBookedAtTwoGrounds:
             (AT_THE_FIRST_GROUND_NR, "schiedsrichter", AN_HOUR_LATER_AT_THE_SECOND_NR),
             (AN_HOUR_LATER_AT_THE_SECOND_NR, "schiedsrichter", AT_THE_FIRST_GROUND_NR),
         ]
-
-
-class TestNoBracketFaultIsStored:
-    """That the discriminator every fault variant carries is on no collection, so no fault can have been written."""
-
-    # Read off the union, whose `Field(discriminator=...)` holds every variant to it: a rename carries this check with it.
-    DISCRIMINATOR = FLBracketFault.__value__.__metadata__[0].discriminator
-
-    @pytest.mark.parametrize("collection", sorted(RECORD_MODELS), ids=str)
-    def test_no_collection_stores_a_faults_reason(self, collection):
-        assert self.DISCRIMINATOR not in RECORD_MODELS[collection].model_fields

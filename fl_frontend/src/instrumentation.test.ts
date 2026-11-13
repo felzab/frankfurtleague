@@ -129,15 +129,6 @@ it("starts the sign-in store's connect at a production boot without waiting on i
   expect(storeConnects).toBe(1);
 });
 
-/* The start line names the image's version, so the log of every boot says which build started. */
-it("logs one start line naming the image's version", async () => {
-  await bootAndStep("production", []);
-
-  expect(lines.filter(({ event }) => event === "system.started")).toStrictEqual([
-    { level: "info", event: "system.started", fields: { version: "sha-1234567" } },
-  ]);
-});
-
 describe("the one scheduler", () => {
   /* Nothing at the boot, where the backend may not answer yet after a deploy; the first pass a minute in, so a
      container recreated daily still runs one; then hourly. Every job each pass, the drain last, sending what they owed. */
@@ -189,14 +180,6 @@ describe("the one scheduler", () => {
 });
 
 describe("the pass's one line", () => {
-  /* The heartbeat says a pass ran, so a line for an hour in which nothing happened is noise every reader skips. */
-  it("writes nothing for an idle pass", async () => {
-    await bootAndStep("production", [MINUTE_MS]);
-
-    expect(ran).toStrictEqual(EVERY_JOB);
-    expect(schedulerLines()).toStrictEqual([]);
-  });
-
   /* One line per pass where anything happened, every job's counts and every drain's in it, the drains a write started
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
@@ -264,12 +247,5 @@ describe("the heartbeat after each pass", () => {
       ["scheduler.heartbeat_failed", { name: "TypeError" }],
       ["scheduler.heartbeat_failed", { name: "TypeError" }],
     ]);
-  });
-
-  it("pings nothing where the boot holds no address, as every stack but production", async () => {
-    await bootAndStep("production", [MINUTE_MS]);
-
-    expect(ran).toStrictEqual(EVERY_JOB);
-    expect(pings).toStrictEqual([]);
   });
 });

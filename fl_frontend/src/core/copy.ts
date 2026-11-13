@@ -472,6 +472,12 @@ export const COPY = catalogue({
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
     saisonName,
+    /**
+     * The same name joined by a no-break space, for a line binding a label to it, such as a ban's
+     * „Gültig bis Saison 2027“, so the line never ends on „Saison“ apart from its year. Everywhere else the name keeps
+     * its plain space: a mail's subject, a tab's title and any words a person matches or searches as typed.
+     */
+    saisonNameBound: (id: string) => boundBy("Saison", id),
 
     /**
      * The bot check's one answer a person can act on, its click shown or its judgement against the token; a check that
@@ -734,7 +740,7 @@ export const COPY = catalogue({
      */
     lockLine: (reasons: readonly LockReason[]) =>
       `Gesperrt ${formatList((Object.keys(LOCK) as LockReason[]).filter((by) => reasons.includes(by)).map((by) => LOCK[by]))}.`,
-    /** A finished season, which shuts every registration link and every acceptance: a link's state, and why „Annehmen“ is locked. */
+    /** A finished season, which shuts every acceptance: why „Annehmen“ is locked. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",

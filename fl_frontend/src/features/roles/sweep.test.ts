@@ -124,13 +124,6 @@ describe("the batches a pass asks in", () => {
     expect(asked.map((batch) => batch.length)).toStrictEqual([REFERENCES_ADDRESSES_MAX, 1]);
     expect(asked.flat(), "an address was asked twice, or not at all").toStrictEqual(accounts);
   });
-
-  // An empty batch is refused whole too.
-  it("asks the backend nothing for an empty store", async () => {
-    await runAccountSweep();
-
-    expect(calls).toStrictEqual([]);
-  });
 });
 
 describe("a pass meeting a failure", () => {

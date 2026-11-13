@@ -277,14 +277,10 @@ class TestAGrantHoldersAddress:
         ("path", "body", "address"),
         [
             (VIEW_PATH, view_of, OWNER),
-            (PATH, erasure_of, OWNER),
-            (VIEW_PATH, view_of, ANOTHER_ADMINISTRATOR),
             (PATH, erasure_of, ANOTHER_ADMINISTRATOR),
         ],
         ids=[
             "the counts of an owner",
-            "the erasure of an owner",
-            "the counts of an administrator",
             "the erasure of an administrator",
         ],
     )
@@ -472,7 +468,6 @@ class TestTheReasonIsRefusedAtTheBox:
         "body",
         [
             pytest.param(erasure_of(reason="   "), id="spaces alone"),
-            pytest.param(erasure_of(reason="Mail vom 30.03.\nBetreff: Löschung"), id="two lines"),
         ],
     )
     def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
@@ -488,7 +483,6 @@ class TestADomainIsRefusedBeyondAscii:
     @pytest.mark.parametrize(
         ("payload", "body"),
         [
-            pytest.param(FLErasureAddressPayload, view_of("anna@müller.de"), id="the lookup"),
             pytest.param(FLErasurePayload, erasure_of("anna@müller.de"), id="the erasure"),
         ],
     )

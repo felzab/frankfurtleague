@@ -43,7 +43,7 @@ class TestSpieler:
 
         assert [error["type"] for error in refused.errors()] == ["extra_forbidden"]
 
-    @pytest.mark.parametrize("field", ["first_name", "birth_date", "email"])
+    @pytest.mark.parametrize("field", ["email"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
         """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
 

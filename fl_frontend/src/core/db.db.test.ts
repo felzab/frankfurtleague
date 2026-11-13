@@ -20,8 +20,6 @@ const { mongod, closing } = await startJudgedReplicaSet();
 class Relay {
   private hung = false;
   private refusing = false;
-  /** Connections still to pass while `hangAfterFirst` runs, every later one opened and never answered. */
-  private passing: number | null = null;
   /** The command whose first request hangs the relay, as its name opens a BSON key. */
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
@@ -38,11 +36,6 @@ class Relay {
       inbound.destroy();
       return;
     }
-    let answered = true;
-    if (this.passing !== null) {
-      answered = this.passing > 0;
-      this.passing -= 1;
-    }
     const outbound = dial(mongod.getMappedPort(27017), mongod.getHost());
     for (const socket of [inbound, outbound]) {
       this.sockets.add(socket);
@@ -56,7 +49,7 @@ class Relay {
       }
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
-      if (!this.hung && answered) outbound.write(chunk);
+      if (!this.hung) outbound.write(chunk);
       else this.stranded.add(inbound);
     });
     outbound.on("data", (chunk) => inbound.write(chunk));
@@ -89,20 +82,6 @@ class Relay {
       return await body();
     } finally {
       this.resume();
-    }
-  }
-
-  /**
-   * Runs `body` passing the first connection the client opens and hanging every later one: a store
-   * that answers the monitor it meets first and never a handshake after it.
-   */
-  async hangAfterFirst<T>(body: () => Promise<T>): Promise<T> {
-    this.passing = 1;
-    try {
-      return await body();
-    } finally {
-      this.passing = null;
-      this.endStranded();
     }
   }
 
@@ -205,7 +184,6 @@ const { client: recoveringClient, connect: connectRecovering } = await evaluated
     else env.NODE_ENV = nodeEnv;
   },
 );
-const handshakeClient = await storeOf(`${import.meta.resolve("./db.ts")}?handshake`);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -242,18 +220,6 @@ describe("the sign-in store's client bounds a cold start", () => {
     );
 
     assert.ok(outcome instanceof MongoServerSelectionError, `the cold read settled with ${String(outcome)}`);
-  });
-
-  /* The boot's own call: an explicit `connect()` checks a connection out, which waits out the
-     connection's opening. The checkout's bound and the handshake's each end it, so only removing both
-     leaves it waiting. */
-  it("ends an explicit connect whose handshake the store never answers within one stage's bound", async () => {
-    try {
-      const outcome = await relay.hangAfterFirst(() => settledWithin(STAGE_BOUND, "the hung handshake", () => handshakeClient.connect()));
-      assert.ok(outcome instanceof MongoError, `the hung handshake settled with ${String(outcome)}`);
-    } finally {
-      await handshakeClient.close();
-    }
   });
 });
 

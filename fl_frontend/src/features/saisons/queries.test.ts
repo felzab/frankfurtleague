@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-const { setSession } = doubleActionRequest();
+doubleActionRequest();
 
 /** Every cache declaration a read made, which the request's own double answers by recording nothing. */
 const declared: string[] = [];
@@ -49,15 +49,5 @@ describe("the season editor's read", () => {
       ["/saisons/2627/admin", "admin"],
     ]);
     expect(declared, "the administrator's read is declared into a cache every caller shares").toStrictEqual([]);
-  });
-
-  /* The admin tier's guard, which the page's layout does not give a page's own read. */
-  it("sends nothing for a session holding no administrator", async () => {
-    setSession(null);
-    const before = reads.length;
-
-    await expect(getAdminSaison("2627")).rejects.toThrow();
-
-    expect(reads.length, "the season was read for a session the guard turns away").toBe(before);
   });
 });

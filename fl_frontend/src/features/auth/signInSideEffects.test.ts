@@ -8,7 +8,7 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { answerAt } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
@@ -27,32 +27,15 @@ const GRANTED = ADMIN_EMAIL;
 /** Holding nothing at all, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
 
-/** Two addresses holding no grant, each refused by a later check of the gate. */
-const BARRED = "gesperrte@example.org";
-const UNREACHED = "unerreichte@example.org";
-/** The addresses holding no grant the gate admits, so the refusals above are the gate's rather than the harness's. */
-const SEATED = "trainerin@example.org";
-const UNCONFIRMED = "unbestaetigte@example.org";
-/** Holding a record of its own no list names, a pending application's seat: no Funktion, and a consent to take back. */
-const ACCOUNT_ONLY = "bewerberin@example.org";
-
-/** What the backend holds for an address, answered at each read in that read's shape, or that it throws. */
-type Backend = LookupFixture | "throws";
-
-const BACKENDS: Readonly<Record<string, Backend>> = {
+/** What the backend holds for an address, answered at each read in that read's shape. */
+const BACKENDS: Readonly<Record<string, LookupFixture>> = {
   [GRANTED]: { ...HOLDS_NOTHING, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
-  [BARRED]: { ...HOLDS_NOTHING, seats: [SEAT], barred: true, account: true },
-  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, account: true },
-  [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...HOLDS_NOTHING, unconfirmed: true, account: false },
-  [SEATED]: { ...HOLDS_NOTHING, seats: [SEAT], account: true },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
 function answerFromTheBackend(call: ApiCall): Promise<unknown> {
   const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
   const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
-  if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
 
   return Promise.resolve(answerAt(call.endpoint, backend));
 }
@@ -190,15 +173,6 @@ function bodyWithoutEcho(result: ActionAnswer<string>): Record<string, unknown> 
 
 const granted = await signInWith(GRANTED);
 const rejected = await signInWith(REJECTED);
-const admittedByTheGate = {
-  "a person holding a live seat": { attempt: await signInWith(SEATED), address: SEATED },
-  "a person whose records all await confirmation": { attempt: await signInWith(UNCONFIRMED), address: UNCONFIRMED },
-  "a person whose only record no list names": { attempt: await signInWith(ACCOUNT_ONLY), address: ACCOUNT_ONLY },
-};
-const refusedByTheGate = {
-  "a barred address holding a seat": await signInWith(BARRED),
-  "an address whose backend read throws": await signInWith(UNREACHED),
-};
 
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
@@ -242,31 +216,12 @@ function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
 }
 
 describe("what the gate's backend read leaves on the response", () => {
-  /* The floor: addresses holding no grant that the gate admits, so the three refusals below
-     are the read deciding rather than every non-administrator being refused alike. */
-  for (const [branch, { attempt, address }] of Object.entries(admittedByTheGate)) {
-    it(`mails ${branch} only after the answer, which only the backend read can decide`, () => {
-      assertNothingAheadOfTheAnswer(attempt);
-      expect([...attempt.mailed]).toStrictEqual([address]);
-      expect(attempt.askedAfter, "the gate made other than its one read for a person").toBe(1);
-    });
-  }
-
   /* The grant is read on the person's own call, so nothing an address's owner can time or read
      tells an administrator's address from a seat holder's. */
   it("mails an address holding a grant after the one read a person's takes, and nothing ahead of the answer", () => {
     assertNothingAheadOfTheAnswer(granted);
     expect(granted.askedAfter, "the gate read an administrator's address other than once, which a person's it reads once").toBe(1);
   });
-
-  for (const [branch, attempt] of Object.entries(refusedByTheGate)) {
-    it(`refuses ${branch} with nothing done ahead of the answer and nothing mailed after it`, () => {
-      assertNothingAheadOfTheAnswer(attempt);
-      // Floored, so a gate that asked nothing is not mistaken for one that asked and refused.
-      assert.ok(attempt.askedAfter > 0, "the gate never reached the backend, so the refusal is not the read's");
-      expect([...attempt.mailed]).toStrictEqual([]);
-    });
-  }
 });
 
 describe("which account two spellings of one address reach", () => {

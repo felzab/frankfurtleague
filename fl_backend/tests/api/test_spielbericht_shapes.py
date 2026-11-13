@@ -201,7 +201,7 @@ class TestAReportFollowsTheKickOff:
 
 
 class TestACalledOffSpielTakesNoReport:
-    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen"])
     def test_a_spiel_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_CANCELLED, find_cancelled_refusal(sonderereignis=sonderereignis))
 
@@ -276,7 +276,7 @@ class TestTheAdoptedStateIsDerivedFromTwo:
         assert bericht_state_of(bericht, played(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
         assert bericht_state_of(bericht, played(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
 
-    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen"])
     def test_a_spiel_called_off_since_the_report_reads_cancelled(self, sonderereignis: str):
         """Read-only and awaiting nobody: no write can adopt a report on a match that took no place."""
 

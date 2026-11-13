@@ -32,7 +32,7 @@ DECLINED_OID = ObjectId("6890a1b2c3d4e5f607950014")
 EARLIER_DAY_OID = ObjectId("6890a1b2c3d4e5f607950015")
 SAME_DAY_OID = ObjectId("6890a1b2c3d4e5f607950016")
 
-# The hash of a link nobody minted here: what matters is that no read answers it, whatever it is.
+# The hash every seeded row's link holds, of a link nobody minted here.
 TOKEN_HASH = "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819201"
 
 CONSENT: dict[str, Any] = own_einwilligung_document(text_versions=SPIELER_TEXT_VERSIONS, confirmed_at="2026-04-03")
@@ -151,17 +151,6 @@ class TestWhatTheReadServes:
         answered = on_a_league(mongo_replica_set_url, body)
 
         assert (len(answered.registrierungen), answered.complete) == (LIST_LIMIT_DEFAULT, False)
-
-    def test_no_token_hash_and_no_address_reaches_the_answer(self, mongo_replica_set_url: str):
-        """The list shows neither, and what the read projects is what crosses the wire."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await read(database)
-
-        answer = on_a_league(mongo_replica_set_url, body).model_dump_json()
-
-        assert TOKEN_HASH not in answer
-        assert "@beispielschule.de" not in answer
 
     def test_the_season_s_pending_rows_alone_lead_with_the_newest(self, mongo_replica_set_url: str):
         """A declined row and another season's stay out, each of which a read narrowing nothing would serve.

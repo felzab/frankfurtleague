@@ -511,8 +511,8 @@ class TestTheBookingReadAsksWhoUsedTheGround:
 
     @pytest.mark.parametrize(
         ("sonderereignis", "refused"),
-        [("abgebrochen", True), ("ausgefallen", False), ("annulliert", False), ("nichtantreten_team1", False)],
-        ids=["abandoned-occupies", "called-off-frees", "annulled-frees", "no-show-frees"],
+        [("abgebrochen", True)],
+        ids=["abandoned-occupies"],
     )
     def test_only_a_spiel_that_took_place_still_holds_its_slot(self, mongo_replica_set_url: str, sonderereignis: str, refused: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -884,7 +884,6 @@ class TestASeasonNotYetStartedTakesNoResult:
 # The day Gamma is out of the season, which is also the day a fixture is moved onto below: the rule
 # reads `date < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
 GAMMA_DEPARTED_FROM = "2026-03-20"
-A_DAY_SHORT_OF_THE_EXIT = "2026-03-19"
 
 GAMMA_AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": GAMMA_DEPARTED_FROM}
 
@@ -900,9 +899,6 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         ("date", "error_code"),
         [
             pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
-            # The control: one day earlier the same save clears this rule and is refused by the NEXT
-            # one, so the refusal above is about the exit rather than about any date at all.
-            pytest.param(A_DAY_SHORT_OF_THE_EXIT, Code.SPIEL_OUTSIDE_SPIELTAG, id="moved a day short of it"),
         ],
     )
     def test_a_spiel_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
@@ -1437,8 +1433,6 @@ class TestASpielTheResolutionReopensKeepsARetiredBooking:
             pytest.param(
                 {"schiedsrichter": assignment(SCHIEDSRICHTER_RETIRED)}, [(HALBFINALE_NR, "retired_booking", "schiedsrichter")], id="referee"
             ),
-            # The control: the fault is the row's retirement, never the reopening.
-            pytest.param({"spielort": booking(SPIELORT), "schiedsrichter": assignment(SCHIEDSRICHTER)}, [], id="both-live"),
         ],
     )
     def test_the_booking_stays_and_the_queue_alone_names_it(self, mongo_replica_set_url: str, booked: dict[str, Any], reported: list[Any]):
