@@ -3539,7 +3539,7 @@ export interface FLSpielbestaetigungAppointment {
  *
  * Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
  * names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
- * discard tells the date stands, none once its kick-off has come.
+ * discard tells the date stands.
  */
 export interface FLOverviewVorschlagRow {
   adoption_recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];

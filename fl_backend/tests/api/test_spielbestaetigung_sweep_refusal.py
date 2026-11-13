@@ -9,7 +9,6 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     compose_ansetzung,
     deadline_of,
-    discard_owes_a_notice,
     notice_owed,
     parties_told_of_the_change,
     reason_to_close,
@@ -154,11 +153,6 @@ class TestANoticeIsAboutASlotStillToCome:
         # The premise: the close shuts the row for the referee change, not the move.
         assert reason_to_close(row=asked, spiel=moved_and_taken_off, austritte={}, now=KICK_OFF) == "schiedsrichter_switched"
         assert notice_owed(row=asked, reason="schiedsrichter_switched", spiel=moved_and_taken_off, now=KICK_OFF) is False
-
-    def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
-        owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
-
-        assert owed == [True, False]
 
 
 class TestASaveNamesOnlyThoseItsOwnChangeTells:

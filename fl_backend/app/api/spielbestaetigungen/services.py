@@ -539,8 +539,12 @@ def build_triage_rows_filter(*, saison_id: str, today: str) -> dict[str, Any]:
     }
 
 
-def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
-    """`build_discardable_filter` asked of the row read, and the row about the fixture as it stands: what a discard and an adoption act on."""
+def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> bool:
+    """`build_discardable_filter` asked of the row read, on a row the pass's next close leaves open: what a discard and an adoption act on.
+
+    The close's own judgement, so neither acts on a row a save has overtaken before the hourly pass shuts it: about an
+    Ansetzung the fixture left, or on a fixture decided, called off, kicked off or fielding a club gone by its day.
+    """
 
     party, answer = spielbestaetigung_raw.get("party") or {}, spielbestaetigung_raw.get("answer") or {}
 
@@ -549,20 +553,23 @@ def holds_an_open_proposal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: M
         and answer.get("kind") == "declined"
         and answer.get("vorschlag") is not None
         and spielbestaetigung_raw.get("closed") is None
-        and ansetzung_digest_of(spiel) == spielbestaetigung_raw["ansetzung"]["digest"]
+        and _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) is None
     )
 
 
-def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+def find_discard_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
     """Why a discard of this row must be refused, or `None`."""
 
-    return None if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel) else discard_refusal()
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
+        return None
+
+    return discard_refusal()
 
 
-def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: Mapping[str, Any]) -> WriteRefusal | None:
+def find_adoption_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
     """Why an adoption of this row must be refused, or `None`: the discard's condition, under the adoption's own code."""
 
-    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, spiel=spiel):
+    if holds_an_open_proposal(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now):
         return None
 
     return WriteRefusal(error_code=Code.ANSETZUNG_NOT_ADOPTABLE, status=HTTPStatus.CONFLICT)
@@ -934,15 +941,6 @@ def parties_told_of_the_change(
             told.append(row["party"])
 
     return told
-
-
-def discard_owes_a_notice(*, row: Mapping[str, Any], now: datetime) -> bool:
-    """Whether a discard owes the club a notice that the date stands: about a slot to come.
-
-    No stamp asked, as `notice_owed` asks one: the decline it discards was the club's own answer, given signed in.
-    """
-
-    return _notice_to_come(row=row, reason="discarded", spiel={}, now=now)
 
 
 def spiel_mail_appointment_of(*, spielbestaetigung_raw: Mapping[str, Any], names: tuple[str, str]) -> FLSpielMailAppointment:

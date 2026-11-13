@@ -2933,8 +2933,7 @@ export const getSpielbestaetigungenDiscardSpielbestaetigungUrl = (spielbestaetig
 /**
  * Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
  *
- * The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
- * the date stands.
+ * The public fixture counts it as the club's agreement, and the club is told that the date stands.
  * @summary Discard a club's proposed date
  */
 export const spielbestaetigungenDiscardSpielbestaetigung = async (
