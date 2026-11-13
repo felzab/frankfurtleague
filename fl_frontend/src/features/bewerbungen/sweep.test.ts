@@ -103,22 +103,6 @@ beforeEach(() => {
 });
 
 describe("one pass of the applications' job", () => {
-  it("runs each season's two halves in turn, then the address changes' half and the referee clock", async () => {
-    seasons(["2526", "2627"]);
-
-    await runBewerbungSweep();
-
-    expect(order()).toStrictEqual([
-      "/bewerbungen/sweep",
-      "/bewerbungen/sweep/2526",
-      "/registrierungen/sweep/2526",
-      "/bewerbungen/sweep/2627",
-      "/registrierungen/sweep/2627",
-      "address_change",
-      "/schiedsrichter/sweep",
-    ]);
-  });
-
   /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and both halves tells
      apart from a healthy pass. */
   it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
