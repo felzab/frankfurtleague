@@ -75,7 +75,6 @@
     "jsdom": "^31.0.0",
     "knip": "^6.45.0",
     "markdownlint-cli2": "^0.24.0",
-    "msw": "^2.15.0",
     "orval": "8.47.0",
     "postcss": "^8.5.32",
     "prettier": "3.9.10",

@@ -15,11 +15,10 @@ import {
   sessionByCode,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
-import { serveBackend } from "@/test-support/backend.ts";
+import { networkFailure, serveBackend } from "@/test-support/backend.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
-import { HttpResponse } from "msw";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { assertionAnswer } from "./auth/assertionAnswer.ts";
@@ -161,7 +160,7 @@ serveBackend(async ({ path: endpoint, body }) => {
   const path = `/api/v0${endpoint}`;
   asked.push(path);
   // A rejected answer is a request the backend never answered.
-  if (path === ERASURE_PATH) return erasureAnswer().catch(() => HttpResponse.error());
+  if (path === ERASURE_PATH) return erasureAnswer().catch(() => networkFailure());
   const held = heldRead;
   if (held !== undefined) {
     heldRead = undefined;
@@ -171,7 +170,7 @@ serveBackend(async ({ path: endpoint, body }) => {
 
   const email = ((body ?? {}) as { email?: string }).email ?? "";
   const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
-  if (backend === "throws") return HttpResponse.error();
+  if (backend === "throws") return networkFailure();
   if (backend === "refuses") {
     const refusal = { error_code: "payload_refused", trace_id: "0".repeat(32), fields: [] };
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });

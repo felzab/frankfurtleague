@@ -1,9 +1,8 @@
-import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN } from "@/test-support/backend.ts";
+import { answerInEveryCase, answerWhereUnanswered, BACKEND_ORIGIN, networkFailure } from "@/test-support/backend.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { symmetricDecrypt } from "better-auth/crypto";
 import { ObjectId } from "mongodb";
-import { HttpResponse } from "msw";
 import { assert, beforeEach, vi } from "vitest";
 
 import type { auth as AuthInstance } from "@/core/auth/library.ts";
@@ -136,7 +135,7 @@ function doubleOutbox(): {
     const mail = { to: payload.to, ...renderMail(message) };
 
     // A backend that never answered the enqueue, as the client meets one: the request fails on the network.
-    if ((await answering(mail)) === "lost") return HttpResponse.error();
+    if ((await answering(mail)) === "lost") return networkFailure();
 
     owed.push(payload);
     sent.push(mail);
@@ -357,7 +356,7 @@ const lookupBy =
     const answer = answerFor(email ?? "");
     if (answer === undefined) return undefined;
 
-    return answer === null ? HttpResponse.error() : answerAt(path, answer);
+    return answer === null ? networkFailure() : answerAt(path, answer);
   };
 
 /** `ADMIN_EMAIL`'s grant and nothing for any other address, which fails its read as an unreachable backend does. */
