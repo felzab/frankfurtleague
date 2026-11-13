@@ -1234,14 +1234,11 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
 
 
 # As the dry run serves each party: by the name its own record holds, a club's season row and a referee's.
-CLUB1, CLUB2, OTTOS, UTES = (
+CLUB1, CLUB2, OTTOS = (
     {"kind": "team", "team_id": str(TEAM1), "name": "Adler"},
     {"kind": "team", "team_id": str(TEAM2), "name": "Biber"},
     {"kind": "schiedsrichter", "schiedsrichter_id": str(SCHIEDSRICHTER), "name": REFEREE},
-    {"kind": "schiedsrichter", "schiedsrichter_id": str(UTE), "name": "Ute Lang"},
 )
-# Ute's own row about the fixture's slot, from a booking taken off before the pass closed it.
-UTES_ROW = ObjectId("6890a1b2c3d4e5f607d50062")
 
 
 class TestTheDryRunNamesWhomTheSaveHasThePassMail:
@@ -1272,20 +1269,17 @@ class TestTheDryRunNamesWhomTheSaveHasThePassMail:
     def test_a_party_no_read_of_the_editor_holds_is_named_by_its_own_record(self, mongo_replica_set_url: str):
         """A referee no list of the editor holds is still named in the question naming the save's mails.
 
-        The harm: a referee taken off and retired since, mailed of the call-off and left out of that question.
+        The harm: a referee retired since their booking, taken off by this save, mailed that their Einteilung is lifted and
+        left out of that question.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": UTE}, {"$set": {"inactive_since": "2126-04-20"}})
-            preview = await save(database, client, await spiel_now(database), dry_run=True, sonderereignis="ausgefallen")
+            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER}, {"$set": {"inactive_since": "2126-04-20"}})
+            preview = await save(database, client, await spiel_now(database), dry_run=True, schiedsrichter=None)
 
             return preview.recipients
 
-        rows = [confirmation(ROW1, TEAM1), confirmation(ROW2, TEAM2), referee_row(), referee_row(UTES_ROW, schiedsrichter_id=UTE)]
-
-        assert sorted((party.model_dump() for party in on_a_refereed_spiel(mongo_replica_set_url, body, rows=rows)), key=str) == sorted(
-            [CLUB1, CLUB2, OTTOS, UTES], key=str
-        )
+        assert [party.model_dump() for party in on_a_refereed_spiel(mongo_replica_set_url, body)] == [OTTOS]
 
 
 class TestARowAnswersOnlyToItsOwnReferee:

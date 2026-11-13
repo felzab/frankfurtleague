@@ -1534,8 +1534,8 @@ def find_gruppe_swap_refusal(
     team2_gruppe: str | None,
     saison_status: str,
     # `has_started`: a swap rewrites fixtures, and once the season is under
-    # way a fixture is a record of who played it. Before the start none holds a result
-    # (`ergebnis_before_saison_start`), so the rewrite hands no record to the other club.
+    # way a fixture is a record of who played it. Before the start the save refuses a result
+    # (`ergebnis_before_saison_start`), which keeps records out of what the rewrite moves.
     started: bool,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
@@ -1621,8 +1621,8 @@ def find_replacement_refusal(
     *,
     saison_status: str,
     # `has_started`: once the season is under way, a club leaves it by its
-    # Austritt and is never replaced. Before the start none of its fixtures holds a result
-    # (`ergebnis_before_saison_start`), so the incoming club inherits no record it never made.
+    # Austritt and is never replaced. Before the start the save refuses a result
+    # (`ergebnis_before_saison_start`), which keeps the incoming club from inheriting a record it never made.
     started: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,

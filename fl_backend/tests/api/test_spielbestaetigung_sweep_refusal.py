@@ -20,6 +20,7 @@ from app.core import clock
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
 BETA = ObjectId("6890a1b2c3d4e5f607760002")
+GAMMA = ObjectId("6890a1b2c3d4e5f607760003")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077600c1")
 
 
@@ -98,6 +99,21 @@ class TestWhyARowCloses:
                 REFEREE, {"schiedsrichter": None, "time": "19:00:00"}, {}, "schiedsrichter_switched", id="taken off, ahead of the move"
             ),
             pytest.param(TEAM, {"schiedsrichter": None}, {}, None, id="a club's row keeps its referee change"),
+            # A call-off's notice promises its party the next request, which a party taken off never receives.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "sonderereignis": "ausgefallen"},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of the call-off",
+            ),
+            pytest.param(
+                TEAM,
+                {"team1": {"team_id": GAMMA, "tore": None}, "sonderereignis": "ausgefallen"},
+                {},
+                "ansetzung_changed",
+                id="the club taken off, ahead of the call-off",
+            ),
         ],
     )
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):

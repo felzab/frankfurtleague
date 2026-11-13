@@ -68,6 +68,13 @@ class TestAResultBeforeTheStartIsRefused:
 
         assert judged(document, started=False, team1=side(HOME, 3)) is not None
 
+    def test_a_shoot_out_on_a_stored_level_result_is_refused(self):
+        """The goals unchanged, the shoot-out alone decides the tie, and the bracket would advance its winner."""
+
+        document = stored(saison_phase="achtelfinale", team1=side(HOME, 2), team2=side(AWAY, 2), ergebnis="2:2")
+
+        assert judged(document, started=False, elfmeterschiessen={"team1": 4, "team2": 3}) is not None
+
 
 class TestWhatTheRulePasses:
     @pytest.mark.parametrize(
@@ -85,6 +92,15 @@ class TestWhatTheRulePasses:
         """The editor locks the result's fields until the start and sends them back as stored with every other change."""
 
         document = stored(team1=side(HOME, 2), team2=side(AWAY, 1), ergebnis="2:1", sonderereignis="abgebrochen")
+
+        assert judged(document, started=False, date="2027-03-01") is None
+
+    def test_a_stored_shoot_out_resubmitted_unchanged_passes(self):
+        """The payload's shoot-out model is not the stored one's, and the two never compare equal as models."""
+
+        document = stored(
+            saison_phase="achtelfinale", team1=side(HOME, 2), team2=side(AWAY, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}
+        )
 
         assert judged(document, started=False, date="2027-03-01") is None
 

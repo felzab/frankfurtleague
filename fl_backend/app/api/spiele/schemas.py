@@ -42,12 +42,11 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
 
 # `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
-# state barred from carrying a result reaches no figure the table is scored on. The table's `count_cancelled_spiele`
-# counts exactly these beside its figures: a no-show's awarded result already stands among the games it played.
+# state barred from carrying a result reaches no figure the table is scored on, where a no-show's awarded result
+# stands among the games played.
 SONDEREREIGNIS_WITHOUT_A_RESULT: tuple[FLSonderereignis, ...] = ("ausgefallen", "annulliert")
 
-# A no-show and an abandonment both leave a record of the match, which `has_taken_place` counts and an
-# unstarted season refuses (`ergebnis_before_saison_start`); a fixture called off or struck out leaves none.
+# A no-show and an abandonment both leave a record of the match, where a fixture called off or struck out leaves none.
 SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "abgebrochen",
     "nichtantreten_team1",
