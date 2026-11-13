@@ -881,8 +881,8 @@ async def replace_saison_team(
         )
 
         # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
-        # side's name from here. No `tore`: a replacement runs only before the season's start, when no fixture holds
-        # a result.
+        # side's name from here. No `tore`: a replacement runs only before the season's start, when the save refuses a
+        # result.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

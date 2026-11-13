@@ -152,7 +152,7 @@ async def _rewrite_gruppenphase_sides(
     """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
     Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
-    whoever scored them, a swap running only before the season's start, when no fixture holds a result. Named by `_id` from a snapshot
+    whoever scored them: a swap runs only before the season's start, when the save refuses a result. Named by `_id` from a snapshot
     read before any write: filtering on the club would let the second pass match what the first just wrote and swap it
     back.
     """

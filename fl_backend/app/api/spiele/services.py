@@ -1123,10 +1123,10 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
 def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload, *, started: bool) -> WriteRefusal | None:
     """`ergebnis_before_saison_start`: goals, a no-show or an abandonment this save would newly store while the season has not started.
 
-    `started` is the season's own `has_started`, the one start every start lock reads, so no match of a season
-    records what `has_taken_place` counts before the start the swap, the replacement and the rules' freeze close on.
-    Judged against the stored fixture, as the start's own edit is: a result stored before this rule, resubmitted
-    unchanged, passes, and so does clearing one; a match called off or struck out stores no result and passes too.
+    `started` is the season's own `has_started`, the one start every start lock reads. Judged against the stored
+    fixture, as the start's own edit is, so a fixture already holding a result is never trapped: that result
+    resubmitted unchanged passes, and so does clearing it; a match called off or struck out stores no result and passes
+    too.
     """
 
     if started:
