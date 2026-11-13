@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
+import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
-import { person, seat, SEAT } from "@/test-support/subjectFixtures";
+import { signedInRequest } from "@/test-support/session";
+import { seat, SEAT } from "@/test-support/subjectFixtures";
 import { wholeText } from "@/test-support/wholeText";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,8 +14,6 @@ import { COPY } from "@/core/copy";
 import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 
-import TeamLayout from "./layout";
-
 import type { CalendarDay } from "@/core/format";
 
 const AHORN = "6890a1b2c3d4e5f607250011";
@@ -22,45 +22,44 @@ const LINDE = "6890a1b2c3d4e5f607250013";
 
 // A person holding two clubs, one of them in two seasons: Ahorn in the running season and the coming one, Weide in
 // a season Ahorn is not held in.
-const SUBJECT = person({
-  seats: [
-    seat({ team_id: WEIDE, team_name: "Weide", team_shorthand: "WEI", saison_id: "2028", saison_status: "future" }),
-    seat({ team_id: AHORN, team_name: "Ahorn", team_shorthand: "AHO", saison_id: "2026", saison_status: "active" }),
-    seat({
-      team_id: AHORN,
-      team_name: "Ahorn",
-      team_shorthand: "AHO",
-      saison_id: "2027",
-      saison_status: "future",
-      saison_start_date: "2026-09-01",
-      saison_end_date: "2027-07-31",
-      rolle: "trainer",
-    }),
-  ],
-});
+const PERSON = {
+  email: "pia@example.org",
+  records: {
+    seats: [
+      seat({ team_id: WEIDE, team_name: "Weide", team_shorthand: "WEI", saison_id: "2028", saison_status: "future" }),
+      seat({ team_id: AHORN, team_name: "Ahorn", team_shorthand: "AHO", saison_id: "2026", saison_status: "active" }),
+      seat({
+        team_id: AHORN,
+        team_name: "Ahorn",
+        team_shorthand: "AHO",
+        saison_id: "2027",
+        saison_status: "future",
+        saison_start_date: "2026-09-01",
+        saison_end_date: "2027-07-31",
+        rolle: "trainer",
+      }),
+    ],
+  },
+};
 
-vi.mock("@/core/subject", () => ({ getSubjectSession: () => Promise.resolve(SUBJECT) }));
-// The account's other guard, which Konto's pages ask and no frame does: its module opens the sign-in store.
-vi.mock("@/core/auth/guards", () => ({ getAccountSession: () => Promise.resolve(null) }));
+// No answer of its own: the frame reads nothing beyond the session's lookup, so any other request fails the case.
+serveBackend();
+// Signed in by a typed code.
+signedInRequest(PERSON);
+const { default: TeamLayout } = await import("./layout");
 
 /**
  * The team's frame around a page, at a page of `team` in `saison`. The layout is a server component the server renders
- * once; drawn here by the browser's React, each retry makes its reads anew, so the render stands in a boundary of its
- * own, where a suspended read can settle before the retry.
+ * once, so it is called once here and its reads begin once: drawn as a component by the browser's React, each retry
+ * would begin them anew, and a read answered over the network would never settle before the next retry. The render
+ * stands in a boundary of its own, where a suspended read can settle before the retry.
  */
 async function renderAt(path: (team: string, saison: string) => string, team: string, saison: string) {
-  await act(async () =>
-    render(
-      underNext(
-        <Suspense>
-          <TeamLayout>
-            <p>Seite</p>
-          </TeamLayout>
-        </Suspense>,
-        { pathname: path(team, saison), params: { team, saison } },
-      ),
-    ),
-  );
+  const frame = TeamLayout({ children: <p>Seite</p> });
+  await act(async () => render(underNext(<Suspense>{frame}</Suspense>, { pathname: path(team, saison), params: { team, saison } })));
+  // The frame holds no boundary of its own, so its page shows once every read it waits on is answered: a season
+  // button looked for before then is absent for every team.
+  await screen.findByText("Seite");
 }
 
 /** Where every link of this name leads, in the rail and in the phone's bar. */
@@ -87,7 +86,7 @@ describe("a team's frame for a person holding two teams", () => {
     expect(hrefsOf(ROUTES.teamRegistrierungen.title)).toEqual(new Set([ROUTES.teamRegistrierungen.path(AHORN, "2026")]));
 
     // Under the person's address: the Kürzel of the address's team and the seat held in the address's season.
-    expect(screen.getByText(wholeText(SUBJECT.email)).nextElementSibling?.textContent).toBe(
+    expect(screen.getByText(wholeText(PERSON.email)).nextElementSibling?.textContent).toBe(
       COPY.area.team.accountLine({ record: "AHO" }, ["ansprechperson"]),
     );
 

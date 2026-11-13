@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import SpielerOverviewPage from "./page";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 import type { ComponentProps } from "react";
@@ -14,19 +14,24 @@ vi.mock("next/link", async (original) => ({
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/area/spieler/2027", useRouter: () => ({ replace: vi.fn() }) }));
-vi.mock("@/features/roles/resolvers", () => ({
-  requireRole: async () => ({}),
-  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
-}));
-vi.mock("@/features/roles/queries", () => ({
-  readOwnSaisons: async () => ({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
-}));
 
-// The public frame's read, cached for every visitor, which a unit render has no cache for.
-vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => ({ saisons: [{ id: "2027" }] }) }));
+/** The pupil's own season as the backend holds it, which each case sets. */
+const own = { read: null as FLSpielerSaisonSelfResponse | null };
 
-const own = vi.hoisted(() => ({ read: null as FLSpielerSaisonSelfResponse | null }));
-vi.mock("@/features/spieler/queries", () => ({ getSpielerSaisonSelf: async () => own.read }));
+const SAISON_2027 = { id: "2027", start_date: "2026-09-01", end_date: "2027-07-31" };
+
+// The page's three reads: the seasons the pupil's squad rows stand in, the public frame, which holds 2027, and the
+// pupil's own season of the address. Any other read, another season's among them, fails the case.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/spieler/self/saisons") return { saisons: [SAISON_2027] };
+  if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
+  if (path === "/spieler/self/2027") return own.read ?? undefined;
+  return undefined;
+});
+// A pupil, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { spieler: [{ spieler_id: "64b0000000000000000000ee" }] } });
+const { default: SpielerOverviewPage } = await import("./page");
 
 const SPIEL: FLSpielerSaisonSelfSpiel = {
   ansetzung_confirmed: true,
