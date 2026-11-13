@@ -136,11 +136,12 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 - **A toast** answers an act that leaves nothing on the page to change, and an act behind the passkey
   touch whose question or dialog has closed before it answers: one of `toast`'s titles or the act's
   note once done, in the warn tone where it partly happened, and the refusal's own sentence once
-  refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). No field stands beside a toast, so an
-  act whose dialog closes words every refusal as a sentence naming what was refused, never a field's
-  phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless` in
-  `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done act
-  on its own line alone.
+  refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself,
+  while a refusal or a partial outcome stands until it is closed. No field stands beside a toast, so
+  an act whose dialog closes words every refusal as a sentence naming what was refused, never a
+  field's phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless`
+  in `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done
+  act on its own line alone.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
 - **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its own
   plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person left
