@@ -296,7 +296,7 @@ class TestTheDayARowLapsed:
             # The referee answers until the kick-off, whatever the clubs' deadline.
             pytest.param(REFEREES, {}, PAST_THE_DEADLINE, None, id="a referee past the clubs' deadline"),
             pytest.param(REFEREES, {}, KICK_OFF, DATE, id="a referee at the kick-off"),
-            # Ended by the exit, a week before the deadline it would show as the day.
+            # Ended by an exit before the deadline it would otherwise show as the day.
             pytest.param({}, {"austritt": "2027-05-01"}, PAST_THE_DEADLINE, None, id="a club out by the day"),
             pytest.param({"closed": {"reason": "austritt"}}, {}, PAST_THE_DEADLINE, None, id="a row closed by an exit"),
             pytest.param({"closed": {"reason": "spiel_decided"}}, {}, KICK_OFF, None, id="a row closed by a decision"),
@@ -311,3 +311,35 @@ class TestTheDayARowLapsed:
 
     def test_a_referee_is_due_by_the_slot_and_a_club_by_its_deadline(self):
         assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)
+
+
+AGREED = {"kind": "agreed", "at": "2027-05-02", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None}
+DECLINED = {
+    "kind": "declined",
+    "at": "2027-05-02",
+    "by": {"kind": "kontakt", "rolle": "trainer"},
+    "vorschlag": {"date": "2027-05-15", "time": "17:00:00"},
+    "reason": None,
+}
+# The fixture a week on: every row about `spiel()`'s slot speaks for one it has left.
+MOVED = {"spiel_overrides": {"date": "2027-05-21"}}
+
+
+class TestAClosedRowReadsAsThePublicFixtureCountsIt:
+    """The match editor reads every closed row: one reading otherwise than the fixture's confirmation tells the league two things."""
+
+    @pytest.mark.parametrize(
+        ("fields", "situation", "state"),
+        [
+            # Closed at its kick-off, the agreement binds the slot it answered, and no pass asks about the new one yet.
+            pytest.param({"answer": AGREED, "closed": {"reason": "spiel_past"}}, {}, "agreed", id="an agreement at its slot"),
+            pytest.param({"answer": AGREED, "closed": {"reason": "spiel_past"}}, MOVED, "invalid", id="an agreement the match left"),
+            # The league kept the date: the fixture counts the club as agreed, and its mail told it the date stands.
+            pytest.param({"answer": DECLINED, "closed": {"reason": "discarded"}}, {}, "agreed", id="a discard at its slot"),
+            pytest.param({"answer": DECLINED, "closed": {"reason": "discarded"}}, MOVED, "invalid", id="a discard the match left"),
+        ],
+    )
+    def test_each_reads_by_the_slot_it_answered(self, fields: dict[str, Any], situation: dict[str, Any], state: str):
+        assert (
+            state_of(spielbestaetigung_raw=row(**fields), ansetzung_state=ansetzung_state(**situation), now=NOW, vorschlag_open=None) == state
+        )

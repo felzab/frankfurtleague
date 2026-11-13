@@ -230,6 +230,10 @@ def lapsed_on(*, spielbestaetigung_raw: Mapping[str, Any], reason: FLSpielbestae
     return None
 
 
+def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState) -> bool:
+    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel)
+
+
 def state_of(
     *,
     spielbestaetigung_raw: Mapping[str, Any],
@@ -237,11 +241,10 @@ def state_of(
     now: datetime,
     vorschlag_open: FLSpielbestaetigungAppointment | None,
 ) -> FLSpielbestaetigungState:
-    """What a party's page shows of a row, the first state matching winning: a row already answered shows its answer, never a refusal.
+    """What a page shows of a row, the first state matching winning: an answered row never reads as lapsed.
 
-    Asked of a club's unclosed row, of a referee's newest, and by the match editor of every row: a closed row reads by
-    the reason it was closed for, so a discarded decline reads as that decline, but an agreement only while its
-    Ansetzung still stands.
+    A closed row reads by the reason it was closed for, as the public fixture counts it: a discarded decline as the
+    agreement to the date the league kept, and any answer only while the Ansetzung it answered still stands.
     """
 
     answer = spielbestaetigung_raw.get("answer")
@@ -256,13 +259,18 @@ def state_of(
     if reason == "cancelled":
         return "cancelled"
 
+    # Ahead of the decline it closed: the public fixture counts a discarded proposal as its club's agreement while the
+    # slot stands, so read as the decline, one page would call the date confirmed and refused at once.
+    if reason in REASONS_ANSWERING_THE_ANSETZUNG:
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
+
     if isinstance(answer, Mapping) and answer["kind"] == "declined":
         return "declined"
 
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
     if isinstance(answer, Mapping):
-        return "agreed" if spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel) else "invalid"
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"
