@@ -1374,10 +1374,12 @@ const LANDING_STATES = {
     for (const nr of [13, 14]) Object.assign(runningSpiel(nr), { date: day(-7), time: "15:00:00" });
     Object.assign(runningSpiel(15), { date: day(-3), time: "13:00:00" });
     Object.assign(runningSpiel(16), { date: day(-3), time: "15:00:00" });
-    played(runningSpiel(13), [2, 0], { sides: ["Ahorn", "Linde"] });
-    played(runningSpiel(14), [1, 2], { sides: ["Birke", "Eiche"] });
-    played(runningSpiel(15), [3, 1], { sides: ["Linde", "Birke"] });
-    played(runningSpiel(16), [1, 1], { sides: ["Ahorn", "Eiche"], elfmeterschiessen: { team1: 4, team2: 3 } });
+    // Fielded as the knockout's sources name them from the tables these results give: A Ahorn 9, Ulme 4,
+    // Kastanie 3, Eiche 1; B Esche 9, Birke 6, Linde and Weide 0.
+    played(runningSpiel(13), [2, 0], { sides: ["Ahorn", "Birke"] });
+    played(runningSpiel(14), [1, 2], { sides: ["Esche", "Ulme"] });
+    played(runningSpiel(15), [3, 1], { sides: ["Birke", "Esche"] });
+    played(runningSpiel(16), [1, 1], { sides: ["Ahorn", "Ulme"], elfmeterschiessen: { team1: 4, team2: 3 } });
   },
   window: () => {
     running.saison.status = "past";
