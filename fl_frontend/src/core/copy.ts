@@ -62,15 +62,6 @@ export type Words = Copy | RecordText;
 
 export const textOf = (words: Words): string => (typeof words === "string" ? words : words.record);
 
-/**
- * A wait's sample of words, which no person reads: a block drawn while its content is read (the kit's `Pending`) fills
- * each slot the read fills with one, and the pending rules take its ink and draw a bar as wide as it. A run of
- * underscores per word, the plain sign for a blank, each as long as the word the slot will hold, joined by spaces so a
- * line breaks where a name's would. No word at all, so a prerendered wait's markup, which every reader and crawler is
- * served, holds nothing the site never said.
- */
-export const waitSample = (...lengths: readonly number[]): Copy => lengths.map((length) => "_".repeat(length)).join(" ") as Copy;
-
 type Catalogue<T> = T extends string
   ? Copy
   : T extends (...args: infer A) => string
