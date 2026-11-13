@@ -1,13 +1,16 @@
 import path from "node:path";
 
-import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
+import { signedInRequest } from "@/test-support/session.ts";
 import { filesUnder } from "@/test-support/treeWalk.ts";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes.ts";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
 
-const { setRefusal, setSession } = doubleActionRequest({ session: null });
+// No answer of its own: a malformed id leaves no read to send, so any request the page makes fails the case.
+serveBackend();
+const { arriveAs } = signedInRequest(null);
 
 const ADMIN_DIR = path.join(import.meta.dirname, "../../app/admin");
 
@@ -29,7 +32,8 @@ describe("an admin page's malformed record id", () => {
   // No read is left to run on such an id, and the frame draws without waiting for the session: an unjudged page would
   // show a person with no rights the administration's rail around the not-found card.
   it("turns a person with no rights away, as a well-formed id does", async () => {
-    setRefusal("noGrant");
+    // Signed in, the lookup holding no grant for the address.
+    await arriveAs({ email: "pia@example.org" });
     expect(RECORD_PAGES.length).toBeGreaterThan(0);
 
     for (const page of RECORD_PAGES) {
@@ -38,7 +42,7 @@ describe("an admin page's malformed record id", () => {
   });
 
   it("answers an administrator not-found", async () => {
-    setSession({ user: { email: "vorstand@example.org" } });
+    await arriveAs({ email: "vorstand@example.org", admin: true });
 
     for (const page of RECORD_PAGES) {
       await expect(metadataOf(page), page.file).resolves.toBe(NOT_FOUND_METADATA);
