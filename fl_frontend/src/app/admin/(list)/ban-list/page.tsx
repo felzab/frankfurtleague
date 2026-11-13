@@ -48,7 +48,7 @@ async function readHolder() {
  * entered, and its lift; on a phone the three facts stand on the row's line.
  */
 const rowOf = (ban: FLBanListRow, holder: string): TableRow => {
-  const until = COPY.shared.saisonName(ban.barred_until_saison_id);
+  const until = COPY.shared.saisonNameBound(ban.barred_until_saison_id);
   return {
     id: ban.id,
     name: { record: ban.address, address: true },

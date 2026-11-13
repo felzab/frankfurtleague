@@ -472,6 +472,12 @@ export const COPY = catalogue({
     saison: "Saison",
     /** A season by its id, which is its year and so takes no thousands separator: „Saison 2027“. */
     saisonName,
+    /**
+     * The same name joined by a no-break space, for a line binding a label to it, such as a ban's
+     * „Gültig bis Saison 2027“, so the line never ends on „Saison“ apart from its year. Everywhere else the name keeps
+     * its plain space: a mail's subject, a tab's title and any words a person matches or searches as typed.
+     */
+    saisonNameBound: (id: string) => boundBy("Saison", id),
 
     /**
      * The bot check's one answer a person can act on, its click shown or its judgement against the token; a check that
