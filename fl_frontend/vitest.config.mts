@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
- * nowhere else; every other project runs under the `test` Vitest sets (https://vitest.dev/config/env).
+ * nowhere else. A project setting none runs under the `test` Vitest sets (https://vitest.dev/config/env).
  */
 const PRODUCTION_BUILD = [
   "src/instrumentation.test.ts",
@@ -10,6 +10,9 @@ const PRODUCTION_BUILD = [
   "src/core/instrumentation.test.ts",
   "src/app/api/client-error/route.test.ts",
 ];
+
+/** The database suites of the client `next dev` builds, which run under the `NODE_ENV` it sets. */
+const DEVELOPMENT_BUILD_DB = ["src/core/db.development.db.test.ts"];
 
 /**
  * A case here waits on a replica set in a container and on bounds of its own past Vitest's five seconds. The replica
@@ -62,7 +65,11 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "db", include: ["src/**/*.db.test.ts"], ...DB_TIER },
+        test: { name: "db", include: ["src/**/*.db.test.ts"], exclude: DEVELOPMENT_BUILD_DB, ...DB_TIER },
+      },
+      {
+        extends: true,
+        test: { name: "db-development", include: DEVELOPMENT_BUILD_DB, env: { NODE_ENV: "development" }, ...DB_TIER },
       },
     ],
   },
