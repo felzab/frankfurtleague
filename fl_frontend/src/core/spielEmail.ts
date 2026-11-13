@@ -247,12 +247,12 @@ export function buildAufstellungReminderEmail(
 
 /**
  * The word to an opponent that a club left the season, listing the fixtures left open between them, an undated one by
- * what is still to settle. No button, as every notice: the league writes again about each fixture.
+ * what is still to settle. No button, as every notice, and no later mail promised: nothing mails a walkover.
  */
 export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;
 
-  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.spiele(spiele.length)], {
+  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)]], {
     title: COPY.page.spiele,
     facts: spiele.map((spiel) => ({
       label: words.when(dayOf(spiel.date), timeOf(spiel.time)),

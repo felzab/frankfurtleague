@@ -432,7 +432,6 @@ export const SERVER_COPY = catalogue({
     austrittNotice: {
       subject: (team: string) => `Ausgeschieden: ${team}`,
       lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonNameBound(saison))} ausgeschieden.` },
-      spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
       /** A match row's label, with its year as every other mail's date has it; undated, what is still to settle. */
       when: (day: CalendarDay | null, time: TimeOfDay | null) =>
         day === null ? COPY.spielplan.when(null, null) : time === null ? formatDateLong(day) : formatDayAndTime(day, time),
