@@ -357,7 +357,10 @@ export const SERVER_COPY = catalogue({
       next: COPY.admin.facts.after,
       /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
       previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
-      /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
+      /**
+       * The promise of a move's notice stored with `asked_again`, by the reader: a club is asked, a referee booked. The
+       * pass writes the flag false, so only a notice queued with it true says this.
+       */
       askedLater: {
         team: "Zum neuen Termin bekommst du eine neue Anfrage.",
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
@@ -368,8 +371,7 @@ export const SERVER_COPY = catalogue({
 
       /**
        * A match that will not be played, by its event in the word the match page names it by, around its moment: a
-       * no-show names the side that stayed away. `none` words a mail naming no event. What a match called off and set
-       * again brings each reader follows.
+       * no-show names the side that stayed away. `none` words a mail naming no event.
        */
       cancelled: {
         ausgefallen: {
@@ -392,10 +394,6 @@ export const SERVER_COPY = catalogue({
           before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
           after: " fällt aus.",
         },
-      },
-      reinstated: {
-        team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
-        schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
@@ -432,7 +430,6 @@ export const SERVER_COPY = catalogue({
     austrittNotice: {
       subject: (team: string) => `Ausgeschieden: ${team}`,
       lead: { after: (saison: string) => ` ist ${boundBy("aus", "der", COPY.shared.saisonNameBound(saison))} ausgeschieden.` },
-      spiele: (count: number) => (count === 1 ? "Zu diesem Spiel meldet sich die Liga." : "Zu diesen Spielen meldet sich die Liga."),
       /** A match row's label, with its year as every other mail's date has it; undated, what is still to settle. */
       when: (day: CalendarDay | null, time: TimeOfDay | null) =>
         day === null ? COPY.spielplan.when(null, null) : time === null ? formatDateLong(day) : formatDayAndTime(day, time),
@@ -480,7 +477,8 @@ export const SERVER_COPY = catalogue({
           welcome: "Herzlich willkommen.",
         },
         fixed: "Gruppe und Trikotfarbe stehen fest.",
-        fixedNoColour: "Die Gruppe steht fest. Die Trikotfarbe teilen wir dir noch mit.",
+        /** No later mail names a colour set after the Zusage, so none is promised. */
+        fixedNoColour: "Die Gruppe steht fest.",
         signIn: "Melde dich mit dieser Adresse an, dort findest du dein Team.",
       },
       absage: {
@@ -647,7 +645,8 @@ export const SERVER_COPY = catalogue({
         `Gib diesen Link an alle weiter, die ${boundBy("in", "der", COPY.shared.saisonNameBound(saison))} ${boundBy("für", team)} spielen.`,
       key: "Wer den Link hat, kann sich für dein Team registrieren.",
       admission: "In den Kader kommt nur, wen dein Team aufnimmt.",
-      valid: "Der Link gilt bis zum Ende der Registrierung.",
+      /** The registration's end closes no link: an entry past it is a Nachnominierung through the same link. */
+      valid: "Der Link gilt bis zum Ende der Saison.",
     },
 
     /**
@@ -866,7 +865,7 @@ export const SERVER_COPY = catalogue({
     schiedsrichter: {
       /** Before the kick-off, named by its day and time as the match's row names them (`COPY.spielplan.when`). */
       spielberichtFrom: (when: Copy) => `Spielbericht ${boundBy("ab", when)}`,
-      /** A fixture another referee is booked onto. */
+      /** A fixture another referee is booked onto, or one a club's exit took the booking off, on the list's chip too. */
       unbooked: "Nicht mehr eingeteilt",
     },
   },

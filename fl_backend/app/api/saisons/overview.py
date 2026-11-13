@@ -359,7 +359,12 @@ def overview_of(
                     vorschlag=vorschlag,
                     adoption_recipients=recipients_named(
                         parties_told_of_the_change(
-                            rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, now=now
+                            rows=held.get(spiel.id, []),
+                            stored=spiel_raw,
+                            changed=adopted,
+                            stored_austritte=austritte,
+                            changed_austritte=austritte,
+                            now=now,
                         ),
                         names=names,
                     ),

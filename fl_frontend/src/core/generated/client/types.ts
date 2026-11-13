@@ -1268,6 +1268,30 @@ export interface FLAustrittPayload {
   type: FLAustrittType;
 }
 
+export interface FLSpielRecipientTeam {
+  kind: "team";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+}
+
+export interface FLSpielRecipientSchiedsrichter {
+  kind: "schiedsrichter";
+  /** @minLength 1 */
+  name: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+}
+
+/**
+ * Whom an exit of the club mails, by the day it reaches them from: an exit dated on or before `date` mails them.
+ */
+export interface FLAustrittRecipients {
+  date: string | null;
+  recipients: (FLSpielRecipientTeam | FLSpielRecipientSchiedsrichter)[];
+}
+
 /**
  * The ban's own notice, the one mail a ban does not stop.
  */
@@ -3169,8 +3193,9 @@ export interface FLSpielMovedData {
   appointment: FLSpielMailAppointment;
   asked_again: boolean;
   kind: "spiel_moved";
-  moved_to: FLSpielMailAppointment | null;
+  moved_to: FLSpielMailAnsetzung | null;
   recipient: FLSpielMovedDataRecipient;
+  stays: boolean;
 }
 
 export type FLSpielNoticeDataRecipient = (typeof FLSpielNoticeDataRecipient)[keyof typeof FLSpielNoticeDataRecipient];
@@ -3502,22 +3527,6 @@ export interface FLOverviewSpielbestaetigungRow {
   kind: FLOverviewSpielbestaetigungRowKind;
   parties: FLOverviewParty[];
   spiel: FLSpielJoinedAdmin;
-}
-
-export interface FLSpielRecipientTeam {
-  kind: "team";
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-}
-
-export interface FLSpielRecipientSchiedsrichter {
-  kind: "schiedsrichter";
-  /** @minLength 1 */
-  name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
 }
 
 export type FLOverviewVorschlagRowKind = (typeof FLOverviewVorschlagRowKind)[keyof typeof FLOverviewVorschlagRowKind];
@@ -4659,6 +4668,7 @@ export interface FLSchiedsrichterSpiel {
   bericht_owed: boolean;
   date: string | null;
   entered: boolean;
+  officiates: boolean;
   past: boolean;
   reason: string | null;
   sonderereignis: FLSonderereignis | null;
@@ -6024,6 +6034,7 @@ export interface FLTeamSaisonFacts {
  * What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.
  */
 export interface FLTeamSaisonAdminResponse {
+  austritt_recipients: FLAustrittRecipients[];
   gruppe_locked: boolean;
   gruppen: FLTeamGruppeOffer[];
   link: FLTeamLinkState | null;

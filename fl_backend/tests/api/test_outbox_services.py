@@ -2,13 +2,14 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
+import pytest
 from bson import ObjectId
 
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.services import confirmed_recipients
-from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielNoticeData
+from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
 from app.api.outbox.services import (
     DELIVERY_DEADLINE,
     LEASE_DURATION,
@@ -20,7 +21,7 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.spielbestaetigungen.services import austritt_notices_of, team_mails
+from app.api.spielbestaetigungen.services import austritt_notices_of, austritt_recipients_of, compose_ansetzung, spiel_mail_slot_of, team_mails
 from app.core import clock
 
 APPOINTMENT = FLSpielMailAppointment(team1="Adler", team2="Bieber", date="2026-05-02", time="10:00:00")
@@ -123,3 +124,88 @@ def test_the_lease_outlasts_a_page_of_sends_and_reports_at_their_bounds():
 
     # The claim's own answer, then each send and the report after it.
     assert call + PAGE * (send + call) < LEASE_DURATION
+
+
+def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
+    """Unnamed, a ground changed at the same hour reads „Bisher“ and „Neu“ alike, and the parties go to the old ground."""
+
+    spiel = {
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": OWN, "name": "Adler"},
+        "team2": {"team_id": OPPONENT, "name": "Bieber"},
+        "spielort": {"spielort_id": ObjectId(), "name": "Halle Nord", "maps_link": None},
+    }
+
+    slot = spiel_mail_slot_of(spiel)
+
+    assert slot is not None and slot.spielort == "Halle Nord"
+
+
+def test_a_move_s_notice_queued_before_it_named_the_ground_and_the_party_still_reads():
+    """A row the release before queued holds neither key: refused, the hand-out would pass it over and nobody would be told."""
+
+    stored = {
+        "kind": "spiel_moved",
+        "recipient": "team",
+        "appointment": APPOINTMENT.model_dump(),
+        "moved_to": APPOINTMENT.model_dump(),
+        "asked_again": True,
+    }
+
+    queued = FLSpielMovedData.model_validate(stored)
+
+    assert (queued.moved_to is not None and queued.moved_to.spielort, queued.stays, queued.asked_again) == (None, False, True)
+
+
+REFEREE = ObjectId("6890a1b2c3d4e5f607f400c1")
+
+
+def a_fixture(**fields: Any) -> dict[str, Any]:
+    """The departed club `OWN` against `OPPONENT`, booked to `REFEREE`, still to come at `EXIT_READ`."""
+
+    return {
+        "_id": ObjectId(),
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": OWN, "tore": None},
+        "team2": {"team_id": OPPONENT, "tore": None},
+        "spielort": {"spielort_id": ObjectId("6890a1b2c3d4e5f607f400b1")},
+        "schiedsrichter": {"schiedsrichter_id": REFEREE},
+        "ergebnis": None,
+        "sonderereignis": None,
+        **fields,
+    }
+
+
+EXIT_READ = datetime(2026, 4, 20, 12, tzinfo=clock.GERMANY)
+
+
+@pytest.mark.parametrize(
+    ("spiel", "kontakte", "asked_at", "named"),
+    [
+        pytest.param(a_fixture(), SEATED, "2026-04-10", ["team", "schiedsrichter"], id="a seated opponent and an asked referee"),
+        pytest.param(a_fixture(), {}, "2026-04-10", ["schiedsrichter"], id="an opponent no confirmed seat reaches"),
+        pytest.param(a_fixture(), SEATED, None, ["team"], id="a referee booked and never asked"),
+        pytest.param(a_fixture(ergebnis="1:0"), SEATED, "2026-04-10", [], id="a fixture decided"),
+    ],
+)
+def test_an_exit_names_whom_its_write_and_the_pass_mail(spiel: dict[str, Any], kontakte: Any, asked_at: str | None, named: list[str]):
+    """Named by fixed words, the exit's question promised a mail to a club no seat reaches and a referee nobody asked."""
+
+    vereine = {
+        OWN: {"team_id": OWN, "name": "Adler", "kontakte": SEATED, "austritt": None},
+        OPPONENT: {"team_id": OPPONENT, "name": "Bieber", "kontakte": kontakte, "austritt": None},
+    }
+    referee_row = {
+        "saison_id": SAISON_ID,
+        "spiel_id": spiel["_id"],
+        "party": {"kind": "schiedsrichter", "schiedsrichter_id": REFEREE},
+        "ansetzung": compose_ansetzung(spiel),
+        "asked_at": asked_at,
+        "closed": None,
+    }
+
+    reached = austritt_recipients_of(team_id=OWN, spiele=[spiel], vereine=vereine, rows=[referee_row], now=EXIT_READ)
+
+    assert [(day, party["kind"]) for day, party in reached] == [(spiel["date"], kind) for kind in named]

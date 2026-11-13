@@ -46,6 +46,10 @@ function moveFacts(from: FLSpielMailAppointment, to: FLSpielMailAppointment | nu
   return [{ label: WORDS.previous, value: previous }, ...(to === null ? [] : [{ label: WORDS.next, value: moment(to) }])];
 }
 
+/** Whether a change kept the day and the hour and changed the sides: a new pairing at its slot, which nothing moved. */
+const pairingOnly = (from: FLSpielMailAppointment, to: FLSpielMailAppointment): boolean =>
+  from.date === to.date && from.time === to.time && (from.team1 !== to.team1 || from.team2 !== to.team2);
+
 /**
  * The fixture under its pairing, one fact to a row, so a reader scanning for the day finds it alone; after a move, the
  * moment left and the one moved to in the day's and the time's place.
@@ -82,9 +86,10 @@ export function buildSpielRequestEmail(
   const site = mailOrigin(origin);
   const day = dayOf(ansetzung.date);
   const ask = WORDS.confirmAsk({ record: team });
-  // A reminder carries no move: the move's own request is the one mail telling of it.
+  // A reminder carries no move: the move's own request is the one mail telling of it. A new pairing at its slot is asked
+  // as a request is, its block naming the pairing left.
   const [subjectLine, lead]: readonly [Copy, Paragraph] =
-    movedFrom !== null
+    movedFrom !== null && !pairingOnly(movedFrom, ansetzung)
       ? [WORDS.movedSubject(day), [WORDS.moved(paarung(ansetzung)), ask]]
       : kind === "spiel_reminder"
         ? [WORDS.reminderSubject(day), [WORDS.answerMissing({ record: team }), ask]]
@@ -108,12 +113,14 @@ export function buildSpielRequestEmail(
 export function buildSpielEinteilungEmail({ ansetzung, moved_from: movedFrom }: FLSpielEinteilungData, { origin }: MailOrigin): Mail {
   const site = mailOrigin(origin);
   const spiel = paarung(ansetzung);
+  // A new pairing at its slot books the referee as a first Einteilung does, its block naming the pairing left.
+  const moved = movedFrom !== null && !pairingOnly(movedFrom, ansetzung);
 
   return {
     kind: "notice",
-    subjectLine: movedFrom === null ? WORDS.bookedSubject(dayOf(ansetzung.date)) : WORDS.movedSubject(dayOf(ansetzung.date)),
+    subjectLine: moved ? WORDS.movedSubject(dayOf(ansetzung.date)) : WORDS.bookedSubject(dayOf(ansetzung.date)),
     origin: site,
-    paragraphs: [[movedFrom === null ? WORDS.booked(spiel) : WORDS.moved(spiel)]],
+    paragraphs: [[moved ? WORDS.moved(spiel) : WORDS.booked(spiel)]],
     block: slotBlock(ansetzung, movedFrom),
     afterBlock: [[WORDS.sayYesOrNo]],
     button: { label: COPY.shared.end.toOverview, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
@@ -142,11 +149,10 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
 }
 
 /**
- * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, what
- * the event means for the result as the match page's callout says it, and only for a match called off, which alone is
- * set again, the request or Einteilung that would follow.
+ * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, and
+ * what the event means for the result as the match page's callout says it. No later mail is promised.
  */
-function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
+function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
   const day = dayOf(appointment.date);
   const { cancelled } = WORDS;
   const { consequence } = COPY.spielplan.sonderereignis;
@@ -156,11 +162,7 @@ function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNotic
 
   switch (sonderereignis) {
     case "ausgefallen":
-      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [
-        lead(cancelled.ausgefallen, spiel),
-        consequence.notScored,
-        WORDS.reinstated[recipient],
-      ]);
+      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel), consequence.notScored]);
     case "annulliert":
       return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel), consequence.notScored]);
     // The side that stayed away, then the one the match is counted for.
@@ -181,27 +183,45 @@ function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNotic
 
 /**
  * The word that a fixture a party was asked about moved where no request about its new slot goes now, or will not be
- * played: the slot it was asked about, and on a move the slot it went to where it holds one. No button, nothing being
- * left to answer here.
+ * played: the slot it was asked about, and on a move the slot it went to where it holds one, in the block a request
+ * names it in, its ground among the rest. No button, nothing being left to answer here, and no later mail promised.
  */
 export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   if (data.kind === "spiel_cancelled") return cancelledEmail(data, origin);
 
-  const { recipient, appointment, moved_to: movedTo, asked_again: askedAgain } = data;
+  const { recipient, appointment, moved_to: movedTo, stays, asked_again: askedAgain } = data;
 
-  // Taken off the fixture by the move: the void notice, naming the slot left alone.
-  if (movedTo === null && !askedAgain) {
+  // Taken off the fixture by the move: the void notice, naming the slot left alone. A notice queued before `stays` was
+  // written said that the party stays by its promise of a request.
+  if (movedTo === null && !stays && !askedAgain) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
     return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
       around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
     ]);
   }
 
-  const spiel = paarung(movedTo ?? appointment);
-  const lead: Paragraph = askedAgain ? [WORDS.moved(spiel), WORDS.askedLater[recipient]] : [WORDS.moved(spiel)];
-  const subjectLine = movedTo === null ? WORDS.movedFromSubject(dayOf(appointment.date)) : WORDS.movedSubject(dayOf(movedTo.date));
+  // Only a notice queued before the promise was dropped carries it.
+  const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment)), ...(askedAgain ? [WORDS.askedLater[recipient]] : [])];
 
-  return noticeEmail(subjectLine, origin, lead, { title: spiel, facts: moveFacts(appointment, movedTo) });
+  if (movedTo === null) {
+    return noticeEmail(WORDS.movedFromSubject(dayOf(appointment.date)), origin, lead, {
+      title: paarung(appointment),
+      facts: moveFacts(appointment, null),
+    });
+  }
+
+  // A new pairing at the slot moved nothing: the slot stands, the block naming the pairing left. A notice queued with its
+  // promise keeps the mail it was queued for.
+  if (pairingOnly(appointment, movedTo) && !askedAgain) {
+    return noticeEmail(
+      WORDS.keptSubject(dayOf(movedTo.date)),
+      origin,
+      [around(WORDS.kept.before(paarung(movedTo)), moment(movedTo), WORDS.kept.after)],
+      slotBlock(movedTo, appointment),
+    );
+  }
+
+  return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, slotBlock(movedTo, appointment));
 }
 
 /** The word to a referee that their Einteilung is lifted, whoever took them off the fixture. */
@@ -245,12 +265,12 @@ export function buildAufstellungReminderEmail(
 
 /**
  * The word to an opponent that a club left the season, listing the fixtures left open between them, an undated one by
- * what is still to settle. No button, as every notice: the league writes again about each fixture.
+ * what is still to settle. No button, as every notice, and no later mail promised: nothing mails a walkover.
  */
 export function buildAustrittNoticeEmail({ team, saison_id: saison, spiele }: FLAustrittNoticeData, { origin }: MailOrigin): Mail {
   const words = SERVER_COPY.mail.austrittNotice;
 
-  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)], words.spiele(spiele.length)], {
+  return noticeEmail(words.subject(team), origin, [[{ strong: team }, words.lead.after(saison)]], {
     title: COPY.page.spiele,
     facts: spiele.map((spiel) => ({
       label: words.when(dayOf(spiel.date), timeOf(spiel.time)),

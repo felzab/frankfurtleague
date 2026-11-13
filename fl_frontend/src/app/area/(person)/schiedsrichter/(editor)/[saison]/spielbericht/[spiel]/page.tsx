@@ -54,7 +54,7 @@ const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielberic
 
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
- * referee, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
+ * referee or one a club's exit took them off, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
  * A referee whose record went between the frame's check and the read is sent on as every person place sends them.
  * Memoised for the render, so the tab's title and the page share the one read.
  */

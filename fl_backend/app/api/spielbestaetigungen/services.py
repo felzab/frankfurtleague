@@ -161,6 +161,14 @@ def decision_of(*, spiel: Mapping[str, Any], austritte: Iterable[str], tag: Any)
     return None
 
 
+def joined_decision_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungClosedReason | None:
+    """`decision_of` for a fixture read through the name join, by its sides' own exit days and its own day."""
+
+    austritte = [str(day) for side in ("team1", "team2") if (day := ((spiel.get(side) or {}).get("austritt") or {}).get("date")) is not None]
+
+    return decision_of(spiel=spiel, austritte=austritte, tag=spiel.get("date"))
+
+
 @dataclass(frozen=True)
 class AnsetzungState:
     """What an answer is judged against and does not write: the fixture as it stands, and both clubs' season rows."""
@@ -334,7 +342,7 @@ def state_of(
         return "declined"
 
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
-    # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
+    # fixture moved agrees to a day nobody asked about, until the pass asks about the new one.
     if isinstance(answer, Mapping):
         answers = _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, at_its_kick_off=reason == "spiel_past")
         return "agreed" if answers else "invalid"
@@ -372,11 +380,13 @@ def team_state_of(
 ) -> FLSpielbestaetigungTeamState | None:
     """What a team's own pages show of its unclosed row about the fixture as it stands: `state_of`'s state, or `None`.
 
-    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off or decided.
+    `None` where the row asks the team nothing: about an Ansetzung left, or a fixture called off, decided or fielding a
+    club out by its day.
     """
 
-    # Ahead of the pass's close, which takes the row off these pages: a lapsed row would read that the league decides.
-    if _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) == "spiel_decided":
+    # Ahead of the pass's close, which takes the row off these pages: a lapsed row would read that the league decides,
+    # and an exit ends the question, which never lapsed.
+    if _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) in {"spiel_decided", "austritt"}:
         return None
 
     match state_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open):
@@ -788,12 +798,16 @@ def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
     return f"aufstellung/{spiel_id}/{team_id}/{seat}"
 
 
-def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read."""
+def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]) -> dict[str, Any]:
+    """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read.
+
+    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row stands open for: a party asked
+    already is asked about a move at once, however far out it went.
+    """
 
     return {
         "saison_id": saison_id,
-        "date": {"$gt": today, "$lte": last_request_day(today=today)},
+        "$or": [{"date": {"$gt": today, "$lte": last_request_day(today=today)}}, {"_id": {"$in": list(asked_ids)}, "date": {"$gt": today}}],
         "time": {"$ne": None},
         "spielort": {"$ne": None},
         "team1": {"$ne": None},
@@ -851,8 +865,7 @@ def reason_to_close(
     ansetzung = row["ansetzung"]
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First: a party taken off the fixture is told so, never that the match it no longer plays or officiates was called
-    # off, decided or moved, a call-off's notice promising it the next request. A club taken off is the move's to tell,
-    # which words it as taken off.
+    # off, decided or moved. A club taken off is the move's to tell, which words it as taken off.
     if not still_a_party(row=row, spiel=spiel):
         return "schiedsrichter_switched" if row["party"]["kind"] == "schiedsrichter" else "ansetzung_changed"
 
@@ -902,19 +915,21 @@ def reason_to_end(
     return "spiel_past" if _kicked_off(row["ansetzung"], now=now) else None
 
 
-def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime) -> bool:
-    """Whether the mint asks about this fixture today: dated strictly after today, inside the answer window, fully set, undecided.
+def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime, asked_before: bool) -> bool:
+    """Whether the mint asks about this fixture today: after today, fully set, undecided, in the window unless `asked_before`.
 
-    The floor is a date because `has_taken_place` reads a record, so an unplayed fixture of the past reads as open; the
-    day after today rather than the kick-off because a request asks ahead of the day, its deadline (`deadline_of`)
-    lying before it.
+    A party asked about a slot the fixture left is asked about the new one at once, however far out: its open row is
+    what tells it of every later change. The floor is a date because
+    `has_taken_place` reads a record, so an unplayed fixture of the past reads as open; the day after today rather than
+    the kick-off because a request asks ahead of the day, its deadline (`deadline_of`) lying before it.
     """
 
     today = clock.german_day(now)
     date = spiel.get("date")
     asked = (
         isinstance(date, str)
-        and today < date <= last_request_day(today=today)
+        and today < date
+        and (asked_before or date <= last_request_day(today=today))
         and spiel.get("time") is not None
         and isinstance(spiel.get("spielort"), Mapping)
         and _side_id(spiel, "team1") is not None
@@ -1054,11 +1069,13 @@ def parties_told_of_the_change(
     rows: Iterable[Mapping[str, Any]],
     stored: Mapping[str, Any],
     changed: Mapping[str, Any],
-    austritte: Mapping[Any, str],
+    stored_austritte: Mapping[Any, str],
+    changed_austritte: Mapping[Any, str],
     now: datetime,
 ) -> list[Mapping[str, Any]]:
     """The party of each of a fixture's `rows` holding its question that the pass closes owing a notice once `stored` is `changed`.
 
+    The clubs' exits as they stand and as the act leaves them, the same mapping twice where the act records none.
     Judged by the close's own rules (`reason_to_end`, `notice_owed`), so the page naming whom an act mails and the pass
     mailing them cannot disagree; a row the close ends as the fixture stands is no mail of the change. Whether a party
     is reached is the pass's: a club with no seat holding an address, or a referee with none, is told nothing.
@@ -1066,8 +1083,8 @@ def parties_told_of_the_change(
 
     told: list[Mapping[str, Any]] = []
     for row in rows:
-        reason = reason_to_end(row=row, spiel=changed, austritte=austritte, now=now)
-        if reason is None or reason == reason_to_end(row=row, spiel=stored, austritte=austritte, now=now):
+        reason = reason_to_end(row=row, spiel=changed, austritte=changed_austritte, now=now)
+        if reason is None or reason == reason_to_end(row=row, spiel=stored, austritte=stored_austritte, now=now):
             continue
         if notice_owed(row=row, reason=reason, spiel=changed, now=now):
             told.append(row["party"])
@@ -1126,27 +1143,41 @@ def cancelled_notice_of(*, party_kind: str, appointment: FLSpielMailAppointment,
 
 
 def moved_notice_of(
-    *, party_kind: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAppointment | None, asked_again: bool
+    *, party_kind: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAnsetzung | None, stays: bool
 ) -> FLSpielMovedData:
-    """The „Spiel verlegt“ notice a party of `party_kind` is owed where no request about the fixture's new slot goes now."""
+    """The „Spiel verlegt“ notice a party of `party_kind` is owed where no request about the fixture's new slot goes now.
+
+    It promises no later mail: a party still the fixture's is asked about a new slot at once where one can be asked
+    (`request_is_due`), and one told here is asked again only once a slot can be.
+    """
 
     return FLSpielMovedData(
         kind="spiel_moved",
         recipient=_recipient_of(party_kind),
         appointment=appointment,
         moved_to=moved_to,
-        asked_again=asked_again,
+        stays=stays,
+        asked_again=False,
     )
 
 
-def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAppointment | None:
-    """The slot a fixture holds now, as a notice of its move names it, or `None` where it lacks a day, an hour or a side."""
+def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
+    """The slot a fixture holds now, its ground among the rest, as a move's notice names it; `None` lacking a day, hour or side."""
 
     date, time, team1, team2 = spiel.get("date"), spiel.get("time"), spiel.get("team1"), spiel.get("team2")
     if not (isinstance(date, str) and isinstance(time, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
         return None
 
-    return FLSpielMailAppointment(team1=str(team1["name"]), team2=str(team2["name"]), date=date, time=time)
+    # Absent rather than null where the name join met a fixture without a ground.
+    spielort = spiel.get("spielort")
+
+    return FLSpielMailAnsetzung(
+        team1=str(team1["name"]),
+        team2=str(team2["name"]),
+        date=date,
+        time=time,
+        spielort=str(spielort["name"]) if isinstance(spielort, Mapping) else None,
+    )
 
 
 def still_a_party(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
@@ -1165,7 +1196,7 @@ def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], aus
     return (
         reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now) == "ansetzung_changed"
         and still_a_party(row=row, spiel=spiel)
-        and request_is_due(spiel=spiel, austritte=austritte, now=now)
+        and request_is_due(spiel=spiel, austritte=austritte, now=now, asked_before=True)
     )
 
 
@@ -1195,7 +1226,7 @@ def team_mails(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data:
     ]
 
 
-# --- The notice an Austritt owes each opponent, at the exit's own write: a fixture past the asking window holds no row to close.
+# --- The notice an Austritt owes each opponent, at the exit's own write: a fixture not yet asked holds no row to close.
 
 
 def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str) -> dict[str, Any]:
@@ -1224,13 +1255,9 @@ def austritt_notices_of(
     open_spiele: dict[Any, list[FLSpielMailEntry]] = {}
     ordered = sorted(spiele, key=lambda spiel: (spiel.get("date") is None, spiel.get("date") or "", spiel.get("time") or ""))
     for spiel in ordered:
-        team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
-        opponent = vereine.get(team2 if team1 == team_id else team1)
-        if opponent is None or team1 is None or team2 is None:
-            continue
-
-        own_exit = (opponent.get("austritt") or {}).get("date")
-        if decision_of(spiel=spiel, austritte=[] if own_exit is None else [own_exit], tag=spiel.get("date")) is None:
+        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, vereine=vereine)
+        if opponent is not None:
+            team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
             open_spiele.setdefault(opponent["team_id"], []).append(
                 FLSpielMailEntry(team1=vereine[team1]["name"], team2=vereine[team2]["name"], date=spiel.get("date"), time=spiel.get("time"))
             )
@@ -1255,6 +1282,67 @@ def austritt_notices_of(
             notices[opponent["_id"]] = mails
 
     return notices
+
+
+def _open_opponent_of(*, spiel: Mapping[str, Any], team_id: Any, vereine: Mapping[Any, Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """The season row of the club's opponent in a fixture still open between them, or `None`.
+
+    Open: both sides fielded, the fixture neither decided nor called off, nor closed to the opponent by an exit of its own.
+    """
+
+    team1, team2 = _side_id(spiel, "team1"), _side_id(spiel, "team2")
+    opponent = vereine.get(team2 if team1 == team_id else team1)
+    if opponent is None or team1 is None or team2 is None:
+        return None
+
+    own_exit = (opponent.get("austritt") or {}).get("date")
+    if decision_of(spiel=spiel, austritte=[] if own_exit is None else [own_exit], tag=spiel.get("date")) is not None:
+        return None
+
+    return opponent
+
+
+def austritt_recipients_of(
+    *,
+    team_id: Any,
+    spiele: Iterable[Mapping[str, Any]],
+    vereine: Mapping[Any, Mapping[str, Any]],
+    rows: Iterable[Mapping[str, Any]],
+    now: datetime,
+) -> list[tuple[str | None, Mapping[str, Any]]]:
+    """Each party an exit of the club would mail, beside the day an exit reaches it from: as late as that day, it is mailed.
+
+    `spiele` are the club's fixtures from the season's start, `vereine` maps clubs to their season rows and `rows` are
+    the fixtures' referee rows holding their question. An opponent is mailed at the exit's write for a fixture still open
+    between them (`austritt_notices_of`), through a confirmed seat; undated, a fixture is reached from any day, as the
+    exit's own read takes it. A referee is told by the pass's close, judged by its rules for an exit on that day.
+    """
+
+    austritte = {row["team_id"]: str(day) for row in vereine.values() if (day := (row.get("austritt") or {}).get("date")) is not None}
+    held: dict[Any, list[Mapping[str, Any]]] = {}
+    for row in rows:
+        held.setdefault(row["spiel_id"], []).append(row)
+
+    reached: list[tuple[str | None, Mapping[str, Any]]] = []
+    for spiel in spiele:
+        opponent = _open_opponent_of(spiel=spiel, team_id=team_id, vereine=vereine)
+        if opponent is not None and confirmed_recipients(kontakte=opponent.get("kontakte")):
+            reached.append((spiel.get("date"), {"kind": "team", "team_id": opponent["team_id"]}))
+
+        for row in held.get(spiel["_id"], []):
+            # The day `reason_to_close` judges an exit by: the fixture's, or the row's where the fixture lost its date.
+            tag = spiel.get("date") or row["ansetzung"]["date"]
+            told = parties_told_of_the_change(
+                rows=[row],
+                stored=spiel,
+                changed=spiel,
+                stored_austritte=austritte,
+                changed_austritte={**austritte, team_id: tag},
+                now=now,
+            )
+            reached += [(tag, party) for party in told]
+
+    return reached
 
 
 # --- The season's end: what it strips off the season's rows.

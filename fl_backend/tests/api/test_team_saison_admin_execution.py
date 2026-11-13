@@ -7,17 +7,21 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import delete_team, get_team_saison_admin, get_teams_admin, patch_team_saison, post_team_entry
 from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPayload, FLTeamListState, FLTeamsAdminFilterParams
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     ADDRESS,
+    kontakte_document,
     kontaktperson_document,
     rules_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spiel_document,
+    spielbestaetigung_document,
     team_document,
 )
 from tests.worker import worker_database
@@ -122,7 +126,10 @@ async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
         spiele_collection=database[Collection.SPIELE],
         invitations_collection=database[Collection.INVITATIONS],
         outbox_collection=database[Collection.OUTBOX],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         today=TODAY,
+        now=clock.german_instant(TODAY, "12:00:00"),
     )
 
 
@@ -463,3 +470,56 @@ class TestTheEditorRead:
         assert link.invitation is None
         assert link.skipped == "no_kontakt_block"
         assert link.paused is False
+
+
+class TestTheExitDialogsRecipients:
+    def test_the_read_names_whom_an_exit_would_mail_by_the_day_it_reaches_them_from(self, mongo_replica_set_url: str):
+        """Named by fixed words, the dialog would promise mails to an opponent no seat reaches and a referee never asked.
+
+        Bieber's seat is confirmed, Eule's is not; the referee was asked about the first fixture and is booked unasked
+        onto the second.
+        """
+
+        referee = ObjectId("6890a1b2c3d4e5f6072800c1")
+        against_bieber = spiel_document(
+            spiel_id=ObjectId("6890a1b2c3d4e5f6072800d1"),
+            saison_id=SAISON_ID,
+            spiel_nr=1,
+            spieltag_id=SPIELTAG_OID,
+            team1={"team_id": ADLER, "tore": None},
+            team2={"team_id": BIEBER, "tore": None},
+            date="2026-04-20",
+            time="18:00:00",
+            schiedsrichter={"schiedsrichter_id": referee, "payment": 20},
+        )
+        against_eule = spiel_document(
+            spiel_id=ObjectId("6890a1b2c3d4e5f6072800d2"),
+            saison_id=SAISON_ID,
+            spiel_nr=2,
+            spieltag_id=SPIELTAG_OID,
+            team1={"team_id": EULE, "tore": None},
+            team2={"team_id": ADLER, "tore": None},
+            date="2026-04-27",
+            time="18:00:00",
+            schiedsrichter={"schiedsrichter_id": referee, "payment": 20},
+        )
+
+        async def body(database: AsyncDatabase) -> Any:
+            seated = kontakte_document(trainer=kontaktperson_document("Theo", confirmed_at="2026-04-01"))
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": BIEBER}, {"$set": {"kontakte": seated}})
+            await database[Collection.SCHIEDSRICHTER].insert_one(
+                schiedsrichter_document(referee, email="otto@example.com", name="Otto Gruber", default_payment=20, einwilligung=None)
+            )
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+                spielbestaetigung_document(
+                    against_bieber, party={"kind": "schiedsrichter", "schiedsrichter_id": referee}, asked_at="2026-04-10"
+                )
+            )
+
+            return (await editor(database)).austritt_recipients
+
+        served = on_a_league(mongo_replica_set_url, body, saison_status="active", spiele=[against_bieber, against_eule])
+
+        assert [(entry.date, sorted(recipient.name for recipient in entry.recipients)) for entry in served] == [
+            ("2026-04-20", ["Bieber", "Otto Gruber"])
+        ]

@@ -14,6 +14,7 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtState,
     FLSpielberichtVorschlag,
 )
+from app.api.spielbestaetigungen.services import joined_decision_of
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.api.spieler.services import PUBLIC_PERSON
 from app.api.teams.services import is_played
@@ -188,10 +189,13 @@ def newly_named(
 
 
 def find_not_refereed_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
-    """`bericht_not_officiated`: the report is the booked referee's, and an empty slot or one naming nobody books nobody to write it."""
+    """`bericht_not_officiated`: the report is the booked referee's, and an empty slot or one naming nobody books nobody to write it.
+
+    Nor does a fixture a club's exit decides, whose referee the pass told they no longer referee it.
+    """
 
     booked = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
-    if booked is not None and booked in set(schiedsrichter_ids):
+    if booked is not None and booked in set(schiedsrichter_ids) and joined_decision_of(spiel_raw) != "austritt":
         return None
 
     return WriteRefusal(

@@ -9,7 +9,7 @@ from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
-from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
+from app.api.spielbestaetigungen.services import AnsetzungState, joined_decision_of, schiedsrichter_state_of
 from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.api.teams.services import is_played
@@ -463,7 +463,8 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
     return [
         *build_named_spiele_pipeline(
             {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}},
-            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1},
+            # The sides' exits too, which the name join folds in: a club out by the fixture's day takes the booking off it.
+            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1, "team1.austritt.date": 1, "team2.austritt.date": 1},
         ),
         {
             "$lookup": {
@@ -541,8 +542,10 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     # One row: a fixture's season always stands, and the read joins it by its id.
     [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
+    # A club out by the fixture's day ends the booking, as the pass's notice told the referee.
+    officiates = joined_decision_of(spiel) != "austritt"
     # As the report's own read judges its form open, in `kader_is_open`.
-    reportable = takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
+    reportable = officiates and takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
     submitted_at = None if bericht is None else bericht.get("submitted_at")
 
     def team_name(side: str) -> str | None:
@@ -567,6 +570,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         ),
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
+        officiates=officiates,
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
         submitted_at=submitted_at,
         bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),

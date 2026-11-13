@@ -82,9 +82,9 @@ def spiel(
 # Each the case its name gives, ordered by their day: a team row past its deadline unanswered; open while the other
 # club's decline proposes another date; declined by the team; agreed, its line-up stored; a decline the league
 # discarded, kicking off tomorrow at noon, so its line-up is overdue; its kick-off within the hour, so its line-up is
-# locked; undated; and a row about the slot a move left. Then, each holding a stored line-up so it asks for none: a row
-# nobody answered yet; two whose opponent has left the season by their day, whose exit the row's state is judged by; and
-# a fixture called off, whose row the hourly pass has not closed yet and which asks nothing.
+# locked; undated; and a row about the slot a move left. Then a row nobody answered yet, holding a stored line-up so it
+# asks for none; two whose opponent has left the season by their day, whose exit ends the question and the line-up
+# owed; and a fixture called off, whose row the hourly pass has not closed yet and which asks nothing.
 EXPIRED = spiel(5, TODAY, "13:00:00")
 VORSCHLAG = spiel(1, "2026-04-15")
 DECLINED = spiel(2, "2026-04-22", home=OTHER)
@@ -179,7 +179,7 @@ async def seed(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBESTAETIGUNGEN].insert_many([dict(stored) for stored in ROWS])
     await database[Collection.AUFSTELLUNGEN].insert_many(
         [
-            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, LEFT_HOME, LEFT_AWAY, EXPIRED)),
+            *(documents.aufstellung_document(stored, TEAM, starters=[ObjectId()]) for stored in (AGREED, VALID, EXPIRED)),
         ]
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -286,11 +286,9 @@ class TestTheOverview:
             (str(VORSCHLAG["_id"]), "vorschlag", "team1", {"date": "2026-04-16", "time": "17:00:00"}),
             (str(DECLINED["_id"]), "declined", "team2", {"date": "2026-04-23", "time": "17:00:00"}),
             (str(VALID["_id"]), "valid", "team1", None),
-            # Inside their deadline: the opponent's exit by the fixture's day is what ends each.
-            (str(LEFT_HOME["_id"]), "expired", "team2", None),
-            (str(LEFT_AWAY["_id"]), "expired", "team1", None),
         ]
-        # Stored, locked within the hour, or undated, a fixture asks for no line-up; the overdue one comes first.
+        # Stored, locked within the hour, undated, called off, or against a club gone by its day, a fixture asks for no
+        # line-up; the overdue one comes first.
         assert [(entry["spiel_id"], entry["marks"]["phase"]) for entry in served["aufstellungen"]] == [
             (str(OVERDUE["_id"]), "overdue"),
             (str(VORSCHLAG["_id"]), "open"),
@@ -324,12 +322,14 @@ class TestTheTeamsSpiele:
             6: None,
             7: None,
             8: "valid",
-            9: "expired",
-            10: "expired",
+            # Inside their deadline, the opponent's exit by the fixture's day ends the question rather than lapsing it.
+            9: None,
+            10: None,
             11: None,
         }
         marks = {spiel_raw["spiel_nr"]: by_spiel[str(spiel_raw["_id"])]["aufstellung"] for spiel_raw in SPIELE}
-        assert marks[6] is None
+        # Undated, against a club gone by the day, or called off: no line-up owed, as the line-up's reminder judges it.
+        assert [marks[number] for number in (6, 9, 10, 11)] == [None, None, None, None]
         assert (marks[3]["stored"], marks[3]["phase"]) == (True, "open")
         assert (marks[4]["phase"], marks[5]["phase"]) == ("overdue", "locked")
         # Locked, so the entries of the pupil erased since keep it standing.

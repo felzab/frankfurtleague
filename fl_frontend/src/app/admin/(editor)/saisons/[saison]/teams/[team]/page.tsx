@@ -79,6 +79,7 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
         : {
             earliest: dayOf(saison.start_date),
             today: dayIn(now()),
+            recipients: read.austritt_recipients,
             ...(saison.begun ? {} : { locked: COPY.admin.fromStart }),
           },
   };
