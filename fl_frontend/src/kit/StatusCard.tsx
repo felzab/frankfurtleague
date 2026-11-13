@@ -39,7 +39,7 @@ export type StatusCardProps = {
 
 export const statusCard = tv({
   slots: {
-    root: `mx-auto grid w-full max-w-card justify-items-center gap-4 ${cardSurface()} px-6 py-8 text-center max-lg:justify-items-stretch`,
+    root: "grid w-full justify-items-center gap-4 text-center",
     mark: "flex size-10 items-center justify-center justify-self-center rounded-full",
     // A rail card's title in the Anton of the strip above it, at the strip's rung, below the strip's `h1`.
     railTitle: "font-heading tracking-display uppercase",
@@ -57,12 +57,28 @@ export const statusCard = tv({
       saison: { railTitle: "text-2xl" },
       area: { railTitle: "text-xl" },
     },
+    // A card of its own on a page; in a route dialog, whose box is its surface, its parts alone, the way on as wide as
+    // the dialog, as the match pop-up's act stands.
+    place: {
+      page: { root: `mx-auto max-w-card ${cardSurface()} px-6 py-8 max-lg:justify-items-stretch` },
+      dialog: { root: "justify-items-stretch" },
+    },
   },
+  defaultVariants: { place: "page" },
 });
 
-/** The card's parts: its hue, its ways on, and its title as the frame sets it, or none where the strip says it. */
-function CardBody({ tone, next, quiet, title }: Omit<StatusCardProps, "title"> & { title?: ReactElement }) {
-  const slots = statusCard({ tone });
+/**
+ * The card's parts: its hue, its ways on, and its title as the frame sets it, or none where the strip says it; on a
+ * page, or in a route dialog, whose title names the dialog.
+ */
+export function StatusCardBody({
+  tone,
+  next,
+  quiet,
+  title,
+  place,
+}: Omit<StatusCardProps, "title"> & { title?: ReactElement; place?: "page" | "dialog" }) {
+  const slots = statusCard({ tone, place });
   return (
     <div className={slots.root()}>
       <span className={slots.mark()}>
@@ -100,7 +116,7 @@ export type RailCard = Omit<StatusCardProps, "title"> & { title?: Copy };
 /** The card in a rail page, under the strip's title: the end's own title where the strip names the page instead. */
 export function RailCardBody({ card: { tone, next, quiet, title }, scope }: { card: RailCard; scope: RailPageHead["scope"] }) {
   return (
-    <CardBody
+    <StatusCardBody
       tone={tone}
       next={next}
       quiet={quiet}
@@ -139,7 +155,7 @@ export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy
 export function ClassicStatusPage({ tone, title, next, quiet }: StatusCardProps) {
   return (
     <ClassicPage width="card">
-      <CardBody
+      <StatusCardBody
         tone={tone}
         next={next}
         quiet={quiet}

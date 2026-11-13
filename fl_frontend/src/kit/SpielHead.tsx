@@ -3,12 +3,14 @@ import { COPY, textOf } from "@/core/copy";
 import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
+import { classicTitle } from "./ClassicPage";
 import { CutText } from "./CutText";
-import { RouteDialog, RouteDialogBody } from "./Dialog";
+import { DialogTitle, RouteDialog, RouteDialogBody } from "./Dialog";
 import { Facts, FactsPlaceholder, SPIELORT_WORDS } from "./Facts";
 import { Link } from "./Link";
 import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
+import { StatusCardBody } from "./StatusCard";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 import { PageWait } from "./WholePage";
@@ -18,6 +20,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
+import type { StatusCardProps } from "./StatusCard";
 
 /**
  * A side as the head names it: the club's name a link to its page once the club is known, and under it a
@@ -264,6 +267,28 @@ export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<
       <PageWait fallback={<PopupPlaceholder />}>
         <PopupBody popup={popup} />
       </PageWait>
+    </RouteDialog>
+  );
+}
+
+/**
+ * The match pop-up whose match is not there, as a match deleted after its Spielplan was read: the status card in the
+ * dialog, its title naming the dialog in a status card's title look, so a missing match opens where a found one does.
+ */
+export function SpielPopupEnd({ beneath, tone, title, next }: { beneath: Route } & Omit<StatusCardProps, "quiet">) {
+  return (
+    <RouteDialog beneath={beneath}>
+      <StatusCardBody
+        place="dialog"
+        tone={tone}
+        next={next}
+        title={
+          <DialogTitle
+            text={title}
+            className={classicTitle()}
+          />
+        }
+      />
     </RouteDialog>
   );
 }
