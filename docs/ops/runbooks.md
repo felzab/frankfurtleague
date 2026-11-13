@@ -112,18 +112,18 @@ through the same route.
 that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
 about and counts as no pin.
 
-| Ending                             | Exit      | What stands afterwards                                                                                      |
-| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
-| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                        |
-| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                       |
-| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded, unless its reload went unconfirmed                 |
-| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
-| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
-| Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                          |
-| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
-| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
-| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |
-| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started |
+| Ending                             | Exit      | What stands afterwards                                                                                                               |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                                                 |
+| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                                                |
+| Failed, and went back              | 1         | The previous build's images, pinned; nginx on the configuration it had, unless the start recreated it or its reload went unconfirmed |
+| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                                                        |
+| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                                                      |
+| Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                                                   |
+| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                                                 |
+| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                                                 |
+| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                                         |
+| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
 **A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
 pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
