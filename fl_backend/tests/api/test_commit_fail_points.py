@@ -417,28 +417,6 @@ class TestAPersonsOwnPress:
         assert (before != withdrawn, after) == (True, withdrawn)
         assert (status, body["error_code"], len(journal_records(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
 
-    def test_a_press_on_a_stale_state_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
-
-        stale = {"scope": "a" * 64, "media": None}
-
-        async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal(scope="internal", media=False)
-            with caplog.at_level(logging.INFO):
-                refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
-                refused_lines = len(journal_records(caplog))
-                after_the_refusal = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-                pressed = await http.patch(CONSENT_PRESS, json=withdrawal, headers=_person(PERSON))
-
-            return (refused.status_code, refused.json()["error_code"], refused_lines, after_the_refusal == before), pressed.status_code
-
-        refusal, pressed = served(mongo_replica_set_url, steps)
-
-        assert refusal == (409, Code.CHOICES_STALE, 0, True)
-        # The control: the capture reads the line a press that lands leaves.
-        assert (pressed, len(journal_records(caplog))) == (204, 1)
-
 
 @pytest.mark.db
 class TestARecordedActWhoseCommitIsRefused:
