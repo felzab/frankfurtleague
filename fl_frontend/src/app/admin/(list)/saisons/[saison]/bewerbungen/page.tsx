@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
-import { NOT_SENT_CHIP } from "@/kit/stateChips";
+import { NOT_SENT_CHIP, outOfPlayChip } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
@@ -50,19 +50,22 @@ const ORIGIN_OPTIONS = [
   { id: "existing", label: WORDS.existingTeam },
 ] as const;
 
-/** The row's one chip in its standing's place: a seat never mailed first, the application going on its day unless a link is sent, then an open Dublette. */
-function chipOf(row: FLBewerbungListRow): ChipProps {
-  if (row.unmailed) return NOT_SENT_CHIP;
+/**
+ * The row's one chip in its standing's place: a seat never mailed first, the application going on its day unless a link
+ * is sent, out of play once the season is finished; then an open Dublette.
+ */
+function chipOf(row: FLBewerbungListRow, past: boolean): ChipProps {
+  if (row.unmailed) return past ? outOfPlayChip(NOT_SENT_CHIP) : NOT_SENT_CHIP;
   return row.duplicate ? TEAM_DOUBLE : STANDING_CHIP[standingOf(row)];
 }
 
 /** One application's row, opening its review page. */
-function rowOf(row: FLBewerbungListRow, saison: string): TableRow {
+function rowOf(row: FLBewerbungListRow, saison: string, past: boolean): TableRow {
   return {
     id: row.id,
     name: { record: row.name },
     href: ROUTES.adminBewerbung.path(saison, row.id),
-    chip: chipOf(row),
+    chip: chipOf(row, past),
     cells: {
       received: { record: formatDate(dayOf(row.submitted_at)) },
       seats: COPY.admin.seatsOf(row.seats_confirmed, SEATS),
@@ -95,7 +98,7 @@ async function readList(params: Props["params"], searchParams: Props["searchPara
     cut: read.complete ? null : WORDS.cut,
     table: {
       label: ROUTES.adminBewerbungen.title,
-      rows: rows.map((row) => rowOf(row, saison)),
+      rows: rows.map((row) => rowOf(row, saison, read.saison.status === "past")),
       empty: {
         kind: state === null && origin === null ? "none" : "filter",
         plural: ROUTES.adminBewerbungen.title,
