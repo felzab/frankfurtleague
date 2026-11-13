@@ -6,7 +6,7 @@ import { CardRowsPlaceholder } from "@/kit/Card";
 import { EditorShell } from "@/kit/EditorShell";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { SectionPlaceholder } from "@/kit/Section";
-import { EXPIRED_CHIP } from "@/kit/stateChips";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 import { SwitchPlaceholder } from "@/kit/Switch";
 import { TablePlaceholder } from "@/kit/Table";
 
@@ -250,23 +250,27 @@ const openRowOf = (rows: readonly FLSpielbestaetigungEditorRow[], party: (row: F
 /**
  * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
  * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
- * An answer that lapsed unanswered, which the party can no longer give, says so as the party's own page does.
+ * An answer that lapsed unanswered, which the party can no longer give, says so and the day it lapsed on, as every
+ * other page under that chip does.
  */
 function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
-  // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
-  const open = { tone: "warn", label: COPY.template.open } as const;
-  if (row === undefined) return { ...shown, chip: open, line: WORDS.notAsked };
+  // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
+  if (row === undefined) return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
   const { answer } = row;
-  if (answer === null) return { ...shown, chip: row.expired ? EXPIRED_CHIP : open, line: WORDS.answerBy(dayOf(row.deadline)) };
+  if (answer === null) {
+    const deadline = dayOf(row.deadline);
+    if (row.expired) return { ...shown, chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(deadline) };
+    return { ...shown, chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: WORDS.answerBy(deadline) };
+  }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
-  if (answer.kind === "agreed") return { ...shown, chip: { tone: "success", label: WORDS.agreed }, line: day };
+  if (answer.kind === "agreed") return { ...shown, chip: AGREED_CHIP, line: day };
   const { vorschlag, reason } = answer;
   const line =
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: DECLINED_CHIP, line, ...(reason === null ? {} : { reason: { record: reason } }) };
 }
 
 /** Each party's answer about the fixture as it stands: both clubs, then the referee where a booking names one. */
@@ -301,20 +305,22 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
- * „Fehlt“ where none is stored, with the chip the club's own pages draw for it past its due mark and from the lock. A
- * side the draw has not settled has no club to name one; a match with no day or hour, and one called off, owe none, so
- * neither shows a row.
+ * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
+ * too. A side the draw has not settled has no club to name one; a match with no day or hour owes none, and one carrying
+ * any event owes none either, as the club's own pages read it, so neither shows a row.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
-  if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
+  // The served marks read the clock alone and never the event, so the page judges the event itself.
+  if (spiel.date === null || spiel.time === null || spiel.sonderereignis !== null) return [];
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];
     if (club === null) return [];
     const stored = aufstellungen[side];
     const mark = marks[side];
-    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase];
+    // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
+    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase === "locked" ? "overdue" : mark.phase];
     return [
       {
         id: side,
@@ -352,7 +358,7 @@ async function readEditor(params: Props["params"]) {
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.team.fromStart };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.fromStart };
       return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];

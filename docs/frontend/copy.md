@@ -142,8 +142,9 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done act
   on its own line alone.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
-- **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
-  `empty.filter` only where the list keeps a filter.
+- **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its own
+  plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person left
+  every row out of a run.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries that
   verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands under it
   as facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the

@@ -2,6 +2,8 @@ import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { FLSonderereignis } from "@/core/generated/client/types";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
 import type { ReactElement } from "react";
@@ -92,6 +94,16 @@ describe("the match editor's links to the line-ups", () => {
       },
     ]);
   });
+
+  // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
+  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs.
+  it("draws no row for a match carrying any event", async () => {
+    for (const sonderereignis of Object.values(FLSonderereignis)) {
+      const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
+
+      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([]);
+    }
+  });
 });
 
 describe("the match editor before its season's start", () => {
@@ -120,7 +132,7 @@ describe("the match editor's answers", () => {
   });
 
   // The harm: a lapsed answer drawn as one still open, so the league waits on a club the backend no longer lets answer.
-  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Offen“ where it is still in time", async () => {
+  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Antwort fehlt“ where it is still in time", async () => {
     const row = (team_id: string, expired: boolean) => ({
       id: `64b0000000000000000000${team_id === TEAM1 ? "a1" : "a2"}`,
       saison_id: "2027",
@@ -136,9 +148,10 @@ describe("the match editor's answers", () => {
     });
     const editor = await editorOver({ ...VIEW, spielbestaetigungen: [row(TEAM1, true), row(TEAM2, false)] });
 
-    expect(editor.props.answers.map(({ chip }) => chip)).toStrictEqual([
-      { tone: "neutral", label: COPY.admin.expired },
-      { tone: "warn", label: COPY.template.open },
+    // The lapsed row's line names the day it lapsed on, as every other page under that chip does, not a day still to come.
+    expect(editor.props.answers.map(({ chip, line }) => ({ chip, line }))).toStrictEqual([
+      { chip: { tone: "neutral", label: COPY.admin.expired }, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+      { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: COPY.admin.spiel.answerBy("2026-11-10") },
     ]);
   });
 });

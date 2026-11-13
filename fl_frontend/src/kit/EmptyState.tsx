@@ -10,12 +10,12 @@ import type { Route } from "next";
 import type { IconName } from "./Icon";
 
 /**
- * An empty list's cause, apart from its wording: `kind` says what emptied it, a search, the filters, or
- * nothing there yet, and the catalogue words each cause with the list's own plural, so a search can empty
- * any list and still be said.
+ * An empty list's cause, apart from its wording: `kind` says what emptied it, a search, the filters, nothing there
+ * yet, or a person who left every row out of a run, as the Sammel-Zusage's check table does where each card was
+ * skipped; the catalogue words each cause with the list's own plural, so a search can empty any list and still be said.
  */
 export type EmptyStateProps = {
-  kind: "search" | "filter" | "none";
+  kind: "search" | "filter" | "none" | "skipped";
   /**
    * The list's own plural: its title's entry where its title is a plural, „Spielorte“, and otherwise the noun the
    * catalogue keeps for its rows, „Sperren“ under the title „Sperrliste“.
@@ -58,8 +58,8 @@ const slate = tv({
 /**
  * The empty state, standing inside the list's box, which its caller draws. A list with nothing in it yet
  * shows the blank slate: its muted mark over the sentence, and the line saying where its records come from, centred.
- * A list a search or the filters emptied keeps one row, its sentence, and so does a list of open work with nothing
- * waiting.
+ * A list a search, the filters or a run's skips emptied keeps one row, its sentence, and so does a list of open work
+ * with nothing waiting.
  */
 export function EmptyState(props: EmptyStateProps | Clear) {
   if (props.kind === "none") {
@@ -92,7 +92,9 @@ export function EmptyState(props: EmptyStateProps | Clear) {
       ? COPY.shared.empty.nothingOpen
       : props.kind === "search"
         ? COPY.shared.empty.search(props.searchPlural ?? props.plural)
-        : COPY.shared.empty.filter(props.plural);
+        : props.kind === "skipped"
+          ? COPY.shared.empty.skipped(props.plural)
+          : COPY.shared.empty.filter(props.plural);
   return (
     <div className="grid min-h-14 grid-cols-1 items-center px-4 py-3 text-base text-fg-muted lg:min-h-13 lg:py-0 lg:text-sm">
       <p>{sentence}</p>

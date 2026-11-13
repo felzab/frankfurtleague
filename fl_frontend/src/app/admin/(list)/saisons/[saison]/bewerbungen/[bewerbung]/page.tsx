@@ -105,10 +105,13 @@ function schoolFacts({ team_name, full_name, schulform, address, website_url }: 
   ];
 }
 
-/** Why „Annehmen“ cannot run, by the order a repair could reach it: a season that took its start repairs nothing. */
+/**
+ * Why „Annehmen“ cannot run, by the order a repair could reach it: a season no longer planned repairs nothing, since an
+ * acceptance enters its club, which the write does in a planned season alone.
+ */
 function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], standing: Standing): Copy | undefined {
   if (status === "past") return COPY.template.closed;
-  if (status === "active") return COPY.admin.saison.lockedSinceStart;
+  if (status === "active") return COPY.admin.team.onlyPlanned;
   return standing === "complete" ? undefined : WORDS.awaitsConfirmations;
 }
 

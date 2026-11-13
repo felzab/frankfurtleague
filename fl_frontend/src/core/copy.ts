@@ -194,9 +194,6 @@ const LOCK = {
 /** Why some of an editor's fields stand locked, which its lock line says once however many it holds. */
 export type LockReason = keyof typeof LOCK;
 
-// The season's start having passed, as an act's reason, in the lock line's words.
-const LOCKED_SINCE_START = `Gesperrt ${LOCK.sinceStart}`;
-
 // A season's name, `shared`'s entry, which the application page's title names its season by.
 const saisonName = (id: string) => `Saison ${id}`;
 // A group matchday by its place, `shared`'s entry, which the application form's wished opponent names the first by.
@@ -359,6 +356,8 @@ export const COPY = catalogue({
       noneOne: (noun: Copy) => `Noch kein ${noun}.`,
       /** An Übersicht card holding no open work: nothing is waiting, where `none` would say something is still to come. */
       nothingOpen: "Nichts offen.",
+      /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
+      skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
@@ -1088,6 +1087,11 @@ export const COPY = catalogue({
     /** A person's objection through their own link: the chip of a seat and of a referee, and the end their link reaches. */
     objected: "Widersprochen",
     erased: DELETED,
+    /**
+     * Why a choice waits for the season's start: the team editor's exit, whose route before the start is the replacement,
+     * and the match editor's events that record the match, offered disabled until then.
+     */
+    fromStart: "Erst ab Saisonbeginn",
     /** „2 von 3“, a figure under its column's or its fact's name, where `SERVER_COPY.overview.seatsConfirmed` is a whole line. */
     seatsOf: (confirmed: number, seats: number) => `${formatNumber(confirmed)} ${boundBy("von", formatNumber(seats))}`,
     /** A seat row's one muted line: the seats held, the address, and where the answer stands. An emptied seat holds no address, an erased one no day. */
@@ -1208,8 +1212,6 @@ export const COPY = catalogue({
       stufe: { E1: "E1", E2: "E2", Q1: "Q1", Q2: "Q2", Q3: "Q3", Q4: "Q4" } satisfies Record<FLSpielerStufe, string>,
       /** The fixture list these counts would draw is longer than one read lists, which every season page reads it in. */
       tooManySpiele: "Aus diesen Zahlen entstehen zu viele Spiele.",
-      /** Why an act on the season's clubs cannot run once its start has passed, as the act's tooltip says it. */
-      lockedSinceStart: LOCKED_SINCE_START,
       /** The registration link paused: the window stands, and a link opens nothing until the box is cleared. */
       registrierungPaused: "Registrierung pausiert",
       /** A running season storing no registration window: a link opens nothing until the season's editor stores one. */
@@ -1415,7 +1417,7 @@ export const COPY = catalogue({
       search: "Teams suchen",
       /** A full group's greyed entry. */
       gruppeFull: "Voll",
-      /** „Team eintragen“'s reason while locked. */
+      /** „Team eintragen“'s reason while locked, and „Annehmen“'s in a running season: either enters a club. */
       onlyPlanned: "Nur in einer geplanten Saison",
       /** A record in play: the state filter's option for a club playing on, and the chip of a list's default row. */
       active: "Aktiv",
@@ -1443,8 +1445,6 @@ export const COPY = catalogue({
       /** The exit's row and its dialog's title. */
       austrittAct: "Aus der Saison nehmen",
       austrittRowLine: "Das Team scheidet aus dieser Saison aus.",
-      /** The exit's reason while locked: before the season's start the replacement is the route. */
-      fromStart: "Erst ab Saisonbeginn",
       austrittReasonDescription: "Steht ohne Namen auf der Website",
       /**
        * Under the exit's date: the write calls no fixture off, so the line says only what it ends, the club's requests,
@@ -1552,7 +1552,7 @@ export const COPY = catalogue({
       partial: {
         sessions: "Die Sperre steht, aber die Anmeldungen laufen weiter.",
         notice: "Die Sperre steht, aber die E-Mail ist nicht gesendet.",
-        both: "Die Sperre steht, aber Anmeldungen und E-Mail sind offen.",
+        both: "Die Sperre steht, aber die Anmeldungen laufen weiter und die E-Mail ist nicht gesendet.",
         /** The second press's note, once it ended what the first left running. */
         ended: "Die Anmeldungen sind beendet.",
       },
