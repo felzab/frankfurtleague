@@ -128,7 +128,8 @@ describe("a game owing its report", () => {
     const owed = { past: true, bericht_owed: true };
     const rows = await rowsOf(
       spiel({ spiel_id: "5f0000000000000000000001", state: "declined", reason: "Klausur", ...owed }),
-      spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", ...owed }),
+      // An abandoned game used the ground and the referee, so its report is owed though it carries an event.
+      spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", sonderereignis: "abgebrochen", ...owed }),
     );
 
     const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.admin.spiel.spielbericht) };
