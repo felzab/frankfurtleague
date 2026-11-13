@@ -33,8 +33,6 @@ const HEADERS_DOUBLE = {
 /** The mailed link's cookie as the proxy set it on the deletion's page, which a completed deletion forgets. */
 const ERASURE_LINK_COOKIE = { name: "mailed_link", path: "/erasure" };
 
-const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
-
 const ADAPTER_DOUBLE = {
   mongodbAdapter: () => insertOrderedAdapter(store as unknown as MemoryDB),
 };
@@ -42,7 +40,6 @@ const ADAPTER_DOUBLE = {
 const mail = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the system key the gate reads with.
   core: {
-    logging: LOGGING_DOUBLE,
     config: configDouble(GATE_BACKEND_CONFIG, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
   specifiers: {

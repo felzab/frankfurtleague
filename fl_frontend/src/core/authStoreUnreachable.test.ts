@@ -9,12 +9,10 @@ const UNREACHABLE_ADAPTER = {
   },
 };
 
-const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
-
 // A module of its own: the library builds its context once per process, so a failing one here would fail every
 // case beside it.
 registerAuthDoubles({
-  core: { logging: LOGGING_DOUBLE, config: configDouble() },
+  core: { config: configDouble() },
   specifiers: { "@better-auth/mongo-adapter": UNREACHABLE_ADAPTER },
 });
 
