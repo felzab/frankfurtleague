@@ -518,8 +518,8 @@ async def sweep_spielbestaetigungen(
                     )
                 )
 
-                moved_to = spiel_mail_slot_of(spiel)
-
+                # The request or Einteilung is the one mail telling of a move: a row about the slot the fixture holds
+                # never stands beside one about a slot it left, the plan inserting it closing every row it supersedes.
                 if party["kind"] == "schiedsrichter":
                     if existing is None:
                         row = compose_spielbestaetigung(
@@ -540,8 +540,6 @@ async def sweep_spielbestaetigungen(
                                 reference=reference_of(spielbestaetigung_id=row["_id"], seat=None),
                             )
                         )
-                    # A referee's row about the slot the fixture holds never stands beside one about a slot it left, so
-                    # no move is told here: this transaction closes every row its insert supersedes.
                     continue
 
                 kontakte = junctions[party["team_id"]].get("kontakte")
@@ -574,17 +572,6 @@ async def sweep_spielbestaetigungen(
                     plan.seated.add(party["team_id"])
                     plan.asked += 1
                     plan.mails += requests
-                # No request goes now, so the move is told on its own, keyed as the close step keys it.
-                elif told is not None and moved_from is not None:
-                    notices = team_mails(
-                        spielbestaetigung_raw=told,
-                        kontakte=kontakte,
-                        data=moved_notice_of(party_kind=party["kind"], appointment=moved_from, moved_to=moved_to, stays=True),
-                        occasion="ansetzung_changed",
-                    )
-                    if notices:
-                        plan.seated.add(party["team_id"])
-                        plan.mails += notices
 
             return plan
 
