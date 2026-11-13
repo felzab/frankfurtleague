@@ -51,7 +51,7 @@ describe("formatInstant", () => {
 describe("formatInstantShort", () => {
   // Late evening UTC is the next day in Berlin, and a list's row must name the day the league's clock read.
   it("writes the numeric date and the time on the league's clock", () => {
-    expect(formatInstantShort(new Date("2026-11-07T23:04:00Z"))).toBe("08.11.2026, 00:04");
+    expect(formatInstantShort(new Date("2026-11-07T23:04:00Z"))).toBe("08.11.2026, 00:04");
   });
 
   it("prints an unreadable stored instant as it was stored rather than throw and lose the page", () => {

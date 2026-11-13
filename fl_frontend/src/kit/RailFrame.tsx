@@ -258,18 +258,38 @@ const strip = tv({
     // From `lg` laid over the frame's strip, as tall and as sticky, with no ground of its own: the rail's toggle first,
     // inside the page's banner landmark, which a screen reader moving between landmarks reaches, and the title 16 px
     // past the toggle's box, which a finger's 40-px box moves on by its own width (`RailToggle`). Its hairline's width
-    // stays in the box, unpainted, so the title is centred as the strip's other parts are.
-    head: "flex min-w-0 shrink-0 items-center gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:border-b lg:border-transparent lg:ps-8 lg:pe-8 lg:pt-0",
+    // stays in the box, unpainted, so the title is centred as the strip's other parts are. Below `lg`, where a long
+    // title wraps, every part after the title stands centred on the title's first line rather than on all its lines:
+    // the parts stand at the head's top, each one line of the head tall (`chips`), and the title's first line stands
+    // centred on that line (`first`). One line of the head is the title's own, or a control's where the head holds one,
+    // which is never shorter (`controls`).
+    head: "flex min-w-0 shrink-0 items-start gap-4 px-4 pt-4 [view-transition-name:title] lg:sticky lg:top-0 lg:z-10 lg:h-(--rail-strip) lg:items-center lg:border-b lg:border-transparent lg:ps-8 lg:pe-8 lg:pt-0",
     // A long name wraps on a phone, where the title heads the content, and is cut short only in the desktop strip.
     heading: "min-w-0 font-heading tracking-display break-words uppercase lg:truncate",
+    // The title and its wait, its first line lowered to the centre of the head's line where a control sets that line.
+    first: "",
+    // The record's chips, centred in one line of the head.
+    chips: "flex h-lh shrink-0 items-center gap-2",
   },
   variants: {
-    // A public page's title at 24 px, a signed-in page's at 20 px.
+    // A public page's title at 24 px on a 32-px line, a signed-in page's at 20 px on a 28-px line. The chips' box takes
+    // the size too, so its `1lh` is the title's line; each chip sets its own words' size.
     scope: {
-      saison: { heading: "text-2xl" },
-      area: { heading: "text-xl" },
+      saison: { heading: "text-2xl", chips: "text-2xl" },
+      area: { heading: "text-xl", chips: "text-xl" },
+    },
+    // A head holding a control after the title, the way on or the strip's link, 32 px tall and 40 under a finger, never
+    // shorter than the title's line: one line of the head is the control's.
+    controls: {
+      true: { chips: "h-8 pointer-coarse:h-10" },
     },
   },
+  compoundVariants: [
+    // The title's first line stands half of what the control is taller than it lower: 2 px for a signed-in page's 28-px
+    // line beside 32 px, 6 beside 40, and 4 for a public page's 32-px line beside 40.
+    { scope: "area", controls: true, class: { first: "max-lg:pt-0.5 max-lg:pointer-coarse:pt-1.5" } },
+    { scope: "saison", controls: true, class: { first: "max-lg:pointer-coarse:pt-1" } },
+  ],
 });
 
 /**
@@ -318,7 +338,7 @@ export function RailPage({
   bar?: ReactElement;
   children: ReactNode;
 }) {
-  const { head, heading } = strip({ scope });
+  const { head, heading, first, chips } = strip({ scope, controls: action !== undefined || link !== undefined });
   return (
     <>
       {/* Beside the page's fade, never in it, as the bar under it is: the fade writes a name of its own over the name of
@@ -328,17 +348,17 @@ export function RailPage({
         <RailToggle />
         {title === null ? (
           // The title's line at the title's own height, so the content under it on a phone stands where it will.
-          <Placeholder layoutClass="min-w-0 flex-1">
+          <Placeholder layoutClass={first({ class: "min-w-0 flex-1" })}>
             <PlaceholderLine
               textClass={heading()}
               widthClass="w-48 max-w-full"
             />
           </Placeholder>
         ) : (
-          <h1 className={heading()}>{titleOf(title)}</h1>
+          <h1 className={heading({ class: first() })}>{titleOf(title)}</h1>
         )}
         {chip !== undefined && (
-          <span className="flex shrink-0 items-center gap-2">
+          <span className={chips()}>
             <Chip {...chip} />
             {flag !== undefined && <Chip {...flag} />}
           </span>
