@@ -95,14 +95,6 @@
     --target-highlight: 2s;
   }
 
-  /* The text colour of the ground a placeholder's bar stands on, which `skeleton-bar` takes 12 % of. A name of its own,
-     never `currentColor`: a bar holding unseen words has a transparent `color`, and a muted line's would fade with it.
-     The band redeclares it as it redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it
-     follows the theme. */
-  :root {
-    --bar-ink: var(--fg);
-  }
-
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
      is invalid at computed-value time and falls back to its initial `0s`. No easing is set; CSS's
      default `ease` applies. */
@@ -206,39 +198,6 @@
   }
 }
 
-/* A placeholder's bar, the kit's `Skeleton`: 12 % of its ground's text colour, the hover layer's figure, so a bar shows
-   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. One utility, so
-   a page waiting in hundreds of bars carries one class for all of this rather than its every class on each bar. Its
-   properties sort it ahead of the single-property utilities on the same property, so a bar's own display, size or
-   corners, set beside it, win. */
-@utility skeleton-bar {
-  @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
-}
-
-/* A block drawn while its content is read, the kit's `Pending`: the block's own markup, in which these rules draw as a
-   bar each part the block marks `data-kit-bar`, what the read brings, and touch nothing else, so what the page knows
-   before the read, a title, a label, a glyph, a control, stands real. Each declaration is a paint property and none
-   sets a box, so the block waits at exactly the size it lands at. Unlayered, so no utility's colour outranks them. The
-   bar's colour and its pulse are `skeleton-bar`'s, running under reduced motion as it does. */
-
-/* A marked part is one bar of its own box, in its own corners, as a plaque or a chip is: its ink gone, its ground the
-   bar's. */
-[data-kit-pending] :is([data-kit-bar], [data-kit-bar] *) {
-  color: transparent;
-}
-
-[data-kit-pending] [data-kit-bar] {
-  @apply animate-pulse bg-bar-ink/12;
-}
-
-/* The look of a value's words, in this one rule. They are marked on an inline element around them, whose box is each
-   line's words, so the bar is as wide as they are, line by line; it stands 0.75em tall on the middle of the line, the
-   height of a placeholder's line, where the box itself is as tall as the face. Without this rule the words are a bar
-   of their whole box, as every marked part is. */
-[data-kit-pending] [data-kit-bar="words"] {
-  background: linear-gradient(--alpha(var(--bar-ink) / 12%), --alpha(var(--bar-ink) / 12%)) center / 100% 0.75em no-repeat;
-}
-
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
    value is, the tint fading to the place's own background. */
 @keyframes kit-target {
@@ -296,7 +255,6 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
-  --color-bar-ink: var(--bar-ink);
   --color-bg-overlay: var(--bg-overlay);
   --color-bg-logo: var(--bg-logo);
   --color-fg: var(--fg);
