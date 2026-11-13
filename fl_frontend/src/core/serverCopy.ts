@@ -384,8 +384,8 @@ export const SERVER_COPY = catalogue({
         },
         nichtantreten: {
           subject: (day: CalendarDay) => `${COPY.spielplan.sonderereignis.nichtantretenChip}: Spiel am ${formatDateLong(day)}`,
-          before: (team: Words) => `${textOf(team)} ist zum Spiel am\u00A0`,
-          after: " nicht angetreten.",
+          before: (team: Words) => `${textOf(team)} tritt zum Spiel am\u00A0`,
+          after: " nicht an.",
         },
         none: {
           subject: (day: CalendarDay) => `Spiel am ${formatDateLong(day)} fällt aus`,
