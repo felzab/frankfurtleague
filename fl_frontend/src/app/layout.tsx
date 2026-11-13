@@ -92,6 +92,13 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
+/**
+ * The id of the body's last element, which the browser's first paint of a document waits for: its `expect` link holds
+ * rendering until the element is parsed, so every box sized by content later in the document, a table's column by its
+ * later rows or the phone bar's tracks by its later links, is laid out whole before anything is painted.
+ */
+const DOCUMENT_END = "document-end";
+
 /** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
@@ -102,6 +109,16 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
       // keeps the content's width, and a full-width line meets the track, where a reserved gutter would
       // stand empty beyond the line on a short page.
       className={`${anton.variable} ${raleway.variable} ${inter.variable} overflow-y-scroll`}>
+      <head>
+        {/* Only a link parsed before the body can block rendering. A browser without the link type, Firefox among
+            them, ignores it and paints the document as it parses it, which a slow device may do in pieces. Where the
+            element never comes, the end of parsing lifts the block. */}
+        <link
+          rel="expect"
+          href={`#${DOCUMENT_END}`}
+          blocking="render"
+        />
+      </head>
       {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
       <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">
@@ -115,6 +132,9 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
             {modal}
           </WholePages>
         </RootProviders>
+        {/* After every page's content, so the first paint holds all of it. Next's scripts follow it and lay out
+            nothing, so they are parsed after that paint. A template draws no box. */}
+        <template id={DOCUMENT_END} />
       </body>
     </html>
   );
