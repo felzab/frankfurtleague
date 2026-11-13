@@ -7696,6 +7696,18 @@
             "title": "Deadline",
             "type": "string"
           },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
+          },
           "name": {
             "minLength": 1,
             "title": "Name",
@@ -7729,7 +7741,8 @@
           "spielbestaetigung_id",
           "party",
           "name",
-          "deadline"
+          "deadline",
+          "lapsed_on"
         ],
         "title": "FLOverviewParty",
         "type": "object"
@@ -7813,7 +7826,7 @@
         "type": "object"
       },
       "FLOverviewSpielbestaetigungRow": {
-        "description": "A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.",
+        "description": "A fixture whose parties owe their answer: overdue where one party's answer has lapsed, else still due.",
         "properties": {
           "kind": {
             "$ref": "#/components/schemas/FLOverviewAnswerKind"
@@ -11321,10 +11334,6 @@
             ],
             "title": "Reason"
           },
-          "reportable": {
-            "title": "Reportable",
-            "type": "boolean"
-          },
           "sonderereignis": {
             "anyOf": [
               {
@@ -11441,7 +11450,6 @@
           "reason",
           "entered",
           "past",
-          "reportable",
           "submitted_at",
           "bericht_owed"
         ],
@@ -13223,7 +13231,7 @@
         "type": "object"
       },
       "FLSpielberichtBericht": {
-        "description": "The referee's account of one match, one proposal, a correction after its adoption reading `differing`.",
+        "description": "The referee's account of one match and its one proposal; the referee's every correction clears its adoption.",
         "properties": {
           "adopted": {
             "title": "Adopted",
@@ -14272,7 +14280,7 @@
         "type": "object"
       },
       "FLSpielbestaetigungEditorRow": {
-        "description": "A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.\n\nThe close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or\nunasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.",
+        "description": "A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
         "properties": {
           "ansetzung": {
             "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
@@ -14314,10 +14322,27 @@
             "title": "Deadline",
             "type": "string"
           },
+          "due_by": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Due By",
+            "type": "string"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
             "type": "string"
+          },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
           },
           "party": {
             "discriminator": {
@@ -14383,7 +14408,9 @@
           "reminded_at",
           "answer",
           "closed",
-          "state"
+          "state",
+          "due_by",
+          "lapsed_on"
         ],
         "title": "FLSpielbestaetigungEditorRow",
         "type": "object"
@@ -17489,6 +17516,18 @@
             "title": "Deadline",
             "type": "string"
           },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
+          },
           "side": {
             "$ref": "#/components/schemas/FLSpielSide"
           },
@@ -17523,6 +17562,7 @@
           "side",
           "state",
           "deadline",
+          "lapsed_on",
           "vorschlag"
         ],
         "title": "FLTeamPanelSpielbestaetigung",
