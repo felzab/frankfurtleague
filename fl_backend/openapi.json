@@ -11683,7 +11683,7 @@
         "type": "object"
       },
       "FLSpielEditorAufstellungMarks": {
-        "description": "Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.",
+        "description": "Each side's line-up marks, off the clock alone, as the club's own pages are served them.\n\nNull for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,\nwhich a page reads off its `sonderereignis`, as the club's own pages do.",
         "properties": {
           "team1": {
             "anyOf": [

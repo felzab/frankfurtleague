@@ -1,9 +1,10 @@
 """
-API · the match editor's confirmation rows: what each reads as, as the party's own pages judge it
+API · the match editor's confirmation rows and line-up marks: what each reads as, as the party's own pages judge it
 
 The editor draws each party's answer by the state its row is served with, so the read must answer `state_of`'s own
 state, which a deadline alone does not decide: an answer given stands past its deadline, and a call-off or a club's
-exit ends a row still in time.
+exit ends a row still in time. And it calls a line-up stored as every reader does (`aufstellung_stands`): one emptied
+stays due.
 """
 
 from collections.abc import Mapping, Sequence
@@ -45,8 +46,10 @@ def _spiel(**fields: Any) -> dict[str, Any]:
     )
 
 
-def _read(url: str, spiel: Mapping[str, Any], *, rows: Sequence[Mapping[str, Any]]) -> FLSpieleAdminSingleResponse:
-    """The editor's read of `spiel` on 27 April, beside its rows, the away club having left the season on 1 May."""
+def _read(
+    url: str, spiel: Mapping[str, Any], *, rows: Sequence[Mapping[str, Any]] = (), aufstellungen: Sequence[Mapping[str, Any]] = ()
+) -> FLSpieleAdminSingleResponse:
+    """The editor's read of `spiel` on 27 April, beside what is stored for it, the away club having left the season on 1 May."""
 
     async def body() -> FLSpieleAdminSingleResponse:
         async with a_clean_database(url, DATABASE_NAME) as (_, database):
@@ -60,7 +63,9 @@ def _read(url: str, spiel: Mapping[str, Any], *, rows: Sequence[Mapping[str, Any
                     ),
                 ]
             )
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(rows)
+            for collection, stored in ((Collection.SPIELBESTAETIGUNGEN, rows), (Collection.AUFSTELLUNGEN, aufstellungen)):
+                if stored:
+                    await database[collection].insert_many(stored)
             return await read_spiel_editor(
                 spiel_id=spiel["_id"],
                 spiele_collection=database[Collection.SPIELE],
@@ -100,3 +105,14 @@ def test_an_open_row_on_a_called_off_match_reads_cancelled(mongo_replica_set_url
     answer = _read(mongo_replica_set_url, spiel, rows=[in_time])
 
     assert [row.state for row in answer.spielbestaetigungen] == ["cancelled"]
+
+
+def test_a_line_up_holding_no_entry_reads_as_none_stored(mongo_replica_set_url: str):
+    """The home club's line-up names a pupil and the away club's, stored, holds no entry: only the first stands."""
+
+    spiel = _spiel()
+    aufstellungen = [documents.aufstellung_document(spiel, HOME, starters=[ObjectId()]), documents.aufstellung_document(spiel, AWAY)]
+
+    marks = _read(mongo_replica_set_url, spiel, aufstellungen=aufstellungen).aufstellung_marks
+
+    assert [None if side is None else side.stored for side in (marks.team1, marks.team2)] == [True, False]

@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import Field
 
 from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
-from app.api.aufstellungen.services import aufstellung_marks
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
 from app.api.saisons.services import has_started
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
@@ -110,7 +110,11 @@ class FLSpielEditorAufstellungen(BaseReadModel):
 
 
 class FLSpielEditorAufstellungMarks(BaseReadModel):
-    """Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour."""
+    """Each side's line-up marks, off the clock alone, as the club's own pages are served them.
+
+    Null for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,
+    which a page reads off its `sonderereignis`, as the club's own pages do.
+    """
 
     team1: FLAufstellungMarks | None
     team2: FLAufstellungMarks | None
@@ -279,17 +283,19 @@ async def _aufstellungen_of(
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
         projection=["team_id", "spieler.starts"],
     )
-    entries_by_club: dict[Any, list[Mapping[str, Any]]] = {row["team_id"]: row["spieler"] for row in stored_raw}
+    stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
 
     def summary_of(side: FLSpielSide) -> FLAufstellungSummary | None:
-        entries = None if side not in fielded else entries_by_club.get(fielded[side])
-        return None if entries is None else FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
+        saved = None if side not in fielded else stored_by_club.get(fielded[side])
+        if saved is None:
+            return None
+        entries = saved["spieler"]
+        return FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
 
     def marks_of(side: FLSpielSide) -> FLAufstellungMarks | None:
         if side not in fielded:
             return None
-        # Stored as every reader calls it (`aufstellung_stands`): a line-up emptied stays due.
-        stored = bool(entries_by_club.get(fielded[side]))
+        stored = aufstellung_stands(stored_by_club.get(fielded[side]))
         return aufstellung_marks(date=spiel.date, time=spiel.time, stored=stored, now=now)
 
     return (

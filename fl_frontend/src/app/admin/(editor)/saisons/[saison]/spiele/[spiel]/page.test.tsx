@@ -95,6 +95,18 @@ describe("the match editor's links to the line-ups", () => {
     ]);
   });
 
+  // The harm: a line-up still missing past the club's lock drawn with the club's grey „Gesperrt“, so the league reads
+  // as locked to it a line-up its own page still enters.
+  it("draws a line-up missing past the club's lock as overdue", async () => {
+    const team2 = { stored: false, phase: "locked" as const, due_at: "2026-11-11T15:00:00Z" };
+    const editor = await editorOver({ ...VIEW, aufstellung_marks: { ...VIEW.aufstellung_marks, team2 } });
+
+    expect(editor.props.aufstellungen.map(({ chip }) => chip)).toStrictEqual([
+      undefined,
+      { tone: "danger", label: COPY.area.team.aufstellung.overdue },
+    ]);
+  });
+
   // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
   // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs.
   it("draws no row for a match carrying any event", async () => {

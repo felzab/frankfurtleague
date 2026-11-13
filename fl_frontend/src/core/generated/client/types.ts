@@ -4713,7 +4713,10 @@ export interface FLSignInResponse {
 export type FLSignatoryMinAgeYears = 18;
 
 /**
- * Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.
+ * Each side's line-up marks, off the clock alone, as the club's own pages are served them.
+ *
+ * Null for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,
+ * which a page reads off its `sonderereignis`, as the club's own pages do.
  */
 export interface FLSpielEditorAufstellungMarks {
   team1: FLAufstellungMarks | null;
