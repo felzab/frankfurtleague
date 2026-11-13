@@ -16,11 +16,13 @@ import shareImage from "./share-image.png";
 
 import type { Metadata, Viewport } from "next";
 
-// Every face is `optional`, whose specification leaves out for that view a face not in within the browser's short
-// block period, so no text is drawn in a stand-in and then again in the face, a redraw that moves the league table's
-// and the search's figures. Measured in headless Chromium on a slow first visit, a late face is still swapped in at the
-// load event, about 2 s after the first paint, with a layout shift of at most 0.0006. Anton's stand-in is the global styles' own face, fitted to the capitals Anton sets:
-// the automatic one fits lowercase.
+// Every face is `optional`: its specification uses a face only where it has loaded for the text's first paint, and
+// never draws text in the face once it has been painted in a stand-in, a redraw that moves the league table's and the
+// search's figures. Headless Chromium breaks the second promise on a slow first visit: it swaps a late face in at the
+// load event, about 2 s after the first paint, with a layout shift of at most 0.0006, measured on every throttled load
+// and on no unthrottled one. The `expect` link below holds the first paint until the body is parsed and waits for no
+// font, so a face loaded by then is used and one arriving later still swaps. Anton's stand-in is the global styles' own
+// face, fitted to the capitals Anton sets: the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
@@ -92,6 +94,13 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
+/**
+ * The id of the body's last element, which the browser's first paint of a document waits for: its `expect` link holds
+ * rendering until the element is parsed, so every box sized by content later in the document, a table's column by its
+ * later rows or the phone bar's tracks by its later links, is laid out whole before anything is painted.
+ */
+const DOCUMENT_END = "document-end";
+
 /** `modal` is the slot where a match row, on the landing or a season page, opens its match as a pop-up. */
 export default function RootLayout({ children, modal }: LayoutProps<"/">) {
   return (
@@ -102,6 +111,16 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
       // keeps the content's width, and a full-width line meets the track, where a reserved gutter would
       // stand empty beyond the line on a short page.
       className={`${anton.variable} ${raleway.variable} ${inter.variable} overflow-y-scroll`}>
+      <head>
+        {/* Only a link parsed before the body can block rendering. A browser without the link type, Firefox among
+            them, ignores it and paints the document as it parses it, which a slow device may do in pieces. Where the
+            element never comes, the end of parsing lifts the block. */}
+        <link
+          rel="expect"
+          href={`#${DOCUMENT_END}`}
+          blocking="render"
+        />
+      </head>
       {/* No containing-block trigger on either root: one would make
           the page the containing block for every portalled overlay. */}
       <body className="flex min-h-dvh w-full flex-col bg-bg font-primary text-fg antialiased">
@@ -115,6 +134,9 @@ export default function RootLayout({ children, modal }: LayoutProps<"/">) {
             {modal}
           </WholePages>
         </RootProviders>
+        {/* After every page's content, so the first paint holds all of it. Next's scripts follow it and lay out
+            nothing, so they are parsed after that paint. A template draws no box. */}
+        <template id={DOCUMENT_END} />
       </body>
     </html>
   );

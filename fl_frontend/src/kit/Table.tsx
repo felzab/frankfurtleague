@@ -36,9 +36,10 @@ type TableColumn = {
   /** The column that decides, such as points: its figures in the strong weight. */
   strong?: boolean;
   /**
-   * What the column holds, which sets the least it takes in the table, so its edges stand at one place whatever the
-   * rows hold. Every column whose values are bounded by construction states it, an enumerated value or a fixed-format
-   * one. Any other column stating none holds free text, whose width is the record's.
+   * What the column holds, which sets the least it takes in the table: its edges stand at one place whatever the rows
+   * hold while every value fits in that least, and a longer value widens the column to its own width. Every column
+   * whose values are bounded by construction states it, an enumerated value or a fixed-format one. Any other column
+   * stating none holds free text, whose width is the record's.
    */
   width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
   /**
@@ -352,17 +353,18 @@ const table = tv({
       narrow: { head: "@max-xs:hidden", cell: "@max-xs:hidden" },
       shown: {},
     },
-    // A column's least width, on its head cell, so the column's edges stand at one place whatever the rows hold. A minimum, since the name's `w-full` leaves every other column its min-content width
-    // (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width does not. Automatic layout, not
-    // `fixed`: a value past its column widens the column and the name gives way, where `fixed` would cut it or lay it over
-    // the next cell. Each holds its padding: a count two figures, a pair „12:10“ or „3-1-0“, a count with its mark's
-    // slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten letters, one of a set the contract or
-    // the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a group („Gruppe M“), a kit colour or a count
-    // of seats („2 von 3“), a date ten characters, an instant 20, „bis“ before its date and time, a phrase of the catalogue's
-    // 24, such as a link's state „Keine bestätigte Adresse“ (156 px estimated, 6.5 a letter), an excerpt 20, the start of a `cut`
-    // text in a row whose acts need the room a whole line would take, a phone number 20, a line of an address 35 where
-    // the box is 56 rem or wider and 20 below it, where a name beside a state, the line and a phone number would keep
-    // less than its least width. A date stands at the start in the body's face, never as `figures`, which would centre
+    // A column's least width, on its head cell: the column's edges stand at one place whatever the rows hold while every
+    // value fits in it, and the widest value past it sets the column. A minimum, since the name's `w-full` leaves every
+    // other column its min-content width (CSS Tables 3, 3.9.3), which a cell's `min-width` raises and a `<col>`'s width
+    // does not. Automatic layout, not `fixed`: a value past its column widens the column and the name gives way, where
+    // `fixed` would cut it or lay it over the next cell. Each holds its padding: a count two figures, a pair „12:10“ or
+    // „3-1-0“, a count with its mark's slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten
+    // letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
+    // group („Gruppe M“), a kit colour or a count of seats („2 von 3“), a date ten characters, an instant 20, „bis“
+    // before its date and time, a phrase of the catalogue's 24, an excerpt 20, the start of a `cut` text in a row whose
+    // acts need the room a whole line would take, a phone number 20, a line of an address 35 where the box is 56 rem or
+    // wider and 20 below it, where a name beside a state, the line and a phone number would keep less than its least
+    // width. A date stands at the start in the body's face, never as `figures`, which would centre
     // it and set it apart from every other date column.
     width: {
       count: { head: "min-w-12" },
@@ -376,8 +378,8 @@ const table = tv({
       excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-44 @4xl:min-w-72" },
-      // The status column: a chip of up to 120 px in its padding, the state's and the delivery's standing one under the
-      // other where the column holds no more.
+      // The status column: a chip of 120 px in its padding, the state's and the delivery's standing one under the other
+      // where the column holds no more. A longer chip, such as a link's „Keine bestätigte Adresse“, widens the column.
       chip: { head: "min-w-36" },
     },
     // In a box narrower than 42 rem the column heads are read but not drawn, and each cell draws its column's label

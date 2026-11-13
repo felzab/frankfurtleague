@@ -96,11 +96,20 @@ commit until it ends.
 
 - Lint refuses `Suspense`, `next/dynamic` and any route's `loading.tsx` in production code.
 - A page opened by address, by a reload or by a typed address, is one document. The server sends it
-  once the whole page is rendered, and the browser paints it as it parses it.
-- A slow device may paint that document in pieces while it parses, a table before its later rows.
+  once the whole page is rendered.
+- The browser paints that document once its body is parsed, whole. The root layout
+  (`fl_frontend/src/app/layout.tsx`) names an empty element last in the body in a head link with
+  `rel="expect"` and `blocking="render"`, which holds rendering until that element is parsed. Only
+  Next's scripts follow it.
+- A browser without that link type paints the document as it parses it, so a slow device may paint
+  it in pieces: a table's column widening as its later rows arrive, the phone bar's tracks narrowing
+  as its later links do. Chrome and Edge from version 124 and Safari from 18.2 honour the link;
+  Firefox does not.
+- Where the element never comes, the end of parsing lifts the block.
 - A page that finds nothing, is refused or throws while the server renders it arrives as Next's bare
-  error document. Its body is empty, so the visitor sees a bare ground until the page's code runs
-  and draws the segment's not-found or error page in its frame.
+  error document, which holds neither the root layout's link nor its element. Its body is empty, so
+  the visitor sees a bare ground until the page's code runs and draws the segment's not-found or
+  error page in its frame.
 - The ground of a bare error document rendered per request, and of Next's own not-found document
   for an address no route matches, is in the device's own colour scheme: the head carries the root
   layout's `color-scheme` meta. On a light device, a visitor who chose the dark theme sees a white
