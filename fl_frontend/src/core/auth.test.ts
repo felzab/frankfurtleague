@@ -100,7 +100,7 @@ const {
 } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
-    // Where the send gate's backend read goes, answered by the `fetch` below rather than a server, and the admin key
+    // Where the send gate's backend read goes, answered by `serveBackend` below rather than a server, and the admin key
     // the person lane's erasure is sent under.
     config: configDouble({ API_URL: API_ORIGIN }, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
@@ -2316,7 +2316,7 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      // A token nobody verifies: the backend these cases reach is the `fetch` double above.
+      // A token nobody verifies: the backend these cases reach is the one `serveBackend` answers above.
       actor: { email, lane: "person", authTime: 0, factor: "code" },
     },
     run,
