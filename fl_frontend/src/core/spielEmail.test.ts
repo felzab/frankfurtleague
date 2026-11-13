@@ -103,7 +103,8 @@ describe("the notice of a move", () => {
     ];
 
     for (const mail of mails) {
-      expect(JSON.stringify(mail)).not.toContain("verlegt");
+      // The word in a move's subject and in its sentence alike, each time after a space.
+      expect(JSON.stringify(mail)).not.toContain(" verlegt");
       expect(JSON.stringify(mail)).toContain(left.team1);
     }
   });
