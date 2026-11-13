@@ -734,7 +734,7 @@ export const COPY = catalogue({
      */
     lockLine: (reasons: readonly LockReason[]) =>
       `Gesperrt ${formatList((Object.keys(LOCK) as LockReason[]).filter((by) => reasons.includes(by)).map((by) => LOCK[by]))}.`,
-    /** A finished season, which shuts every registration link and every acceptance: a link's state, and why „Annehmen“ is locked. */
+    /** A finished season, which shuts every acceptance: why „Annehmen“ is locked. */
     closed: "Abgeschlossen",
     /** A save refused for its fields: the fields say what, the status line that some are off. */
     checkFields: "Einige Felder sind nicht richtig ausgefüllt.",

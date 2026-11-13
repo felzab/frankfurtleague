@@ -99,17 +99,27 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 
 /**
  * A team's registration link as its row's chip states it, the record's own state whatever the season's: the club out of
- * the season in its exit's red; the press passing it over for want of a confirmed address, or no link minted yet, each
- * amber, waiting on a person or a press as an unsent link does; else unsent or sent.
+ * the season in its exit's red, else what the link waits on, else sent. A finished season's press is shut, so nothing a
+ * link waits on can follow there: its waiting states draw grey, as every state out of play does.
  */
-function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): ChipProps {
+function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): ChipProps {
   const out = team?.austritt == null ? undefined : adminTeamChip(null, team.austritt.type);
   if (out !== undefined) return out;
+  const waiting = waitingOf(row);
+  if (waiting === null) return SENT_CHIP;
+  return status === "past" ? { ...waiting, tone: "neutral" } : waiting;
+}
+
+/**
+ * What a team's link waits on, each amber as a state waiting on a person or a press: the press passing it over for want
+ * of a confirmed address, no link minted yet, or its mail; null once it is mailed.
+ */
+function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
   if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") {
     return { tone: "warn", label: WORDS.noConfirmedAddress };
   }
   if (!row.has_link) return { tone: "warn", label: WORDS.noLinkYet };
-  return row.sent_at === null ? NOT_SENT_CHIP : SENT_CHIP;
+  return row.sent_at === null ? NOT_SENT_CHIP : null;
 }
 
 /** The season editor, on the season's one admin read. */
@@ -246,6 +256,7 @@ async function readEditor(params: Props["params"]) {
             chip: linkOf(
               row,
               teams.find((team) => team.team_id === row.team_id),
+              saison.status,
             ),
             ...(sent === null ? {} : { phoneLine: WORDS.linkSentOn(sent) }),
             cells: sent === null ? {} : { sentOn: { record: formatDate(sent) } },

@@ -4,7 +4,9 @@ import type { ChipProps } from "./Chip";
 
 /*
  * The states several pages draw, each one word in one hue wherever it stands, so no page decides its own chip for a
- * state another page shows too. Green is a state reached and in order, as a list's default row is.
+ * state another page shows too. Green is a state reached and in order, as a list's default row is. A state waiting on a
+ * person or a press draws amber while one can still follow it, and grey, as a thing out of play, where none can: a
+ * finished season's links.
  */
 
 /** A record in play, the default of a list's „Stand“ column and of its editor's head: a club, a squad row, a venue. */
