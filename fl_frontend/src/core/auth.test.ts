@@ -1999,6 +1999,22 @@ describe("the code mails one address may be sent in an hour", () => {
     expect(sent.length - before).toBe(5);
     expect(answers.at(-1), "the capped send answered otherwise than a mailed one").toStrictEqual(answers[0]);
   });
+
+  /* The cap's own race: each send's row goes in before it counts, and the barrier holds every send at
+     its count until the whole burst has arrived. */
+  it("mails no burst of concurrent sends past the fifth", async () => {
+    const before = sent.length;
+
+    adapterCalls.counts.arm(8);
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }),
+      ),
+    );
+    assert.ok(await adapterCalls.counts.filled, "the burst never met at the count, so it ran no race");
+
+    assert.ok(sent.length - before <= 5, `${String(sent.length - before)} of 8 concurrent sends were mailed`);
+  });
 });
 
 describe("which addresses the send gate mails", () => {
@@ -2149,6 +2165,18 @@ describe("which sign-ins the gate admits as the session is minted", () => {
       false,
       false,
     ]);
+  });
+
+  it("mints nothing for a barred address and ends nothing the browser held", async () => {
+    const { cookie } = await signIn(BARRED_EMAIL);
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, seats: [A_SEAT], account: true, barred: true });
+    const before = [...store.session];
+
+    await expect(signInByCode(auth, BARRED_EMAIL, { ...ORIGIN, cookie })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
+      return error.body?.code === "SIGN_IN_REFUSED";
+    });
+
+    expect(store.session, "a refused code sign-in minted a session or ended the held one").toStrictEqual(before);
   });
 
   /* The browser reads the refusal's body, so a body naming the ban would tell a passkey's holder who stands on the
