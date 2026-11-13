@@ -60,11 +60,14 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
 
 /**
  * The asterisk after a required field's label, a checkbox's included. Hidden from assistive technology, which
- * hears the field's required state instead.
+ * hears the field's required state instead. A closed form draws none, since a value nobody can change asks nothing
+ * of the reader.
  */
 export function RequiredMark({ isRequired }: { isRequired: boolean }) {
+  const isClosed = useContext(FormClosed);
   return (
-    isRequired && (
+    isRequired &&
+    !isClosed && (
       <span
         aria-hidden
         className={requiredMark()}>
@@ -86,9 +89,10 @@ export function useFieldLock(isDisabled: boolean, isLocked: boolean): { isDisabl
 }
 
 /**
- * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
- * own such as a consent's question, which stands as it was shown. A locked field's label takes the lock mark in the
- * asterisk's place, since a value nobody can change asks nothing of the reader; the field is named by its words alone.
+ * The label above a field, an asterisk after it where a value is required and the form is open: the catalogue's words,
+ * or a wording of its own such as a consent's question, which stands as it was shown. A locked field's label takes the
+ * lock mark in the asterisk's place, since a value nobody can change asks nothing of the reader; the field is named by
+ * its words alone.
  */
 export function FieldLabel({ label, isRequired, isLocked = false }: { label: Words; isRequired: boolean; isLocked?: boolean }) {
   return (
