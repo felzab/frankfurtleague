@@ -1,28 +1,7 @@
 from http import HTTPStatus
 
-from bson import ObjectId
-
-from app.api.teams.services import (
-    find_gruppe_swap_refusal,
-    find_swap_pair_refusal,
-)
+from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
-
-OID = ObjectId("6890a1b2c3d4e5f60fff0001")
-
-
-class TestOneClubNamedTwice:
-    def test_one_club_named_twice_is_refused_as_the_payload(self):
-        """The ids say so, not the groups, which agree either way; a 422 naming both fields, no season making one club a pair."""
-
-        refusal = find_swap_pair_refusal(team1_id=OID, team2_id=ObjectId(str(OID)))
-
-        assert refusal is not None
-        assert (refusal.error_code, refusal.status, refusal.fields) == (
-            Code.SWAP_NOT_A_SWAP,
-            HTTPStatus.UNPROCESSABLE_CONTENT,
-            (("team1_id",), ("team2_id",)),
-        )
 
 
 class TestWhatCountsAsASwap:

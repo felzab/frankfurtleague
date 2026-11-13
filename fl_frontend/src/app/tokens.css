@@ -172,6 +172,20 @@
   }
 }
 
+/* The navigation bar's segment crossing the bar while a page is on its way (`NavigationBar`), defined where motion
+   is welcome alone: under `reduce` the name resolves to nothing, and the bar pulses whole, which the motion rule keeps
+   running. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes kit-navigation {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
+}
+
 /* A row that scrolls sideways fades the edge with more to read, driven by the scroll position: at the
    start only the end fades, at the end only the start. Outside the gate above: the fade is a mask the
    scroll position sets, not movement that plays, and a reader who asked for less motion still needs the
@@ -389,8 +403,9 @@
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
   --container-measure: 39.25rem; /* a line of running text on a legal or consent page: about 84 characters of German prose, as measured on the privacy notice; in rem so its fallback face draws the same box */
-  /* A floating panel: the page's width less its two 16-px gutters. `vw` is the viewport short of the scrollbar's track,
-     which the root always keeps, and the whole viewport where scrollbars overlay the page. */
+  /* A floating panel: the page's width less its two 16-px gutters. For a root that always scrolls, CSS Values 4 has
+     `vw` leave the scrollbar's track out, which Chromium does; where scrollbars overlay the page it is the whole
+     viewport. */
   --container-panel: calc(100vw - 2rem);
 }
 

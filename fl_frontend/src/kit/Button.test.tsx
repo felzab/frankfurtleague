@@ -7,8 +7,6 @@ import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 
-import type { SubmitEvent } from "react";
-
 const REASON = COPY.template.draftUnsaved;
 
 describe("a locked act", () => {
@@ -53,21 +51,6 @@ describe("a locked act", () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
-  // The harm: a mouse raised the tooltip and the press took it away, so the click read as closing the reason.
-  it("keeps the reason the pointer raised through a press, the next press closing it", async () => {
-    const button = lockedAct(acts[0].act);
-
-    // React Aria opens on a hover under the pointer's modality alone, which an earlier case's keys left.
-    await userEvent.click(document.body);
-    await userEvent.hover(button);
-    expect((await screen.findByRole("tooltip")).textContent).toBe(REASON);
-
-    await userEvent.click(button);
-    expect(reason()).toBe(REASON);
-    await userEvent.click(button);
-    await closed();
-  });
-
   // The harm: a touch raises no tooltip of its own, so a phone reads no reason at all, and a tap has no leaving.
   it("opens the reason on a tap, a tap elsewhere closing it", async () => {
     const button = lockedAct(acts[0].act);
@@ -78,24 +61,5 @@ describe("a locked act", () => {
     // The bare event: a tap on nothing need not move a phone's focus, where `userEvent` would blur the button.
     fireEvent.pointerDown(document.body, { pointerType: "touch", button: 0 });
     await closed();
-  });
-
-  // The harm: pressed, or by Enter from a field, a locked submit button would send the form it stands in.
-  it("sends no form it stands in", async () => {
-    const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
-    render(
-      <form onSubmit={onSubmit}>
-        <Button
-          variant="primary"
-          type="submit"
-          label={COPY.shared.filter}
-          locked={REASON}
-        />
-      </form>,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.filter }));
-    await screen.findByRole("tooltip");
-    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

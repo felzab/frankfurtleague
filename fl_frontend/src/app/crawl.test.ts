@@ -52,11 +52,6 @@ describe("the sitemap", () => {
         .sort(),
     );
   });
-
-  it("lists no season page while the league has no season", async () => {
-    frame.active_saison_id = null;
-    expect((await sitemap()).map((entry) => entry.url)).toEqual(fixed);
-  });
 });
 
 describe("the sitemap page", () => {

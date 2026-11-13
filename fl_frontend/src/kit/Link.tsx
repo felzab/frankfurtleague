@@ -1,5 +1,3 @@
-import NextLink from "next/link";
-
 import { textOf } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
@@ -8,7 +6,7 @@ import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
 import { tv } from "./tv";
-import { LinkHint } from "./WholePage";
+import { NavigationLink } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -157,7 +155,8 @@ type Card = {
 const ELSEWHERE = /^https?:\/\//;
 
 /**
- * The one way to go somewhere: Next's link, prefetching on hover and in view. The icon placement alone names its glyph
+ * The one way to go somewhere: Next's link through `NavigationLink`, prefetching on hover and in view, its press the
+ * pending navigation the frames' bar shows. The icon placement alone names its glyph
  * by React Aria's tooltip (`IconLink`), which every route loads with this module. Its ring comes from `:focus-visible`
  * in the focus file, hugging the words inside text.
  */
@@ -232,12 +231,11 @@ export function Link<T extends string>(
   return href === null || fullPage ? (
     <a {...anchor}>{words}</a>
   ) : (
-    <NextLink
+    <NavigationLink
       {...anchor}
       href={href}
       prefetch={prefetch}>
       {words}
-      <LinkHint />
-    </NextLink>
+    </NavigationLink>
   );
 }

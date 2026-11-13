@@ -1121,12 +1121,12 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
 
 
 def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload, *, started: bool) -> WriteRefusal | None:
-    """`ergebnis_before_saison_start`: goals, a no-show or an abandonment this save would newly store while the season has not started.
+    """`ergebnis_before_saison_start`: goals, a shoot-out, a no-show or an abandonment a save would newly store before the season's start.
 
-    `started` is the season's own `has_started`, the one start every start lock reads, so no match of a season
-    records what `has_taken_place` counts before the start the swap, the replacement and the rules' freeze close on.
-    Judged against the stored fixture, as the start's own edit is: a result stored before this rule, resubmitted
-    unchanged, passes, and so does clearing one; a match called off or struck out stores no result and passes too.
+    `started` is the season's own `has_started`, the one start every start lock reads. Judged against the stored
+    fixture, as the start's own edit is, so a fixture already holding a result is never trapped: that result
+    resubmitted unchanged passes, and so does clearing it; a match called off or struck out stores no result and passes
+    too.
     """
 
     if started:
@@ -1137,8 +1137,14 @@ def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDat
         for submitted, held in ((payload.team1, stored.team1), (payload.team2, stored.team2))
     )
     new_record = payload.sonderereignis in SONDEREREIGNIS_PRODUCING_A_RECORD and payload.sonderereignis != stored.sonderereignis
+    # A shoot-out decides a level knockout result, so the bracket advances its winner. Compared by its counts: the
+    # payload's model is not the stored one's, and two models of different classes never compare equal.
+    submitted_shoot_out, held_shoot_out = payload.elfmeterschiessen, stored.elfmeterschiessen
+    new_shoot_out = submitted_shoot_out is not None and (
+        held_shoot_out is None or (submitted_shoot_out.team1, submitted_shoot_out.team2) != (held_shoot_out.team1, held_shoot_out.team2)
+    )
 
-    if not new_goals and not new_record:
+    if not new_goals and not new_record and not new_shoot_out:
         return None
 
     return WriteRefusal(

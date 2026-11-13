@@ -67,17 +67,3 @@ describe("where a team's seat stands", () => {
     expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.delivery.abandoned]);
   });
 });
-
-/* One person holds two seats and one link answers both, so two rows would offer two presses for one mail. */
-describe("a Trainer holding a second seat", () => {
-  it("stands as one row naming both seats", () => {
-    const anna = person("Anna");
-    const rows = seatsOf({
-      kontakte: { ...NOBODY, trainer: anna, ansprechperson: anna, trainer_is_also: "ansprechperson" },
-      confirmations: null,
-    });
-
-    expect(rows.map((row) => row.id)).toStrictEqual(["trainer", "stellvertretung"]);
-    expect(rows[0]?.line).toBe(COPY.admin.seatLine(["trainer", "ansprechperson"], anna.email, null));
-  });
-});

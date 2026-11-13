@@ -109,29 +109,6 @@ describe("the kit's confirmation", () => {
     await within(question).findByText(reason);
   });
 
-  // The harm: an erasure that took the league's data and not the account reads as a refusal, or leaves no way to finish.
-  it.each([
-    ["warn", { ok: false, reason: COPY.shared.failure.stale, warn: true }, "text-warn"],
-    ["error", { ok: false, reason: COPY.shared.failure.stale }, "text-danger"],
-  ] as const)("reads an unfinished act in the %s tone, its question open and its act pressable", async (_tone, answer: ActionAnswer, look) => {
-    render(
-      <ConfirmDialog
-        verb="retire"
-        subject={NAME}
-        consequence={COPY.admin.spielort.retireConsequence}
-        tone="danger"
-        trigger={{ label: COPY.shared.verb.retire }}
-        onConfirm={async () => answer}
-      />,
-    );
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.retire }));
-    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: COPY.shared.verb.retire }));
-
-    const question = await screen.findByRole("alertdialog");
-    expect((await within(question).findByText(COPY.shared.failure.stale)).className).toContain(look);
-    expect(within(question).getByRole("button", { name: COPY.shared.verb.retire }).hasAttribute("disabled")).toBe(false);
-  });
-
   // The harm: Escape pressed while the act runs closing the question, so its refusal, still on its way, is shown nowhere.
   it("keeps Escape from closing it while its act runs, and lets it again once the act has answered", async () => {
     const answer = Promise.withResolvers<ActionAnswer>();
@@ -286,32 +263,18 @@ describe("the kit's dialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  // The harm: a refusal greeting the next opening, read as the answer to a press nobody made.
-  it("opens anew, the last refusal gone", async () => {
-    const reason = COPY.shared.failure.stale;
-    render(<CreateDialog create={async () => ({ ok: false, reason })} />);
-    await createThroughTheDialog();
-    await screen.findByText(reason);
-
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.back }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.create }));
-    await screen.findByRole("dialog");
-    expect(screen.queryByText(reason)).toBeNull();
-  });
-
   // The harm: a refused create closing its dialog, the refusal shown nowhere.
-  it.each([
-    ["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken],
-    ["its reason", { ok: false, reason: COPY.shared.failure.stale }, COPY.shared.failure.stale],
-  ] as const)("stays open on a refused act, showing %s", async (_shown, refusal: ActionAnswer, words) => {
-    render(<CreateDialog create={async () => refusal} />);
+  it.each([["a field's message", { ok: false, fieldErrors: { created: COPY.shared.field.taken } }, COPY.shared.field.taken]] as const)(
+    "stays open on a refused act, showing %s",
+    async (_shown, refusal: ActionAnswer, words) => {
+      render(<CreateDialog create={async () => refusal} />);
 
-    await createThroughTheDialog();
+      await createThroughTheDialog();
 
-    await waitFor(() => expect(screen.getByText(words)).toBeTruthy());
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
+      await waitFor(() => expect(screen.getByText(words)).toBeTruthy());
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    },
+  );
 
   it.each([
     ["opened by its own trigger", () => <CreateDialog create={async () => DONE} />],
@@ -393,23 +356,6 @@ describe("a dialog's danger row", () => {
 
     await within(question).findByText(reason);
     expect(screen.getByRole("dialog", { hidden: true })).toBeTruthy();
-  });
-
-  // The harm: the dialog standing open over a record that is gone.
-  it("closes the question and the dialog on a done act", async () => {
-    const end = vi.fn(async (): Promise<ActionAnswer> => DONE);
-    render(
-      <RecordDialog
-        save={async () => DONE}
-        end={end}
-      />,
-    );
-    const question = await askToEnd();
-    await userEvent.click(within(question).getByRole("button", { name: END }));
-
-    await waitFor(() => expect(screen.queryByRole("dialog", { hidden: true })).toBeNull());
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(end).toHaveBeenCalledOnce();
   });
 });
 

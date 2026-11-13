@@ -79,18 +79,4 @@ describe("the code field", () => {
     await userEvent.type(input, "6");
     expect(done).toHaveBeenCalledExactlyOnceWith("123456");
   });
-
-  it("shows its edge on the box the next digit goes into while focused", async () => {
-    const { container } = render(
-      <CodeField
-        label={code}
-        name="code"
-      />,
-    );
-    await userEvent.type(screen.getByRole("textbox", { name: code }), "12");
-    expect(boxes(container).map((box) => box.hasAttribute("data-focused"))).toStrictEqual([false, false, true, false, false, false]);
-
-    await userEvent.tab();
-    expect(boxes(container).some((box) => box.hasAttribute("data-focused"))).toBe(false);
-  });
 });

@@ -196,8 +196,9 @@ class Code(StrEnum):
     # replacement.
     REPLACE_ONE_TEAM_ON_BOTH_ENDS = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
-    # Goals, a no-show or an abandonment saved while the season has not started: no match is played before the start,
-    # so a fixture of an unstarted season holds no record a swap or a replacement would hand to another club.
+    # Goals, a shoot-out, a no-show or an abandonment a save would store while the season has not started: refused,
+    # because the swap and a replacement, which the start locks, rewrite a fixture's side and would hand its record to
+    # another club.
     ERGEBNIS_BEFORE_SAISON_START = auto()
     RETIRE_BLOCKED = auto()
     # A played fixture never blocks: its `spielort` is a record of where it was played.

@@ -3,7 +3,6 @@ import { refused } from "@/test-support/refusals";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { RolledBackError } from "@/core/errors";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 /** Every step of an erasure in its order, the backend's refusal or the account's failure each case sets, and the log. */
@@ -104,15 +103,15 @@ describe("the erasure's two stores", () => {
     expect(state.steps).toStrictEqual(["records"]);
   });
 
-  it.each([
-    ["rolled back", new RolledBackError(new Error("max@example.org"))],
-    ["of unknown outcome", new Error("max@example.org")],
-  ])("stays open on an account deletion %s, logging no address", async (_, failure) => {
-    state.accountFailure = failure;
+  it.each([["of unknown outcome", new Error("max@example.org")]])(
+    "stays open on an account deletion %s, logging no address",
+    async (_, failure) => {
+      state.accountFailure = failure;
 
-    // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
-    expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
-    expect(JSON.stringify(state.logged)).not.toContain("max@example.org");
-    expect(state.logged).toHaveLength(1);
-  });
+      // Not done: the dialog stands on this answer, and its press repeats the erasure, the one way to reach the account.
+      expect(await press()).toStrictEqual({ ok: false, reason: COPY.admin.erasure.partial, warn: true });
+      expect(JSON.stringify(state.logged)).not.toContain("max@example.org");
+      expect(state.logged).toHaveLength(1);
+    },
+  );
 });

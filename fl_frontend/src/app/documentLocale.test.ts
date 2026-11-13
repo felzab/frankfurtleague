@@ -13,6 +13,7 @@ const { default: RootLayout } = await import("./layout.tsx");
 const { DateField } = await import("@/kit/DateField.tsx");
 const { COPY } = await import("@/core/copy.ts");
 const { dayOf } = await import("@/core/format.ts");
+const { underNext } = await import("@/test-support/nextContexts.ts");
 
 /** A day whose two numbers differ, so a field ordering them by another calendar reads otherwise. */
 const DAY = "2016-09-04";
@@ -21,12 +22,15 @@ describe("the document's locale", () => {
   /* What fails a visitor is the two DISAGREEING — a de-DE pin under lang="en" is as wrong as an
      unpinned field under lang="de" — so the field is held to the document's language, not a literal. */
   it("formats a date field under the root layout in the language the document declares", () => {
+    // Under Next's router, which the root layout's `WholePages` reads, as it stands above the layout in the app.
     const html = renderToStaticMarkup(
-      h(RootLayout, {
-        params: Promise.resolve({}),
-        modal: null,
-        children: h(DateField, { name: "date", label: COPY.spielplan.fact.date, value: dayOf(DAY), onChange: () => undefined }),
-      }),
+      underNext(
+        h(RootLayout, {
+          params: Promise.resolve({}),
+          modal: null,
+          children: h(DateField, { name: "date", label: COPY.spielplan.fact.date, value: dayOf(DAY), onChange: () => undefined }),
+        }),
+      ),
     );
 
     const lang = /<html\b[^>]*\slang="([^"]+)"/.exec(html)?.[1];

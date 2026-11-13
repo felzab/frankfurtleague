@@ -696,6 +696,11 @@ async def put_austritt(
         start_date = str(saison_raw["start_date"])
         refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
 
+        # Every fixture of the season, not only the club's: a save judges this row's exit on a read it never writes, and
+        # writes the fixture it saves, which may be one fielding the club only once it lands. So any save judging under
+        # this exit conflicts with it, and its retry is judged against the exit. The exit is rare, a retried save cheap.
+        await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+
         await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter=row_filter,
@@ -863,14 +868,6 @@ async def replace_saison_team(
             session=session,
         )
 
-        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
-        spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id"],
-            session=session,
-        )
-
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
@@ -880,9 +877,17 @@ async def replace_saison_team(
             )
         )
 
+        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
+        spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            projection=["team1.team_id", "team2.team_id"],
+            session=session,
+        )
+
         # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
-        # side's name from here. No `tore`: a replacement runs only before the season's start, when no fixture holds
-        # a result.
+        # side's name from here. No `tore`: a replacement runs only before the season's start, when the save refuses a
+        # result.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

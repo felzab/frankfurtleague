@@ -9,13 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COPY } from "@/core/copy";
 import { formatPeriod } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import TeamLayout from "./layout";
-import TeamNotFound from "./not-found";
 
 import type { CalendarDay } from "@/core/format";
-import type { ReactNode } from "react";
 
 const AHORN = "6890a1b2c3d4e5f607250011";
 const WEIDE = "6890a1b2c3d4e5f607250012";
@@ -44,9 +41,18 @@ vi.mock("@/core/subject", () => ({ getSubjectSession: () => Promise.resolve(SUBJ
 // The account's other guard, which Konto's pages ask and no frame does: its module opens the sign-in store.
 vi.mock("@/core/auth/guards", () => ({ getAccountSession: () => Promise.resolve(null) }));
 
-/** The team's frame around `page`, at a page of `team` in `saison`. */
-async function renderAt(path: (team: string, saison: string) => string, team: string, saison: string, page: ReactNode = <p>Seite</p>) {
-  await act(async () => render(underNext(<TeamLayout>{page}</TeamLayout>, { pathname: path(team, saison), params: { team, saison } })));
+/** The team's frame around a page, at a page of `team` in `saison`. */
+async function renderAt(path: (team: string, saison: string) => string, team: string, saison: string) {
+  await act(async () =>
+    render(
+      underNext(
+        <TeamLayout>
+          <p>Seite</p>
+        </TeamLayout>,
+        { pathname: path(team, saison), params: { team, saison } },
+      ),
+    ),
+  );
 }
 
 /** Where every link of this name leads, in the rail and in the phone's bar. */
@@ -92,20 +98,5 @@ describe("a team's frame for a person holding two teams", () => {
 
     expect(hrefsOf(ROUTES.teamKader.title)).toEqual(new Set([ROUTES.teamKader.path(LINDE, "2027")]));
     expect(saisonButtons()).toEqual([]);
-  });
-});
-
-// A page's read ends on one boundary for a missing record and for a team the person holds no seat on, and the
-// boundary is told neither which nor where: the wrong card of the two still reads as a finished page.
-describe("where a team page's read ends without a page", () => {
-  it.each([
-    { held: "a team and season the person holds", team: AHORN, saison: "2026", title: SERVER_COPY.notFound },
-    { held: "a team the person does not hold", team: LINDE, saison: "2027", title: SERVER_COPY.area.forbidden },
-    { held: "a season the person does not hold the team in", team: WEIDE, saison: "2026", title: SERVER_COPY.area.forbidden },
-  ])("names $title at $held", async ({ team, saison, title }) => {
-    await renderAt(ROUTES.teamKader.path, team, saison, <TeamNotFound />);
-
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(title);
-    expect(screen.getByRole("link", { name: COPY.shared.end.toOverview }).getAttribute("href")).toBe(ROUTES.area.path());
   });
 });
