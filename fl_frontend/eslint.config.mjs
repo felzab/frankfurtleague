@@ -12,6 +12,7 @@ import checkFile from "eslint-plugin-check-file";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import noOwnModuleDouble from "./eslint-rules/no-own-module-double.mjs";
 import serverAction from "./eslint-rules/server-action.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
@@ -1182,10 +1183,25 @@ const NAMED = [...new Set(BANS.flatMap(({ only = [], allow }) => [...only, ...al
 const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
-/** Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. */
+/**
+ * The modules of ours that are nothing but their edge, which a test may stand in for; every other module runs for real
+ * in a test, with the edge beneath it faked.
+ */
+const EDGE_MODULES = [
+  // The environment and the secret files, which a suite varying a setting per file replaces.
+  "src/core/config.ts",
+  // The sign-in store's driver client, a connection to a database server and nothing else.
+  "src/core/db.ts",
+  // A full document load, `window.location.assign`, which jsdom does not make.
+  "src/shared/utils/documentNavigation.ts",
+  // The sign-in library's browser client, loaded apart, whose passkey prompt is the platform's WebAuthn.
+  "src/core/auth/browserClient.ts",
+];
+
+/** Every file a ban or the edge list names, each of which must exist: a renamed module drops out of its ban in silence. */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const GONE = [
-  ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
+  ...[...NAMED_FILES, ...EDGE_MODULES].filter((path) => !existsSync(join(HERE, path))),
   ...NAMED_DIRECTORIES.filter((glob) => globSync(glob, { cwd: HERE }).length === 0),
 ];
 if (GONE.length > 0) {
@@ -1226,6 +1242,9 @@ const BAN_BLOCKS = [
 ];
 
 const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+
+/** The rules of `eslint-rules/`, one plugin: flat config refuses a plugin's name registered twice with two objects. */
+const OWN_RULES = { rules: { "server-action": serverAction, "no-own-module-double": noOwnModuleDouble } };
 
 // The name shapes, as micromatch's extended globs, in the forms eslint-plugin-check-file writes its own conventions.
 const KEBAB = "+([a-z])*([a-z0-9])*(-+([a-z0-9]))";
@@ -1352,7 +1371,7 @@ const eslintConfig = defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
-    plugins: { fl: { rules: { "server-action": serverAction } } },
+    plugins: { fl: OWN_RULES },
     rules: {
       "fl/server-action": [
         "error",
@@ -1372,6 +1391,14 @@ const eslintConfig = defineConfig([
         },
       ],
     },
+  },
+
+  // A test runs our real code and fakes only what it does not own: a stand-in of a module of ours is refused unless that
+  // module is an edge, a server function as a client calls it, or no script.
+  {
+    files: TEST_FILES,
+    plugins: { fl: OWN_RULES },
+    rules: { "fl/no-own-module-double": ["error", { edges: EDGE_MODULES }] },
   },
 
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already

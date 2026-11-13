@@ -96,8 +96,14 @@ job bounded by its own `timeout-minutes` and by no other time budget.
   - **workaround** — one needing a paragraph to justify
   - **suppression** — a lint rule turned off to make something fit
   - **test seam** — a testing-only API in production code, or production code patched from a
-    test: monkeypatching, env mutation. Overriding a dependency the application declares for its
-    own reasons, through FastAPI's `dependency_overrides`, is not one
+    test: monkeypatching, env mutation, a stand-in of a module of ours. A test runs our real code
+    and fakes only what it does not own: the network, on the test runner's stub of `fetch` behind
+    the helpers of `fl_frontend/src/test-support/`, the database, the clock, the environment, a
+    browser or platform API, a library's request-time function, and a server function as a client
+    calls it. A module of ours that is nothing but its edge is that edge, as
+    `fl_frontend/eslint.config.mjs :: EDGE_MODULES` lists them, and the lint refuses any other
+    stand-in. Overriding a dependency the application declares for its own reasons, through
+    FastAPI's `dependency_overrides`, is not one
   - **symptom** — a fix that makes a failure stop without removing its cause: one applied where
     the failure surfaced rather than where it originates, or a raised timeout, limit, retry or
     ignore entry that stops it without explaining it

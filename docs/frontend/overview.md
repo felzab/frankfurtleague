@@ -225,6 +225,15 @@ each secret to the one module that may read it; a failure names the variables, n
 and the process exits. Tests sit beside the module they test as `*.test.ts`, a `*.db.test.ts` needing
 the sign-in store's MongoDB; the scripts in `fl_frontend/package.json` run them.
 
+A unit test runs the real modules of `fl_frontend/src/` and fakes only the edges beneath them, through
+the helpers of `fl_frontend/src/test-support/`: the backend and every other host on a stub of the
+global `fetch` that sends nothing, the sign-in store as the library's own memory adapter, and Next's
+request-time functions. The lint
+(`fl_frontend/eslint-rules/no-own-module-double.mjs`) refuses a test's stand-in of any other module
+of ours, save the few that are nothing but their edge and a server function as a client calls it. A
+`*.production.test.ts` file runs under the `NODE_ENV` that `next build` inlines, so its cases read
+the log lines a production build writes.
+
 ## Read next
 
 - [`copy.md`](copy.md) — how every string a visitor reads is written
