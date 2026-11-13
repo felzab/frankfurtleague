@@ -7,7 +7,6 @@ import { createContext, startTransition, Suspense, useContext, useEffect, useOpt
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { tv } from "./tv";
@@ -52,8 +51,7 @@ const NavigationContext = createContext<Navigation | null>(null);
  *
  * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
  * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
- * Next's own link status is held. A screen reader hears the wait from this one status region, which holds „Lädt“ for as
- * long as the frames' bar shows, and then the new page's title, which Next announces.
+ * Next's own link status is held.
  */
 export function WholePages({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -75,12 +73,6 @@ export function WholePages({ children }: { children: ReactNode }) {
     <WholeContext value>
       <NavigationContext value={{ pending, shown, navigate }}>
         <Suspense fallback={null}>{children}</Suspense>
-        {/* Standing empty from the first paint, since a live region announces a change to what it holds. */}
-        <span
-          role="status"
-          className="sr-only">
-          {shown ? COPY.shared.loading : null}
-        </span>
       </NavigationContext>
     </WholeContext>
   );
@@ -127,7 +119,7 @@ export function usePendingQuery(): URLSearchParams | null {
 }
 
 const bar = tv({
-  // Never pressed and never read: the page under it stays the one to press, and the spoken status says the same.
+  // Never pressed and never read: the page under it stays the one to press, and the sign is a visual one alone.
   base: "pointer-events-none fixed inset-x-0 z-20 h-0.75 opacity-0 data-shown:opacity-100 data-shown:transition-opacity data-shown:duration-(--motion-in)",
   variants: {
     // At the top edge of the page area, under the band on a phone and under the title strip beside the rail on desktop,
