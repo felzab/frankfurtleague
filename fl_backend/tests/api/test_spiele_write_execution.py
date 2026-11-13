@@ -838,6 +838,49 @@ class TestAFinishedSeasonsSpielIsRefused:
         assert after == before, "a refused save wrote something"
 
 
+# A month past the request's clock, `ADOPTED_AT`: the season has not started when the save judges.
+A_START_TO_COME = "2026-06-01"
+
+
+class TestASeasonNotYetStartedTakesNoResult:
+    """`ergebnis_before_saison_start` through the route, read off the season's stored start; a call-off still saves."""
+
+    @pytest.mark.parametrize("dry_run", [False, True], ids=["the save", "its dry run"])
+    @pytest.mark.parametrize(
+        ("overrides", "refused"),
+        [
+            pytest.param({"team1": side(ALPHA, 2), "team2": side(BETA, 1)}, True, id="goals"),
+            pytest.param({"sonderereignis": "nichtantreten_team2"}, True, id="a no-show"),
+            pytest.param({"sonderereignis": "abgebrochen"}, True, id="an abandonment"),
+            pytest.param({"sonderereignis": "ausgefallen"}, False, id="a call-off"),
+        ],
+    )
+    def test_a_record_of_play_is_refused_and_writes_nothing(
+        self, mongo_replica_set_url: str, overrides: dict[str, Any], refused: bool, dry_run: bool
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"start_date": A_START_TO_COME}})
+            before = await spiele_now(database)
+            spiel_data = await payload_for(database, GRUPPE_HELD, **overrides)
+
+            try:
+                await call_patch(database, client, GRUPPE_HELD, spiel_data, dry_run=dry_run)
+            except APIError as refusal:
+                return refusal.error_code, before, await spiele_now(database)
+
+            return None, before, await spiele_now(database)
+
+        code, before, after = on_a_seeded_season(
+            mongo_replica_set_url, body, spiele=one_spieltag(opponent=BETA, ergebnis=None, tore=(None, None))
+        )
+
+        assert code == (Code.ERGEBNIS_BEFORE_SAISON_START if refused else None)
+        if refused:
+            assert after == before, "a refused save wrote something"
+        elif not dry_run:
+            assert after[GRUPPE_HELD_NR]["sonderereignis"] == "ausgefallen", "a call-off before the start was not saved"
+
+
 # The day Gamma is out of the season, which is also the day a fixture is moved onto below: the rule
 # reads `date < departed_from`, so the boundary is the value an off-by-one comparison gets wrong.
 GAMMA_DEPARTED_FROM = "2026-03-20"

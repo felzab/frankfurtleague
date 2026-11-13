@@ -46,8 +46,8 @@ SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "a
 # counts exactly these beside its figures: a no-show's awarded result already stands among the games it played.
 SONDEREREIGNIS_WITHOUT_A_RESULT: tuple[FLSonderereignis, ...] = ("ausgefallen", "annulliert")
 
-# A no-show and an abandonment both leave a record a group swap would rewrite; a fixture called off
-# or struck out leaves none.
+# A no-show and an abandonment both leave a record of the match, which `has_taken_place` counts and an
+# unstarted season refuses (`ergebnis_before_saison_start`); a fixture called off or struck out leaves none.
 SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "abgebrochen",
     "nichtantreten_team1",

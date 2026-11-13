@@ -129,6 +129,8 @@ export const SERVER_COPY = catalogue({
     saison_past: "Diese Saison ist abgeschlossen.",
     spiel_outside_spieltag: "Dieses Datum liegt außerhalb des Spieltags.",
     state_nichtantreten_without_two_sides: "Beide Teams stehen noch nicht fest.",
+    /** A result, a no-show or an abandonment saved before the season's start, which a match editor read since locks. */
+    ergebnis_before_saison_start: "Die Saison hat noch nicht begonnen.",
     /**
      * A retired venue or referee a fixture keeps where its save reopens it, which the editor shows marked: a deleted one
      * is a page read before the deletion, which the same sentence sends to the same box.

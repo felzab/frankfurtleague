@@ -201,6 +201,9 @@ class Code(StrEnum):
     # with no path a sentence could tell them apart by.
     REPLACE_SIDES_TAKEN_PLACE = auto()
     ERGEBNIS_SIDE_EMPTIED = auto()
+    # Goals, a no-show or an abandonment saved while the season has not started: no match is played before the start,
+    # so a fixture of an unstarted season holds no record a swap or a replacement would hand to another club.
+    ERGEBNIS_BEFORE_SAISON_START = auto()
     RETIRE_BLOCKED = auto()
     # A played fixture never blocks: its `spielort` is a record of where it was played.
     SPIELORT_STILL_BOOKED = auto()

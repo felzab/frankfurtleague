@@ -12,6 +12,7 @@ from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_NO_SHOW,
+    SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFault,
     FLBracketFaultBooking,
@@ -1117,6 +1118,33 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
         )
 
     return None
+
+
+def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload, *, started: bool) -> WriteRefusal | None:
+    """`ergebnis_before_saison_start`: goals, a no-show or an abandonment this save would newly store while the season has not started.
+
+    `started` is the season's own `has_started`, the one start every start lock reads, so no match of a season
+    records what `has_taken_place` counts before the start the swap, the replacement and the rules' freeze close on.
+    Judged against the stored fixture, as the start's own edit is: a result stored before this rule, resubmitted
+    unchanged, passes, and so does clearing one; a match called off or struck out stores no result and passes too.
+    """
+
+    if started:
+        return None
+
+    new_goals = any(
+        submitted is not None and submitted.tore is not None and submitted.tore != (None if held is None else held.tore)
+        for submitted, held in ((payload.team1, stored.team1), (payload.team2, stored.team2))
+    )
+    new_record = payload.sonderereignis in SONDEREREIGNIS_PRODUCING_A_RECORD and payload.sonderereignis != stored.sonderereignis
+
+    if not new_goals and not new_record:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ERGEBNIS_BEFORE_SAISON_START,
+        status=HTTPStatus.CONFLICT,
+    )
 
 
 def find_eligibility_refusal(

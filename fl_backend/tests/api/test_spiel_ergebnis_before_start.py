@@ -1,0 +1,97 @@
+"""
+API · a season not yet started takes no result: `ergebnis_before_saison_start`
+
+Goals, a no-show and an abandonment are each a record of a match `has_taken_place` counts, which fixes the start date
+and would ride along on a swap or a replacement. Judged against the stored fixture, so a result stored before the rule
+stands while it is resubmitted unchanged, and a call-off or a strike-out, which records nothing, still saves.
+"""
+
+from http import HTTPStatus
+from typing import Any
+
+import pytest
+from bson import ObjectId
+
+from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
+from app.api.spiele.services import find_ergebnis_before_start_refusal
+from app.core.codes import Code
+from tests import documents
+from tests.payloads import spiel_patch_body
+
+HOME, AWAY = ObjectId("6890a1b2c3d4e5f607470001"), ObjectId("6890a1b2c3d4e5f607470002")
+
+
+def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
+    return {"team_id": team_id, "tore": tore}
+
+
+def stored(**fields: Any) -> dict[str, Any]:
+    """A group fixture of both clubs, nothing entered unless `fields` says so."""
+
+    return documents.spiel_document(
+        spiel_id=ObjectId("6890a1b2c3d4e5f607470011"),
+        saison_id="2027",
+        spiel_nr=1,
+        spieltag_id=ObjectId("6890a1b2c3d4e5f607470021"),
+        **{"team1": side(HOME, None), "team2": side(AWAY, None), **fields},
+    )
+
+
+def judged(document: dict[str, Any], *, started: bool, **overrides: Any) -> Any:
+    payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(document, **overrides))
+
+    return find_ergebnis_before_start_refusal(FLSpiel.model_validate(document), payload, started=started)
+
+
+class TestAResultBeforeTheStartIsRefused:
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            pytest.param({"team1": side(HOME, 2), "team2": side(AWAY, 1)}, id="goals"),
+            # One side's goals alone are a record too: `has_taken_place` counts a half-entered score.
+            pytest.param({"team1": side(HOME, 2)}, id="one side's goals"),
+            pytest.param({"sonderereignis": "nichtantreten_team1"}, id="nichtantreten_team1"),
+            pytest.param({"sonderereignis": "nichtantreten_team2"}, id="nichtantreten_team2"),
+            pytest.param({"sonderereignis": "abgebrochen"}, id="abgebrochen"),
+        ],
+    )
+    def test_each_kind_of_record_is_refused(self, overrides: dict[str, Any]):
+        refusal = judged(stored(), started=False, **overrides)
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.status) == (Code.ERGEBNIS_BEFORE_SAISON_START, HTTPStatus.CONFLICT)
+
+    def test_a_stored_result_changed_is_refused(self):
+        """A result from before the rule is no licence to type another over it."""
+
+        document = stored(team1=side(HOME, 2), team2=side(AWAY, 1), ergebnis="2:1")
+
+        assert judged(document, started=False, team1=side(HOME, 3)) is not None
+
+
+class TestWhatTheRulePasses:
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            pytest.param({"sonderereignis": "ausgefallen"}, id="ausgefallen"),
+            pytest.param({"sonderereignis": "annulliert"}, id="annulliert"),
+            pytest.param({"date": "2027-03-01", "time": "16:00:00"}, id="a dating"),
+        ],
+    )
+    def test_what_records_no_match_saves_before_the_start(self, overrides: dict[str, Any]):
+        assert judged(stored(), started=False, **overrides) is None
+
+    def test_a_result_stored_before_the_rule_resubmitted_unchanged_passes(self):
+        """The editor locks the result's fields until the start and sends them back as stored with every other change."""
+
+        document = stored(team1=side(HOME, 2), team2=side(AWAY, 1), ergebnis="2:1", sonderereignis="abgebrochen")
+
+        assert judged(document, started=False, date="2027-03-01") is None
+
+    def test_a_result_stored_before_the_rule_cleared_passes(self):
+        document = stored(team1=side(HOME, 2), team2=side(AWAY, 1), ergebnis="2:1")
+
+        assert judged(document, started=False, team1=side(HOME, None), team2=side(AWAY, None)) is None
+
+    def test_from_the_start_every_result_saves(self):
+        assert judged(stored(), started=True, team1=side(HOME, 2), team2=side(AWAY, 1)) is None

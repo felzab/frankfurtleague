@@ -126,6 +126,7 @@ export const Code = {
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
   replace_sides_taken_place: "replace_sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
+  ergebnis_before_saison_start: "ergebnis_before_saison_start",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
   schiedsrichter_still_assigned: "schiedsrichter_still_assigned",

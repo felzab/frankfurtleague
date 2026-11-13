@@ -9,7 +9,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import drop_nameless_entries
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_saison_past_refusal
+from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import sides_of
 from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
@@ -50,6 +50,7 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_double_entries,
     find_eligibility_refusal,
+    find_ergebnis_before_start_refusal,
     find_gruppen_not_run,
     find_references_to_anchor,
     find_result_removal_refusal,
@@ -78,6 +79,7 @@ from app.api.teams.services import (
     is_played,
     offered_gruppen,
 )
+from app.core import clock
 from app.core.crud import (
     VERSION_FIELD,
     aggregate_many_from_db,
@@ -689,7 +691,7 @@ async def _judge_spiel_save(
     # it closes, so a rollover landing under this save conflicts with its write and the retry reads `past`. Ahead of
     # the normalisation because a forfeit is awarded from the rules rather than typed.
     saison_raw = await pull_one_from_db(
-        collection=collections.saisons, db_filter={"_id": saison_id}, projection=["rules", "status"], session=session
+        collection=collections.saisons, db_filter={"_id": saison_id}, projection=["rules", "status", "start_date"], session=session
     )
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
@@ -709,6 +711,12 @@ async def _judge_spiel_save(
     # Before the season's own rules: a finished season's record is closed, its bracket and its table included, so
     # nothing about this payload is worth judging further.
     refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
+
+    # Before the bracket and the clubs: a season not yet started takes no result at all, whatever this one would wire.
+    # A start moved under this judgement anchors every fixture of the season, this one included, so the two writes
+    # conflict and the retry judges the moved start.
+    started = has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now))
+    refuse(find_ergebnis_before_start_refusal(stored, payload, started=started))
 
     refuse(find_wiring_refusal(spiel_id, payload, season, number_of_gruppen=rules.number_of_gruppen))
 
