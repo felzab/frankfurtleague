@@ -716,7 +716,9 @@ async def _judge_spiel_save(
     # A start moved under this judgement anchors every fixture of the season, this one included, so the two writes
     # conflict and the retry judges the moved start.
     started = has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now))
-    refuse(find_ergebnis_before_start_refusal(stored, payload, started=started))
+    # What the save would store, composed once: the start rule judges it, and the write stores it.
+    patched = apply_payload_to_spiel(stored, payload, rules, now=now)
+    refuse(find_ergebnis_before_start_refusal(stored, patched, started=started))
 
     refuse(find_wiring_refusal(spiel_id, payload, season, number_of_gruppen=rules.number_of_gruppen))
 
@@ -767,7 +769,7 @@ async def _judge_spiel_save(
         rules=rules,
         season=season,
         releases=verdict.releases,
-        patched=apply_payload_to_spiel(stored, payload, rules, now=now),
+        patched=patched,
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
         anchored=find_references_to_anchor(stored, payload, rules),

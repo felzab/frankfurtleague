@@ -1,24 +1,28 @@
 """
 API · a season not yet started takes no result: `ergebnis_before_saison_start`
 
-Goals, a no-show and an abandonment are each a record of a match `has_taken_place` counts, which fixes the start date
-and would ride along on a swap or a replacement. Judged against the stored fixture, so a result stored before the rule
-stands while it is resubmitted unchanged, and a call-off or a strike-out, which records nothing, still saves.
+Goals, a shoot-out, a no-show and an abandonment are each a record of a match, which fixes the bracket or the start
+date and would ride along on a swap or a replacement. Judged as the save would store the fixture against the fixture
+stored, so a stored result stands while it is resubmitted unchanged, a figure the save drops is no record, and a
+call-off or a strike-out, which records nothing, still saves.
 """
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any
 
 import pytest
 from bson import ObjectId
 
+from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel
-from app.api.spiele.services import find_ergebnis_before_start_refusal
+from app.api.spiele.services import apply_payload_to_spiel, find_ergebnis_before_start_refusal
 from app.core.codes import Code
 from tests import documents
 from tests.payloads import spiel_patch_body
 
 HOME, AWAY = ObjectId("6890a1b2c3d4e5f607470001"), ObjectId("6890a1b2c3d4e5f607470002")
+NOW = datetime(2026, 12, 1, 12, tzinfo=UTC)
 
 
 def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
@@ -38,9 +42,13 @@ def stored(**fields: Any) -> dict[str, Any]:
 
 
 def judged(document: dict[str, Any], *, started: bool, **overrides: Any) -> Any:
-    payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(document, **overrides))
+    """The rule asked of the fixture as the save composes it from the editor's body, `overrides` moved."""
 
-    return find_ergebnis_before_start_refusal(FLSpiel.model_validate(document), payload, started=started)
+    spiel = FLSpiel.model_validate(document)
+    payload = FLPatchSpielDataPayload.model_validate(spiel_patch_body(document, **overrides))
+    patched = apply_payload_to_spiel(spiel, payload, FLSaisonRules.model_validate(documents.rules_document()), now=NOW)
+
+    return find_ergebnis_before_start_refusal(spiel, patched, started=started)
 
 
 class TestAResultBeforeTheStartIsRefused:
@@ -75,6 +83,15 @@ class TestAResultBeforeTheStartIsRefused:
 
         assert judged(document, started=False, elfmeterschiessen={"team1": 4, "team2": 3}) is not None
 
+    def test_a_stored_shoot_out_changed_is_refused(self):
+        """Its counts swapped, the shoot-out advances the other club."""
+
+        document = stored(
+            saison_phase="achtelfinale", team1=side(HOME, 2), team2=side(AWAY, 2), ergebnis="2:2", elfmeterschiessen={"team1": 4, "team2": 3}
+        )
+
+        assert judged(document, started=False, elfmeterschiessen={"team1": 3, "team2": 4}) is not None
+
 
 class TestWhatTheRulePasses:
     @pytest.mark.parametrize(
@@ -103,6 +120,20 @@ class TestWhatTheRulePasses:
         )
 
         assert judged(document, started=False, date="2027-03-01") is None
+
+    @pytest.mark.parametrize(
+        "fields",
+        [
+            pytest.param({"team1": side(HOME, 2), "team2": side(AWAY, 2), "ergebnis": "2:2"}, id="a group fixture"),
+            pytest.param(
+                {"saison_phase": "achtelfinale", "team1": side(HOME, 2), "team2": side(AWAY, 1), "ergebnis": "2:1"}, id="a won knockout"
+            ),
+        ],
+    )
+    def test_a_shoot_out_the_save_drops_passes(self, fields: dict[str, Any]):
+        """Only a level knockout result keeps a shoot-out, so on any other the save stores none."""
+
+        assert judged(stored(**fields), started=False, elfmeterschiessen={"team1": 4, "team2": 3}) is None
 
     def test_a_result_stored_before_the_rule_cleared_passes(self):
         document = stored(team1=side(HOME, 2), team2=side(AWAY, 1), ergebnis="2:1")
