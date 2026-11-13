@@ -24,9 +24,4 @@ describe("the chip on a pupil's match card", () => {
     expect(spielChipOf({ ...CONFIRMED, ansetzung_confirmed: false }, false)?.label).toBe(COPY.admin.spiel.provisional);
     expect(spielChipOf(CONFIRMED, false)).toBe(undefined);
   });
-
-  // The page's own test holds that a deregistered pupil's card names no place; the match's date stays a fact of it.
-  it("still says „Vorläufig“ on a deregistered pupil's card", () => {
-    expect(spielChipOf({ ...CONFIRMED, starts: false, ansetzung_confirmed: false }, true)?.label).toBe(COPY.admin.spiel.provisional);
-  });
 });

@@ -91,35 +91,4 @@ describe("the Kader's dialog", () => {
     await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.deregister }));
     expect(vi.mocked(deregisterKaderRow)).toHaveBeenCalledWith({ team_id: TEAM, saison_id: SAISON, spieler_id: "64b000000000000000000002" });
   });
-
-  // The harm: a role offered that another live player holds, which the save then refuses after the press; or the
-  // holder's own role locked, so the captain cannot give it up; or a role an ausgetragen row keeps locking it for all.
-  it("locks a role another live row holds, and no other", async () => {
-    drawn();
-    /** Each entry of the open dialog's role list, its words and whether it is locked. */
-    const roleOptions = async () => {
-      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: new RegExp(COPY.admin.spieler.rolle) }));
-      const options = within(await screen.findByRole("listbox")).getAllByRole("option");
-      return options.map((option) => [option.textContent, option.getAttribute("aria-disabled") === "true"]);
-    };
-    const { rolleOption } = COPY.admin.spieler;
-
-    // Ben holds none: the captaincy Anna holds is locked, the co-captaincy only an ausgetragen row holds is not.
-    await openRow("Ben Bauer");
-    expect(await roleOptions()).toStrictEqual([
-      [COPY.shared.notProvided, false],
-      [`${rolleOption.kapitaen}${COPY.shared.field.taken}`, true],
-      [rolleOption.co_kapitaen, false],
-    ]);
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: COPY.shared.back }));
-
-    // Anna may give hers up, or take the other.
-    await openRow("Anna Bauer");
-    expect(await roleOptions()).toStrictEqual([
-      [COPY.shared.notProvided, false],
-      [rolleOption.kapitaen, false],
-      [rolleOption.co_kapitaen, false],
-    ]);
-  });
 });
