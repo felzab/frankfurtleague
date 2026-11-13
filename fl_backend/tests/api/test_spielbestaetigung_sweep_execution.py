@@ -1094,6 +1094,34 @@ class TestAReplacedClubsRowsClose:
         assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
 
 
+class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
+    """A knockout correction re-fields a side, the club taken off keeping its season row: no party was asked about the new pairing."""
+
+    def test_the_club_taken_off_and_the_parties_still_on_it_are_told_of_the_slot_they_were_asked_about(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            # The bracket's own write, which re-fields a side and touches no season row.
+            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"team1": side(GAMMA)}})
+
+            return await sweep(database, client)
+
+        second = on_a_league(
+            mongo_replica_set_url,
+            body,
+            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
+            junctions=[junction(ALPHA), junction(BETA), documents.saison_team_document(SAISON_ID, GAMMA, *NAMES[GAMMA])],
+        )
+
+        left = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "18:00:00"}
+        # Alpha, off the fixture, is told the request it was sent no longer stands, about the pairing it was sent.
+        assert [
+            ((notice.team1_name, notice.team2_name), notice.moved_to, notice.asked_again, sorted(r.address for r in notice.recipient))
+            for notice in second.new_ansetzungen
+        ] == [(("Alpha", "Beta"), None, False, sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN))]
+        assert [(request.team, request.moved_from) for request in second.requests] == [("Beta", left)]
+        assert [(einteilung.address, einteilung.moved_from) for einteilung in second.einteilungen] == [(REFEREE_EMAIL, left)]
+
+
 class TestARowClosesOnceItsDayHasPassed:
     """A fixture nobody entered a result for keeps no row open past its day."""
 

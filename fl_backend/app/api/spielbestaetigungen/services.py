@@ -488,14 +488,21 @@ def view_ansetzung_of(spiel: Mapping[str, Any]) -> FLSpielbestaetigungViewAnsetz
 
 
 def vereinsnamen_of(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState) -> tuple[str, str]:
-    """The clubs a notice about a moved row names: each side as the fixture fields it now, a side it lost by its season row."""
+    """The clubs a notice about the slot a row asked about names: each club the row asked about by its season row.
+
+    `ansetzung_state.vereine` holds the season rows of the row's own clubs. A club taken off the fixture since is still
+    the one asked about; only a replaced club, whose season row passed to the incoming one, is named by the fixture's side.
+    """
 
     snapshot = spielbestaetigung_raw["ansetzung"]
     names = {row.get("team_id"): row.get("name") for row in ansetzung_state.vereine}
 
     def side_name(slot: str, snapshot_key: str) -> str:
+        own = names.get(snapshot[snapshot_key])
+        if own is not None:
+            return str(own)
         side = ansetzung_state.spiel.get(slot)
-        return str(side["name"]) if isinstance(side, Mapping) else str(names.get(snapshot[snapshot_key]) or "")
+        return str(side["name"]) if isinstance(side, Mapping) else ""
 
     return side_name("team1", "team1_id"), side_name("team2", "team2_id")
 
