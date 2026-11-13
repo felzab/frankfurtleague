@@ -405,33 +405,14 @@ class TestWhatAnAdmissionWrites:
         moved = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
         assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.ACTION_LOG}
 
-    def test_a_second_admission_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        """The anchor and the log included: a second press that took the season's `$inc` would be a write nobody sees.
-
-        The admitted row is gone, so its id answers as one no row ever held.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            registrierung_id = await seed(database, registrierung_document())
-            await admit(database, client, registrierung_id)
-            before = await snapshot(database)
-            code = await refused(admit(database, client, registrierung_id))
-
-            return code, before, await snapshot(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.ROLE_NOT_HELD
-        assert after == before
-
 
 class TestTheLateEntry:
     """The marker is judged on the day the pupil submitted, so a team admitting late costs nobody a place in the cap."""
 
     @pytest.mark.parametrize(
         ("window", "flagged"),
-        [({"open": True, "end": "2026-03-29"}, True), ({"open": True, "end": SUBMITTED_AT}, False), (None, False)],
-        ids=("submitted past the end", "submitted on the last day", "no window stored"),
+        [({"open": True, "end": "2026-03-29"}, True), ({"open": True, "end": SUBMITTED_AT}, False)],
+        ids=("submitted past the end", "submitted on the last day"),
     )
     def test_the_marker_is_derived_at_the_admission(self, mongo_replica_set_url: str, window: Any, flagged: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

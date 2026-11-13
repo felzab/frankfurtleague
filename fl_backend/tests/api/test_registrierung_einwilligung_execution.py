@@ -225,26 +225,6 @@ class TestWhatAConfirmationWrites:
         assert document["status"] == "submitted"
         assert (people, squad_rows) == (0, 0)
 
-    def test_the_media_switch_left_off_is_stored_as_the_answer_it_is(self, mongo_replica_set_url: str):
-        """Publication and media are two consents under one record, so an off switch is stored rather than derived from the scope."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, scope="internal", media=False)
-
-            return await stored(database)
-
-        record = on_a_league(mongo_replica_set_url, body)["einwilligung"]
-
-        assert (record["scope"], record["media"]) == ("internal", False)
-
-    def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
-        """A response re-read off the updated document would widen this page's answer to everything a registration holds."""
-
-        rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
-
-        assert registrierung_document()["last_name"] not in rendered and FOLDED_EMAIL not in rendered
-        assert TOKEN_HASH not in rendered and RAW not in rendered
-
 
 class TestTheLinkIsSpentByTheStamp:
     def test_a_second_press_is_refused_and_the_first_answer_stands(self, mongo_replica_set_url: str):

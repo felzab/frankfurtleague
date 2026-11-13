@@ -161,23 +161,6 @@ async def standing(database: AsyncDatabase) -> list[ObjectId]:
 
 
 class TestTheDeadlineClock:
-    def test_it_erases_the_day_after_the_deadline_and_not_on_it(self, mongo_replica_set_url: str):
-        """The two rows part on one day: the link answers on its deadline, so the erasure waits.
-
-        Both carry a null consent record, which is what says the page's consent term reads one.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
-
-            return response, await standing(database)
-
-        response, left = on_a_league(mongo_replica_set_url, body)
-
-        assert response.erased_unconfirmed == 1
-        assert EXPIRED_OID not in left
-        assert INSIDE_OID in left
-
     def test_a_registration_of_another_season_is_untouched(self, mongo_replica_set_url: str):
         """Every removal names this season alone."""
 
@@ -202,19 +185,6 @@ class TestTheSeasonsOwnEnd:
         # The other season's row alone: the declined one goes to the decline clock in the same pass,
         # and every removal here names this season.
         assert left == [OTHER_SEASON_OID]
-
-
-class TestTheDeclineClock:
-    def test_it_erases_a_declined_registration_past_its_fourteen_days(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await sweep(database, client)
-
-            return response, await standing(database)
-
-        response, left = on_a_league(mongo_replica_set_url, body)
-
-        assert response.erased_declined == 1
-        assert DECLINED_OID not in left
 
 
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:

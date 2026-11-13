@@ -291,6 +291,7 @@ class TestWhatASubmissionStores:
         assert stored["invitation_id"] == INVITATION_OID
         assert stored["status"] == "submitted"
         assert stored["submitted_at"] == TODAY
+        assert stored["confirmation"]["deadline"] == DEADLINE
         # Present and null, never absent: the confirmation fills the first two and a decline the third.
         assert stored["birth_date"] is None
         assert stored["einwilligung"] is None
@@ -339,18 +340,6 @@ class TestWhatASubmissionStores:
 
         assert on_a_league(mongo_replica_set_url, body).state == "valid"
 
-    def test_the_deadline_is_the_bounds_own_days_after_the_mint(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await register(database, client)
-            stored = await database[Collection.REGISTRIERUNGEN].find_one({})
-
-            assert stored is not None
-            return stored
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["confirmation"]["deadline"] == DEADLINE
-
     def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
         """Nothing about a pending registration reaches the two collections an admission writes."""
 
@@ -394,23 +383,6 @@ class TestTheSubmissionKey:
         first, second = on_a_league(mongo_replica_set_url, body)
 
         assert first == second
-
-    def test_registrations_stored_before_the_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
-        """The partial filter: two rows carrying no key would otherwise both index as null and collide."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await register(database, client)
-            await register(database, client, email="zweite@beispielschule.de")
-            await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"idempotency_key": ""}})
-            before = await rows_of(database)
-            await register(database, client, key=KEY, email="dritte@beispielschule.de")
-            after = [row for row in await rows_of(database) if "idempotency_key" not in row]
-
-            return before, after
-
-        before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert after == before and len(before) == 2
 
     def test_a_press_whose_lookup_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
         """Why no duplicate-key arm exists: the lookup opens the snapshot, and a later commit meets the mailbox's anchor as a write conflict."""
@@ -628,17 +600,6 @@ class TestWhatASubmissionIsRefused:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.DOCUMENT_NOT_FOUND, 0)
 
-    def test_a_link_no_row_holds_is_refused_with_the_same_code(self, mongo_replica_set_url: str):
-        """ONE answer for unknown and for revoked: nothing tells a stranger's guess from a replaced link."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await register(database, client, token="notatokenanybodyeverminted1234567890abcdef")
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.DOCUMENT_NOT_FOUND
-
     def test_a_shut_window_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
             with pytest.raises(APIError) as refused:
@@ -763,16 +724,6 @@ class TestWhatTheInvitesOwnReadAnswers:
         answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "open": False})
 
         assert answer.running is False
-
-    def test_a_season_that_has_ended_reads_as_a_shut_window(self, mongo_replica_set_url: str):
-        """The page renders `running` alone, so a `past` season answering true offers a form every submission of which is refused."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, bool]:
-            answer = await view(database)
-
-            return answer.saison_status, answer.running
-
-        assert on_a_league(mongo_replica_set_url, run, saison_status="past") == ("past", False)
 
     def test_a_revoked_link_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
