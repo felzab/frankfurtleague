@@ -2,7 +2,8 @@ import { defineConfig } from "vitest/config";
 
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
- * nowhere else. A project setting none runs under the `test` Vitest sets (https://vitest.dev/config/env).
+ * nowhere else. A project setting none runs under the shell's `NODE_ENV`, or under `test`, which Vitest sets where
+ * the shell sets none.
  */
 const PRODUCTION_BUILD = [
   "src/instrumentation.test.ts",
@@ -39,10 +40,10 @@ export default defineConfig({
       jsdom: { url: "http://localhost/", pretendToBeVisual: true },
     },
     // Each project's name opens with its tier's, `unit` or `db`: the scripts in `package.json` the gate runs select a
-    // tier by that prefix, so a project named otherwise would run nowhere.
+    // tier by that prefix, so a project named otherwise would run nowhere. Each inherits the options above, `extends`
+    // defaulting to `true` (https://vitest.dev/guide/projects).
     projects: [
       {
-        extends: true,
         test: {
           name: "unit",
           include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
@@ -60,15 +61,12 @@ export default defineConfig({
         },
       },
       {
-        extends: true,
         test: { name: "unit-production", include: PRODUCTION_BUILD, env: { NODE_ENV: "production" } },
       },
       {
-        extends: true,
         test: { name: "db", include: ["src/**/*.db.test.ts"], exclude: DEVELOPMENT_BUILD_DB, ...DB_TIER },
       },
       {
-        extends: true,
         test: { name: "db-development", include: DEVELOPMENT_BUILD_DB, env: { NODE_ENV: "development" }, ...DB_TIER },
       },
     ],

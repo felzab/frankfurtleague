@@ -38,7 +38,7 @@ const pageOf = (searchParams: Record<string, string | string[]>) =>
 
 async function read(searchParams: Record<string, string | string[]>) {
   const page = pageOf(searchParams);
-  // Both, as the page's two boundaries await both: the toolbar's filters and the list come of one read.
+  // Both, as the list template awaits both: the toolbar's filters and the list come of one read.
   const [, content] = await Promise.all([page.props.filters, page.props.list.content]);
   return content;
 }

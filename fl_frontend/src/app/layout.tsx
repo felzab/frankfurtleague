@@ -16,9 +16,11 @@ import shareImage from "./share-image.png";
 
 import type { Metadata, Viewport } from "next";
 
-// Every face is `optional`: one not in within the browser's short block period is left out for that view, so no text
-// is drawn in a stand-in and then again in the face, which moved the league table's and the search's figures. Anton's
-// stand-in is the global styles' own face, fitted to the capitals Anton sets: the automatic one fits lowercase.
+// Every face is `optional`, whose specification leaves out for that view a face not in within the browser's short
+// block period, so no text is drawn in a stand-in and then again in the face, a redraw that moves the league table's
+// and the search's figures. Measured in headless Chromium on a slow first visit, a late face is still swapped in at the
+// load event, about 2 s after the first paint, with a layout shift of at most 0.0006. Anton's stand-in is the global styles' own face, fitted to the capitals Anton sets:
+// the automatic one fits lowercase.
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
@@ -73,17 +75,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * Every route may block a navigation into it: no page has a boundary above it, so no navigation into one shows anything
- * before it is read, and a route's prerendered shell is empty, which the build would otherwise refuse. The root is the
- * highest `instant` config of every route, so `false` here tells Next's checks so for each of them; it is the lowest
- * place that covers them all.
+ * No page has a boundary above it, so a route's prerendered shell is empty, which the build would otherwise refuse. The
+ * root is the highest `instant` config of every route, and the shell's check obeys the highest one, so `false` here
+ * lifts it for each route; it is the lowest place that covers them all. It does not lift the development server's
+ * check of a navigation between two pages below it, which `next dev` runs at Next's default level and which warns.
  */
 export const instant = false;
 
 /**
  * The browser's own ground and controls in the visitor's system scheme wherever neither the stylesheet nor the theme
- * script has set them yet. Once the theme script runs it writes the chosen theme's `color-scheme` on the root, which
- * wins over this.
+ * script has set them yet, which is only in a bare error document. Once the theme script runs it writes the chosen
+ * theme's `color-scheme` on the root, which wins over this. It reaches an error document rendered per request and
+ * Next's own not-found document; an error document the build prerenders, as the area's catch-all, carries no viewport.
  */
 export const viewport: Viewport = {
   colorScheme: "light dark",

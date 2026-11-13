@@ -16,7 +16,7 @@
  * client navigation presses the link on. A walk of one address is a page no link of the site leads to, such as a mailed
  * link's, and has no client navigation. Where the way differs between the widths, a case names a walk for each, and a
  * width it names none for has no way to the page. The landing's cases carry `@landing`, which CI runs again under each
- * state `scripts/ops/seed/seed.js :: SEED_LANDING` seeds, and the signed-in roles' `@signed-in`, the leg holding the
+ * state `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, and the signed-in roles' `@signed-in`, the leg holding the
  * administrator's session.
  *
  * A still page proves nothing about a page never reached, so each case asserts what answered: a hard load's status and
