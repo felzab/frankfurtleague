@@ -12,7 +12,7 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
-import { NavigationLink, PageWait, usePressed } from "./WholePage";
+import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -26,14 +26,15 @@ type HeaderLinksProps = {
 };
 
 /**
- * The links at the address `path`: its page's link marked, or from its press the link a navigation goes to, and a sheet
- * that goes with the page it led from, since the layout outlives the page. `null` in the placeholder `HeaderLinks`
- * draws outside `WholePages`, where no link is marked.
+ * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
+ * one button opening them as a sheet. The page's link is marked, or from its press the link a navigation goes to, and
+ * the sheet goes with the page it led from, since the layout outlives the page.
  */
-function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string | null }) {
+export function HeaderLinks({ links, signIn }: HeaderLinksProps) {
+  const path = usePathname();
   const hrefs = links.map((link) => link.href);
   const pressed = usePressed(hrefs);
-  const current = pressed ?? (path === null ? null : currentOf(path, hrefs));
+  const current = pressed ?? currentOf(path, hrefs);
   return (
     <>
       <nav
@@ -87,34 +88,5 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
         </Fragment>
       </div>
     </>
-  );
-}
-
-function LinksAtAddress(props: HeaderLinksProps) {
-  return (
-    <PlacedLinks
-      {...props}
-      path={usePathname()}
-    />
-  );
-}
-
-/**
- * The classic header's links and „Konto“, the way to the sign-in, on the band: in a row from 1024 px, and on a phone behind
- * one button opening them as a sheet. Every link is known before any read. Under `WholePages` the band arrives with the
- * page, its link marked; outside it, past a dynamic segment the prerendered shell holds no address, so its `PageWait`
- * holds the same links unmarked there.
- */
-export function HeaderLinks(props: HeaderLinksProps) {
-  return (
-    <PageWait
-      fallback={
-        <PlacedLinks
-          {...props}
-          path={null}
-        />
-      }>
-      <LinksAtAddress {...props} />
-    </PageWait>
   );
 }
