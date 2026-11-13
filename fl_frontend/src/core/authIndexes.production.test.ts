@@ -14,6 +14,9 @@ type Build = { collection: string; name: string; key: unknown; options: IndexOpt
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
+// Under the production build's `NODE_ENV` (`fl_frontend/vitest.config.mts :: PRODUCTION_BUILD`): only its format writes
+// every value a line is handed, an `error` that is no `Error` among them, which a refused build's line is held to.
+
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
@@ -117,7 +120,10 @@ describe("the sign-in store's index build", () => {
         fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
-    assert.ok(!log.lines().some(({ raw }) => raw.includes(TOKEN)), "the line quoted the value the refusal named");
+    for (const { raw } of log.lines()) {
+      assert.ok(!raw.includes(TOKEN), "the line quoted the value the refusal named");
+      expect((JSON.parse(raw) as { error?: unknown }).error, "the refusal reached the line as its error").toBe(undefined);
+    }
   });
 
   /* The client reconnects once the store answers, and a restart is
