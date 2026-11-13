@@ -79,14 +79,19 @@ def deploy(
     unread: dict[str, str] | None = None,
     nginx_t: int = 0,
     reload_log: str = RECONFIGURING + NEW_WORKERS,
-) -> tuple[int, str, str, list[str], str]:
-    """One run deploying `NEW` over a stack pinning `PREVIOUS`: its exit code, stdout, stderr, the engine calls and the `.env` it left."""
+    pin: str | None = PREVIOUS,
+) -> tuple[int, str, str, list[str], str | None]:
+    """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
+
+    Its exit code, stdout, stderr, the engine calls and the `.env` it left, None where there is none.
+    """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-deploy-")
     for script in ("scripts/ops/deploy.sh", "scripts/lib/_lib.sh"):
         (root / script).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO_ROOT / script, root / script)
-    (root / ".env").write_bytes(f"TAG={PREVIOUS}\n".encode())
+    if pin is not None:
+        (root / ".env").write_bytes(f"TAG={pin}\n".encode())
     engine = new_root("fl-deploy-engine-")
     stubs = engine / "stubs"
     stubs.mkdir()
@@ -106,7 +111,8 @@ def deploy(
     environment.pop("TAG", None)
     done = run_shell(BASH, root / "scripts/ops/deploy.sh", NEW, *args, env=environment, cwd=root)
     calls = (engine / "calls").read_bytes().decode().splitlines()
-    return done.returncode, done.stdout, done.stderr, calls, (root / ".env").read_bytes().decode()
+    env = root / ".env"
+    return done.returncode, done.stdout, done.stderr, calls, env.read_bytes().decode() if env.exists() else None
 
 
 def last_line(stream: str) -> str:
@@ -253,5 +259,27 @@ def test_no_rollback_stops_on_a_service_the_last_read_names():
 
     assert code == 1, out + err
     assert not went_back(calls), calls
+    assert not reloaded_nginx(calls), calls
     assert pinned == f"TAG={NEW}\n"
     assert "--no-rollback leaves the stack as it stands" in err and "backend" in err, err
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        pytest.param(NEW, id="the-failed-tag-pinned"),
+        pytest.param(None, id="no-env"),
+    ],
+)
+def test_a_failed_run_with_no_other_build_pinned_goes_back_to_none(pin: str | None):
+    """The runbook's rerun of a failed tag finds it pinned after `--no-rollback`, and a first run no `.env`.
+
+    Neither is a build to go back to.
+    """
+    code, out, err, calls, pinned = deploy(pin=pin, new=containers(backend="running unhealthy"))
+
+    assert code == 1, out + err
+    assert "no other build is pinned to go back to" in last_line(err), err
+    starts = [call for call in calls if call.startswith("compose up ")]
+    assert len(starts) == 1 and starts[0].endswith(f"TAG={NEW}"), calls
+    assert pinned == (None if pin is None else f"TAG={pin}\n")
