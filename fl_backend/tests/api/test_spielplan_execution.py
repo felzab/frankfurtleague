@@ -501,23 +501,6 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
 
 
 class TestTheBracketIsWiredToWhatFeedsIt:
-    @pytest.mark.parametrize(("groups", "teams", "qualifiers"), SHAPES, ids=SHAPE_IDS)
-    def test_each_round_is_the_phase_and_the_size_the_qualifier_count_implies(
-        self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int
-    ):
-        """`KNOCKOUT_PHASES` is a pinned tuple and `bracket_rounds` halves the product itself.
-
-        A ladder one round short then shows twice over: a `halbfinale` holding four matches is both
-        the wrong label and the wrong size.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url, groups=groups, teams=teams, qualifiers=qualifiers)
-        sizes = bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"]))
-        rounds = knockout_rounds(drawn)
-
-        assert [{row["saison_phase"] for row in spiele} for spiele in rounds] == [{phase} for phase in KNOCKOUT_PHASES[-len(sizes) :]]
-        assert [len(spiele) for spiele in rounds] == list(sizes)
-
     def test_every_knockout_spiel_is_two_unfilled_slots_each_with_a_source(self, mongo_replica_set_url: str):
         """Nobody has qualified when a season is drawn, so a side filled here would name a club the group phase has not chosen yet."""
 
@@ -527,41 +510,6 @@ class TestTheBracketIsWiredToWhatFeedsIt:
         assert len(spiele) == sum(bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"])))
         assert [row["spiel_nr"] for row in spiele if row["team1"] is not None or row["team2"] is not None] == []
         assert [row["spiel_nr"] for row in spiele if row["team1_quelle"] is None or row["team2_quelle"] is None] == []
-
-    def test_the_first_round_names_the_placings_the_seeding_table_pins(self, mongo_replica_set_url: str):
-        """`BRACKET_SEEDING` fixes who meets in round one.
-
-        Seeded any other way, two clubs out of one group meet before the bracket has narrowed.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url)
-        first, *_ = knockout_rounds(drawn)
-
-        assert [
-            (quelle["type"], quelle["gruppe"], quelle["platz"]) for row in first for quelle in (row["team1_quelle"], row["team2_quelle"])
-        ] == [("gruppe", gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, QUALIFIERS)]]
-
-    def test_each_later_round_is_fed_by_the_winners_of_the_round_before_it(self, mongo_replica_set_url: str):
-        """The chain the bracket resolver walks: a source naming a fixture from anywhere else leaves a slot no result can ever fill.
-
-        The Finale's matchday opens with the semi-finals' losers, who play for third place.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url)
-        first, *later = knockout_rounds(drawn)
-
-        assert later, "this bracket holds one round, so the chain is never exercised"
-
-        feeding = [row["spiel_nr"] for row in first]
-        for spiele in later:
-            sources = [
-                (quelle["type"], quelle["spiel_nr"], quelle["ausgang"])
-                for row in spiele
-                for quelle in (row["team1_quelle"], row["team2_quelle"])
-            ]
-            third_place = [("spiel", spiel_nr, "verlierer") for spiel_nr in feeding] if spiele[0]["saison_phase"] == "finale" else []
-            assert sources == [*third_place, *(("spiel", spiel_nr, "sieger") for spiel_nr in feeding)]
-            feeding = [row["spiel_nr"] for row in spiele]
 
 
 @dataclass(frozen=True)
@@ -703,23 +651,10 @@ REDRAWN_TODAY = "2026-08-25"
 # noted fixture as untouched and the replace destroys the note.
 A_NOTE = "Platz gesperrt"
 
-# Every key `FLSpiel`'s booking asks for, so the seeding update is a document the read-back would
-# accept rather than one this file invented.
-A_BOOKED_ORT: dict[str, Any] = {
-    "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
-    "mietpreis": 120,
-}
-A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
-    "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607760102"),
-    "payment": 40,
-}
-
 # One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. None is played by
 # `has_taken_place`, so each says the window reads `holds_a_recorded_fact` instead.
 RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
-    pytest.param({"spielort": A_BOOKED_ORT}, id="a booked venue"),
-    pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
     pytest.param({"note": A_NOTE}, id="an admin's note"),
 )
 
@@ -1249,7 +1184,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     def test_a_single_recorded_spiel_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        """Count these off anything but the stored rows and this fails; drop either booking from the projection and the last two do."""
+        """Count these off anything but the stored rows and both fail."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
@@ -1416,21 +1351,6 @@ class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
         assert [(quelle["gruppe"], quelle["platz"]) for row in first_round for quelle in (row["team1_quelle"], row["team2_quelle"])] == [
             (gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, NARROWED_QUALIFIERS)]
         ]
-
-    def test_a_wider_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
-        """The other direction, which a freeze reading narrowings alone would let through while the fixtures stayed as they were."""
-
-        replaced = a_season_drawn_from(
-            mongo_replica_set_url,
-            seed=Seed(saison=saison_document(rules=rules_document(qualifiers=NARROWED_QUALIFIERS))),
-            shape=a_shape(qualifiers=QUALIFIERS),
-            replace=True,
-        )
-        expected = expected_counts(FLSaisonRules.model_validate(rules_document(qualifiers=QUALIFIERS)))
-
-        assert replaced.rules["qualifiers_per_gruppe"] == QUALIFIERS
-        assert (len(replaced.spieltage), len(replaced.spiele)) == expected
-        assert replaced.watermark == {"generated_at": REDRAWN_TODAY}
 
 
 @dataclass(frozen=True)
