@@ -200,7 +200,8 @@ def state_of(
 ) -> FLSpielbestaetigungState:
     """What a party's page shows of a row, the first state matching winning: a row already answered shows its answer, never a refusal.
 
-    Asked of a club's unclosed row and of a referee's newest, which no discard closes: a page shows no discarded row.
+    Asked of a club's unclosed row, of a referee's newest, and by the match editor of every row: a closed row reads by
+    the reason it was closed for, so a discarded decline reads as that decline.
     """
 
     answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
