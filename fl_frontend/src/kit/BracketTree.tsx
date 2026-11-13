@@ -22,15 +22,18 @@ const key = (count: Width) => String(count) as `${Width}`;
 
 const tree = tv({
   slots: {
-    // The rounds 32 px apart on a phone and 48 px on desktop; the third place's dashed lines 24 px inward of the
-    // Finale's, meeting on a bus 14 px above its card.
-    root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] lg:[--bracket-gap:3rem]",
+    // The box whose width chooses the tree's form, a block's as every block's: the narrow form below 42 rem, as a list
+    // stacks there, and the wide one from it. Around the tree, since a container query styles what stands inside it.
+    box: "@container w-full",
+    // The rounds 32 px apart in the narrow form and 48 px in the wide one; the third place's dashed lines 24 px inward
+    // of the Finale's, meeting on a bus 14 px above its card.
+    root: "overflow-x-auto [--bracket-gap:2rem] [--bracket-third-bus:0.875rem] [--bracket-third-inset:1.5rem] @2xl:[--bracket-gap:3rem]",
     row: "grid",
     cell: "flex justify-center",
-    // One column wide whatever its match spans, so every card of the tree is the same size. On a phone the card is as
-    // wide as its token alone, the room between two cards what the round's equal columns leave over, so four
-    // across fit a 360-px phone inside the page's gutters; from `lg` it keeps 8 px of room on each side.
-    card: "w-bracket-phone lg:max-w-bracket lg:px-2",
+    // One column wide whatever its match spans, so every card of the tree is the same size. In the narrow form the
+    // card is as wide as its token alone, the room between two cards what the round's equal columns leave over, so
+    // four across fit a 360-px phone inside the page's gutters; in the wide form it keeps 8 px of room on each side.
+    card: "w-bracket-phone @2xl:max-w-bracket @2xl:px-2",
     gap: "block h-(--bracket-gap)",
     feed: "relative h-(--bracket-gap)",
     // From each card of a pair down, across between them, and down to the match they feed.
@@ -60,10 +63,10 @@ const tree = tv({
     },
     // How many of the first round's columns a match takes, its card one column of them.
     span: {
-      "1": { cell: "col-span-1", card: "lg:w-full", feed: "col-span-1" },
-      "2": { cell: "col-span-2", card: "lg:w-1/2", feed: "col-span-2" },
-      "4": { cell: "col-span-4", card: "lg:w-1/4", feed: "col-span-4" },
-      "8": { cell: "col-span-8", card: "lg:w-1/8", feed: "col-span-8" },
+      "1": { cell: "col-span-1", card: "@2xl:w-full", feed: "col-span-1" },
+      "2": { cell: "col-span-2", card: "@2xl:w-1/2", feed: "col-span-2" },
+      "4": { cell: "col-span-4", card: "@2xl:w-1/4", feed: "col-span-4" },
+      "8": { cell: "col-span-8", card: "@2xl:w-1/8", feed: "col-span-8" },
     },
   },
 });
@@ -170,32 +173,35 @@ export function BracketTreePlaceholder({ qualifiers }: { qualifiers: 4 | 8 | 16 
   const width = (qualifiers / 2) as Width;
   // The rounds down to the Halbfinale, each half the one before, the first the widest.
   const rounds = ([8, 4, 2] as const).filter((count) => count <= width);
+  const style = tree();
   return (
-    <div className={tree().root()}>
-      {rounds.map((count, index) => (
-        <div key={count}>
-          {index > 0 && (
-            <Feeds
-              into={count}
+    <div className={style.box()}>
+      <div className={style.root()}>
+        {rounds.map((count, index) => (
+          <div key={count}>
+            {index > 0 && (
+              <Feeds
+                into={count}
+                width={width}
+              />
+            )}
+            <RowPlaceholder
+              count={count}
               width={width}
             />
-          )}
+          </div>
+        ))}
+        <ThirdPlace>
           <RowPlaceholder
-            count={count}
+            count={1}
             width={width}
           />
-        </div>
-      ))}
-      <ThirdPlace>
+        </ThirdPlace>
         <RowPlaceholder
           count={1}
           width={width}
         />
-      </ThirdPlace>
-      <RowPlaceholder
-        count={1}
-        width={width}
-      />
+      </div>
     </div>
   );
 }
@@ -203,7 +209,7 @@ export function BracketTreePlaceholder({ qualifiers }: { qualifiers: 4 | 8 | 16 
 /**
  * The K.-o.-Baum, upright: the first round on top and the Finale at the bottom, each match's card under the two
  * that feed it, joined by hairlines, every card the same size. The match for third place stands on its own row
- * above the Finale. Where the first round is wider than the screen the tree scrolls sideways inside its box.
+ * above the Finale. Where the first round is wider than the tree's box the tree scrolls sideways inside it.
  */
 export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound, ...BracketRound[]]; third?: BracketMatch }) {
   const width = rounds[0].matches.length;
@@ -213,35 +219,38 @@ export function BracketTree({ rounds, third }: { rounds: readonly [BracketRound,
   const anchored = [...rounds.flatMap((round) => round.matches), ...(third === undefined ? [] : [third])].some(
     (match) => match.anchor !== undefined,
   );
+  const style = tree();
   return (
-    <section
-      aria-label={COPY.shared.kOBaum}
-      className={tree().root()}>
-      {anchored && <TargetMark />}
-      {rounds.map((round, index) => (
-        <div key={round.id}>
-          {index > 0 &&
-            (third !== undefined && index === finale ? (
-              <ThirdPlace>
-                <Row
-                  label={SERVER_COPY.season.thirdPlace}
-                  matches={[third]}
+    <div className={style.box()}>
+      <section
+        aria-label={COPY.shared.kOBaum}
+        className={style.root()}>
+        {anchored && <TargetMark />}
+        {rounds.map((round, index) => (
+          <div key={round.id}>
+            {index > 0 &&
+              (third !== undefined && index === finale ? (
+                <ThirdPlace>
+                  <Row
+                    label={SERVER_COPY.season.thirdPlace}
+                    matches={[third]}
+                    width={width}
+                  />
+                </ThirdPlace>
+              ) : (
+                <Feeds
+                  into={round.matches.length}
                   width={width}
                 />
-              </ThirdPlace>
-            ) : (
-              <Feeds
-                into={round.matches.length}
-                width={width}
-              />
-            ))}
-          <Row
-            label={round.label}
-            matches={round.matches}
-            width={width}
-          />
-        </div>
-      ))}
-    </section>
+              ))}
+            <Row
+              label={round.label}
+              matches={round.matches}
+              width={width}
+            />
+          </div>
+        ))}
+      </section>
+    </div>
   );
 }
