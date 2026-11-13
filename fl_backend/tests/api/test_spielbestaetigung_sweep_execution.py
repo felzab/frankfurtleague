@@ -846,6 +846,24 @@ class TestADiscardEndsWhereAnAgreementBesideItEnds:
         assert (discarded in told) is (reason == "cancelled")
 
 
+class TestADiscardEndedAtItsKickOffStillReadsAsTheAgreementCounted:
+    def test_the_pass_after_the_day_keeps_the_discards_mark(self, mongo_replica_set_url: str):
+        """Its end overwriting the mark, the editor would read the club agreed until the match and declined from the next pass on.
+
+        What the mark reads as is `state_of`'s, held in the default tier.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            discarded = await alphas_discard_beside_betas_agreement(database, client)
+            await sweep(database, client, today=days_after(day=NEXT_WEEK, days=1))
+
+            return await rows(database, _id=discarded)
+
+        (stored,) = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+
+        assert stored["closed"] == {"reason": "spiel_past", "discarded": True}
+
+
 class TestAMovedSpielAsksAgain:
     """The close reaches an ANSWERED row, so a kept agreement records why it stopped applying."""
 

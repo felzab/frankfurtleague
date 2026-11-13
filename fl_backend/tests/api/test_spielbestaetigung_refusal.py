@@ -323,6 +323,11 @@ DECLINED = {
 }
 # The fixture a week on: every row about `spiel()`'s slot speaks for one it has left.
 MOVED = {"spiel_overrides": {"date": "2027-05-21"}}
+RETIMED = {"spiel_overrides": {"time": "18:45:00", "ergebnis": "2:1"}}
+PLAYED = {"spiel_overrides": {"ergebnis": "2:1"}}
+# A discard the pass closed again, as its close writes it.
+ENDED_AT_KICK_OFF = {"reason": "spiel_past", "discarded": True}
+ENDED_BY_A_DECISION = {"reason": "spiel_decided", "discarded": True}
 
 
 class TestAClosedRowReadsAsThePublicFixtureCountsIt:
@@ -337,6 +342,12 @@ class TestAClosedRowReadsAsThePublicFixtureCountsIt:
             # The league kept the date: the fixture counts the club as agreed, and its mail told it the date stands.
             pytest.param({"answer": DECLINED, "closed": {"reason": "discarded"}}, {}, "agreed", id="a discard at its slot"),
             pytest.param({"answer": DECLINED, "closed": {"reason": "discarded"}}, MOVED, "invalid", id="a discard the match left"),
+            # The kick-off's time corrected as the result is entered: the agreement was to the match that was played.
+            pytest.param({"answer": AGREED, "closed": {"reason": "spiel_past"}}, RETIMED, "agreed", id="an agreement whose time is corrected"),
+            # Ended where the agreement beside it ends, the discard still reads as the agreement the fixture counted.
+            pytest.param({"answer": DECLINED, "closed": ENDED_AT_KICK_OFF}, {}, "agreed", id="a discard ended at its kick-off"),
+            pytest.param({"answer": DECLINED, "closed": ENDED_AT_KICK_OFF}, MOVED, "invalid", id="a discard ended about a slot left"),
+            pytest.param({"answer": DECLINED, "closed": ENDED_BY_A_DECISION}, PLAYED, "agreed", id="a discard ended by a decision"),
         ],
     )
     def test_each_reads_by_the_slot_it_answered(self, fields: dict[str, Any], situation: dict[str, Any], state: str):

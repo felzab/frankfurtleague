@@ -68,6 +68,7 @@ from app.api.spielbestaetigungen.services import (
     team_mails,
     vereinsnamen_of,
     view_ansetzung_of,
+    was_discarded,
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -398,7 +399,8 @@ async def sweep_spielbestaetigungen(
             await patch_one_in_db(
                 collection=spielbestaetigungen_collection,
                 db_filter={"_id": row["_id"], **build_holding_filter()},
-                update=compose_closing_update(reason=reasons[row["_id"]]),
+                # A held row is closed again only as a discard: its end keeps the mark of what it answered.
+                update=compose_closing_update(reason=reasons[row["_id"]], discarded=was_discarded(row)),
                 session=session,
                 expected_version=None,
                 return_document=ReturnDocument.BEFORE,

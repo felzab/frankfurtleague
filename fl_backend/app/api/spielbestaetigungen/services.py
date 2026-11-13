@@ -230,8 +230,22 @@ def lapsed_on(*, spielbestaetigung_raw: Mapping[str, Any], reason: FLSpielbestae
     return None
 
 
-def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState) -> bool:
-    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel)
+def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState, at_its_kick_off: bool = False) -> bool:
+    spiel = ansetzung_state.spiel
+    # A row closed at its kick-off answered the fixture as it then stood, `reason_to_close` testing the digest first:
+    # a kick-off time corrected once the match began, as a result is entered, moves no answer given to it.
+    if at_its_kick_off:
+        spiel = {**spiel, "time": spielbestaetigung_raw["ansetzung"]["time"]}
+
+    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(spiel)
+
+
+def was_discarded(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
+    """Whether the row is a decline whose proposal the league discarded: held as `discarded`, or ended since with the mark kept."""
+
+    closed = spielbestaetigung_raw.get("closed")
+
+    return isinstance(closed, Mapping) and (closed["reason"] in REASONS_ANSWERING_THE_ANSETZUNG or closed.get("discarded") is True)
 
 
 def state_of(
@@ -244,7 +258,8 @@ def state_of(
     """What a page shows of a row, the first state matching winning: an answered row never reads as lapsed.
 
     A closed row reads by the reason it was closed for, as the public fixture counts it: a discarded decline as the
-    agreement to the date the league kept, and any answer only while the Ansetzung it answered still stands.
+    agreement to the date the league kept, before and after the pass ends it where an agreement ends, and any answer
+    only while the Ansetzung it answered still stands.
     """
 
     answer = spielbestaetigung_raw.get("answer")
@@ -260,8 +275,9 @@ def state_of(
         return "cancelled"
 
     # Ahead of the decline it closed: the public fixture counts a discarded proposal as its club's agreement while the
-    # slot stands, so read as the decline, one page would call the date confirmed and refused at once.
-    if reason in REASONS_ANSWERING_THE_ANSETZUNG:
+    # slot stands, so read as the decline, one page would call the date confirmed and refused at once. Never judged at
+    # its kick-off: a discard is held through a move and ended at its own kick-off, about a slot it may have left.
+    if was_discarded(spielbestaetigung_raw):
         return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
 
     if isinstance(answer, Mapping) and answer["kind"] == "declined":
@@ -270,7 +286,8 @@ def state_of(
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
     if isinstance(answer, Mapping):
-        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
+        answers = _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, at_its_kick_off=reason == "spiel_past")
+        return "agreed" if answers else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"
@@ -942,8 +959,10 @@ def compose_asked_update(*, today: str) -> dict[str, Any]:
     return {"$set": {"asked_at": today}}
 
 
-def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason) -> dict[str, Any]:
-    return {"$set": {"closed": {"reason": reason}}}
+def compose_closing_update(*, reason: FLSpielbestaetigungClosedReason, discarded: bool = False) -> dict[str, Any]:
+    """`discarded` where the row closed is a held discard, whose meaning `was_discarded` reads on after its end."""
+
+    return {"$set": {"closed": {"reason": reason, "discarded": True} if discarded else {"reason": reason}}}
 
 
 # --- The notices a closing owes, owed through the Postausgang in the closing's own transaction.
