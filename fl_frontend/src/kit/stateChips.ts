@@ -4,7 +4,9 @@ import type { ChipProps } from "./Chip";
 
 /*
  * The states several pages draw, each one word in one hue wherever it stands, so no page decides its own chip for a
- * state another page shows too. Green is a state reached and in order, as a list's default row is.
+ * state another page shows too. Green is a state reached and in order, as a list's default row is. A state waiting on a
+ * person or a press draws amber while one can still follow it, and grey, as a thing out of play, where none can: a
+ * finished season's links.
  */
 
 /** A record in play, the default of a list's „Stand“ column and of its editor's head: a club, a squad row, a venue. */
@@ -42,3 +44,13 @@ export const DECLINED_CHIP: ChipProps = { tone: "danger", label: COPY.admin.spie
 
 /** A squad row registered after the season's window closed, which holds for the season: a squad row, a line-up's player. */
 export const NOMINEE_CHIP: ChipProps = { tone: "info", label: COPY.admin.spieler.nominee };
+
+/**
+ * A link whose mail never went out, waiting on a press: a club's registration link before the season's press reaches
+ * it, and the link of an application's seat or of a registration held back while its mailbox holds too many unanswered
+ * ones, on its page and on its list's row.
+ */
+export const NOT_SENT_CHIP: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+
+/** A club's registration link the season's press mailed, the other side of `NOT_SENT_CHIP` in the season's links. */
+export const SENT_CHIP: ChipProps = { tone: "success", label: COPY.admin.saison.linkSent };

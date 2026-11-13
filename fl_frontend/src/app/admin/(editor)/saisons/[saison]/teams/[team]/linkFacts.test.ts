@@ -43,15 +43,13 @@ describe("the link box's state where the season takes no registration", () => {
   });
 });
 
-/* A finished season shuts every link, and the press's own state left over from it, „Keine bestätigte Adresse“ for a
-   club whose seats the season no longer holds, sends the administrator after a club whose link can open nothing. */
+/* A finished season's closure is the lock line's alone, and the season editor's links table states the same link by its
+   own state: a box saying „Abgeschlossen“ there, or the no-window line a running season earns, reads the link another
+   way than the table does. */
 describe("the link box's state in a finished season", () => {
-  it("says the season is closed, whatever the press left", () => {
-    const [state] = linkFactsOf(
-      { ...SENT, running: false, skipped: "no_confirmed_kontaktperson" },
-      { registrierung_end: null, status: "past" },
-    );
+  it("is the link's own, as the season editor's table states it", () => {
+    const [state] = linkFactsOf({ ...SENT, running: false }, { registrierung_end: null, status: "past" });
 
-    expect(state?.value).toBe(COPY.template.closed);
+    expect(state?.value).toStrictEqual(COPY.admin.saison.linkSentOn("2026-09-02"));
   });
 });
