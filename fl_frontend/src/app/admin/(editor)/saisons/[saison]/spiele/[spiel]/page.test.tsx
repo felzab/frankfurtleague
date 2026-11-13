@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { FLSonderereignis } from "@/core/generated/client/types";
@@ -51,12 +52,13 @@ const VIEW: FLSpieleAdminSingleResponse = {
   teams: null,
 };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
 let served = VIEW;
 
-doubleApiClient(() => served);
+// The page's one read, the editor's whole view of the match its address names, through the real guard, query and
+// generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === `/spiele/${SPIEL_ID}/admin` ? served : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
 
 const { default: SpielEditorPage } = await import("./page");
 

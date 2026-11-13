@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { doubleApiClient } from "@/test-support/apiClientDouble";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -16,8 +17,6 @@ const PUPIL = "6890a1b2c3d4e5f607250031";
 
 const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("not found");
@@ -26,6 +25,7 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({}),
   useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
 }));
+// The save is a server function, which the editor calls over the network as a client: what it was handed is the outcome.
 vi.mock("./saveAufstellung", () => ({
   saveAufstellung: async (input: unknown) => {
     state.sent.push(input);
@@ -33,8 +33,9 @@ vi.mock("./saveAufstellung", () => ({
   },
 }));
 
-// The second side's line-up, the first side another club, so a page taking a side's club for the one it read is seen.
-doubleApiClient((): FLAufstellungResponse => ({
+// The second side's line-up, the first side another club, so a page taking a side's club for the one it read is seen;
+// answered at the match and the club the address names alone, through the real guard, query and generated call.
+const LINEUP: FLAufstellungResponse = {
   spiel: {
     spiel_id: SPIEL,
     saison_id: "2027",
@@ -55,7 +56,10 @@ doubleApiClient((): FLAufstellungResponse => ({
   version: null,
   marks: { stored: false, phase: "locked", due_at: "2026-11-13T15:00:00Z" },
   saison_status: "active",
-}));
+};
+serveBackend(({ method, path }) => (method === "GET" && path === `/aufstellungen/${SPIEL}/${TEAM}` ? LINEUP : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
 
 const { default: AdminAufstellungPage } = await import("./page");
 
