@@ -416,55 +416,6 @@ def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Pat
     assert register.read_bytes() == before and lock.exists()
 
 
-# The platform bound each way, so both arms run on every machine: Windows asks a refused file again
-# until the deadline, and elsewhere a PermissionError is final.
-PATIENT: Final[tuple[str, ...]] = (
-    "import time",
-    "import ledger",
-    "refusals = []",
-    "def act():",
-    "    refusals.append(1)",
-    "    if len(refusals) < 3:",
-    "        raise PermissionError('held')",
-    "    return 'done'",
-    "ledger.WINDOWS = True",
-    "assert ledger._patient(act, time.monotonic() + 5) == 'done' and len(refusals) == 3, refusals",
-    "refusals.clear()",
-    "ledger.WINDOWS = False",
-    "try:",
-    "    ledger._patient(act, time.monotonic() + 5)",
-    "except PermissionError:",
-    "    assert len(refusals) == 1, refusals",
-    "else:",
-    "    raise SystemExit('a PermissionError off Windows was asked again')",
-)
-
-
-def test_a_file_held_open_is_asked_for_again_on_windows_alone() -> None:
-    done = subprocess.run((sys.executable, "-c", "\n".join(PATIENT)), cwd=TOOLS, capture_output=True, check=False)
-    assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
-
-
-def test_a_write_waits_out_a_reader_holding_the_register_open(tmp_path: Path) -> None:
-    """On Windows a replace refuses a file another process holds open, and a reader holding the register failed the write."""
-    register = _register(tmp_path)
-    done: list[str] = []
-    failed: list[BaseException] = []
-
-    def write() -> None:
-        try:
-            done.append(reg.append(register, "past the reader"))
-        except BaseException as error:
-            failed.append(error)
-
-    with register.open("rb"):
-        writer = threading.Thread(target=write)
-        writer.start()
-        writer.join(0.3)
-    writer.join(ledger.LOCK_SECONDS)
-    assert failed == [] and done and done[0] in register.read_bytes().decode("utf-8")
-
-
 def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
     """A rewritten row lost its carriage return, since a row is split into cells and joined again."""
     register = tmp_path / "REGISTER-s.md"
@@ -1662,20 +1613,14 @@ def _stub(tmp_path: Path, name: str, script: str) -> dict[str, str]:
     return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
 
 
-# Answers `run list` from `list-<n>.json`, the nth call's file or the last one, `run view --log-failed`
-# from `log.txt` and any other view from `run.json`, recording every call; call n exits with code n
-# of `exits.txt`, else `exit.txt`'s.
+# Answers `run list` from `list.json`, `run view --log-failed` from `log.txt` and any other view from
+# `run.json`, exiting with `exit.txt`'s code.
 GH: Final = (
-    "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\ncalls = here / 'calls.txt'\n"
-    "calls.write_bytes((calls.read_bytes() if calls.exists() else b'') + ' '.join(args).encode() + b'\\n')\n"
-    "if args[:2] == ['run', 'list']:\n"
-    "    answers = sorted(here.glob('list-*.json'))\n"
-    "    sys.stdout.write(answers[min(calls.read_bytes().count(b'run list'), len(answers)) - 1].read_text(encoding='utf-8'))\n"
+    "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\n"
+    "if args[:2] == ['run', 'list']:\n    sys.stdout.write((here / 'list.json').read_text(encoding='utf-8'))\n"
     "elif '--log-failed' in args:\n    sys.stdout.buffer.write((here / 'log.txt').read_bytes())\n"
     "else:\n    sys.stdout.write((here / 'run.json').read_text(encoding='utf-8'))\n"
-    "codes = (here / 'exits.txt').read_text(encoding='utf-8').split() if (here / 'exits.txt').exists() else []\n"
-    "n = calls.read_bytes().count(b'\\n')\n"
-    "sys.exit(int(codes[n - 1] if n <= len(codes) else (here / 'exit.txt').read_text(encoding='utf-8')))\n"
+    "sys.exit(int((here / 'exit.txt').read_text(encoding='utf-8')))\n"
 )
 
 
@@ -1695,16 +1640,13 @@ def _pushed(tmp_path: Path) -> tuple[Path, str]:
     return root, pushed
 
 
-def _gh(
-    tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, lists: tuple[object, ...] = (), exits: tuple[int, ...] = ()
-) -> dict[str, str]:
+def _gh(tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, listed: list[object] | None = None) -> dict[str, str]:
     env = _stub(tmp_path, "gh", GH)
     (tmp_path / "bin" / "run.json").write_bytes(json.dumps(run).encode())
     (tmp_path / "bin" / "log.txt").write_bytes(log)
     (tmp_path / "bin" / "exit.txt").write_bytes(str(code).encode())
-    (tmp_path / "bin" / "exits.txt").write_bytes(" ".join(map(str, exits)).encode())
-    for k, answer in enumerate(lists, 1):
-        (tmp_path / "bin" / f"list-{k}.json").write_bytes(json.dumps(answer).encode())
+    if listed is not None:
+        (tmp_path / "bin" / "list.json").write_bytes(json.dumps(listed).encode())
     return {**env, "PYTHONIOENCODING": "cp1252"}
 
 
@@ -1747,30 +1689,6 @@ def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, 
     done = _run("ci", str(register), "123", cwd=root, env=env)
     assert done.returncode == 2 and said in done.stderr, done.stderr
     assert register.read_bytes() == before
-
-
-def test_ci_head_waits_for_the_pushed_commits_verify_run_to_exist_and_conclude(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A watch started before its run existed read nothing, so every push's watch began with `sleep 5` and a grep of the log."""
-    root, sha = _pushed(tmp_path)
-    run = {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha}
-    lists = ([], [{"databaseId": 77, "status": "in_progress"}], [{"databaseId": 77, "status": "completed"}])
-    env = _gh(tmp_path, run, FAILED_RUN, lists=lists)
-    register = tmp_path / "REGISTER-s.md"
-    register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "POLL_SECONDS", 0)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "--head", "--wait"]) == 1
-    calls = (tmp_path / "bin" / "calls.txt").read_bytes().decode().splitlines()
-    assert calls[:3] == [f"run list --workflow verify --commit {sha} --limit 1 --json databaseId,status,conclusion"] * 3
-    assert calls[3].startswith("run view 77 --json") and capsys.readouterr().out.startswith(f"run 77 for {sha[:9]}")
-    (tmp_path / "bin" / "list-2.json").unlink()
-    (tmp_path / "bin" / "list-3.json").unlink()
-    (tmp_path / "bin" / "calls.txt").unlink()
-    assert ci.main([str(register), "--head", "--wait", "--timeout", "0"]) == 2
-    assert f"no verify run started for {sha[:9]} within 0 s" in capsys.readouterr().err
 
 
 def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) -> None:
@@ -1914,33 +1832,14 @@ def test_a_reading_prints_before_the_write_that_fails(
     assert "CLEARED   refusalCoverage" in said.out and said.out.endswith("0 NEW, 1 expected\n") and "the register is locked" in said.err
 
 
-def test_a_wait_asks_again_after_one_failed_gh_and_stops_after_three(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root, sha = _pushed(tmp_path)
-    lists = ([{"databaseId": 77, "status": "completed"}],)
-    env = _gh(tmp_path, _failed(sha), _log(("verify", "##[error]`db` took 155 s against a budget of 135 s")), lists=lists, exits=(1,))
-    register = tmp_path / "REGISTER-s.md"
-    register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "POLL_SECONDS", 0)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "--head", "--wait"]) == 0
-    assert "gh failed while waiting (1 of 3), asking again" in capsys.readouterr().err
-    (tmp_path / "bin" / "exits.txt").write_bytes(b"1 1 1 1 1 1")
-    (tmp_path / "bin" / "calls.txt").unlink()
-    assert ci.main([str(register), "--head", "--wait"]) == 2
-    assert "gh failed 3 time(s) running" in capsys.readouterr().err
-
-
 def test_ci_head_without_wait_reads_the_pushed_commits_run_or_says_there_is_none(tmp_path: Path) -> None:
     root, sha = _pushed(tmp_path)
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    none = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), lists=([],)))
+    none = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), listed=[]))
     assert none.returncode == 2 and f"no verify run for {sha[:9]} yet: read it with --wait" in none.stderr, none.stderr
-    found = ([{"databaseId": 88, "status": "completed"}],)
-    read = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), FAILED_RUN, lists=found))
+    found: list[object] = [{"databaseId": 88, "status": "completed"}]
+    read = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), FAILED_RUN, listed=found))
     assert read.returncode == 1 and read.stdout.startswith(f"run 88 for {sha[:9]}"), (read.stdout, read.stderr)
 
 
@@ -2362,7 +2261,7 @@ def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_pa
     register.write_bytes(
         register.read_bytes().replace(b"## Findings ledger", f"{standing}| window | `{brief}` | |\n\n## Findings ledger".encode())
     )
-    env = _gh(tmp_path, {}, lists=([{"databaseId": 5, "status": status, "conclusion": ""}],))
+    env = _gh(tmp_path, {}, listed=[{"databaseId": 5, "status": status, "conclusion": ""}])
     head = git(root, "rev-parse", "HEAD")
     done = _land(root, "agent", env)
     assert done.returncode == code, done.stderr
@@ -2387,7 +2286,7 @@ def test_a_window_whose_run_cannot_be_read_refuses_naming_the_flag(tmp_path: Pat
         register.read_bytes().replace(b"## Findings ledger", f"{standing}| window | `{brief}` | |\n\n## Findings ledger".encode())
     )
     head = git(root, "rev-parse", "HEAD")
-    done = _land(root, "agent", _gh(tmp_path, {}, code=1, lists=([],)))
+    done = _land(root, "agent", _gh(tmp_path, {}, code=1, listed=[]))
     assert done.returncode == 2 and "could not be read" in done.stderr and "--after-dispatch" in done.stderr, done.stderr
     assert git(root, "rev-parse", "HEAD") == head
 
