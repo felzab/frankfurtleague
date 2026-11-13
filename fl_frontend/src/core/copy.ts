@@ -1254,7 +1254,10 @@ export const COPY = catalogue({
       lockedSinceActivation: "Seit der Umstellung gesperrt",
       entriesHold: "Spiele sind schon bearbeitet",
 
-      /** Each team's registration link as its row states it, by what the press would do with it. */
+      /**
+       * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
+       * the links table's line on a phone, whose box leaves the „Gesendet am“ column out.
+       */
       linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
       /** The links table's chip of a link mailed, and the column of the day it was. */
       linkSent: "Gesendet",
