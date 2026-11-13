@@ -37,13 +37,16 @@ NOW = datetime(2026, 5, 1, 12, tzinfo=ZoneInfo("Europe/Berlin"))
 EXIT_DAY = "2026-05-10"
 BEFORE_THE_EXIT = "2026-05-05"
 AFTER_THE_EXIT = "2026-05-20"
+BEFORE_TODAY = "2026-04-20"
 
 DEPARTED = ObjectId("6890a1b2c3d4e5f607780001")
 OPPONENT = ObjectId("6890a1b2c3d4e5f607780002")
 OTHER = ObjectId("6890a1b2c3d4e5f607780003")
-# The departed club's fixture before its exit, and a fixture of two other clubs after it, on matchdays of their own.
+# The departed club's fixture before its exit, a fixture of two other clubs after it, and one of the departed club's
+# left unplayed before today, on matchdays of their own.
 ITS_OWN = ObjectId("6890a1b2c3d4e5f607780011")
 OTHERS = ObjectId("6890a1b2c3d4e5f607780012")
+ITS_PAST = ObjectId("6890a1b2c3d4e5f607780013")
 
 NAMES = {DEPARTED: "Goethe", OPPONENT: "Schiller", OTHER: "Lessing"}
 
@@ -73,7 +76,11 @@ def on_a_league(url: str, body: Any) -> Any:
                 [documents.saison_team_document(SAISON_ID, team_id, name, name[:3].upper()) for team_id, name in NAMES.items()]
             )
             await database[Collection.SPIELE].insert_many(
-                [spiel(ITS_OWN, 1, DEPARTED, OPPONENT, BEFORE_THE_EXIT), spiel(OTHERS, 2, OTHER, OPPONENT, AFTER_THE_EXIT)]
+                [
+                    spiel(ITS_OWN, 1, DEPARTED, OPPONENT, BEFORE_THE_EXIT),
+                    spiel(OTHERS, 2, OTHER, OPPONENT, AFTER_THE_EXIT),
+                    spiel(ITS_PAST, 3, DEPARTED, OPPONENT, BEFORE_TODAY),
+                ]
             )
 
             return await body(database, client)
@@ -105,6 +112,8 @@ class TestAnExitLandingMidSaveIsJudgedAgain:
             pytest.param(ITS_OWN, {"date": AFTER_THE_EXIT}, id="its-own-fixture-moved-past-the-exit"),
             # A fixture fielding the club only once the save lands, which an anchor on the club's own fixtures misses.
             pytest.param(OTHERS, {"team1": side(DEPARTED)}, id="the-club-newly-fielded-past-the-exit"),
+            # Dated before today, which an anchor on the fixtures still to come misses.
+            pytest.param(ITS_PAST, {"date": AFTER_THE_EXIT}, id="its-fixture-gone-by-moved-past-the-exit"),
         ],
     )
     def test_the_save_is_refused_on_the_exit_that_landed_under_it(self, mongo_replica_set_url: str, spiel_id: ObjectId, overrides: Any):
