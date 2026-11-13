@@ -48,7 +48,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
-  every season's name through `COPY.shared.saisonName`**, and the current time is read through
+  every season's name through `COPY.shared.saisonName`, or `COPY.shared.saisonNameBound` inside a
+  phrase binding a word to it**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
 - **No string is rewritten for a screen about to change or go**: a change writes the strings of what
   it builds.
@@ -177,7 +178,11 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
 a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
 score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
-needs no formatting. Two rules no function states:
+needs no formatting. Inside a phrase binding a word to it, such as „Gültig bis Saison 2027“, it is
+`COPY.shared.saisonNameBound`, whose space is a no-break space, so a line never parts the word from
+its year; a mail's subject, a tab's title and words a person matches as typed keep the plain space.
+A moment in a list's form, „07.11.2026, 18:04“, is one fact the same way: `formatInstantShort`
+binds its date to its time. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.

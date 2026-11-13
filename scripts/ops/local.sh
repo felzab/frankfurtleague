@@ -19,7 +19,7 @@
 #                                    load the made-up league again into the RUNNING end-to-end stack,
 #                                    the landing in <state> (seed.js's LANDING_STATES), and restart its
 #                                    frontend; nothing is built, and sessions and passkeys stay.
-#                                    Run it from the checkout whose --e2e started the stack
+#                                    It refuses any checkout but the one whose --e2e started the stack
 #   ./scripts/ops/local.sh --down       stop the stack; with --fresh, also delete the volumes; with
 #                                    --e2e, stop the end-to-end stack and delete all it holds
 #   ./scripts/ops/local.sh --help
@@ -99,16 +99,6 @@ if (( E2E )); then MAIL_SINK="${E2E_DIR}/mail"; fi
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
 E2E_KEYS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
-
-# The stack's name is fixed, so a checkout that did not start it reaches it too, and the frontend
-# --landing recreates takes this checkout's keys. A key missing here is refused before compose is
-# asked anything; keys an earlier start left here are not compared with the running stack's.
-if (( RESEED )); then
-  for name in "${E2E_KEYS[@]}"; do
-    [[ -f "${E2E_DIR}/secrets/${name}" ]] || refuse "${E2E_DIR}/secrets holds no ${name}, so the frontend --landing recreates would start without its keys.
-Run --e2e --landing=<state> from the checkout whose --e2e started the stack."
-  done
-fi
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
 # local one, and a key it held for longer than one run would be a key to keep. Nothing prints a
@@ -217,6 +207,33 @@ if (( RESEED )); then
 Start the stack with ./scripts/ops/local.sh --e2e first."
   done
   ok "running"
+
+  # The stack's name is fixed, so a checkout that did not start it reaches it too, and the frontend
+  # recreated below would take this checkout's keys, mail folder and compose files, which the rest of
+  # the stack does not share. Compose labels each container with the absolute directory of the
+  # project that created it; both sides are spelled by cygpath and compared without case, as Windows
+  # compares paths.
+  step "The checkout that started it"
+  listed="$(docker compose ps -q)" || die "compose could not list the stack's containers; its own account is above."
+  mapfile -t ids <<< "$listed"
+  # Each line opened by a word, so a container without the label is a line of its own and never one
+  # the command substitution drops at the end.
+  created="$(docker inspect --format 'from {{index .Config.Labels "com.docker.compose.project.working_dir"}}' "${ids[@]}")" \
+    || die "the stack's containers could not be inspected; docker's own account is above."
+  here="$(cygpath -m "$REPO_ROOT")" || die "cygpath could not spell this checkout's directory as Windows does."
+  declare -A others=()
+  while IFS= read -r dir; do
+    dir="${dir%$'\r'}"
+    dir="${dir#from }"
+    if [[ -z "$dir" ]]; then others["an unnamed directory"]=1; continue; fi
+    dir="$(cygpath -m "$dir")" || die "cygpath could not read the directory a container was created from."
+    if [[ "${dir,,}" != "${here,,}" ]]; then others["$dir"]=1; fi
+  done <<< "$created"
+  if (( ${#others[@]} )); then
+    refuse "the running end-to-end stack's containers were created from $(IFS=' '; printf '%s' "${!others[*]}"), not from this checkout, ${here}.
+Run --e2e --landing=<state> from the checkout whose --e2e started the stack, or start it here with --e2e."
+  fi
+  ok "started from this checkout"
 
   step "The made-up league, the landing ${LANDING}"
   load_made_up_seed

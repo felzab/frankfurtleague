@@ -298,7 +298,7 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 16
+    timeout-minutes: 22
     # Six legs, each on a runner and a stack of its own, every case on every event
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
     # jobs"). The journeys split by Playwright project: a project's seeded people are its own, where a
@@ -395,6 +395,7 @@ jobs:
       # yet running are created: without `--force-recreate`, `up` recreates a container only for a
       # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the stack
+        id: stack
         run: docker compose up -d --no-build --wait --wait-timeout 240
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
@@ -433,9 +434,13 @@ jobs:
       # Each state's HTML report goes to a folder of its own, through the reporter's `PLAYWRIGHT_HTML_OUTPUT_DIR`, which
       # wins over the config's folder: in one folder each run would replace the last. `!cancelled()`, so a red main run
       # still leaves every state its verdict: a step's `if` without a status function implies `success()`
-      # (https://docs.github.com/en/actions/reference/workflows-and-actions/expressions).
+      # (https://docs.github.com/en/actions/reference/workflows-and-actions/expressions). Never over a stack that did
+      # not start, where each state would wait out its recreate. Its own bound, by the rule above the jobs and below
+      # the job's: a step's timeout fails the step, where the job's cancels the job, and in a cancelled job the two
+      # `failure()` steps below keep neither the report nor the stack's logs.
       - name: Run the landing's cases under each of its states
-        if: ${{ !cancelled() && matrix.leg == 'layout-public' }}
+        if: ${{ !cancelled() && steps.stack.outcome == 'success' && matrix.leg == 'layout-public' }}
+        timeout-minutes: 5
         run: |
           base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
           failed=()

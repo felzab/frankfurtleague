@@ -181,8 +181,10 @@ export type TableProps = {
   rankLabel?: Copy;
   /**
    * The status column of a list whose rows carry a state: its head, and whether a row may carry the delivery's chip
-   * beside the state's, which is the least width the column takes. It stands directly after the name, each row's chips
-   * side by side in it; a stacked row sets them after its name on the name's line instead.
+   * beside the state's. It stands directly after the name, each row's chips side by side in it, and its least width is
+   * one chip's: two chips the column cannot hold side by side stand one under the other, 2 px apart, as a name's line
+   * holds them, so a column that may hold two gives way as a cut column does (`shares`). A stacked row sets them after
+   * its name on the name's line instead.
    */
   state?: { label: Copy; delivery?: true };
   columns: ReadonlyArray<TableColumn>;
@@ -300,8 +302,8 @@ const table = tv({
     // A row a link may point to by its fragment, marked while the address names it.
     row: `kit-target relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
-    // The name takes the room the facts leave, which it shares with a cut column (`shares`), and is cut with „…“ where
-    // it is longer (`nameLine`).
+    // The name takes the room the facts leave, which it shares with a column that gives way (`shares`), and is cut with
+    // „…“ where it is longer (`nameLine`).
     name: "w-full px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "@max-2xl:sr-only",
@@ -320,9 +322,10 @@ const table = tv({
     // Its one track grows no wider than the words, and a track that may shrink to nothing leaves them out of the column's
     // least width, as the name's does (`nameWithChips`).
     line: "grid grid-cols-[minmax(0,max-content)] text-xs text-fg-muted",
-    // The status column's cell, and the row's chips in it, side by side on one line.
+    // The status column's cell, and the row's chips in it, side by side while the column holds them and one under the
+    // other where it does not, as the name's line sets them (`nameWithChips`).
     state: "px-3",
-    chips: "flex items-center gap-2",
+    chips: nameWithChips().chips(),
     // The same chips on the name's line (`NameCell`).
     lineChips: "",
     // The acts' last cell, as narrow as its buttons, as the chevrons' is, and the acts in it, on one line.
@@ -354,13 +357,19 @@ const table = tv({
     cut: {
       true: {},
     },
-    // A list holding a cut column, in its table form: the name and each cut column are the table's only automatic
-    // columns, every other cell `w-0`, so its column is as wide as its values and no wider. The automatic layout gives
-    // each column its least width, then grows the automatic ones together towards their widest, so no word is cut while
-    // the row has room and the name and a cut value give way alike once it is full; room past every widest goes to the
+    // A list holding a column that gives way, a cut column or a status column that may hold two chips, in its table
+    // form: the name and each such column are the table's only automatic columns, every other cell `w-0`, so its column
+    // is as wide as its values and no wider. The automatic layout gives each column its least width, then grows the
+    // automatic ones together towards their widest, so no word is cut and no chip moves under another while the row has
+    // room, and the name and the columns that give way do so alike once it is full; room past every widest goes to the
     // automatic columns by their widest (CSS Tables 3, 3.9.3). The name's `w-full` would make it a percent column, which
-    // the layout widens before any other column passes its least, and so cut a value beside a name with room to spare.
+    // the layout widens before any other column passes its least, and so cut a value or part two chips beside a name
+    // with room to spare.
     shares: {
+      true: {},
+    },
+    // A status column whose rows may carry the delivery's chip beside the state's (`TableProps`'s `state`).
+    pair: {
       true: {},
     },
     strong: {
@@ -400,10 +409,9 @@ const table = tv({
       excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-44 @4xl:min-w-72" },
-      // The status column: a chip of up to 120 px in its padding, or the state's and the delivery's side by side, whose
-      // widest pair is 266.
+      // The status column: a chip of up to 120 px in its padding, the state's and the delivery's standing one under the
+      // other where the column holds no more.
       chip: { head: "min-w-36" },
-      chips: { head: "min-w-72" },
     },
     // In a box narrower than 42 rem the column heads are read but not drawn, and each cell draws its column's label
     // before its words.
@@ -494,6 +502,7 @@ const table = tv({
     // The table form alone: a stacked row's cells are grid items, which `w-0` would draw as wide as nothing.
     { shares: true, stacks: "list", class: { name: "@2xl:w-auto", cell: "@2xl:w-0", state: "@2xl:w-0" } },
     { shares: true, stacks: "list", cut: true, class: { cell: "@2xl:w-auto" } },
+    { shares: true, stacks: "list", pair: true, class: { state: "@2xl:w-auto" } },
     { lone: true, stacks: "list", class: { head: "@max-2xl:hidden" } },
     // A stacked row with its acts under its words is padded as a card's act row.
     { acts: "under", stacks: "list", class: { row: "@max-2xl:py-3 lg:@max-2xl:py-3" } },
@@ -738,7 +747,7 @@ function NameCell({
   stacks: Stacks;
   plaqueAlone: boolean;
   chipsOnLine: ChipsOnLine;
-  /** Whether the list holds a cut column, which shares the row's free room with the name (`table`'s `shares`). */
+  /** Whether the list holds a column that gives way, which shares the row's free room with the name (`table`'s `shares`). */
   shares: boolean;
 }) {
   const s = table({
@@ -869,8 +878,9 @@ export function Table({
   const sideActs = sideActsForm(rows);
   // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
   const acts = !hasActs ? undefined : sideActs.carried ? "folded" : "under";
-  const shares = columns.some((column) => column.cut === true);
-  const parts = table({ stacks, acts, shares });
+  const pair = state?.delivery === true;
+  const shares = pair || columns.some((column) => column.cut === true);
+  const parts = table({ stacks, acts, shares, pair });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
@@ -925,7 +935,7 @@ export function Table({
                 <th
                   role="columnheader"
                   scope="col"
-                  className={table({ align: "start", width: state.delivery === true ? "chips" : "chip", stacks, lone: true }).head()}>
+                  className={table({ align: "start", width: "chip", stacks, lone: true }).head()}>
                   {state.label}
                 </th>
               )}
@@ -1129,11 +1139,7 @@ export function TablePlaceholder({
           <tr className={parts.headRow()}>
             {rankLabel !== undefined && <th className={table({ align: "centre", compact }).head()}>{rankLabel}</th>}
             <th className={table({ align: "start", compact, stack, stacks }).head()}>{nameLabel}</th>
-            {state !== undefined && (
-              <th className={table({ align: "start", width: state.delivery === true ? "chips" : "chip", stacks, lone: true }).head()}>
-                {state.label}
-              </th>
-            )}
+            {state !== undefined && <th className={table({ align: "start", width: "chip", stacks, lone: true }).head()}>{state.label}</th>}
             {columns.map((column, index) => (
               <th
                 key={column.key}

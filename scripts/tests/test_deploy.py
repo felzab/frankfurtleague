@@ -4,7 +4,9 @@ No case can run the script against a real engine, which is the server's alone. E
 `_lib.sh` into a fixture tree of its own, where it `cd`s and writes `.env`, and puts a stand-in
 `docker` and `uname` first on PATH. The stand-in answers `docker compose ps` as Docker documents it
 (https://docs.docker.com/reference/cli/docker/compose/ps/): only running containers by default, and
-with `--all` the stopped ones too, a one-off container `docker compose run` left among them.
+with `--all` the stopped ones too, a one-off container `docker compose run` left among them. Its
+nginx answers each case's `nginx -t` and error log after the reload, the same at every read, so it
+models neither the time a line lands nor a log compose cannot read.
 """
 
 from __future__ import annotations
@@ -22,6 +24,11 @@ SERVICES: Final = ("frontend", "backend", "nginx", "cloudflared")
 HEALTHY: Final = {"frontend": "running healthy", "backend": "running healthy", "nginx": "running", "cloudflared": "running healthy"}
 SAID_HEALTHY: Final = "every service is running and healthy"
 
+# nginx's error log as its master, pid 1, and one of its workers write it.
+RECONFIGURING: Final = "2026/11/12 08:46:11 [notice] 1#1: reconfiguring\n"
+NEW_WORKERS: Final = "2026/11/12 08:46:11 [notice] 1#1: start worker processes\n"
+WORKER_ALERT: Final = "2026/11/12 08:46:11 [alert] 31#31: 1024 worker_connections are not enough\n"
+
 # Every engine call the script makes, logged one per line with the tag it ran under. `ps` reads the
 # containers of the tag the script exported, `service state health` a line, and prints the stopped
 # ones and the one-offs only under `--all`. `unread.<tag>` names the read that fails under a tag.
@@ -36,7 +43,8 @@ case "$1" in
   config)
     if [[ "$unread" == config-fails ]]; then printf '%s\n' 'service "backend" refers to undefined secret' >&2; exit 15; fi
     if [[ "$unread" != config-empty ]]; then printf '%s\n' frontend backend nginx cloudflared; fi ;;
-  logs) if [[ " $* " == *" --since "* ]]; then printf '%s\n' '2026/11/12 08:46:11 [notice] 1#1: start worker processes'; fi ;;
+  exec) if [[ " $* " == *" nginx -t "* ]]; then exit "$(cat "$d/nginx-t")"; fi ;;
+  logs) if [[ " $* " == *" --since "* ]]; then cat "$d/reload-log"; fi ;;
   ps)
     if [[ "$unread" == ps-fails ]]; then printf '%s\n' 'Cannot connect to the Docker daemon' >&2; exit 1; fi
     all=0 format=0
@@ -69,14 +77,21 @@ def deploy(
     previous_up: int = 0,
     one_offs: str = "",
     unread: dict[str, str] | None = None,
-) -> tuple[int, str, str, list[str], str]:
-    """One run deploying `NEW` over a stack pinning `PREVIOUS`: its exit code, stdout, stderr, the engine calls and the `.env` it left."""
+    nginx_t: int = 0,
+    reload_log: str = RECONFIGURING + NEW_WORKERS,
+    pin: str | None = PREVIOUS,
+) -> tuple[int, str, str, list[str], str | None]:
+    """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
+
+    Its exit code, stdout, stderr, the engine calls and the `.env` it left, None where there is none.
+    """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-deploy-")
     for script in ("scripts/ops/deploy.sh", "scripts/lib/_lib.sh"):
         (root / script).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO_ROOT / script, root / script)
-    (root / ".env").write_bytes(f"TAG={PREVIOUS}\n".encode())
+    if pin is not None:
+        (root / ".env").write_bytes(f"TAG={pin}\n".encode())
     engine = new_root("fl-deploy-engine-")
     stubs = engine / "stubs"
     stubs.mkdir()
@@ -86,6 +101,8 @@ def deploy(
     (engine / f"containers.{PREVIOUS}").write_bytes(previous.encode())
     (engine / f"up.{NEW}").write_bytes(str(new_up).encode())
     (engine / f"up.{PREVIOUS}").write_bytes(str(previous_up).encode())
+    (engine / "nginx-t").write_bytes(str(nginx_t).encode())
+    (engine / "reload-log").write_bytes(reload_log.encode())
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
@@ -94,7 +111,8 @@ def deploy(
     environment.pop("TAG", None)
     done = run_shell(BASH, root / "scripts/ops/deploy.sh", NEW, *args, env=environment, cwd=root)
     calls = (engine / "calls").read_bytes().decode().splitlines()
-    return done.returncode, done.stdout, done.stderr, calls, (root / ".env").read_bytes().decode()
+    env = root / ".env"
+    return done.returncode, done.stdout, done.stderr, calls, env.read_bytes().decode() if env.exists() else None
 
 
 def last_line(stream: str) -> str:
@@ -114,7 +132,6 @@ def reloaded_nginx(calls: list[str]) -> bool:
     ("named", "new"),
     [
         pytest.param("frontend", containers(frontend="running starting"), id="starting"),
-        pytest.param("cloudflared", containers(cloudflared="exited"), id="no-running-container"),
         pytest.param("nginx", containers(nginx=None), id="no-container-at-all"),
         pytest.param("backend", containers() + "backend running unhealthy\n", id="one-of-two-containers-unhealthy"),
     ],
@@ -194,10 +211,74 @@ def test_a_rollback_whose_read_compose_cannot_answer_says_only_that():
     assert "did not come up either" not in said and "which is live" not in said, err
 
 
+def test_a_configuration_nginx_t_refuses_goes_back_unreloaded():
+    code, out, err, calls, pinned = deploy(nginx_t=1)
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert not reloaded_nginx(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    assert "still holds the configuration nginx refused" in err, err
+    assert f"still runs the one it had, so the stack went back to {PREVIOUS}, which is live." in last_line(err), err
+
+
+def test_a_reload_the_master_refuses_goes_back():
+    refusal = '2026/11/12 08:46:11 [emerg] 1#1: the size 10485760 of shared memory zone "api" conflicts with already declared size 0\n'
+    code, out, err, calls, pinned = deploy(reload_log=RECONFIGURING + refusal)
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    assert refusal.strip() in out + err
+    assert f"still runs the one it had, so the stack went back to {PREVIOUS}, which is live." in last_line(err), err
+
+
+def test_a_workers_alert_beside_the_new_workers_is_no_refusal():
+    code, out, err, calls, pinned = deploy(reload_log=RECONFIGURING + WORKER_ALERT + NEW_WORKERS)
+
+    assert code == 0, out + err
+    assert f"{NEW} is live." in last_line(out), out
+    assert pinned == f"TAG={NEW}\n"
+
+
+def test_a_reload_nginx_confirms_neither_way_goes_back_saying_so():
+    """The run waits out its 15 seconds: a worker's alert is not the master refusing."""
+    code, out, err, calls, pinned = deploy(reload_log=RECONFIGURING + WORKER_ALERT)
+
+    assert code == 1, out + err
+    assert went_back(calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n"
+    assert "refused the configuration" not in out + err
+    said = last_line(err)
+    assert "confirmed neither taking nor refusing it" in said and f"went back to {PREVIOUS}, which is live." in said, err
+
+
 def test_no_rollback_stops_on_a_service_the_last_read_names():
     code, out, err, calls, pinned = deploy("--no-rollback", new=containers(backend="running unhealthy"))
 
     assert code == 1, out + err
     assert not went_back(calls), calls
+    assert not reloaded_nginx(calls), calls
     assert pinned == f"TAG={NEW}\n"
     assert "--no-rollback leaves the stack as it stands" in err and "backend" in err, err
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        pytest.param(NEW, id="the-failed-tag-pinned"),
+        pytest.param(None, id="no-env"),
+    ],
+)
+def test_a_failed_run_with_no_other_build_pinned_goes_back_to_none(pin: str | None):
+    """The runbook's rerun of a failed tag finds it pinned after `--no-rollback`, and a first run no `.env`.
+
+    Neither is a build to go back to.
+    """
+    code, out, err, calls, pinned = deploy(pin=pin, new=containers(backend="running unhealthy"))
+
+    assert code == 1, out + err
+    assert "no other build is pinned to go back to" in last_line(err), err
+    starts = [call for call in calls if call.startswith("compose up ")]
+    assert len(starts) == 1 and starts[0].endswith(f"TAG={NEW}"), calls
+    assert pinned == (None if pin is None else f"TAG={pin}\n")

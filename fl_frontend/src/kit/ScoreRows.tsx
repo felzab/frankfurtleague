@@ -61,6 +61,9 @@ const scoreRows = tv({
     row: "col-span-full grid grid-cols-subgrid gap-y-1 py-1",
     head: smallCaps(),
     side: "col-start-1 row-start-1 flex h-8 min-w-0 items-center gap-2 pointer-coarse:h-10",
+    // The club's name and its goal fields' lock mark as one part of the side, so the side's gap stands before the name and
+    // the mark stands at its own distance after it, as after a field's label.
+    named: "flex min-w-0 items-center",
     name: "truncate text-sm font-medium",
     field: "contents [&_[data-kit-message]]:row-start-2 [&_[data-kit-message]]:text-end [&_input]:row-start-1 [&>*]:contents",
     // A counted figure in a field's place and at its width and inset, so it stands where a typed one would, in the bold
@@ -199,12 +202,14 @@ export function ScoreRows({
           className={slots.row({ place: side })}>
           <span className={slots.side()}>
             {plaques && sides[side].plaque !== null && <TeamPlaque plaque={sides[side].plaque} />}
-            <span
-              id={`${id}-${side}`}
-              className={slots.name()}>
-              {textOf(sides[side].name)}
+            <span className={slots.named()}>
+              <span
+                id={`${id}-${side}`}
+                className={slots.name()}>
+                {textOf(sides[side].name)}
+              </span>
+              {toreLock.isMarked && <LockMark />}
             </span>
-            {toreLock.isMarked && <LockMark />}
           </span>
           {"counted" in tore ? counted(side, tore) : field(side, "tore", tore)}
           {shootOut !== null && field(side, "shootOut", shootOut)}
