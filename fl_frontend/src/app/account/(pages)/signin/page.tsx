@@ -1,7 +1,4 @@
-import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
-import { EMAIL_WORDS, FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { requires } from "@/core/action";
 import { passkeysOf } from "@/core/auth/passkeys";
@@ -54,35 +51,10 @@ async function SignInContent() {
   );
 }
 
-/** The page's two boxes while they are read, as they stand with no change running. */
-function SignInWait() {
-  return (
-    <>
-      <AccountBoxPlaceholder
-        description={COPY.account.address.description}
-        foot={COPY.shared.withObject(COPY.account.address.link, "send")}>
-        <FactsPlaceholder
-          pairs={1}
-          look="free"
-          wraps={{ pair: 0, words: EMAIL_WORDS }}
-        />
-        <FieldPlaceholder />
-      </AccountBoxPlaceholder>
-      <AccountBoxPlaceholder
-        description={COPY.account.erasure.description}
-        foot={COPY.shared.withObject(COPY.template.account, "delete")}
-        danger
-      />
-    </>
-  );
-}
-
 /** Anmeldung: the address the person signs in with, and „Konto löschen“. */
 export default function AccountSignInPage() {
   return (
-    <AccountPage
-      route="accountSignIn"
-      wait={<SignInWait />}>
+    <AccountPage route="accountSignIn">
       <SignInContent />
     </AccountPage>
   );

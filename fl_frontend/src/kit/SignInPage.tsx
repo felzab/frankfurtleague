@@ -2,18 +2,13 @@
 
 import { useEffect, useRef } from "react";
 
-import { COPY } from "@/core/copy";
-
 import { Button } from "./Button";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
-import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
-import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
-import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
@@ -115,86 +110,6 @@ export function SignInPage(props: SignInView) {
           status={props.row === null ? null : { tone: "error", text: props.row }}
           placement="column"
         />
-      </div>
-    </ClassicPage>
-  );
-}
-
-/**
- * The sign-in while its session is read, drawn with the step's own column and blocks as placeholders. Where the page
- * names the title before the read, the step is the address view, which shares that title with the signed-in view: the
- * title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on the
- * read too, the passkey's step, in the offer's shape, which everyone but an administrator meets: the title's line, the
- * sentence's two lines, the address's line, its button and „Später“ under it, each in its place in the step's blocks.
- */
-export function SignInPlaceholder({ title }: { title: Copy | null }) {
-  const slots = look();
-  return (
-    <ClassicPage width="signin">
-      <div className={slots.column()}>
-        {title === null ? (
-          <Waiting layoutClass="flex flex-col gap-4">
-            <div className={slots.head()}>
-              <PlaceholderLine
-                textClass={classicTitle({ place: "page" })}
-                words={COPY.signIn.passkey.offer.title}
-              />
-              <span className="grid w-full justify-items-center">
-                <PlaceholderLine
-                  textClass={slots.sentence()}
-                  widthClass="w-72"
-                />
-                <PlaceholderLine
-                  textClass={slots.sentence()}
-                  widthClass="w-40"
-                />
-              </span>
-              <PlaceholderLine
-                textClass={slots.sentence()}
-                widthClass="w-48"
-              />
-            </div>
-            <div className={slots.acts()}>
-              <span className={buttonPlaceholder("w-full")} />
-              <span className={buttonLook({ look: "quiet" })}>
-                <PlaceholderLine
-                  textClass=""
-                  words={COPY.signIn.passkey.later}
-                />
-              </span>
-            </div>
-          </Waiting>
-        ) : (
-          <>
-            <ClassicTitle
-              text={title}
-              place="page"
-            />
-            <Waiting layoutClass="flex flex-col gap-4">
-              <div className={slots.form()}>
-                <FieldStack>
-                  <FieldPlaceholder />
-                  {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
-                  <span />
-                  <FormFooterPlaceholder place="column">
-                    <span className={buttonPlaceholder()} />
-                  </FormFooterPlaceholder>
-                </FieldStack>
-              </div>
-              <div className={slots.divider()}>
-                <span className={slots.rule()} />
-                <PlaceholderLine
-                  textClass="text-xs"
-                  widthClass="w-6"
-                />
-                <span className={slots.rule()} />
-              </div>
-              <div className={slots.acts()}>
-                <span className={buttonPlaceholder("w-full")} />
-              </div>
-            </Waiting>
-          </>
-        )}
       </div>
     </ClassicPage>
   );

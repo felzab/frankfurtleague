@@ -1,4 +1,3 @@
-import { placeholderBar } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -37,11 +36,6 @@ export type CalloutProps = {
   /** `text` inside running text, where the box's sentence takes the text's 16 px. */
   size?: "small" | "text";
 };
-
-/** The box while what it says is read: a bar of its size, its sentence's words set unseen so it wraps as they will. */
-export function CalloutPlaceholder({ text }: { text: Copy }) {
-  return <p className={placeholderBar(box().root({ class: "text-transparent" }))}>{text}</p>;
-}
 
 /** A consequence or a state, said in one visible box tinted in its status hue. */
 export function Callout({ tone, title, text, size }: CalloutProps) {

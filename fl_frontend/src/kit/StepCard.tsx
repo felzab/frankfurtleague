@@ -5,11 +5,10 @@ import { useState } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { buttonPlaceholder } from "./buttonStyles";
-import { Card, CardPlaceholder } from "./Card";
-import { Facts, FactsPlaceholder } from "./Facts";
+import { Card } from "./Card";
+import { Facts } from "./Facts";
 import { FieldStack } from "./FieldStack";
-import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { Table } from "./Table";
 import { tv } from "./tv";
@@ -74,25 +73,6 @@ export function StepCard({
         </FormFooter>
       </HeldForm>
     </Card>
-  );
-}
-
-/** A record's card while the run is read: its head, `facts` of its facts, its inputs' placeholders and its acts. */
-export function StepCardPlaceholder({ facts, children }: { facts: number; children: ReactNode }) {
-  const { body } = stepCard();
-  return (
-    <CardPlaceholder
-      line
-      body="fields">
-      <div className={body()}>
-        <FactsPlaceholder pairs={facts} />
-        <FieldStack>{children}</FieldStack>
-        <FormFooterPlaceholder>
-          <span className={buttonPlaceholder()}>{COPY.shared.verb.skip}</span>
-          <span className={buttonPlaceholder()}>{COPY.shared.verb.next}</span>
-        </FormFooterPlaceholder>
-      </div>
-    </CardPlaceholder>
   );
 }
 

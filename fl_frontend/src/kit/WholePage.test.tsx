@@ -3,14 +3,12 @@ import { startTransition } from "react";
 
 import { underNext } from "@/test-support/nextContexts";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { renderToReadableStream } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { StepsPage } from "./StepsPage";
 import { NavigationBar, NavigationLink, PageContent, WholePages } from "./WholePage";
 
 import type NextLink from "next/link";
-import type { ComponentProps, ReactElement, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /**
  * Next's link as its reference documents `onNavigate`: a same-site press calls it, and its `preventDefault` cancels the
@@ -101,31 +99,6 @@ afterEach(async () => {
   vi.useRealTimers();
   await arrive();
   prefetched.clear();
-});
-
-describe("a template under `WholePages`", () => {
-  // The harm: a boundary of the template's own would commit its placeholder on every click into the page, and the page
-  // would arrive in steps again with nothing failing. `WholePages`' own boundary stands where a real load sends its shell.
-  it("draws no placeholder of its own while its read runs", async () => {
-    const steps = Promise.withResolvers<ReactElement>();
-    const stream = await renderToReadableStream(
-      underNext(
-        <WholePages>
-          <StepsPage
-            title={{ route: "adminBewerbungen" }}
-            wait={<p>placeholder</p>}
-            steps={steps.promise}
-          />
-        </WholePages>,
-      ),
-    );
-
-    steps.resolve(<p>steps</p>);
-    const page = await new Response(stream).text();
-
-    expect(page).toContain("<p>steps</p>");
-    expect(page).not.toContain("<p>placeholder</p>");
-  });
 });
 
 describe("a navigation under `WholePages`", () => {

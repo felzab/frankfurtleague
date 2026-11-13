@@ -1,18 +1,12 @@
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import { buttonPlaceholder } from "./buttonStyles";
-import { ClassicPage, ClassicTitle, classicTitle, mailedCard } from "./ClassicPage";
-import { Facts, FactsPlaceholder } from "./Facts";
-import { FieldStack } from "./FieldStack";
-import { boxStack } from "./fieldStyles";
-import { FormFooterPlaceholder } from "./FormFooter";
+import { ClassicTitle } from "./ClassicPage";
+import { Facts } from "./Facts";
 import { Link } from "./Link";
 import { linkInvalid } from "./mailedLinkState";
 import { OneShotEnd, OneShotForm } from "./OneShot";
-import { PlaceholderLine, PlaceholderSentence, Waiting } from "./Skeleton";
-import { ClassicStatusPage, StatusPagePlaceholder } from "./StatusCard";
-import { PageWait } from "./WholePage";
+import { ClassicStatusPage } from "./StatusCard";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -75,7 +69,7 @@ export type MailedState =
   | { state: "invalid"; next: StatusCardProps["next"] }
   | ({ state: "end" } & EndState);
 
-/** The page once its link is read, in the boundary's place. */
+/** The page once its link is read. */
 async function MailedBody({ page }: { page: Promise<MailedState> }) {
   const props = await page;
   switch (props.state) {
@@ -149,117 +143,16 @@ async function MailedBody({ page }: { page: Promise<MailedState> }) {
   }
 }
 
-/** What the question's wait knows of the page before the read, stated beside its read. */
-type QuestionWait = {
-  /** How many facts the question lists: a row the read decides, whose count the page states beside it as a list's. */
-  facts: number;
-  /** The main act's words, known before the read, which size the placeholder's button as the button that lands. */
-  act: Copy;
-  /** The refusal's words, where the question has one. */
-  second?: Copy;
-  /**
-   * The sentence's words where they run past a line, set unseen, so it stands as many lines as it will at every width;
-   * `false` where the question lands with no sentence most days, which leaves the wait none.
-   */
-  sentence?: string | false;
-  /** The second sentence's words, set unseen, where the question stands one in a paragraph of its own. */
-  sentenceAfter?: string;
-  /** The placeholders of the answer's fields, where the question asks any. */
-  fields?: ReactNode;
-  /** The placeholder of the footer's note, where the question carries one. */
-  note?: ReactNode;
-  /** The fields' placeholders stand in `Section` boxes, laid out as the question's own boxes are. */
-  boxes?: boolean;
-};
-
-/** The question while the read says what it asks: its title, its facts, its sentences, its fields and its acts. */
-function QuestionPlaceholder({ facts, act, second, sentence, sentenceAfter, fields, note, boxes = false }: QuestionWait) {
-  const head = (
-    <>
-      <PlaceholderLine
-        textClass={classicTitle({ place: boxes ? "page" : "card" })}
-        widthClass="w-2/3"
-      />
-      {facts > 0 && (
-        <FactsPlaceholder
-          pairs={facts}
-          look={boxes ? "boxed" : "free"}
-        />
-      )}
-      {sentence === undefined ? (
-        <PlaceholderLine
-          textClass="text-base"
-          widthClass="w-full"
-        />
-      ) : (
-        sentence !== false && (
-          <PlaceholderSentence
-            textClass="text-base"
-            words={sentence}
-          />
-        )
-      )}
-      {sentenceAfter !== undefined && (
-        <PlaceholderSentence
-          textClass="text-base"
-          words={sentenceAfter}
-        />
-      )}
-    </>
-  );
-  const acts = (
-    <>
-      {second !== undefined && <span className={buttonPlaceholder()}>{second}</span>}
-      <span className={buttonPlaceholder()}>{act}</span>
-    </>
-  );
-  // `OneShotForm`'s own shapes, so the fields and the acts stand where the question's land.
-  if (boxes) {
-    return (
-      <ClassicPage width="form">
-        <Waiting layoutClass="flex flex-col gap-6">
-          {head}
-          {fields !== undefined && <div className={boxStack()}>{fields}</div>}
-          <FormFooterPlaceholder note={note}>{acts}</FormFooterPlaceholder>
-        </Waiting>
-      </ClassicPage>
-    );
-  }
-  const card = mailedCard();
-  return (
-    <ClassicPage width="mailed">
-      <Waiting layoutClass={card.root()}>
-        <div className={card.body()}>
-          {head}
-          {fields !== undefined && <FieldStack>{fields}</FieldStack>}
-        </div>
-        <FormFooterPlaceholder
-          place="strip"
-          note={note}>
-          {acts}
-        </FormFooterPlaceholder>
-      </Waiting>
-    </ClassicPage>
-  );
-}
-
 /**
  * The one shape of the seven pages a mail opens: a question in one card, or a form of boxes in the classic frame's form
  * column (`OneShotForm`). Its state is a function of the link's token and the session beside it, so the whole page waits
- * for the read, and under `WholePages` the page arrives whole with it. Outside `WholePages` that wait is the template's
- * one boundary, and meanwhile the column holds the state that lands most often, as the classic frame's footer asks: the
- * question, the state a link is opened on, or `end`, the status card of a page that lands an end most days, as the
- * application form does outside its window.
+ * for the read and arrives whole with it.
  */
-export function MailedPage(
-  props: { page: Promise<MailedState> } & ((QuestionWait & { end?: never }) | { end: { title: Copy; next: Copy }; act?: never }),
-) {
+export function MailedPage({ page }: { page: Promise<MailedState> }) {
   return (
-    // Outermost, so neither the state a done answer's re-render reads nor the boundary waiting for it takes the end.
+    // Outermost, so the state a done answer's re-render reads never takes the end.
     <OneShotEnd>
-      <PageWait fallback={props.end === undefined ? <QuestionPlaceholder {...props} /> : <StatusPagePlaceholder {...props.end} />}>
-        <MailedBody page={props.page} />
-      </PageWait>
+      <MailedBody page={page} />
     </OneShotEnd>
   );
 }

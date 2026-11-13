@@ -1,9 +1,7 @@
-import { buttonPlaceholder } from "./buttonStyles";
 import { cardSurface } from "./cardStyles";
-import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderSentence, Waiting } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -122,29 +120,6 @@ export function RailCardBody({ card: { tone, next, quiet, title }, scope }: { ca
       quiet={quiet}
       title={title === undefined ? undefined : <h2 className={statusCard({ tone, scope }).railTitle()}>{title}</h2>}
     />
-  );
-}
-
-/**
- * The classic page's card while its read says which end it is, on a page that lands an end most days: its mark, its
- * title's lines and its way on as bars. `title` and `next` are the likeliest end's words, set unseen, so the card stands
- * as that end will at every width and shows none of them.
- */
-export function StatusPagePlaceholder({ title, next }: { title: Copy; next: Copy }) {
-  const slots = statusCard();
-  return (
-    <ClassicPage width="card">
-      <Waiting>
-        <div className={slots.root()}>
-          <span className={placeholderBar(slots.mark())} />
-          <PlaceholderSentence
-            textClass={`w-full ${classicTitle()}`}
-            words={title}
-          />
-          <span className={buttonPlaceholder()}>{next}</span>
-        </div>
-      </Waiting>
-    </ClassicPage>
   );
 }
 
