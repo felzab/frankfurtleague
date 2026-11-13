@@ -8,7 +8,7 @@ import { subjectOrNull } from "./gateReads";
 import { isAdminSession, isAdminWithinWindow } from "./guards";
 import { auth } from "./library";
 import { passkeysOf } from "./passkeys";
-import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
+import { readLibrarySession, readRequestSession, readServedSession, servedSessionOf } from "./session";
 import { isFreshForEnrolment, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
 import type { Grant } from "../grant";
@@ -113,9 +113,17 @@ async function passkeyStepOf(served: ServedSession, isAdmin: boolean): Promise<P
   return isAdmin ? "enrol" : "offer";
 }
 
-/** `null` where that page is not the caller's to see. */
+/** `null` where that page is not the caller's to see: the render's answer, off the session its guards share. */
 export async function getPasskeyStep(): Promise<PasskeyStep | null> {
-  const served = await readRequestSession();
+  return passkeyStepFor(await readRequestSession());
+}
+
+/** The same answer for the request the proxy is handed, before anything renders. */
+export async function getRequestPasskeyStep(requestHeaders: Headers): Promise<PasskeyStep | null> {
+  return passkeyStepFor(await readServedSession(requestHeaders));
+}
+
+async function passkeyStepFor(served: ServedSession | null): Promise<PasskeyStep | null> {
   if (!served) return null;
 
   const subject = await subjectOrNull(served.user.email);
