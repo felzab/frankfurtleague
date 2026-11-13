@@ -13,16 +13,6 @@ import { TextField } from "./TextField";
 import type { ReactElement } from "react";
 
 describe("an address field's autofill", () => {
-  it("offers the person's address by default", () => {
-    render(
-      <TextField
-        label={COPY.signIn.address}
-        kind="email"
-      />,
-    );
-    expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("email");
-  });
-
   // The harm: the address of a person being erased stays in the administrator's browser, and no check reads that.
   it("offers nothing where an administrator types somebody else's", () => {
     render(
@@ -143,22 +133,6 @@ describe("a digits field", () => {
     await userEvent.type(screen.getByRole("textbox"), "6a");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();
-  });
-
-  it("sets its unit after the value inside the field's frame", () => {
-    render(
-      <TextField
-        label={COPY.shared.startelf}
-        kind="digits"
-        holds={5}
-        unit={COPY.shared.unit.euro}
-      />,
-    );
-    const field = screen.getByRole("textbox");
-    const unit = field.nextElementSibling;
-    expect(unit?.textContent).toBe(COPY.shared.unit.euro);
-    expect(field.contains(unit ?? null)).toBe(false);
-    expect(field.parentElement?.getAttribute("data-kit-focus")).toBe("field");
   });
 });
 

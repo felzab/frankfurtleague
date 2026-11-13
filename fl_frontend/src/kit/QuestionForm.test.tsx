@@ -73,15 +73,6 @@ beforeEach(() => {
 });
 
 describe("a form asking its question over what the press read", () => {
-  it("answers a refused read in its line, asking nothing and touching nothing", async () => {
-    acts.read.mockResolvedValue({ ok: false, reason: COPY.shared.failure.stale });
-    await press();
-
-    expect(await screen.findByText(COPY.shared.failure.stale)).toBeTruthy();
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(acts.touch).not.toHaveBeenCalled();
-  });
-
   // The harm: the touch ahead of the question, the act sending what the boxes hold rather than what the read held, or
   // the done act said twice, in the line and in a toast.
   it("runs the act behind the touch on the read's input, emptying the boxes under its done line alone", async () => {

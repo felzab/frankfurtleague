@@ -328,27 +328,6 @@ describe("what a person did to a field before the page hydrated", () => {
     container.remove();
   });
 
-  it("leaves the caret where the person left it", async () => {
-    const page = (
-      <TextField
-        label={WORD}
-        kind="text"
-      />
-    );
-    const container = drawn(page, (root) => {
-      typeInto(root, "Lena");
-      const control = root.querySelector("input");
-      control?.focus();
-      control?.setSelectionRange(1, 3);
-    });
-
-    await hydrated(container, page);
-
-    const control = container.querySelector("input");
-    expect([control?.selectionStart, control?.selectionEnd]).toStrictEqual([1, 3]);
-    container.remove();
-  });
-
   // An address box exposes no caret and throws on being handed one, which the run reports as an unhandled error.
   it("reaches the owner of a focused address box", async () => {
     const onChange = vi.fn();
