@@ -233,10 +233,10 @@ start; after a match it would reopen what the start locks closed.
   strictly before the record's date is still the club's. A fixture fielding the club from that date on is
   reported, a group placing decided from then falls to the club below, and a podium place stands vacant.
 - **No match takes a result before its season's start** (`ergebnis_before_saison_start`, judged by
-  `has_started`): goals, a no-show and an abandonment are refused, and a call-off or a strike-out, which records
-  nothing, is saved. Every fixture before the start is therefore unplayed, so the group swap and a
-  replacement, which the start locks, rewrite a side without handing anybody's goals to another club, and a
-  result fixes the start date only once the season has begun.
+  `has_started`): goals, a shoot-out, a no-show and an abandonment are refused, and a call-off or a strike-out,
+  which records nothing, is saved. The save is what keeps a record off a fixture before the start, so the group
+  swap and a replacement, which the start locks, rewrite a side without handing anybody's goals to another club,
+  and a result fixes the start date only once the season has begun.
 
 ---
 
