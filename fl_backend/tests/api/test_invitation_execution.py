@@ -179,20 +179,22 @@ async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
 async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
     """The team editor's read, whose `link` serves the live invitation."""
 
-    return await get_team_saison_admin(
-        team_id=team_id,
-        saison_id=SAISON_ID,
-        teams_collection=database[Collection.TEAMS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        invitations_collection=database[Collection.INVITATIONS],
-        outbox_collection=database[Collection.OUTBOX],
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        today=TODAY,
-        now=clock.german_instant(TODAY, "12:00:00"),
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_team_saison_admin(
+            team_id=team_id,
+            saison_id=SAISON_ID,
+            teams_collection=database[Collection.TEAMS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            spiele_collection=database[Collection.SPIELE],
+            invitations_collection=database[Collection.INVITATIONS],
+            outbox_collection=database[Collection.OUTBOX],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            session=session,
+            today=TODAY,
+            now=clock.german_instant(TODAY, "12:00:00"),
+        )
 
 
 async def editor(database: AsyncDatabase) -> Any:

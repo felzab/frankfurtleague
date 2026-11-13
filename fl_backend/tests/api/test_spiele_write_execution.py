@@ -7,6 +7,7 @@ import pytest
 from bson import ObjectId
 from pydantic import BaseModel
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
@@ -35,6 +36,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import APIError
+from app.core.transactions import transaction_session
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.erasure import erased
@@ -454,6 +456,7 @@ async def call_patch(
     now: datetime | None = None,
     aufstellungen: Any = None,
     spiele: Any = None,
+    spielbestaetigungen: Any = None,
 ) -> FLPatchSpielDataResponse:
     """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
 
@@ -473,7 +476,7 @@ async def call_patch(
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
-        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN] if spielbestaetigungen is None else spielbestaetigungen,
         adopts_bericht=adopts_bericht,
         now=ADOPTED_AT if now is None else now,
         dry_run=dry_run,
@@ -921,6 +924,119 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
         assert refused.error_code == error_code
         # Nothing written under either refusal: the judgement runs inside the transaction's callback.
         assert spiele[GRUPPE_FILLING_NR]["date"] == SPIELTAGE[SPIELTAG_GRUPPE][1]
+
+
+# Ahead of the group fixtures' day, so a notice about their slot is still owed.
+BEFORE_THE_GROUP_DAY = datetime(2026, 3, 5, 12, tzinfo=clock.GERMANY)
+
+
+class ConfirmationsThenARival:
+    """The confirmation rows, a rival committing once just after their first read: before whatever the caller reads next."""
+
+    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
+        self._collection = collection
+        self._rival: Callable[[], Awaitable[Any]] | None = rival
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        return _RivalAfterCursor(self._collection.find(*args, **kwargs), self)
+
+    async def run_the_rival(self) -> None:
+        if self._rival is not None:
+            rival, self._rival = self._rival, None
+            await rival()
+
+
+class _RivalAfterCursor:
+    def __init__(self, cursor: Any, rows: ConfirmationsThenARival) -> None:
+        self._cursor = cursor
+        self._rows = rows
+
+    def sort(self, *args: Any, **kwargs: Any) -> _RivalAfterCursor:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _RivalAfterCursor:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> Any:
+        answered = await self._cursor.to_list(*args, **kwargs)
+        await self._rows.run_the_rival()
+        return answered
+
+
+class TestTheDryRunNamesWhomThePassWouldMail:
+    """Gamma against Delta on the group day, its referee booked, all three asked; the save moves the kick-off."""
+
+    @staticmethod
+    async def ask_every_party(database: AsyncDatabase) -> None:
+        filling = await database[Collection.SPIELE].find_one({"_id": GRUPPE_FILLING})
+        assert filling is not None
+        parties = [
+            {"kind": "team", "team_id": GAMMA},
+            {"kind": "team", "team_id": DELTA},
+            {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER},
+        ]
+        await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
+            [documents.spielbestaetigung_document(filling, party=party, asked_at="2026-03-01") for party in parties]
+        )
+
+    @staticmethod
+    def fixtures() -> list[dict[str, Any]]:
+        held, filling = an_unbooked_spieltag()
+        return [held, {**filling, "schiedsrichter": assignment(SCHIEDSRICHTER)}]
+
+    def test_a_party_an_exit_already_ends_is_not_named(self, mongo_replica_set_url: str):
+        """Gamma left before the day: the pass told the referee of the exit, and this save changes nothing it would tell.
+
+        Judged without the exits as they stand, the question would name the referee as mailed by this save.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"team_id": GAMMA}, {"$set": {"austritt": {**GAMMA_AUSTRITT, "date": "2026-03-10"}}}
+            )
+            await self.ask_every_party(database)
+            spiel_data = await payload_for(database, GRUPPE_FILLING, time="19:30:00")
+
+            return await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=True, now=BEFORE_THE_GROUP_DAY)
+
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=self.fixtures()).recipients == []
+
+    def test_a_referee_erased_between_the_rows_and_the_names_is_named_as_the_rows_stood(self, mongo_replica_set_url: str):
+        """The erasure deletes the record and its rows in one write, landing here between the two reads.
+
+        Read at two moments, the rows reach a referee no name is left for, and the dry run fails whole: the editor's
+        save cannot ask its question.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await self.ask_every_party(database)
+            spiel_data = await payload_for(database, GRUPPE_FILLING, time="19:30:00")
+
+            async def delete_both(session: AsyncClientSession) -> None:
+                await database[Collection.SPIELBESTAETIGUNGEN].delete_many({"party.schiedsrichter_id": SCHIEDSRICHTER}, session=session)
+                await database[Collection.SCHIEDSRICHTER].delete_one({"_id": SCHIEDSRICHTER}, session=session)
+
+            async def erase_the_referee() -> None:
+                async with transaction_session(client) as session:
+                    await session.with_transaction(delete_both)
+
+            rows = ConfirmationsThenARival(database[Collection.SPIELBESTAETIGUNGEN], erase_the_referee)
+            preview = await call_patch(
+                database, client, GRUPPE_FILLING, spiel_data, dry_run=True, now=BEFORE_THE_GROUP_DAY, spielbestaetigungen=rows
+            )
+
+            return preview.recipients, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER})
+
+        recipients, left = on_a_seeded_season(mongo_replica_set_url, body, spiele=self.fixtures())
+
+        # The erasure committed before the names were read, and the dry run still names every party its rows reached.
+        assert left == 0
+        assert sorted(party.name for party in recipients) == ["A. Referee", "Delta", "Gamma"]
 
 
 class TestTheLogTellsAResultFromARedating:

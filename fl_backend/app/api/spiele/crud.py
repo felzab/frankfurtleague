@@ -786,6 +786,7 @@ async def pull_party_names(
     parties: Sequence[Mapping[str, Any]],
     membership: Mapping[CustomObjectId, SaisonMembership],
     schiedsrichter_collection: ReadCollection,
+    session: AsyncClientSession,
 ) -> dict[tuple[str, Any], str]:
     """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
 
@@ -796,6 +797,7 @@ async def pull_party_names(
         projection={"name": 1},
         # `_id` is unique, so `len(referee_ids)` rows is the whole answer and the cap can never cut it short.
         limit=max(len(referee_ids), 1),
+        session=session,
     )
 
     return {
@@ -811,13 +813,15 @@ async def preview_spiel_save(
     collections: SpielSaveCollections,
     spielbestaetigungen_collection: ReadCollection,
     now: datetime,
+    session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
     """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
-    No transaction: a preview that took a write lock would be paying for a question.
+    No transaction: a preview that took a write lock would be paying for a question. Read in a snapshot `session`
+    instead, so a referee erased under it, rows and record in one write, is either named or reached by no row.
     """
 
-    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=None)
+    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)
     # The fixture's rows holding their party's question, as the pass's close reads them. Whole, as the pass judges
     # them: a row cut from the read is a mail the question would not name.
     rows = await pull_whole_from_db(
@@ -825,6 +829,7 @@ async def preview_spiel_save(
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
         what=f"fixture {spiel_id}'s held confirmations",
         projection=CLOSE_FIELDS,
+        session=session,
     )
     austritte = {team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None}
     told = parties_told_of_the_change(
@@ -835,7 +840,9 @@ async def preview_spiel_save(
         changed_austritte=austritte,
         now=now,
     )
-    names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
+    names = await pull_party_names(
+        parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter, session=session
+    )
     advanced_to, released_sides = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,

@@ -265,11 +265,13 @@ async def pull_austritt_recipients(
     start_date: str,
     vereine: Mapping[Any, Mapping[str, Any]],
     now: datetime,
+    session: AsyncClientSession,
 ) -> list[tuple[str | None, list[FLSpielRecipient]]]:
     """Whom an exit of the club would mail, each by name beside the day an exit reaches them from (`austritt_recipients_of`).
 
-    `vereine` maps every club of the season to its season row, its seats, exit and name among it. Read outside a
-    transaction, as the page reading it is: a write landing under it is judged by its own.
+    `vereine` maps every club of the season to its season row, its seats, exit and name among it. Read in a snapshot
+    `session` and outside a transaction, as the page reading it is: a referee erased under it, rows and record in one
+    write, is either named or reached by no row, never reached and unnamed.
     """
 
     spiele = await pull_whole_from_db(
@@ -278,6 +280,7 @@ async def pull_austritt_recipients(
         db_filter=build_austritt_spiele_filter(saison_id=saison_id, team_id=team_id, exit_day=start_date),
         what=f"team {team_id}'s fixtures in season {saison_id}",
         projection=AUSTRITT_RECIPIENT_SPIEL_FIELDS,
+        session=session,
     )
     rows = (
         await pull_whole_from_db(
@@ -285,6 +288,7 @@ async def pull_austritt_recipients(
             db_filter={**build_held_filter(saison_id=saison_id, spiel_ids=[spiel["_id"] for spiel in spiele]), "party.kind": "schiedsrichter"},
             what=f"team {team_id}'s fixtures' held referee confirmations",
             projection=CLOSE_FIELDS,
+            session=session,
         )
         if spiele
         else []
@@ -299,6 +303,7 @@ async def pull_austritt_recipients(
             projection={"name": 1},
             # `_id` is unique, so `len(referee_ids)` rows is the whole answer.
             limit=len(referee_ids),
+            session=session,
         )
         if referee_ids
         else []
