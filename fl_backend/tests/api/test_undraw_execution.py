@@ -1,7 +1,9 @@
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from itertools import product
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -43,6 +45,8 @@ NEIGHBOUR_OID_OFFSET = 100
 
 # Fixed rather than the real day, so the watermark the draw leaves is a value this file chose.
 TODAY = "2026-08-21"
+# Noon of that day, the instant a match save reads its day from.
+NOW = datetime(2026, 8, 21, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 TRACE_ID = "0123456789abcdef0123456789abcdef"
 
@@ -554,6 +558,7 @@ async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *,
         spielberichte_collection=database[Collection.SPIELBERICHTE],
         aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        now=NOW,
     )
 
 

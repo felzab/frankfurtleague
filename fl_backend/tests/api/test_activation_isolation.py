@@ -1,6 +1,8 @@
 from collections.abc import Awaitable, Callable, Sequence
+from datetime import datetime
 from itertools import product
 from typing import Any, Literal, cast
+from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
@@ -41,6 +43,8 @@ RIVAL = "2027"
 
 # Fixed rather than the real day, so the watermark the seed's draw stamps is a value this file chose.
 TODAY = "2026-08-25"
+# Noon of that day, the instant a match save reads its day from.
+NOW = datetime(2026, 8, 25, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 GROUPS = 4
 TEAMS_PER_GROUP = 4
@@ -586,6 +590,7 @@ class TestARolloverLandingMidSaveIsJudgedAgain:
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+                    now=NOW,
                 )
             )
 
