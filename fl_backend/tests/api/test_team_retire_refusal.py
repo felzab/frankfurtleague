@@ -1,6 +1,6 @@
 import pytest
 
-from app.api.teams.services import find_retire_refusal
+from app.api.teams.services import find_retire_refusal, saison_blocking_retirement
 from app.core.codes import Code
 
 
@@ -13,3 +13,8 @@ class TestRetiringAClub:
 
         assert refusal is not None
         assert refusal.error_code == Code.RETIRE_BLOCKED
+
+    def test_a_club_of_past_seasons_alone_is_named_blocked_by_none(self):
+        """The editor names the season a retirement waits on, so a finished one named would lock a club nobody holds back."""
+
+        assert saison_blocking_retirement([{"_id": "2024", "status": "past"}, {"_id": "2025", "status": "past"}]) is None

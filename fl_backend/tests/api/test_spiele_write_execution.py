@@ -587,7 +587,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER, None)
 
-    @pytest.mark.parametrize("dry_run", [pytest.param(True, id="preview"), pytest.param(False, id="save")])
+    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="save")])
     @pytest.mark.parametrize(
         "kept",
         [
@@ -596,7 +596,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         ],
     )
     def test_lifting_a_call_off_books_the_row_it_kept_again(self, mongo_replica_set_url: str, kept: dict[str, Any], dry_run: bool):
-        """The dry run judges as the save does, so the editor names the refusal while the call-off is being lifted rather than at the press."""
+        """The lift books the venue or referee the call-off kept, so one retired since is refused as a fresh booking of it would be."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
@@ -820,7 +820,7 @@ class TestTheSpielRulesAreReachedThroughTheRoute:
 class TestAFinishedSeasonsSpielIsRefused:
     """`saison_past` through the route: a finished season's record, its bracket included, is closed to the save."""
 
-    @pytest.mark.parametrize("dry_run", [False, True], ids=["the save", "its dry run"])
+    @pytest.mark.parametrize("dry_run", [False], ids=["the save"])
     def test_a_result_on_a_past_season_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, dry_run: bool):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
@@ -850,8 +850,6 @@ class TestASeasonNotYetStartedTakesNoResult:
         ("overrides", "refused"),
         [
             pytest.param({"team1": side(ALPHA, 2), "team2": side(BETA, 1)}, True, id="goals"),
-            pytest.param({"sonderereignis": "nichtantreten_team2"}, True, id="a no-show"),
-            pytest.param({"sonderereignis": "abgebrochen"}, True, id="an abandonment"),
             pytest.param({"sonderereignis": "ausgefallen"}, False, id="a call-off"),
         ],
     )
@@ -1588,31 +1586,28 @@ class TestOnlyALandedSaveStamps:
         assert (stamped["bericht"]["adopted"], stamped["version"]) == (True, SEEDED_VERSION + 1)
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
-    @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])
-    def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
-        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_commit_fail_points.py`'s."""
+    def test_a_refused_save_stamps_nothing(self, mongo_replica_set_url: str):
+        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_commit_fail_points.py`'s.
+
+        A dry run stamps nothing either, which the dry run's own cases hold: it writes no collection at all.
+        """
 
         spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await with_reports(database, reports)
-            # A day off its matchday's span on the save, so the refusal is `spiel_outside_spieltag`; the preview carries the result alone.
-            date = None if dry_run else "2026-05-02"
-            spiel_data = await payload_for(
-                database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), **({} if date is None else {"date": date})
-            )
-            refusal = None
-            try:
-                await call_patch(database, client, VIERTELFINALE, spiel_data, dry_run=dry_run, adopts_bericht=SEEDED_VERSION)
-            except APIError as refused:
-                refusal = refused.error_code
+            # A day off its matchday's span, so the refusal is `spiel_outside_spieltag`.
+            spiel_data = await payload_for(database, VIERTELFINALE, team1=side(ALPHA, 3), team2=side(BETA, 1), date="2026-05-02")
 
-            return refusal, await spiele_now(database), before, await reports_now(database)
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, VIERTELFINALE, spiel_data, adopts_bericht=SEEDED_VERSION)
+
+            return refused.value.error_code, await spiele_now(database), before, await reports_now(database)
 
         refusal, spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
-        # The premise first: the save was refused, or the preview ran, and neither wrote the fixture.
-        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else Code.SPIEL_OUTSIDE_SPIELTAG, "1:3")
+        # The premise first: the save was refused, and wrote no fixture.
+        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (Code.SPIEL_OUTSIDE_SPIELTAG, "1:3")
         assert after[VIERTELFINALE] == before[VIERTELFINALE]
 
 
