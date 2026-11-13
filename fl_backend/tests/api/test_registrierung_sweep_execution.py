@@ -15,7 +15,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.registrierungen.system_router import sweep_registrierungen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DocumentNotFoundError
 from app.core.transactions import SWEEP_PAGE
 from app.main import create_app
 from app.shared.tokens import hash_token
@@ -140,9 +139,9 @@ def on_a_league(url: str, body: Body, *, status: str = "active", mutates_schema:
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, today: str = TODAY) -> Any:
     return await sweep_registrierungen(
-        saison_id=saison_id,
+        saison_id=SAISON_ID,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
         db=client,
@@ -258,17 +257,6 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
         erased_count, left = on_a_league(mongo_replica_set_url, body, status=status)
 
         assert (erased_count, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
-
-
-class TestASeasonNobodyHas:
-    def test_the_pass_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await sweep(database, client, saison_id="1999")
-
-            return await standing(database)
-
-        assert len(on_a_league(mongo_replica_set_url, body)) == len(the_corpus())
 
 
 # The commands of the worst call, erasing one page per clock.

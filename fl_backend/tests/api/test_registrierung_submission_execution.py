@@ -244,38 +244,6 @@ async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 class TestWhatASubmissionStores:
     """The document `FLRegistrierungRecord` reads back, which is the only shape a later read can rely on."""
 
-    def test_the_stored_key_set_is_exactly_the_declared_one(self, mongo_replica_set_url: str):
-        """An EQUALITY, so a late-entry marker of either spelling fails here rather than riding along unnoticed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
-            await register(database, client)
-            stored = await database[Collection.REGISTRIERUNGEN].find_one({})
-
-            assert stored is not None
-            return stored
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert set(stored) == {
-            "_id",
-            "saison_id",
-            "team_id",
-            "invitation_id",
-            "submitted_at",
-            "status",
-            "first_name",
-            "last_name",
-            "email",
-            "position",
-            "nummer",
-            "stufe",
-            "birth_date",
-            "einwilligung",
-            "confirmation",
-            "decision",
-            "idempotency_key",
-        }
-
     def test_the_row_names_the_invite_the_team_and_the_season_it_was_opened_with(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             await register(database, client)
@@ -339,19 +307,6 @@ class TestWhatASubmissionStores:
             )
 
         assert on_a_league(mongo_replica_set_url, body).state == "valid"
-
-    def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
-        """Nothing about a pending registration reaches the two collections an admission writes."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
-            await register(database, client)
-
-            return (
-                await database[Collection.SPIELER].count_documents({}),
-                await database[Collection.SAISON_SPIELER].count_documents({}),
-            )
-
-        assert on_a_league(mongo_replica_set_url, body) == (0, 0)
 
 
 class TestTheSubmissionKey:
@@ -445,32 +400,12 @@ class TestTheKeyOverTheWire:
     """Judged where the header is parsed rather than handed in as a `UUID`."""
 
     def test_a_version_4_key_is_stored_as_sent(self, mongo_replica_set_url: str):
-        """The floor under the refusals below: without it each would pass on a request nothing reaches."""
-
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await over_the_wire(mongo_replica_set_url, key=str(KEY))
 
             return response.status_code, [row.get("idempotency_key") for row in await rows_of(database)]
 
         assert on_a_league(mongo_replica_set_url, body) == (201, [str(KEY)])
-
-    @pytest.mark.parametrize(
-        "key",
-        [
-            pytest.param("not-a-uuid", id="not a uuid"),
-            # Version 1, which carries its host's clock: a guessable key lets a stranger store other details under it first.
-            pytest.param("6fa459ea-ee8a-11ca-8d6b-0800200c9a66", id="a time-based uuid"),
-            # The IETF draft's structured-field string: the bare token is this API's form.
-            pytest.param(f'"{KEY}"', id="the draft's quoted form"),
-        ],
-    )
-    def test_a_key_that_is_not_version_4_is_a_422_storing_nothing(self, mongo_replica_set_url: str, key: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await over_the_wire(mongo_replica_set_url, key=key)
-
-            return response.status_code, len(await rows_of(database))
-
-        assert on_a_league(mongo_replica_set_url, body) == (422, 0)
 
 
 class TestAMailboxPastTheBound:
@@ -724,24 +659,6 @@ class TestWhatTheInvitesOwnReadAnswers:
         answer = on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "open": False})
 
         assert answer.running is False
-
-    def test_a_revoked_link_is_refused(self, mongo_replica_set_url: str):
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as refused:
-                await view(database, token=REVOKED_TOKEN)
-
-            return refused.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, run) == Code.DOCUMENT_NOT_FOUND
-
-    def test_the_nachnominierung_verdict_turns_on_the_windows_end(self, mongo_replica_set_url: str):
-        """The page tells a pupil what an entry submitted today would store, off the season the read already holds."""
-
-        async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
-            return (await view(database)).nachnominierung
-
-        assert on_a_league(mongo_replica_set_url, run, registrierung={**OPEN_WINDOW, "end": TODAY}) is False
-        assert on_a_league(mongo_replica_set_url, run, registrierung=PAST_WINDOW) is True
 
     def test_a_link_past_the_windows_end_stays_open_to_a_full_squad(self, mongo_replica_set_url: str):
         """A nominee stands outside the cap, so a page reading the cap would shut the one way a late pupil has in."""

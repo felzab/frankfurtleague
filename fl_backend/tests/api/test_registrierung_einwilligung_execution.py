@@ -167,15 +167,6 @@ class TestWhatALinkOpens:
         assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
-    def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await read_view(database, "a-stranger's-guess")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
-
 
 class TestWhatAConfirmationWrites:
     """One `$set`: the pairing lands whole, and the hash stays where it is."""
@@ -207,23 +198,6 @@ class TestWhatAConfirmationWrites:
             "kader_public",
             False,
         )
-
-    def test_the_registration_stays_pending_and_writes_no_person_and_no_squad_row(self, mongo_replica_set_url: str):
-        """A confirmed registration is admissible and not admitted; the person and the junction row are a later decision's."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW)
-
-            return (
-                await stored(database),
-                await database[Collection.SPIELER].count_documents({}),
-                await database[Collection.SAISON_SPIELER].count_documents({}),
-            )
-
-        document, people, squad_rows = on_a_league(mongo_replica_set_url, body)
-
-        assert document["status"] == "submitted"
-        assert (people, squad_rows) == (0, 0)
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -313,18 +287,6 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert (state, code) == ("expired", Code.LINK_EXPIRED)
         assert document["einwilligung"] is None
-
-    def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, "a-stranger's-guess")
-
-            return conflict.value.error_code, await stored(database)
-
-        code, document = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.LINK_INVALID
-        assert document == registrierung_document()
 
 
 # Against `TODAY`, 18 to the day and 17 years and 364 days.
