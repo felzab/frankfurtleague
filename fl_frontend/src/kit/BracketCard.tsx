@@ -25,7 +25,9 @@ const card = tv({
     // One column the card's width and no wider, so a long name, or a date beside a chip, is cut rather than pushing the
     // figures out of the card.
     body: "grid grid-cols-[minmax(0,1fr)] gap-1 p-2 lg:px-3 lg:py-3",
-    when: "mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden",
+    // A phone's card has no room for the line, which a screen reader still hears there: the date and what befell the
+    // match.
+    when: "mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:sr-only",
     // A chip's height whether a chip stands on it or not, so every card of the tree stays one size.
     whenLine: "flex h-5 items-center justify-between gap-2",
     date: "min-w-0 truncate",
@@ -66,7 +68,8 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
  * per side, a shoot-out's goals added, with no mark for it, both figures bold; on desktop the date under a
  * hairline. Something befell the match as a match row draws it (`SpielRow`): both sides muted, the side that did not
  * turn up struck, and on desktop the event's chip at the date line's end, the date cut with „…“ beside a long one; the
- * phone's card, of plaques alone, has no room for a chip, so its plaques carry the muting and the strike.
+ * phone's card, of plaques alone, has no room for a chip, so its plaques carry the muting and the strike, and its date
+ * line, chip included, is heard by a screen reader alone.
  */
 export function BracketCard({
   href,
