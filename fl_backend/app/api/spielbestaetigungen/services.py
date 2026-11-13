@@ -487,10 +487,17 @@ def enter_refusal() -> WriteRefusal:
     )
 
 
-def find_enter_refusal(*, spielbestaetigung_raw: Mapping[str, Any]) -> WriteRefusal | None:
-    """The administrator answers only a row neither answered nor closed, as a seat's press does."""
+def find_enter_refusal(*, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime) -> WriteRefusal | None:
+    """The administrator answers only a row neither answered nor closed, nor due to be shut by the pass's next close.
 
-    if spielbestaetigung_raw.get("answer") is None and spielbestaetigung_raw.get("closed") is None:
+    A deadline gone by refuses nothing: the triage queue lists such a row for the administrator to settle.
+    """
+
+    if (
+        spielbestaetigung_raw.get("answer") is None
+        and spielbestaetigung_raw.get("closed") is None
+        and _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now) is None
+    ):
         return None
 
     return enter_refusal()

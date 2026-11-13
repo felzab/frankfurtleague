@@ -80,8 +80,11 @@ async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
     enter_data: Annotated[FLSpielbestaetigungEnterPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> None:
     """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
@@ -89,14 +92,27 @@ async def enter_spielbestaetigung(
     goes at the season's end.
     """
 
+    async def judged(row: Mapping[str, Any], *, session: AsyncClientSession | None) -> None:
+        # The fixture and the clubs' exits, as the pass's close judges them: an agreement it would shut settles nothing.
+        state = await pull_ansetzung_state(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            verein_projection=JUDGED_VEREIN_FIELDS,
+            session=session,
+        )
+        if state is None:
+            raise DocumentNotFoundError()
+        refuse(find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+
     async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "answer", "closed"],
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
-        refuse(find_enter_refusal(spielbestaetigung_raw=row))
+        await judged(row, session=session)
 
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
@@ -119,6 +135,10 @@ async def enter_spielbestaetigung(
             label=str(row["saison_id"]),
             session=session,
         )
+
+        # The settle writes no fixture and no season row, so a save or an exit landing under this transaction raises no
+        # conflict: judged again outside it before answering.
+        await judged(row, session=None)
 
         return entered
 
