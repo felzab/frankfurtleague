@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WholePages } from "@/kit/WholePage";
 import { underNext } from "@/test-support/nextContexts";
 import { person, seat, SEAT } from "@/test-support/subjectFixtures";
 import { wholeText } from "@/test-support/wholeText";
@@ -46,9 +47,11 @@ async function renderAt(path: (team: string, saison: string) => string, team: st
   await act(async () =>
     render(
       underNext(
-        <TeamLayout>
-          <p>Seite</p>
-        </TeamLayout>,
+        <WholePages>
+          <TeamLayout>
+            <p>Seite</p>
+          </TeamLayout>
+        </WholePages>,
         { pathname: path(team, saison), params: { team, saison } },
       ),
     ),

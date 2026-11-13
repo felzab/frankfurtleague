@@ -90,13 +90,16 @@ function FailingRead(): null {
 describe("the rail frame's own boundary", () => {
   it("sends one crash report to a route this app serves", async () => {
     const { RailFrameBoundary } = await import("@/kit/RailFrameBoundary");
+    const { WholePages } = await import("@/kit/WholePage");
     // React reports the caught throw on the console, which says nothing this case reads.
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
     onTestFinished(() => quiet.mockRestore());
 
     const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED));
-    await act(() => Promise.resolve());
+    // Under the root's boundary, as the app places it: the frame drawn again commits once its account read settles.
+    await act(async () => {
+      render(underNext(h(WholePages, null, h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead))), ROUTED));
+    });
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 
     expect(reports).toHaveLength(1);

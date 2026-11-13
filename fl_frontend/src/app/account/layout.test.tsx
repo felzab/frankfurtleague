@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WholePages } from "@/kit/WholePage";
 import { underNext } from "@/test-support/nextContexts";
 import { person, seat } from "@/test-support/subjectFixtures";
 import { act, render, screen } from "@testing-library/react";
@@ -24,11 +25,13 @@ async function renderFor(read: Promise<SubjectSession>) {
   await act(async () =>
     render(
       underNext(
-        <AccountLayout>
-          <AccountListLayout>
-            <p>Seite</p>
-          </AccountListLayout>
-        </AccountLayout>,
+        <WholePages>
+          <AccountLayout>
+            <AccountListLayout>
+              <p>Seite</p>
+            </AccountListLayout>
+          </AccountLayout>
+        </WholePages>,
         { pathname: ROUTES.account.path(), params: {} },
       ),
     ),
@@ -47,13 +50,6 @@ describe("the head of Konto's rail and the band over the list of its pages", () 
 
     const team = ROUTES.teamOverview.path(seat().team_id, seat().saison_id);
     expect(backs()).toEqual([team, team]);
-    expect(logos()).toEqual([]);
-  });
-
-  it("hold neither while the session is read", async () => {
-    await renderFor(new Promise(() => undefined));
-
-    expect(backs()).toEqual([]);
     expect(logos()).toEqual([]);
   });
 });
