@@ -626,6 +626,13 @@ async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> No
     )
 
 
+async def spiel_version(database: AsyncDatabase) -> int:
+    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+    assert stored_spiel is not None, "the seed holds no fixture"
+
+    return stored_spiel["version"]
+
+
 async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
     """Every report of the season with its state, read through the pipeline and the judgement the Übersicht reads it by."""
 
@@ -706,7 +713,8 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
         """Lina's 1:0 reported, and 1:0 typed by the administrator without „Übernehmen“.
 
         Read as differing, the report could never be adopted: the editor's fields already hold its proposal, so the save
-        adopting it changes no field of the fixture.
+        adopting it changes no field of the fixture. It raises no version, which would refuse every other open editor of
+        the match, and records no change of it.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -716,11 +724,47 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
             typed = await season_states(database)
             # A matchday of its own for the tie the result resolves into, which one matchday cannot field Adler on twice.
             await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+            before, logged = await spiel_version(database), len(await acts_of(database))
             await correct_the_feeder(database, client, 1, 0, adopts_bericht=document["version"])
 
-            return typed, await season_states(database)
+            return typed, await season_states(database), await spiel_version(database) - before, (await acts_of(database))[logged:]
 
-        assert on_the_league(mongo_replica_set_url, body) == (["proposed"], ["adopted"])
+        assert on_the_league(mongo_replica_set_url, body) == (["proposed"], ["adopted"], 0, [])
+
+    @pytest.mark.parametrize(
+        ("spiel_moved", "bericht_moved"),
+        [pytest.param(True, False, id="the fixture"), pytest.param(False, True, id="the report")],
+    )
+    def test_a_save_changing_nothing_is_refused_once_what_its_editor_read_has_moved(
+        self, mongo_replica_set_url: str, spiel_moved: bool, bericht_moved: bool
+    ):
+        """Its fields unchanged, the save writes the stamp alone: answered as saved, it would have done nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            [document] = await stored(database)
+            await save_the_result(database, 1, 0)
+            await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+            read = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+            assert read is not None, "the seed holds no fixture"
+            # A write of each since the editor's read, standing in for a rival's.
+            if spiel_moved:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$inc": {"version": 1}})
+            if bericht_moved:
+                await database[Collection.SPIELBERICHTE].update_one({"spiel_id": SPIEL}, {"$inc": {"version": 1}})
+            spiel_data = spiel_patch_body(read, team1={**side(TEAM1), "tore": 1}, team2={**side(TEAM2), "tore": 0})
+            refused = await outcome_of(
+                patch_spiel(
+                    spiel_id=SPIEL,
+                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+                    adopts_bericht=document["version"],
+                    **save_handles(database, client),
+                )
+            )
+
+            return refused, await season_states(database)
+
+        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, ["proposed"])
 
 
 VORJAHRESSPIEL = ObjectId("6890a1b2c3d4e5f607e50013")
