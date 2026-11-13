@@ -69,10 +69,10 @@ async function readTeams(): Teams {
 /**
  * The frame of a team's pages, for the team's contact seats. It stands above the team and the season of the address,
  * whose subtrees Next keys on their values, so a switch of season or of team remounts the page alone and keeps the
- * frame; it is handed neither, and its menus read both from the address on the client. It is drawn without waiting for
- * the session, the seasons and the account streaming into their places, and judges no page: each team page's read asks
- * for the person's seat itself. The phone's band
- * and bar are the route groups' (`RailColumn`): the line-up lies in `(editor)`, every other page in `(list)`.
+ * frame; it is handed neither, and its menus read both from the address on the client. Its seasons and the account are
+ * handed down as reads still running, beside each team page's own, and it judges no page: each team page's read asks
+ * for the person's seat itself. The phone's band and bar are the route groups' (`RailColumn`): the line-up lies in
+ * `(editor)`, every other page in `(list)`.
  */
 export default function TeamLayout({ children }: { children: ReactNode }) {
   return (

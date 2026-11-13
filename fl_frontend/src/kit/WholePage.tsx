@@ -13,9 +13,6 @@ import { tv } from "./tv";
 
 import type { ComponentProps, ReactNode } from "react";
 
-/** Whether the pages below arrive whole, no part of a page waiting in a boundary of its own (`PageWait`). */
-const WholeContext = createContext(false);
-
 /**
  * A client navigation under way: where it goes, its address as the browser resolves it with that address's path and
  * query apart, and the address of the page it was pressed on, which a link's relative address is resolved against.
@@ -70,11 +67,9 @@ export function WholePages({ children }: { children: ReactNode }) {
     });
   };
   return (
-    <WholeContext value>
-      <NavigationContext value={{ pending, shown, navigate }}>
-        <Suspense fallback={null}>{children}</Suspense>
-      </NavigationContext>
-    </WholeContext>
+    <NavigationContext value={{ pending, shown, navigate }}>
+      <Suspense fallback={null}>{children}</Suspense>
+    </NavigationContext>
   );
 }
 
@@ -223,13 +218,4 @@ export function NavigationLink({
       }
     />
   );
-}
-
-/**
- * A template's boundary around what it reads: `children` in a `Suspense` boundary, `fallback` standing while they are
- * read, or under `WholePages` the children alone, so their read holds the whole page. Both are elements, never a
- * function, which a server template could not hand a client component.
- */
-export function PageWait({ fallback, children }: { fallback: ReactNode; children: ReactNode }) {
-  return useContext(WholeContext) ? children : <Suspense fallback={fallback}>{children}</Suspense>;
 }

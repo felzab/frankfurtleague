@@ -68,11 +68,9 @@
   line-gap-override: 0%;
 }
 
-/* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
-   saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
-   the selector lands on the wrong element and nothing corrects it once the content arrives. With no
-   element saved inside `main` the browser restores by offset at the first layout, and anchors live on the
-   frame outside it alone: a classic page's footer, which absorbs what the content adds. */
+/* On a frame's `main`: no element inside the page's content takes part in scroll anchoring, so the
+   browser never picks one there as the anchor it keeps in place while the layout changes, and only the
+   frame outside `main` holds anchors. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
 }

@@ -65,8 +65,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// A frame's prefetch dropped between the frame and its menus costs a placeholder on every press of the season pages, and
-// one reaching an area's frame a server render per entry in view: neither shows in any page's look.
+// A frame's prefetch dropped between the frame and its menus makes every press of the season pages wait on the server,
+// and one reaching an area's frame costs a server render per entry in view: neither shows in any page's look.
 describe("the menu's prefetch", () => {
   it("asks every entry of the rail and of the phone bar for its page whole where the frame says so, and nothing else", async () => {
     await act(async () =>
