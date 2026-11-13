@@ -279,6 +279,8 @@ def test_the_referees_document_is_gone(mongo_replica_set_url: str):
     assert SCHIEDSRICHTER_OID not in referees
     # The control, without which emptying the whole collection would pass.
     assert referees[OTHER_SCHIEDSRICHTER_OID]["name"] == REFEREE_NAMES[OTHER_SCHIEDSRICHTER_OID]
+    # Their contact details too: a write ignoring its filter can leave the name and still empty the rest.
+    assert referees[OTHER_SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[OTHER_SCHIEDSRICHTER_OID]
 
 
 @pytest.mark.db
@@ -430,15 +432,6 @@ def test_the_fee_the_match_agreed_survives_the_erasure(mongo_replica_set_url: st
     assert spiele[PLAYED_SPIEL_OID]["schiedsrichter"]["payment"] == 45
     # The fixture beside it keeps its own, so this cannot pass on an erasure copying one fee everywhere.
     assert spiele[MOVED_SPIEL_OID]["schiedsrichter"]["payment"] == DEFAULT_PAYMENT
-
-
-@pytest.mark.db
-def test_the_other_referee_keeps_their_contact_details(mongo_replica_set_url: str):
-    """Kills a write that ignores its filter: the cases above all pass for one that empties the collection."""
-
-    referees = after_erasure(mongo_replica_set_url)
-
-    assert referees[OTHER_SCHIEDSRICHTER_OID]["kontakt"] == KONTAKT[OTHER_SCHIEDSRICHTER_OID]
 
 
 class TestTheRetirePressKeepsTheDayItFinds:

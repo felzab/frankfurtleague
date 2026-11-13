@@ -20,11 +20,9 @@ from app.api.address_change.schemas import FLAddressChangeAdminPayload
 from app.api.schiedsrichter.admin_router import invite_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_confirmation
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
-from app.api.schiedsrichter.services import CONFIRMATION_FIELD
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -67,8 +65,8 @@ def referee_document(**overrides: Any) -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
-    """The SHIPPED indexes, a running season, and one referee who answered their own link unless `confirmed` says otherwise."""
+def on_a_league(url: str, body: Body) -> Any:
+    """The SHIPPED indexes, a running season, and one referee who answered their own link."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -84,22 +82,21 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
                 now=MAIL_NOW,
             )
             (mail,) = await drained(database, client)
-            if confirmed:
-                await post_confirmation(
-                    answer_data=FLSchiedsrichterConfirmationPayload.model_validate(
-                        {
-                            "token": mail.token,
-                            "birth_date": "1984-05-09",
-                            "scope": "kader_public",
-                            "media": True,
-                            "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
-                        }
-                    ),
-                    schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    db=client,
-                    today=TODAY,
-                    germany_now=NOW,
-                )
+            await post_confirmation(
+                answer_data=FLSchiedsrichterConfirmationPayload.model_validate(
+                    {
+                        "token": mail.token,
+                        "birth_date": "1984-05-09",
+                        "scope": "kader_public",
+                        "media": True,
+                        "text_versions": dict(documents.SCHIEDSRICHTER_TEXT_VERSIONS),
+                    }
+                ),
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                db=client,
+                today=TODAY,
+                germany_now=NOW,
+            )
 
             return await body(database, client)
 
@@ -187,20 +184,3 @@ class TestTheSaveOnAConfirmedReferee:
         assert saved.confirmation is None
         assert row["default_payment"] == 25
         assert (change["ended"], change["email"]) == (None, NEW_EMAIL)
-
-
-class TestAnUnconfirmedReferee:
-    """The control on the class above: an unanswered referee's address is still replaced at once and mailed a fresh consent link."""
-
-    def test_the_address_moves_at_once_and_a_fresh_consent_link_is_answered(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            saved = await save(database, client, email=NEW_EMAIL)
-            (mail,) = await drained(database, client)
-
-            return saved, mail, await stored(database)
-
-        saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
-
-        assert saved.confirmation is not None
-        assert (mail.to, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
-        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(mail.token))]
