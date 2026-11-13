@@ -46,10 +46,12 @@ type TableColumn = {
    */
   width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
   /**
-   * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: cut with „…“ at the
-   * column `width` sets, whole in its tooltip while it is cut, which a touch never shows. So a `stack` table, whose rows
-   * open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only a
-   * value bounded to its column's width goes uncut.
+   * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: as wide as its
+   * longest value while the row has room, sharing what the row leaves free with the name, and cut with „…“ only once the
+   * row is full, never narrower than the least `width` sets, whole in its tooltip while it is cut, which a touch never
+   * shows. Its wait draws it at that least, since the words that widen it are not read yet. So a `stack` table, whose
+   * rows open nothing that would show the rest, cuts no column. Every other column widens to its longest value, so only
+   * a value bounded to its column's width goes uncut.
    */
   cut?: true;
 } &
@@ -296,7 +298,8 @@ const table = tv({
     // A row a link may point to by its fragment, marked while the address names it.
     row: `kit-target relative h-14 ${stacked()} lg:h-13`,
     cell: "px-3 whitespace-nowrap",
-    // The name takes the room the facts leave and is cut with „…“ where it is longer (`nameLine`).
+    // The name takes the room the facts leave, which it shares with a cut column (`shares`), and is cut with „…“ where
+    // it is longer (`nameLine`).
     name: "w-full px-3 py-2",
     // A club's name beside its plaque, read but not drawn on a phone, where the plaque stands for it alone.
     clubName: "@max-2xl:sr-only",
@@ -344,10 +347,19 @@ const table = tv({
     figures: {
       true: { cell: "font-numeric" },
     },
-    // No width of its own: `max-w-0` leaves the words out of the column's width, which its head's `width` alone sets, and
-    // the name's `w-full` takes the rest.
+    // A cut column's words stand in a track that may shrink to nothing (`Cell`), so they count nothing towards the
+    // column's least width, which its head's `width` alone sets, and whole towards its widest (`shares`).
     cut: {
-      true: { cell: "max-w-0" },
+      true: {},
+    },
+    // A list holding a cut column, in its table form: the name and each cut column are the table's only automatic
+    // columns, every other cell `w-0`, so its column is as wide as its values and no wider. The automatic layout gives
+    // each column its least width, then grows the automatic ones together towards their widest, so no word is cut while
+    // the row has room and the name and a cut value give way alike once it is full; room past every widest goes to the
+    // automatic columns by their widest (CSS Tables 3, 3.9.3). The name's `w-full` would make it a percent column, which
+    // the layout widens before any other column passes its least, and so cut a value beside a name with room to spare.
+    shares: {
+      true: {},
     },
     strong: {
       true: { cell: "font-semibold" },
@@ -475,9 +487,11 @@ const table = tv({
     // Restated after the variants, so a `prose` or a `stack` table's stacked row, whose cells are grids there, never
     // draws a column a narrow box leaves out: the merger keeps the later of two `display` classes.
     { phone: "hidden", class: { head: "@max-2xl:hidden", cell: "@max-2xl:hidden" } },
-    // In a stacked list a cut value counts nothing towards its track, which its head's least width alone sets, as
-    // `max-w-0` has it in a table.
-    { cut: true, stacks: "list", class: { cell: "@max-2xl:max-w-none @max-2xl:contain-inline-size" } },
+    // In a stacked list a cut value counts nothing towards its track, which its head's least width alone sets.
+    { cut: true, stacks: "list", class: { cell: "@max-2xl:contain-inline-size" } },
+    // The table form alone: a stacked row's cells are grid items, which `w-0` would draw as wide as nothing.
+    { shares: true, stacks: "list", class: { name: "@2xl:w-auto", cell: "@2xl:w-0", state: "@2xl:w-0" } },
+    { shares: true, stacks: "list", cut: true, class: { cell: "@2xl:w-auto" } },
     { lone: true, stacks: "list", class: { head: "@max-2xl:hidden" } },
     // A stacked row with its acts under its words is padded as a card's act row.
     { acts: "under", stacks: "list", class: { row: "@max-2xl:py-3 lg:@max-2xl:py-3" } },
@@ -600,10 +614,15 @@ function Cell({ cell, slot, cut }: { cell: TableCell | undefined; slot: boolean;
   const { value, cancelled } = typeof cell === "object" && "cancelled" in cell ? cell : { value: cell, cancelled: 0 };
   if (cut)
     return (
-      <CutText
-        text={textOf(value)}
-        className="block truncate"
-      />
+      // One track no wider than the words that may shrink to nothing: the words count whole towards the column's widest
+      // and nothing towards its least, which a cell's own `max-width`, whose effect on a cell CSS 2.1 leaves undefined,
+      // could not say apart.
+      <span className="grid grid-cols-[minmax(0,max-content)]">
+        <CutText
+          text={textOf(value)}
+          className="truncate"
+        />
+      </span>
     );
   if (!slot) return textOf(value);
   return (
@@ -707,6 +726,7 @@ function NameCell({
   stacks,
   plaqueAlone,
   chipsOnLine,
+  shares,
 }: {
   row: TableRow;
   barred: TableRow["qualifies"];
@@ -716,8 +736,18 @@ function NameCell({
   stacks: Stacks;
   plaqueAlone: boolean;
   chipsOnLine: ChipsOnLine;
+  /** Whether the list holds a cut column, which shares the row's free room with the name (`table`'s `shares`). */
+  shares: boolean;
 }) {
-  const s = table({ qualifies: barred, compact, prose, stack, stacks, chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine });
+  const s = table({
+    qualifies: barred,
+    compact,
+    prose,
+    stack,
+    stacks,
+    chipsOnLine: chipsOnLine === "never" ? undefined : chipsOnLine,
+    shares,
+  });
   const { plaque } = row;
   const lonePlaque = plaqueAlone && plaque !== undefined;
   const name = textOf(row.name);
@@ -839,7 +869,8 @@ export function Table({
   const folds = rows.some((row) => (row.sideActs ?? 0) > 2);
   // Where a stacked row's acts stand: a decision's under its words, side acts' „⋯“ at its end.
   const acts = !hasActs ? undefined : rows.some((row) => (row.sideActs ?? 0) > 0) ? "folded" : "under";
-  const parts = table({ stacks, acts });
+  const shares = columns.some((column) => column.cut === true);
+  const parts = table({ stacks, acts, shares });
   const leadsOn = (row: TableRow) => row.href !== undefined || row.onOpen !== undefined;
   const isLinked = rows.some(leadsOn);
   // Every row keeps the chevron's room on a phone where some row draws one there.
@@ -952,6 +983,7 @@ export function Table({
                       stacks={stacks}
                       plaqueAlone={plaqueAlone}
                       chipsOnLine={chipsOnLineOf(state, stacks)}
+                      shares={shares}
                     />
                     {state !== undefined && (
                       <td
@@ -969,6 +1001,7 @@ export function Table({
                         strong: column.strong === true,
                         prose,
                         stack,
+                        shares,
                       });
                       return (
                         <td
