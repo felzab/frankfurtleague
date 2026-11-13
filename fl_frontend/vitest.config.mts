@@ -12,6 +12,7 @@ const PRODUCTION_BUILD = [
   "src/core/logging.test.ts",
   "src/core/instrumentation.test.ts",
   "src/app/api/client-error/route.test.ts",
+  "src/**/*.production.test.ts",
 ];
 
 /** The suites of the server `next dev` builds, which run under the `NODE_ENV` it sets. */
