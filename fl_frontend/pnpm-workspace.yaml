@@ -42,6 +42,16 @@ minimumReleaseAgeStrict: true
 # patch. The comment above an entry names its upstream issue and what removes it, which
 # `scripts/tests/test_patched_dependencies.py` holds.
 patchedDependencies:
+  # https://github.com/vercel/next.js/issues/88986 -- a link to the fragment the address already
+  # holds counts as a refresh of the page and never scrolls. Under the patch a person's navigation
+  # to a fragment scrolls to it every time, as HTML's does, while a refresh or a server action on
+  # that address leaves the page where it is.
+  # https://github.com/vercel/next.js/issues/101168 -- a page loaded with a fragment keeps it in its
+  # route cache entry, so its next fragment link doubles it (`#a#b`); the patch stores the entry
+  # without one, as vercel/next.js#96737 proposes. A release fixing an issue removes its hunks. Both
+  # the browser's and the server's bundles take `dist/client/`, so `dist/esm/` stays as it ships:
+  # read which copy a bumped release's build takes before moving the key.
+  next@16.4.6: patches/next@16.4.6.patch
   # https://github.com/adobe/react-spectrum/issues/10937 -- an enter frame at the viewport's edge
   # reports ratio 0 while intersecting, and a sheet resting below ratio 1 hears nothing more, so it
   # never counts as entered. A release that no longer reads `intersectionRatio > 0` there removes
