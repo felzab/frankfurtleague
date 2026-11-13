@@ -118,7 +118,7 @@ export function SpielEditor({
   noteMax: number;
   /** Whether a booking's money is required beside it, read from the write on the server. */
   required: { mietpreis: boolean; payment: boolean };
-  /** The report's goals as rows, read-only, none while no report stands, under the head the page's wait draws too. */
+  /** The report's goals as rows, read-only, none while no report stands. */
   report: { head: TableHead; rows: readonly TableRow[] };
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
