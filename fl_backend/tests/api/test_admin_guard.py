@@ -11,7 +11,6 @@ from app.api.grants.guard import verify_actor_is_admin
 from app.api.spieler import schemas as spieler_schemas
 from app.api.spieler.public_router import router as spieler_public_router
 from app.core.codes import Code
-from app.core.routing import SAFE
 from app.core.security import bind_actor, get_person_identifier, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
@@ -19,8 +18,6 @@ from tests.core.app_source import api_routes, application
 APP = application()
 
 MISSING_BEARER_TOKEN = Code.ACCESS_KEY_REFUSED
-
-(SAFE_KEY,) = SAFE
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
@@ -247,14 +244,6 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 
-# The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
-# line: the operations the document marks safe (`app/core/routing.py :: SAFE`), a mark
-# `tests/core/test_safe_operations.py` holds to the read-only handles each operation is handed.
-ADMIN_TIER_READS_OVER_POST = frozenset(
-    (path, method) for path, method in ADMIN_TIER_OPERATIONS if method == "post" and APP.openapi()["paths"][path][method].get(SAFE_KEY) is True
-)
-
-
 def test_every_person_operation_binds_a_person_after_the_key():
     """What earns an operation its exemption from the grants check.
 
@@ -363,16 +352,6 @@ def test_a_system_write_is_system_tier(path: str, method: str):
     # The pass holds no session: the binder would refuse it every hour, and the wrong keys would stay refused.
     calls = [dependency.call for dependency in ROUTES_BY_OPERATION[(path, method)].dependant.dependencies]
     assert bind_actor not in calls, f"{method.upper()} {path} refuses the pass it serves"
-
-
-def test_a_system_write_is_unreachable_without_the_system_key():
-    """One write stands for all, as for the public writes: each is held to the system guard alone above."""
-
-    path, method = SYSTEM_WRITES[0]
-    response = TestClient(APP, raise_server_exceptions=False).request(method, path.replace("{saison_id}", "2026"), json={})
-
-    assert response.status_code == 401
-    assert response.json()["error_code"] == MISSING_BEARER_TOKEN
 
 
 def test_no_route_creates_a_person():

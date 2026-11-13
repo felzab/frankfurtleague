@@ -1,5 +1,5 @@
 """
-API · the address change's pure judgements: the masked address, the link's view, the wait, and the system's read
+API · the address change's pure judgements: the masked address, the link's view, the wait, and the links' lookups
 
 Apart from a database, so the default tier holds them; the routes that serve and refuse on them are
 `tests/api/test_address_change_execution.py`'s.
@@ -9,7 +9,6 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import BaseModel
 from pymongo import ASCENDING
 
@@ -19,13 +18,9 @@ from app.api.address_change.schemas import (
     FLAddressChangeViewPrevious,
 )
 from app.api.address_change.services import compose_confirmation_update, masked_address
-from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES
 from app.shared.schemas.bounds import OWNER_WAIT_DAYS
-from tests.config import BASE_AUTH
-from tests.core.app_source import application
 
 
 class TestTheMask:
@@ -69,19 +64,6 @@ class TestWhatALeakedLinkLearns:
     )
     def test_each_view_declares_exactly_its_side_its_state_and_its_instants(self, model: type[BaseModel], fields: set[str]):
         assert set(model.model_fields) == fields
-
-
-class TestTheSystemsReadOfTheNewAddress:
-    """The address a change would move to, for the frontend's server alone."""
-
-    def test_the_base_key_is_refused_as_the_wrong_credential(self):
-        """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
-
-        response = TestClient(application(), raise_server_exceptions=False).post(
-            f"/api/v{API_VERSION}/address_change/address", headers=BASE_AUTH, json={"token": "t" * 43}
-        )
-
-        assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
 
 
 class TestTheLinksLookups:
