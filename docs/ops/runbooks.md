@@ -83,8 +83,9 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
    container, or with a healthcheck reading anything but healthy, fails the deploy, named, before
    nginx is touched.
 5. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
-   seconds for nginx's own line `start worker processes`. An `[emerg]`, `[alert]` or `[crit]` line,
-   or no line at all, fails the deploy, the line shown.
+   seconds for nginx's master to log `start worker processes`. An `[emerg]`, `[alert]` or `[crit]`
+   line from the master, or neither within the wait, fails the deploy, the line shown. A worker's
+   line decides nothing, since a request can cause one.
 6. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
    and the build before it.
 
