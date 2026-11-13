@@ -79,11 +79,6 @@ const EVERY_JOB = ["bewerbungen", "account", "erasure", "spielbestaetigungen", "
 /** Lets every pending promise settle: a tick starts the pass, which finishes on the microtask queue. */
 const settle = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
-// Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
-// environment: the arm under test is exactly the one only a test can move.
-const env = process.env as Record<string, string | undefined>;
-const nodeEnvBefore = env.NODE_ENV;
-
 beforeEach(() => {
   ran.length = 0;
   lines.length = 0;
@@ -100,15 +95,10 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-  if (nodeEnvBefore === undefined) delete env.NODE_ENV;
-  else env.NODE_ENV = nodeEnvBefore;
-});
+afterEach(() => void vi.useRealTimers());
 
-/** One boot under `nodeEnv`, then each step, answering what had started by the end of each. */
-async function bootAndStep(nodeEnv: string, steps: readonly number[]): Promise<string[][]> {
-  env.NODE_ENV = nodeEnv;
+/** One production boot, then each step, answering what had started by the end of each. */
+async function bootAndStep(steps: readonly number[]): Promise<string[][]> {
   const seen: string[][] = [];
   await register();
   for (const step of steps) {
@@ -120,11 +110,17 @@ async function bootAndStep(nodeEnv: string, steps: readonly number[]): Promise<s
   return seen;
 }
 
+/* Every case here boots a production build, whose `NODE_ENV` the `unit-production` project sets: under any other value
+   the boot arms nothing, and each case would read a scheduler that never started. */
+it("runs under a production build's NODE_ENV", () => {
+  expect(process.env.NODE_ENV).toBe("production");
+});
+
 /* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
    sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. */
 it("starts the sign-in store's connect at a production boot without waiting on it", async () => {
   storeConnects = 0;
-  await bootAndStep("production", []);
+  await bootAndStep([]);
 
   expect(storeConnects).toBe(1);
 });
@@ -133,14 +129,9 @@ describe("the one scheduler", () => {
   /* Nothing at the boot, where the backend may not answer yet after a deploy; the first pass a minute in, so a
      container recreated daily still runs one; then hourly. Every job each pass, the drain last, sending what they owed. */
   it("runs every job and then the drain a minute after a production boot, and again each hour", async () => {
-    const seen = await bootAndStep("production", [0, MINUTE_MS, HOUR_MS - MINUTE_MS - SECOND_MS, SECOND_MS]);
+    const seen = await bootAndStep([0, MINUTE_MS, HOUR_MS - MINUTE_MS - SECOND_MS, SECOND_MS]);
 
     expect(seen).toStrictEqual([[], EVERY_JOB, EVERY_JOB, [...EVERY_JOB, ...EVERY_JOB]]);
-  });
-
-  /* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people. */
-  it("arms nothing under a development build", async () => {
-    expect(await bootAndStep("development", [3 * HOUR_MS])).toStrictEqual([[]]);
   });
 
   /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
@@ -148,7 +139,7 @@ describe("the one scheduler", () => {
   it("arms nothing under the hold, and says so", async () => {
     settings.RESTORE_HOLD = "on";
 
-    expect(await bootAndStep("production", [MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);
+    expect(await bootAndStep([MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);
     expect(schedulerLines().map(({ event }) => event)).toStrictEqual(["scheduler.held"]);
   });
 
@@ -156,7 +147,7 @@ describe("the one scheduler", () => {
   it("runs every job behind one that threw, and names it on a line", async () => {
     answers.set("account", () => Promise.reject(new TypeError("the store went away")));
 
-    const [seen] = await bootAndStep("production", [MINUTE_MS]);
+    const [seen] = await bootAndStep([MINUTE_MS]);
 
     expect(seen).toStrictEqual(EVERY_JOB);
     expect(lines.filter(({ level }) => level === "error")).toStrictEqual([
@@ -169,7 +160,7 @@ describe("the one scheduler", () => {
     let release = () => {};
     answers.set("bewerbungen", () => new Promise<void>((resolve) => (release = resolve)));
 
-    const [, second] = await bootAndStep("production", [MINUTE_MS, HOUR_MS]);
+    const [, second] = await bootAndStep([MINUTE_MS, HOUR_MS]);
     release();
     await settle();
 
@@ -185,7 +176,7 @@ describe("the pass's one line", () => {
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
     answers.set("spielbestaetigungen", () => Promise.resolve({ count: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 }, open: 0 }));
     drains = { ...drains, sent: 3 };
-    await bootAndStep("production", [MINUTE_MS]);
+    await bootAndStep([MINUTE_MS]);
 
     answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 0 }, open: 0, error: new TypeError("cut") }));
     answers.delete("spielbestaetigungen");
@@ -220,7 +211,7 @@ describe("the heartbeat after each pass", () => {
      owner reads first: a job that threw, the deletions a job left, the mails the drain gave up. */
   it("pings the monitor after a pass that did all it owed, and `/fail` naming each job that did not", async () => {
     heartbeat = HEARTBEAT;
-    await bootAndStep("production", [MINUTE_MS]);
+    await bootAndStep([MINUTE_MS]);
 
     answers.set("account", () => Promise.reject(new TypeError("the store went away")));
     answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 3 }, open: 3 }));
@@ -240,7 +231,7 @@ describe("the heartbeat after each pass", () => {
     heartbeat = HEARTBEAT;
     monitor = () => Promise.reject(new TypeError("fetch failed"));
 
-    await bootAndStep("production", [MINUTE_MS, HOUR_MS]);
+    await bootAndStep([MINUTE_MS, HOUR_MS]);
 
     expect(ran).toStrictEqual([...EVERY_JOB, ...EVERY_JOB]);
     expect(schedulerLines().map(({ event, fields }) => [event, fields])).toStrictEqual([
