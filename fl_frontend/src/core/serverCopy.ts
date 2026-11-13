@@ -357,7 +357,10 @@ export const SERVER_COPY = catalogue({
       next: COPY.admin.facts.after,
       /** The moment a move left, where the move also changed the sides: the pairing that slot held, then the moment. */
       previousPairing: (spiel: Words, moment: string) => `${textOf(spiel)}, ${moment}`,
-      /** A move whose new slot is asked later, by the reader: a club is asked, a referee booked. */
+      /**
+       * The promise of a move's notice stored with `asked_again`, by the reader: a club is asked, a referee booked. The
+       * pass writes the flag false, so only a notice queued with it true says this.
+       */
       askedLater: {
         team: "Zum neuen Termin bekommst du eine neue Anfrage.",
         schiedsrichter: "Zum neuen Termin bekommst du eine neue Einteilung.",
@@ -368,8 +371,7 @@ export const SERVER_COPY = catalogue({
 
       /**
        * A match that will not be played, by its event in the word the match page names it by, around its moment: a
-       * no-show names the side that stayed away. `none` words a mail naming no event. What a match called off and set
-       * again brings each reader follows.
+       * no-show names the side that stayed away. `none` words a mail naming no event.
        */
       cancelled: {
         ausgefallen: {
@@ -392,10 +394,6 @@ export const SERVER_COPY = catalogue({
           before: (spiel: Words) => `${textOf(spiel)} am\u00A0`,
           after: " fällt aus.",
         },
-      },
-      reinstated: {
-        team: "Wird das Spiel neu angesetzt, bekommst du eine neue Anfrage.",
-        schiedsrichter: "Wird das Spiel neu angesetzt, bekommst du eine neue Einteilung.",
       },
 
       /** The referee's Einteilung, which they answer on their own Übersicht, signed in. */
