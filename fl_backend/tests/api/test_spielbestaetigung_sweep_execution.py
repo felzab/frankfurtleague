@@ -1206,9 +1206,10 @@ class TestASideReFieldedNamesThePairingEachPartyWasAskedAbout:
         )
 
         left = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "18:00:00"}
-        # Alpha, off the fixture, is told the request it was sent no longer stands, about the pairing it was sent.
+        # Alpha, off the fixture, is told the request it was sent no longer stands, about the pairing it was sent: told it
+        # stays, it would read that the match it no longer plays moved.
         assert [
-            ((notice.team1_name, notice.team2_name), notice.moved_to, notice.asked_again, sorted(r.address for r in notice.recipient))
+            ((notice.team1_name, notice.team2_name), notice.moved_to, notice.stays, sorted(r.address for r in notice.recipient))
             for notice in second.new_ansetzungen
         ] == [(("Alpha", "Beta"), None, False, sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN))]
         assert [(request.team, request.moved_from) for request in second.requests] == [("Beta", left)]
