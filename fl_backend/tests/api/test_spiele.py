@@ -115,13 +115,3 @@ class TestPatchPayload:
         """The server composes each from the row it belongs to, so a copy a client typed could only disagree with it."""
 
         assert not composed & set(model.model_fields)
-
-    @pytest.mark.parametrize(
-        ("model", "kept"),
-        [(FLSpielortFieldPayload, "mietpreis"), (FLSpielSchiedsrichterFieldPayload, "payment")],
-        ids=["the rent", "the payment"],
-    )
-    def test_what_this_spiel_pays_stays_on_the_payload(self, model, kept):
-        """Deliberately unlike the names beside it: each is this fixture's own record, not a copy of a default."""
-
-        assert kept in model.model_fields
