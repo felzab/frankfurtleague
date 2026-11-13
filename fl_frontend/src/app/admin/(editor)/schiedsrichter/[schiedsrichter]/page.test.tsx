@@ -76,7 +76,7 @@ describe("the chips after a referee's name", () => {
   it("set the state's chip, then the mail's trouble", async () => {
     expect(await chipsFor(unanswered(barred))).toStrictEqual({
       chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
-      flag: { tone: "warn", label: COPY.admin.saison.addressBarred },
+      flag: { tone: "danger", label: COPY.admin.saison.addressBarred },
     });
   });
 

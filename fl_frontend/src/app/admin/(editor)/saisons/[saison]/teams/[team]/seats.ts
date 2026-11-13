@@ -1,8 +1,7 @@
-import { CONFIRMED_CHIP, EXPIRED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
@@ -39,14 +38,10 @@ function standingOf(
 ): { chip: ChipProps | null; day: Copy | null; asks: boolean } {
   if (person === null) {
     if (link?.declined_at != null) {
-      return {
-        chip: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
-        day: DAYS.objectedOn(dayOf(link.declined_at)),
-        asks: false,
-      };
+      return { chip: OBJECTED_CHIP, day: DAYS.objectedOn(dayOf(link.declined_at)), asks: false };
     }
     // A row whose block stands holds an empty seat only by its person's erasure; a row with no block never held one.
-    return { chip: entered ? { tone: "neutral", label: COPY.admin.erased } : null, day: null, asks: false };
+    return { chip: entered ? ERASED_CHIP : null, day: null, asks: false };
   }
   const confirmed = person.einwilligung.confirmed_at;
   if (confirmed !== null) return { chip: CONFIRMED_CHIP, day: DAYS.confirmedOn(dayOf(confirmed)), asks: false };

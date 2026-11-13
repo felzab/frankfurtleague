@@ -73,9 +73,8 @@ type GroupsContent = {
 
 /**
  * Open work, one card per kind in its order of reading, such as the administrator's Übersicht: each card's title and
- * count over its records, on a page no search narrows the first five of a longer card's and the rest a press away
- * (`CappedRows`), every card drawn
- * every day, one with nothing waiting saying so.
+ * count over its records, the first five of a longer card's rows and the rest a press away (`CappedRows`), five of what
+ * the search leaves on a page a search narrows, every card drawn every day, one with nothing waiting saying so.
  */
 type CardsContent = {
   /** The team whose own Übersicht this is, heading the cards: its plaque and its full name (`TeamHead`). */
@@ -558,7 +557,7 @@ async function ListBody({ list }: { list: ListContent }) {
           {team !== undefined && <TeamHead {...team} />}
           <Cards boxes={cards.length + (seats === undefined ? 0 : 1)}>
             {cards.map((entry) =>
-              // A searched card is drawn where the search is held, since what it shows depends on the text typed.
+              // A searched card is drawn where the search is held, since which rows it caps depends on the text typed.
               list.search !== undefined ? (
                 <ListCard
                   key={entry.id}
@@ -665,9 +664,10 @@ async function ListBody({ list }: { list: ListContent }) {
  * clubs the filters left as school tiles, which the search narrows, as Teams lists them. A list with nothing
  * in it shows its empty state in its place.
  *
- * The title and the toolbar are drawn at once; the list waits for its content, in the template's one boundary with what
- * its read decides above it, drawn meanwhile as the placeholders of the blocks it will be drawn with. Typing into the
- * search field before the rows arrive searches them once they do.
+ * Under `WholePages` the page arrives whole, its list read with it. Outside it, the title and the toolbar are drawn at
+ * once, and the list waits for its content in the template's one boundary, with what its read decides above it, drawn
+ * meanwhile as the placeholders of the blocks it will be drawn with; typing into the search field before the rows
+ * arrive searches them once they do.
  */
 export function ListPage({
   head,

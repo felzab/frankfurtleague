@@ -2,6 +2,7 @@ import Image from "next/image";
 
 import { waitSample } from "@/core/copy";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
@@ -11,7 +12,6 @@ import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 
 /**
@@ -65,20 +65,12 @@ const grid = tv({
 });
 
 /**
- * The container the grid takes its columns from, since a query reads an ancestor; `w-full`, since a container's width
- * counts none of its content.
- */
-function TilesBox({ children }: { children: ReactNode }) {
-  return <div className="@container w-full">{children}</div>;
-}
-
-/**
  * The season's schools, each an equal tile leading to its club's page.
  */
 export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
   const slots = grid({ kind: "school" });
   return (
-    <TilesBox>
+    <BlockBox>
       <ul className={slots.root()}>
         {schools.map((school, index) => (
           <li
@@ -112,7 +104,7 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
           </li>
         ))}
       </ul>
-    </TilesBox>
+    </BlockBox>
   );
 }
 
@@ -123,7 +115,7 @@ export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
 export function SchoolTilesPlaceholder() {
   const slots = grid({ kind: "school" });
   return (
-    <TilesBox>
+    <BlockBox>
       <div className={slots.root()}>
         {Array.from({ length: SCHOOLS_WAITING }, (_, index) => (
           <div
@@ -145,7 +137,7 @@ export function SchoolTilesPlaceholder() {
           </div>
         ))}
       </div>
-    </TilesBox>
+    </BlockBox>
   );
 }
 
@@ -157,7 +149,7 @@ export function SchoolTilesPlaceholder() {
 export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
   const slots = grid({ kind: "sponsor" });
   return (
-    <TilesBox>
+    <BlockBox>
       <ul className={slots.root()}>
         {sponsors.map((sponsor) => (
           <li
@@ -191,6 +183,6 @@ export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
           </li>
         ))}
       </ul>
-    </TilesBox>
+    </BlockBox>
   );
 }

@@ -19,7 +19,8 @@ const OWED: Readonly<Record<FLOutboxStatusState, ChipProps | null>> = {
   open: null,
   sent: null,
   dropped: null,
-  barred: { tone: "warn", label: COPY.admin.saison.addressBarred },
+  // Red as the provider's suppression is: in both the mail does not arrive.
+  barred: { tone: "danger", label: COPY.admin.saison.addressBarred },
   // A stack that mails nothing filed it: no address is at fault, and nothing failed.
   held: { tone: "neutral", label: DELIVERY.held },
   abandoned: { tone: "danger", label: DELIVERY.abandoned },

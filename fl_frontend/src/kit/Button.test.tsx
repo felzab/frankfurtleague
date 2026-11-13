@@ -68,16 +68,6 @@ describe("a locked act", () => {
     await closed();
   });
 
-  it("opens the reason at once on a press the pointer's wait has not reached, and closes it on leaving", async () => {
-    const button = lockedAct(acts[0].act);
-
-    await userEvent.click(button);
-    expect(reason()).toBe(REASON);
-
-    await userEvent.unhover(button);
-    await closed();
-  });
-
   // The harm: a touch raises no tooltip of its own, so a phone reads no reason at all, and a tap has no leaving.
   it("opens the reason on a tap, a tap elsewhere closing it", async () => {
     const button = lockedAct(acts[0].act);

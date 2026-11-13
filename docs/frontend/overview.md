@@ -134,7 +134,12 @@ uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own pol
 **A block chooses its form by a container query on its own box, never by the screen's width**,
 because the rail opens and closes under one viewport, so only the box says how much room a block
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
-42 rem (`@2xl`) and spread from it. A card's act row, `Facts` and `LinkRows` switch at 32 rem
+42 rem (`@2xl`) and spread from it. A list of records is a table from 42 rem, and below it each row
+stacks: the name with its chips, at most one `narrow` column beside them, one muted line under the
+name, then a decision's acts. A column the stacked row leaves out keeps its fact where
+[a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern) says. The Tabelle, a
+`stack` table and a `prose` table keep forms of their own (`fl_frontend/src/kit/Table.tsx`). A
+card's act row, `Facts` and `LinkRows` switch at 32 rem
 (`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
 (`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum draws its cards of plaques alone below
 42 rem and with each side's name and the date line from it, by the tree's box, since a card's own

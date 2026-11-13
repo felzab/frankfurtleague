@@ -4,6 +4,7 @@ import { PartyHead, PartyHeadPlaceholder } from "./AnswerRows";
 import { actRow, cardSurface, stacked } from "./cardStyles";
 import { EMAIL_WORDS } from "./Facts";
 import { SideActsScope } from "./SideActs";
+import { sideActsForm } from "./sideActsForm";
 import { SideActsPlaceholder } from "./SideActsPlaceholder";
 import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
@@ -64,10 +65,9 @@ export function SeatRows({
   bare?: boolean;
 }) {
   const s = seatRows({ bare });
-  // One form for the list, decided once for all its rows: one „⋯“ at every width where some row carries three side acts.
-  const folds = rows.some((seat) => (seat.sideActs ?? 0) > 2);
+  const sideActs = sideActsForm(rows);
   // Side acts stand beside the words at every width, where a „⋯“ under them would take a line of its own.
-  const row = actRow({ opens: false, folds: rows.some((seat) => (seat.sideActs ?? 0) > 0) });
+  const row = actRow({ opens: false, sideActs: sideActs.carried });
   return (
     <ul
       aria-label={label}
@@ -87,7 +87,7 @@ export function SeatRows({
             </span>
             {seat.acts !== undefined && (
               <div className={row.acts()}>
-                <SideActsScope folds={folds}>{seat.acts}</SideActsScope>
+                <SideActsScope folds={sideActs.foldsEverywhere}>{seat.acts}</SideActsScope>
               </div>
             )}
           </span>
@@ -106,7 +106,7 @@ export function SeatRows({
  */
 export function SeatRowsPlaceholder({ bare = false, readOnly = false }: { bare?: boolean; readOnly?: boolean }) {
   const s = seatRows({ bare });
-  const row = actRow({ opens: false, folds: !readOnly });
+  const row = actRow({ opens: false, sideActs: !readOnly });
   return (
     <div className={s.root()}>
       {[0, 1, 2].map((index) => (

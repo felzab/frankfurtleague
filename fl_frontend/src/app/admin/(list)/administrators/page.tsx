@@ -88,7 +88,8 @@ const instantOf = (moment: string) => ({ record: formatInstantShort(moment) });
 
 /**
  * One grant in effect: its tier's chip, the owner's „Leitung“ setting its row apart from every administrator's
- * „Verwaltung“, and its removal, which the owner alone runs, on an administrator's row alone.
+ * „Verwaltung“, and its removal, which the owner alone runs, on an administrator's row alone. The row opens nothing, so
+ * on a phone its line says the day the „Seit“ column would.
  */
 function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "reader" | "readerIsOwner">): TableRow {
   const isOwner = grant.admin_tier === "owner";
@@ -97,6 +98,7 @@ function activeRow(grant: FLGrantRow, { reader, readerIsOwner }: Pick<Access, "r
     id: grant.id,
     name: { record: grant.address, address: true },
     chip: { tone: "success", label: isOwner ? WORDS.owner : COPY.admin.role },
+    phoneLine: WORDS.sinceOn(grant.effective_from),
     cells: { since: dayOf(grant.effective_from) },
     sideActs: 1,
     acts: (
@@ -213,11 +215,15 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
   ];
 }
 
-/** The head of the list of who holds access, as every role's wait draws it: rows each carrying its one act, opening nothing. */
+/**
+ * The head of the list of who holds access, as every role's wait draws it: rows each carrying its one act, opening
+ * nothing, and on a phone the line standing for the „Seit“ column.
+ */
 const HEAD = {
   nameLabel: ADDRESS,
   state: { label: COPY.admin.schiedsrichter.state },
   linked: false,
+  line: "phone",
   columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
   sideAct: COPY.shared.verb.remove,
 } as const satisfies TableHead;

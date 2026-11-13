@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useLayoutEffect, useState } from "react";
+import { startTransition, useLayoutEffect, useState, useTransition } from "react";
 
 import { COPY } from "@/core/copy";
 
@@ -42,9 +42,9 @@ export type AskedInput<Input> = {
  * A form that is a page's one act: its fields in a box, the act and its status line under them, no title but the page's.
  * The press sends the fields to `read`, whose answer is the question, worded from what it read, so the act is confirmed
  * over what it will reach: a question standing on data the form holds until the press. `read`'s refusal stands in the
- * form's line, no question asked. The question's final press closes it, asks the touch and runs `act`, whose refusal
- * answers in a toast (`ConfirmDialog`). A done act names itself in its answer's `note`, which stands in the form's
- * line over boxes drawn empty, and in that line alone.
+ * form's line, no question asked. The question's final press closes it, asks the touch and runs `act`, the form's
+ * press busy until it answers, a refusal in a toast (`ConfirmDialog`). A done act names itself in its answer's `note`,
+ * which stands in the form's line over boxes drawn empty, and in that line alone.
  */
 export function QuestionForm<Input>({
   verb,
@@ -67,6 +67,9 @@ export function QuestionForm<Input>({
 }) {
   const [asked, setAsked] = useState<AskedInput<Input> | null>(null);
   const [isAsking, setAsking] = useState(false);
+  // The act runs after its question closed, so the form's press shows it running and sends nothing while it does.
+  const acting = useTransition();
+  const [isActing] = acting;
   // Raised to draw the boxes anew, as `HeldForm` refuses a form's reset.
   const [emptied, setEmptied] = useState(0);
 
@@ -100,7 +103,7 @@ export function QuestionForm<Input>({
         // A done act's line is about the boxes it emptied: what is typed next is another act's.
         onEdit={() => setDone(null)}
         onSend={(formData) => {
-          if (isPending) return;
+          if (isPending || isActing) return;
           setDone(null);
           submit(formData);
         }}
@@ -116,7 +119,7 @@ export function QuestionForm<Input>({
             variant={tone === "danger" ? askingLook(tone) : tone}
             type="submit"
             label={COPY.shared.verb[verb]}
-            isBusy={isPending}
+            isBusy={isPending || isActing}
           />
         </FormFooter>
       </HeldForm>
@@ -126,6 +129,7 @@ export function QuestionForm<Input>({
       {asked === null ? (
         <ConfirmDialog
           open={open}
+          transition={acting}
           onConfirm={() => undefined}
           touch={{ holder }}
         />
@@ -137,6 +141,7 @@ export function QuestionForm<Input>({
           consequence={asked.question.consequence}
           {...(asked.question.facts === undefined ? {} : { facts: asked.question.facts })}
           open={open}
+          transition={acting}
           touch={{ holder }}
           doneShown
           onConfirm={async () => {

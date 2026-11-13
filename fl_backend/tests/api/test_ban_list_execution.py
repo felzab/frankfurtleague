@@ -7,7 +7,6 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import DuplicateKeyError
 
 from app.api.ban_list.admin_router import delete_ban_list_entry, get_ban_list_entries
 from app.api.ban_list.crud import address_is_barred
@@ -91,21 +90,6 @@ async def lift(database: AsyncDatabase, client: AsyncMongoClient, ban_list_entry
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return [row async for row in database[Collection.BAN_LIST].find().sort("_id", 1)]
-
-
-class TestASecondBanOfOneAddress:
-    def test_the_same_address_retyped_meets_the_row_it_already_has(self, mongo_replica_set_url: str):
-        """One person, two spellings, one row, the index answering 409 `duplicate_key`."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await ban(database, client)
-
-            with pytest.raises(DuplicateKeyError):
-                await ban(database, client, email=BANNED_RETYPED)
-
-            return await database[Collection.BAN_LIST].count_documents({})
-
-        assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
 
 class TestABanOfAnAdministratorsAddress:

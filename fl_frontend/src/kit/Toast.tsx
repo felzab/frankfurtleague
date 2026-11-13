@@ -10,6 +10,7 @@ import {
 
 import { COPY } from "@/core/copy";
 
+import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { useRailCollapsed } from "./RailState";
 import { tv } from "./tv";
@@ -36,10 +37,12 @@ const TIMEOUT_MS = 5000;
 
 /**
  * Reports an outcome that has no place on the page: a title alone, from the catalogue's toast titles.
- * The one way to raise a toast.
+ * The one way to raise a toast. A done act's toast closes itself; a refusal or a partial outcome stands until it is
+ * closed, since the page says it nowhere else (React Aria's Toast closes by itself only what is not critical or may be
+ * found elsewhere).
  */
 export function appToast(tone: Tone, title: Copy) {
-  queue.add({ tone, title }, { timeout: TIMEOUT_MS });
+  queue.add({ tone, title }, tone === "success" ? { timeout: TIMEOUT_MS } : undefined);
 }
 
 /**
@@ -94,6 +97,16 @@ export function ToastRegion({ frame }: { frame: "rail" | "classic" }) {
           <ToastContent className="min-w-0">
             <Text slot="title">{toast.content.title}</Text>
           </ToastContent>
+          {/* After the content, so a screen reader says the outcome before the button, as React Aria places it. Pulled
+              into the padding by its glyph's inset, so the toast keeps its height and the glyph stands as far from the
+              right edge as the tone's glyph from the left. */}
+          <div className="-my-1.5 -me-2 pointer-coarse:-my-2.5 pointer-coarse:-me-3">
+            <Button
+              icon="close"
+              label={COPY.shared.close}
+              slot="close"
+            />
+          </div>
         </AriaToast>
       )}
     </AriaToastRegion>

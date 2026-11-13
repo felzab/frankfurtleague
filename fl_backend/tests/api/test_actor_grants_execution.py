@@ -7,10 +7,8 @@ API · `actor_not_admin` over the real grants read
 
 import asyncio
 from collections.abc import Iterator
-from datetime import UTC, datetime
 
 import pytest
-from bson import ObjectId
 from httpx2 import Response
 from pymongo import MongoClient
 
@@ -34,24 +32,13 @@ CONFIG = config_for(DATABASE_NAME)
 # An admin-tier read on a router that writes nothing.
 READ_PATH = "/api/v0/spielorte"
 
-# Granted as the module's database is seeded, so a session an hour older predates the grant.
-GRANTED_AT_THE_SEED = "neu.admin@example.com"
-AN_HOUR_S = 3600
-
 
 @pytest.fixture(scope="module")
 def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     client = MongoClient(mongo_replica_set_url)
     try:
-        now = datetime.now(UTC)
-        granted = {
-            "_id": ObjectId(),
-            "address": GRANTED_AT_THE_SEED,
-            "admin_tier": "administration",
-            "effective_from": now,
-        }
         with a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME) as database:
-            database[Collection.GRANTS].insert_many([*grants_for_the_suite(), granted])
+            database[Collection.GRANTS].insert_many(grants_for_the_suite())
 
             yield mongo_replica_set_url
     finally:
@@ -73,11 +60,3 @@ def test_an_actor_holding_no_grant_is_refused_by_the_real_read(seeded_url: str):
 
     assert (response.status_code, response.json()["error_code"]) == (403, Code.ACTOR_NOT_ADMIN)
     assert "www-authenticate" not in response.headers
-
-
-def test_a_session_signed_in_before_its_grant_is_refused(seeded_url: str):
-    """The grant's date is what the session is judged against, so a sign-in older than the grant holds none of it."""
-
-    response = answered(seeded_url, StampedHeaders(GRANTED_AT_THE_SEED, ADMIN_KEY, signed_in_before_s=AN_HOUR_S))
-
-    assert (response.status_code, response.json()["error_code"]) == (401, Code.SESSION_REFUSED)

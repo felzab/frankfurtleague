@@ -42,9 +42,9 @@ export type SideAct = {
 const ListFolds = createContext(true);
 
 /**
- * What a list hands its rows' side acts: whether it folds them at every width, `true` where some row of it carries
- * three or more, as each row says (`Table`'s and `SeatRows`' `sideActs`). A client part, since a list may be drawn on
- * the server, where no context is given.
+ * What a list hands its rows' side acts: whether it folds them at every width, as the list decides it from what each
+ * row says it carries (`sideActsForm`). A client part, since a list may be drawn on the server, where no context is
+ * given.
  */
 export function SideActsScope({ folds, children }: { folds: boolean; children: ReactNode }) {
   return <ListFolds value={folds}>{children}</ListFolds>;
@@ -70,8 +70,8 @@ const NARROW_CLASSES = "contents @2xl:hidden";
  * locked one dimmed, saying why on hover, focus and press (`Button`'s `locked`). In a narrower box, a phone's, every
  * row's acts fold into one „⋯“ at the row's end, which opens the kit's menu on the acts in their order, a destroying
  * one after the others, each entry its words alone, and a locked one dimmed with its reason as the line under it. A
- * list some row of which carries three or more folds at every width, since a row holds at most two buttons beside its
- * words. A row's decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
+ * list some row of which carries more than its buttons can hold folds at every width (`sideActsForm`). A row's
+ * decision, such as „Zusagen“ and „Ablehnen“, keeps its labelled buttons and is never drawn here.
  *
  * `children` are the questions and dialogs the acts open, each on the open state its act's press sets: one opened from
  * the menu hands the focus back to the „⋯“ as it closes, as the menu itself does.

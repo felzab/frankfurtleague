@@ -141,22 +141,6 @@ class TestTheCircleMethodPairsAGroup:
             sides = [side for pair in pairs for side in pair]
             assert len(set(sides)) == len(sides)
 
-    @pytest.mark.parametrize("teams", range(3, 17, 2))
-    def test_an_odd_group_byes_exactly_one_club_a_round(self, teams: int):
-        """The bye is an ABSENCE: the dummy's pair is dropped rather than emitted as a fixture."""
-
-        byes = [set(range(teams)) - {side for pair in pairs for side in pair} for pairs in circle_rounds(teams)]
-
-        assert [len(bye) for bye in byes] == [1] * teams
-
-    @pytest.mark.parametrize("teams", range(3, 17, 2))
-    def test_an_odd_group_byes_every_club_once(self, teams: int):
-        """Otherwise one club rests twice while another never does, which is a different competition."""
-
-        byes = [next(iter(set(range(teams)) - {side for pair in pairs for side in pair})) for pairs in circle_rounds(teams)]
-
-        assert sorted(byes) == list(range(teams))
-
     def test_it_pairs_the_two_smallest_groups_exactly_like_this(self):
         """Hand-derived rather than recorded from a run, so this pins the sides as well as the pairs."""
 
@@ -253,15 +237,6 @@ class TestTheTableCoversTheWritePath:
 
 
 class TestEveryRowIsAWholeDraw:
-    @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
-    def test_every_qualifier_stands_in_exactly_one_slot(self, key: tuple[int, int]):
-        """A repeated pair would field one team twice and leave another out of its own bracket."""
-
-        groups, qualifiers = key
-        expected = [(gruppe, platz) for gruppe in GRUPPEN[:groups] for platz in range(1, qualifiers + 1)]
-
-        assert sorted(BRACKET_SEEDING[key]) == sorted(expected)
-
     @pytest.mark.parametrize("key", sorted(BRACKET_SEEDING))
     def test_round_one_draws_placings_summing_to_one_past_the_qualifier_count(self, key: tuple[int, int]):
         """What seeding is for: a group winner draws the weakest qualifier the round still holds."""

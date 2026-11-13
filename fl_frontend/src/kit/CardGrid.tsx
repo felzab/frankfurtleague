@@ -1,3 +1,4 @@
+import { BlockBox } from "./BlockBox";
 import { CardLink, CardPlaceholder } from "./Card";
 import { Waiting } from "./Skeleton";
 import { tv } from "./tv";
@@ -32,11 +33,9 @@ export function CardGrid({
   children: ReactNode;
 }) {
   return (
-    // The container the grid's columns read, since a query reads an ancestor; `w-full`, since a container's width counts
-    // none of its content, and a parent starting its children would shrink it to nothing.
-    <div className="@container w-full">
+    <BlockBox>
       <div className={grid({ across })}>{children}</div>
-    </div>
+    </BlockBox>
   );
 }
 
@@ -55,8 +54,9 @@ async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray
 }
 
 /**
- * The role chooser's places, each a card linking it, read in a boundary of their own under the titled strip. Meanwhile
- * two cards stand, the fewest a person reaching the chooser holds, each its title's bar over its line's.
+ * The role chooser's places, each a card linking it, read under the titled strip; under `WholePages` the page arrives
+ * whole with them. Outside `WholePages` they wait in a boundary of their own, and meanwhile two cards stand, the fewest
+ * a person reaching the chooser holds, each its title's bar over its line's.
  */
 export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
   return (

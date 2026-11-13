@@ -47,6 +47,9 @@ export function ChangeActs({
   const touched = usePasskeyTouch(true, holder);
   const [isSending, startSending] = useTransition();
   const [isAsking, setAsking] = useState(false);
+  // The ending runs after its question closed, so its button or the row's „⋯“ shows it running.
+  const ending = useTransition();
+  const [isEnding] = ending;
 
   const send: SideAct = {
     label: COPY.shared.withObject(COPY.account.address.link, "send"),
@@ -56,7 +59,7 @@ export function ChangeActs({
         toastAnswer(await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder }), COPY.shared.toast.linkSent);
       }),
   };
-  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", onPress: () => setAsking(true) };
+  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
 
   return (
     <SideActs acts={changeActKinds(resends).map((kind) => ({ send, end })[kind])}>
@@ -69,6 +72,7 @@ export function ChangeActs({
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
+        transition={ending}
       />
     </SideActs>
   );

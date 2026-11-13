@@ -12,7 +12,7 @@ import { tv } from "./tv";
 import type { Copy } from "@/core/copy";
 
 /** One section a reading page's contents list names: its heading's words and the id its `section` carries. */
-export type ContentsEntry = { id: string; title: Copy };
+type ContentsEntry = { id: string; title: Copy };
 
 const contents = tv({
   slots: {

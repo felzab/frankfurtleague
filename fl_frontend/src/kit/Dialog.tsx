@@ -34,6 +34,21 @@ import type { HeldOpen } from "./useOpenUntilHidden";
 const DONE: ActionAnswer<unknown> = { ok: true, value: undefined };
 
 /**
+ * A route dialog's title, in the dialog's title slot, which names the dialog; `className` is its look. A server template
+ * places it through this export, since React Aria's heading is a client module alone.
+ */
+export function DialogTitle({ text, className }: { text: Copy; className: string }) {
+  return (
+    <Heading
+      slot="title"
+      level={2}
+      className={className}>
+      {text}
+    </Heading>
+  );
+}
+
+/**
  * What a route dialog holds, read on the server: its title read but not drawn, its body, which is the page's own body,
  * and last its one act, the blocks 24 px apart as a dialog's fields and acts are. The same parts while the read waits,
  * placeholders as its body and act and the wait's word as its title, so the dialog is named throughout.
@@ -51,12 +66,10 @@ export function RouteDialogBody({
   return (
     <>
       {/* Read, not drawn: the body's first block names the match by its two sides, which a drawn title would repeat. */}
-      <Heading
-        slot="title"
-        level={2}
-        className="sr-only">
-        {title}
-      </Heading>
+      <DialogTitle
+        text={title}
+        className="sr-only"
+      />
       {children}
       <div className="grid">{act}</div>
     </>

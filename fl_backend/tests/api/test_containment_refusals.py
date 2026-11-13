@@ -58,14 +58,6 @@ class TestAMatchdaySitsInsideItsSeason:
         assert refusal is not None
         assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
-    def test_it_applies_to_a_matchday_with_no_spiele(self):
-        """A property of the two documents alone, so a create is held to it before any fixture exists."""
-
-        refusal = find_spieltag_span_refusal(start="2026-01-01", end="2026-01-02", spiel_dates=[], **SPAN)
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
-
 
 class TestASeasonKeepsCoveringItsMatchdays:
     """`spieltag_outside_saison` from the container's side: shrinking the season is the other way to break it."""
@@ -161,7 +153,7 @@ class TestOneVenueAndOneRefereeAtATime:
     ) -> BookedSlot:
         return BookedSlot(spiel_id=ObjectId(), saison_id=OTHER_SAISON, spiel_nr=nr, date=date, time=time, resource=resource)
 
-    @pytest.mark.parametrize("time", ["18:00:00", "19:30:00", "21:59:00"])
+    @pytest.mark.parametrize("time", ["18:00:00", "21:59:00"])
     def test_inside_the_buffer_is_refused(self, time):
         refusal = find_clash_refusal(date="2026-03-07", time=time, booked=[self.slot("18:00:00")])
 

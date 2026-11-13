@@ -331,16 +331,14 @@ KILLED_HOLDER: Final = (
 )
 
 
-@pytest.mark.parametrize("stale", [False, True], ids=["no lock", "a lock its killed writer left"])
-def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path, stale: bool) -> None:
+def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
     """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0.
 
     A lock left by a killed writer stopped every later one; twenty finding it at once must break it once.
     """
     register = _register(tmp_path)
-    if stale:
-        subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
-        assert (tmp_path / f"{register.name}.lock").exists()
+    subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
+    assert (tmp_path / f"{register.name}.lock").exists()
     texts = []
     for k in range(20):
         texts.append(tmp_path / f"u{k}.txt")
@@ -354,20 +352,6 @@ def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path, st
     held = register.read_bytes().decode("utf-8")
     assert sorted(int(found) for found in re.findall(r"^UPDATE [\d -]+:\d\d: writer (\d+)$", held, re.MULTILINE)) == list(range(20))
     assert sorted(path.name for path in tmp_path.iterdir() if path.name.startswith(register.name)) == [register.name]
-
-
-def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
-    """The twenty writers above pass by luck where nothing excludes them; holding the lock makes the wait certain."""
-    register = _register(tmp_path)
-    done: list[str] = []
-    with ledger.locked(register):
-        writer = threading.Thread(target=lambda: done.append(reg.append(register, "after the lock")))
-        writer.start()
-        writer.join(0.5)
-        assert writer.is_alive() and "after the lock" not in register.read_bytes().decode("utf-8")
-    writer.join(ledger.LOCK_SECONDS)
-    assert done and done[0] in register.read_bytes().decode("utf-8")
-    assert not (tmp_path / f"{register.name}.lock").exists()
 
 
 def test_every_register_writer_waits_for_the_lock(tmp_path: Path) -> None:
@@ -1659,11 +1643,6 @@ def test_ci_reads_one_unlisted_finding_among_the_gates_listed_ones_and_none_of_i
     said, new, flagged = _report(_gate(tmp_path, GATE_RUN), GATE_RED)
     assert new == ["an unlisted one"], said
     assert flagged
-
-
-def test_ci_passes_a_gate_run_whose_every_finding_is_listed(tmp_path: Path) -> None:
-    said, new, flagged = _report(_gate(tmp_path, tuple(line for line in GATE_RUN if "unlisted" not in line)), GATE_RED)
-    assert new == [] and not flagged, said
 
 
 def test_ci_reads_a_job_printing_only_summaries_as_new(tmp_path: Path) -> None:

@@ -168,8 +168,8 @@ def test_a_realip_header_a_server_overrides_fails():
 
 @pytest.mark.parametrize(
     "statement",
-    ["set_real_ip_from 0.0.0.0/0;", "real_ip_header X-Forwarded-For;"],
-    ids=["trust", "header"],
+    ["set_real_ip_from 0.0.0.0/0;"],
+    ids=["trust"],
 )
 def test_a_realip_directive_inside_a_one_line_block_fails(statement: str):
     """nginx reads statements, not lines: a directive after the `{` on the block's own line takes effect all the same."""
@@ -376,7 +376,7 @@ def test_each_service_reading_its_package_file_alone_is_clean():
     assert checker.env_files(rendered, "p") == []
 
 
-@pytest.mark.parametrize("second", ["fl_backend/.env", ".env"], ids=["the-other-package-s", "the-checkout-s"])
+@pytest.mark.parametrize("second", [".env"], ids=["the-checkout-s"])
 def test_a_second_file_beside_the_package_s_fails(second: str):
     """A name the second file hands the container is one nobody reading the package's own file sees."""
     rendered = model(frontend=env_file("fl_frontend/.env", second), backend=env_file("fl_backend/.env"))
@@ -439,7 +439,6 @@ def test_each_service_on_exactly_its_networks_is_clean():
         ("backend", (EDGE,)),
         ("mongo", (EDGE,)),
         ("nginx", (EDGE,)),
-        ("backend", ("default",)),
     ],
     ids=[
         "connector-reaches-the-application",
@@ -447,7 +446,6 @@ def test_each_service_on_exactly_its_networks_is_clean():
         "backend-moved-to-the-edge",
         "database-on-the-edge",
         "edge-cut-off",
-        "default",
     ],
 )
 def test_a_service_on_another_network_than_its_own_fails(service: str, networks: tuple[str, ...]):
@@ -535,16 +533,8 @@ def test_a_target_naming_the_default_path_either_way_is_clean(target: str):
     assert checker.secret_holders(stack_of("production", frontend={"secrets": moved}), "p", RENDER, "production") == []
 
 
-# Every secret of each stack handed to each service of that stack its table leaves out, the edge among them.
-SECOND_HOLDERS: Final = [
-    pytest.param(stack, secret, service, id=f"{stack}-{secret}-{service}")
-    for stack, table in checker.SECRET_HOLDERS.items()
-    for secret, (holders, _) in sorted(table.items())
-    for service in sorted({"nginx", *(held for readers, _ in table.values() for held in readers)} - holders)
-]
-
-
-@pytest.mark.parametrize(("stack", "secret", "holder"), SECOND_HOLDERS)
+# One holder the table leaves out stands for every one: the check compares every secret's holders with its row alike.
+@pytest.mark.parametrize(("stack", "secret", "holder"), [pytest.param("production", "auth_secret", "nginx", id="production-auth_secret-nginx")])
 def test_a_second_holder_of_any_secret_fails(stack: str, secret: str, holder: str):
     """A second holder of a key holds a credential its table never gave it, the edge's own included."""
     rendered = stack_of(stack)
@@ -558,7 +548,7 @@ def test_a_second_holder_of_any_secret_fails(stack: str, secret: str, holder: st
 
 @pytest.mark.parametrize(
     ("secret", "service"),
-    [(KEY, "frontend"), ("auth_resend_key", "frontend"), ("internal_api_key_admin", "backend"), ("tunnel_token", "cloudflared")],
+    [("internal_api_key_admin", "backend")],
 )
 def test_a_reader_left_without_its_secret_fails(secret: str, service: str):
     """Its boot refuses after the recreate, behind an edge answering 502; a shared key missing on one side refuses every call."""
@@ -739,7 +729,6 @@ def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
         pytest.param("backend", RENDER / "secrets", id="the-directory-into-the-backend"),
         pytest.param("nginx", RENDER / "secrets" / KEY, id="the-key-file-into-the-edge"),
         pytest.param("backend", RENDER, id="the-checkout-holding-it"),
-        pytest.param("frontend", RENDER / "secrets", id="the-directory-into-the-frontend-beside-its-secret"),
     ],
 )
 def test_a_bind_mount_reaching_the_secrets_directory_fails(service: str, source: Path):

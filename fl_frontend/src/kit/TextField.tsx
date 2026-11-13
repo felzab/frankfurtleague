@@ -9,7 +9,8 @@ import { COPY, textOf } from "@/core/copy";
 import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
 import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
-import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
+import { fieldFrame, fieldRoot, fieldUnit, groupInput } from "./fieldStyles";
+import { Icon } from "./Icon";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
@@ -21,7 +22,7 @@ type Shared = {
   isRequired?: boolean;
   isDisabled?: boolean;
   /**
-   * Held fixed by its record, such as a season's points once it has begun: disabled, its label marked with the lock
+   * Held fixed by its record, such as a season's points once it has begun: read-only, its label marked with the lock
    * (`useFieldLock`), while the editor's lock line says why.
    */
   isLocked?: boolean;
@@ -144,7 +145,8 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
     <TextArea
       data-kit-focus="field"
       rows={4}
-      readOnly={isWaiting && isStored}
+      // Unset rather than false once the code runs, so a locked or closed field's read-only state from its field stands.
+      readOnly={(isWaiting && isStored) || undefined}
       className={className}
     />
   );
@@ -208,6 +210,7 @@ export function TextField(props: TextFieldProps) {
       isRequired={lock.isRequired}
       validate={judgeOf(kind, lock.isRequired)}
       isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}
@@ -248,6 +251,70 @@ export function TextField(props: TextFieldProps) {
         description={description}
         consequence={consequence}
         constraints={constraints}
+      />
+    </AriaTextField>
+  );
+}
+
+/**
+ * A select its record holds fixed or its form closed (`Select`), drawn as the answer it shows. React Aria's select takes
+ * no read-only state, its props omitting `isReadOnly`, and its closed trigger changes the value by the arrow keys and
+ * by typing, so it stands as a read-only text field holding the chosen answer's words: in the trigger's own frame, its
+ * arrow muted, reachable by the keys and heard as read-only as every other locked field is. It posts nothing, as a
+ * disabled select does, and takes no edit before hydration, its input standing `readOnly` in the server's markup too.
+ */
+export function ChosenField({
+  label,
+  labelHidden,
+  words,
+  isRequired,
+  isMarked,
+  frame,
+  description,
+  consequence,
+}: {
+  label: Words;
+  labelHidden: boolean;
+  /** The chosen answer's words, or nothing where none is chosen, as the select shows them. */
+  words: string;
+  /** The select's own answer (`useFieldLock`), which a lock or a closed form never asks. */
+  isRequired: boolean;
+  isMarked: boolean;
+  /** The select trigger's frame, so the field stands at the trigger's size. */
+  frame: string;
+  description: Copy | undefined;
+  consequence: Copy | undefined;
+}) {
+  return (
+    <AriaTextField
+      className={fieldRoot()}
+      aria-label={labelHidden ? textOf(label) : undefined}
+      value={words}
+      isReadOnly>
+      {!labelHidden && (
+        <FieldLabel
+          label={label}
+          isRequired={isRequired}
+          isLocked={isMarked}
+        />
+      )}
+      <div
+        data-kit-focus="field"
+        className={frame}>
+        <Input
+          data-kit-focus
+          className={groupInput({ class: "truncate" })}
+        />
+        <span className="flex text-fg-muted">
+          <Icon
+            glyph="expand"
+            size={16}
+          />
+        </span>
+      </div>
+      <MessageLine
+        description={description}
+        consequence={consequence}
       />
     </AriaTextField>
   );

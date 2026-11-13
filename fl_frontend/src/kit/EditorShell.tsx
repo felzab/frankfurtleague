@@ -36,10 +36,11 @@ export type EditorWait = {
 
 /**
  * The editor template's server half, around the client one, `EditorPage`, which holds the form's state and so
- * cannot wait on the server: the editor's one boundary. The record names the page and fills every field, so
- * the whole page waits for it; meanwhile the strip holds a bar where the title will stand, the column the
- * placeholders of the editor's own sections as `wait` states them, and the foot the bar's place with its save. The
- * page hands it the editor it reads, as a promise.
+ * cannot wait on the server: it awaits the editor the page reads, handed to it as a promise. The record names the page
+ * and fills every field, so the whole page waits for it, and under `WholePages` the page arrives whole with it. Outside
+ * `WholePages` that wait is the editor's one boundary, drawn meanwhile as a bar in the strip where the title will
+ * stand, the placeholders of the editor's own sections in the column as `wait` states them, and the bar's place with
+ * its save in the foot.
  */
 export function EditorShell({ wait, editor }: { wait: EditorWait; editor: Promise<ReactNode> }) {
   return (

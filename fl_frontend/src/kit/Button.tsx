@@ -22,7 +22,7 @@ type Act = {
   type?: "button" | "submit";
   /** The act is under way: a spinner joins the label, which stays as it is, and a press does nothing. */
   isBusy?: boolean;
-  /** `close` closes the dialog or the sheet the button stands in, through React Aria's slot for it. */
+  /** `close` closes the dialog, the sheet or the toast the button stands in, through React Aria's slot for it. */
   slot?: "close";
   /**
    * Why the act cannot run on the record as it stands: dimmed but reachable, its reason shown by `LockedReason`, and

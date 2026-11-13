@@ -1,5 +1,6 @@
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { LandingSection, LandingSectionPlaceholder } from "./LandingSection";
 import { Link } from "./Link";
@@ -97,9 +98,7 @@ export function Doors({
       eyebrow={eyebrow}
       title={SERVER_COPY.landing.doors.title(school !== undefined)}
       more={more}>
-      {/* The container the doors' columns read, since a query reads an ancestor; `w-full`, since a container's width
-          counts none of its content. */}
-      <div className="@container w-full">
+      <BlockBox>
         <div className={doors({ pair: school !== undefined }).root()}>
           {school !== undefined && (
             <Door
@@ -127,7 +126,7 @@ export function Doors({
             }
           />
         </div>
-      </div>
+      </BlockBox>
     </LandingSection>
   );
 }

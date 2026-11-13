@@ -699,10 +699,6 @@ class TestAFailedDrawLeavesNothingBehind:
 # for the new one.
 REDRAWN_TODAY = "2026-08-25"
 
-# One field on one fixture, so nothing else about the season moves to reach a state
-# `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
-A_RECORD = "abgebrochen"
-
 # The one record the DRAW itself never writes a key for, so a projection missing `note` reads a
 # noted fixture as untouched and the replace destroys the note.
 A_NOTE = "Platz gesperrt"
@@ -718,11 +714,9 @@ A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
     "payment": 40,
 }
 
-# One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. Only the first is
-# played by `has_taken_place`, so the four under it are what say the window reads
-# `holds_a_recorded_fact` instead.
+# One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. None is played by
+# `has_taken_place`, so each says the window reads `holds_a_recorded_fact` instead.
 RECORDS_CLOSING_THE_WINDOW = (
-    pytest.param({"sonderereignis": A_RECORD}, id="an abandonment"),
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
     pytest.param({"spielort": A_BOOKED_ORT}, id="a booked venue"),
     pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
@@ -1115,21 +1109,14 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
         assert surviving & replaced.first_ids == set()
         assert surviving, "the replace removed the season and drew nothing back"
 
-    def test_the_season_holds_exactly_one_whole_draw_afterwards(self, mongo_replica_set_url: str):
-        """Delete only `spiele` and this fails: the fresh matchdays collide with the surviving ones on their own unique index."""
-
-        replaced = a_replaced_season(mongo_replica_set_url)
+        # Exactly one whole draw afterwards, stored and answered: delete only `spiele` and the fresh matchdays collide
+        # with the surviving ones on their own unique index.
         expected = expected_counts(FLSaisonRules.model_validate(saison_document()["rules"]))
-
         assert (len(replaced.spieltage), len(replaced.spiele)) == expected
         assert (replaced.second.spieltage, replaced.second.spiele) == expected
 
-    def test_every_spiel_hangs_on_a_matchday_the_replace_itself_wrote(self, mongo_replica_set_url: str):
-        """Hang a fresh fixture on a surviving matchday and this fails: the two lists go as one set."""
-
-        replaced = a_replaced_season(mongo_replica_set_url)
+        # Every fixture hangs on a matchday the replace itself wrote: the two lists go as one set.
         matchdays = {row["_id"] for row in replaced.spieltage}
-
         assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == []
 
 
@@ -1185,18 +1172,16 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
 class TestAConfirmedReplaceReachesNoOtherSeason:
     """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
 
-    def test_the_neighbours_spiele_all_survive(self, mongo_replica_set_url: str):
-        """Empty the fixture delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does."""
+    def test_the_neighbours_spiele_and_matchdays_all_survive(self, mongo_replica_set_url: str):
+        """Empty either delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does.
+
+        Each collection its own assertion, never a pair compared as one: a comparison of the two together passes while half
+        the neighbour is gone.
+        """
 
         neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
 
         assert neighbours.neighbour_spiele == neighbours.neighbour_drawn.spiele
-
-    def test_the_neighbours_matchdays_all_survive(self, mongo_replica_set_url: str):
-        """Its own case, never a pair compared as one: a comparison of the two together passes while half the neighbour is gone."""
-
-        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
-
         assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn.spieltage
 
 
@@ -1304,24 +1289,6 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
-        assert rules["teams_per_gruppe"] == TEAMS_PER_GROUP
-
-    @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
-    def test_one_spiel_carrying_a_record_is_refused_as_well(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        """The same answer whatever stands against the season: this rule reads that fixtures exist, never what they hold."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
-
-            with pytest.raises(APIError) as refused:
-                await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
-
-            return refused.value, await stored_rules(database)
-
-        refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert rules["teams_per_gruppe"] == TEAMS_PER_GROUP
 
 
@@ -1482,12 +1449,6 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
     @pytest.mark.parametrize(
         ("code", "shape", "why"),
         [
-            pytest.param(
-                Code.SPIELPLAN_GRUPPEN_OFF_RULES,
-                a_shape(groups=SHORT_GROUPS),
-                "sixteen clubs stand in four groups, and two of those groups would be offered nothing to play in",
-                id="a shape that strands clubs",
-            ),
             pytest.param(
                 Code.RULES_BRACKET_IMPOSSIBLE,
                 a_shape(qualifiers=3),

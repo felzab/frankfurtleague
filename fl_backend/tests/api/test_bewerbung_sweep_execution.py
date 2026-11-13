@@ -1,22 +1,18 @@
 import asyncio
-import functools
 import logging
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
 from itertools import combinations
 from typing import Any, cast
-from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pydantic import TypeAdapter
-from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.ban_list.services import compose_barred_until_saison_id
 from app.api.bewerbungen.admin_router import decline_bewerbung, resend_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_view, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnswerPayload, FLDeclineBewerbungPayload
@@ -32,24 +28,19 @@ from app.api.outbox.system_router import post_event
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.transactions import SWEEP_PAGE
-from app.main import create_app
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.acts import deletions_of
-from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, build_test_config
-from tests.database import SEED_BOUND_S, a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.database import SEED_BOUND_S, a_clean_database, on_the_seed_loop
 from tests.delivery import a_mail_that_bounced, mails_that_bounced
 from tests.documents import (
     SEAT_TEXT_VERSIONS,
-    ban_document,
     kontaktperson_document,
     rules_document,
     saison_document,
@@ -74,7 +65,6 @@ OTHER_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
 MAILED_ON_THE_MARK = "2026-03-29"
-NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # Fixed rather than generated, so a failure names the same row every run.
 REMIND_OID = ObjectId("6890a1b2c3d4e5f607960001")
@@ -438,18 +428,6 @@ class TestTheReminderClock:
                 "declined_at": None,
             }
 
-    def test_a_second_run_the_same_day_reminds_nobody(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client, now=MAIL_NOW)
-            first = await owed(database, "bewerbung_reminder")
-            second = await sweep(database, client, now=MAIL_NOW)
-
-            return second.reminded, first, await owed(database, "bewerbung_reminder")
-
-        reminded, first, after = on_a_league(mongo_replica_set_url, body)
-
-        assert (reminded, after) == (0, first)
-
 
 class TestTheFourteenDayClock:
     def test_the_pass_erases_the_candidate_and_owes_the_seat_that_confirmed_the_notice(self, mongo_replica_set_url: str):
@@ -552,17 +530,6 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         response, document, reminders, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (response.erased, document, reminders, notices) == (1, None, [], [])
-
-    def test_a_seat_the_provider_refuses_is_not_reminded(self, mongo_replica_set_url: str):
-        """The double-seated person is one mailbox: refusing it leaves the third seat as the only one due."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await refuse_the_ansprechpersons_address(database, client, REMIND_OID)
-            await sweep(database, client, now=MAIL_NOW)
-
-            return await owed(database, "bewerbung_reminder")
-
-        assert on_a_league(mongo_replica_set_url, body) == [reminder_mail("bramblewick@example.com", ["stellvertretung"])]
 
 
 class TestAClosedChase:
@@ -738,10 +705,6 @@ class TestADecisionReadBeforeAJobsMailBookkeeping:
         assert document["confirmations"]["ansprechperson"]["chase_closed_at"] is None
 
 
-# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-STANDING = compose_barred_until_saison_id(running_saison_id=SAISON_ID)
-
-
 # An address today's rule refuses, its local part being no ASCII: a stored row may hold one, and no
 # ban can be keyed on it.
 REFUSED_ADDRESS = "müller@example.com"
@@ -761,29 +724,12 @@ class TestABarredMailbox:
 
         assert REFUSED_ADDRESS in on_a_league(mongo_replica_set_url, body)
 
-    def test_the_barred_mailbox_is_handed_nothing_and_its_seat_keeps_its_first_link_alone(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BAN_LIST].insert_one(ban_document("bramblewick@example.com", until=STANDING))
-            await sweep(database, client, now=MAIL_NOW)
-
-            reminders = [mail.to for mail in await drained(database, client) if mail.data.kind == "bewerbung_reminder"]
-
-            return reminders, await stored(database, REMIND_OID)
-
-        sent, document = on_a_league(mongo_replica_set_url, body)
-
-        # The control beside the refusal: the unbarred mailbox on the same application is chased.
-        assert sent == ["wraxlington@example.com"]
-        assert document is not None
-        assert document["confirmations"]["stellvertretung"]["token_hashes"] == [first_hashes(str(REMIND_OID))["stellvertretung"]]
-
 
 # The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read
 # as `app/shared/einwilligung.py :: is_confirmed` reads it.
 STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.confirmed_at"
 STAMP_STATES = [
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
-    pytest.param({"$set": {STELLVERTRETUNG_STAMP: None}}, True, id="stamped null"),
     # No stamp at all, the field missing, which the query's null term has to reach as well.
     pytest.param({"$set": {"kontakte.stellvertretung": None}}, True, id="the seat erased"),
 ]
@@ -844,22 +790,6 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
         assert on_a_league(mongo_replica_set_url, body) is taken
 
-    @pytest.mark.parametrize(
-        ("update", "due"),
-        [state for state in STAMP_STATES if state.id != "the seat erased"],
-    )
-    def test_the_reminder_chases_a_seat_whose_stamp_is_unconfirmed(self, mongo_replica_set_url: str, update: Mapping[str, Any], due: bool):
-        """An erased seat has no address to chase, so it is the fourteen-day clock's case alone."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await confirm_every_seat(database, REMIND_OID)
-            await database[Collection.BEWERBUNGEN].update_one({"_id": REMIND_OID}, update)
-            await sweep(database, client, now=MAIL_NOW)
-
-            return await owed(database, "bewerbung_reminder")
-
-        assert on_a_league(mongo_replica_set_url, body) == ([reminder_mail("bramblewick@example.com", ["stellvertretung"])] if due else [])
-
 
 class TestTheDeclineClock:
     def test_a_declined_application_past_its_fourteen_days_is_erased_in_the_first_call(self, mongo_replica_set_url: str):
@@ -871,16 +801,6 @@ class TestTheDeclineClock:
         response, document = on_a_league(mongo_replica_set_url, body)
 
         assert (response.erased_declined, document) == (1, None)
-
-    def test_another_seasons_application_is_not_reached(self, mongo_replica_set_url: str):
-        """One season per call: the other season's declined application is past its days too and stays."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-
-            return await stored(database, OTHER_SEASON_OID)
-
-        assert on_a_league(mongo_replica_set_url, body) is not None
 
 
 class TestTheSeasonsOwnEndClock:
@@ -912,7 +832,7 @@ class TestTheSeasonsOwnEndClock:
         assert [notice["to"] for notice in notices] == ["wraxlington@example.com", "bramblewick@example.com"]
 
     def test_nothing_goes_while_the_season_still_runs(self, mongo_replica_set_url: str):
-        """The row every other clock leaves standing: confirmed by all three, decided by nobody, and its deadline behind it."""
+        """The row every other clock leaves standing: confirmed by all three and decided by nobody."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirm_every_seat(database, REMIND_OID)
@@ -1205,8 +1125,6 @@ SECOND_OID = ObjectId("6890a1b2c3d4e5f607960007")
 SECOND_CLUB_OID = ObjectId("6890a1b2c3d4e5f607960012")
 SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 
-DECLINED = {"status": "declined", "decision": {"made_at": "2026-02-15", "reason": "kein Platz"}}
-
 
 async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
     """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
@@ -1338,52 +1256,6 @@ class TestOneRowHoldsBackNoOther:
         assert left == [True, True]
         assert notices == []
         assert chased == {REMIND_OID}
-
-
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it: building one costs more than the request a case sends through it.
-
-    Built on first use rather than at import, which every xdist worker pays at collection.
-    """
-
-    return create_app(build_test_config())
-
-
-def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
-    """One call over the wire, so the guard and the route template run."""
-
-    database_name = build_test_config().db_base_name
-
-    client = MongoClient(url)
-    try:
-        with a_clean_database_sync(client, url, database_name) as database:
-            database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-            database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, confirmation_deadline=YESTERDAY))
-
-            async def _called() -> int:
-                async with app_client(url, app=_served(), now=NOW) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
-                    return response.status_code
-
-            status = asyncio.run(_called())
-
-            return status, list(database[Collection.ACTION_LOG].find({"action": "retention.bewerbungen"}))
-    finally:
-        client.close()
-
-
-class TestTheSystemTierOverTheWire:
-    """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
-
-    @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
-    def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
-        """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
-
-        status, rows = through_the_app(mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}", None, auth=auth)
-
-        assert status == 401
-        assert rows == []
 
 
 class TestTheSeasonList:

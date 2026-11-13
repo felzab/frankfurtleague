@@ -6,6 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { COPY, textOf } from "@/core/copy";
 
 import { Button } from "./Button";
+import { CappedRows } from "./CappedRows";
 import { Card, CardActRow } from "./Card";
 import { isEdgeRefusal } from "./edgeRefusal";
 import { EmptyBox, EmptyState } from "./EmptyState";
@@ -16,7 +17,7 @@ import { Table } from "./Table";
 import { SchoolTiles } from "./TileGrid";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, Words } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { CardActRowProps } from "./Card";
 import type { EmptyStateProps } from "./EmptyState";
@@ -74,11 +75,20 @@ export type ListSearch = {
   maxLength?: number;
 };
 
-/** A row's words, its name where it states none, hold what is typed, upper and lower case alike. */
-const matches = (query: string) => {
+/**
+ * What a search over a list read whole leaves: the items whose words hold what is typed, upper and lower case alike, and
+ * every item while nothing is.
+ */
+function searched<Item>(items: ReadonlyArray<Item>, query: string, wordsOf: (item: Item) => string) {
   const wanted = query.trim().toLowerCase();
-  return (row: TableRow) => (row.words ?? textOf(row.name)).toLowerCase().includes(wanted);
-};
+  return {
+    isSearching: wanted !== "",
+    shown: wanted === "" ? items : items.filter((item) => wordsOf(item).toLowerCase().includes(wanted)),
+  };
+}
+
+/** A row's words, its name where it states none. */
+const rowWords = (row: { name: Words; words?: string }) => row.words ?? textOf(row.name);
 
 /**
  * The list template's matches, each with the words a visitor may search it by, searched by the text its scope
@@ -93,9 +103,8 @@ export function ListMatches({
   empty: EmptyStateProps;
 }) {
   const { query } = use(ListQuery);
-  const wanted = query.trim().toLowerCase();
-  const shown = wanted === "" ? matches : matches.filter((match) => match.words.toLowerCase().includes(wanted));
-  if (shown.length === 0) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
+  const { isSearching, shown } = searched(matches, query, (match) => match.words);
+  if (shown.length === 0) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
   return (
     <SpielList
       // The search lists a whole season: more cards in view than a matchday's, none of them likelier than another.
@@ -112,18 +121,18 @@ export function ListMatches({
  */
 export function ListTiles({ tiles, empty }: { tiles: ReadonlyArray<{ tile: SchoolTile; words: string }>; empty: EmptyStateProps }) {
   const { query } = use(ListQuery);
-  const wanted = query.trim().toLowerCase();
-  const shown = wanted === "" ? tiles : tiles.filter((tile) => tile.words.toLowerCase().includes(wanted));
-  if (shown.length === 0) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
+  const { isSearching, shown } = searched(tiles, query, (tile) => tile.words);
+  if (shown.length === 0) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
   return <SchoolTiles schools={shown.map((tile) => tile.tile)} />;
 }
 
 /**
  * One card of the list template, its rows searched by the text its scope holds, as `ListMatches` searches the matches:
- * a row's name, or the `words` it states where more of it is searched. A card holding a list, such as a referee's
- * games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does and as a
- * table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike on every
- * page. A card of open work stays and says nothing is open, in what was searched as without a search.
+ * a row's name, or the `words` it states where more of it is searched. It shows the first five of the rows the search
+ * leaves and the rest a press away (`CappedRows`), as every card of the template does. A card holding a list, such as a
+ * referee's games, gives its place to the list's box once a search empties it, as its list with nothing in it yet does
+ * and as a table's box keeps the sentence alone when a search empties its rows, so a search finding nothing reads alike
+ * on every page. A card of open work stays and says nothing is open, in what was searched as without a search.
  */
 export function ListCard({
   title,
@@ -139,9 +148,8 @@ export function ListCard({
   empty?: EmptyStateProps;
 }) {
   const { query } = use(ListQuery);
-  const wanted = query.trim().toLowerCase();
-  const shown = wanted === "" ? rows : rows.filter((row) => (row.words ?? textOf(row.name)).toLowerCase().includes(wanted));
-  if (shown.length === 0 && empty !== undefined) return <EmptyBox {...(wanted === "" ? empty : { ...empty, kind: "search" })} />;
+  const { isSearching, shown } = searched(rows, query, rowWords);
+  if (shown.length === 0 && empty !== undefined) return <EmptyBox {...(isSearching ? { ...empty, kind: "search" } : empty)} />;
   return (
     <Card
       title={title}
@@ -149,12 +157,14 @@ export function ListCard({
       {shown.length === 0 ? (
         <EmptyState kind="clear" />
       ) : (
-        shown.map(({ id, words: _words, ...row }) => (
-          <CardActRow
-            key={id}
-            {...row}
-          />
-        ))
+        <CappedRows
+          rows={shown.map(({ id, words: _words, ...row }) => (
+            <CardActRow
+              key={id}
+              {...row}
+            />
+          ))}
+        />
       )}
     </Card>
   );
@@ -261,7 +271,8 @@ export function ListTable({ table, more }: { table: TableProps; more?: ListMore 
     }));
   };
 
-  const rows = more === undefined && isSearching ? current.rows.filter(matches(query)) : current.rows;
+  // A list past one read's cap holds what the server's search answered.
+  const rows = more === undefined ? searched(current.rows, query, rowWords).shown : current.rows;
   const failure = current.failure?.query === query ? current.failure.line : null;
 
   return (

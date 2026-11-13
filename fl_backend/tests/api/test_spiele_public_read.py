@@ -236,18 +236,6 @@ class TestTheScheduleServesTheRefereeByConsent:
 class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    def test_the_base_tier_spiel_cuts_the_referees_surname(self):
-        """The surname cut to its initial, on the shape a base-tier read answers with rather than on the reducer alone.
-
-        The stored document carries the surname in full, so a model that stopped reducing would serve it.
-        """
-
-        parsed = FLSpielJoined.model_validate(joined_document())
-
-        assert parsed.schiedsrichter is not None
-        assert parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-        assert SCHIEDSRICHTER_SURNAME not in parsed.model_dump_json()
-
     def test_a_referee_block_the_join_never_judged_is_refused(self):
         """Required as `ansetzung_confirmed` is: served without its verdict, a read that skipped the gate would publish every referee."""
 

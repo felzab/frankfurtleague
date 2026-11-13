@@ -58,6 +58,15 @@ export function landingTargetOf(targets: readonly RoleTarget[]): Route {
 export const placesOf = (subject: SubjectSession): RoleTarget[] => targetsOf(rolesOf(subject).roles);
 
 /**
+ * Whether the session's address holds a grant the session does not carry, past the administrator's window or short of
+ * the passkey: it owes a fresh sign-in or its passkey step, which the sign-in's landing sends it on to, and is sent to no
+ * person's place meanwhile.
+ */
+export function owesSignInStep(subject: SubjectSession): boolean {
+  return !subject.isAdmin && subject.records.admin_tier !== null;
+}
+
+/**
  * One naming for every list of a person's places: a team by its name, with its season and the seats held there, and the
  * line its frame's account row shows; the rest by their area.
  */
