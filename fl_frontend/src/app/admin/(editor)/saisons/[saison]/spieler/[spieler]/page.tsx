@@ -2,8 +2,6 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 
 import { requires } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
@@ -67,54 +65,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A player's editor in one season, on its one read and its one save over the person and their squad row. */
 export default function SpielerEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            "field",
-            <FieldPlaceholder
-              key="birth_date"
-              kind="date"
-            />,
-            <FactsPlaceholder
-              key="address"
-              pairs={1}
-            />,
-          ],
-          [
-            // A row that left the squad: the day it left beside the team.
-            <FactsPlaceholder
-              key="team"
-              pairs={2}
-            />,
-            <FieldPlaceholder
-              key="nummer"
-              holds={2}
-            />,
-            "field",
-            "field",
-            "field",
-          ],
-          [
-            <FactsPlaceholder
-              key="einwilligung"
-              pairs={4}
-            />,
-          ],
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
-            consequence: WORDS.deregisterConsequence,
-            act: COPY.shared.verb.deregister,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 /** The Person box's fact: the address, a mail link to the person. */

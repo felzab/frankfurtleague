@@ -6,24 +6,21 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { Button } from "./Button";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
 import { card, columnHead, nameWithChips, stacked } from "./cardStyles";
 import { Tick } from "./Checkbox";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
 import { RoleMark } from "./RoleMark";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
-import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
 import type { EmptyStateProps } from "./EmptyState";
 import type { RoleMarkProps } from "./RoleMark";
 
 /**
- * The block's look, which `Lineup` and its placeholder draw from: two cards, each a table of one row a pupil at every
+ * The block's look, which `Lineup` draws from: two cards, each a table of one row a pupil at every
  * width, its tick and its act in the row, a phone's included, where the kit's `Table` stacks a row's acts under its
  * words. The cards, the column heads and the hairlines are the shared recipes'; the cells set as `Table`'s do, 12-px
  * padding and rows 56 px high on a phone and 52 on desktop, so a line-up reads as every other list of the kit. Each
@@ -188,7 +185,7 @@ type LineupProps = {
 const byNummer = (one: LineupPlayer, other: LineupPlayer) =>
   one.nummer === other.nummer ? 0 : one.nummer === null ? 1 : other.nummer === null ? -1 : one.nummer - other.nummer;
 
-// How each column after the name sets, its head and its cells alike, in the block and in its placeholder.
+// How each column after the name sets, its head and its cells alike.
 const NUMMER = { align: "centre", figures: true, count: true } as const;
 const POSITION = { align: "start", desktop: true } as const;
 const TICK = { align: "centre" } as const;
@@ -456,106 +453,6 @@ export function Lineup({ players, value, nameless, onChange, startersMax, words,
           </div>
         )}
       </section>
-    </>
-  );
-}
-
-type WaitWords = Pick<LineupWords, "picked" | "rest" | "name" | "nummer" | "position" | "starts" | "pick">;
-
-/** One list's rows while the line-up is read, at the rows' height: `starts` the tick's head, `end` what a row ends in. */
-function RowsPlaceholder({ words, starts, rows, end }: { words: WaitWords; starts?: Copy; rows: number; end: ReactElement }) {
-  const s = lineup();
-  return (
-    <table className={s.sheet()}>
-      <thead>
-        <tr className={s.headRow()}>
-          <FactHeads words={words} />
-          {starts !== undefined && <th className={lineup(TICK).head()}>{starts}</th>}
-          <td className={s.head()} />
-        </tr>
-      </thead>
-      <tbody>
-        {Array.from({ length: rows }, (_, index) => (
-          <tr
-            key={index}
-            className={s.row()}>
-            <td className={s.name()}>
-              <PlaceholderLine
-                textClass=""
-                widthClass="w-1/2"
-              />
-            </td>
-            <td className={lineup(NUMMER).cell()}>
-              <PlaceholderLine
-                textClass=""
-                widthClass="mx-auto w-4"
-              />
-            </td>
-            <td className={lineup(POSITION).cell()}>
-              <PlaceholderLine
-                textClass=""
-                widthClass="w-20"
-              />
-            </td>
-            {starts !== undefined && (
-              <td className={lineup(TICK).cell()}>
-                <span className={placeholderBar("mx-auto block size-4.5")} />
-              </td>
-            )}
-            <td className={s.end()}>
-              <span className={s.acts()}>{end}</span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-/**
- * The block while the line-up is read: its two cards with their titles and column heads, a bar where each count will
- * stand, and as many rows at the rows' height as the page states for each list, the tick, the cross and the squad
- * rows' word as bars of their size. A squad list of none draws its head alone, as the block does.
- */
-export function LineupPlaceholder({ words, picked, rest }: { words: WaitWords; picked: number; rest: number }) {
-  const s = lineup();
-  // Inline, so its line keeps the count's baseline, which the band aligns on, as a fold's head does (`ReadFolds`).
-  const count = (
-    <span className={s.count()}>
-      <span className={placeholderBar("inline-block h-3 w-4 align-middle")} />
-    </span>
-  );
-  return (
-    <>
-      <div className={s.card()}>
-        <div className={s.band()}>
-          <span className={s.title()}>{words.picked}</span>
-          {count}
-        </div>
-        <div className={s.box()}>
-          <RowsPlaceholder
-            words={words}
-            starts={words.starts}
-            rows={picked}
-            end={<span className={buttonLook({ look: "placeholder", class: "w-8 px-0 pointer-coarse:w-10" })} />}
-          />
-        </div>
-      </div>
-      <div className={s.card()}>
-        <div className={s.band()}>
-          <span className={s.title()}>{words.rest}</span>
-          {count}
-        </div>
-        {rest > 0 && (
-          <div className={s.box()}>
-            <RowsPlaceholder
-              words={words}
-              rows={rest}
-              end={<span className={buttonPlaceholder()}>{words.pick}</span>}
-            />
-          </div>
-        )}
-      </div>
     </>
   );
 }

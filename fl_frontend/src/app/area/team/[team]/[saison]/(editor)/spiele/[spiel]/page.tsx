@@ -2,12 +2,11 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { LineupPlaceholder } from "@/kit/Lineup";
 
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
@@ -111,24 +110,5 @@ async function readEditor(params: Props["params"]) {
 
 /** A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up. */
 export default function AufstellungPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
-        sections: [
-          {
-            block: (
-              <LineupPlaceholder
-                words={LINEUP_WORDS}
-                picked={STARTERS_MAX}
-                rest={9}
-              />
-            ),
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }

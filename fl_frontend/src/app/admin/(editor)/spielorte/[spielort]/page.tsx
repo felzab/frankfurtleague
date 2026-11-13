@@ -2,9 +2,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { FieldPair, FieldPlaceholder } from "@/kit/FieldPair";
 
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getSpielort } from "@/features/spielorte/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -44,44 +42,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** A venue's editor, on its one read by id and its write on the version it was read at. */
 export default function SpielortEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            <FieldPlaceholder key="name" />,
-            <FieldPlaceholder
-              key="mietpreis"
-              holds={5}
-              unit={COPY.shared.unit.euro}
-            />,
-          ],
-          [
-            <FieldPair key="street">
-              <FieldPlaceholder />
-              <FieldPlaceholder holds={5} />
-            </FieldPair>,
-            <FieldPair key="city">
-              <FieldPlaceholder
-                holds={5}
-                figures
-              />
-              <FieldPlaceholder />
-            </FieldPair>,
-            "field",
-          ],
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(COPY.admin.spielort.object, "retire"),
-            consequence: COPY.admin.spielort.retireConsequence,
-            act: COPY.shared.verb.retire,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 async function readEditor(params: Props["params"]) {

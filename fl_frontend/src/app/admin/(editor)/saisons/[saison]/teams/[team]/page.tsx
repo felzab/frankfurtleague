@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
 
 import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { SeatRowsPlaceholder } from "@/kit/SeatRows";
 
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
@@ -32,9 +29,6 @@ type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
 
 const WORDS = COPY.admin.team;
 
-/** One of the editor's selects of a few short choices while it is read. */
-const SELECT = <FieldPlaceholder key="select" />;
-
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
   const [{ saison }, id] = await Promise.all([params, adminIdParamOf(params, "team")]);
@@ -49,62 +43,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** The team editor, on the club's one view read in the season its address names. */
 export default function TeamEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            <FieldPlaceholder
-              key="shorthand"
-              holds={5}
-            />,
-            "field",
-            SELECT,
-            "field",
-            <FieldPlaceholder
-              key="description"
-              kind="paragraph"
-            />,
-          ],
-          ["pair", "pair", "field"],
-          // A club that left: the exit's three facts under its two fixed fields.
-          [
-            SELECT,
-            SELECT,
-            <FactsPlaceholder
-              key="austritt"
-              pairs={3}
-            />,
-          ],
-          [<SeatRowsPlaceholder key="seats" />],
-          // A live link's three acts, in the box's one footer.
-          [
-            <FactsPlaceholder
-              key="link"
-              pairs={2}
-            />,
-            {
-              acts: [
-                COPY.shared.withObject(COPY.account.address.link, "send"),
-                COPY.shared.withObject(COPY.account.address.link, "replace"),
-                COPY.shared.withObject(COPY.account.address.link, "withdraw"),
-              ],
-            },
-          ],
-        ],
-        danger: [
-          { name: WORDS.austrittAct, consequence: WORDS.austrittRowLine, act: COPY.shared.verb.remove },
-          {
-            name: COPY.shared.withObject(COPY.shared.facts.team, "retire"),
-            consequence: WORDS.retireConsequence,
-            act: COPY.shared.verb.retire,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+  return <EditorShell editor={readEditor(params)} />;
 }
 
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
