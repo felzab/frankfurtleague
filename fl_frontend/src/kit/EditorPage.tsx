@@ -27,16 +27,13 @@ import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
 
 /**
- * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`, a
- * sentence in the warn hue under the title saying what a change in the draft causes for the box, such as a match
- * report's result following from its Sonderereignis; never a lock. A sentence under a field is cut at the field's
- * width, and a short field is narrower than one.
+ * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ and its fields. A sentence
+ * under a field is cut at the field's width, and a short field is narrower than one.
  */
 export type EditorSection = {
   id: string;
   title: Copy;
   help?: readonly [Copy, ...Copy[]];
-  note?: Copy;
   fields: ReactElement;
 };
 
@@ -223,9 +220,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
                 <Section
                   key={section.id}
                   title={section.title}
-                  help={section.help}
-                  // A closed record takes no change, so nothing a change would cause stands over its boxes.
-                  note={closed === undefined ? section.note : undefined}>
+                  help={section.help}>
                   {section.fields}
                 </Section>
               ),

@@ -211,6 +211,8 @@ async function readPage(params: Props["params"]) {
       lead={COPY.shared.line([
         COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
         spiel.spielort === null ? null : { record: spiel.spielort.name },
+        // A side fielding another club than the stored report names: its rows naming the old club's pupils have lost them.
+        found.sides_changed.length === 0 ? null : SERVER_COPY.overview.report.sides_changed,
       ])}
       record={{ id: spiel.spiel_id, version: found.version, values: valuesOf(found) }}
       save={saveBericht}
@@ -221,7 +223,6 @@ async function readPage(params: Props["params"]) {
       required={REQUIRED}
       eigentor={SERVER_COPY.season.spiel.eigentor}
       remarksMax={spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax}
-      sidesChanged={found.sides_changed.length > 0}
       {...(found.completed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       {...((await isPublicSaison(saison)) ? { spielPage: ROUTES.spiel.path(saison, spiel.spiel_id) } : {})}
     />

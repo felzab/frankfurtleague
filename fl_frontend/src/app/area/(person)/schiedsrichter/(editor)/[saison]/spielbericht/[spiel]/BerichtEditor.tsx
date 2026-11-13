@@ -54,7 +54,8 @@ const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label
  * The referee's match report: the Ergebnis box, the goals counted from the goals entered and a shoot-out's pair on a
  * level knockout score, with the Sonderereignis under them; the goals, a row each; the cards, a row each, its colour
  * by the kit's card mark; and the remarks. Saved whole from the editor's bar, the first save with every field the form
- * opened at. The report is a proposal: the result stays the administrator's to save.
+ * opened at. A no-show takes neither score nor goal, and its Sonderereignis says the result follows from it, as the
+ * match editor's result switch does. The report is a proposal: the result stays the administrator's to save.
  */
 export function BerichtEditor({
   title,
@@ -69,7 +70,6 @@ export function BerichtEditor({
   required,
   eigentor,
   remarksMax,
-  sidesChanged,
   closed,
   spielPage,
 }: {
@@ -90,8 +90,6 @@ export function BerichtEditor({
   /** An own goal's toggle, the server catalogue's word for it. */
   eigentor: Copy;
   remarksMax: number;
-  /** A side fields another club than the report names: its rows naming the old club's pupils have lost them. */
-  sidesChanged: boolean;
   /** Why the report is read-only: its season has finished, and the write refuses it. */
   closed?: Copy;
   /** The match's public page, where the public may read its season: the strip's way there. */
@@ -193,8 +191,6 @@ export function BerichtEditor({
         {
           id: "ergebnis",
           title: SPIEL.ergebnis,
-          // A no-show's result is the league's award, which no goal decides.
-          ...(noShow ? { note: SPIEL.byEvent } : {}),
           fields: (
             <>
               {!noShow && (
@@ -224,6 +220,8 @@ export function BerichtEditor({
                 name="sonderereignis"
                 options={sonderereignisse}
                 value={draft.sonderereignis}
+                // A no-show's result is the league's award, which no goal decides.
+                {...(noShow ? { description: SPIEL.byEvent } : {})}
                 onChange={(id) => {
                   if (id !== null) set("sonderereignis", id);
                 }}
@@ -236,7 +234,6 @@ export function BerichtEditor({
           block: (
             <Section
               title={COPY.shared.tore}
-              {...(sidesChanged ? { note: WORDS.sidesChanged } : {})}
               list={
                 <RecordRows<Goal>
                   label={COPY.shared.tore}
