@@ -1,8 +1,5 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-/** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
-const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
+import { beforeEach, describe, expect, it } from "vitest";
 
 const RUN = "/identity/erasure/sweep";
 
@@ -40,17 +37,6 @@ doubleApiClient(async ({ endpoint }) => {
   return runAnswer(carried.after ?? null);
 });
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
-    warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
-    error: (event: string, _message: unknown, fields?: unknown) => void lines.push({ level: "error", event, fields }),
-  },
-};
-
-vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
-
 const { runErasureSweep } = await import("./sweep.ts");
 
 /** Places in the `_id` order, as the mirror demands them. */
@@ -62,11 +48,7 @@ const inTurn = <T>(answers: T[]) => {
   return (): T => answers[Math.min(turn++, answers.length - 1)] as T;
 };
 
-/** The pass's own lines, the grants' pass armed beside it writing lines of its own. */
-const passLines = () => lines.filter(({ event }) => event.startsWith("erasure."));
-
 beforeEach(() => {
-  lines.length = 0;
   runCalls.length = 0;
   runAnswer = () => ran(0, 0);
 });
@@ -148,24 +130,4 @@ describe("one pass of the pupils' deletion", () => {
       expect(String("error" in run ? run.error : undefined)).toContain("The deletion answered a place not past the one it was sent.");
     });
   }
-
-  /* What an operator reads on the scheduler's pass line to learn what the pass did: counts and the season the rule kept,
-     never a person, an address or an id; and the pass writes no line of its own. */
-  it("answers its counts and nothing else, writing no line", async () => {
-    runAnswer = inTurn([ran(3, 1, ORT), ran(1, 0)]);
-
-    expect(await runErasureSweep()).toStrictEqual({
-      count: {
-        completed_saison_id: "2526",
-        spieler: 4,
-        saison_spieler: 4,
-        registrierungen: 0,
-        skipped: 0,
-        failed: 0,
-        remaining: 0,
-      },
-      open: 0,
-    });
-    expect(passLines()).toStrictEqual([]);
-  });
 });

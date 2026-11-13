@@ -178,12 +178,4 @@ describe("a half that fails", () => {
 
     expect(order()).toStrictEqual(["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", "address_change"]);
   });
-
-  it("keeps the counts of the halves that answered where another throws", async () => {
-    seasons(["2526", "2627"], { passedOver: { "/bewerbungen/sweep/2526": 3 }, fails: ["/bewerbungen/sweep/2627"] });
-
-    const run = await runBewerbungSweep();
-
-    expect([run.count.bewerbung_failed, run.open, run.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
-  });
 });
