@@ -428,24 +428,6 @@ class TestTheRefusalsReadTheRealDocuments:
 
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
-    def test_a_rewritten_spiel_that_has_taken_place_is_refused(self, mongo_replica_set_url: str):
-        """Before the start, a result entered early: the rewrite moves no `tore`, so it would hand Alpha's result to Beta."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
-
-        code, stored, sides = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[gruppen_spiel(1, ALPHA, ALPHA_RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_spiel(2, BETA_RIVAL, BETA)],
-        )
-
-        assert code == Code.SWAP_SIDES_TAKEN_PLACE
-        assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
-        assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
-
 
 class SeasonsRunningARivalAfterTheSessionRead(InterleavedCollection):
     """A `saisons` stand-in running its rival once, just after the first read made inside a transaction.

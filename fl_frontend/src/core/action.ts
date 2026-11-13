@@ -295,8 +295,6 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "spielplan_berichte_submitted",
   "swap_not_a_swap",
   "swap_saison_started",
-  "swap_sides_taken_place",
-  "replace_sides_taken_place",
   "replace_saison_started",
   "replace_incoming_already_entered",
   "replace_one_team_on_both_ends",

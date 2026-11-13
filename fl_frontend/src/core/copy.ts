@@ -177,10 +177,12 @@ const AFTER_CONFIRMATION = "Erst nach Bestätigung";
  */
 const LOCK = {
   /**
-   * The season's start has passed, which fixes its scoring, its qualifiers and its clubs; it also stands for the start
-   * date a stored result fixes, so a running season's line keeps to the two reasons a phone's line holds.
+   * The season's start has passed, which fixes its scoring, its qualifiers and its clubs, and once a result is stored,
+   * which no match takes before the start, the start date itself.
    */
   sinceStart: "seit Saisonbeginn",
+  /** The season's start is still to come, before which no match takes a result. */
+  untilStart: "bis Saisonbeginn",
   /** A Spielplan stands: the counts it was drawn from and a club's group move only with a new draw. */
   byDraw: "durch Spielplan",
   /** The club left the season, which fixes its group and its colour. */
@@ -1233,8 +1235,6 @@ export const COPY = catalogue({
       /** The group swap's two clubs; the swap exchanges their groups. */
       swapFirst: TEAM_PAIR.team1,
       swapSecond: TEAM_PAIR.team2,
-      /** A club or a pair a swap or a replacement can no longer move: one of its matches has taken place. */
-      tookPlace: "Ein Spiel hat stattgefunden",
       /** The replacement's two clubs: the one leaving the season, and the one taking over its row. */
       outgoing: "Ausscheidendes Team",
       incoming: "Nachrückendes Team",
@@ -1252,6 +1252,9 @@ export const COPY = catalogue({
 
       /** Each team's registration link as its row states it, by what the press would do with it. */
       linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
+      /** The links table's chip of a link mailed, and the column of the day it was. */
+      linkSent: "Gesendet",
+      sentOn: "Gesendet am",
       linkNotSent: "Nicht gesendet",
       noLinkYet: "Noch kein Link",
       noConfirmedAddress: "Keine bestätigte Adresse",

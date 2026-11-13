@@ -45,16 +45,8 @@ const TIEBREAK: readonly Option[] = [
 
 const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: WORDS.stufe[stufe] }));
 
-/** One club of the season as the swap and the replacement list it, graded as each write judges it. */
-export type SaisonClub = {
-  id: string;
-  name: string;
-  gruppe: string;
-  /** A group match of it has taken place, which closes every swap pair it stands in. */
-  groupTakenPlace: boolean;
-  /** Any match of it has taken place, which closes its replacement. */
-  takenPlace: boolean;
-};
+/** One club of the season as the swap and the replacement list it. */
+export type SaisonClub = { id: string; name: string; gruppe: string };
 
 /** What the season holds beyond its fields: where it stands, its draw, and what the editor's acts read. */
 export type SaisonFacts = {
@@ -92,13 +84,10 @@ export type SaisonActs = {
 /** A danger row's closing, where its read names a reason. */
 const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
-/** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
-const optionOf = (club: SaisonClub, closed: boolean): Option =>
-  closed
-    ? { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` }, isDisabled: true, note: WORDS.tookPlace }
-    : { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } };
+/** A club as a picker lists it, „Lessing · Gruppe A“. */
+const optionOf = (club: SaisonClub): Option => ({ id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } });
 
-/** The group swap: two clubs of different groups, a pair closed where a group match of either has taken place. */
+/** The group swap: two clubs of different groups. */
 function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly SaisonClub[]; swap: SaisonActs["swap"]; locked: boolean }) {
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
@@ -117,7 +106,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       ]}>
       <ComboBox
         label={WORDS.swapFirst}
-        options={clubs.map((club) => optionOf(club, club.groupTakenPlace))}
+        options={clubs.map(optionOf)}
         isLocked={locked}
         value={first}
         onChange={(id) => {
@@ -127,7 +116,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       />
       <ComboBox
         label={WORDS.swapSecond}
-        options={partners.map((club) => optionOf(club, club.groupTakenPlace))}
+        options={partners.map(optionOf)}
         isLocked={locked}
         value={second}
         onChange={setSecond}
@@ -136,7 +125,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
   );
 }
 
-/** The replacement: a club leaving the season, closed once a match of it has taken place, and the club taking over. */
+/** The replacement: a club leaving the season, and the club taking over. */
 function Replacement({
   saison,
   clubs,
@@ -173,7 +162,7 @@ function Replacement({
       ]}>
       <ComboBox
         label={WORDS.outgoing}
-        options={clubs.map((club) => optionOf(club, club.takenPlace))}
+        options={clubs.map(optionOf)}
         isLocked={locked}
         value={out}
         onChange={setOut}
@@ -253,8 +242,8 @@ export function SaisonEditor({
   const of = { saison_id: saison, holder };
 
   // Each field locks off the write's own refusal: the start fixes the scoring, the qualifiers, the swap and the
-  // replacement; a draw the three counts it was drawn from; a stored result the start date. The line gives that last no
-  // reason of its own, a result standing in a begun season, so its reasons stay the two a phone's one line holds.
+  // replacement; a draw the three counts it was drawn from; a stored result the start date, which no match holds before
+  // the start, so the start's reason covers it.
   const locks: LockReason[] = [...(facts.begun ? (["sinceStart"] as const) : []), ...(drawn ? (["byDraw"] as const) : [])];
 
   const sections: [EditorPart, ...EditorPart[]] = [

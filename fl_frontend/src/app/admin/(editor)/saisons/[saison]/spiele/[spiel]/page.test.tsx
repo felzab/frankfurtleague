@@ -36,7 +36,12 @@ const VIEW: FLSpieleAdminSingleResponse = {
     version: 3,
   },
   aufstellungen: { team1: { count: 14, starters: 11 }, team2: null },
+  aufstellung_marks: {
+    team1: { stored: true, phase: "overdue", due_at: "2026-11-11T15:00:00Z" },
+    team2: { stored: false, phase: "overdue", due_at: "2026-11-11T15:00:00Z" },
+  },
   saison_status: "active",
+  saison_begun: true,
   schiedsrichter: [],
   spielbericht: null,
   spielbestaetigungen: [],
@@ -81,8 +86,24 @@ describe("the match editor's links to the line-ups", () => {
         id: "team2",
         href: `/admin/saisons/2027/spiele/${SPIEL_ID}/aufstellung/${TEAM2}`,
         name: words.ofTeam({ record: "Eiche" }),
+        // The chip the club's own pages draw past the due mark, on the side with none stored alone.
+        chip: { tone: "danger", label: words.overdue },
         line: words.missing,
       },
+    ]);
+  });
+});
+
+describe("the match editor before its season's start", () => {
+  // The harm: an event the write refuses before the start offered as a choice, so the save fails only once it is made.
+  it("closes the events that record the match and leaves a call-off and a strike-out open", async () => {
+    const editor = await editorOver({ ...VIEW, saison_begun: false });
+
+    expect(editor.props.begun).toBe(false);
+    expect(editor.props.sonderereignisse.filter(({ isDisabled }) => isDisabled === true).map(({ id }) => id)).toStrictEqual([
+      "nichtantreten_team1",
+      "nichtantreten_team2",
+      "abgebrochen",
     ]);
   });
 });

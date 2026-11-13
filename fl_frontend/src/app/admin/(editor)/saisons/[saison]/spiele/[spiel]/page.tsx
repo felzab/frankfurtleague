@@ -17,7 +17,7 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
@@ -30,7 +30,7 @@ import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
@@ -301,22 +301,26 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
- * „Fehlt“ where none is stored. A side the draw has not settled has no club to name one; a match with no day or hour,
- * and one called off, owe none, so neither shows a row.
+ * „Fehlt“ where none is stored, with the chip the club's own pages draw for it past its due mark and from the lock. A
+ * side the draw has not settled has no club to name one; a match with no day or hour, and one called off, owe none, so
+ * neither shows a row.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
-  const { spiel, aufstellungen } = view;
+  const { spiel, aufstellungen, aufstellung_marks: marks } = view;
   if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];
     if (club === null) return [];
     const stored = aufstellungen[side];
+    const mark = marks[side];
+    const chip = mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase];
     return [
       {
         id: side,
         href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
         name: words.ofTeam({ record: club.name }),
+        ...(chip === undefined ? {} : { chip }),
         line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
       },
     ];
@@ -340,14 +344,16 @@ async function readEditor(params: Props["params"]) {
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const closed = view.saison_status === "past";
 
-  // A no-show needs both sides: while one is open, the write refuses it, so it is offered disabled.
+  // An event recording the match waits for the season's start, and a no-show needs both sides: the write refuses
+  // either, so it is offered disabled. A call-off and a strike-out record nothing and stay open before the start.
+  const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      const open = !bothSides && isNoShow(event);
-      return open ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.team.fromStart };
+      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];
 
@@ -358,6 +364,7 @@ async function readEditor(params: Props["params"]) {
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
       phase={saved.saison_phase}
+      begun={begun}
       sides={{
         team1: saved.team1 === null ? null : { name: { record: saved.team1.name }, plaque: { record: saved.team1.shorthand } },
         team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },

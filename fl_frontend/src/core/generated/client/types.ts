@@ -124,8 +124,8 @@ export const Code = {
   replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
-  replace_sides_taken_place: "replace_sides_taken_place",
   ergebnis_side_emptied: "ergebnis_side_emptied",
+  ergebnis_before_saison_start: "ergebnis_before_saison_start",
   retire_blocked: "retire_blocked",
   spielort_still_booked: "spielort_still_booked",
   schiedsrichter_still_assigned: "schiedsrichter_still_assigned",
@@ -168,7 +168,6 @@ export const Code = {
   state_nichtantreten_without_two_sides: "state_nichtantreten_without_two_sides",
   swap_not_a_swap: "swap_not_a_swap",
   swap_saison_started: "swap_saison_started",
-  swap_sides_taken_place: "swap_sides_taken_place",
   austritt_before_saison_start: "austritt_before_saison_start",
   payload_refused: "payload_refused",
   body_unreadable: "body_unreadable",
@@ -4412,18 +4411,13 @@ export interface FLSaisonDrawn {
 }
 
 /**
- * One club's row of the season as the swap and the replacement list it, graded as each write judges it.
- *
- * `group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and
- * `spiel_taken_place` closes its replacement, which hands the whole schedule over.
+ * One club's row of the season as the swap and the replacement list it, and as its registration link's row names it.
  */
 export interface FLSaisonAdminTeam {
   austritt: FLAustritt | null;
-  group_spiel_taken_place: boolean;
   gruppe: FLGruppenNames;
   name: string;
   shorthand: string;
-  spiel_taken_place: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
@@ -4717,6 +4711,14 @@ export interface FLSignInResponse {
 }
 
 export type FLSignatoryMinAgeYears = 18;
+
+/**
+ * Each side's line-up marks, as the club's own pages read them; null for an open side and for a fixture with no day or hour.
+ */
+export interface FLSpielEditorAufstellungMarks {
+  team1: FLAufstellungMarks | null;
+  team2: FLAufstellungMarks | null;
+}
 
 /**
  * Each side's line-up as the editor's line states it, the club the fixture fields there now; null where it has stored none.
@@ -5248,7 +5250,9 @@ export interface FLSpielbestaetigungViewAnsetzung {
  * One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.
  */
 export interface FLSpieleAdminSingleResponse {
+  aufstellung_marks: FLSpielEditorAufstellungMarks;
   aufstellungen: FLSpielEditorAufstellungen;
+  saison_begun: boolean;
   saison_status: FLSaisonStatus;
   schiedsrichter: FLSpielEditorSchiedsrichter[];
   spiel: FLSpielJoinedAdmin;

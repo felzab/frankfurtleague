@@ -152,7 +152,7 @@ async def _rewrite_gruppenphase_sides(
     """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
     Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
-    whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
+    whoever scored them, a swap running only before the season's start, when no fixture holds a result. Named by `_id` from a snapshot
     read before any write: filtering on the club would let the second pass match what the first just wrote and swap it
     back.
     """
@@ -255,8 +255,8 @@ async def get_saison_admin(
     (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
             # Each whole, as the bracket's advance reads its season: a truncated
-            # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
-            # refuses as entered.
+            # list leaves the start open while a taken-place fixture fell past the page, and offers a club the
+            # replacement refuses as entered.
             pull_whole_from_db(
                 collection=saison_teams_collection,
                 db_filter={"saison_id": saison_id},
@@ -269,7 +269,7 @@ async def get_saison_admin(
                 collection=spiele_collection,
                 db_filter={"saison_id": saison_id},
                 what=f"season {saison_id}'s fixtures",
-                projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+                projection=list(TAKEN_PLACE_FIELDS),
             ),
             spieltage_collection.count_documents({"saison_id": saison_id}),
             pull_whole_from_db(
@@ -317,21 +317,12 @@ async def get_saison_admin(
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
 
-    played = [spiel for spiel in spiele if has_taken_place(spiel)]
-
-    def has_played(team_id: Any, *, group_only: bool) -> bool:
-        return any(
-            team_id in ((spiel.get("team1") or {}).get("team_id"), (spiel.get("team2") or {}).get("team_id"))
-            for spiel in played
-            if not group_only or spiel.get("saison_phase") == "gruppenphase"
-        )
-
     entered = {row["team_id"] for row in rows}
     saison = FLSaisonAdmin.model_validate(
         {
             **with_schedule(saison_raw),
             "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
-            "taken_place": bool(played),
+            "taken_place": any(has_taken_place(spiel) for spiel in spiele),
             "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
         }
     )
@@ -354,16 +345,7 @@ async def get_saison_admin(
 
     return FLSaisonAdminResponse(
         saison=saison,
-        teams=[
-            FLSaisonAdminTeam.model_validate(
-                {
-                    **row,
-                    "group_spiel_taken_place": has_played(row["team_id"], group_only=True),
-                    "spiel_taken_place": has_played(row["team_id"], group_only=False),
-                }
-            )
-            for row in rows
-        ],
+        teams=[FLSaisonAdminTeam.model_validate(row) for row in rows],
         incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         spielplan=spielplan,
@@ -850,7 +832,7 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+            projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
 
@@ -860,7 +842,6 @@ async def swap_gruppen(
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
                 started=has_started(start_date=str(saison_raw["start_date"]), today=today),
-                taken_place=any(has_taken_place(spiel) for spiel in gruppenphase_spiele),
             )
         )
 
