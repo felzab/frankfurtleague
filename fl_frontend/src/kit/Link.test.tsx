@@ -132,4 +132,29 @@ describe("the kit's link", () => {
     expect(link.getAttribute("href")).toBe(SPIEL);
     expect(link.getAttribute("data-kit-focus")).toBe("ring");
   });
+
+  // The harm: a sample's link put back on Next's would prefetch its address from every wait in view, and one carrying an
+  // address would send a crawler to it; the wait looks the same either way.
+  it("with no address, is an anchor without one that Next's link never draws, in the link's own look", () => {
+    render(
+      <>
+        <Link
+          href={null}
+          placement="card">
+          Sample
+        </Link>
+        <Link
+          href={SPIEL}
+          placement="card">
+          Landed
+        </Link>
+      </>,
+    );
+
+    const sample = screen.getByText("Sample");
+    expect(sample.tagName).toBe("A");
+    expect(sample.hasAttribute("href")).toBe(false);
+    expect(sample.hasAttribute("data-client-navigation")).toBe(false);
+    expect(sample.className).toBe(screen.getByRole("link", { name: "Landed" }).className);
+  });
 });

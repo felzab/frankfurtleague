@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getRequestPasskeyStep } from "./core/auth/landing";
 import { sessionCookieOf } from "./core/auth/library";
 import { RETURN_PARAMETER, withReturnAddress } from "./core/auth/returnAddress";
 import { slideSession } from "./core/auth/session";
@@ -20,34 +21,49 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
 
   // Optimistic, as Next and the library document a proxy's check: the cookie alone, before any read, so a
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
-  if (sessionCookieOf(req.headers) === null) {
-    return inArea(req.nextUrl.pathname) ? turnAway(req, ROUTES.signIn.path()) : NextResponse.next();
-  }
+  const holdsCookie = sessionCookieOf(req.headers) !== null;
+  if (!holdsCookie && inArea(req.nextUrl.pathname)) return turnAway(req, ROUTES.signIn.path());
 
   let stored = false;
   try {
     // Only here can a person who only reads slide their cookie with their row. The library expires a cookie whose
     // row is gone or expired, and the page's guard refuses the rest.
-    stored = await slideSession(req.headers);
+    if (holdsCookie) stored = await slideSession(req.headers);
   } catch {
     // A store that did not answer signs nobody out: the page's own guard reads it again and fails
     // into its area's error boundary, which renders nothing it guards.
   }
 
   // A session asking for the sign-in is sent to the landing before anything renders, as Next's authentication guide
-  // redirects a signed-in visitor in its proxy, the address it asked to return to carried where the allowlist holds
-  // it. The landing ends a session no lane serves, and the next request's slide then finds no row, so this cannot loop.
-  if (stored && isSignInPage(req)) {
-    const landing = withReturnAddress(ROUTES.signInLanding.path(), req.nextUrl.searchParams.get(RETURN_PARAMETER));
-    return NextResponse.redirect(new URL(landing, req.nextUrl));
-  }
+  // redirects a signed-in visitor in its proxy. The landing ends a session no lane serves, and the next request's
+  // slide then finds no row, so this cannot loop.
+  if (stored && isPageLoad(req, ROUTES.signIn.path())) return toLanding(req);
+
+  // So is one asking for the passkey step it does not hold, a page that would otherwise paint its frame and then
+  // redirect: the guard's own answer, asked of this request. The landing sends here only a session holding a step.
+  if (isPageLoad(req, ROUTES.signInPasskey.path()) && (await holdsNoPasskeyStep(req))) return toLanding(req);
 
   return NextResponse.next();
 }
 
-/** A page load of the sign-in itself, never its form's server action, which posts to the same address. */
-function isSignInPage(req: NextRequest): boolean {
-  return req.method === "GET" && spellings(req.nextUrl.pathname).includes(ROUTES.signIn.path());
+/** A page load of `path`, never its form's server action, which posts to the same address. */
+function isPageLoad(req: NextRequest, path: string): boolean {
+  return req.method === "GET" && spellings(req.nextUrl.pathname).includes(path);
+}
+
+async function holdsNoPasskeyStep(req: NextRequest): Promise<boolean> {
+  try {
+    return (await getRequestPasskeyStep(req.headers)) === null;
+  } catch {
+    // As the slide's: the page reads it again and fails into its error boundary.
+    return false;
+  }
+}
+
+/** The landing, the address the request asked to return to carried where the allowlist holds it. */
+function toLanding(req: NextRequest): NextResponse {
+  const landing = withReturnAddress(ROUTES.signInLanding.path(), req.nextUrl.searchParams.get(RETURN_PARAMETER));
+  return NextResponse.redirect(new URL(landing, req.nextUrl));
 }
 
 function turnAway(req: NextRequest, destination: string): NextResponse {
