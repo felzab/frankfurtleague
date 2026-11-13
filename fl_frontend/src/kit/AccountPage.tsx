@@ -1,5 +1,3 @@
-import NextLink from "next/link";
-
 import { COPY } from "@/core/copy";
 
 import { cardHover, cardSurface, stacked } from "./cardStyles";
@@ -9,7 +7,7 @@ import { formColumn, RailPage } from "./RailFrame";
 import { RowEnd } from "./RowEnd";
 import { placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { tv } from "./tv";
-import { LinkHint, PageWait } from "./WholePage";
+import { LinkHint, NavigationLink, PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -121,7 +119,7 @@ export function AccountList({ entries }: { entries: ReadonlyArray<AccountEntry> 
       aria-label={COPY.template.account}
       className={slots.root()}>
       {entries.map((entry) => (
-        <NextLink
+        <NavigationLink
           key={entry.id}
           href={entry.href}
           data-kit-focus="inset"
@@ -137,7 +135,7 @@ export function AccountList({ entries }: { entries: ReadonlyArray<AccountEntry> 
             <LinkHint />
           </span>
           <RowEnd />
-        </NextLink>
+        </NavigationLink>
       ))}
     </nav>
   );

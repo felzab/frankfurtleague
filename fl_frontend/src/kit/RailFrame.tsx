@@ -1,5 +1,3 @@
-import NextLink from "next/link";
-
 import { COPY, textOf } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
@@ -29,7 +27,7 @@ import { SaisonButton, SaisonButtonPlaceholder } from "./SaisonButton";
 import { Placeholder, PlaceholderLine } from "./Skeleton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
-import { LinkHint, PageWait } from "./WholePage";
+import { LinkHint, NavigationLink, PageWait } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -158,7 +156,7 @@ export function RailFrame({
                 // Drawn as an entry is, its glyph before its words: collapsed, the glyph alone stands centred
                 // and the tooltip names it.
                 <RailTooltip label={COPY.template.account}>
-                  <NextLink
+                  <NavigationLink
                     href={foot.href}
                     // A prefetched sign-in would be drawn before the proxy sends a signed-in person on to their landing.
                     prefetch={false}
@@ -174,7 +172,7 @@ export function RailFrame({
                       {COPY.template.account}
                       <LinkHint />
                     </span>
-                  </NextLink>
+                  </NavigationLink>
                 </RailTooltip>
               )}
             </div>
@@ -375,7 +373,7 @@ export function RailPage({
             aria-label={COPY.template.navigation}
             className="ms-auto hidden gap-1 lg:flex">
             {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
-              <NextLink
+              <NavigationLink
                 key={page.path()}
                 href={page.path()}
                 data-kit-focus="ring"
@@ -384,7 +382,7 @@ export function RailPage({
                   {page.title}
                   <LinkHint />
                 </span>
-              </NextLink>
+              </NavigationLink>
             ))}
           </nav>
         )}

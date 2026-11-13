@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import NextLink from "next/link";
 
 import {
   Menu as AriaMenu,
@@ -24,6 +23,7 @@ import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
+import { NavigationLink } from "./WholePage";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -214,7 +214,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       href={link.href}
       render={(props) =>
         "href" in props ? (
-          <NextLink
+          <NavigationLink
             {...props}
             href={link.href}
             replace={link.replace}

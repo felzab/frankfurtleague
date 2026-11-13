@@ -1,14 +1,29 @@
 "use client";
 
-// Imports nothing of the kit's: `Link` takes the hint from here, and a kit module this one imported could close a
-// cycle through `Link`, whose module would then be read before it is defined.
-import { createContext, Suspense, useContext } from "react";
-import { useLinkStatus } from "next/link";
+// Imports nothing of the kit's: every kit module drawing a link takes `NavigationLink` from here, and a kit module this
+// one imported could close a cycle through one of them, whose module would then be read before it is defined.
+import { createContext, startTransition, Suspense, useContext, useOptimistic } from "react";
+import NextLink, { useLinkStatus } from "next/link";
+import { useRouter } from "next/navigation";
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 /** Whether the pages below arrive whole, no part of a page waiting in a boundary of its own (`PageWait`). */
 const WholeContext = createContext(false);
+
+/** Where a client navigation goes: its address as the browser resolves it, and that address's path and query apart. */
+type Pending = { href: string; path: string; search: string };
+
+/** Next's own two options for a navigation, which every navigating control of the kit hands over as it would to Next. */
+type NavigateOptions = { replace?: boolean; scroll?: boolean };
+
+type Navigation = {
+  /** The address a client navigation is on its way to, from the press until the render that commits its page. */
+  pending: Pending | null;
+  navigate: (href: string, options?: NavigateOptions) => void;
+};
+
+const NavigationContext = createContext<Navigation | null>(null);
 
 /**
  * The pages under it arrive whole, inside one boundary that is mounted once for the session and draws nothing while it
@@ -17,12 +32,75 @@ const WholeContext = createContext(false);
  * again in the browser inside that shell. A client navigation keeps the page it leaves until the new one is complete:
  * the boundary is already revealed, and a transition never hides content it has revealed. The layout placing it
  * exports `instant = false`, which lets a navigation block on a page reading uncached data.
+ *
+ * It also holds the one fact every navigating control feeds, the address a navigation is on its way to: set inside the
+ * navigation's own transition as optimistic state, so React drops it in the very render that commits the new page, as
+ * Next's own link status is held.
  */
 export function WholePages({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [pending, setPending] = useOptimistic<Pending | null>(null);
+  const navigate = (href: string, { replace = false, scroll = true }: NavigateOptions = {}) => {
+    const url = new URL(href, window.location.href);
+    const next = { href: `${url.pathname}${url.search}${url.hash}`, path: url.pathname, search: url.search };
+    // A second press of the address already on its way asks nothing new of the server.
+    if (next.href === pending?.href) return;
+    startTransition(() => {
+      setPending(next);
+      if (replace) router.replace(href, { scroll });
+      else router.push(href, { scroll });
+    });
+  };
   return (
     <WholeContext value>
-      <Suspense fallback={null}>{children}</Suspense>
+      <NavigationContext value={{ pending, navigate }}>
+        <Suspense fallback={null}>{children}</Suspense>
+      </NavigationContext>
     </WholeContext>
+  );
+}
+
+/**
+ * A client navigation fed through the fact `WholePages` holds, for a control that navigates on its own press rather
+ * than through a link, as Next's `router.push` and `router.replace` do. Outside `WholePages` it is Next's router alone.
+ */
+export function useNavigate(): Navigation["navigate"] {
+  const navigation = useContext(NavigationContext);
+  const router = useRouter();
+  if (navigation !== null) return navigation.navigate;
+  return (href, { replace = false, scroll = true } = {}) => {
+    if (replace) router.replace(href, { scroll });
+    else router.push(href, { scroll });
+  };
+}
+
+/**
+ * Next's link, the kit's one, whose client navigation goes through the fact `WholePages` holds: its `onNavigate`, which
+ * Next calls for a same-site press only, cancels the link's own dispatch and makes the same one there. A press with a
+ * modifier key, another site's address and a download stay the browser's. Outside `WholePages` it is Next's link alone.
+ */
+export function NavigationLink({
+  href,
+  replace,
+  scroll,
+  ...props
+}: Omit<ComponentProps<typeof NextLink>, "href" | "onNavigate"> & { href: string }) {
+  const navigation = useContext(NavigationContext);
+  return (
+    <NextLink
+      {...props}
+      href={href}
+      replace={replace}
+      scroll={scroll}
+      onNavigate={
+        navigation === null
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              navigation.navigate(href, { replace, scroll });
+            }
+      }
+    />
   );
 }
 

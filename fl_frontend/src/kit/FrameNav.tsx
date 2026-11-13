@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, use, useContext, useEffect, useState } from "react";
-import NextLink from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
@@ -28,7 +27,7 @@ import { Sheet } from "./Sheet";
 import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
-import { LinkHint, PageWait } from "./WholePage";
+import { LinkHint, NavigationLink, PageWait, useNavigate } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -508,7 +507,7 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
               <RailTooltip
                 key={entry.id}
                 label={entry.label}>
-                <NextLink
+                <NavigationLink
                   href={entry.href}
                   prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
@@ -525,7 +524,7 @@ function RailEntryList({ groups: given, prefetch, listless }: { groups: Readonly
                     {entry.label}
                     <LinkHint />
                   </span>
-                </NextLink>
+                </NavigationLink>
               </RailTooltip>
             ))}
           </div>
@@ -743,7 +742,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
       aria-label={COPY.template.navigation}
       className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
-        <NextLink
+        <NavigationLink
           key={entry.id}
           href={entry.href}
           prefetch={prefetch}
@@ -760,7 +759,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
             {entry.label}
             <LinkHint />
           </span>
-        </NextLink>
+        </NavigationLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
         <FreshPerPage>
@@ -784,7 +783,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                   className="grid gap-1">
                   {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
                   {group.entries.map((entry) => (
-                    <NextLink
+                    <NavigationLink
                       key={entry.id}
                       href={entry.href}
                       prefetch={prefetch}
@@ -799,14 +798,14 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                         {entry.label}
                         <LinkHint />
                       </span>
-                    </NextLink>
+                    </NavigationLink>
                   ))}
                 </div>
               ))}
               {extra.length > 0 && (
                 <div className="grid gap-1 border-t border-border pt-2">
                   {extra.map((link) => (
-                    <NextLink
+                    <NavigationLink
                       key={link.href}
                       href={link.href}
                       prefetch={link.prefetch}
@@ -816,7 +815,7 @@ function Places({ groups: given, bar, extra, account, prefetch, listless }: Fram
                         {link.label}
                         <LinkHint />
                       </span>
-                    </NextLink>
+                    </NavigationLink>
                   ))}
                 </div>
               )}
@@ -932,7 +931,7 @@ const back = tv({
  */
 export function BackControl({ href }: { href: Route }) {
   const guard = useLeaveGuard();
-  const router = useRouter();
+  const navigate = useNavigate();
   // The words in a box of their own, which the link's pending hint follows; the button's press opens a dialog, so it
   // leads to no link whose status a hint could read.
   const content = (hint: ReactNode) => (
@@ -950,12 +949,12 @@ export function BackControl({ href }: { href: Route }) {
 
   if (guard === null) {
     return (
-      <NextLink
+      <NavigationLink
         href={href}
         data-kit-focus="ring"
         className={back({ host: "link" })}>
         {content(<LinkHint />)}
-      </NextLink>
+      </NavigationLink>
     );
   }
   return (
@@ -966,7 +965,7 @@ export function BackControl({ href }: { href: Route }) {
       tone="danger"
       onConfirm={() => {
         guard.discard();
-        router.push(href);
+        navigate(href);
       }}
       control={
         <AriaButton

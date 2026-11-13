@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { COPY } from "@/core/copy";
 
@@ -9,6 +9,7 @@ import { FieldStack } from "./FieldStack";
 import { SectionTitle } from "./Section";
 import { Select } from "./Select";
 import { Sheet } from "./Sheet";
+import { useNavigate } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -41,7 +42,7 @@ function addressWith(pathname: string, filters: ReadonlyArray<Filter>, name: str
 }
 
 function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const pathname = usePathname();
   return filters.map((filter) => (
     <div
@@ -51,7 +52,7 @@ function FilterSelects({ filters }: { filters: ReadonlyArray<Filter> }) {
         label={filter.label}
         options={[{ id: ALL, label: filter.all }, ...filter.options]}
         value={filter.value ?? ALL}
-        onChange={(value) => router.replace(addressWith(pathname, filters, filter.name, value), { scroll: false })}
+        onChange={(value) => navigate(addressWith(pathname, filters, filter.name, value), { replace: true, scroll: false })}
       />
     </div>
   ));

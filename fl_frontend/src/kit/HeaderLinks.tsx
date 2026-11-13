@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment } from "react";
-import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Button as AriaButton } from "react-aria-components/Button";
@@ -13,7 +12,7 @@ import { Icon } from "./Icon";
 import { frameLink, menuEntry } from "./Link";
 import { currentOf } from "./navPlace";
 import { Sheet } from "./Sheet";
-import { LinkHint, PageWait } from "./WholePage";
+import { LinkHint, NavigationLink, PageWait } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -47,7 +46,7 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
         aria-label={COPY.template.navigation}
         className="hidden gap-2 lg:flex">
         {links.map((link) => (
-          <NextLink
+          <NavigationLink
             key={link.href}
             href={link.href}
             aria-current={link.href === current ? "page" : undefined}
@@ -57,10 +56,10 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
               {link.label}
               <LinkHint />
             </span>
-          </NextLink>
+          </NavigationLink>
         ))}
       </nav>
-      <NextLink
+      <NavigationLink
         href={signIn}
         prefetch={false}
         data-kit-focus="ring"
@@ -69,7 +68,7 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
           {COPY.template.account}
           <LinkHint />
         </span>
-      </NextLink>
+      </NavigationLink>
       <div className="ms-auto lg:hidden">
         <Fragment key={path}>
           <Sheet
@@ -87,7 +86,7 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
             }>
             <div className="grid gap-1 pt-2">
               {[...links, { label: COPY.template.account, href: signIn, prefetch: false } satisfies HeaderLink].map((link) => (
-                <NextLink
+                <NavigationLink
                   key={link.href}
                   href={link.href}
                   prefetch={link.prefetch}
@@ -98,7 +97,7 @@ function PlacedLinks({ links, signIn, path }: HeaderLinksProps & { path: string 
                     {link.label}
                     <LinkHint />
                   </span>
-                </NextLink>
+                </NavigationLink>
               ))}
             </div>
           </Sheet>

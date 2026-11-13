@@ -1,11 +1,10 @@
-import NextLink from "next/link";
-
 import { COPY } from "@/core/copy";
 
 import { hoverLook } from "./hoverStyles";
 import { PlaceholderLine } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
+import { NavigationLink } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
@@ -91,7 +90,7 @@ export function Tabs({
             <li
               key={entry.id}
               className="shrink-0">
-              <NextLink
+              <NavigationLink
                 href={`?${new URLSearchParams({ [TAB_PARAM]: entry.id }).toString()}`}
                 aria-current={entry.id === selectedKey ? "page" : undefined}
                 data-kit-focus="inset"
@@ -99,7 +98,7 @@ export function Tabs({
                   class: `text-fg-muted transition-colors duration-(--motion-state) ${hoverLook({ host: "link", answer: "full" })} aria-[current=page]:border-brand aria-[current=page]:text-fg`,
                 })}>
                 {entry.label}
-              </NextLink>
+              </NavigationLink>
             </li>
           ))}
         </ul>

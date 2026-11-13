@@ -1,5 +1,3 @@
-import NextLink from "next/link";
-
 import { textOf } from "@/core/copy";
 
 import { buttonLook } from "./buttonStyles";
@@ -8,7 +6,7 @@ import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { IconLink } from "./IconLink";
 import { tv } from "./tv";
-import { LinkHint } from "./WholePage";
+import { LinkHint, NavigationLink } from "./WholePage";
 
 import type { Copy, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -232,12 +230,12 @@ export function Link<T extends string>(
   return href === null || fullPage ? (
     <a {...anchor}>{words}</a>
   ) : (
-    <NextLink
+    <NavigationLink
       {...anchor}
       href={href}
       prefetch={prefetch}>
       {words}
       <LinkHint />
-    </NextLink>
+    </NavigationLink>
   );
 }
