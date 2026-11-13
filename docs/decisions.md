@@ -36,10 +36,9 @@ commit that makes the change.
   matchday tabs. _The draw fixes each matchday's place, and a second order would disagree with it._
 - **swap** — Split the group swap into two writes; relax the move lock to serve it. _Half a swap, or
   a looser lock, leaves a group's clubs and its fixtures disagreeing._
-- **swap** — Refuse a swap for anything beyond its pair, a finished season, the season's start and
-  its sides having taken place; record an exit before the season's start date, or move the start
-  past one. _The start is the swap's one lock, and an exit before it would let a swap field a
-  departed club._
+- **swap** — Refuse a swap for anything beyond its pair, a finished season and the season's start;
+  record an exit before the season's start date, or move the start past one. _The start is the
+  swap's one lock, and an exit before it would let a swap field a departed club._
 - **table** — Score or sort on `sonderereignis`. _A forfeit carries an event and an awarded result,
   and that result counts._
 - **table** — Move the league table's default scope off `gruppenphase`. _A caller forgetting the
