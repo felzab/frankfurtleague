@@ -191,6 +191,49 @@ def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], now: datetime) -
     return clock.german_day(now) > str(spielbestaetigung_raw["deadline"])
 
 
+def reason_of(
+    *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime
+) -> FLSpielbestaetigungClosedReason | None:
+    """Why a row stopped applying: closed, by the reason stored; open, by the one the pass's next close would store."""
+
+    closed = spielbestaetigung_raw.get("closed")
+
+    return (
+        closed["reason"]
+        if isinstance(closed, Mapping)
+        else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
+    )
+
+
+def due_by_of(spielbestaetigung_raw: Mapping[str, Any]) -> str:
+    """The day a party's answer is due by: a club's deadline, and a referee's slot, the Einteilung naming no deadline."""
+
+    if spielbestaetigung_raw["party"]["kind"] == "schiedsrichter":
+        return str(spielbestaetigung_raw["ansetzung"]["date"])
+
+    return str(spielbestaetigung_raw["deadline"])
+
+
+def lapsed_on(*, spielbestaetigung_raw: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason | None, now: datetime) -> str | None:
+    """The day an unanswered row's answer lapsed, its `due_by_of`, or `None`; `reason` is `reason_of`'s.
+
+    Only a lapse dates a row: its slot kicked off, or a club's deadline went by with nothing else ending it. A row an
+    exit, a decision, a call-off or a move ended never lapsed, whatever its deadline says.
+    """
+
+    if spielbestaetigung_raw.get("answer") is not None:
+        return None
+
+    if reason == "spiel_past" or (reason is None and _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now)):
+        return due_by_of(spielbestaetigung_raw)
+
+    return None
+
+
+def _answers_the_fixture(spielbestaetigung_raw: Mapping[str, Any], *, ansetzung_state: AnsetzungState) -> bool:
+    return spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel)
+
+
 def state_of(
     *,
     spielbestaetigung_raw: Mapping[str, Any],
@@ -198,21 +241,14 @@ def state_of(
     now: datetime,
     vorschlag_open: FLSpielbestaetigungAppointment | None,
 ) -> FLSpielbestaetigungState:
-    """What a party's page shows of a row, the first state matching winning: a row already answered shows its answer, never a refusal.
+    """What a page shows of a row, the first state matching winning: an answered row never reads as lapsed.
 
-    Asked of a club's unclosed row, of a referee's newest, and by the match editor of every row: a closed row reads by
-    the reason it was closed for, so a discarded decline reads as that decline, but an agreement only while its
-    Ansetzung still stands.
+    A closed row reads by the reason it was closed for, as the public fixture counts it: a discarded decline as the
+    agreement to the date the league kept, and any answer only while the Ansetzung it answered still stands.
     """
 
-    answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
-
-    # Closed, by the reason stored; open, by the one the close would store.
-    reason = (
-        closed["reason"]
-        if isinstance(closed, Mapping)
-        else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
-    )
+    answer = spielbestaetigung_raw.get("answer")
+    reason = reason_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
 
     # Ahead of the answer: an answer about an Ansetzung the fixture has left settles nothing, and the move's notice
     # told every seat the date is off, so no page may tell a seat nothing is owed.
@@ -223,13 +259,18 @@ def state_of(
     if reason == "cancelled":
         return "cancelled"
 
+    # Ahead of the decline it closed: the public fixture counts a discarded proposal as its club's agreement while the
+    # slot stands, so read as the decline, one page would call the date confirmed and refused at once.
+    if reason in REASONS_ANSWERING_THE_ANSETZUNG:
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
+
     if isinstance(answer, Mapping) and answer["kind"] == "declined":
         return "declined"
 
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
     # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
     if isinstance(answer, Mapping):
-        return "agreed" if spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel) else "invalid"
+        return "agreed" if _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state) else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"
@@ -693,7 +734,8 @@ def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
 REASONS_ANSWERING_THE_ANSETZUNG: Final = frozenset({"discarded"})
 
 # What ends a discard as it ends an agreement beside it: every reason of `reason_to_close` but a move, which leaves the
-# discard its club's answer to the Ansetzung left, and a referee change, never a club's.
+# discard its club's answer to the Ansetzung left, and a referee change, never a club's. A club taken off the fixture,
+# which `reason_to_close` names as a move, ends it too: `reason_to_end` asks that apart.
 REASONS_ENDING_AN_ANSWER: Final = frozenset({"austritt", "spiel_decided", "cancelled", "spiel_past"})
 
 
@@ -778,7 +820,8 @@ def reason_to_end(
     """Why the pass's close shuts a row holding its party's question, or `None`."""
 
     reason = reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now)
-    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER:
+    # A club taken off is told so whatever its row holds: its discard told it the date stands, a match it no longer plays.
+    if row.get("closed") is None or reason in REASONS_ENDING_AN_ANSWER or not still_a_party(row=row, spiel=spiel):
         return reason
 
     # Its own kick-off, though the fixture moved: kept, a discard about an Ansetzung left would fill every pass's page.

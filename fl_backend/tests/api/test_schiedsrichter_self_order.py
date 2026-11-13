@@ -14,7 +14,7 @@ from app.api.schiedsrichter.schemas import FLSchiedsrichterSpiel
 from app.api.schiedsrichter.services import order_self_spiele, owes_a_bericht
 
 
-def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: Any) -> FLSchiedsrichterSpiel:
+def entry(spiel_nr: int, date: str | None, time: str | None = None, *, reportable: bool = False, **fields: Any) -> FLSchiedsrichterSpiel:
     """A fixture to come, agreed and owing no report, its id ordered by `spiel_nr`; owed its report as the read serves it."""
 
     served = {
@@ -30,11 +30,10 @@ def entry(spiel_nr: int, date: str | None, time: str | None = None, **fields: An
         "reason": None,
         "entered": False,
         "past": False,
-        "reportable": False,
         "submitted_at": None,
         **fields,
     }
-    owed = owes_a_bericht(reportable=served["reportable"], submitted_at=served["submitted_at"], sonderereignis=served["sonderereignis"])
+    owed = owes_a_bericht(reportable=reportable, submitted_at=served["submitted_at"], sonderereignis=served["sonderereignis"])
 
     return FLSchiedsrichterSpiel.model_validate({**served, "bericht_owed": owed})
 

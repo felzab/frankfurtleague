@@ -115,6 +115,29 @@ class TestWhyARowCloses:
                 "ansetzung_changed",
                 id="the club taken off, ahead of the call-off",
             ),
+            # Told it no longer plays or officiates the match, never that it was decided, which reaches nobody.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "team1": {"team_id": ALPHA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of the decision",
+            ),
+            pytest.param(
+                TEAM,
+                {"team1": {"team_id": GAMMA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "ansetzung_changed",
+                id="the club taken off, ahead of the decision",
+            ),
+            # The early no-show's call-off promises a new Einteilung, which a referee taken off never receives.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "sonderereignis": "nichtantreten_team1"},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of a no-show before the day",
+            ),
         ],
     )
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):
@@ -135,6 +158,8 @@ class TestADiscardEndsWhereAnAgreementWouldEnd:
         [
             pytest.param({"team1": {"team_id": ALPHA, "tore": 2}}, NOW, "spiel_decided", id="decided"),
             pytest.param({}, THE_DAY_AFTER, "spiel_past", id="its day gone by"),
+            # Its discard told the club the date stands: kept, it would never hear it no longer plays the match.
+            pytest.param({"team1": {"team_id": GAMMA, "tore": None}}, NOW, "ansetzung_changed", id="its club taken off"),
         ],
     )
     def test_the_close_ends_it(self, overrides: dict[str, Any], now: datetime, reason: str):

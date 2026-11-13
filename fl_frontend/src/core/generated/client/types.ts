@@ -3485,6 +3485,7 @@ export interface FLSpielbestaetigungPartySchiedsrichter {
 export interface FLOverviewParty {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  lapsed_on: string | null;
   /** @minLength 1 */
   name: string;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
@@ -3493,7 +3494,7 @@ export interface FLOverviewParty {
 }
 
 /**
- * A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.
+ * A fixture whose parties owe their answer: overdue where one party's answer has lapsed, else still due.
  */
 export interface FLOverviewSpielbestaetigungRow {
   kind: FLOverviewSpielbestaetigungRowKind;
@@ -4658,7 +4659,6 @@ export interface FLSchiedsrichterSpiel {
   entered: boolean;
   past: boolean;
   reason: string | null;
-  reportable: boolean;
   sonderereignis: FLSonderereignis | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -4951,7 +4951,7 @@ export interface FLSpielberichtCard {
 }
 
 /**
- * The referee's account of one match, one proposal, a correction after its adoption reading `differing`.
+ * The referee's account of one match and its one proposal; the referee's every correction clears its adoption.
  */
 export interface FLSpielberichtBericht {
   adopted: boolean;
@@ -5161,10 +5161,9 @@ export const FLSpielbestaetigungEditorRowState = {
 } as const;
 
 /**
- * A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.
+ * A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
  *
- * The close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or
- * unasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.
+ * Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
  */
 export interface FLSpielbestaetigungEditorRow {
   ansetzung: FLSpielbestaetigungAnsetzung;
@@ -5173,8 +5172,11 @@ export interface FLSpielbestaetigungEditorRow {
   closed: FLSpielbestaetigungClosed | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  due_by: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  lapsed_on: string | null;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
   reminded_at: string | null;
   saison_id: string;
@@ -5833,6 +5835,7 @@ export interface FLTeamPanelSpielbestaetigung {
   ansetzung: FLSpielbestaetigungViewAnsetzung;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
+  lapsed_on: string | null;
   side: FLSpielSide;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;

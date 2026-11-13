@@ -773,10 +773,12 @@ class TestTheSpielRulesAreReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("spiele", "spiel_id", "overrides", "error_code"),
         [
+            # Its club kept and a group's place as the source, which every other wiring rule passes: a match feeding it, or
+            # a side emptied beside the source, is refused by a rule of its own as well.
             pytest.param(
                 an_unbooked_spieltag(),
                 GRUPPE_FILLING,
-                {"team1": None, "team1_quelle": {"type": "spiel", "spiel_nr": GRUPPE_HELD_NR, "ausgang": "sieger"}},
+                {"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
                 Code.WIRING_UNSUPPORTED,
                 id="a group fixture wired to a feeder",
             ),
@@ -1023,7 +1025,8 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
     def test_a_save_on_the_version_the_first_save_raised_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             opened = await payload_for(database, VIERTELFINALE, version=0)
-            first = await call_patch(database, client, VIERTELFINALE, opened)
+            # A change of its own: a save storing what stands raises no version.
+            first = await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "Halle Ost"}))
             with pytest.raises(APIError) as refused:
                 await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "stale"}))
 
@@ -1033,7 +1036,7 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
 
         assert first.version == 1
         assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
-        assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == (None, 1)
+        assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == ("Halle Ost", 1)
 
 
 class TestAMidFlightFailureTakesTheWholeSaveBack:

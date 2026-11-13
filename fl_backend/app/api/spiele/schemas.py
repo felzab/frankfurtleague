@@ -33,9 +33,9 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-# Each tuple below answers one consumer's question. They are deliberately not one predicate: a single
-# boolean would make independent consumers agree by accident, and a field telling five events apart
-# has a different right answer per consumer.
+# Each tuple below answers one question, whoever asks it. They are deliberately not one predicate: a
+# single boolean would make independent questions agree by accident, and a field telling five events
+# apart has a different right answer per question.
 
 # The fixtures that used up their slot: an abandoned match used the ground and the referee, and every other event
 # records a non-event.

@@ -30,6 +30,9 @@ class FLTeamPanelSpielbestaetigung(BaseModel):
     side: FLSpielSide
     state: FLSpielbestaetigungTeamState
     deadline: CustomDateString
+    # The day the team's answer lapsed, its `deadline`; null on any other row, a row an exit ended included, which
+    # never lapsed.
+    lapsed_on: CustomDateString | None
     # On `vorschlag` the other club's proposed date and hour, never which of its seats answered; on
     # `declined` the team's own; null otherwise.
     vorschlag: FLSpielbestaetigungAppointment | None

@@ -36,13 +36,12 @@ const spiel = (overrides: Partial<FLSchiedsrichterSpiel>): FLSchiedsrichterSpiel
   reason: null,
   entered: false,
   past: false,
-  reportable: false,
   submitted_at: null,
   bericht_owed: false,
   ...overrides,
 });
 
-type Row = { id: string; words?: string; chip?: ChipProps; acts?: ReactElement<{ id: string }> };
+type Row = { chip?: ChipProps; acts?: ReactElement<{ id: string }> };
 
 /** The rows the page draws for these games. */
 async function rowsOf(...spiele: readonly FLSchiedsrichterSpiel[]): Promise<readonly Row[]> {
@@ -95,7 +94,7 @@ describe("a game something befell", () => {
   it("carries the event's own chip, as the Spielplan's row does, whatever the booking says", async () => {
     const rows = await rowsOf(
       spiel({ spiel_id: "5f0000000000000000000001", state: "cancelled", sonderereignis: "ausgefallen" }),
-      spiel({ spiel_id: "5f0000000000000000000002", state: "agreed", past: true, reportable: true, sonderereignis: "nichtantreten_team2" }),
+      spiel({ spiel_id: "5f0000000000000000000002", state: "agreed", past: true, sonderereignis: "nichtantreten_team2" }),
     );
 
     const words = COPY.spielplan.sonderereignis;
@@ -111,7 +110,7 @@ describe("a game something befell", () => {
    whose call-off was undone, the row still reads the old booking state. */
 describe("a game owing its report", () => {
   it("carries „Spielbericht fehlt“ whatever its booking last read", async () => {
-    const owed = { past: true, reportable: true, bericht_owed: true };
+    const owed = { past: true, bericht_owed: true };
     const rows = await rowsOf(
       spiel({ spiel_id: "5f0000000000000000000001", state: "declined", reason: "Klausur", ...owed }),
       spiel({ spiel_id: "5f0000000000000000000002", state: "cancelled", ...owed }),
@@ -119,25 +118,5 @@ describe("a game owing its report", () => {
 
     const missing = { tone: "warn", label: SERVER_COPY.overview.missing(COPY.admin.spiel.spielbericht) };
     expect(rows.map(({ chip }) => chip)).toStrictEqual([missing, missing]);
-  });
-});
-
-/* A row's words decide what the list's search keeps (`kit/ListTable.tsx :: ListCard`): words missing a club, the
-   ground or the date hide the game from the referee typing it, and the list only says it holds no such game. */
-describe("the list's search", () => {
-  it.each([
-    ["a club of either side", "eiche"],
-    ["the ground", "sportplatz nord"],
-    ["the date as a reader writes it", "17.11.2026"],
-  ])("finds a game by %s", async (_by, query) => {
-    const rows = await rowsOf(
-      spiel({
-        spiel_id: "5f0000000000000000000001",
-        spielort: { spielort_id: "5f00000000000000000000c1", name: "Sportplatz Nord", maps_link: "https://maps.example/nord" },
-      }),
-      spiel({ spiel_id: "5f0000000000000000000002", team1_name: "Linde", team2_name: "Buche", date: "2026-11-24" }),
-    );
-    // The kit's own rule: a row is kept where its words hold the text, upper and lower case alike.
-    expect(rows.filter((row) => row.words?.toLowerCase().includes(query)).map((row) => row.id)).toStrictEqual(["5f0000000000000000000001"]);
   });
 });

@@ -266,13 +266,9 @@ class FLSchiedsrichterSpiel(BaseReadModel):
     # Whether the fixture has been played: from its kick-off, or from its day where it holds no time. Judged here, by the
     # rule that closes the booking, so a page agrees with the order the read answered.
     past: bool
-    # Whether the fixture takes a report now: played, not called off or struck out, its season running. Played from
-    # the kick-off, or from the day where the fixture holds no time.
-    reportable: bool
     # When its report was first sent, whoever wrote it; null where none stands.
     submitted_at: FLUtcInstant | None
-    # Whether the referee owes its report now, which puts the fixture among the open work: one it takes and none sent,
-    # on a fixture that kept its slot, an abandoned one included; a no-show's report stays open to write, owed by nobody.
+    # Whether the referee owes its report now, which puts the fixture among the open work.
     bericht_owed: bool
 
 

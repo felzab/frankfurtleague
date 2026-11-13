@@ -199,15 +199,14 @@ class TestTheSeasonsFixtures:
         answer = answered(mongo_replica_set_url, own_spiele())
 
         assert [
-            (entry.spiel_id, entry.state, entry.reportable, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis)
-            for entry in answer.spiele
+            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
         ] == [
-            (REPORT_OWED, "agreed", True, False, True, None),
-            (TO_ANSWER, "valid", False, False, False, None),
-            (CALLED_OFF, "cancelled", False, False, False, "annulliert"),
-            (TO_COME, "agreed", False, False, False, None),
-            (STRUCK_OUT, None, False, False, False, "ausgefallen"),
-            (REPORTED, None, True, True, False, None),
+            (REPORT_OWED, "agreed", False, True, None),
+            (TO_ANSWER, "valid", False, False, None),
+            (CALLED_OFF, "cancelled", False, False, "annulliert"),
+            (TO_COME, "agreed", False, False, None),
+            (STRUCK_OUT, None, False, False, "ausgefallen"),
+            (REPORTED, None, True, False, None),
         ]
         # A booking answers its newest row as it stands: not the row closed when it moved, and not Ute's.
         [to_answer] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
@@ -226,7 +225,7 @@ class TestTheSeasonsFixtures:
     def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
         answer = answered(mongo_replica_set_url, own_spiele(), saison_status="past")
 
-        assert [entry.spiel_id for entry in answer.spiele if entry.reportable] == []
+        assert [entry.spiel_id for entry in answer.spiele if entry.bericht_owed] == []
         assert answer.spiele[0].spiel_id == TO_ANSWER
 
     def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):

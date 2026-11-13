@@ -85,15 +85,29 @@ def _read(
 
 
 def test_an_answer_stands_past_its_deadline_and_a_club_out_by_the_match_day_lapses_in_time(mongo_replica_set_url: str):
-    """The home club agreed before its deadline passed; the away club's row is still in time, but the club leaves before the day."""
+    """The home club agreed before its deadline passed; the away club's row is still in time, but the club leaves before the day.
+
+    Neither lapsed, so neither is dated. The referee's row about the slot the match left on 25 April lapsed at that
+    kick-off, unanswered: dated by that day, which the clubs' deadline before it is not.
+    """
 
     spiel = _spiel()
     agreed = documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": HOME}, answer=AGREED)
     left = documents.spielbestaetigung_document(spiel, party={"kind": "team", "team_id": AWAY}, deadline="2026-04-29")
+    referees = documents.spielbestaetigung_document(
+        {**spiel, "date": "2026-04-25"},
+        party={"kind": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        deadline="2026-04-18",
+        closed={"reason": "spiel_past"},
+    )
 
-    answer = _read(mongo_replica_set_url, spiel, rows=[agreed, left])
+    answer = _read(mongo_replica_set_url, spiel, rows=[agreed, left, referees])
 
-    assert {str(row.id): row.state for row in answer.spielbestaetigungen} == {str(agreed["_id"]): "agreed", str(left["_id"]): "expired"}
+    assert {str(row.id): (row.state, row.lapsed_on, row.due_by) for row in answer.spielbestaetigungen} == {
+        str(agreed["_id"]): ("agreed", None, "2026-04-25"),
+        str(left["_id"]): ("expired", None, "2026-04-29"),
+        str(referees["_id"]): ("expired", "2026-04-25", "2026-04-25"),
+    }
 
 
 def test_an_open_row_on_a_called_off_match_reads_cancelled(mongo_replica_set_url: str):
@@ -107,12 +121,11 @@ def test_an_open_row_on_a_called_off_match_reads_cancelled(mongo_replica_set_url
     assert [row.state for row in answer.spielbestaetigungen] == ["cancelled"]
 
 
-def test_an_agreement_closed_at_its_kick_off_reads_as_left_once_the_match_moves_past_the_request_window(mongo_replica_set_url: str):
-    """The home club agreed to 25 April, its row closed at that kick-off; the match then moved to 20 June.
+def test_an_agreement_closed_at_its_kick_off_reads_agreed(mongo_replica_set_url: str):
+    """The home club agreed to 25 April, its row closed at that kick-off: the editor reads closed rows too, with their slot.
 
-    No pass asks about 20 June before 30 May, so this row stays the club's newest until then: read as agreed, the editor
-    tells the league the club agreed to a day nobody asked it about. Left on 25 April, the match played, it still reads
-    agreed.
+    Read off the open rows alone, the editor would tell the league nobody agreed to the match played. How a closed row
+    reads once the match moves is the default tier's.
     """
 
     played = {**_spiel(), "date": "2026-04-25"}
@@ -120,12 +133,7 @@ def test_an_agreement_closed_at_its_kick_off_reads_as_left_once_the_match_moves_
         played, party={"kind": "team", "team_id": HOME}, answer=AGREED, closed={"reason": "spiel_past"}
     )
 
-    states = [
-        [row.state for row in _read(mongo_replica_set_url, spiel, rows=[agreed]).spielbestaetigungen]
-        for spiel in (played, {**played, "date": "2026-06-20"})
-    ]
-
-    assert states == [["agreed"], ["invalid"]]
+    assert [row.state for row in _read(mongo_replica_set_url, played, rows=[agreed]).spielbestaetigungen] == ["agreed"]
 
 
 def test_a_line_up_holding_no_entry_reads_as_none_stored(mongo_replica_set_url: str):

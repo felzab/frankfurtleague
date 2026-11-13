@@ -568,7 +568,6 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
-        reportable=reportable,
         submitted_at=submitted_at,
         bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
     )

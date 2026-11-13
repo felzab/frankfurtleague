@@ -41,6 +41,7 @@ const spielbestaetigung = (overrides: Partial<FLTeamPanelSpielbestaetigung>): FL
   side: "team1",
   state: "valid",
   deadline: "2026-11-12",
+  lapsed_on: null,
   vorschlag: null,
   ...overrides,
 });

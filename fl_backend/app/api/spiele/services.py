@@ -1120,10 +1120,11 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     return None
 
 
-def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload, *, started: bool) -> WriteRefusal | None:
+def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, started: bool) -> WriteRefusal | None:
     """`ergebnis_before_saison_start`: goals, a shoot-out, a no-show or an abandonment a save would newly store before the season's start.
 
-    `started` is the season's own `has_started`, the one start every start lock reads. Judged against the stored
+    `started` is the season's own `has_started`, the one start every start lock reads; `patched` is the fixture as the
+    save composes it (`apply_payload_to_spiel`), so a figure the save drops is never refused. Judged against the stored
     fixture, as the start's own edit is, so a fixture already holding a result is never trapped: that result
     resubmitted unchanged passes, and so does clearing it; a match called off or struck out stores no result and passes
     too.
@@ -1133,15 +1134,16 @@ def find_ergebnis_before_start_refusal(stored: FLSpiel, payload: FLPatchSpielDat
         return None
 
     new_goals = any(
-        submitted is not None and submitted.tore is not None and submitted.tore != (None if held is None else held.tore)
-        for submitted, held in ((payload.team1, stored.team1), (payload.team2, stored.team2))
+        saved is not None and saved.tore is not None and saved.tore != (None if held is None else held.tore)
+        for saved, held in ((patched.team1, stored.team1), (patched.team2, stored.team2))
     )
-    new_record = payload.sonderereignis in SONDEREREIGNIS_PRODUCING_A_RECORD and payload.sonderereignis != stored.sonderereignis
+    new_record = patched.sonderereignis in SONDEREREIGNIS_PRODUCING_A_RECORD and patched.sonderereignis != stored.sonderereignis
     # A shoot-out decides a level knockout result, so the bracket advances its winner. Compared by its counts: the
-    # payload's model is not the stored one's, and two models of different classes never compare equal.
-    submitted_shoot_out, held_shoot_out = payload.elfmeterschiessen, stored.elfmeterschiessen
-    new_shoot_out = submitted_shoot_out is not None and (
-        held_shoot_out is None or (submitted_shoot_out.team1, submitted_shoot_out.team2) != (held_shoot_out.team1, held_shoot_out.team2)
+    # composed fixture carries the payload's model, which is not the stored one's, and two models of different classes
+    # never compare equal.
+    saved_shoot_out, held_shoot_out = patched.elfmeterschiessen, stored.elfmeterschiessen
+    new_shoot_out = saved_shoot_out is not None and (
+        held_shoot_out is None or (saved_shoot_out.team1, saved_shoot_out.team2) != (held_shoot_out.team1, held_shoot_out.team2)
     )
 
     if not new_goals and not new_record and not new_shoot_out:

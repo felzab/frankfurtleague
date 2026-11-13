@@ -26,6 +26,7 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     build_holding_filter,
     build_triage_rows_filter,
+    lapsed_on,
     parties_told_of_the_change,
     party_key,
     reason_to_end,
@@ -53,7 +54,7 @@ type FLOverviewCardName = Literal["due", "ergebnisse", "dates", "bewerbungen"]
 # missing is one kind whether nobody was booked or the booked one declined, since either asks the same act.
 type FLOverviewGapKind = Literal["ergebnis_missing", "appointment_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
 
-# A party's answer still owed, a club's or the booked referee's: past its deadline, or due today.
+# A party's answer still owed, a club's or the booked referee's: lapsed, or not yet.
 type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetigung_due"]
 
 type FLOverviewKind = FLOverviewGapKind | FLOverviewAnswerKind | Literal["spielbericht_open", "vorschlag_open", "bracket_fault", "bewerbung"]
@@ -112,10 +113,13 @@ class FLOverviewParty(BaseModel):
     party: FLSpielbestaetigungParty
     name: CustomNonEmptyString
     deadline: CustomDateString
+    # The day the party's answer lapsed, a club's `deadline` gone by; null while it may still answer, as a referee
+    # may until the kick-off, whom no deadline binds.
+    lapsed_on: CustomDateString | None
 
 
 class FLOverviewSpielbestaetigungRow(BaseModel):
-    """A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today."""
+    """A fixture whose parties owe their answer: overdue where one party's answer has lapsed, else still due."""
 
     kind: FLOverviewAnswerKind
     spiel: FLSpielJoinedAdmin
@@ -360,11 +364,18 @@ def overview_of(
             )
             continue
         parties.setdefault(spiel.id, []).append(
-            FLOverviewParty(spielbestaetigung_id=row["_id"], party=row[ROW_PARTY], name=row.get(PARTY_NAME_FIELD), deadline=row[ROW_DEADLINE])
+            FLOverviewParty(
+                spielbestaetigung_id=row["_id"],
+                party=row[ROW_PARTY],
+                name=row.get(PARTY_NAME_FIELD),
+                deadline=row[ROW_DEADLINE],
+                # No reason: the next close ends none of these rows, as judged above.
+                lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, now=now),
+            )
         )
     rows.extend(
         FLOverviewSpielbestaetigungRow(
-            kind="spielbestaetigung_overdue" if any(party.deadline < today for party in owed) else "spielbestaetigung_due",
+            kind="spielbestaetigung_overdue" if any(party.lapsed_on is not None for party in owed) else "spielbestaetigung_due",
             spiel=by_id[spiel_id],
             parties=owed,
         )
