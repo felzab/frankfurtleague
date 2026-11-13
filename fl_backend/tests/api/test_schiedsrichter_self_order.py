@@ -5,6 +5,7 @@ The list's whole use is what to do next, so a request to answer filed among the 
 after its Anpfiff, is a referee looking in the wrong place.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from bson import ObjectId
@@ -62,3 +63,18 @@ def test_a_request_to_answer_leads_a_day_to_come_ahead_of_it():
     to_answer = entry(2, "2027-05-27", "18:30:00", state="valid", spielbestaetigung_id=ObjectId())
 
     assert served([agreed, to_answer]) == [2, 1]
+
+
+def test_an_abandonment_owing_its_report_leads_while_a_no_show_owing_none_files_among_the_days_gone_by():
+    """Each kicked off with no report sent; the no-show stands later than the abandonment and earlier than a reported game.
+
+    Counted as owed, the no-show would lead behind the abandonment; the abandonment counted as owing nothing would file
+    last, the days gone by running from the latest.
+    """
+
+    played = {"past": True, "reportable": True}
+    abandoned = entry(1, "2027-05-13", "18:30:00", sonderereignis="abgebrochen", **played)
+    no_show = entry(2, "2027-05-20", "18:30:00", sonderereignis="nichtantreten_team1", **played)
+    reported = entry(3, "2027-05-27", "18:30:00", submitted_at=datetime(2027, 5, 27, 19, tzinfo=UTC), **played)
+
+    assert served([reported, no_show, abandoned]) == [1, 3, 2]
