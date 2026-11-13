@@ -130,11 +130,15 @@ function matches(step: string, path: string): boolean {
 /** What a pressed control opens: the phone's sheet, or the desktop's menu. */
 const OPENED = '[role="dialog"], [role="menu"]';
 
-/** The addresses of the links a person can see in `scope`, in the document's order, each as a path and its query. */
+/**
+ * The addresses of the links a person can see in `scope`, in the document's order, each as a path and its query: seen
+ * as Playwright sees the link the walk then presses, so the link read is one the press can reach.
+ */
 async function visibleLinks(scope: Locator): Promise<string[]> {
   const links = await scope
     .locator("a[href]")
-    .evaluateAll((anchors) => anchors.filter((anchor) => anchor.checkVisibility()).map((anchor) => (anchor as HTMLAnchorElement).href));
+    .filter({ visible: true })
+    .evaluateAll((anchors) => anchors.map((anchor) => (anchor as HTMLAnchorElement).href));
   return links.map((href) => {
     const url = new URL(href);
     return url.pathname + url.search;
@@ -404,12 +408,12 @@ for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) 
             test(`${target} by the link on ${origin}`, { tag }, async ({ page, context }) => {
               const record = await recordShifts(context);
               // The walk ends on the origin, settled, its link to the target read and, where a control holds it, open.
-              const { addresses, link } = await walk(page, record, steps, phone);
-              const from = addresses.at(-2);
+              const { link } = await walk(page, record, steps, phone);
+              const left = page.url();
               await expectStill(page, record, async () => {
                 await press(link, phone);
                 // Left the origin: the link's own address, or the page an address answering for another sends it to.
-                await expect(page).toHaveURL((url) => url.pathname + url.search !== from);
+                await expect(page).toHaveURL((url) => url.href !== left);
               });
               await expectSignedIn(page, role);
             });

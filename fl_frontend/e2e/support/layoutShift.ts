@@ -11,7 +11,7 @@
  */
 import path from "node:path";
 
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { E2E_DIR } from "./journey";
 
@@ -125,21 +125,38 @@ export async function recordShifts(context: BrowserContext): Promise<ShiftRecord
   return record;
 }
 
+/** The quiet one window of `settle` asks for, after two animation frames. */
+const QUIET_MS = 300;
+
 /**
- * Waits until `page` stands still: no `[aria-busy="true"]` left, then two animation frames and 300 ms in which no new
- * shift arrives and the address holds, repeated until one such window passes. A navigation inside the window destroys
- * the context it was waited in, which is a page still moving, so the wait starts again.
+ * How many windows `settle` waits through for a quiet one before it fails naming what moved. It is the smaller of two
+ * budgets: a case's timeout reached first would fail the case with no shift named, so `settle` refuses a timeout its
+ * windows cannot fit in.
+ */
+const WINDOWS = 10;
+
+/**
+ * Waits until `page` stands still: no `[aria-busy="true"]` left, then two animation frames and `QUIET_MS` in which no
+ * new shift arrives and the address holds, repeated until one such window passes, and failing after `WINDOWS` with the
+ * shifts and the address it saw. A navigation inside the window destroys the context it was waited in, which is a page
+ * still moving, so the wait starts again.
  */
 export async function settle(page: Page, record: ShiftRecord): Promise<void> {
-  for (;;) {
+  const { timeout } = test.info();
+  if (timeout !== 0 && WINDOWS * QUIET_MS >= timeout) {
+    throw new Error(`settle's ${String(WINDOWS)} windows of ${String(QUIET_MS)} ms outlast the case's timeout of ${String(timeout)} ms`);
+  }
+  const from = record.length;
+  for (let window = 0; window < WINDOWS; window++) {
     const [count, address] = [record.length, page.url()];
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     const quiet = await page
       .evaluate(
-        () =>
+        (ms) =>
           new Promise<boolean>((resolve) => {
-            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => resolve(true), 300)));
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => resolve(true), ms)));
           }),
+        QUIET_MS,
       )
       .catch((error: unknown) => {
         if (error instanceof Error && error.message.includes("Execution context was destroyed")) return false;
@@ -147,6 +164,7 @@ export async function settle(page: Page, record: ShiftRecord): Promise<void> {
       });
     if (quiet && record.length === count && page.url() === address) return;
   }
+  throw new Error(`the page never stood still in ${String(WINDOWS)} windows, at ${page.url()}:\n${record.slice(from).map(wordsOf).join("\n")}`);
 }
 
 /** A shift in the words of a failure: where, how much, and each source's box before and after. */
