@@ -304,12 +304,13 @@ function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
  * „Fehlt“ where none is stored, with the chip the club's own pages draw for it past its due mark and from the lock. A
- * side the draw has not settled has no club to name one; a match with no day or hour, and one called off, owe none, so
- * neither shows a row.
+ * side the draw has not settled has no club to name one; a match with no day or hour owes none, and one carrying any
+ * event owes none either, as the club's own pages read it, so neither shows a row.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
   const { spiel, aufstellungen, aufstellung_marks: marks } = view;
-  if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
+  // The served marks read the clock alone and never the event, so the page judges the event itself.
+  if (spiel.date === null || spiel.time === null || spiel.sonderereignis !== null) return [];
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];

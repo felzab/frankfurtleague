@@ -2,6 +2,7 @@ import { doubleApiClient } from "@/test-support/apiClientDouble";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
+import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
 
 import type { FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
@@ -92,6 +93,16 @@ describe("the match editor's links to the line-ups", () => {
         line: words.missing,
       },
     ]);
+  });
+
+  // The harm: a match that owes no line-up any more, called off, struck out, abandoned or not turned up to, drawn with
+  // „Überfällig“ beside „Fehlt“, so the league chases a club for a line-up the club's own pages say nobody needs.
+  it("draws no row for a match carrying any event", async () => {
+    for (const sonderereignis of Object.values(FLSonderereignis)) {
+      const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis } });
+
+      expect(editor.props.aufstellungen, sonderereignis).toStrictEqual([]);
+    }
   });
 });
 
