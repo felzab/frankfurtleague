@@ -38,7 +38,7 @@ from app.core.exceptions import APIError
 from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.erasure import erased
-from tests.isolation import InterleavedCollection
+from tests.isolation import InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -453,6 +453,7 @@ async def call_patch(
     confirming: list[FLSpielVoidedResult] | None = None,
     now: datetime | None = None,
     aufstellungen: Any = None,
+    spiele: Any = None,
 ) -> FLPatchSpielDataResponse:
     """The save as the editor sends it: confirming the later results its own dry run says it deletes, unless `confirming` names them."""
 
@@ -463,7 +464,7 @@ async def call_patch(
         spiel_id=spiel_id,
         spiel_data=spiel_data if confirming is None else spiel_data.model_copy(update={"voided_results": confirming}),
         db=client,
-        spiele_collection=database[Collection.SPIELE],
+        spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -1025,7 +1026,11 @@ class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
     A stale bracket is no state any route leaves, so it is seeded as a direct write would leave it.
     """
 
-    def test_the_save_resolves_the_bracket_and_deletes_the_results_it_was_confirmed(self, mongo_replica_set_url: str):
+    def test_the_save_resolves_the_bracket_and_deletes_the_results_it_was_confirmed_and_leaves_its_own_fixture_alone(
+        self, mongo_replica_set_url: str
+    ):
+        """The saved fixture's own write would raise its version, refusing every other open editor, and log a change nobody made."""
+
         quarter, semi = bracket_season()
         # Beta won the quarter-final, but the semi-final still fields the club it beat.
         stale = [quarter, {**semi, "team1": side(ALPHA, 2)}]
@@ -1034,14 +1039,16 @@ class TestASaveChangingNoFieldOnAStaleBracketDoesWhatItsDryRunSaid:
             unchanged = await payload_for(database, VIERTELFINALE)
             preview = await call_patch(database, client, VIERTELFINALE, unchanged, dry_run=True)
             saved = await call_patch(database, client, VIERTELFINALE, unchanged, confirming=preview.voided_results)
+            logged = database[Collection.ACTION_LOG].find({"record_id": VIERTELFINALE})
 
-            return preview, saved, await spiele_now(database)
+            return preview, saved, await spiele_now(database), [row["action"] async for row in logged]
 
-        preview, saved, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=stale)
+        preview, saved, spiele, logged = on_a_seeded_season(mongo_replica_set_url, body, spiele=stale)
 
         assert [advancement.spiel_nr for advancement in preview.advanced_to] == [HALBFINALE_NR]
         assert saved.voided_results == preview.voided_results
         assert (spiele[HALBFINALE_NR]["team1"]["team_id"], spiele[HALBFINALE_NR]["ergebnis"]) == (BETA, None)
+        assert (spiele[VIERTELFINALE_NR]["version"], saved.version, logged) == (quarter["version"], quarter["version"], [])
 
 
 class TestASaveOpenedOnAnOlderVersionIsRefused:
@@ -1062,6 +1069,32 @@ class TestASaveOpenedOnAnOlderVersionIsRefused:
         assert first.version == 1
         assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
         assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == ("Halle Ost", 1)
+
+    def test_a_save_storing_what_stands_conflicts_with_a_rival_save_landing_under_it(self, mongo_replica_set_url: str):
+        """It writes no field of the fixture, so only its anchor conflicts with a rival committing after its read.
+
+        Unanchored, it would answer saved on a version the rival has left, the rival's note standing where the
+        administrator saw their own.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            opened = await payload_for(database, VIERTELFINALE)
+
+            async def rival() -> None:
+                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"note": "Halle Ost"}))
+
+            # After the save's first read of the fixture, which its transaction's snapshot holds from then on.
+            spiele = InterleavedCollection(database[Collection.SPIELE], rival, after="find_one")
+            outcome = await outcome_of(call_patch(database, client, VIERTELFINALE, opened, confirming=[], spiele=spiele))
+
+            return outcome, await spiele_now(database), spiele.passes
+
+        outcome, spiele, passes = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert outcome == Code.VERSION_STALE
+        assert (spiele[VIERTELFINALE_NR]["note"], spiele[VIERTELFINALE_NR]["version"]) == ("Halle Ost", 1)
+        # Twice: the conflict sent the save round again, where a rival committed before it would have refused it at once.
+        assert passes == 2
 
 
 class TestAMidFlightFailureTakesTheWholeSaveBack:
