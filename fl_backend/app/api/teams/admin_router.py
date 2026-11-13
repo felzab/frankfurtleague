@@ -696,6 +696,11 @@ async def put_austritt(
         start_date = str(saison_raw["start_date"])
         refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
 
+        # Every fixture of the season, not only the club's: a save judges this row's exit on a read it never writes, and
+        # writes the fixture it saves, which may be one fielding the club only once it lands. So any save judging under
+        # this exit conflicts with it, and its retry is judged against the exit. The exit is rare, a retried save cheap.
+        await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+
         await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter=row_filter,
