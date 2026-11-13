@@ -201,7 +201,8 @@ def state_of(
     """What a party's page shows of a row, the first state matching winning: a row already answered shows its answer, never a refusal.
 
     Asked of a club's unclosed row, of a referee's newest, and by the match editor of every row: a closed row reads by
-    the reason it was closed for, so a discarded decline reads as that decline.
+    the reason it was closed for, so a discarded decline reads as that decline, but an agreement only while its
+    Ansetzung still stands.
     """
 
     answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
@@ -222,8 +223,13 @@ def state_of(
     if reason == "cancelled":
         return "cancelled"
 
+    if isinstance(answer, Mapping) and answer["kind"] == "declined":
+        return "declined"
+
+    # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
+    # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
     if isinstance(answer, Mapping):
-        return "agreed" if answer["kind"] == "agreed" else "declined"
+        return "agreed" if spielbestaetigung_raw["ansetzung"]["digest"] == ansetzung_digest_of(ansetzung_state.spiel) else "invalid"
 
     if reason is not None or _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now):
         return "expired"

@@ -107,6 +107,27 @@ def test_an_open_row_on_a_called_off_match_reads_cancelled(mongo_replica_set_url
     assert [row.state for row in answer.spielbestaetigungen] == ["cancelled"]
 
 
+def test_an_agreement_closed_at_its_kick_off_reads_as_left_once_the_match_moves_past_the_request_window(mongo_replica_set_url: str):
+    """The home club agreed to 25 April, its row closed at that kick-off; the match then moved to 20 June.
+
+    No pass asks about 20 June before 30 May, so this row stays the club's newest until then: read as agreed, the editor
+    tells the league the club agreed to a day nobody asked it about. Left on 25 April, the match played, it still reads
+    agreed.
+    """
+
+    played = {**_spiel(), "date": "2026-04-25"}
+    agreed = documents.spielbestaetigung_document(
+        played, party={"kind": "team", "team_id": HOME}, answer=AGREED, closed={"reason": "spiel_past"}
+    )
+
+    states = [
+        [row.state for row in _read(mongo_replica_set_url, spiel, rows=[agreed]).spielbestaetigungen]
+        for spiel in (played, {**played, "date": "2026-06-20"})
+    ]
+
+    assert states == [["agreed"], ["invalid"]]
+
+
 def test_a_line_up_holding_no_entry_reads_as_none_stored(mongo_replica_set_url: str):
     """The home club's line-up names a pupil and the away club's, stored, holds no entry: only the first stands."""
 
