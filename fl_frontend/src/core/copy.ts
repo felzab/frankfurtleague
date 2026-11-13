@@ -356,6 +356,8 @@ export const COPY = catalogue({
       noneOne: (noun: Copy) => `Noch kein ${noun}.`,
       /** An Übersicht card holding no open work: nothing is waiting, where `none` would say something is still to come. */
       nothingOpen: "Nichts offen.",
+      /** A run's list a person left every row out of: the records stand, where `none` would say there are none yet. */
+      skipped: (plural: Copy) => `Alle ${plural} übersprungen.`,
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */

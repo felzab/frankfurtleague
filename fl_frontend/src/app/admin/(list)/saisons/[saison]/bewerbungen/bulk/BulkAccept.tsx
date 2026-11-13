@@ -200,7 +200,8 @@ export function BulkAccept({
           { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
-        empty: { kind: "none", plural: COPY.page.adminBewerbungen, glyph: "bewerbungen" },
+        // A run with no applications ended above, so an empty table is one whose every card was skipped.
+        empty: { kind: "skipped", plural: COPY.page.adminBewerbungen },
       }}
       refused={open.some((row) => run.outcomes[row.id]?.kind === "refused")}
       act={
