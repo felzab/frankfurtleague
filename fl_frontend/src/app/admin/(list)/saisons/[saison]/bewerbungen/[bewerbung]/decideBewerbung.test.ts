@@ -1,18 +1,26 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
+
+import type { FLAcceptBewerbungResponse } from "@/core/generated/client/types";
 
 const ID = "64b000000000000000000002";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
-/** Every call the doubled client was sent. */
-const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
-
-doubleApiClient((call) => {
-  state.sent.push({ endpoint: call.endpoint, body: JSON.parse(call.body ?? "null") as unknown });
-});
+// The acceptance alone is answered, so the real guard, generated call and dispatch run, and any other request fails
+// the case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === `/bewerbungen/${ID}/accept`
+    ? ({
+        created_team: false,
+        gruppe: "A",
+        saison_id: "2027",
+        team_id: "64b000000000000000000003",
+        trikot_farbe: null,
+      } satisfies FLAcceptBewerbungResponse)
+    : undefined,
+);
+// An administrator's session, made by passkey, which the act's guard admits.
+signedInRequest();
 
 const { acceptBewerbung } = await import("./decideBewerbung");
 
@@ -26,18 +34,14 @@ function posted(fields: Readonly<Record<string, string>>): FormData {
   return form;
 }
 
-beforeEach(() => {
-  state.sent = [];
-});
-
 describe("an acceptance", () => {
   /* A known club's closed box posts nothing: read as a missing field, every known club's acceptance would fail on a box
      nobody can touch, and the write refuses a code sent for one. */
   it("sends no code for a known club and the wish's blank as no colour", async () => {
-    await acceptBewerbung(posted({ trikot_farbe: "" }));
+    expect(await acceptBewerbung(posted({ trikot_farbe: "" }))).toStrictEqual({ ok: true, value: undefined });
 
-    expect(state.sent).toStrictEqual([
-      { endpoint: `/bewerbungen/${ID}/accept`, body: { gruppe: "A", trikot_farbe: null, shorthand: null, version: 3 } },
+    expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
+      { method: "POST", path: `/bewerbungen/${ID}/accept`, body: { gruppe: "A", trikot_farbe: null, shorthand: null, version: 3 } },
     ]);
   });
 });

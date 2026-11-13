@@ -57,8 +57,15 @@ beforeEach(() => {
   refusing.write = null;
 });
 
-const backend = serveBackend(({ method }) => {
-  if (method !== "PUT") return reading.stored;
+/** The one address the save's merge read and its write share: the line-up of the match and club it names. */
+const ENDPOINT = `/aufstellungen/${SPIEL}/${TEAM}`;
+
+// Answered by method and path alone, so a read or a write of another match's or club's line-up is unanswered and
+// fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (path !== ENDPOINT) return undefined;
+  if (method === "GET") return reading.stored;
+  if (method !== "PUT") return undefined;
   if (refusing.write !== null) return refusing.write();
   return { ...STORED, version: 4 };
 });
