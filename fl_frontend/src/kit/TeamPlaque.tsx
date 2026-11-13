@@ -17,10 +17,10 @@ const plaqueLook = tv({
     muted: {
       true: "text-fg-muted",
     },
-    // The side that did not turn up, struck where its plaque stands for its club alone: below `lg`, where the bracket's
-    // card draws the plaque without its name, which bears the strike from `lg`.
+    // The side that did not turn up, struck where its plaque stands for its club alone: in a bracket narrower than
+    // 42 rem, whose card draws the plaque without its name, which bears the strike in a wider one.
     struck: {
-      true: "max-lg:line-through",
+      true: "@max-2xl:line-through",
     },
   },
 });

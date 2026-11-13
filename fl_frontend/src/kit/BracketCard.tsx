@@ -13,19 +13,25 @@ import type { Copy } from "@/core/copy";
 import type { Route } from "next";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
+/*
+ * The card takes its form from the box of the tree it stands in, never from its own, since its own width is the
+ * form's result: a tree narrower than 42 rem draws the narrow card, of plaques alone.
+ */
 const card = tv({
   extend: sideMarks,
   slots: {
-    // 6 px between the plaque and the figure on a phone, so a two-digit figure fits the card inside its padding.
-    line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 lg:gap-2",
+    // 6 px between the plaque and the figure on the narrow card, so a two-digit figure fits the card inside its padding.
+    line: "flex min-h-6 min-w-0 items-center justify-between gap-1.5 @2xl:gap-2",
     side: "flex min-w-0 items-center gap-2",
-    // A phone's card draws the plaque alone, the name still the link's words for a screen reader.
-    name: "min-w-0 truncate max-lg:sr-only",
+    // The narrow card draws the plaque alone, the name still the link's words for a screen reader.
+    name: "min-w-0 truncate @max-2xl:sr-only",
     goals: "whitespace-nowrap",
     // One column the card's width and no wider, so a long name, or a date beside a chip, is cut rather than pushing the
     // figures out of the card.
-    body: "grid grid-cols-[minmax(0,1fr)] gap-1 p-2 lg:px-3 lg:py-3",
-    when: "mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted max-lg:hidden",
+    body: "grid grid-cols-[minmax(0,1fr)] gap-1 p-2 @2xl:px-3 @2xl:py-3",
+    // The narrow card has no room for the line, which a screen reader still hears there: the date and what befell the
+    // match.
+    when: "mt-1 border-t border-border pt-2 font-numeric text-xs text-fg-muted @max-2xl:sr-only",
     // A chip's height whether a chip stands on it or not, so every card of the tree stays one size.
     whenLine: "flex h-5 items-center justify-between gap-2",
     date: "min-w-0 truncate",
@@ -49,8 +55,8 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
           muted={muted}
           struck={struck}
         />
-        {/* Desktop sets the name, or a side's source, beside the plaque, cut with „…“ and whole in its title while it
-            is cut. */}
+        {/* The wide card sets the name, or a side's source, beside the plaque, cut with „…“ and whole in its title while
+            it is cut. */}
         <CutText
           text={name}
           className={style.name()}
@@ -63,10 +69,11 @@ function Line({ side, score, part, muted = false, absent }: LineProps) {
 
 /**
  * A knockout match in the bracket, the whole card a link to it, or opening nothing where it has no `href`. Every card is the same size: one figure
- * per side, a shoot-out's goals added, with no mark for it, both figures bold; on desktop the date under a
+ * per side, a shoot-out's goals added, with no mark for it, both figures bold; on the wide card the date under a
  * hairline. Something befell the match as a match row draws it (`SpielRow`): both sides muted, the side that did not
- * turn up struck, and on desktop the event's chip at the date line's end, the date cut with „…“ beside a long one; the
- * phone's card, of plaques alone, has no room for a chip, so its plaques carry the muting and the strike.
+ * turn up struck, and on the wide card the event's chip at the date line's end, the date cut with „…“ beside a long
+ * one; the narrow card, of plaques alone, has no room for a chip, so its plaques carry the muting and the strike, and
+ * its date line, chip included, is heard by a screen reader alone.
  */
 export function BracketCard({
   href,
@@ -129,7 +136,7 @@ export function BracketCard({
   );
 }
 
-/** One side's line while its match is read: the plaque, on desktop the name's line, and the figure, as bars. */
+/** One side's line while its match is read: the plaque, on the wide card the name's line, and the figure, as bars. */
 function LinePlaceholder() {
   const style = card();
   return (
@@ -137,7 +144,7 @@ function LinePlaceholder() {
       <span className={style.side({ class: "flex-1" })}>
         <span className={placeholderBar("h-6 w-10")} />
         <PlaceholderLine
-          textClass="flex-1 text-sm max-lg:hidden"
+          textClass="flex-1 text-sm @max-2xl:hidden"
           widthClass="w-3/4"
         />
       </span>
@@ -146,7 +153,7 @@ function LinePlaceholder() {
   );
 }
 
-/** A knockout match's card while it is read: the card's own box and lines, the date's line under its hairline on desktop. */
+/** A knockout match's card while it is read: the card's own box and lines, the date's line under its hairline on the wide card. */
 export function BracketCardPlaceholder() {
   const style = card();
   return (

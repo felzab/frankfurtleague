@@ -37,8 +37,11 @@
     --danger: #b71920;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
-    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. */
-    --scrim: rgb(0 0 0 / 0.1);
+    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. Its
+       strength is a token of its own, since the root's ground under a standing veil mixes the same black into the
+       page's ground as one solid colour. */
+    --scrim-strength: 10%;
+    --scrim: color-mix(in srgb, #000 var(--scrim-strength), transparent);
 
     --menu-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);

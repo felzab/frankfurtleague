@@ -2,12 +2,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
 import { TextField } from "./TextField";
+
+import type { ReactElement } from "react";
 
 describe("an address field's autofill", () => {
   it("offers the person's address by default", () => {
@@ -30,6 +32,59 @@ describe("an address field's autofill", () => {
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+/** A form of one box and its press, reporting whether the press went through. */
+async function pressing(field: ReactElement, typed: string) {
+  const sent = vi.fn();
+  render(
+    <Form
+      onSubmit={(event) => {
+        event.preventDefault();
+        sent();
+      }}>
+      {field}
+      <Button
+        variant="primary"
+        type="submit"
+        label={COPY.shared.verb.save}
+      />
+    </Form>,
+  );
+  await userEvent.type(screen.getByRole("textbox"), typed);
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+  return sent;
+}
+
+// The harm: the server refuses either after the press, and behind the passkey touch the person loses the touch and
+// everything typed in the dialog.
+describe("what the browser takes and the server refuses", () => {
+  it("refuses an address outside the API's rule on the press, a host with no dot", async () => {
+    const sent = await pressing(
+      <TextField
+        label={COPY.signIn.address}
+        name="email"
+        kind="email"
+      />,
+      "lena@verein",
+    );
+    expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleAddress))).toBeTruthy();
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a required box holding only spaces on the press", async () => {
+    const sent = await pressing(
+      <TextField
+        label={COPY.shared.startelf}
+        name="name"
+        kind="text"
+        isRequired
+      />,
+      "   ",
+    );
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
+    expect(sent).not.toHaveBeenCalled();
   });
 });
 

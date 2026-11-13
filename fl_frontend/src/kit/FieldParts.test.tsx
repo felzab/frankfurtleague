@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine } from "./FieldParts";
+import { FormClosed } from "./formClosed";
 
 import type { ComponentProps } from "react";
 
@@ -33,6 +34,30 @@ function Addressed({ validationErrors }: Pick<ComponentProps<typeof Form>, "vali
     </Form>
   );
 }
+
+describe("a field's label", () => {
+  // A demand on a value nobody can change reads as a task the reader cannot do.
+  it("draws the required mark in an open form and none in a closed one", () => {
+    const { container } = render(
+      <>
+        <FieldLabel
+          label={COPY.signIn.address}
+          isRequired
+        />
+        <FormClosed value>
+          <FieldLabel
+            label={COPY.signIn.address}
+            isRequired
+          />
+        </FormClosed>
+      </>,
+    );
+    expect([...container.querySelectorAll("label")].map((label) => label.textContent)).toStrictEqual([
+      `${COPY.signIn.address} *`,
+      COPY.signIn.address,
+    ]);
+  });
+});
 
 describe("a field's message line", () => {
   // The browser's own wording for its flag, in its own language, is the one message no catalogue entry holds.
