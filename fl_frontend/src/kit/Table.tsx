@@ -41,7 +41,7 @@ type TableColumn = {
    * whose values are bounded by construction states it, an enumerated value or a fixed-format one. Any other column
    * stating none holds free text, whose width is the record's.
    */
-  width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "phrase" | "excerpt" | "phone" | "line";
+  width?: "count" | "pair" | "marked" | "code" | "word" | "date" | "instant" | "excerpt" | "phone" | "line";
   /**
    * A value that may run longer than its column, such as a ban's Grund, an address or a club's name: as wide as its
    * longest value while the row has room, sharing what the row leaves free with the name, and cut with „…“ only once the
@@ -361,7 +361,7 @@ const table = tv({
     // „3-1-0“, a count with its mark's slots, a code three capitals, such as a Stufe or a club's shorthand, a word ten
     // letters, one of a set the contract or the catalogue fixes, such as a position („Mittelfeld“, 62 px measured), a
     // group („Gruppe M“), a kit colour or a count of seats („2 von 3“), a date ten characters, an instant 20, „bis“
-    // before its date and time, a phrase of the catalogue's 24, an excerpt 20, the start of a `cut` text in a row whose
+    // before its date and time, an excerpt 20, the start of a `cut` text in a row whose
     // acts need the room a whole line would take, a phone number 20, a line of an address 35 where the box is 56 rem or
     // wider and 20 below it, where a name beside a state, the line and a phone number would keep less than its least
     // width. A date stands at the start in the body's face, never as `figures`, which would centre
@@ -374,7 +374,6 @@ const table = tv({
       word: { head: "min-w-24" },
       date: { head: "min-w-28" },
       instant: { head: "min-w-40" },
-      phrase: { head: "min-w-48" },
       excerpt: { head: "min-w-40" },
       phone: { head: "min-w-44" },
       line: { head: "min-w-44 @4xl:min-w-72" },
