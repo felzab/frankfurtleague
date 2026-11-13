@@ -14,6 +14,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
@@ -130,21 +131,11 @@ let deletingAccounts: () => Promise<unknown> = async () => undefined;
 /** What runs as a user row is deleted, by the library or by a deletion's transaction. */
 let deletingUser: () => Promise<unknown> = async () => undefined;
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: (message: string) => void warnings.push(message),
-    error: (message: string) => void errors.push(message),
-  },
-};
-
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
     config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
-    logging: LOGGING_DOUBLE,
   },
 });
 
@@ -180,8 +171,15 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 
-const warnings: string[] = [];
-const errors: string[] = [];
+/** Every line the real logger writes since the case began, read off standard output. */
+const log = captureLog();
+
+/** The events of the lines written at `level` since the case began, or since the line `from` counts. */
+const eventsAt = (level: "WARNING" | "ERROR", from = 0): string[] =>
+  log
+    .lines()
+    .slice(from)
+    .flatMap((line) => (line.level === level ? [line.message] : []));
 const barrier = new Barrier();
 
 /** Where each bound's count waits, for a case that arms it. */
@@ -216,16 +214,15 @@ beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
   barrier.disarm();
   counting.disarm();
-  warnings.length = 0;
+  log.clear();
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
-  errors.length = 0;
   await buildAuthIndexes();
-  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 const handler = toNextJsHandler(auth);
@@ -294,7 +291,7 @@ describe("a passkey setup that signs in, against a real database", () => {
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
     expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 404]);
-    expect([warnings, errors]).toStrictEqual([[], []]);
+    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([[], []]);
     expect(sent.length - mailedBefore).toBe(1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     expect(factors, "the refused setup minted a session or ended its caller's").toStrictEqual(["code", "passkey"]);
@@ -307,14 +304,15 @@ describe("a passkey setup that signs in, against a real database", () => {
     expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
     gateAnswer = { seats: [SEAT], barred: false, account: true };
     const person = await offer(await signIn("zweites-konto@example.org"));
-    warnings.length = 0;
+    // The administrator's own enrolment above is not the conflict read below.
+    const warnedFrom = log.lines().length;
     const mailedBefore = sent.length;
 
     const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
 
     expect({
       status: refused.status,
-      logged: [warnings, errors],
+      logged: [eventsAt("WARNING", warnedFrom), eventsAt("ERROR")],
       notices: sent.length - mailedBefore,
       rows: (await passkeyRows()).length,
       factors: (await sessionRows()).map(({ authFactor }) => authFactor),
