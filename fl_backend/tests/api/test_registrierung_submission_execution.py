@@ -242,7 +242,7 @@ async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 class TestWhatASubmissionStores:
-    """The document the shipped `$jsonSchema` accepts, which is the only shape a later read can rely on."""
+    """The document `FLRegistrierungRecord` reads back, which is the only shape a later read can rely on."""
 
     def test_the_stored_key_set_is_exactly_the_declared_one(self, mongo_replica_set_url: str):
         """An EQUALITY, so a late-entry marker of either spelling fails here rather than riding along unnoticed."""
