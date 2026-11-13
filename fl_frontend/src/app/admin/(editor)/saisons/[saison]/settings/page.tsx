@@ -7,6 +7,7 @@ import { FactsPlaceholder } from "@/kit/Facts";
 import { FieldPlaceholder } from "@/kit/FieldPair";
 import { FieldRows } from "@/kit/FieldRows";
 import { SectionPlaceholder } from "@/kit/Section";
+import { NOT_SENT_CHIP, SENT_CHIP } from "@/kit/stateChips";
 import { TablePlaceholder } from "@/kit/Table";
 
 import { getAdminSession } from "@/core/auth/guards";
@@ -15,7 +16,6 @@ import { dayOf, formatDate } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
@@ -51,9 +51,6 @@ const LINKS_HEAD: TableHead = {
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
 };
-
-/** A link mailed, the state its press has reached: this table alone draws it, beside the amber „Nicht gesendet“. */
-const SENT: ChipProps = { tone: "success", label: WORDS.linkSent };
 
 /** One of the editor's selects of a few short choices while it is read. */
 const SELECT = <FieldPlaceholder key="select" />;
@@ -112,7 +109,7 @@ function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined): 
     return { tone: "warn", label: WORDS.noConfirmedAddress };
   }
   if (!row.has_link) return { tone: "warn", label: WORDS.noLinkYet };
-  return row.sent_at === null ? NOT_SENT : SENT;
+  return row.sent_at === null ? NOT_SENT_CHIP : SENT_CHIP;
 }
 
 /** The season editor, on the season's one admin read. */

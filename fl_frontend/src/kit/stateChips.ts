@@ -42,3 +42,13 @@ export const DECLINED_CHIP: ChipProps = { tone: "danger", label: COPY.admin.spie
 
 /** A squad row registered after the season's window closed, which holds for the season: a squad row, a line-up's player. */
 export const NOMINEE_CHIP: ChipProps = { tone: "info", label: COPY.admin.spieler.nominee };
+
+/**
+ * A link whose mail never went out, waiting on a press: a club's registration link before the season's press reaches
+ * it, and the link of an application's seat or of a registration held back while its mailbox holds too many unanswered
+ * ones, on its page and on its list's row.
+ */
+export const NOT_SENT_CHIP: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
+
+/** A club's registration link the season's press mailed, the other side of `NOT_SENT_CHIP` in the season's links. */
+export const SENT_CHIP: ChipProps = { tone: "success", label: COPY.admin.saison.linkSent };

@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
+import { NOT_SENT_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getBewerbungenOfSaison } from "@/features/bewerbungen/queries";
-import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { SEATS, STANDING_CHIP, standingOf, TEAM_DOUBLE } from "@/features/bewerbungen/standing";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -52,7 +52,7 @@ const ORIGIN_OPTIONS = [
 
 /** The row's one chip in its standing's place: a seat never mailed first, the application going on its day unless a link is sent, then an open Dublette. */
 function chipOf(row: FLBewerbungListRow): ChipProps {
-  if (row.unmailed) return NOT_SENT;
+  if (row.unmailed) return NOT_SENT_CHIP;
   return row.duplicate ? TEAM_DOUBLE : STANDING_CHIP[standingOf(row)];
 }
 
