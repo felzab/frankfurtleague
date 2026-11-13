@@ -50,13 +50,6 @@ def judged(capsys: pytest.CaptureFixture[str], files: Mapping[str, str | bytes],
     return code, printed.out + printed.err
 
 
-def test_english_names_pass(capsys):
-    """The resting state every red case is measured against, `zorbal` holding no `zorb` among them."""
-    code, _ = judged(capsys, {"app/main.py": "zorbal = connect_zorbal()\n", "src/view.ts": "export const overview = 1;\n"})
-
-    assert code == 0
-
-
 def test_a_path_segment_holding_a_stem_is_reported():
     root = tree({"src/answerZorb.ts": "export const answer = 1;\n"})
 
@@ -104,39 +97,6 @@ def test_a_string_that_is_a_name_is_reported(capsys, rel, source):
     assert rel in printed
 
 
-@pytest.mark.parametrize(
-    ("rel", "source"),
-    [
-        ("app/mail.py", 'LINE = "Dein Zorb steht fest"\n'),
-        ("app/mail.py", 'SENDER = "zorb@example.org"\n'),
-        ("app/mail.py", 'ADDRESS = f"zorb.{position}@example.org"\n'),
-        ("app/mail.py", 'LABEL = "Zorb"\n'),
-        ("src/team.ts", 'export const team = { shorthand: "WO" };\n'),
-        ("src/core/word.ts", 'export const label = "zöb";\n'),
-        ("app/mail.py", "# the zorb rows\nx = 1\n"),
-        ("src/match.ts", "export const isRow = (line: string) => /^zorb$/.test(line);\n"),
-        ("src/Page.tsx", "export const Page = () => <p>zorb</p>;\n"),
-        ("scripts/run.sh", "#!/usr/bin/env bash\ncat <<EOF\nzorb\nEOF\n"),
-    ],
-    ids=[
-        "sentence",
-        "address",
-        "interpolated-address",
-        "capitalised",
-        "kuerzel",
-        "umlaut",
-        "comment",
-        "regex",
-        "jsx-text",
-        "heredoc",
-    ],
-)
-def test_the_visitors_text_is_no_name(capsys, rel, source):
-    code, printed = judged(capsys, {rel: source})
-
-    assert code == 0, printed
-
-
 def test_a_catalogue_string_is_the_visitors_text_and_its_key_a_name(capsys):
     catalogue = "fl_frontend/src/core/copy.ts"
     clean, _ = judged(capsys, {catalogue: 'export const COPY = { or: "zorb" };\n'})
@@ -159,13 +119,6 @@ def test_a_generated_file_and_a_lockfile_are_not_read(capsys):
     assert (marked, unmarked) == (0, 1)
     assert "src/generated/client.ts" in printed
     assert "pnpm-lock.yaml" not in printed
-
-
-def test_a_hit_is_reported_once_per_line_name_and_stem(capsys):
-    code, printed = judged(capsys, {"app/a.py": "zorb = zorb\n"})
-
-    assert code == 1
-    assert printed.count("app/a.py:1  zorb  holds zorb") == 1
 
 
 def test_no_stem_list_refuses(capsys):

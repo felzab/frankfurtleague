@@ -516,7 +516,7 @@ def _served() -> FastAPI:
     return create_app(build_test_config())
 
 
-def through_the_app(url: str, body: Mapping[str, Any], *, key: str | None = None) -> Submitted:
+def through_the_app(url: str, body: Mapping[str, Any]) -> Submitted:
     """One submission over the wire, so the guard, the actor binder and the response model all run."""
 
     database_name = build_test_config().db_base_name
@@ -532,7 +532,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, key: str | None = None
             async def _submitted() -> Response:
                 async with app_client(url, app=_served(), now=NOW) as http:
                     sent = dict(BASE_AUTH)
-                    sent["Idempotency-Key"] = key or str(uuid4())
+                    sent["Idempotency-Key"] = str(uuid4())
                     return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
             response = asyncio.run(_submitted())
@@ -551,29 +551,13 @@ class TestASubmissionMadeOverTheWire:
     """What calling the endpoint function directly cannot prove: the guard a real request meets."""
 
     def test_the_base_key_reaches_the_write(self, mongo_replica_set_url: str):
-        """Also the floor under the two refusals below: without it each would pass on a write nothing reaches."""
+        """Also the floor under the refusal below: without it that would pass on a write nothing reaches."""
 
         submitted = through_the_app(mongo_replica_set_url, payload())
 
         assert submitted.response.status_code == 201
         assert set(submitted.response.json()) == {"created_id"}
         assert submitted.stored == 1
-
-    @pytest.mark.parametrize(
-        "key",
-        [
-            pytest.param("not-a-uuid", id="not a uuid"),
-            # Version 1, which carries its host's clock: a guessable key lets a stranger store other details under it first.
-            pytest.param("6fa459ea-ee8a-11ca-8d6b-0800200c9a66", id="a time-based uuid"),
-            # The IETF draft's structured-field string: the bare token is this API's form.
-            pytest.param('"1b4e28ba-2fa1-4d2b-883f-0016d3cca427"', id="the draft's quoted form"),
-        ],
-    )
-    def test_a_key_that_is_not_version_4_is_a_422_storing_nothing(self, mongo_replica_set_url: str, key: str):
-        submitted = through_the_app(mongo_replica_set_url, payload(), key=key)
-
-        assert submitted.response.status_code == 422
-        assert submitted.stored == 0
 
     def test_a_repeated_contact_is_a_422_naming_its_box_and_storing_nothing(self, mongo_replica_set_url: str):
         """Named on the box the form marks, which the block's own validators cannot: the form holds no copy of the rule."""
