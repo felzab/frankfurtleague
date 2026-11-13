@@ -773,10 +773,12 @@ class TestTheSpielRulesAreReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("spiele", "spiel_id", "overrides", "error_code"),
         [
+            # Its club kept and a group's place as the source, which every other wiring rule passes: a match feeding it, or
+            # a side emptied beside the source, is refused by a rule of its own as well.
             pytest.param(
                 an_unbooked_spieltag(),
                 GRUPPE_FILLING,
-                {"team1": None, "team1_quelle": {"type": "spiel", "spiel_nr": GRUPPE_HELD_NR, "ausgang": "sieger"}},
+                {"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
                 Code.WIRING_UNSUPPORTED,
                 id="a group fixture wired to a feeder",
             ),
