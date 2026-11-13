@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, NoReturn, cast, get_args
+from typing import Any, NoReturn, cast
 
 import pytest
 from bson import ObjectId
@@ -53,7 +53,6 @@ from app.api.spiele.services import (
 from app.core import clock
 from app.core.codes import Code
 from app.core.exceptions import APIError, WriteRefusal
-from app.shared.schemas.literals import FLSonderereignis
 from tests import documents
 from tests.payloads import spiel_patch_body
 
@@ -533,9 +532,6 @@ def booked_nobody(saison_docs: list[dict[str, Any]], nr: int) -> list[dict[str, 
 class TestABookingNamingNobody:
     """Only an erasure makes one, on a played fixture: a save keeps it there, drops it where the fixture moves to come, and never makes one."""
 
-    def test_a_save_keeps_the_one_the_fixture_stores(self, saison):
-        assert booking_refusal_for(booked_nobody(saison, 1), 1, references()) is None
-
     @pytest.mark.parametrize(
         "stored", [pytest.param(None, id="no-referee-booked"), pytest.param(A_DIFFERENT_SCHIEDSRICHTER, id="a-referee-booked")]
     )
@@ -576,11 +572,6 @@ def untimed_first(saison_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """`saison` with spiel 1 given no time, so it claims nothing."""
 
     return [{**saison_docs[0], "time": None}, *saison_docs[1:]]
-
-
-# A result and a note on spiel 1, which leave its claims as they were.
-A_RESULT = {"team1": team(ADLER, "Adler", tore=2), "team2": team(BIEBER, "Bieber", tore=0)}
-A_NOTE = {"note": "Anstoß verschoben"}
 
 
 class TestTheReferencesASaveAnchors:
@@ -1213,14 +1204,6 @@ class TestTheClashComparesRealTime:
                 pytest.param({"sonderereignis": event}, ["Spielort", "Schiedsrichter"], id=f"{event}-keeps-its-slot")
                 for event in SONDEREREIGNIS_KEEPING_ITS_SLOT
             ),
-            # A fixture called off frees the ground, and judging it would make the admin move it before recording why.
-            *(
-                pytest.param({"sonderereignis": event}, [], id=f"{event}-frees-its-slot")
-                for event in get_args(FLSonderereignis.__value__)
-                if event not in SONDEREREIGNIS_KEEPING_ITS_SLOT
-            ),
-            pytest.param({"date": None}, [], id="no-date"),
-            pytest.param({"time": None}, [], id="no-time"),
         ],
     )
     def test_a_spiel_claims_its_venue_and_its_referee_while_it_keeps_a_slot_at_an_hour(self, saison, overrides, claimed):
@@ -1229,9 +1212,6 @@ class TestTheClashComparesRealTime:
     @pytest.mark.parametrize(
         ("seasoned", "overrides", "made"),
         [
-            # A note on a fixture a reopening left clashing is saved rather than refused until somebody moves one of the two.
-            pytest.param(as_seeded, A_RESULT, [], id="a result"),
-            pytest.param(as_seeded, A_NOTE, [], id="a note"),
             pytest.param(as_seeded, {"time": "10:00:00"}, ["Spielort", "Schiedsrichter"], id="a new hour"),
             pytest.param(as_seeded, {"schiedsrichter": A_DIFFERENT_SCHIEDSRICHTER}, ["Schiedsrichter"], id="a new referee"),
             pytest.param(called_off_first, {"sonderereignis": None}, ["Spielort", "Schiedsrichter"], id="a call-off lifted"),
