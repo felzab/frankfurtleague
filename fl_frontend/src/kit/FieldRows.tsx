@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
  * its name, so the name stands with the fields it names. A fieldset and its legend, the platform's own group with a
  * name, which a screen reader says before each field's label.
  */
-export const subgroup = tv({
+const subgroup = tv({
   slots: {
     root: "grid w-full min-w-0 not-first:mt-2",
     name: smallCaps({ class: "mb-2" }),
