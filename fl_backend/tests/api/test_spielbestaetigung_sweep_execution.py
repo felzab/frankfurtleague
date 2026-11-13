@@ -2189,11 +2189,13 @@ class TestASaveLandingInsideAStepLeavesNoMailAboutTheSlotTheFixtureLeft:
             # The close's read of the fixtures and the mint's come first, the reminder's third.
             interleaved = ThenTheRivalAfterTheNthJoinedRead(database[Collection.SPIELE], move_on, nth=3)
             answer = await a_pass(database, client, today=REMINDER, spiele=cast(Any, interleaved))
-            return await handed_out(database, client, answer, now=clock_of(REMINDER)), await rows(database)
+            return await handed_out(database, client, answer, now=clock_of(REMINDER)), await rows(database), interleaved.passes
 
-        passed, stored = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
+        passed, stored, reads = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, FORTNIGHT, schiedsrichter=None)])
 
-        # The premise: the move landed after the mint, which would otherwise have asked about the new slot at once.
+        # The premise: the move landed in the reminder, whose read ran again after the conflict, the line-up step's last.
+        # Landed in the mint, which writes nothing about a fixture asked already, nothing runs again and the pass reads four.
+        assert reads == 5
         assert passed.requests == []
         assert passed.reminders == []
         assert [row["reminded_at"] for row in stored] == [None, None]

@@ -210,9 +210,9 @@ async def anchor_the_spiele_acted_on(
     # Committed on its own, the anchor conflicts with no save.
     session: AsyncClientSession,
 ) -> None:
-    """Write the fixtures a step of the pass writes rows or owes mails about, as it read them.
+    """Write the fixtures a write judged and writes rows or owes mails about, as it read them: a step of the pass, or a discard.
 
-    A save moving one of them writes nothing else the step writes, so without this write both commit and the step's
+    A save moving one of them writes nothing else the write writes, so without this write both commit and the write's
     mails name a slot the fixture has left. With it the two conflict, and the retry judges the fixture as the save left it.
     """
 
