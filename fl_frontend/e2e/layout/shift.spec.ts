@@ -19,23 +19,52 @@
  *
  * On a development machine, a second run against one start of the end-to-end stack passes `--no-deps` and reads the
  * sessions the first saved: the administrator's setup enrols a passkey once per start, and the stack mails an address
- * five codes an hour.
+ * five codes an hour. The newcomer's session is the one no setup saves: its passkey offer lapses five minutes after its
+ * sign-in, so each worker signs it in afresh for its own cases.
  */
 import { expect } from "@playwright/test";
 
-import { ADMINISTRATOR_STATE, test } from "../support/journey";
-import { expectStill, recordShifts, sessionFile, settle } from "../support/layoutShift";
+import { ADMINISTRATOR_STATE, test as journey } from "../support/journey";
+import { expectStill, NEWCOMER, recordShifts, sessionFile, settle } from "../support/layoutShift";
+import { signInWithCode } from "../support/signIn";
+import { standInForTurnstile } from "../support/turnstileStandIn";
 
-import type { Locator, Page } from "@playwright/test";
+import type { BrowserContext, Locator, Page } from "@playwright/test";
 import type { ShiftRecord } from "../support/layoutShift";
 
-type Role = "visitor" | "pupil" | "referee" | "contact" | "administrator";
+type Role = "visitor" | "pupil" | "referee" | "contact" | "administrator" | "newcomer";
+
+/** A session as a context saves it, which a context's `storageState` takes back. */
+type Session = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
 /**
- * The session each role's pages are read under: none for a visitor, the one `../support/administrator.setup.ts` saves
- * for the administrator, and those `./sessions.setup.ts` saves for the others.
+ * The guard's `test`, with the newcomer's session signed in once per worker, as Playwright's guide signs in an account
+ * per worker (https://playwright.dev/docs/auth#moderate-one-account-per-parallel-worker), but never read back from an
+ * earlier run: the offer it is signed in for lapses five minutes after the sign-in. Signed in only by a worker running a
+ * case that reads it, in a context of its own with no session, Turnstile's stand-in on it as every journey's context has.
  */
-function sessionOf(role: Role): string | undefined {
+const test = journey.extend<Record<never, never>, { newcomerSession: Session }>({
+  newcomerSession: [
+    async ({ browser }, provide, { project }) => {
+      const context = await browser.newContext({ baseURL: project.use.baseURL, locale: project.use.locale });
+      await standInForTurnstile(context);
+      const page = await context.newPage();
+      await signInWithCode(page, NEWCOMER);
+      await expect(page.getByRole("button", { name: "Später" }), "the sign-in offers the newcomer a passkey").toBeVisible();
+      const session = await context.storageState();
+      await context.close();
+      await provide(session);
+    },
+    { scope: "worker" },
+  ],
+});
+
+/**
+ * The session each role's pages are read under, a path to its file: none for a visitor, the one
+ * `../support/administrator.setup.ts` saves for the administrator, and those `./sessions.setup.ts` saves for the
+ * others but the newcomer, whose is the worker's own.
+ */
+function sessionOf(role: Exclude<Role, "newcomer">): string | undefined {
   if (role === "visitor") return undefined;
   if (role === "administrator") return ADMINISTRATOR_STATE;
   return sessionFile(role);
@@ -167,9 +196,18 @@ async function addressOf(page: Page, record: ShiftRecord, steps: Steps, phone: b
   return target.includes(ID) ? ((await walk(page, record, steps, phone)).addresses.at(-1) ?? target) : target;
 }
 
-/** Where a signed-in role must not land: its session has lapsed, and the page measured would be the sign-in's. */
+/**
+ * Where a signed-in role must not land: its session has lapsed, and the page measured would be the sign-in's. The
+ * newcomer's page is the passkey's offer, which leaves for the landing once the offer has lapsed.
+ */
 async function expectSignedIn(page: Page, role: Role): Promise<void> {
   if (role === "visitor") return;
+  if (role === "newcomer") {
+    await expect(page, "the session still holds the passkey's offer, which lapses five minutes after its sign-in").toHaveURL(
+      (url) => url.pathname === "/signin/passkey",
+    );
+    return;
+  }
   await expect(page, "the session reached the page rather than the sign-in").not.toHaveURL((url) => url.pathname.startsWith("/signin"));
 }
 
@@ -233,7 +271,6 @@ const ACCOUNT = (...home: Steps): Walk[] => [
   ["/account", "/account/security"],
   ["/account", "/account/appearance"],
   ["/account", "/account/entries"],
-  ["/signin/passkey"],
 ];
 
 /** A person's area at an address no page holds, whose card leads to `/area`, which sends the person on to their place. */
@@ -243,6 +280,9 @@ const AREA: Walk[] = [
   // The chooser `/area` sends a person holding several places to; the seed seats nobody in two, so it shows one card.
   ["/area/roles"],
 ];
+
+/** A session a moment after its sign-in, the passkey offered: the page a person reads before „Später“. */
+const OFFERED: Walk[] = [["/signin/passkey"]];
 
 const PUPIL: Walk[] = [
   ...AREA,
@@ -320,6 +360,9 @@ const ADMINISTRATOR: Walk[] = [
   // The landing a signed-in person's way goes through, which sends an administrator on to `/admin`.
   ["/area"],
   ...ACCOUNT("/admin"),
+  // The passkey page holds no step for a session that holds a passkey, and sends it on before drawing anything. Only
+  // this session meets that redirect whatever the clock says: a code role's holds the offer for five minutes.
+  ["/signin/passkey"],
 ];
 
 const ROLES: Record<Role, readonly Walk[]> = {
@@ -328,11 +371,13 @@ const ROLES: Record<Role, readonly Walk[]> = {
   referee: REFEREE,
   contact: CONTACT,
   administrator: ADMINISTRATOR,
+  newcomer: OFFERED,
 };
 
 for (const [role, walks] of Object.entries(ROLES) as [Role, readonly Walk[]][]) {
   test.describe(role, { tag: role === "visitor" ? [] : ["@signed-in"] }, () => {
-    test.use({ storageState: sessionOf(role) });
+    if (role === "newcomer") test.use({ storageState: async ({ newcomerSession }, provide) => provide(newcomerSession) });
+    else test.use({ storageState: sessionOf(role) });
 
     for (const [width, device] of Object.entries(WIDTHS)) {
       const phone = device.hasTouch;
