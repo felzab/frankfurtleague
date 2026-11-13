@@ -13,7 +13,6 @@ from app.api.spielbestaetigungen.services import (
     notice_owed,
     parties_told_of_the_change,
     reason_to_close,
-    reason_to_end,
     request_is_due,
     team_state_of,
 )
@@ -163,8 +162,8 @@ class TestWhyARowCloses:
         assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, now=NOW) == reason
 
 
-# A club's decline the administrator discarded: its row closed, the decline its answer to the Ansetzung.
-DISCARDED = row(TEAM, answer={"kind": "declined"}, closed={"reason": "discarded"})
+# A club's decline the administrator discarded: its row closed, the decline its answer to the Ansetzung it was asked.
+DISCARDED = row(TEAM, asked_at=TODAY, answer={"kind": "declined"}, closed={"reason": "discarded"})
 
 THE_DAY_AFTER = noon(days_after(day=spiel()["date"], days=1))
 
@@ -179,25 +178,14 @@ class TestADiscardEndsWhereAnAgreementWouldEnd:
             pytest.param({}, THE_DAY_AFTER, "spiel_past", id="its day gone by"),
             # Its discard told the club the date stands: kept, it would never hear it no longer plays the match.
             pytest.param({"team1": {"team_id": GAMMA, "tore": None}}, NOW, "ansetzung_changed", id="its club taken off"),
+            # A move ends it whoever tells of it, the mint's request or the close's notice: kept beside the request, it
+            # would owe a second notice of the move, or of the next change, on top of the newer row's.
+            pytest.param({"time": "19:00:00"}, NOW, "ansetzung_changed", id="moved, its club asked about the new slot"),
+            pytest.param({"date": TODAY}, NOW, "ansetzung_changed", id="moved onto today, nobody asked"),
         ],
     )
     def test_the_close_ends_it(self, overrides: dict[str, Any], now: datetime, reason: str):
-        assert reason_to_end(row=DISCARDED, spiel=spiel(**overrides), austritte={}, now=now) == reason
-
-    def test_one_about_a_slot_the_fixture_left_is_kept_while_its_club_is_asked_about_the_new_one(self):
-        """The move the mint asks about keeps it, the club's answer to that Ansetzung, until its own kick-off.
-
-        Kept past its day it would be read by every pass for good, and kept through a move nobody is asked about its club
-        would be told nothing of the move.
-        """
-
-        moved = spiel(time="19:00:00")
-        asked_about = [reason_to_end(row=DISCARDED, spiel=moved, austritte={}, now=now) for now in (NOW, THE_DAY_AFTER)]
-        # Past the slot left, a fixture moved onward to a day still to come keeps it until that slot's own kick-off.
-        moved_on = reason_to_end(row=DISCARDED, spiel=spiel(date=days_after(day=TODAY, days=9)), austritte={}, now=THE_DAY_AFTER)
-        onto_today = reason_to_end(row=DISCARDED, spiel=spiel(date=TODAY), austritte={}, now=NOW)
-
-        assert (asked_about, moved_on, onto_today) == ([None, "ansetzung_changed"], "spiel_past", "ansetzung_changed")
+        assert reason_to_close(row=DISCARDED, spiel=spiel(**overrides), austritte={}, now=now) == reason
 
 
 # `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
@@ -262,6 +250,19 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
         ]
 
         assert told == [[TEAM], []]
+
+    def test_an_asked_move_names_the_discarded_club_its_request_tells(self):
+        """The mint asks the discarded club about the new slot, naming the slot left: a mail of the move, so the question names it."""
+
+        opponent = {"kind": "team", "team_id": BETA}
+        rows = [DISCARDED, row(opponent, asked_at=TODAY)]
+        moved = spiel(time="19:00:00")
+
+        told = parties_told_of_the_change(rows=rows, stored=spiel(), changed=moved, stored_austritte={}, changed_austritte={}, now=NOW)
+
+        # The premise: the mint asks about the new slot, so neither row is the close step's to tell.
+        assert all(asked_with_its_move(row=held, spiel=moved, austritte={}, now=NOW) for held in rows)
+        assert told == [TEAM, opponent]
 
 
 class TestATeamsPagesDropARowItsMatchDecided:

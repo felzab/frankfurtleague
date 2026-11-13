@@ -490,8 +490,8 @@ async def unstamp(database: AsyncDatabase) -> None:
     await database[Collection.SPIELBESTAETIGUNGEN].update_many({}, {"$set": {"asked_at": None}})
 
 
-async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, **overrides: Any) -> None:
-    """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves.
+async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: ObjectId, **overrides: Any) -> FLPatchSpielDataResponse:
+    """Through the administrator's own save, so the stand the pass compares is the one a real edit leaves; its dry run's answer.
 
     Confirming the later results its dry run says it deletes, as the editor's question does.
     """
@@ -522,6 +522,8 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
 
     asked = await saved(payload, dry_run=True)
     await saved(payload.model_copy(update={"voided_results": asked.voided_results}), dry_run=False)
+
+    return asked
 
 
 async def press_answer(database: AsyncDatabase, client: AsyncMongoClient, row_id: Any, team_id: ObjectId) -> Any:
@@ -791,11 +793,12 @@ class TestADiscardedDeclineIsNotAskedAgain:
         ]
         assert discarded["closed"] == {"reason": "ansetzung_changed", "discarded": True, "matched": False}
 
-    def test_moved_away_and_back_it_is_told_of_the_move_and_that_no_request_follows(self, mongo_replica_set_url: str):
-        """Back on the slot its discarded decline answers, the club owes no request, so the move is told on its own.
+    def test_moved_away_and_back_it_is_asked_again_as_an_agreeing_club_is(self, mongo_replica_set_url: str):
+        """The first move ended the discard, so back on its slot the club is asked afresh, the move named in its request.
 
-        Told nothing, it turns up at the slot it was last asked about; told a request follows, it waits for one that never
-        comes. Neither shows on any page.
+        One rule for every answer: a move ends it, and the party is asked about the slot the fixture holds. Kept through
+        the move instead, the discard would be the club's answer to the slot left beside its newer row, each owing a
+        notice of the next change.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -809,13 +812,92 @@ class TestADiscardedDeclineIsNotAskedAgain:
 
         back = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
 
-        slot = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "18:00:00", "spielort": "Sportpark"}
+        left = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "19:00:00"}
+        assert back.new_ansetzungen == []
+        assert sorted((request.side, request.ansetzung.time, request.moved_from) for request in back.requests) == [
+            ("team1", "18:00:00", left),
+            ("team2", "18:00:00", left),
+        ]
+
+    @pytest.mark.parametrize(
+        "moved",
+        [
+            pytest.param({"date": days_after(day=NEXT_WEEK, days=-2)}, id="to an earlier day"),
+            pytest.param({"time": "17:00:00"}, id="to an earlier hour of the day"),
+        ],
+    )
+    def test_an_asked_move_is_told_once_in_its_request_and_never_again_on_the_new_day(self, mongo_replica_set_url: str, moved: dict[str, Any]):
+        """The request names the slot left; a second notice on the match day would tell a move the club may have agreed to."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await discard(database, BETA)
+            await move(database, client, SPIEL, **moved)
+            asked = await sweep(database, client)
+            spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+            assert spiel is not None
+            # The discard, the first of Beta's rows, ended by the mint asking Beta about the new slot.
+            ended = (await rows(database, **{"party.team_id": BETA}))[0]["closed"]
+
+            return asked, ended, await sweep(database, client, today=spiel["date"])
+
+        asked, ended, on_its_day = on_a_league(mongo_replica_set_url, body, spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)])
+
+        left = {"team1": "Alpha", "team2": "Beta", "date": NEXT_WEEK, "time": "18:00:00"}
         assert [
-            (sorted(recipient.address for recipient in notice.recipient), notice.old.time, notice.moved_to, notice.asked_again)
-            for notice in back.new_ansetzungen
-        ] == [(sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN), "19:00:00", slot, False)]
-        # The club whose answer the move ended is asked again, the move named in its request.
-        assert [(request.side, request.moved_from is not None) for request in back.requests] == [("team1", True)]
+            (request.side, request.moved_from, sorted(recipient.address for recipient in request.recipients)) for request in asked.requests
+        ] == [
+            ("team1", left, sorted(address(ALPHA, seat) for seat in KONTAKT_ROLLEN)),
+            ("team2", left, sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN)),
+        ]
+        assert (asked.new_ansetzungen, on_its_day.new_ansetzungen) == ([], [])
+        assert ended == {"reason": "ansetzung_changed", "discarded": True}
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            pytest.param("onto today", id="moved onto today"),
+            pytest.param("called off", id="called off"),
+            pytest.param("taken off", id="its club taken off"),
+        ],
+    )
+    def test_a_change_after_an_asked_move_tells_the_discarded_club_once(self, mongo_replica_set_url: str, change: str):
+        """Asked about the move, the club holds one question about the fixture, so the next change tells it once.
+
+        Kept beside the request, the discard would owe a second notice of the same change, naming a slot the club was told
+        two moves ago is gone, and the save question would name the club twice.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await sweep(database, client)
+            await discard(database, BETA)
+            await move(database, client, SPIEL, time="19:00:00")
+            await sweep(database, client)
+            named: list[str] = []
+            if change == "onto today":
+                named = [party.name for party in (await move(database, client, SPIEL, date=TODAY)).recipients or []]
+            elif change == "called off":
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"sonderereignis": "ausgefallen"}})
+            else:
+                # The bracket's own write, which re-fields a side and touches no season row.
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"team2": side(GAMMA)}})
+
+            return named, await sweep(database, client)
+
+        named, told = on_a_league(
+            mongo_replica_set_url,
+            body,
+            spiele=[a_spiel(SPIEL, 1, NEXT_WEEK)],
+            junctions=[junction(ALPHA), junction(BETA), documents.saison_team_document(SAISON_ID, GAMMA, *NAMES[GAMMA])],
+        )
+
+        if change == "onto today":
+            assert sorted(named) == ["Alpha", "Beta", "Pfiff"]
+        notices = [*told.new_ansetzungen, *told.spiel_cancelled]
+        betas = [notice for notice in notices if {recipient.address for recipient in notice.recipient} & {address(BETA, "trainer")}]
+        assert [(notice.old.time, sorted(recipient.address for recipient in notice.recipient)) for notice in betas] == [
+            ("19:00:00", sorted(address(BETA, seat) for seat in KONTAKT_ROLLEN))
+        ]
 
 
 AUSTRITT_ON_THE_DAY = {"austritt": {"type": "rueckzug", "reason": "Schulwechsel", "date": NEXT_WEEK}}
@@ -916,6 +998,13 @@ class TestTheCloseEndingARowStoresWhetherItAnsweredTheFixture:
                 BETA,
                 {"reason": "spiel_decided", "matched": True},
                 id="an agreement retimed as it is decided",
+            ),
+            # And the discard beside it, judged as the agreement is: no discard outlives a move to differ from it.
+            pytest.param(
+                {"time": "18:30:00", "team1.tore": 2, "team2.tore": 1, "ergebnis": "2:1"},
+                ALPHA,
+                {"reason": "spiel_decided", "discarded": True, "matched": True},
+                id="a discard retimed as it is decided",
             ),
         ],
     )
