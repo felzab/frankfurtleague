@@ -162,6 +162,7 @@ const ELSEWHERE = /^https?:\/\//;
  */
 export function Link<T extends string>(
   props: {
+    href: Route<T>;
     /** A sponsor's site: the link is marked paid, `rel="sponsored"`, for the search engines that follow it. */
     sponsored?: boolean;
     /**
@@ -177,20 +178,10 @@ export function Link<T extends string>(
      * visitor shares, which then arrives whole, at a server render per link in view.
      */
     prefetch?: boolean;
-  } & (
-    | ({
-        /**
-         * `null` in a block drawn while its content is read (`Pending`), whose sample has no address: the same anchor in
-         * the same classes without an `href`, which HTML calls a placeholder for where a link might have been. Nothing
-         * follows it, a crawler included, Next prefetches nothing for it, and it is no client component.
-         */
-        href: Route<T> | null;
-      } & (({ placement: "text" | "standalone" | "struck" | "detail" } & Worded) | Row | Footer | Button | Card | Frame | Contents))
-    | ({ href: Route<T> } & IconOnly)
-  ),
+  } & (({ placement: "text" | "standalone" | "struck" | "detail" } & Worded) | Row | Footer | Button | Card | Frame | Contents | IconOnly),
 ) {
   const { href, sponsored = false, fullPage = false, prefetch } = props;
-  const elsewhere = href !== null && ELSEWHERE.test(href);
+  const elsewhere = ELSEWHERE.test(href);
   const rel = [sponsored ? "sponsored" : "", elsewhere ? "noopener noreferrer" : ""].filter((word) => word !== "").join(" ");
   const tab = { target: elsewhere ? "_blank" : undefined, rel: rel === "" ? undefined : rel };
   if (props.placement === "icon") {
@@ -206,7 +197,7 @@ export function Link<T extends string>(
   }
   const button = props.placement === "button" ? props : undefined;
   const anchor = {
-    ...(href === null ? {} : { href }),
+    href,
     "data-kit-focus": FOCUS[props.placement],
     className:
       button !== undefined
@@ -228,12 +219,11 @@ export function Link<T extends string>(
       {props.children ?? (props.label === undefined ? null : textOf(props.label))}
     </>
   );
-  return href === null || fullPage ? (
+  return fullPage ? (
     <a {...anchor}>{words}</a>
   ) : (
     <NavigationLink
       {...anchor}
-      href={href}
       prefetch={prefetch}>
       {words}
     </NavigationLink>

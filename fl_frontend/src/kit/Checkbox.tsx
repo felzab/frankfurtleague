@@ -5,40 +5,13 @@ import { CheckboxButton, CheckboxField } from "react-aria-components/Checkbox";
 import { textOf } from "@/core/copy";
 
 import { MessageLine, useFieldLock } from "./FieldParts";
-import { messageLine, toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
+import { toggleBox, toggleField, toggleLine, toggleRow } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { placeholderBar, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CheckboxFieldProps } from "react-aria-components/Checkbox";
-
-/**
- * A box while its record is read: the drawn box as a bar, its label as lines, wrapping as the label will, and its
- * description's line where its record shows one.
- */
-export function CheckboxPlaceholder({ label, description }: { label: string; description?: Copy }) {
-  return (
-    <div className={toggleField()}>
-      <span className={toggleRow({ in: "field" })}>
-        <span className={placeholderBar(toggleBox({ shape: "square", class: "border-transparent" }))} />
-        <PlaceholderSentence
-          textClass=""
-          words={label}
-        />
-      </span>
-      {description !== undefined && (
-        <div className={toggleLine()}>
-          <PlaceholderSentence
-            textClass={messageLine()}
-            words={description}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * The field either box stands in, React Aria's, holding on its root what a person did to the box before the page

@@ -51,8 +51,7 @@ function FooterGroup({ heading, links }: { heading: Copy; links: ReadonlyArray<H
  * the logo, its links and „Konto“, the way to the sign-in, at the top, the footer at the foot. The footer holds the logo and the
  * league's line at the left with Instagram and Threads as glyph links under them, the question door's, and to
  * their right three link groups, „Saison“, „Liga“ and „Rechtliches“, two a row on a phone; under them the sponsors'
- * logos under „Mit Unterstützung von“ above the © line. Its links are all known before any read, so the footer
- * stands outside every boundary and never waits.
+ * logos under „Mit Unterstützung von“ above the © line.
  *
  * Each page's template writes its title and its content through `ClassicPage` and `ClassicTitle`.
  */
@@ -84,7 +83,7 @@ export function ClassicFrame({
   return (
     <div className="flex min-h-dvh flex-col">
       {/* A picture of its own in a page's cross-fade, so the page scrolled under it is not drawn over it (`tokens.css`). */}
-      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--bar-ink:var(--on-brand)] [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
+      <header className="sticky top-0 z-20 shrink-0 bg-brand-solid px-4 text-on-brand [--focus-ring:var(--on-brand)] [view-transition-name:band] lg:px-8">
         <div className="@container mx-auto flex h-(--classic-header) w-full max-w-classic items-center gap-2 lg:gap-8">
           <Brand ground="band" />
           <HeaderLinks

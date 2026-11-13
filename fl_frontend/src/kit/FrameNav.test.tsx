@@ -6,7 +6,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 
-import { BarPlaces, EditorBack, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
+import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 
 import type { ReactNode } from "react";
 import type { RailGroup, Saisons } from "./FrameNav";
@@ -82,67 +82,8 @@ describe("the entry marked as the current page", () => {
   });
 });
 
-/** A read of the seasons that has not landed, as the frame's is on a page's first load while the backend answers. */
-const PENDING = new Promise<never>(() => undefined);
-
 /** Where each link of the rail, the bar and its sheet leads. */
 const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
-
-// The address alone spells every season page's address, so a menu that waits on the seasons' read draws placeholders a
-// load need not show, and nothing but a recording of a slow read shows it.
-describe("the entries on a page whose address names the season", () => {
-  it("lead to that season's pages, and an editor's way back to its list, while the seasons are still read", async () => {
-    address.path = ROUTES.adminSpiel.path("2026", "6890a1b2c3d4e5f607190001");
-    address.saison = "2026";
-    await act(async () =>
-      render(
-        <Suspense fallback={null}>
-          <SaisonScope value={{ saisons: PENDING, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
-            <MenuScope value={{ groups: GROUPS, bar: ["overview", "saisons"], extra: [] }}>
-              <RailEntries groups={GROUPS} />
-              <BarPlaces />
-              <EditorBack />
-            </MenuScope>
-          </SaisonScope>
-        </Suspense>,
-      ),
-    );
-
-    const rail = [
-      ROUTES.adminOverview.path("2026"),
-      ROUTES.adminSaisons.path(),
-      ROUTES.adminSpiele.path("2026"),
-      ROUTES.adminTeams.path("2026"),
-    ];
-    // The rail's four, the bar's two places, the sheet's two the bar leaves out, and the editor's way back.
-    expect(hrefs()).toEqual([...rail, ...rail.slice(0, 2), ...rail.slice(2), ROUTES.adminSpiele.path("2026")]);
-  });
-
-  it("lead to the team's pages in that season in a team's frame while the seats are still read", async () => {
-    address.path = ROUTES.teamKader.path("ahorn", "2026");
-    address.saison = "2026";
-    address.team = "ahorn";
-    onTestFinished(() => {
-      address.team = undefined;
-    });
-    await act(async () =>
-      render(
-        <Suspense fallback={null}>
-          <SaisonScope value={{ teams: PENDING, home: "teamOverview", pages: [] }}>
-            <RailEntries groups={TEAM_GROUPS} />
-          </SaisonScope>
-        </Suspense>,
-      ),
-    );
-
-    expect(hrefs()).toEqual([
-      ROUTES.teamOverview.path("ahorn", "2026"),
-      ROUTES.teamSpiele.path("ahorn", "2026"),
-      ROUTES.teamKader.path("ahorn", "2026"),
-      ROUTES.teamRegistrierungen.path("ahorn", "2026"),
-    ]);
-  });
-});
 
 // A page whose address names no season, such as the Spielorte, keeps the season the person last chose: one that fell back
 // to the standard would send their next press into another season's pages, which looks right on every page alone.

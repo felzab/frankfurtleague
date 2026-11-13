@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { WholePages } from "@/kit/WholePage";
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -37,9 +38,11 @@ describe("the public season pages' frame", () => {
     });
     await act(async () => {
       render(
-        <SaisonsLayout>
-          <p>Seite</p>
-        </SaisonsLayout>,
+        <WholePages>
+          <SaisonsLayout>
+            <p>Seite</p>
+          </SaisonsLayout>
+        </WholePages>,
       );
     });
 

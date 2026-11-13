@@ -96,9 +96,9 @@ for 300 ms after the last one, and a page fade holds every commit until it ends.
 - The root layout (`fl_frontend/src/app/layout.tsx`) places
   `fl_frontend/src/kit/WholePage.tsx :: WholePages` around every route. It holds the one `Suspense`
   boundary of the tree, mounted once for the session, whose fallback draws nothing.
-- Every template and frame waits for a read in `PageWait`, which under `WholePages` draws no
-  placeholder, so no boundary stands below the layout two pages share. Lint refuses `Suspense`
-  outside `WholePage.tsx`, `next/dynamic` and any route's `loading.tsx`.
+- No boundary stands below the layout two pages share: a template or a frame reads inside the
+  root's. Lint refuses `Suspense` outside `WholePage.tsx`, `next/dynamic` and any route's
+  `loading.tsx`.
 - A client navigation therefore keeps the page it leaves until the next one is complete, as a
   transition never hides content it has revealed. The page fade runs once, between two finished
   pages.
@@ -121,9 +121,6 @@ page. Every navigating control feeds it through `WholePage.tsx :: NavigationLink
   `PageContent`, is `inert`; the frame stays pressable, and a navigation staying on the path leaves
   the page live.
 - `NavigationLink` never prefetches the sign-in, which the proxy's matcher skips on a prefetch.
-
-Without `WholePages` and the export, every `PageWait` is a `Suspense` boundary drawing its
-placeholder, and a page streams in its parts.
 
 ## Styling and copy
 

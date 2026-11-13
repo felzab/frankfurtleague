@@ -68,7 +68,7 @@ function Editor({ save }: { save: Parameters<typeof SpielEditor>[0]["save"] }) {
       sonderereignisse={[{ id: NO_SONDEREREIGNIS, label: WORDS.none }]}
       noteMax={500}
       required={{ mietpreis: true, payment: true }}
-      report={{ head: { nameLabel: COPY.shared.spieler, linked: false, stack: true, columns: [] }, rows: [] }}
+      report={{ head: { nameLabel: COPY.shared.spieler, stack: true, columns: [] }, rows: [] }}
       adoption={ADOPTION}
       answers={[]}
       aufstellungen={[]}
