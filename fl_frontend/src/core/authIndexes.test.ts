@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 
 import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,7 +14,11 @@ type Build = { collection: string; name: string; key: unknown; options: IndexOpt
 const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
-const lines: { event: string; fields: unknown }[] = [];
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
+
+/** Each error line written, by its event and fields. */
+const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
 
 /** The builds still running, by collection, which `afterChange` waits out. */
 const running = new Map<string, number>();
@@ -42,22 +47,13 @@ const DB_DOUBLE = {
   }),
 };
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: () => undefined,
-    error: (event: string, _error: unknown, fields: unknown) => void lines.push({ event, fields }),
-  },
-};
-
 const STORE = "__flAuthIndexesStore";
 
 memoryStore(STORE);
 
 // The library's own tables are read off its context, which the in-memory adapter builds without a server.
 registerAuthDoubles({
-  core: { db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { db: DB_DOUBLE },
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
@@ -100,7 +96,7 @@ async function afterChange(type = "RSPrimary"): Promise<void> {
 
 beforeEach(() => {
   builds.length = 0;
-  lines.length = 0;
+  log.clear();
   running.clear();
   answer = () => Promise.resolve("built");
 });
@@ -115,13 +111,13 @@ describe("the sign-in store's index build", () => {
     const session = builds.filter(({ collection }) => collection === "session").map(({ name }) => name);
     expect(session[0], "the token index was not asked for first, so no refusal ahead of others was driven").toBe("session_token_uidx");
     assert.ok(session.length > 1, "nothing after the refused index was asked for");
-    expect(lines).toStrictEqual([
+    expect(errorLines()).toStrictEqual([
       {
         event: "auth.index_unbuilt",
         fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
-    assert.ok(!JSON.stringify(lines).includes(TOKEN), "the line quoted the value the refusal named");
+    assert.ok(!log.lines().some(({ raw }) => raw.includes(TOKEN)), "the line quoted the value the refusal named");
   });
 
   /* The client reconnects once the store answers, and a restart is
