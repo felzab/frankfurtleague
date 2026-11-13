@@ -350,13 +350,13 @@ async def sweep_spielbestaetigungen(
             appointment = spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
             data: FLOutboxData
             if reason == "ansetzung_changed":
-                # Its new slot not asked today: told at once, the request following once it can be asked.
+                # Its new slot not asked today: told at once, as it stands, a slot to come being asked by the mint.
                 stays = still_a_party(row=row, spiel=spiel_of(row))
                 data = moved_notice_of(
                     party_kind=party["kind"],
                     appointment=appointment,
                     moved_to=spiel_mail_slot_of(spiel_of(row)) if stays else None,
-                    asked_again=stays,
+                    stays=stays,
                 )
             elif reason == "cancelled":
                 data = cancelled_notice_of(party_kind=party["kind"], appointment=appointment, sonderereignis=spiel_of(row)["sonderereignis"])
@@ -415,17 +415,24 @@ async def sweep_spielbestaetigungen(
         Read in-session, so a retry re-judges.
         """
 
-        spiele = await batch.saw(
-            pull_named_spiele(
+        async def window() -> list[Mapping[str, Any]]:
+            # The fixtures a row stands open for, read first inside the one read `saw` records: a party asked already
+            # is asked about a move at once, however far out it went.
+            asked_ids = await spielbestaetigungen_collection.distinct(
+                "spiel_id", {"saison_id": saison_id, **build_closable_filter()}, session=session
+            )
+
+            return await pull_named_spiele(
                 spiele_collection=spiele_collection,
-                db_filter=batch.within(build_request_filter(saison_id=saison_id, today=today)),
+                db_filter=batch.within(build_request_filter(saison_id=saison_id, today=today, asked_ids=asked_ids)),
                 projection=JUDGED_SPIEL_FIELDS,
                 # Soonest first, so the fixture whose deadline comes first is asked first.
                 sort_by=[("date", ASCENDING), ("time", ASCENDING), ("_id", ASCENDING)],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
-        )
+
+        spiele = await batch.saw(window())
         if not spiele:
             return _Minted(written=0, asked=0, closed=0, mails=0)
 
@@ -477,7 +484,8 @@ async def sweep_spielbestaetigungen(
 
         def plan_of(spiel: Mapping[str, Any]) -> _MintPlan:
             plan = _MintPlan()
-            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=now):
+            asked_before = any(spiel_id == spiel["_id"] for spiel_id, _ in moved)
+            if spiel["_id"] in waiting or not request_is_due(spiel=spiel, austritte=austritte, now=now, asked_before=asked_before):
                 return plan
 
             digest = digests[spiel["_id"]]
@@ -555,18 +563,12 @@ async def sweep_spielbestaetigungen(
                     plan.seated.add(party["team_id"])
                     plan.asked += 1
                     plan.mails += requests
-                # No request goes now, so the move is told on its own, keyed as the close step keys it: a question about
-                # the new slot still open is asked once a seat can be.
+                # No request goes now, so the move is told on its own, keyed as the close step keys it.
                 elif told is not None and moved_from is not None:
                     notices = team_mails(
                         spielbestaetigung_raw=told,
                         kontakte=kontakte,
-                        data=moved_notice_of(
-                            party_kind=party["kind"],
-                            appointment=moved_from,
-                            moved_to=moved_to,
-                            asked_again=own_row.get("answer") is None and own_row.get("closed") is None,
-                        ),
+                        data=moved_notice_of(party_kind=party["kind"], appointment=moved_from, moved_to=moved_to, stays=True),
                         occasion="ansetzung_changed",
                     )
                     if notices:

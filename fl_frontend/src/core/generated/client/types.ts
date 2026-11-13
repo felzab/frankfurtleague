@@ -3169,8 +3169,9 @@ export interface FLSpielMovedData {
   appointment: FLSpielMailAppointment;
   asked_again: boolean;
   kind: "spiel_moved";
-  moved_to: FLSpielMailAppointment | null;
+  moved_to: FLSpielMailAnsetzung | null;
   recipient: FLSpielMovedDataRecipient;
+  stays: boolean;
 }
 
 export type FLSpielNoticeDataRecipient = (typeof FLSpielNoticeDataRecipient)[keyof typeof FLSpielNoticeDataRecipient];

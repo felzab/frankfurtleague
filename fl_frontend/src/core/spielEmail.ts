@@ -142,11 +142,10 @@ function noticeEmail(subjectLine: Copy, origin: string, paragraph: Paragraph, bl
 }
 
 /**
- * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, what
- * the event means for the result as the match page's callout says it, and only for a match called off, which alone is
- * set again, the request or Einteilung that would follow.
+ * The word that a fixture a party was asked about will not be played, by its event: the slot it was asked about, and
+ * what the event means for the result as the match page's callout says it. No later mail is promised.
  */
-function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
+function cancelledEmail({ appointment, sonderereignis }: FLSpielNoticeData, origin: string): Mail {
   const day = dayOf(appointment.date);
   const { cancelled } = WORDS;
   const { consequence } = COPY.spielplan.sonderereignis;
@@ -156,11 +155,7 @@ function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNotic
 
   switch (sonderereignis) {
     case "ausgefallen":
-      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [
-        lead(cancelled.ausgefallen, spiel),
-        consequence.notScored,
-        WORDS.reinstated[recipient],
-      ]);
+      return noticeEmail(cancelled.ausgefallen.subject(day), origin, [lead(cancelled.ausgefallen, spiel), consequence.notScored]);
     case "annulliert":
       return noticeEmail(cancelled.annulliert.subject(day), origin, [lead(cancelled.annulliert, spiel), consequence.notScored]);
     // The side that stayed away, then the one the match is counted for.
@@ -181,27 +176,34 @@ function cancelledEmail({ recipient, appointment, sonderereignis }: FLSpielNotic
 
 /**
  * The word that a fixture a party was asked about moved where no request about its new slot goes now, or will not be
- * played: the slot it was asked about, and on a move the slot it went to where it holds one. No button, nothing being
- * left to answer here.
+ * played: the slot it was asked about, and on a move the slot it went to where it holds one, in the block a request
+ * names it in, its ground among the rest. No button, nothing being left to answer here, and no later mail promised.
  */
 export function buildSpielNoticeEmail(data: FLSpielMovedData | FLSpielNoticeData, { origin }: MailOrigin): Mail {
   if (data.kind === "spiel_cancelled") return cancelledEmail(data, origin);
 
-  const { recipient, appointment, moved_to: movedTo, asked_again: askedAgain } = data;
+  const { recipient, appointment, moved_to: movedTo, stays, asked_again: askedAgain } = data;
 
-  // Taken off the fixture by the move: the void notice, naming the slot left alone.
-  if (movedTo === null && !askedAgain) {
+  // Taken off the fixture by the move: the void notice, naming the slot left alone. A notice queued before `stays` was
+  // written said that the party stays by its promise of a request.
+  if (movedTo === null && !stays && !askedAgain) {
     if (recipient === "schiedsrichter") return unbookedEmail(appointment, origin);
     return noticeEmail(WORDS.voidSubject(dayOf(appointment.date)), origin, [
       around(WORDS.void.before(paarung(appointment)), moment(appointment), WORDS.void.after),
     ]);
   }
 
-  const spiel = paarung(movedTo ?? appointment);
-  const lead: Paragraph = askedAgain ? [WORDS.moved(spiel), WORDS.askedLater[recipient]] : [WORDS.moved(spiel)];
-  const subjectLine = movedTo === null ? WORDS.movedFromSubject(dayOf(appointment.date)) : WORDS.movedSubject(dayOf(movedTo.date));
+  // Only a notice queued before the promise was dropped carries it.
+  const lead: Paragraph = [WORDS.moved(paarung(movedTo ?? appointment)), ...(askedAgain ? [WORDS.askedLater[recipient]] : [])];
 
-  return noticeEmail(subjectLine, origin, lead, { title: spiel, facts: moveFacts(appointment, movedTo) });
+  if (movedTo === null) {
+    return noticeEmail(WORDS.movedFromSubject(dayOf(appointment.date)), origin, lead, {
+      title: paarung(appointment),
+      facts: moveFacts(appointment, null),
+    });
+  }
+
+  return noticeEmail(WORDS.movedSubject(dayOf(movedTo.date)), origin, lead, slotBlock(movedTo, appointment));
 }
 
 /** The word to a referee that their Einteilung is lifted, whoever took them off the fixture. */

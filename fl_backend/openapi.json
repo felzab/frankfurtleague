@@ -12555,7 +12555,7 @@
           "moved_to": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielMailAppointment"
+                "$ref": "#/components/schemas/FLSpielMailAnsetzung"
               },
               {
                 "type": "null"
@@ -12569,6 +12569,11 @@
             ],
             "title": "Recipient",
             "type": "string"
+          },
+          "stays": {
+            "default": false,
+            "title": "Stays",
+            "type": "boolean"
           }
         },
         "required": [
@@ -12576,6 +12581,7 @@
           "recipient",
           "appointment",
           "moved_to",
+          "stays",
           "asked_again"
         ],
         "title": "FLSpielMovedData",

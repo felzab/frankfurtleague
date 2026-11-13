@@ -122,8 +122,8 @@ class FLSpielMailAppointment(BaseReadModel):
 class FLSpielMailAnsetzung(FLSpielMailAppointment):
     """A fixture as a mail asking about it states it, its ground among the rest."""
 
-    # The ground's name; null where nobody assigned one.
-    spielort: str | None
+    # The ground's name; null where nobody assigned one. Defaulted for a move's notice queued before it named the ground.
+    spielort: str | None = Field(default=None)
 
 
 class FLSpielRequestData(BaseReadModel):
@@ -163,11 +163,14 @@ class FLSpielMovedData(BaseReadModel):
     recipient: Literal["team", "schiedsrichter"]
     # The slot the party was asked about, which no longer stands.
     appointment: FLSpielMailAppointment
-    # The slot the fixture holds now, null where it holds no day, hour or second side yet, or the party is no longer one
-    # of its sides.
-    moved_to: FLSpielMailAppointment | None
-    # Whether the party is asked about the fixture again once its new slot can be asked, so the mail says a request
-    # follows; false for a party the move took off the fixture, and for one whose answer about the new slot stands.
+    # The slot the fixture holds now, its ground among the rest, null where it holds no day, hour or second side yet, or
+    # the party is no longer one of its parties.
+    moved_to: FLSpielMailAnsetzung | None
+    # Whether the party is still one of the fixture's, so a notice naming no new slot tells of a move rather than that
+    # the request no longer holds. Defaulted for a notice queued before it was written, which `asked_again` words.
+    stays: bool = Field(default=False)
+    # Written false: a notice promises no later mail. True only on a notice queued before that, whose mail says a
+    # request follows.
     asked_again: bool
 
 

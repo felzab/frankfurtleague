@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from app.api.invitations.crud import owed_invitation_mails
 from app.api.invitations.services import confirmed_recipients
-from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielNoticeData
+from app.api.outbox.schemas import FLBanData, FLOutboxClub, FLSpielMailAppointment, FLSpielMovedData, FLSpielNoticeData
 from app.api.outbox.services import (
     DELIVERY_DEADLINE,
     LEASE_DURATION,
@@ -20,7 +20,7 @@ from app.api.outbox.services import (
     retry_update,
     row_of,
 )
-from app.api.spielbestaetigungen.services import austritt_notices_of, team_mails
+from app.api.spielbestaetigungen.services import austritt_notices_of, spiel_mail_slot_of, team_mails
 from app.core import clock
 
 APPOINTMENT = FLSpielMailAppointment(team1="Adler", team2="Bieber", date="2026-05-02", time="10:00:00")
@@ -123,3 +123,35 @@ def test_the_lease_outlasts_a_page_of_sends_and_reports_at_their_bounds():
 
     # The claim's own answer, then each send and the report after it.
     assert call + PAGE * (send + call) < LEASE_DURATION
+
+
+def test_a_move_s_notice_names_the_ground_the_fixture_moved_to():
+    """Unnamed, a ground changed at the same hour reads „Bisher“ and „Neu“ alike, and the parties go to the old ground."""
+
+    spiel = {
+        "date": "2026-05-02",
+        "time": "10:00:00",
+        "team1": {"team_id": OWN, "name": "Adler"},
+        "team2": {"team_id": OPPONENT, "name": "Bieber"},
+        "spielort": {"spielort_id": ObjectId(), "name": "Halle Nord", "maps_link": None},
+    }
+
+    slot = spiel_mail_slot_of(spiel)
+
+    assert slot is not None and slot.spielort == "Halle Nord"
+
+
+def test_a_move_s_notice_queued_before_it_named_the_ground_and_the_party_still_reads():
+    """A row the release before queued holds neither key: refused, the hand-out would pass it over and nobody would be told."""
+
+    stored = {
+        "kind": "spiel_moved",
+        "recipient": "team",
+        "appointment": APPOINTMENT.model_dump(),
+        "moved_to": APPOINTMENT.model_dump(),
+        "asked_again": True,
+    }
+
+    queued = FLSpielMovedData.model_validate(stored)
+
+    assert (queued.moved_to is not None and queued.moved_to.spielort, queued.stays, queued.asked_again) == (None, False, True)

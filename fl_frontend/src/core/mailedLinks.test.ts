@@ -61,7 +61,7 @@ const FACTS: { [A in OutboxKind]: Member<OutboxData, A> } = {
     team_id: "6890a1b2c3d4e5f607250011",
   },
   spiel_einteilung: { kind: "spiel_einteilung", ansetzung: ANSETZUNG, moved_from: null },
-  spiel_moved: { kind: "spiel_moved", appointment: APPOINTMENT, moved_to: null, asked_again: false, recipient: "team" },
+  spiel_moved: { kind: "spiel_moved", appointment: APPOINTMENT, moved_to: null, stays: false, asked_again: false, recipient: "team" },
   spiel_cancelled: { kind: "spiel_cancelled", appointment: APPOINTMENT, recipient: "team", sonderereignis: "ausgefallen" },
   spiel_einteilung_lifted: { kind: "spiel_einteilung_lifted", appointment: APPOINTMENT },
   spiel_vorschlag_discarded: { kind: "spiel_vorschlag_discarded", appointment: APPOINTMENT },
@@ -183,7 +183,7 @@ describe("a mailed link's token", () => {
 });
 
 /** A move's notice naming the day the fixture moved to, whose subject `FACTS`' row, naming none, never builds. */
-const MOVED_TO: OutboxData = { ...FACTS.spiel_moved, moved_to: APPOINTMENT };
+const MOVED_TO: OutboxData = { ...FACTS.spiel_moved, moved_to: ANSETZUNG, stays: true };
 
 describe("a mail's subject", () => {
   // A mail program shows and searches a subject as typed, and the journeys find a mail by its subject's start: a

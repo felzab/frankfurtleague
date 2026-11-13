@@ -334,7 +334,7 @@ def state_of(
         return "declined"
 
     # An agreement binds the Ansetzung it answered, as the fixture's confirmation reads it: a row closed before the
-    # fixture moved agrees to a day nobody asked about, and the pass asks again only once the new day is in its window.
+    # fixture moved agrees to a day nobody asked about, until the pass asks about the new one.
     if isinstance(answer, Mapping):
         answers = _answers_the_fixture(spielbestaetigung_raw, ansetzung_state=ansetzung_state, at_its_kick_off=reason == "spiel_past")
         return "agreed" if answers else "invalid"
@@ -788,12 +788,16 @@ def aufstellung_reminder_key(*, spiel_id: Any, team_id: Any, seat: str) -> str:
     return f"aufstellung/{spiel_id}/{team_id}/{seat}"
 
 
-def build_request_filter(*, saison_id: str, today: str) -> dict[str, Any]:
-    """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read."""
+def build_request_filter(*, saison_id: str, today: str, asked_ids: Sequence[Any]) -> dict[str, Any]:
+    """The season's fixtures the mint may ask about; `request_is_due` decides, this narrows the read.
+
+    Inside the answer window, or still to come and among `asked_ids`, the fixtures a row stands open for: a party asked
+    already is asked about a move at once, however far out it went.
+    """
 
     return {
         "saison_id": saison_id,
-        "date": {"$gt": today, "$lte": last_request_day(today=today)},
+        "$or": [{"date": {"$gt": today, "$lte": last_request_day(today=today)}}, {"_id": {"$in": list(asked_ids)}, "date": {"$gt": today}}],
         "time": {"$ne": None},
         "spielort": {"$ne": None},
         "team1": {"$ne": None},
@@ -851,8 +855,7 @@ def reason_to_close(
     ansetzung = row["ansetzung"]
     clubs = (ansetzung["team1_id"], ansetzung["team2_id"])
     # First: a party taken off the fixture is told so, never that the match it no longer plays or officiates was called
-    # off, decided or moved, a call-off's notice promising it the next request. A club taken off is the move's to tell,
-    # which words it as taken off.
+    # off, decided or moved. A club taken off is the move's to tell, which words it as taken off.
     if not still_a_party(row=row, spiel=spiel):
         return "schiedsrichter_switched" if row["party"]["kind"] == "schiedsrichter" else "ansetzung_changed"
 
@@ -902,19 +905,21 @@ def reason_to_end(
     return "spiel_past" if _kicked_off(row["ansetzung"], now=now) else None
 
 
-def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime) -> bool:
-    """Whether the mint asks about this fixture today: dated strictly after today, inside the answer window, fully set, undecided.
+def request_is_due(*, spiel: Mapping[str, Any], austritte: Mapping[Any, str], now: datetime, asked_before: bool) -> bool:
+    """Whether the mint asks about this fixture today: after today, fully set, undecided, in the window unless `asked_before`.
 
-    The floor is a date because `has_taken_place` reads a record, so an unplayed fixture of the past reads as open; the
-    day after today rather than the kick-off because a request asks ahead of the day, its deadline (`deadline_of`)
-    lying before it.
+    A party asked about a slot the fixture left is asked about the new one at once, however far out: its open row is
+    what tells it of every later change. The floor is a date because
+    `has_taken_place` reads a record, so an unplayed fixture of the past reads as open; the day after today rather than
+    the kick-off because a request asks ahead of the day, its deadline (`deadline_of`) lying before it.
     """
 
     today = clock.german_day(now)
     date = spiel.get("date")
     asked = (
         isinstance(date, str)
-        and today < date <= last_request_day(today=today)
+        and today < date
+        and (asked_before or date <= last_request_day(today=today))
         and spiel.get("time") is not None
         and isinstance(spiel.get("spielort"), Mapping)
         and _side_id(spiel, "team1") is not None
@@ -1126,27 +1131,41 @@ def cancelled_notice_of(*, party_kind: str, appointment: FLSpielMailAppointment,
 
 
 def moved_notice_of(
-    *, party_kind: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAppointment | None, asked_again: bool
+    *, party_kind: str, appointment: FLSpielMailAppointment, moved_to: FLSpielMailAnsetzung | None, stays: bool
 ) -> FLSpielMovedData:
-    """The „Spiel verlegt“ notice a party of `party_kind` is owed where no request about the fixture's new slot goes now."""
+    """The „Spiel verlegt“ notice a party of `party_kind` is owed where no request about the fixture's new slot goes now.
+
+    It promises no later mail: a party still the fixture's is asked about a new slot at once where one can be asked
+    (`request_is_due`), and one told here is asked again only once a slot can be.
+    """
 
     return FLSpielMovedData(
         kind="spiel_moved",
         recipient=_recipient_of(party_kind),
         appointment=appointment,
         moved_to=moved_to,
-        asked_again=asked_again,
+        stays=stays,
+        asked_again=False,
     )
 
 
-def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAppointment | None:
-    """The slot a fixture holds now, as a notice of its move names it, or `None` where it lacks a day, an hour or a side."""
+def spiel_mail_slot_of(spiel: Mapping[str, Any]) -> FLSpielMailAnsetzung | None:
+    """The slot a fixture holds now, its ground among the rest, as a move's notice names it; `None` lacking a day, hour or side."""
 
     date, time, team1, team2 = spiel.get("date"), spiel.get("time"), spiel.get("team1"), spiel.get("team2")
     if not (isinstance(date, str) and isinstance(time, str) and isinstance(team1, Mapping) and isinstance(team2, Mapping)):
         return None
 
-    return FLSpielMailAppointment(team1=str(team1["name"]), team2=str(team2["name"]), date=date, time=time)
+    # Absent rather than null where the name join met a fixture without a ground.
+    spielort = spiel.get("spielort")
+
+    return FLSpielMailAnsetzung(
+        team1=str(team1["name"]),
+        team2=str(team2["name"]),
+        date=date,
+        time=time,
+        spielort=str(spielort["name"]) if isinstance(spielort, Mapping) else None,
+    )
 
 
 def still_a_party(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
@@ -1165,7 +1184,7 @@ def asked_with_its_move(*, row: Mapping[str, Any], spiel: Mapping[str, Any], aus
     return (
         reason_to_close(row=row, spiel=spiel, austritte=austritte, now=now) == "ansetzung_changed"
         and still_a_party(row=row, spiel=spiel)
-        and request_is_due(spiel=spiel, austritte=austritte, now=now)
+        and request_is_due(spiel=spiel, austritte=austritte, now=now, asked_before=True)
     )
 
 
@@ -1195,7 +1214,7 @@ def team_mails(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, data:
     ]
 
 
-# --- The notice an Austritt owes each opponent, at the exit's own write: a fixture past the asking window holds no row to close.
+# --- The notice an Austritt owes each opponent, at the exit's own write: a fixture not yet asked holds no row to close.
 
 
 def build_austritt_spiele_filter(*, saison_id: str, team_id: Any, exit_day: str) -> dict[str, Any]:
