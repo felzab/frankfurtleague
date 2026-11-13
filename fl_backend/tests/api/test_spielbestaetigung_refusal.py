@@ -283,6 +283,7 @@ class TestARefereeAnswersUntilTheKickOff:
 REFEREES = {"party": {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
 # The day after the clubs' deadline, the fixture still to come.
 PAST_THE_DEADLINE = datetime(2027, 5, 8, 12, tzinfo=clock.GERMANY)
+ON_THE_DEADLINE = datetime(2027, 5, 7, 23, 59, tzinfo=clock.GERMANY)
 
 
 # A no-show entered ten minutes after the kick-off, the hourly pass not yet run since.
@@ -301,6 +302,8 @@ class TestTheDayARowLapsed:
         [
             pytest.param({}, {}, PAST_THE_DEADLINE, DEADLINE, id="a club past its deadline"),
             pytest.param({}, {}, NOW, None, id="a club before its deadline"),
+            # An answer is taken on its deadline's own day.
+            pytest.param({}, {}, ON_THE_DEADLINE, None, id="a club on its deadline day"),
             pytest.param({}, {}, KICK_OFF, DEADLINE, id="a club at the kick-off"),
             # The referee answers until the kick-off, whatever the clubs' deadline.
             pytest.param(REFEREES, {}, PAST_THE_DEADLINE, None, id="a referee past the clubs' deadline"),
