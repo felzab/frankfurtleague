@@ -27,7 +27,7 @@ from app.api.spielberichte.schemas import (
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
-from app.api.spielbestaetigungen.services import AnsetzungState, state_of
+from app.api.spielbestaetigungen.services import AnsetzungState, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -43,7 +43,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -127,6 +127,11 @@ class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
     """
 
     state: FLSpielbestaetigungState
+    # The day the party's answer is due by: a club's `deadline`, and a referee's slot, whom no deadline binds.
+    due_by: CustomDateString
+    # The day its answer lapsed, `due_by`; null on an answered row and on one an exit, a decision, a call-off or a move
+    # ended, which never lapsed.
+    lapsed_on: CustomDateString | None
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
@@ -374,8 +379,16 @@ async def read_spiel_editor(
     vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
 
-    def state(row: Mapping[str, Any]) -> FLSpielbestaetigungState:
-        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None)
+    def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:
+        reason = reason_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)
+        return FLSpielbestaetigungEditorRow.model_validate(
+            {
+                **row,
+                "state": state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None),
+                "due_by": due_by_of(row),
+                "lapsed_on": lapsed_on(spielbestaetigung_raw=row, reason=reason, now=now),
+            }
+        )
 
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
@@ -390,7 +403,7 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "state": state(row)}) for row in confirmations],
+        spielbestaetigungen=[editor_row(row) for row in confirmations],
         aufstellungen=aufstellungen,
         aufstellung_marks=marks,
     )

@@ -191,6 +191,45 @@ def _past_deadline(*, spielbestaetigung_raw: Mapping[str, Any], now: datetime) -
     return clock.german_day(now) > str(spielbestaetigung_raw["deadline"])
 
 
+def reason_of(
+    *, spielbestaetigung_raw: Mapping[str, Any], ansetzung_state: AnsetzungState, now: datetime
+) -> FLSpielbestaetigungClosedReason | None:
+    """Why a row stopped applying: closed, by the reason stored; open, by the one the pass's next close would store."""
+
+    closed = spielbestaetigung_raw.get("closed")
+
+    return (
+        closed["reason"]
+        if isinstance(closed, Mapping)
+        else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
+    )
+
+
+def due_by_of(spielbestaetigung_raw: Mapping[str, Any]) -> str:
+    """The day a party's answer is due by: a club's deadline, and a referee's slot, the Einteilung naming no deadline."""
+
+    if spielbestaetigung_raw["party"]["kind"] == "schiedsrichter":
+        return str(spielbestaetigung_raw["ansetzung"]["date"])
+
+    return str(spielbestaetigung_raw["deadline"])
+
+
+def lapsed_on(*, spielbestaetigung_raw: Mapping[str, Any], reason: FLSpielbestaetigungClosedReason | None, now: datetime) -> str | None:
+    """The day an unanswered row's answer lapsed, its `due_by_of`, or `None`; `reason` is `reason_of`'s.
+
+    Only a lapse dates a row: its slot kicked off, or a club's deadline went by with nothing else ending it. A row an
+    exit, a decision, a call-off or a move ended never lapsed, whatever its deadline says.
+    """
+
+    if spielbestaetigung_raw.get("answer") is not None:
+        return None
+
+    if reason == "spiel_past" or (reason is None and _past_deadline(spielbestaetigung_raw=spielbestaetigung_raw, now=now)):
+        return due_by_of(spielbestaetigung_raw)
+
+    return None
+
+
 def state_of(
     *,
     spielbestaetigung_raw: Mapping[str, Any],
@@ -205,14 +244,8 @@ def state_of(
     Ansetzung still stands.
     """
 
-    answer, closed = spielbestaetigung_raw.get("answer"), spielbestaetigung_raw.get("closed")
-
-    # Closed, by the reason stored; open, by the one the close would store.
-    reason = (
-        closed["reason"]
-        if isinstance(closed, Mapping)
-        else _reason_now(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
-    )
+    answer = spielbestaetigung_raw.get("answer")
+    reason = reason_of(spielbestaetigung_raw=spielbestaetigung_raw, ansetzung_state=ansetzung_state, now=now)
 
     # Ahead of the answer: an answer about an Ansetzung the fixture has left settles nothing, and the move's notice
     # told every seat the date is off, so no page may tell a seat nothing is owed.

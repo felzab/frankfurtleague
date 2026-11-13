@@ -26,6 +26,8 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     ansetzung_digest_of,
     build_closable_filter,
+    lapsed_on,
+    reason_of,
     team_state_of,
     view_ansetzung_of,
 )
@@ -230,6 +232,7 @@ class _Spielbestaetigung(NamedTuple):
     state: FLSpielbestaetigungTeamState
     # The other club's proposed date and hour while its decline stands open beside this row.
     vorschlag_open: FLSpielbestaetigungAppointment | None
+    lapsed_on: str | None
 
 
 def _spielbestaetigung_of(
@@ -252,11 +255,15 @@ def _spielbestaetigung_of(
         None,
     )
     vorschlag_open = None if proposal is None else FLSpielbestaetigungAppointment.model_validate(proposal)
-    state = team_state_of(
-        spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), now=now, vorschlag_open=vorschlag_open
-    )
+    ansetzung_state = AnsetzungState(spiel=spiel_raw, vereine=vereine)
+    state = team_state_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open)
+    if state is None:
+        return None
 
-    return None if state is None else _Spielbestaetigung(row=own, state=state, vorschlag_open=vorschlag_open)
+    reason = reason_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now)
+    return _Spielbestaetigung(
+        row=own, state=state, vorschlag_open=vorschlag_open, lapsed_on=lapsed_on(spielbestaetigung_raw=own, reason=reason, now=now)
+    )
 
 
 def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
@@ -360,6 +367,7 @@ async def get_team_overview(
                         "side": _side_of(spiel, team_id),
                         "state": spielbestaetigung.state,
                         "deadline": spielbestaetigung.row["deadline"],
+                        "lapsed_on": spielbestaetigung.lapsed_on,
                         "vorschlag": answer.get("vorschlag")
                         if declined
                         else spielbestaetigung.vorschlag_open

@@ -15,8 +15,11 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     compose_ansetzung,
+    due_by_of,
     find_unanswerable_refusal,
+    lapsed_on,
     proposal_payload,
+    reason_of,
     state_of,
     view_ansetzung_of,
 )
@@ -274,3 +277,37 @@ class TestARefereeAnswersUntilTheKickOff:
         )
 
         assert (before, at) == ("valid", "expired")
+
+
+REFEREES = {"party": {"kind": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}}
+# The day after the clubs' deadline, the fixture still to come.
+PAST_THE_DEADLINE = datetime(2027, 5, 8, 12, tzinfo=clock.GERMANY)
+
+
+class TestTheDayARowLapsed:
+    """The day a page dates a lapse by: never a deadline that binds nobody, nor a row that ended without lapsing."""
+
+    @pytest.mark.parametrize(
+        ("fields", "situation", "now", "lapsed"),
+        [
+            pytest.param({}, {}, PAST_THE_DEADLINE, DEADLINE, id="a club past its deadline"),
+            pytest.param({}, {}, NOW, None, id="a club before its deadline"),
+            pytest.param({}, {}, KICK_OFF, DEADLINE, id="a club at the kick-off"),
+            # The referee answers until the kick-off, whatever the clubs' deadline.
+            pytest.param(REFEREES, {}, PAST_THE_DEADLINE, None, id="a referee past the clubs' deadline"),
+            pytest.param(REFEREES, {}, KICK_OFF, DATE, id="a referee at the kick-off"),
+            # Ended by the exit, a week before the deadline it would show as the day.
+            pytest.param({}, {"austritt": "2027-05-01"}, PAST_THE_DEADLINE, None, id="a club out by the day"),
+            pytest.param({"closed": {"reason": "austritt"}}, {}, PAST_THE_DEADLINE, None, id="a row closed by an exit"),
+            pytest.param({"closed": {"reason": "spiel_decided"}}, {}, KICK_OFF, None, id="a row closed by a decision"),
+            pytest.param({"answer": {"kind": "agreed", "vorschlag": None}}, {}, PAST_THE_DEADLINE, None, id="a club that answered"),
+        ],
+    )
+    def test_only_a_lapse_is_dated(self, fields: dict[str, Any], situation: dict[str, Any], now: datetime, lapsed: str | None):
+        raw = row(**fields)
+        reason = reason_of(spielbestaetigung_raw=raw, ansetzung_state=ansetzung_state(**situation), now=now)
+
+        assert lapsed_on(spielbestaetigung_raw=raw, reason=reason, now=now) == lapsed
+
+    def test_a_referee_is_due_by_the_slot_and_a_club_by_its_deadline(self):
+        assert (due_by_of(row(**REFEREES)), due_by_of(row())) == (DATE, DEADLINE)
