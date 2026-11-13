@@ -1,9 +1,6 @@
 "use client";
 
-import { COPY } from "@/core/copy";
-
 import { hoverLook } from "./hoverStyles";
-import { PlaceholderLine } from "./Skeleton";
 import { TAB_PARAM } from "./tabChoice";
 import { tv } from "./tv";
 import { NavigationLink, usePressed } from "./WholePage";
@@ -12,9 +9,8 @@ import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 
 /**
- * The tab row's look, which the tabs and their placeholder share: the row's 1-px line is its background's bottom
- * edge, so the chosen tab's 2-px mark, painted over the background, covers it where the tab stands; each tab as
- * tall as every control.
+ * The tab row's look: the row's 1-px line is its background's bottom edge, so the chosen tab's 2-px mark, painted over
+ * the background, covers it where the tab stands; each tab as tall as every control.
  */
 const tabs = tv({
   slots: {
@@ -24,32 +20,6 @@ const tabs = tv({
     tab: "flex h-8 shrink-0 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap pointer-coarse:h-10",
   },
 });
-
-/**
- * The tabs while their labels are read: the row's own line with `count` tabs, and under it the placeholder of the
- * chosen tab's content, as `Tabs` sets the chosen tab's content under its row. A label comes from the read, so each
- * bar is sized by the words its tab most likely holds, its place's matchday, the one thing tabs wait for.
- */
-export function TabsPlaceholder({ count, children }: { count: number; children: ReactNode }) {
-  const { row, tab } = tabs();
-  return (
-    <div className="grid gap-4">
-      <div className={row({ class: "overflow-hidden" })}>
-        {Array.from({ length: count }, (_, index) => (
-          <span
-            key={index}
-            className={tab()}>
-            <PlaceholderLine
-              textClass="text-sm"
-              words={COPY.shared.spieltag(index + 1)}
-            />
-          </span>
-        ))}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /**
  * Switching what a page shows, such as its matchday: a row of links in a `nav`, as GitHub Primer's
