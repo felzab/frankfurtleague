@@ -4,7 +4,6 @@ import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { figures, goalsOf, look, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
@@ -132,44 +131,6 @@ export function BracketCard({
           {body}
         </Link>
       )}
-    </div>
-  );
-}
-
-/** One side's line while its match is read: the plaque, on the wide card the name's line, and the figure, as bars. */
-function LinePlaceholder() {
-  const style = card();
-  return (
-    <span className={style.line()}>
-      <span className={style.side({ class: "flex-1" })}>
-        <span className={placeholderBar("h-6 w-10")} />
-        <PlaceholderLine
-          textClass="flex-1 text-sm @max-2xl:hidden"
-          widthClass="w-3/4"
-        />
-      </span>
-      <span className={placeholderBar("h-3 w-3")} />
-    </span>
-  );
-}
-
-/** A knockout match's card while it is read: the card's own box and lines, the date's line under its hairline on the wide card. */
-export function BracketCardPlaceholder() {
-  const style = card();
-  return (
-    <div className={cardSurface({ class: "overflow-hidden text-sm" })}>
-      <span className={style.body()}>
-        <LinePlaceholder />
-        <LinePlaceholder />
-        <span className={style.when()}>
-          <span className={style.whenLine()}>
-            <PlaceholderLine
-              textClass="flex-1 text-xs"
-              widthClass="w-1/2"
-            />
-          </span>
-        </span>
-      </span>
     </div>
   );
 }

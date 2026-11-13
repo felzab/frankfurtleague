@@ -106,17 +106,14 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are. A row carries its ending, and a fresh
- * link before it while the change waits on the new mailbox, each its labelled button in a wide box and an entry of the
- * row's „⋯“ in a narrow one, as the wait draws the ending (`sideAct`). The new address is a column holding an address, cut at an
- * address's step as every list's is. The muted line under a row's name is the moment its step ends in the table, where
- * it has one, and the new address before it on a stacked row; the wait draws it at every width, the taller form.
+ * The table's head. A row carries its ending, and a fresh link before it while the change waits on the new mailbox,
+ * each its labelled button in a wide box and an entry of the row's „⋯“ in a narrow one. The new address is a column
+ * holding an address, cut at an address's step as every list's is. The muted line under a row's name is the moment its
+ * step ends in the table, where it has one, and the new address before it on a stacked row.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  sideAct: COPY.shared.verb.discard,
-  line: "always",
   columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 
@@ -137,27 +134,23 @@ export default function AddressChangesPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminAddressChanges" } }}
-      create={{
-        label: START,
-        act: read.then(({ changes, holder }): ListCreate => ({
-          title: START,
-          act: { verb: "enter", object: COPY.account.address.change },
-          action: startLostMailboxChange,
-          consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
-          facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
-          touch: { holder },
-          children: (
-            <StartFields
-              running={changes.map(({ address }) => address)}
-              rules={START_RULES}
-            />
-          ),
-        })),
-      }}
+      create={read.then(({ changes, holder }): ListCreate => ({
+        title: START,
+        act: { verb: "enter", object: COPY.account.address.change },
+        action: startLostMailboxChange,
+        consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
+        facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
+        touch: { holder },
+        children: (
+          <StartFields
+            running={changes.map(({ address }) => address)}
+            rules={START_RULES}
+          />
+        ),
+      }))}
       list={{
         kind: "table",
         head: HEAD,
-        wait: 3,
         content: read.then(({ changes, holder }) => ({
           table: {
             label: ROUTES.adminAddressChanges.title,

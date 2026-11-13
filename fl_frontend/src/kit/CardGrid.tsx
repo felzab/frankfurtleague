@@ -1,8 +1,6 @@
 import { BlockBox } from "./BlockBox";
-import { CardLink, CardPlaceholder } from "./Card";
-import { Waiting } from "./Skeleton";
+import { CardLink } from "./Card";
 import { tv } from "./tv";
-import { PageWait } from "./WholePage";
 
 import type { ReactNode } from "react";
 import type { CardLinkProps } from "./Card";
@@ -53,23 +51,7 @@ async function RoleChoicesOnceRead({ choices }: { choices: Promise<ReadonlyArray
   );
 }
 
-/**
- * The role chooser's places, each a card linking it, read under the titled strip; under `WholePages` the page arrives
- * whole with them. Outside `WholePages` they wait in a boundary of their own, and meanwhile two cards stand, the fewest
- * a person reaching the chooser holds, each its title's bar over its line's.
- */
+/** The role chooser's places, each a card linking it, read under the titled strip, the page arriving whole with them. */
 export function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
-  return (
-    <PageWait
-      fallback={
-        <Waiting>
-          <CardGrid across={3}>
-            <CardPlaceholder line />
-            <CardPlaceholder line />
-          </CardGrid>
-        </Waiting>
-      }>
-      <RoleChoicesOnceRead choices={choices} />
-    </PageWait>
-  );
+  return <RoleChoicesOnceRead choices={choices} />;
 }

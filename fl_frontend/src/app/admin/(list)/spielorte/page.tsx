@@ -44,12 +44,11 @@ export default function SpielortePage() {
         action: createSpielort,
         children: <SpielortFields rules={SPIELORT_RULES} />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSpielorte() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSpielorte() }}
     />
   );
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },

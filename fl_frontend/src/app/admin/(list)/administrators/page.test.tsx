@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy";
 import AdministratorsPage from "./page";
 
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
-import type { ListActOnceRead } from "@/kit/ListPage";
+import type { ListCreate } from "@/kit/ListPage";
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { TableProps } from "@/kit/Table";
 import type { ReactElement } from "react";
@@ -45,8 +45,8 @@ const change = (address: string, effective_from: string | null, holder: FLAddres
 
 type Drawn = {
   props: {
-    side: ListActOnceRead;
-    create: ListActOnceRead;
+    side: Promise<ListCreate>;
+    create: Promise<ListCreate>;
     list: { content: Promise<ReactElement<{ cards: readonly FoldedCard[] }>> };
   };
 };
@@ -60,8 +60,8 @@ async function read(reader: string, grants: readonly FLGrantRow[], changes: read
   const { cards } = (await props.list.content).props;
   const tableOf = (title: string) => cards.find((card) => card.title === title)?.tables[0] as TableProps | undefined;
   return {
-    side: await props.side.act,
-    create: await props.create.act,
+    side: await props.side,
+    create: await props.create,
     cards: cards.map(({ title, count }) => ({ title, count })),
     active: tableOf(COPY.admin.team.active)?.rows ?? [],
     waiting: tableOf(COPY.admin.administrators.pending)?.rows ?? [],

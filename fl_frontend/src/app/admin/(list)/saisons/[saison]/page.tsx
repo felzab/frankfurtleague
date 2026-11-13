@@ -257,19 +257,7 @@ export function AdminOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
-      list={{
-        kind: "cards",
-        wait: {
-          rows: 5,
-          cards: [
-            { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
-            { title: WORDS.card.ergebnisse },
-            { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.appointment, "set")] },
-            { title: WORDS.card.bewerbungen },
-          ],
-        },
-        content: readOverview(saison),
-      }}
+      list={{ kind: "cards", content: readOverview(saison) }}
     />
   );
 }

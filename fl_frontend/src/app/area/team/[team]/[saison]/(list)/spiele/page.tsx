@@ -78,7 +78,7 @@ export default function TeamSpielePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamSpiele" } }}
-      list={{ kind: "spielGroups", wait: 2, content: readSpiele(params) }}
+      list={{ kind: "spielGroups", content: readSpiele(params) }}
     />
   );
 }

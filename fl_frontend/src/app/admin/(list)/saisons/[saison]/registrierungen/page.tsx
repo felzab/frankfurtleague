@@ -107,11 +107,10 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   return { saison, filters: [team, state] as const, shown, cut: answer.complete ? null : COPY.admin.registrierung.cut };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are; on a phone a row's line stands for its day. */
+/** The table's head; on a phone a row's line stands for its day. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
-  line: "phone",
   columns: [
     { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" },
@@ -128,13 +127,11 @@ export default function RegistrierungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminRegistrierungen" } }}
       filters={season.then(({ filters }) => filters)}
-      filterCount={2}
       notice={season.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
-        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminRegistrierungen.title,

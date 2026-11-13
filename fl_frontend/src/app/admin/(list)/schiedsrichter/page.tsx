@@ -46,12 +46,11 @@ export default function SchiedsrichterPage() {
         action: createSchiedsrichter,
         children: <SchiedsrichterFields />,
       }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 8, content: readSchiedsrichter() }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: readSchiedsrichter() }}
     />
   );
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },

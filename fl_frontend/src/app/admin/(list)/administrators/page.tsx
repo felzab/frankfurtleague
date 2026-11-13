@@ -1,6 +1,6 @@
 import { actLabel } from "@/kit/dialogAct";
 import { ListPage } from "@/kit/ListPage";
-import { OpenFoldPlaceholder, ReadFolds } from "@/kit/ReadFolds";
+import { ReadFolds } from "@/kit/ReadFolds";
 import { RowAct } from "@/kit/RowAct";
 import { Select } from "@/kit/Select";
 import { TextField } from "@/kit/TextField";
@@ -25,7 +25,7 @@ import type { Copy } from "@/core/copy";
 import type { FLAddressChangeAdminOpen, FLGrantRow } from "@/core/generated/client/types";
 import type { Fact } from "@/kit/Facts";
 import type { ListCreate } from "@/kit/ListPage";
-import type { TableHead, TableProps, TableRow } from "@/kit/Table";
+import type { TableProps, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 const WORDS = COPY.admin.administrators;
@@ -33,7 +33,7 @@ const FACTS = COPY.admin.facts;
 const MAIL_TO = COPY.admin.mailTo;
 const ADDRESS = COPY.signIn.address;
 
-/** The two toolbar acts, each naming its button, its wait and its dialog, and the server action its form posts to. */
+/** The two toolbar acts, each naming its button and its dialog, and the server action its form posts to. */
 const ADD = { verb: "enter", object: WORDS.object } as const;
 const HAND_OVER = { verb: "handOver", object: WORDS.owner } as const;
 const ADD_FACE = { title: actLabel(ADD), act: ADD, action: addAdministrator } as const;
@@ -215,22 +215,15 @@ function waitingRows({ reader, readerIsOwner, additions, handover, changes }: Ac
   ];
 }
 
-/**
- * The head of the list of who holds access, as every role's wait draws it: rows each carrying its one act, opening
- * nothing, and on a phone the line standing for the „Seit“ column.
- */
+/** The columns of the list of who holds access: on a phone a row's line stands for the „Seit“ column. */
 const HEAD = {
-  nameLabel: ADDRESS,
   state: { label: COPY.admin.schiedsrichter.state },
-  linked: false,
-  line: "phone",
   columns: [{ key: "since", label: WORDS.since, hideOnPhone: true, width: "date" }],
-  sideAct: COPY.shared.verb.remove,
-} as const satisfies TableHead;
+} as const satisfies Pick<TableProps, "columns" | "state">;
 
 const EMPTY = { kind: "none", plural: ROUTES.adminAdministrators.title, glyph: "administrators" } as const;
 
-/** A table of the page's cards, carrying nothing of `HEAD` a read table has no use for. */
+/** A table of the page's cards, its rows named by their address. */
 const tableOf = (label: Copy, head: Pick<TableProps, "columns" | "state" | "empty">, rows: readonly TableRow[]): TableProps => ({
   label,
   nameLabel: ADDRESS,
@@ -322,27 +315,16 @@ function handoverOf({ reader, readerIsOwner, active, handover }: Access): ListCr
 
 /**
  * Who holds access to the administration and what waits, and the owner's acts on either, which an administrator sees
- * locked with their reason: every reader's page stands in one shape, its wait's.
+ * locked with their reason, so every reader's page stands in one shape.
  */
 export default function AdministratorsPage() {
   const access = readAccess();
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminAdministrators" } }}
-      side={{ label: HAND_OVER_FACE.title, act: access.then(handoverOf) }}
-      create={{ label: ADD_FACE.title, act: access.then(addOf) }}
-      list={{
-        kind: "folds",
-        wait: (
-          <OpenFoldPlaceholder
-            title={COPY.admin.team.active}
-            head={HEAD}
-            rows={3}
-            folded={[WORDS.pending]}
-          />
-        ),
-        content: foldsOf(access),
-      }}
+      side={access.then(handoverOf)}
+      create={access.then(addOf)}
+      list={{ kind: "folds", content: foldsOf(access) }}
     />
   );
 }

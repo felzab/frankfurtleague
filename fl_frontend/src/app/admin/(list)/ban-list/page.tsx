@@ -24,18 +24,16 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are. Every column is secondary, and a row opens
- * nothing, so on a phone the row's line says what the columns would.
+ * The table's head. Every column is secondary, and a row opens nothing, so on a phone the row's line says what the
+ * columns would.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.signIn.address,
-  line: "phone",
   columns: [
     { key: "reason", label: COPY.admin.spiel.reason, hideOnPhone: true, width: "excerpt", cut: true },
     { key: "until", label: COPY.admin.banList.until, hideOnPhone: true, width: "date" },
     { key: "enteredOn", label: COPY.admin.facts.enteredOn, hideOnPhone: true, width: "date" },
   ],
-  sideAct: COPY.shared.verb.remove,
 };
 
 /** The address the page was drawn for; the list's own read turns a refused session away to the sign-in. */
@@ -95,19 +93,16 @@ export default function BanListPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminBanList" } }}
-      create={{
-        label: ENTER,
-        act: holder.then((address) => ({
-          title: ENTER,
-          act: { verb: "enter", object: WORDS.object },
-          action: enterBan,
-          consequence: WORDS.consequence,
-          facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],
-          touch: { holder: address },
-          children: <BanFields />,
-        })),
-      }}
-      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, wait: 3, content: bans }}
+      create={holder.then((address) => ({
+        title: ENTER,
+        act: { verb: "enter", object: WORDS.object },
+        action: enterBan,
+        consequence: WORDS.consequence,
+        facts: [{ label: WORDS.duration, value: WORDS.durationSaisons(BAN_DURATION_SAISONS) }],
+        touch: { holder: address },
+        children: <BanFields />,
+      }))}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: bans }}
     />
   );
 }

@@ -216,20 +216,7 @@ export default function TeamOverviewPage({ params }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "teamOverview" } }}
       notice={overview.then(({ cut }) => cut)}
-      list={{
-        kind: "cards",
-        wait: {
-          team: true,
-          rows: 2,
-          cards: [
-            { title: TITLES.spielbestaetigungen, acts: [COPY.shared.verb.agree, COPY.shared.verb.decline] },
-            { title: TITLES.aufstellungen },
-            { title: TITLES.registrierungen },
-          ],
-          seats: TITLES.seats,
-        },
-        content: overview.then(({ drawn }) => drawn),
-      }}
+      list={{ kind: "cards", content: overview.then(({ drawn }) => drawn) }}
     />
   );
 }
