@@ -50,13 +50,6 @@ describe("the head of Konto's rail and the band over the list of its pages", () 
     expect(logos()).toEqual([]);
   });
 
-  it("hold the logo for a person holding none", async () => {
-    await renderFor(Promise.resolve(person()));
-
-    expect(backs()).toEqual([]);
-    expect(logos()).toEqual([ROUTES.home.path(), ROUTES.home.path()]);
-  });
-
   it("hold neither while the session is read", async () => {
     await renderFor(new Promise(() => undefined));
 

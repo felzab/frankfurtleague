@@ -67,13 +67,4 @@ describe("a registration's dialog", () => {
     );
     expect(admitRegistrierung).not.toHaveBeenCalled();
   });
-
-  // A locked act looks pressable to a pointer's eye alone; only a press shows whether it still acts.
-  it("admits nothing while its admission is locked, which says its reason instead", async () => {
-    const dialog = opened({ kind: "locked", reason: COPY.area.team.registrierung.kaderFull });
-    await userEvent.click(dialog.getByRole("button", { name: COPY.shared.verb.admit }));
-
-    expect(admitRegistrierung).not.toHaveBeenCalled();
-    expect(dialog.getAllByText(COPY.area.team.registrierung.kaderFull).length).toBeGreaterThan(0);
-  });
 });

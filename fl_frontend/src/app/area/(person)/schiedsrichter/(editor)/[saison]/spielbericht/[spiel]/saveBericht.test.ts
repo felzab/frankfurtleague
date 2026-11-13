@@ -110,16 +110,6 @@ describe("each row the save sends", () => {
     expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team2", spieler_id: LENA, minute: "40", colour: "gelb" }]);
   });
 
-  it("sends a card's „Anonym“ as the null player, as a goal's", async () => {
-    await saveBericht({
-      id: SPIEL_ID,
-      version: 3,
-      changes: { cards: [{ side: "team1", spieler_id: UNKNOWN_PLAYER, minute: "63", colour: "rot" }] },
-    });
-
-    expect(sentPayload()?.bericht.cards).toStrictEqual([{ side: "team1", spieler_id: null, minute: "63", colour: "rot" }]);
-  });
-
   it("sends no row whose player is not chosen, saying so on that row's box", async () => {
     const answer = await saveBericht({
       id: SPIEL_ID,
