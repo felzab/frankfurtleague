@@ -173,6 +173,16 @@ const NEXT_AFTER = {
     "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out.",
 };
 
+/** The message of every ban keeping the network to `fetch`, whose replacement answers every request a test sends. */
+const FETCH_ALONE =
+  "Reach the network through fetch alone: every test answers its requests through the global fetch, and one sent any other way leaves the machine.";
+
+/** Node's HTTP clients and the library beneath Node's fetch, each of which sends past the tests' fetch. */
+const NETWORK_BESIDE_FETCH = {
+  regex: packageUnder("http", "https", "http2", "node:http", "node:https", "node:http2", "undici"),
+  message: FETCH_ALONE,
+};
+
 /** The settings module, which every server module imports and whose secret readers lint deals out to their owners. */
 const CONFIG_MODULE = moduleNamed("config");
 
@@ -292,6 +302,7 @@ const IMPORT_BANS = [
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
+  importBan(NETWORK_BESIDE_FETCH, PRODUCTION),
 ];
 
 // ---------------------------------------------------------------------------------------------------
@@ -912,6 +923,7 @@ const DESIGN_BANS = [
     { allow: ["src/kit/ConfirmDialog.tsx"] },
   ),
   ban("no-restricted-globals", { name: "confirm", message: "Ask before an irreversible act with the kit's `ConfirmDialog`." }, PRODUCTION),
+  ...["XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ban("no-restricted-globals", { name, message: FETCH_ALONE }, PRODUCTION)),
 
   classBan(
     CLASS(String.raw`(?:outline|ring|ring-offset)(?:-.+)?`),
