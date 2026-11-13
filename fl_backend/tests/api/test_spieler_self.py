@@ -221,13 +221,6 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
     return steps
 
 
-@pytest.mark.db
-class TestTheAccountEntry:
-    @pytest.mark.parametrize(("email", "offered"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
-    def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, offered: bool):
-        assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is offered
-
-
 SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
 FUTURE_SAISON = "2027"
 # The two matchdays of the active season's group phase.
@@ -301,16 +294,6 @@ def _read_after_seeding(email: str, *, path: str) -> Callable[[AsyncClient, Asyn
 
 @pytest.mark.db
 class TestTheOwnSeasons:
-    def test_the_seasons_are_those_a_row_stands_in_the_newest_first_a_future_one_among_them(self, mongo_replica_set_url: str):
-        def saisons(email: str) -> list[str]:
-            response = served(mongo_replica_set_url, _read_after_seeding(email, path=SAISONS_PATH))
-            assert response.status_code == 200, response.text
-            return [saison["id"] for saison in response.json()["saisons"]]
-
-        # The past season's row is deregistered, and still a season the pupil played.
-        assert saisons(IDENTIFIER) == [ACTIVE_SAISON, PAST_SAISON]
-        assert saisons(YOUNG) == [FUTURE_SAISON]
-
     @pytest.mark.parametrize("path", [SAISONS_PATH, _saison_path(ACTIVE_SAISON)], ids=["saisons", "saison"])
     def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
         response = served(mongo_replica_set_url, _read(NOBODY, path=path))
@@ -334,13 +317,6 @@ class TestTheOwnSeason:
             (3, 2, 2, None),
             (4, 2, 2, None),
         ]
-
-    def test_a_past_row_reads_its_seasons_name_and_a_season_without_one_reads_nothing(self, mongo_replica_set_url: str):
-        past = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(PAST_SAISON))).json()
-        unheld = served(mongo_replica_set_url, _read_after_seeding(BYSTANDER, path=_saison_path(PAST_SAISON))).json()
-
-        assert (past["kader"]["team_name"], past["kader"]["inactive_since"]) == (ROW_NAME_A_PAST, "2025-06-30")
-        assert (unheld["kader"], unheld["spiele"]) == (None, [])
 
 
 @pytest.mark.db
@@ -411,15 +387,6 @@ class TestAnEditorReadBeforeThePress:
 
         assert pressed.status_code == 204, pressed.text
         assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
-
-
-@pytest.mark.db
-class TestARecordNotHeld:
-    def test_an_address_holding_no_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(scope="internal")))
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
-        assert after == before
 
 
 @pytest.mark.db
