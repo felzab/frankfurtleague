@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
-import { landingTargetOf, placesOf } from "@/features/roles/utils";
+import { landingTargetOf, owesSignInStep, placesOf } from "@/features/roles/utils";
 
 import type { Route } from "next";
 
@@ -13,9 +13,7 @@ async function targetOf(): Promise<Route> {
   const subject = await getSubjectSession().catch(() => undefined);
   if (subject === undefined) return ROUTES.areaRoles.path();
   if (subject === null) return withReturnAddress(ROUTES.signIn.path(), ROUTES.area.path());
-  // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh sign-in or its
-  // passkey step, which the sign-in's landing sends it on to, not a person's place.
-  if (!subject.isAdmin && subject.records.admin_tier !== null) return ROUTES.signInLanding.path();
+  if (owesSignInStep(subject)) return ROUTES.signInLanding.path();
   return landingTargetOf(placesOf(subject));
 }
 

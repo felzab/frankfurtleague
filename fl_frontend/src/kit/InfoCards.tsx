@@ -1,3 +1,4 @@
+import { BlockBox } from "./BlockBox";
 import { cardSurface, smallCaps } from "./cardStyles";
 import { tv } from "./tv";
 
@@ -22,9 +23,7 @@ const cards = tv({
 export function InfoCards({ items }: { items: readonly [Info, Info, Info] }) {
   const slots = cards();
   return (
-    // The container the cards' columns read, since a query reads an ancestor; `w-full`, since a container's width
-    // counts none of its content.
-    <div className="@container w-full">
+    <BlockBox>
       <ul className={slots.root()}>
         {items.map((item) => (
           <li
@@ -35,6 +34,6 @@ export function InfoCards({ items }: { items: readonly [Info, Info, Info] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </BlockBox>
   );
 }
