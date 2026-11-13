@@ -15,6 +15,7 @@ import {
   sessionByCode,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +24,7 @@ import { assertionAnswer } from "./auth/assertionAnswer.ts";
 import { PASSKEY_TOUCH_SECONDS } from "./sessionLifetimes.ts";
 
 import type { MemoryStore, SessionRow } from "@/test-support/authDoubles.ts";
+import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
@@ -44,17 +46,6 @@ const DB_DOUBLE = {
 let requestHeaders: Headers | undefined;
 
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
-
-/* Caught at this boundary rather than off stdout: the subject is what the module HANDS the writer,
-   and the real writer turns that into a line with no structure left to assert over. */
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: (message: string, meta: Record<string, unknown> = {}) => void informed.push({ message, error: undefined, meta }),
-    warn: (message: string) => void warned.push(message),
-    error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
-  },
-};
 
 /** One adapter operation, recorded under the model it was asked about. */
 const operationOf = (key: string, args: unknown[]): string => `${key} ${String((args[0] as { model?: unknown } | undefined)?.model ?? "")}`;
@@ -108,7 +99,6 @@ const {
 } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
-    logging: LOGGING_DOUBLE,
     // Where the send gate's backend read goes, answered by the `fetch` below rather than a server, and the admin key
     // the person lane's erasure is sent under.
     config: configDouble({ API_URL: API_ORIGIN }, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
@@ -207,15 +197,18 @@ const aPasskeyFor = (userId: string) => ({
   createdAt: new Date(),
 });
 
-/** One call the module made on the application's own writer. */
-type LogLine = { message: string; error: unknown; meta: Record<string, unknown> };
+/** Every line the real logger writes, read off standard output; a case clears it before what it reads. */
+const log = captureLog();
+
+/** Each line written at `level` since the last clear, its fields as `meta`. */
+const linesAt = (level: LoggedLine["level"]) =>
+  log.lines().flatMap(({ level: written, message, fields, stack, raw }) => (written === level ? [{ message, meta: fields, stack, raw }] : []));
 
 const store = memoryStore("__flAuthStore");
-const logged: LogLine[] = [];
-/** The event of every warning the module wrote. */
-const warned: string[] = [];
+/** Every error line the module wrote. */
+const logged = () => linesAt("ERROR");
 /** Every info line the module wrote, with the fields it carried. */
-const informed: LogLine[] = [];
+const informed = () => linesAt("INFO");
 const adapterCalls = {
   databases: [] as string[],
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
@@ -676,14 +669,16 @@ describe("a grant the backend cannot answer for", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
     BACKENDS.set(ADMIN_EMAIL, "throws");
-    const loggedBefore = logged.length;
+    const loggedBefore = logged().length;
 
     expect(await getAdminSession()).toBe(null);
     expect((await getSignInLanding()).destination).toBe("/area");
     expect(await getPasskeyStep()).toBe(null);
-    expect(logged.slice(loggedBefore).map((line) => [line.message, line.meta])).toStrictEqual(
-      Array.from({ length: 3 }, () => ["auth.grant_unread", { name: "APINetworkError" }]),
-    );
+    expect(
+      logged()
+        .slice(loggedBefore)
+        .map((line) => [line.message, line.meta]),
+    ).toStrictEqual(Array.from({ length: 3 }, () => ["auth.grant_unread", { name: "APINetworkError" }]));
   });
 
   /* The enrolment's step-up is the passkey's for an administrator, so an unread grant refuses rather
@@ -1611,7 +1606,7 @@ describe("what a ban ends in the sign-in store", () => {
   it("answers that an account holds the address where only the deletion of its sessions failed", async () => {
     const { row } = await signIn(PERSON_EMAIL);
     adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
-    logged.length = 0;
+    log.clear();
 
     try {
       expect(await endSessionsOfAddress(PERSON_EMAIL)).toBe(true);
@@ -1620,7 +1615,7 @@ describe("what a ban ends in the sign-in store", () => {
     }
 
     assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
-    expect(logged.map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
+    expect(logged().map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
   });
 
   /* The case a one-shot deletion lost: its failure told, the browser never back during the ban, and the
@@ -1676,7 +1671,7 @@ describe("what the library's own log stream reaches this application as", () => 
      logging rules keep off the stream. */
   it("carries an event of its own and never the message, which ends in the rejected value", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
-    logged.length = 0;
+    log.clear();
 
     const answer = await handler.POST(
       new Request("http://localhost:3000/api/auth/passkey/verify-authentication", {
@@ -1687,15 +1682,15 @@ describe("what the library's own log stream reaches this application as", () => 
     );
 
     expect(answer.status).toBe(403);
-    assert.ok(logged.length > 0, "the library wrote nothing, so this case proves nothing");
+    assert.ok(logged().length > 0, "the library wrote nothing, so this case proves nothing");
 
-    for (const line of logged) {
+    for (const line of logged()) {
       expect(line.message).toBe("auth.origin_refused");
-      expect(line.error).toBe(undefined);
+      expect(line.stack).toBe(undefined);
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
       expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
-      assert.ok(!JSON.stringify(line).includes("foreign-site"), "the submitted origin reached the stream");
+      assert.ok(!line.raw.includes("foreign-site"), "the submitted origin reached the stream");
     }
   });
 
@@ -1706,15 +1701,15 @@ describe("what the library's own log stream reaches this application as", () => 
     // A stored passkey whose key the verifier cannot read, which is an internal failure rather than
     // a refusal: the library hands its logger the error object itself.
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: "no-key" });
-    logged.length = 0;
+    log.clear();
 
     expect((await assertPasskey(cookie, true)).status).toBe(400);
-    expect(logged.map((line) => [line.message, line.meta.name])).toStrictEqual([["auth.library_failed", "Error"]]);
+    expect(logged().map((line) => [line.message, line.meta.name])).toStrictEqual([["auth.library_failed", "Error"]]);
 
-    for (const line of logged) {
+    for (const line of logged()) {
       // The error object itself, which the writer serialises with its message and its stack: this
       // is the arm the library really hands one, so the drop is proven here or nowhere.
-      expect(line.error, "the library's own error object reached the writer").toBe(undefined);
+      expect(line.stack, "the library's own error object reached the writer").toBe(undefined);
       expect(Object.keys(line.meta).sort()).toStrictEqual(["name"]);
     }
   });
@@ -1723,11 +1718,14 @@ describe("what the library's own log stream reaches this application as", () => 
 /* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
    drain's, recorded on the row. */
 describe("a sign-in mail the Postausgang never took", () => {
-  const failedLines = (event: string) => logged.filter((line) => line.message === event).map((line) => line.meta);
+  const failedLines = (event: string) =>
+    logged()
+      .filter((line) => line.message === event)
+      .map((line) => line.meta);
 
   it("logs the code's send by the error's name alone", async () => {
     answerMail(() => "lost");
-    logged.length = 0;
+    log.clear();
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
@@ -2076,11 +2074,11 @@ describe("which addresses the send gate mails", () => {
 
   it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
     BACKENDS.set(PERSON_EMAIL, "throws");
-    const loggedBefore = logged.length;
+    const loggedBefore = logged().length;
 
     expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
 
-    const lines = logged.slice(loggedBefore);
+    const lines = logged().slice(loggedBefore);
     expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
   });
 
@@ -2577,7 +2575,7 @@ describe("a person's own account deletion", () => {
     const { cookie, row } = await signIn(email);
     const headers = new Headers({ ...ORIGIN, cookie });
     const tokens = () => store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId);
-    informed.length = 0;
+    log.clear();
 
     const answers = [];
     for (let press = 0; press < 50; press += 1) answers.push(await requestAccountDeletion(headers));
@@ -2585,7 +2583,7 @@ describe("a person's own account deletion", () => {
     expect(sent.filter((entry) => entry.to === email).length, "the address was mailed past its hour's five").toBe(5);
     expect(tokens().length, "a capped request minted a token row").toBe(5);
     expect(new Set(answers.map((answer) => JSON.stringify(answer))).size, "a capped request answers apart from a mailed one").toStrictEqual(1);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(45);
+    expect(informed().filter((line) => line.message === "auth.deletion_link_capped").length).toBe(45);
   });
 
   it("holds a sign-in code back after five deletion links, one row counting both", async () => {
@@ -2597,7 +2595,7 @@ describe("a person's own account deletion", () => {
 
     // Admitted at the send, so a code past the gate would be mailed: only the shared count holds it back.
     BACKENDS.set(email, { ...NOTHING_HELD, seats: [A_SEAT], account: true });
-    informed.length = 0;
+    log.clear();
     try {
       await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
     } finally {
@@ -2605,7 +2603,7 @@ describe("a person's own account deletion", () => {
     }
 
     expect(sent.filter((entry) => entry.to === email).length, "a code was mailed past five links").toBe(5);
-    expect(informed.map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
+    expect(informed().map((line) => line.message)).toStrictEqual(["auth.code_mail_capped"]);
   });
 
   it("mails no deletion link after five sign-in codes, one row counting both", async () => {
@@ -2621,13 +2619,13 @@ describe("a person's own account deletion", () => {
       BACKENDS.delete(email);
     }
     expect(sent.filter((entry) => entry.to === email).length, "fewer than five codes were mailed, so the case proves nothing").toBe(5);
-    informed.length = 0;
+    log.clear();
 
     await requestAccountDeletion(headers);
 
     expect(sent.filter((entry) => entry.to === email).length, "a link was mailed past five codes").toBe(5);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-") && held.value === row.userId).length).toBe(0);
-    expect(informed.filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
+    expect(informed().filter((line) => line.message === "auth.deletion_link_capped").length).toBe(1);
   });
 });
 
@@ -2685,17 +2683,21 @@ describe("the sign-in's own lines", () => {
   const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
 
   it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
-    informed.length = 0;
+    log.clear();
     await signInByCode(auth, ADMIN_EMAIL, TRACED);
     const userId = store.session.at(-1)?.userId;
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
 
-    const lines = informed.filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
+    const lines = informed().filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
     expect(lines.map(({ message, meta }) => [message, meta])).toStrictEqual([
-      ["auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
-      ["auth.code_refused", { trace_id: TRACE }],
+      ["auth.signed_in", { user_id: userId, factor: "code" }],
+      ["auth.code_refused", {}],
     ]);
-    assert.ok(userId !== undefined && !JSON.stringify(lines).includes(ADMIN_EMAIL), "the address reached a sign-in line");
+    // The logger scrubs an address it meets, so a line carrying one reads as its placeholder.
+    assert.ok(
+      userId !== undefined && !lines.some(({ raw }) => raw.includes(ADMIN_EMAIL) || raw.includes("[address]")),
+      "the address reached a sign-in line",
+    );
   });
 });
