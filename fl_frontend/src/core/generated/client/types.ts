@@ -5144,11 +5144,23 @@ export interface FLSpielbestaetigungClosed {
   reason: FLSpielbestaetigungClosedReason;
 }
 
+export type FLSpielbestaetigungEditorRowState = (typeof FLSpielbestaetigungEditorRowState)[keyof typeof FLSpielbestaetigungEditorRowState];
+
+export const FLSpielbestaetigungEditorRowState = {
+  valid: "valid",
+  vorschlag: "vorschlag",
+  agreed: "agreed",
+  declined: "declined",
+  expired: "expired",
+  invalid: "invalid",
+  cancelled: "cancelled",
+} as const;
+
 /**
- * A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
+ * A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.
  *
- * `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
- * that the party may still answer, or open that it may not.
+ * The close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or
+ * unasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.
  */
 export interface FLSpielbestaetigungEditorRow {
   ansetzung: FLSpielbestaetigungAnsetzung;
@@ -5157,7 +5169,6 @@ export interface FLSpielbestaetigungEditorRow {
   closed: FLSpielbestaetigungClosed | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   deadline: string;
-  expired: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   party: FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter;
@@ -5165,6 +5176,7 @@ export interface FLSpielbestaetigungEditorRow {
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
+  state: FLSpielbestaetigungEditorRowState;
 }
 
 /**

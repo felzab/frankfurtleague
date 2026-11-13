@@ -26,7 +26,7 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
 from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
 from app.api.spielbestaetigungen.services import AnsetzungState, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
@@ -117,13 +117,13 @@ class FLSpielEditorAufstellungMarks(BaseReadModel):
 
 
 class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
-    """A confirmation row as the match editor reads it, with whether its party's answer lapsed unanswered.
+    """A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.
 
-    `expired` is `state_of`'s own judgement, the one a party's own page shows, so the editor never calls a row lapsed
-    that the party may still answer, or open that it may not.
+    The close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or
+    unasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.
     """
 
-    expired: bool
+    state: FLSpielbestaetigungState
 
 
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
@@ -369,8 +369,8 @@ async def read_spiel_editor(
     vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
     ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
 
-    def expired(row: Mapping[str, Any]) -> bool:
-        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None) == "expired"
+    def state(row: Mapping[str, Any]) -> FLSpielbestaetigungState:
+        return state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None)
 
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
@@ -385,7 +385,7 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "expired": expired(row)}) for row in confirmations],
+        spielbestaetigungen=[FLSpielbestaetigungEditorRow.model_validate({**row, "state": state(row)}) for row in confirmations],
         aufstellungen=aufstellungen,
         aufstellung_marks=marks,
     )

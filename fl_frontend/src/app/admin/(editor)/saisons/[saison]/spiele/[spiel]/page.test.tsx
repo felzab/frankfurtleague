@@ -5,7 +5,7 @@ import { COPY } from "@/core/copy";
 import { FLSonderereignis } from "@/core/generated/client/types";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import type { FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungEditorRow, FLSpieleAdminSingleResponse } from "@/core/generated/client/types";
 import type { ReactElement } from "react";
 import type { SpielEditor } from "./SpielEditor";
 
@@ -131,27 +131,69 @@ describe("the match editor's answers", () => {
     expect(editor.props.answers.map(({ id }) => id)).toStrictEqual(["team1", "team2"]);
   });
 
-  // The harm: a lapsed answer drawn as one still open, so the league waits on a club the backend no longer lets answer.
-  it("says „Abgelaufen“ in grey where the read says the answer lapsed, and „Antwort fehlt“ where it is still in time", async () => {
-    const row = (team_id: string, expired: boolean) => ({
-      id: `64b0000000000000000000${team_id === TEAM1 ? "a1" : "a2"}`,
-      saison_id: "2027",
-      spiel_id: SPIEL_ID,
-      party: { kind: "team" as const, team_id },
-      ansetzung: { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" },
-      deadline: "2026-11-10",
-      asked_at: "2026-11-03",
-      reminded_at: null,
-      answer: null,
-      closed: null,
-      expired,
-    });
-    const editor = await editorOver({ ...VIEW, spielbestaetigungen: [row(TEAM1, true), row(TEAM2, false)] });
+  /** The first club's row reading as `state`, unanswered and open unless `fields` say otherwise. */
+  const row = (state: FLSpielbestaetigungEditorRow["state"], fields: Partial<FLSpielbestaetigungEditorRow> = {}) => ({
+    id: "64b0000000000000000000a1",
+    saison_id: "2027",
+    spiel_id: SPIEL_ID,
+    party: { kind: "team" as const, team_id: TEAM1 },
+    ansetzung: { date: "2026-11-14", time: "16:00:00", spielort_id: null, team1_id: TEAM1, team2_id: TEAM2, digest: "d" },
+    deadline: "2026-11-10",
+    asked_at: "2026-11-03",
+    reminded_at: null,
+    answer: null,
+    closed: null,
+    state,
+    ...fields,
+  });
+  const agreement = {
+    kind: "agreed" as const,
+    at: "2026-11-05",
+    by: { kind: "kontakt" as const, rolle: "trainer" as const },
+    vorschlag: null,
+    reason: null,
+  };
+  const notAsked = { chip: { tone: "warn", label: COPY.template.open }, line: COPY.admin.spiel.notAsked };
 
-    // The lapsed row's line names the day it lapsed on, as every other page under that chip does, not a day still to come.
-    expect(editor.props.answers.map(({ chip, line }) => ({ chip, line }))).toStrictEqual([
-      { chip: { tone: "neutral", label: COPY.admin.expired }, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
-      { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: COPY.admin.spiel.answerBy("2026-11-10") },
-    ]);
+  // The harm: an answer drawn in a state its party's row is not in: open where the backend lets the party answer
+  // nothing more, lapsed or not asked where the party answered, so the league chases or trusts the wrong club.
+  it.each([
+    {
+      reads: "lapsed",
+      rows: [row("expired")],
+      // The day it lapsed on, as every other page under that chip says, not a day still to come.
+      shown: { chip: { tone: "neutral", label: COPY.admin.expired }, line: COPY.admin.schiedsrichter.expiredOn("2026-11-10") },
+    },
+    {
+      reads: "in time",
+      rows: [row("valid")],
+      shown: { chip: { tone: "warn", label: SERVER_COPY.overview.missing(COPY.area.answer) }, line: COPY.admin.spiel.answerBy("2026-11-10") },
+    },
+    {
+      reads: "agreed, its row closed at the kick-off",
+      rows: [row("agreed", { answer: agreement, closed: { reason: "spiel_past" } })],
+      shown: { chip: { tone: "success", label: COPY.admin.spiel.agreed }, line: { record: "05.11.2026" } },
+    },
+    {
+      // Newer than the agreement under it, which was about the slot the match has left.
+      reads: "about a slot the match has left",
+      rows: [row("invalid"), row("agreed", { id: "64b0000000000000000000a0", answer: agreement })],
+      shown: notAsked,
+    },
+    { reads: "about a call-off since undone", rows: [row("cancelled", { closed: { reason: "cancelled" } })], shown: notAsked },
+  ])("draws the first club's newest row $reads by the state it reads as", async ({ rows, shown }) => {
+    const editor = await editorOver({ ...VIEW, spielbestaetigungen: rows });
+
+    const [first] = editor.props.answers;
+    expect({ chip: first?.chip, line: first?.line }).toStrictEqual(shown);
+  });
+
+  // The harm: a party drawn as owing an answer on a match an event ended, which takes none.
+  it("draws no answer for a match carrying any event", async () => {
+    for (const sonderereignis of Object.values(FLSonderereignis)) {
+      const editor = await editorOver({ ...VIEW, spiel: { ...VIEW.spiel, sonderereignis }, spielbestaetigungen: [row("cancelled")] });
+
+      expect(editor.props.answers, sonderereignis).toStrictEqual([]);
+    }
   });
 });
