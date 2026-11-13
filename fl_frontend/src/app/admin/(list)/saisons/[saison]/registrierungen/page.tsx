@@ -48,17 +48,20 @@ function chipOf(row: FLRegistrierungAdminRow): ChipProps {
 
 /**
  * One pending registration, opening its team: a registration is decided by its team, so this list is read-only, and an
- * administrator cures what holds one up on the team's page.
+ * administrator cures what holds one up on the team's page. That page names the team but not the day the registration
+ * came in, so on a phone the row's line says it.
  */
 function rowOf(saison: string, row: FLRegistrierungAdminRow): TableRow {
+  const received = dayOf(row.submitted_at);
   return {
     id: row.id,
     name: { record: `${row.first_name} ${row.last_name}` },
     href: ROUTES.adminTeam.path(saison, row.team_id),
     chip: chipOf(row),
+    phoneLine: COPY.admin.bewerbung.receivedOn(received),
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
-      received: { record: formatDate(dayOf(row.submitted_at)) },
+      received: { record: formatDate(received) },
     },
   };
 }
@@ -105,10 +108,11 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   return { saison, filters: [team, state] as const, shown, cut: answer.complete ? null : COPY.admin.registrierung.cut };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
+/** The table's head, drawn while the rows are read and over them once they are; on a phone a row's line stands for its day. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
+  line: "phone",
   columns: [
     { key: "team", label: COPY.shared.facts.team, hideOnPhone: true, width: "phone", cut: true },
     { key: "received", label: COPY.admin.bewerbung.received, hideOnPhone: true, width: "date" },

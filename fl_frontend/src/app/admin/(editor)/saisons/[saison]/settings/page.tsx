@@ -39,11 +39,15 @@ type Props = PageProps<"/admin/saisons/[saison]/settings">;
 const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
-/** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
+/**
+ * The registration links' head, stated with the rows this page reads for it and drawn while they are read. The rows
+ * open nothing, so on a phone a sent row's line says the day the „Gesendet am“ column would.
+ */
 const LINKS_HEAD: TableHead = {
   nameLabel: TEAM,
   linked: false,
   state: { label: COPY.admin.schiedsrichter.state },
+  line: "phone",
   // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
   columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
 };
@@ -237,15 +241,19 @@ async function readEditor(params: Props["params"]) {
       incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
         head: LINKS_HEAD,
-        rows: invitations.map((row): TableRow => ({
-          id: row.team_id,
-          name: { record: row.team_name },
-          chip: linkOf(
-            row,
-            teams.find((team) => team.team_id === row.team_id),
-          ),
-          cells: row.sent_at === null ? {} : { sentOn: { record: formatDate(dayOf(row.sent_at)) } },
-        })),
+        rows: invitations.map((row): TableRow => {
+          const sent = dayOf(row.sent_at);
+          return {
+            id: row.team_id,
+            name: { record: row.team_name },
+            chip: linkOf(
+              row,
+              teams.find((team) => team.team_id === row.team_id),
+            ),
+            ...(sent === null ? {} : { phoneLine: WORDS.linkSentOn(sent) }),
+            cells: sent === null ? {} : { sentOn: { record: formatDate(sent) } },
+          };
+        }),
         mailed: mailed.length,
       }}
       holder={holder}

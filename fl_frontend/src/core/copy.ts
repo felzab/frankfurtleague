@@ -217,6 +217,10 @@ const EFFECTIVE_FROM = "Gilt ab";
 const VALID_UNTIL = "Gültig bis";
 // The day a record was entered, a fact's label and a row's line alike.
 const ENTERED_ON = "Eingetragen am";
+// The day a grant took effect, a column's head, a fact's label and a row's line alike.
+const SINCE = "Seit";
+// The day an application or a registration came in, a column's head, a fact's label and a row's line alike.
+const RECEIVED = "Eingegangen";
 // A move's new slot, a fact's label, a column's head and a row's line alike.
 const AFTER = "Neu";
 // A person's own deletion: the action log's word for it, and the done page's.
@@ -1252,7 +1256,10 @@ export const COPY = catalogue({
       lockedSinceActivation: "Seit der Umstellung gesperrt",
       entriesHold: "Spiele sind schon bearbeitet",
 
-      /** Each team's registration link as its row states it, by what the press would do with it. */
+      /**
+       * Each team's registration link as its row states it, by what the press would do with it; a sent one's day also on
+       * the links table's line on a phone, whose box leaves the „Gesendet am“ column out.
+       */
       linkSentOn: (day: CalendarDay) => `Gesendet ${boundBy("am", formatDate(day))}`,
       /** The links table's chip of a link mailed, and the column of the day it was. */
       linkSent: "Gesendet",
@@ -1371,7 +1378,9 @@ export const COPY = catalogue({
     bewerbung: {
       search: "Bewerbungen suchen",
       /** The day an application came in: a fact of the list, a card and the review page, and of a registration. */
-      received: "Eingegangen",
+      received: RECEIVED,
+      /** A registration's row line on a phone, whose box leaves the „Eingegangen“ column out: „Eingegangen 12.11.2026“. */
+      receivedOn: (day: CalendarDay) => boundBy(RECEIVED, formatDate(day)),
       /** A row's chip and the status filter's option, by where the application stands. */
       incomplete: "Unvollständig",
       complete: "Vollständig",
@@ -1508,7 +1517,9 @@ export const COPY = catalogue({
       /** The heading over what waits. */
       pending: "Angekündigt",
       /** A grant's `effective_from`, as a date under this label. */
-      since: "Seit",
+      since: SINCE,
+      /** A grant's row line on a phone, whose box leaves the „Seit“ column out: „Seit 12.11.2026“. */
+      sinceOn: (moment: string) => boundBy(SINCE, formatDate(new Date(moment))),
       pendingKind: { addition: "Neuer Administrator", handover: `Übergabe der ${OWNER_TIER}` },
       /** A waiting row's one muted line: what waits, a new address where one does, and its date. */
       pendingLine: (kind: Copy, address: string | null, moment: string) =>

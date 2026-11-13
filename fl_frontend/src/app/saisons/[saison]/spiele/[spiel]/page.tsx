@@ -157,19 +157,23 @@ function rowNameOf(entry: FLAufstellungEntryPublic): Pick<TableRow, "name" | "ma
   return mark === undefined ? { name } : { name, mark };
 }
 
-/** A line-up's pupils as one table: a row a pupil, with their number and position. */
+/**
+ * A line-up's pupils as one table: a row a pupil, with their number and position; the position also on the row's line,
+ * which a phone shows in the column's place, since the row opens nothing.
+ */
 function tableOf(label: Copy, spieler: readonly FLAufstellungEntryPublic[]): TableProps {
   const { column, spiel } = SERVER_COPY.season;
   return {
     label,
     nameLabel: column.name,
     columns: [
-      { key: "nummer", label: column.nummer, figures: true },
-      { key: "position", label: column.position, width: "word" },
+      { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
+      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
     ],
     rows: spieler.map((entry, index) => ({
       id: String(index),
       ...rowNameOf(entry),
+      ...(entry.position === null ? {} : { phoneLine: { record: entry.position } }),
       cells: {
         ...(entry.nummer === null ? {} : { nummer: { record: entry.nummer } }),
         ...(entry.position === null ? {} : { position: { record: entry.position } }),

@@ -55,16 +55,19 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
 /**
  * A row of the check page, its state in its „Stand“ column whatever the run did: entered, „Angenommen“; turned away for
  * its Kürzel, that chip; else the application's own standing, with why it was turned away where it was and its way back
- * to its card.
+ * to its card. An entered row opens nothing, so on a phone every row's line says the colour and the Kürzel its columns
+ * would, a colour left open left out as the squad's line leaves an empty fact.
  */
 function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefined, open: (id: string) => void): TableRow {
   const draft = run.drafts[row.id];
+  const colour = draft === undefined || draft.trikot_farbe === "" ? null : trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe);
+  const shorthand = { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" };
   const cells = {
     gruppe: draft === undefined ? COPY.shared.noValue : COPY.shared.season.gruppe(draft.gruppe),
-    farbe: draft === undefined || draft.trikot_farbe === "" ? COPY.shared.notProvided : trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe),
-    shorthand: { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" },
+    farbe: colour ?? COPY.shared.notProvided,
+    shorthand,
   };
-  const base = { id: row.id, name: { record: row.name }, cells };
+  const base = { id: row.id, name: { record: row.name }, phoneLine: COPY.shared.line([colour, shorthand]), cells };
   if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
