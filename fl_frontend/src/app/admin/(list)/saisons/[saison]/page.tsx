@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
+import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -30,6 +31,7 @@ import type {
   FLSpielRecipientTeam,
 } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
+import type { ChipProps } from "@/kit/Chip";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 import type { OpenParty } from "./ZusageDialog";
@@ -121,21 +123,27 @@ function ReasonField() {
   );
 }
 
-/** What is open on a fixture's row, and the act done there where the row offers one. */
-function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Copy; acts?: ReactElement } {
+/**
+ * What is open on a fixture's row, the chip of the trouble it is in where it is in some, and the act done there where
+ * the row offers one.
+ */
+function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: ChipProps; line: Copy; acts?: ReactElement } {
   const { spiel } = row;
   switch (row.kind) {
     case "spielbestaetigung_due":
     case "spielbestaetigung_overdue": {
       const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
-      // The earliest deadline a club of the row was given, which its answer is overdue since.
+      // The earliest deadline a club of the row was given, which its answer lapsed on.
       const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
-      const line = row.kind === "spielbestaetigung_due" || deadline === undefined ? WORDS.answerDue : WORDS.answerOverdue(dayOf(deadline));
+      const shown =
+        row.kind === "spielbestaetigung_due" || deadline === undefined
+          ? { line: WORDS.answerDue }
+          : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(deadline)) };
       const [first, ...rest] = parties;
       return first === undefined
-        ? { line }
+        ? shown
         : {
-            line,
+            ...shown,
             acts: (
               <ZusageDialog
                 parties={[first, ...rest]}
@@ -151,6 +159,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       const current = slotOf(spiel.date, spiel.time);
       const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
+        chip: DECLINED_CHIP,
         line: WORDS.proposal(to, team),
         acts: (
           <VorschlagActs
@@ -208,12 +217,13 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
       line: WORDS.seatsConfirmed(row.seats_confirmed, row.seats),
     };
   }
-  const { line, acts } = openOf(row);
+  const { chip, line, acts } = openOf(row);
   return {
     // A fixture stands once on a card.
     id: row.spiel.id,
     href: ROUTES.adminSpiel.path(saison, row.spiel.id),
     name: nameOf(row.spiel),
+    ...(chip === undefined ? {} : { chip }),
     line,
     ...(acts === undefined ? {} : { acts }),
   };
