@@ -121,10 +121,9 @@ class FLSpielEditorAufstellungMarks(BaseReadModel):
 
 
 class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
-    """A confirmation row as the match editor reads it, with what it reads as: `state_of`'s state, a closed row's included.
+    """A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
 
-    The close's own judgement, so the editor calls no row open that its party may no longer answer, nor one lapsed or
-    unasked that holds its party's answer. Never `vorschlag`, a club's own page alone telling the other club's proposal.
+    Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
     """
 
     state: FLSpielbestaetigungState
