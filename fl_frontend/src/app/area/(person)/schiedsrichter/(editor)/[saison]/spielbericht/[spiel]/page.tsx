@@ -20,7 +20,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 import { isPublicSaison } from "@/features/saisons/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
-import { matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -204,6 +204,10 @@ async function readPage(params: Props["params"]) {
   return (
     <BerichtEditor
       title={title}
+      // What befell the match, as every match block draws it.
+      {...(spiel.sonderereignis === null
+        ? {}
+        : { chip: eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null) })}
       lead={COPY.shared.line([
         COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
         spiel.spielort === null ? null : { record: spiel.spielort.name },

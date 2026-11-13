@@ -16,11 +16,12 @@ import { COPY } from "@/core/copy";
 import { FLCardColour } from "@/core/generated/client/types";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
-import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER } from "./berichtValues";
+import { counted, NO_SONDEREREIGNIS, UNKNOWN_PLAYER, wholeOnFirstSave } from "./berichtValues";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis, FLSpielSide } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { RowCells } from "@/kit/RecordRows";
@@ -52,11 +53,12 @@ const COLOURS = Object.values(FLCardColour).map((colour) => ({ id: colour, label
 /**
  * The referee's match report: the Ergebnis box, the goals counted from the goals entered and a shoot-out's pair on a
  * level knockout score, with the Sonderereignis under them; the goals, a row each; the cards, a row each, its colour
- * by the kit's card mark; and the remarks. Saved whole from the editor's bar. The report is a proposal: the result
- * stays the administrator's to save.
+ * by the kit's card mark; and the remarks. Saved whole from the editor's bar, the first save with every field the form
+ * opened at. The report is a proposal: the result stays the administrator's to save.
  */
 export function BerichtEditor({
   title,
+  chip,
   lead,
   record,
   save,
@@ -72,6 +74,8 @@ export function BerichtEditor({
   spielPage,
 }: {
   title: PageTitle;
+  /** What befell the match, as every match block draws it. */
+  chip?: ChipProps;
   /** When and where the match was played, under the title. */
   lead: Copy;
   record: EditorRecord<BerichtValues, number | null>;
@@ -93,7 +97,7 @@ export function BerichtEditor({
   /** The match's public page, where the public may read its season: the strip's way there. */
   spielPage?: Route;
 }) {
-  const editor = useEditor(record, save);
+  const editor = useEditor(record, (sent) => save(wholeOnFirstSave(record.values, sent)));
   const { draft, set } = editor;
 
   const sonderereignis = draft.sonderereignis === NO_SONDEREREIGNIS ? null : (draft.sonderereignis as FLSonderereignis);
@@ -180,6 +184,7 @@ export function BerichtEditor({
   return (
     <EditorPage
       title={title}
+      chip={chip}
       lead={lead}
       editor={editor}
       closed={closed}
