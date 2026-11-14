@@ -1282,9 +1282,9 @@ def austritt_notices_of(
     """Each opponent's notice, one mail per mailbox of its confirmed seats, keyed by that row; `vereine` maps clubs to their season rows.
 
     One notice however many fixtures, listing every one still open: neither decided, nor called off, nor closed to the
-    opponent by an exit of its own. Keyed by the two clubs and the seat, never the day: an exit moved earlier tells the
-    opponents it newly reaches, and nobody twice. Each mail is about the departed club's row: on the opponent's seat it
-    would stand in for the seat's link mail, whose delivery the team editor reads.
+    opponent by an exit of its own. Keyed by the two clubs and the seat, never the day, so nobody is told twice: an
+    exit stands once recorded. Each mail is about the departed club's row: on the opponent's seat it would stand in
+    for the seat's link mail, whose delivery the team editor reads.
     """
 
     open_spiele: dict[Any, list[FLSpielMailEntry]] = {}
