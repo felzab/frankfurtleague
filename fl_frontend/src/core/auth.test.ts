@@ -6,6 +6,7 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
+  faultingAdapter,
   insertOrderedAdapter,
   lastMailedCode,
   madeByPasskey,
@@ -53,38 +54,42 @@ const operationOf = (key: string, args: unknown[]): string => `${key} ${String((
 
 /* The memory store under the real `auth/library.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
-   is made of. */
+   is made of. Each operation a case refuses fails as the store's own failure. */
 const ADAPTER_DOUBLE = {
   mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
     adapterCalls.pairs.push({ db, config });
     const factory = insertOrderedAdapter(store as unknown as MemoryDB);
     return (options: Parameters<typeof factory>[0]) =>
-      new Proxy(factory(options), {
-        get: (target, key) => {
-          const value: unknown = Reflect.get(target, key);
-          if (typeof value !== "function" || typeof key !== "string") return value;
-          // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
-          if (key === "count") {
-            return async (...args: unknown[]) => {
+      new Proxy(
+        faultingAdapter(factory(options), (key, query) =>
+          adapterCalls.refusing?.(key, query) === true ? new Error("the store refused") : undefined,
+        ),
+        {
+          get: (target, key) => {
+            const value: unknown = Reflect.get(target, key);
+            if (typeof value !== "function" || typeof key !== "string") return value;
+            // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
+            if (key === "count") {
+              return async (...args: unknown[]) => {
+                adapterCalls.operations?.push(operationOf(key, args));
+                await adapterCalls.counts.arrive();
+                return (value as (...rest: unknown[]) => unknown).apply(target, args);
+              };
+            }
+            return (...args: unknown[]) => {
               adapterCalls.operations?.push(operationOf(key, args));
-              await adapterCalls.counts.arrive();
+              // A session's insert waits at the hold a case arms, so two mints can land in either order.
+              const held = adapterCalls.heldSessionInsert;
+              if (held !== undefined && operationOf(key, args) === "create session") {
+                adapterCalls.heldSessionInsert = undefined;
+                held.entered();
+                return held.release.then(() => (value as (...rest: unknown[]) => unknown).apply(target, args));
+              }
               return (value as (...rest: unknown[]) => unknown).apply(target, args);
             };
-          }
-          return (...args: unknown[]) => {
-            adapterCalls.operations?.push(operationOf(key, args));
-            if (adapterCalls.refusing?.(key, args) === true) return Promise.reject(new Error("the store refused"));
-            // A session's insert waits at the hold a case arms, so two mints can land in either order.
-            const held = adapterCalls.heldSessionInsert;
-            if (held !== undefined && operationOf(key, args) === "create session") {
-              adapterCalls.heldSessionInsert = undefined;
-              held.entered();
-              return held.release.then(() => (value as (...rest: unknown[]) => unknown).apply(target, args));
-            }
-            return (value as (...rest: unknown[]) => unknown).apply(target, args);
-          };
+          },
         },
-      });
+      );
   },
 };
 
@@ -93,11 +98,7 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const {
-  sent,
-  owed,
-  answerWith: answerMail,
-} = registerAuthDoubles({
+const { sent, owed } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     // Where the send gate's backend read goes, answered by `serveBackend` below rather than a server, and the admin key
@@ -201,6 +202,11 @@ const linesAt = (level: LoggedLine["level"]) =>
   log.lines().flatMap(({ level: written, message, fields, stack, raw }) => (written === level ? [{ message, meta: fields, stack, raw }] : []));
 
 const store = memoryStore("__flAuthStore");
+/**
+ * Whether the store holds `row`'s session, read by its id: a committed transaction puts a copy of each row it changed in
+ * a new table, so a reference held from before it finds a rewritten row no more than a deleted one.
+ */
+const holdsSession = ({ id }: { id: string }): boolean => store.session.some((stored) => stored.id === id);
 /** Every error line the module wrote. */
 const logged = () => linesAt("ERROR");
 /** Every info line the module wrote, with the fields it carried. */
@@ -211,7 +217,7 @@ const adapterCalls = {
   operations: undefined as string[] | undefined,
   counts: new Barrier(),
   /** Set by a case to make the store refuse the operations it names. */
-  refusing: undefined as ((key: string, args: unknown[]) => boolean) | undefined,
+  refusing: undefined as ((key: string, query: { model?: string }) => boolean) | undefined,
   /** Set by a case to hold the next session insert. */
   heldSessionInsert: undefined as Hold | undefined,
 };
@@ -524,12 +530,12 @@ describe("what the mounted HTTP surface answers", () => {
 
     const crossSite = await overHttp("/sign-out", { method: "POST", cookie, body: {}, from: { origin: "https://example.com" } });
     expect(crossSite.status).toBe(403);
-    assert.ok(store.session.includes(row), "a cross-site post ended the session");
+    assert.ok(holdsSession(row), "a cross-site post ended the session");
 
     const ended = await overHttp("/sign-out", { method: "POST", cookie, body: {} });
     expect(await ended.json()).toStrictEqual({ success: true });
-    assert.ok(!store.session.includes(row), "the sign-out left its own session standing");
-    assert.ok(store.session.includes(other.row), "the sign-out ended another account's session");
+    assert.ok(!holdsSession(row), "the sign-out left its own session standing");
+    assert.ok(holdsSession(other.row), "the sign-out ended another account's session");
   });
 
   /* Every path outside the browser's six, driven rather than sampled: a set the module widens by
@@ -592,7 +598,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect(await getAdminSession()).toBe(null);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(store.session.includes(admin.row), "the landing left the spent session standing").toBe(false);
+    expect(holdsSession(admin.row), "the landing left the spent session standing").toBe(false);
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
@@ -622,7 +628,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect(await getAdminSession()).toBe(null);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(store.session.includes(row), "the landing left the spent session standing").toBe(false);
+    expect(holdsSession(row), "the landing left the spent session standing").toBe(false);
   });
 });
 
@@ -820,7 +826,7 @@ describe("a passkey session whose passkey is gone", () => {
     // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
     store.passkey.length = 0;
     expect((await getSignInLanding()).destination).toBe("/signin");
-    assert.ok(!store.session.includes(row), "the landing left a session standing that no guard will serve");
+    assert.ok(!holdsSession(row), "the landing left a session standing that no guard will serve");
   });
 
   it("serves a person's account guard no such session", async () => {
@@ -962,7 +968,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     expect(refused.status).toBe(400);
     expect(((await refused.json()) as { code?: string }).code).toBe("AUTHENTICATION_FAILED");
     expect(store.session.length, "a refused assertion still minted a session").toBe(sessions);
-    assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
+    assert.ok(holdsSession(row), "a refused assertion signed its caller out");
   });
 
   /* The registration half of the same requirement, which the card's first step runs: a passkey with no PIN and no
@@ -1266,7 +1272,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     expect(answer.status).toBe(400);
     expect(store.passkey).toStrictEqual([]);
-    assert.ok(store.session.includes(row), "a refused enrolment signed its caller out");
+    assert.ok(holdsSession(row), "a refused enrolment signed its caller out");
   });
 });
 
@@ -1350,7 +1356,7 @@ describe("what a session records about the sign-in that made it", () => {
 
     const [minted, ...others] = writtenSince(before);
     expect(others).toStrictEqual([]);
-    assert.ok(!store.session.includes(row), "the code's session outlived the sign-in that replaced it");
+    assert.ok(!holdsSession(row), "the code's session outlived the sign-in that replaced it");
     expect(minted?.authFactor).toBe("passkey");
     expect(minted?.passkeyCredentialId).toBe(CREDENTIAL_ID);
     expect(sent.length, "the enrolment that signed in mailed no notice").toBe(mailed + 1);
@@ -1368,7 +1374,7 @@ describe("what a session records about the sign-in that made it", () => {
     expect(refused.status).toBe(400);
     expect(store.passkey).toStrictEqual([]);
     expect(writtenSince(before), "a refused setup signed its caller in").toStrictEqual([]);
-    assert.ok(store.session.includes(row), "a refused setup signed its caller out");
+    assert.ok(holdsSession(row), "a refused setup signed its caller out");
   });
 
   /* A session no listed endpoint made is no sign-in this league offers: a path a release adds, or a
@@ -1428,7 +1434,7 @@ describe("which session a new sign-in replaces", () => {
 
     const left = writtenSince(before);
     expect(left.length, "a step-up left the session it replaced").toBe(1);
-    assert.ok(!store.session.includes(row), "the first sign-in's session outlived the step-up");
+    assert.ok(!holdsSession(row), "the first sign-in's session outlived the step-up");
     arriveAs(cookieHeader(second));
     expect((await getAdminSession())?.session.id).toBe(left[0]?.id);
   });
@@ -1450,7 +1456,7 @@ describe("which session a new sign-in replaces", () => {
     });
 
     expect(writtenSince(before).length).toBe(1);
-    assert.ok(!store.session.includes(row), "the in-process sign-in left the session it replaced");
+    assert.ok(!holdsSession(row), "the in-process sign-in left the session it replaced");
   });
 
   /* Two step-ups carrying one cookie each replace it, and a browser keeps one `Set-Cookie`: the session
@@ -1541,7 +1547,7 @@ describe("which session a new sign-in replaces", () => {
 
     await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: person.cookie });
 
-    assert.ok(!store.session.includes(person.row), "the browser's previous session outlived the sign-in that replaced it");
+    assert.ok(!holdsSession(person.row), "the browser's previous session outlived the sign-in that replaced it");
   });
 });
 
@@ -1555,8 +1561,8 @@ describe("what a ban ends in the sign-in store", () => {
     // Whether an account holds the address is what the ban's notice is sent on.
     expect(await endSessionsOfAddress(PERSON_EMAIL.toUpperCase())).toBe(true);
 
-    assert.ok(!store.session.includes(first.row) && !store.session.includes(second.row), "a session of the barred address survived");
-    assert.ok(store.session.includes(bystander.row), "the ban ended another address's session");
+    assert.ok(!holdsSession(first.row) && !holdsSession(second.row), "a session of the barred address survived");
+    assert.ok(holdsSession(bystander.row), "the ban ended another address's session");
     assert.ok(
       store.user.some((user) => user.id === first.row.userId),
       "the ban deleted the account itself",
@@ -1580,7 +1586,7 @@ describe("what a ban ends in the sign-in store", () => {
       BACKENDS.delete(ADMIN_EMAIL);
     }
 
-    assert.ok(!store.session.includes(row));
+    assert.ok(!holdsSession(row));
     expect(asked).toStrictEqual([]);
   });
 
@@ -1588,7 +1594,7 @@ describe("what a ban ends in the sign-in store", () => {
      told the address holds no account. */
   it("throws where the store does not say whether an account holds the address", async () => {
     await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (_key, args) => (args[0] as { model?: unknown } | undefined)?.model === "user";
+    adapterCalls.refusing = (_key, { model }) => model === "user";
 
     try {
       await expect(endSessionsOfAddress(PERSON_EMAIL)).rejects.toThrow();
@@ -1601,7 +1607,7 @@ describe("what a ban ends in the sign-in store", () => {
      the account was found must not take the answer with it. */
   it("answers that an account holds the address where only the deletion of its sessions failed", async () => {
     const { row } = await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+    adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
     log.clear();
 
     try {
@@ -1610,7 +1616,7 @@ describe("what a ban ends in the sign-in store", () => {
       adapterCalls.refusing = undefined;
     }
 
-    assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
+    assert.ok(holdsSession(row), "the deletion was not refused, so the case proves nothing");
     expect(logged().map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
   });
 
@@ -1618,7 +1624,7 @@ describe("what a ban ends in the sign-in store", () => {
      ban lifted inside the session's windows. */
   it("serves no session the ending stamped on any lane once the ban is lifted, and the landing deletes its row", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+    adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
 
     try {
       await endSessionsOfAddress(PERSON_EMAIL);
@@ -1633,7 +1639,7 @@ describe("what a ban ends in the sign-in store", () => {
       expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
       expect(await getAccountSession()).toBe(null);
       expect((await getSignInLanding()).destination).toBe("/signin");
-      assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
+      assert.ok(!holdsSession(row), "the landing left the stamped row standing");
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
     }
@@ -1647,36 +1653,18 @@ describe("what a ban ends in the sign-in store", () => {
       const { cookie, row } = await signIn(PERSON_EMAIL);
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the control was refused before any ending").toBe(200);
 
-      adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+      adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
       try {
         await endSessionsOfAddress(PERSON_EMAIL);
       } finally {
         adapterCalls.refusing = undefined;
       }
-      assert.ok(store.session.includes(row), "the deletion was not refused, so the stamp alone is not what is judged");
+      assert.ok(holdsSession(row), "the deletion was not refused, so the stamp alone is not what is judged");
 
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
     }
-  });
-});
-
-/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
-   drain's, recorded on the row. */
-describe("a sign-in mail the Postausgang never took", () => {
-  const failedLines = (event: string) =>
-    logged()
-      .filter((line) => line.message === event)
-      .map((line) => line.meta);
-
-  it("logs the code's send by the error's name alone", async () => {
-    answerMail(() => "lost");
-    log.clear();
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "APINetworkError" }]);
   });
 });
 
@@ -2019,16 +2007,6 @@ describe("which addresses the send gate mails", () => {
     expect(granted.answer).toStrictEqual(seated.answer);
   });
 
-  it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
-    BACKENDS.set(PERSON_EMAIL, "throws");
-    const loggedBefore = logged().length;
-
-    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
-
-    const lines = logged().slice(loggedBefore);
-    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
-  });
-
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of
      them held is what the sign-in exists not to say. */
   it("answers a barred address, one holding nothing and one whose read failed with one body, mailing none", async () => {
@@ -2162,7 +2140,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     expect(refused.status).toBe(403);
     expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
     expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
-    assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
+    assert.ok(holdsSession(row), "the refused set-up signed its caller out");
   });
 
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session

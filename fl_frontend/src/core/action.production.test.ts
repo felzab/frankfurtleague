@@ -24,9 +24,6 @@ const log = captureLog();
 const { action } = await import("./action");
 const { sendToBackend } = await import("./api");
 
-/** A line as the production format wrote it, every key it carries, `error` among them. */
-const documentOf = (raw: string): Record<string, unknown> => JSON.parse(raw) as Record<string, unknown>;
-
 /** Whether a line carries an address anywhere, as typed or as the placeholder the logger scrubs one to. */
 const carriesAnAddress = (raw: string): boolean => raw.includes("@") || raw.includes("[address]");
 
@@ -51,8 +48,8 @@ describe("the admin lane", () => {
     expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
       ["ERROR", "action.failed", { action: "create", name: "Error" }],
     ]);
-    for (const { raw } of lines) {
-      expect(documentOf(raw).error, "the thrown error reached the line").toBe(undefined);
+    for (const { error, raw } of lines) {
+      expect(error, "the thrown error reached the line").toBe(undefined);
       assert.ok(!carriesAnAddress(raw), `the error's message reached the line: ${raw}`);
     }
     expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual([`POST ${PROBE}`]);
@@ -90,8 +87,8 @@ describe("the person lane", () => {
     expect(lines.map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
       ["INFO", "roles.refused", { operation: "melden", reason: "no_seat" }],
     ]);
-    for (const { raw } of lines) {
-      expect(documentOf(raw).error, "an error reached the line").toBe(undefined);
+    for (const { error, raw } of lines) {
+      expect(error, "an error reached the line").toBe(undefined);
       assert.ok(!carriesAnAddress(raw), `the address reached the line: ${raw}`);
     }
   });

@@ -1,4 +1,4 @@
-import { insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -17,32 +17,19 @@ const store = memoryStore("__flAccountSweepProductionStore");
 let failingAt: string | undefined;
 
 /**
- * The library's in-memory adapter, each transaction it opens failing its read of the account at `failingAt`: the
- * store's own failure, at the database's edge.
+ * A read of the account at `failingAt` refused, as a failed transaction's driver error names it: the store's own
+ * failure, at the database's edge.
  */
-const withFaults = <T extends object>(adapter: T): T =>
-  new Proxy(adapter, {
-    get: (target, key) => {
-      const value: unknown = Reflect.get(target, key);
-      if (typeof value !== "function" || typeof key !== "string") return value;
-      return (...args: unknown[]) => {
-        if (key === "transaction") {
-          const [run] = args as [(held: object) => Promise<unknown>];
-          return (value as (run: (held: object) => Promise<unknown>) => Promise<unknown>).call(target, (held) => run(withFaults(held)));
-        }
-        const { where } = (args[0] ?? {}) as { where?: { field: string; value: unknown }[] };
-        const address = where?.find(({ field }) => field === "email")?.value;
-        if (key === "findOne" && address !== undefined && address === failingAt) {
-          return Promise.reject(new TypeError(`no transaction for ${String(address)}`));
-        }
-        return (value as (...rest: unknown[]) => unknown).apply(target, args);
-      };
-    },
-  });
+const failingRead = (operation: string, { where }: { where?: readonly { field: string; value: unknown }[] }): Error | undefined => {
+  const address = where?.find(({ field }) => field === "email")?.value;
+  return operation === "findOne" && address !== undefined && address === failingAt
+    ? new TypeError(`no transaction for ${String(address)}`)
+    : undefined;
+};
 
 const ADAPTER = {
   mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) =>
-    withFaults(insertOrderedAdapter(store as unknown as MemoryDB)(options)),
+    faultingAdapter(insertOrderedAdapter(store as unknown as MemoryDB)(options), failingRead),
 };
 
 /** Which of `identifiers` the backend answers unreferenced, handed the batch alone or an address re-asked alone. */
@@ -71,15 +58,12 @@ async function seed(addresses: readonly string[]): Promise<void> {
 /** The addresses the store still holds an account at, in the order opened. */
 const standing = (): string[] => store.user.map(({ email }) => email);
 
-/** Every ERROR line, as the production build wrote it. */
+/** Every ERROR line as the production build wrote it, its time, service and level set aside, its error where it has one. */
 const failures = (): Record<string, unknown>[] =>
   log
     .lines()
     .filter(({ level }) => level === "ERROR")
-    .map(({ raw }) => JSON.parse(raw) as Record<string, unknown>);
-
-/** A line's own fields, its envelope set aside. */
-const fieldsOf = ({ timestamp: _at, service: _service, level: _level, ...rest }: Record<string, unknown>) => rest;
+    .map((line) => ({ trace_id: line.traceId, message: line.message, ...line.fields, ...("error" in line ? { error: line.error } : {}) }));
 
 /** `count` distinct addresses, as the store folds them. */
 const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);
@@ -106,7 +90,7 @@ describe("a pass meeting a failure", () => {
     // The account whose delete failed stands; the ones past it went.
     expect(standing()).toStrictEqual(["b@schule.de"]);
     // No `error` on the line at all: the failure's message and cause name the address.
-    expect(failures().map(fieldsOf)).toStrictEqual([{ trace_id: "SYSTEM", message: "account.delete_failed", name: "RolledBackError" }]);
+    expect(failures()).toStrictEqual([{ trace_id: "SYSTEM", message: "account.delete_failed", name: "RolledBackError" }]);
   });
 
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
@@ -121,7 +105,7 @@ describe("a pass meeting a failure", () => {
     // The refusal's trace, which joins this line to the backend's own for that request.
     const trace = backend.sent[0]?.headers.get("traceparent")?.split("-")[1];
     assert.ok(trace !== undefined, "the read carried no trace, so the case compares nothing");
-    expect(failures().map(fieldsOf)).toStrictEqual([
+    expect(failures()).toStrictEqual([
       {
         trace_id: trace,
         message: "account.references_failed",

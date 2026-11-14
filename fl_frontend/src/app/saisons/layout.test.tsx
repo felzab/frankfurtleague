@@ -17,7 +17,6 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ saison: address.saison }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
-vi.mock("next/server", () => ({ connection: async () => undefined }));
 // Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
 const FRAME = {
   saisons: [
@@ -41,20 +40,14 @@ describe("the public season pages' frame", () => {
     onTestFinished(() => {
       address.saison = "2027";
     });
-    // The layout is a server component the server renders once; drawn here by the browser's React, each retry makes
-    // its read anew, so the render stands in a boundary of its own, where a suspended read can settle before the retry.
-    await act(async () => {
-      render(
-        <Suspense>
-          <SaisonsLayout>
-            <p>Seite</p>
-          </SaisonsLayout>
-        </Suspense>,
-      );
-    });
+    // The layout is a server component the server renders once, so it is called once here and its read begins once:
+    // drawn as a component by the browser's React, each retry would begin it anew, and a read answered over the network
+    // would never settle before the next retry. The render stands in a boundary of its own, where the suspended read
+    // settles.
+    const frame = SaisonsLayout({ children: <p>Seite</p> });
+    await act(async () => render(<Suspense>{frame}</Suspense>));
 
-    expect(screen.getAllByRole("link", { name: COPY.page.tabelle }).map((link) => link.getAttribute("href"))).toContain(
-      "/saisons/2027/tabelle",
-    );
+    const tabelle = await screen.findAllByRole("link", { name: COPY.page.tabelle });
+    expect(tabelle.map((link) => link.getAttribute("href"))).toContain("/saisons/2027/tabelle");
   });
 });

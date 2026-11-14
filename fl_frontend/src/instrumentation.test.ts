@@ -85,6 +85,12 @@ const settings: Record<string, unknown> = {};
 /** Each boot's connect of the sign-in store, which never opens: the boot must not wait on it. */
 let storeConnects = 0;
 
+/** Each index the boot's build asked the store for, as `<collection> <name>`. */
+const indexesAsked: string[] = [];
+
+/** What each index's build waits on before it settles: nothing, unless a case holds the build. */
+let indexBuilt: Promise<void> = Promise.resolve();
+
 const STORE = "__flSchedulerStore";
 const store = memoryStore(STORE);
 
@@ -96,16 +102,25 @@ registerAuthDoubles({
       heartbeatUrl: () => () => heartbeat,
       authResendKey: () => () => "fabricated-resend-not-a-credential",
     }),
-    // The store client, the driver's edge: a production boot connects it, and the library reads its store through it.
+    // The store client, the driver's edge: a production boot connects it and builds the store's indexes over it, and
+    // the library reads its store through it.
     db: {
-      signInStore: () => ({ db: () => ({}) }),
+      signInStore: () => ({
+        db: () => ({
+          collection: (collection: string) => ({
+            createIndex: async (_key: unknown, { name }: { name: string }) => {
+              indexesAsked.push(`${collection} ${name}`);
+              await indexBuilt;
+              return name;
+            },
+          }),
+        }),
+      }),
       connectSignInStore: () => {
         storeConnects += 1;
         return new Promise<void>(() => undefined);
       },
     },
-    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-    authIndexes: overriding("@/core/authIndexes.ts", { buildAuthIndexes: () => () => Promise.resolve() }),
   },
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
@@ -208,12 +223,28 @@ it("runs under a production build's NODE_ENV", () => {
 });
 
 /* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
-   sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. */
+   sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. The index build
+   is started beside it, and the boot waits on that neither, where a store that never answers would hold every page. */
 it("starts the sign-in store's connect at a production boot without waiting on it", async () => {
   storeConnects = 0;
-  await bootAndStep([]);
+  indexesAsked.length = 0;
+  let release = () => {};
+  indexBuilt = new Promise<void>((resolve) => (release = resolve));
+  try {
+    await bootAndStep([]);
 
-  expect(storeConnects).toBe(1);
+    expect(storeConnects).toBe(1);
+    // The first index of each collection asked, none of them built, and the boot returned all the same.
+    expect(indexesAsked).toStrictEqual([
+      "session session_token_uidx",
+      "passkey credentialID_1",
+      "verification expiresAt_1",
+      "user user_email_uidx",
+    ]);
+  } finally {
+    release();
+    indexBuilt = Promise.resolve();
+  }
 });
 
 describe("the one scheduler", () => {
@@ -248,7 +279,7 @@ describe("the one scheduler", () => {
       log
         .lines()
         .filter(({ level }) => level === "ERROR")
-        .map(({ message, fields, raw }) => ({ message, fields, error: (JSON.parse(raw) as { error?: unknown }).error })),
+        .map(({ message, fields, error }) => ({ message, fields, error })),
     ).toStrictEqual([
       { message: "scheduler.job_failed", fields: { job: "bewerbungen", name: "APIBadStatusError", status: 503 }, error: undefined },
     ]);

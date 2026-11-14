@@ -67,8 +67,8 @@ it("runs every other half, files a line naming the half and the season, and then
   const failures = log
     .lines()
     .filter(({ level }) => level === "ERROR")
-    .map(({ message, raw }) => ({ message, line: JSON.parse(raw) as Record<string, unknown> }));
-  expect(failures.map(({ message, line: { name, trace_id, saison_id } }) => ({ message, name, trace_id, saison_id }))).toStrictEqual([
+    .map(({ message, fields: { name, saison_id }, traceId }) => ({ message, name, trace_id: traceId, saison_id }));
+  expect(failures).toStrictEqual([
     { message: "bewerbung.sweep_failed", name: "APINetworkError", trace_id: traceOf("POST /bewerbungen/sweep/2526"), saison_id: "2526" },
     {
       message: "registrierung.sweep_failed",
@@ -79,5 +79,5 @@ it("runs every other half, files a line naming the half and the season, and then
   ]);
   // Each request mints a trace of its own outside a request's scope, so the two lines carry two traces, neither the
   // `SYSTEM` a line falls back to.
-  expect(new Set(failures.map(({ line }) => line["trace_id"])).size).toBe(2);
+  expect(new Set(failures.map(({ trace_id }) => trace_id)).size).toBe(2);
 });

@@ -27,6 +27,15 @@ describe("the capture", () => {
     expect(log.lines()).toStrictEqual([]);
   });
 
+  // The plain format writes neither, so a line read off it carries neither key, never one standing `undefined`.
+  it("reads no trace and no error off the plain format", () => {
+    logger.error("capture.plain", "a string the plain format drops", { trace_id: "a".repeat(32) });
+
+    const [line] = log.lines();
+    expect(line === undefined ? [] : Object.keys(line).filter((key) => key === "traceId" || key === "error")).toStrictEqual([]);
+    expect(line?.raw).toBe("ERROR capture.plain {}\n");
+  });
+
   it("passes on a chunk the logger did not write, however it is shaped", () => {
     // Shaped as the logger's plain line, as a library's own line can be.
     process.stdout.write('INFO not.the.logger {"written":"by the case"}\n');

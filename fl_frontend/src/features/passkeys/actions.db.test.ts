@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -13,6 +12,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -195,7 +195,6 @@ const authDb = () => realClient.db("auth");
 
 beforeEach(async () => {
   barrier.disarm();
-  log.clear();
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();

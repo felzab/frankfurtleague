@@ -49,7 +49,6 @@ const { heldPasskeysOf } = await import("@/features/passkeys/held.ts");
 // Production's indexes under every case, so the library is driven over what it meets there, and an
 // empty store, each case signing the administrator in afresh.
 beforeEach(async () => {
-  log.clear();
   await Promise.all(["session", "user", "passkey", "verification"].map((name) => client.db("auth").collection(name).deleteMany({})));
   await buildAuthIndexes();
   expect(

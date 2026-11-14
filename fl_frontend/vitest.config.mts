@@ -5,14 +5,15 @@ import { TEST_ENVIRONMENT } from "./src/test-support/testEnvironment.mts";
 /**
  * The suites of code taking a production build's branch, which run under the `NODE_ENV` `next build` inlines and
  * nowhere else. A project setting none runs under the shell's `NODE_ENV`, or under `test`, which Vitest sets where
- * the shell sets none.
+ * the shell sets none. A file's `.production.test.ts` infix selects this project, beside the four suites named after
+ * their module that run here whole.
  */
 const PRODUCTION_BUILD = [
+  "src/**/*.production.test.ts",
   "src/instrumentation.test.ts",
   "src/core/logging.test.ts",
   "src/core/instrumentation.test.ts",
   "src/app/api/client-error/route.test.ts",
-  "src/**/*.production.test.ts",
 ];
 
 /** The suites of the server `next dev` builds, which run under the `NODE_ENV` it sets. */
