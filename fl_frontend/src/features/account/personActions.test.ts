@@ -50,6 +50,11 @@ const mail = registerAuthDoubles({
 });
 
 const store = memoryStore("__flAccountErasureStore");
+/**
+ * Whether the store holds `row`'s session, read by its id: a committed transaction puts a copy of each row it changed in
+ * a new table, so a reference held from before it finds a rewritten row no more than a deleted one.
+ */
+const holdsSession = ({ id }: { id: string }): boolean => store.session.some((stored) => stored.id === id);
 
 /** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
 const HELD = new Map<string, LookupFixture>();
@@ -234,7 +239,7 @@ describe("the account's acts, behind the account's guard", () => {
 
     expect(await signOutOthers({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await requestErasure({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    assert.ok(store.session.includes(other), "the mailbox's session ended the administrator's other device");
+    assert.ok(holdsSession(other), "the mailbox's session ended the administrator's other device");
     expect(mail.sent.length, "the mailbox's session had a deletion link mailed").toBe(mailed);
   });
 
@@ -267,7 +272,7 @@ describe("the account's acts, behind the account's guard", () => {
     expect(await signOutOthers(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await requestErasure(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await withdrawAddressChange(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    assert.ok(store.session.includes(other), "the stale page ended the signed-in account's other device");
+    assert.ok(holdsSession(other), "the stale page ended the signed-in account's other device");
     expect(mail.sent.length, "the stale page had a deletion link mailed").toBe(mailed);
     expect(addressChanges, "the stale page withdrew the signed-in account's change").toStrictEqual([]);
   });

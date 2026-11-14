@@ -197,6 +197,11 @@ const linesAt = (level: LoggedLine["level"]) =>
   log.lines().flatMap(({ level: written, message, fields, stack, raw }) => (written === level ? [{ message, meta: fields, stack, raw }] : []));
 
 const store = memoryStore("__flAuthStore");
+/**
+ * Whether the store holds `row`'s session, read by its id: a committed transaction puts a copy of each row it changed in
+ * a new table, so a reference held from before it finds a rewritten row no more than a deleted one.
+ */
+const holdsSession = ({ id }: { id: string }): boolean => store.session.some((stored) => stored.id === id);
 /** Every error line the module wrote. */
 const logged = () => linesAt("ERROR");
 /** Every info line the module wrote, with the fields it carried. */
@@ -520,12 +525,12 @@ describe("what the mounted HTTP surface answers", () => {
 
     const crossSite = await overHttp("/sign-out", { method: "POST", cookie, body: {}, from: { origin: "https://example.com" } });
     expect(crossSite.status).toBe(403);
-    assert.ok(store.session.includes(row), "a cross-site post ended the session");
+    assert.ok(holdsSession(row), "a cross-site post ended the session");
 
     const ended = await overHttp("/sign-out", { method: "POST", cookie, body: {} });
     expect(await ended.json()).toStrictEqual({ success: true });
-    assert.ok(!store.session.includes(row), "the sign-out left its own session standing");
-    assert.ok(store.session.includes(other.row), "the sign-out ended another account's session");
+    assert.ok(!holdsSession(row), "the sign-out left its own session standing");
+    assert.ok(holdsSession(other.row), "the sign-out ended another account's session");
   });
 
   /* Every path outside the browser's six, driven rather than sampled: a set the module widens by
@@ -588,7 +593,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect(await getAdminSession()).toBe(null);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(store.session.includes(admin.row), "the landing left the spent session standing").toBe(false);
+    expect(holdsSession(admin.row), "the landing left the spent session standing").toBe(false);
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 24 * HOUR_MS + MINUTE_MS });
@@ -618,7 +623,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     expect(await getAdminSession()).toBe(null);
     assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
     expect((await getSignInLanding()).destination).toBe("/signin");
-    expect(store.session.includes(row), "the landing left the spent session standing").toBe(false);
+    expect(holdsSession(row), "the landing left the spent session standing").toBe(false);
   });
 });
 
@@ -816,7 +821,7 @@ describe("a passkey session whose passkey is gone", () => {
     // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
     store.passkey.length = 0;
     expect((await getSignInLanding()).destination).toBe("/signin");
-    assert.ok(!store.session.includes(row), "the landing left a session standing that no guard will serve");
+    assert.ok(!holdsSession(row), "the landing left a session standing that no guard will serve");
   });
 
   it("serves a person's account guard no such session", async () => {
@@ -958,7 +963,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     expect(refused.status).toBe(400);
     expect(((await refused.json()) as { code?: string }).code).toBe("AUTHENTICATION_FAILED");
     expect(store.session.length, "a refused assertion still minted a session").toBe(sessions);
-    assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
+    assert.ok(holdsSession(row), "a refused assertion signed its caller out");
   });
 
   /* The registration half of the same requirement, which the card's first step runs: a passkey with no PIN and no
@@ -1262,7 +1267,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
 
     expect(answer.status).toBe(400);
     expect(store.passkey).toStrictEqual([]);
-    assert.ok(store.session.includes(row), "a refused enrolment signed its caller out");
+    assert.ok(holdsSession(row), "a refused enrolment signed its caller out");
   });
 });
 
@@ -1346,7 +1351,7 @@ describe("what a session records about the sign-in that made it", () => {
 
     const [minted, ...others] = writtenSince(before);
     expect(others).toStrictEqual([]);
-    assert.ok(!store.session.includes(row), "the code's session outlived the sign-in that replaced it");
+    assert.ok(!holdsSession(row), "the code's session outlived the sign-in that replaced it");
     expect(minted?.authFactor).toBe("passkey");
     expect(minted?.passkeyCredentialId).toBe(CREDENTIAL_ID);
     expect(sent.length, "the enrolment that signed in mailed no notice").toBe(mailed + 1);
@@ -1364,7 +1369,7 @@ describe("what a session records about the sign-in that made it", () => {
     expect(refused.status).toBe(400);
     expect(store.passkey).toStrictEqual([]);
     expect(writtenSince(before), "a refused setup signed its caller in").toStrictEqual([]);
-    assert.ok(store.session.includes(row), "a refused setup signed its caller out");
+    assert.ok(holdsSession(row), "a refused setup signed its caller out");
   });
 
   /* A session no listed endpoint made is no sign-in this league offers: a path a release adds, or a
@@ -1424,7 +1429,7 @@ describe("which session a new sign-in replaces", () => {
 
     const left = writtenSince(before);
     expect(left.length, "a step-up left the session it replaced").toBe(1);
-    assert.ok(!store.session.includes(row), "the first sign-in's session outlived the step-up");
+    assert.ok(!holdsSession(row), "the first sign-in's session outlived the step-up");
     arriveAs(cookieHeader(second));
     expect((await getAdminSession())?.session.id).toBe(left[0]?.id);
   });
@@ -1446,7 +1451,7 @@ describe("which session a new sign-in replaces", () => {
     });
 
     expect(writtenSince(before).length).toBe(1);
-    assert.ok(!store.session.includes(row), "the in-process sign-in left the session it replaced");
+    assert.ok(!holdsSession(row), "the in-process sign-in left the session it replaced");
   });
 
   /* Two step-ups carrying one cookie each replace it, and a browser keeps one `Set-Cookie`: the session
@@ -1537,7 +1542,7 @@ describe("which session a new sign-in replaces", () => {
 
     await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: person.cookie });
 
-    assert.ok(!store.session.includes(person.row), "the browser's previous session outlived the sign-in that replaced it");
+    assert.ok(!holdsSession(person.row), "the browser's previous session outlived the sign-in that replaced it");
   });
 });
 
@@ -1551,8 +1556,8 @@ describe("what a ban ends in the sign-in store", () => {
     // Whether an account holds the address is what the ban's notice is sent on.
     expect(await endSessionsOfAddress(PERSON_EMAIL.toUpperCase())).toBe(true);
 
-    assert.ok(!store.session.includes(first.row) && !store.session.includes(second.row), "a session of the barred address survived");
-    assert.ok(store.session.includes(bystander.row), "the ban ended another address's session");
+    assert.ok(!holdsSession(first.row) && !holdsSession(second.row), "a session of the barred address survived");
+    assert.ok(holdsSession(bystander.row), "the ban ended another address's session");
     assert.ok(
       store.user.some((user) => user.id === first.row.userId),
       "the ban deleted the account itself",
@@ -1576,7 +1581,7 @@ describe("what a ban ends in the sign-in store", () => {
       BACKENDS.delete(ADMIN_EMAIL);
     }
 
-    assert.ok(!store.session.includes(row));
+    assert.ok(!holdsSession(row));
     expect(asked).toStrictEqual([]);
   });
 
@@ -1606,7 +1611,7 @@ describe("what a ban ends in the sign-in store", () => {
       adapterCalls.refusing = undefined;
     }
 
-    assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
+    assert.ok(holdsSession(row), "the deletion was not refused, so the case proves nothing");
     expect(logged().map(({ message, meta }) => [message, meta])).toStrictEqual([["auth.ended_sessions_not_deleted", { name: "Error" }]]);
   });
 
@@ -1629,7 +1634,7 @@ describe("what a ban ends in the sign-in store", () => {
       expect(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the lift served the stamped session again").toBe(null);
       expect(await getAccountSession()).toBe(null);
       expect((await getSignInLanding()).destination).toBe("/signin");
-      assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
+      assert.ok(!holdsSession(row), "the landing left the stamped row standing");
     } finally {
       BACKENDS.delete(PERSON_EMAIL);
     }
@@ -1649,7 +1654,7 @@ describe("what a ban ends in the sign-in store", () => {
       } finally {
         adapterCalls.refusing = undefined;
       }
-      assert.ok(store.session.includes(row), "the deletion was not refused, so the stamp alone is not what is judged");
+      assert.ok(holdsSession(row), "the deletion was not refused, so the stamp alone is not what is judged");
 
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status).toBe(404);
     } finally {
@@ -2130,7 +2135,7 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     expect(refused.status).toBe(403);
     expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
     expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
-    assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
+    assert.ok(holdsSession(row), "the refused set-up signed its caller out");
   });
 
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session

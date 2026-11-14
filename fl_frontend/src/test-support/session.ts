@@ -63,6 +63,11 @@ const fixtureOf = ({ records = {}, admin = false }: NonNullable<Visitor>): Looku
 export function signedInRequest(visitor: Visitor = ADMINISTRATOR): {
   /** Signs a fresh session in for `next` and arrives with its cookie, or with none for nobody. */
   arriveAs: (next: Visitor) => Promise<void>;
+  /**
+   * The rows the library holds, by table. A committed transaction writes each table it touched anew, a copy in place
+   * of each row it changed: read `store.<table>` after the act, never through a table or a row held from before it,
+   * and judge a row by its id.
+   */
   store: MemoryStore;
   /** Every sign-in mail the code owed through the Postausgang since the case began, rendered as the drain sends it. */
   outbox: ReturnType<typeof registerAuthDoubles>;
