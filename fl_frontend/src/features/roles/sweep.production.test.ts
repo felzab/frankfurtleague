@@ -1,4 +1,4 @@
-import { insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
+import { faultingAdapter, insertOrderedAdapter, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles.ts";
 import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -17,32 +17,19 @@ const store = memoryStore("__flAccountSweepProductionStore");
 let failingAt: string | undefined;
 
 /**
- * The library's in-memory adapter, each transaction it opens failing its read of the account at `failingAt`: the
- * store's own failure, at the database's edge.
+ * A read of the account at `failingAt` refused, as a failed transaction's driver error names it: the store's own
+ * failure, at the database's edge.
  */
-const withFaults = <T extends object>(adapter: T): T =>
-  new Proxy(adapter, {
-    get: (target, key) => {
-      const value: unknown = Reflect.get(target, key);
-      if (typeof value !== "function" || typeof key !== "string") return value;
-      return (...args: unknown[]) => {
-        if (key === "transaction") {
-          const [run] = args as [(held: object) => Promise<unknown>];
-          return (value as (run: (held: object) => Promise<unknown>) => Promise<unknown>).call(target, (held) => run(withFaults(held)));
-        }
-        const { where } = (args[0] ?? {}) as { where?: { field: string; value: unknown }[] };
-        const address = where?.find(({ field }) => field === "email")?.value;
-        if (key === "findOne" && address !== undefined && address === failingAt) {
-          return Promise.reject(new TypeError(`no transaction for ${String(address)}`));
-        }
-        return (value as (...rest: unknown[]) => unknown).apply(target, args);
-      };
-    },
-  });
+const failingRead = (operation: string, { where }: { where?: readonly { field: string; value: unknown }[] }): Error | undefined => {
+  const address = where?.find(({ field }) => field === "email")?.value;
+  return operation === "findOne" && address !== undefined && address === failingAt
+    ? new TypeError(`no transaction for ${String(address)}`)
+    : undefined;
+};
 
 const ADAPTER = {
   mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) =>
-    withFaults(insertOrderedAdapter(store as unknown as MemoryDB)(options)),
+    faultingAdapter(insertOrderedAdapter(store as unknown as MemoryDB)(options), failingRead),
 };
 
 /** Which of `identifiers` the backend answers unreferenced, handed the batch alone or an address re-asked alone. */

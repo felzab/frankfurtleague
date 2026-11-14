@@ -78,6 +78,33 @@ export const insertOrderedAdapter =
       advanced: { ...options.advanced, database: { ...options.advanced?.database, generateId: () => new ObjectId().toHexString() } },
     });
 
+/** An adapter operation's first argument, as far as a fault reads it. */
+type AdapterQuery = { model?: string; where?: readonly { field: string; value: unknown }[] };
+
+/**
+ * `adapter` refusing every operation `fail` answers an error for with that error, as a failing store refuses it, and
+ * passing on every other. `fail` is asked at each call, so it reads what the running case set, and a transaction's own
+ * adapter is wrapped alike, so a fault reaches the writes inside one too.
+ */
+export const faultingAdapter = <T extends object>(adapter: T, fail: (operation: string, query: AdapterQuery) => Error | undefined): T =>
+  new Proxy(adapter, {
+    get: (target, key) => {
+      const value: unknown = Reflect.get(target, key);
+      if (typeof value !== "function" || typeof key !== "string") return value;
+      return (...args: unknown[]) => {
+        if (key === "transaction") {
+          const [run] = args as [(held: object) => Promise<unknown>];
+          return (value as (run: (held: object) => Promise<unknown>) => Promise<unknown>).call(target, (held) =>
+            run(faultingAdapter(held, fail)),
+          );
+        }
+        const fault = fail(key, (args[0] ?? {}) as AdapterQuery);
+        if (fault !== undefined) return Promise.reject(fault);
+        return (value as (...rest: unknown[]) => unknown).apply(target, args);
+      };
+    },
+  });
+
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
  * `auth/library.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.

@@ -6,6 +6,7 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
+  faultingAdapter,
   insertOrderedAdapter,
   lastMailedCode,
   madeByPasskey,
@@ -53,38 +54,42 @@ const operationOf = (key: string, args: unknown[]): string => `${key} ${String((
 
 /* The memory store under the real `auth/library.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
-   is made of. */
+   is made of. Each operation a case refuses fails as the store's own failure. */
 const ADAPTER_DOUBLE = {
   mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
     adapterCalls.pairs.push({ db, config });
     const factory = insertOrderedAdapter(store as unknown as MemoryDB);
     return (options: Parameters<typeof factory>[0]) =>
-      new Proxy(factory(options), {
-        get: (target, key) => {
-          const value: unknown = Reflect.get(target, key);
-          if (typeof value !== "function" || typeof key !== "string") return value;
-          // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
-          if (key === "count") {
-            return async (...args: unknown[]) => {
+      new Proxy(
+        faultingAdapter(factory(options), (key, query) =>
+          adapterCalls.refusing?.(key, query) === true ? new Error("the store refused") : undefined,
+        ),
+        {
+          get: (target, key) => {
+            const value: unknown = Reflect.get(target, key);
+            if (typeof value !== "function" || typeof key !== "string") return value;
+            // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
+            if (key === "count") {
+              return async (...args: unknown[]) => {
+                adapterCalls.operations?.push(operationOf(key, args));
+                await adapterCalls.counts.arrive();
+                return (value as (...rest: unknown[]) => unknown).apply(target, args);
+              };
+            }
+            return (...args: unknown[]) => {
               adapterCalls.operations?.push(operationOf(key, args));
-              await adapterCalls.counts.arrive();
+              // A session's insert waits at the hold a case arms, so two mints can land in either order.
+              const held = adapterCalls.heldSessionInsert;
+              if (held !== undefined && operationOf(key, args) === "create session") {
+                adapterCalls.heldSessionInsert = undefined;
+                held.entered();
+                return held.release.then(() => (value as (...rest: unknown[]) => unknown).apply(target, args));
+              }
               return (value as (...rest: unknown[]) => unknown).apply(target, args);
             };
-          }
-          return (...args: unknown[]) => {
-            adapterCalls.operations?.push(operationOf(key, args));
-            if (adapterCalls.refusing?.(key, args) === true) return Promise.reject(new Error("the store refused"));
-            // A session's insert waits at the hold a case arms, so two mints can land in either order.
-            const held = adapterCalls.heldSessionInsert;
-            if (held !== undefined && operationOf(key, args) === "create session") {
-              adapterCalls.heldSessionInsert = undefined;
-              held.entered();
-              return held.release.then(() => (value as (...rest: unknown[]) => unknown).apply(target, args));
-            }
-            return (value as (...rest: unknown[]) => unknown).apply(target, args);
-          };
+          },
         },
-      });
+      );
   },
 };
 
@@ -212,7 +217,7 @@ const adapterCalls = {
   operations: undefined as string[] | undefined,
   counts: new Barrier(),
   /** Set by a case to make the store refuse the operations it names. */
-  refusing: undefined as ((key: string, args: unknown[]) => boolean) | undefined,
+  refusing: undefined as ((key: string, query: { model?: string }) => boolean) | undefined,
   /** Set by a case to hold the next session insert. */
   heldSessionInsert: undefined as Hold | undefined,
 };
@@ -1589,7 +1594,7 @@ describe("what a ban ends in the sign-in store", () => {
      told the address holds no account. */
   it("throws where the store does not say whether an account holds the address", async () => {
     await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (_key, args) => (args[0] as { model?: unknown } | undefined)?.model === "user";
+    adapterCalls.refusing = (_key, { model }) => model === "user";
 
     try {
       await expect(endSessionsOfAddress(PERSON_EMAIL)).rejects.toThrow();
@@ -1602,7 +1607,7 @@ describe("what a ban ends in the sign-in store", () => {
      the account was found must not take the answer with it. */
   it("answers that an account holds the address where only the deletion of its sessions failed", async () => {
     const { row } = await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+    adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
     log.clear();
 
     try {
@@ -1619,7 +1624,7 @@ describe("what a ban ends in the sign-in store", () => {
      ban lifted inside the session's windows. */
   it("serves no session the ending stamped on any lane once the ban is lifted, and the landing deletes its row", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+    adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
 
     try {
       await endSessionsOfAddress(PERSON_EMAIL);
@@ -1648,7 +1653,7 @@ describe("what a ban ends in the sign-in store", () => {
       const { cookie, row } = await signIn(PERSON_EMAIL);
       expect((await overHttp("/passkey/generate-register-options", { cookie })).status, "the control was refused before any ending").toBe(200);
 
-      adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+      adapterCalls.refusing = (key, { model }) => key === "deleteMany" && model === "session";
       try {
         await endSessionsOfAddress(PERSON_EMAIL);
       } finally {
