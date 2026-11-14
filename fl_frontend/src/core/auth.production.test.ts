@@ -20,9 +20,6 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 
 const handler = toNextJsHandler(auth);
 
-/** One line as the production format wrote it, every key it carries, `trace_id` and `error` among them. */
-const documentOf = (raw: string): Record<string, unknown> => JSON.parse(raw) as Record<string, unknown>;
-
 /** A code of the right shape that is not `otp`. */
 const wrongFor = (otp: string): string => (otp === "000000" ? "111111" : "000000");
 
@@ -66,7 +63,7 @@ describe("the sign-in's own lines", () => {
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
 
     const lines = log.lines().filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
-    expect(lines.map(({ level, message, fields, raw }) => [level, message, { ...fields, trace_id: documentOf(raw).trace_id }])).toStrictEqual([
+    expect(lines.map(({ level, message, fields, traceId }) => [level, message, { ...fields, trace_id: traceId }])).toStrictEqual([
       ["INFO", "auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
       ["INFO", "auth.code_refused", { trace_id: TRACE }],
     ]);
@@ -97,9 +94,9 @@ describe("what the library's own log stream reaches this application as", () => 
     const lines = log.lines();
     assert.ok(lines.length > 0, "the library wrote nothing, so this case proves nothing");
 
-    for (const { level, message, fields, raw } of lines) {
+    for (const { level, message, fields, error, raw } of lines) {
       expect([level, message]).toStrictEqual(["ERROR", "auth.origin_refused"]);
-      expect(documentOf(raw).error, "the library's message or error reached the line as its error").toBe(undefined);
+      expect(error, "the library's message or error reached the line as its error").toBe(undefined);
       // Exactly these: the library hands its logger the rejected value among the arguments, and a
       // key added beside them is how one reaches the stream under a name nobody reads for it.
       expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
@@ -128,10 +125,10 @@ describe("what the library's own log stream reaches this application as", () => 
     expect(answer.status).toBe(400);
     const lines = log.lines();
     expect(lines.map(({ message, fields }) => [message, fields.name])).toStrictEqual([["auth.library_failed", "Error"]]);
-    for (const { fields, raw } of lines) {
+    for (const { fields, error } of lines) {
       // The error object itself, which the writer serialises with its message and its stack, or the library's message
       // handed on in its place: this is the arm the library really hands one, so the drop is proven here or nowhere.
-      expect(documentOf(raw).error, "the library's own error or message reached the writer").toBe(undefined);
+      expect(error, "the library's own error or message reached the writer").toBe(undefined);
       expect(Object.keys(fields).sort()).toStrictEqual(["name"]);
     }
   });

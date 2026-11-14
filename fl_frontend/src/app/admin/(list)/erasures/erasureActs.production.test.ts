@@ -65,7 +65,7 @@ describe("the erasure's two stores", () => {
     expect(errors.map(({ message, fields }) => ({ message, fields }))).toStrictEqual([
       { message: "erasure.account_not_deleted", fields: { name: "Error" } },
     ]);
-    expect((JSON.parse(errors[0]?.raw ?? "{}") as { error?: unknown }).error).toBeUndefined();
+    expect(errors[0]).not.toHaveProperty("error");
     // The logger writes an address it meets as its placeholder, so a line carrying either carried the address.
     for (const { raw } of log.lines()) {
       expect(raw).not.toContain(ERASED);

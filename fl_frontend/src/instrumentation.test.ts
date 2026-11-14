@@ -279,7 +279,7 @@ describe("the one scheduler", () => {
       log
         .lines()
         .filter(({ level }) => level === "ERROR")
-        .map(({ message, fields, raw }) => ({ message, fields, error: (JSON.parse(raw) as { error?: unknown }).error })),
+        .map(({ message, fields, error }) => ({ message, fields, error })),
     ).toStrictEqual([
       { message: "scheduler.job_failed", fields: { job: "bewerbungen", name: "APIBadStatusError", status: 503 }, error: undefined },
     ]);

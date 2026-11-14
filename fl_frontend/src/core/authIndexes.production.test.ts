@@ -120,9 +120,9 @@ describe("the sign-in store's index build", () => {
         fields: { index: "session_token_uidx", name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
       },
     ]);
-    for (const { raw } of log.lines()) {
+    for (const { error, raw } of log.lines()) {
       assert.ok(!raw.includes(TOKEN), "the line quoted the value the refusal named");
-      expect((JSON.parse(raw) as { error?: unknown }).error, "the refusal reached the line as its error").toBe(undefined);
+      expect(error, "the refusal reached the line as its error").toBe(undefined);
     }
   });
 

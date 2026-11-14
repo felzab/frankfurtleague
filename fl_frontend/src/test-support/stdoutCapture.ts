@@ -73,6 +73,17 @@ export type LoggedLine = {
   readonly fields: Record<string, unknown>;
   /** The error's stack, scrubbed as written, in both formats; its first line names the error and its message. */
   readonly stack: string | undefined;
+  /**
+   * The line's trace, as the production document writes it, `SYSTEM` outside every request. Absent under the plain
+   * format, which writes none.
+   */
+  readonly traceId?: string;
+  /**
+   * The error as the production document writes it: an `Error` as its name, message and stack, any other value as
+   * itself, scrubbed. Absent where the call passed none, and under the plain format, which writes only an `Error`'s
+   * stack and nothing of any other value.
+   */
+  readonly error?: unknown;
   /** The chunk as written: what a case proving that a value never reached the stream searches. */
   readonly raw: string;
 };
@@ -96,19 +107,28 @@ function readPlain(raw: string, level: LoggedLine["level"]): LoggedLine {
   throw new Error("a plain log line without its fields");
 }
 
-/** The JSON document a production build writes, its `trace_id`, `timestamp` and `service` set aside. */
+/** The JSON document a production build writes, its `timestamp` and `service` set aside. */
 function readDocument(raw: string): LoggedLine {
   const {
     level,
     message,
     error,
-    trace_id: _traceId,
+    trace_id: traceId,
     timestamp: _timestamp,
     service: _service,
     ...fields
   } = JSON.parse(raw) as Record<string, unknown>;
   const stack = typeof error === "object" && error !== null && "stack" in error ? String(error.stack) : undefined;
-  return { level: level as LoggedLine["level"], message: String(message), fields, stack, raw };
+  // The document holds no `undefined`: an `error` the call left out is a key the line does not carry.
+  return {
+    level: level as LoggedLine["level"],
+    message: String(message),
+    fields,
+    stack,
+    traceId: String(traceId),
+    ...(error === undefined ? {} : { error }),
+    raw,
+  };
 }
 
 /** One of the logger's chunks, in whichever of its two formats it was written. */
@@ -125,8 +145,8 @@ function readLine(raw: string): LoggedLine {
  * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
  * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
  *   throwing into the code that wrote it.
- * The plain format carries no `trace_id` and the error only as its stack, so a case asserting either beyond the stack
- * runs under the `unit-production` project (`fl_frontend/vitest.config.mts`).
+ * The plain format carries no trace and an error only as an `Error`'s stack, so a case reading a line's `traceId` or
+ * `error`, or proving a value kept off a line, runs in a `.production.test.ts` file, under a production build's format.
  */
 export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } {
   const lines: LoggedLine[] = [];

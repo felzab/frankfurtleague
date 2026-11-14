@@ -71,15 +71,12 @@ async function seed(addresses: readonly string[]): Promise<void> {
 /** The addresses the store still holds an account at, in the order opened. */
 const standing = (): string[] => store.user.map(({ email }) => email);
 
-/** Every ERROR line, as the production build wrote it. */
+/** Every ERROR line as the production build wrote it, its time, service and level set aside, its error where it has one. */
 const failures = (): Record<string, unknown>[] =>
   log
     .lines()
     .filter(({ level }) => level === "ERROR")
-    .map(({ raw }) => JSON.parse(raw) as Record<string, unknown>);
-
-/** A line's own fields, its envelope set aside. */
-const fieldsOf = ({ timestamp: _at, service: _service, level: _level, ...rest }: Record<string, unknown>) => rest;
+    .map((line) => ({ trace_id: line.traceId, message: line.message, ...line.fields, ...("error" in line ? { error: line.error } : {}) }));
 
 /** `count` distinct addresses, as the store folds them. */
 const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);
@@ -106,7 +103,7 @@ describe("a pass meeting a failure", () => {
     // The account whose delete failed stands; the ones past it went.
     expect(standing()).toStrictEqual(["b@schule.de"]);
     // No `error` on the line at all: the failure's message and cause name the address.
-    expect(failures().map(fieldsOf)).toStrictEqual([{ trace_id: "SYSTEM", message: "account.delete_failed", name: "RolledBackError" }]);
+    expect(failures()).toStrictEqual([{ trace_id: "SYSTEM", message: "account.delete_failed", name: "RolledBackError" }]);
   });
 
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
@@ -121,7 +118,7 @@ describe("a pass meeting a failure", () => {
     // The refusal's trace, which joins this line to the backend's own for that request.
     const trace = backend.sent[0]?.headers.get("traceparent")?.split("-")[1];
     assert.ok(trace !== undefined, "the read carried no trace, so the case compares nothing");
-    expect(failures().map(fieldsOf)).toStrictEqual([
+    expect(failures()).toStrictEqual([
       {
         trace_id: trace,
         message: "account.references_failed",

@@ -1,6 +1,8 @@
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
+import type { LoggedLine } from "@/test-support/stdoutCapture.ts";
+
 /** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04). */
 const TEST_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 
@@ -14,8 +16,9 @@ const TEST_SECRET = "1x0000000000000000000000000000000AA";
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-/** Whether a line as the production format wrote it carries the token anywhere, or an `error` at all. */
-const carriesTheToken = (raw: string): boolean => raw.includes(TEST_TOKEN) || (JSON.parse(raw) as { error?: unknown }).error !== undefined;
+/** Whether a line as the production format wrote it carries the token anywhere, or an `error` at all; no line does too. */
+const carriesTheToken = (line: LoggedLine | undefined): boolean =>
+  line === undefined || line.raw.includes(TEST_TOKEN) || line.error !== undefined;
 
 /** Every request the helper drew, and Cloudflare's answers in turn, the last one repeating; one throwing answers nothing. */
 const asked: { url: string; body: Record<string, unknown> }[] = [];
@@ -95,7 +98,7 @@ describe("a request of ours Cloudflare refuses", () => {
       expect(log.lines().map(({ message, fields }) => [message, fields])).toStrictEqual([
         ["turnstile.request_refused", { codes: code, status: 400 }],
       ]);
-      assert.ok(!carriesTheToken(log.lines()[0]?.raw ?? ""), "the line carried the token or an error");
+      assert.ok(!carriesTheToken(log.lines()[0]), "the line carried the token or an error");
     });
   }
 
@@ -178,7 +181,7 @@ describe("a check Cloudflare could not answer", () => {
       const lines = log.lines();
       expect(lines.length, `wrote ${String(lines.length)} lines`).toBe(1);
       expect(lines[0]?.message).toBe("turnstile.unjudged");
-      assert.ok(!carriesTheToken(lines[0]?.raw ?? ""), "the line carried the token or an error");
+      assert.ok(!carriesTheToken(lines[0]), "the line carried the token or an error");
     });
   }
 });
