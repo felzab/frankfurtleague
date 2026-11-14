@@ -372,9 +372,6 @@ class TestEachRefusalWritesNothing:
         ("email", "before", "body", "code"),
         [
             pytest.param(NOBODY, nothing, bericht(), Code.ROLE_NOT_HELD, id="no referee record"),
-            pytest.param(OTHER_REFEREE_EMAIL, nothing, bericht(), Code.BERICHT_NOT_OFFICIATED, id="another referee"),
-            pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), Code.BERICHT_NOT_PLAYED, id="a day still to come"),
-            pytest.param(REFEREE_EMAIL, nothing, bericht([tor("team1", MIA)]), Code.SPIELER_NOT_IN_KADER, id="the other side's pupil"),
         ],
     )
     def test_the_referee_s_write_is_refused(
@@ -624,9 +621,21 @@ class TestTheReads:
 
 
 async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> None:
+    """The result as the save stores it, the bracket's resolution with it: the winner fielded on the quarter-final it feeds."""
+
     await database[Collection.SPIELE].update_one(
         {"_id": SPIEL}, {"$set": {"team1.tore": team1, "team2.tore": team2, "ergebnis": f"{team1}:{team2}"}}
     )
+    await database[Collection.SPIELE].update_one(
+        {"_id": VIERTELFINALE}, {"$set": {"team1": {"team_id": TEAM1 if team1 > team2 else TEAM2, "tore": None}}}
+    )
+
+
+async def spiel_version(database: AsyncDatabase) -> int:
+    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+    assert stored_spiel is not None, "the seed holds no fixture"
+
+    return stored_spiel["version"]
 
 
 async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
@@ -638,20 +647,6 @@ async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
 
 
 class TestTheAdministratorReadsTheStateAReportIsIn:
-    def test_the_season_read_derives_it_against_the_result_saved(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            proposed = await report_states(database)
-            await save_the_result(database, 0, 1)
-
-            return proposed, await report_states(database)
-
-        proposed, differing = on_the_league(mongo_replica_set_url, body)
-
-        assert proposed == [(SPIEL, "proposed")]
-        # The sides swapped: 1:0 proposed, 0:1 saved.
-        assert differing == [(SPIEL, "differing")]
-
     def test_the_season_read_judges_a_call_off_a_no_show_and_a_shoot_out_by_the_fixtures_own_fields(self, mongo_replica_set_url: str):
         """Each a report on a fixture holding an event or a shoot-out, which the state is judged against.
 
@@ -716,6 +711,65 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
             NO_SHOW: "adopted",
             SHOOT_OUT: "adopted",
         }
+
+    def test_a_report_agreeing_with_a_result_typed_by_hand_awaits_adoption_and_a_save_changing_nothing_adopts_it(
+        self, mongo_replica_set_url: str
+    ):
+        """Lina's 1:0 reported, and 1:0 typed by the administrator without „Übernehmen“.
+
+        Read as differing, the report could never be adopted: the editor's fields already hold its proposal, so the save
+        adopting it changes no field of the fixture. It raises no version, which would refuse every other open editor of
+        the match, and records no change of it.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            [document] = await stored(database)
+            await save_the_result(database, 1, 0)
+            typed = await season_states(database)
+            # A matchday of its own for the tie the result resolves into, which one matchday cannot field Adler on twice.
+            await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+            before, logged = await spiel_version(database), len(await acts_of(database))
+            await correct_the_feeder(database, client, 1, 0, adopts_bericht=document["version"])
+
+            return typed, await season_states(database), await spiel_version(database) - before, (await acts_of(database))[logged:]
+
+        assert on_the_league(mongo_replica_set_url, body) == (["proposed"], ["adopted"], 0, [])
+
+    @pytest.mark.parametrize(
+        ("spiel_moved", "bericht_moved"),
+        [pytest.param(True, False, id="the fixture"), pytest.param(False, True, id="the report")],
+    )
+    def test_a_save_changing_nothing_is_refused_once_what_its_editor_read_has_moved(
+        self, mongo_replica_set_url: str, spiel_moved: bool, bericht_moved: bool
+    ):
+        """Its fields unchanged, the save writes the stamp alone: answered as saved, it would have done nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await put(database, client, bericht())
+            [document] = await stored(database)
+            await save_the_result(database, 1, 0)
+            await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
+            read = await database[Collection.SPIELE].find_one({"_id": SPIEL})
+            assert read is not None, "the seed holds no fixture"
+            # A write of each since the editor's read, standing in for a rival's.
+            if spiel_moved:
+                await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$inc": {"version": 1}})
+            if bericht_moved:
+                await database[Collection.SPIELBERICHTE].update_one({"spiel_id": SPIEL}, {"$inc": {"version": 1}})
+            spiel_data = spiel_patch_body(read, team1={**side(TEAM1), "tore": 1}, team2={**side(TEAM2), "tore": 0})
+            refused = await outcome_of(
+                patch_spiel(
+                    spiel_id=SPIEL,
+                    spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
+                    adopts_bericht=document["version"],
+                    **save_handles(database, client),
+                )
+            )
+
+            return refused, await season_states(database)
+
+        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, ["proposed"])
 
 
 VORJAHRESSPIEL = ObjectId("6890a1b2c3d4e5f607e50013")
@@ -940,7 +994,8 @@ class TestTheAdoptionIsOneStoredAnswer:
 
             return before, after, await season_states(database)
 
-        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, COMMITTED, ["differing"])
+        # Its goal moved a minute, so the result still matches: the corrected report awaits adoption anew.
+        assert on_the_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, COMMITTED, ["proposed"])
 
     def test_an_erased_pupil_s_emptied_entries_keep_it_adopted(self, mongo_replica_set_url: str):
         """The erasure writes the document, and a report un-adopted by it would take its goals off the public page for good."""

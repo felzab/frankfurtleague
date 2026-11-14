@@ -373,24 +373,6 @@ class TestADepartedClubInTheBand:
     """
 
     @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
-    def test_the_live_clubs_are_ranked_on_their_meeting(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
-        """Three level on points and on goals, one of them departed and having met nobody.
-
-        Only the meeting separates Teams 1 and 2, so a comparison the departed club could disable
-        would leave them tied.
-        """
-
-        teams = [
-            a_team(1, punkte=6, scored=4, conceded=4),
-            a_team(2, punkte=6, scored=4, conceded=4),
-            a_team(3, punkte=6, scored=4, conceded=4, austritt=EXITED),
-        ]
-        met = [played(1, 1, 2, 2, 0)]
-
-        # Team 3 is ranked on its own vacuous mini-table row, which is what "still displayed" means.
-        assert order(teams, met, rules) == ["Team 1", "Team 3", "Team 2"]
-
-    @pytest.mark.parametrize("rules", [RULES, DIREKTER_VERGLEICH], ids=["tordifferenz", "direkter_vergleich"])
     def test_the_table_and_the_bracket_order_the_placeable_clubs_alike(self, a_team: TeamFactory, played: MatchFactory, rules: FLSaisonRules):
         """The property the two callers must share, asserted between them rather than inferred from either."""
 
@@ -404,6 +386,8 @@ class TestADepartedClubInTheBand:
         displayed = [name for name in order(teams, met, rules) if name != "Team 3"]
         decided = standing(teams, met, rules)
 
+        # Team 3 is ranked on its own vacuous mini-table row, which is what "still displayed" means.
+        assert order(teams, met, rules) == ["Team 1", "Team 3", "Team 2"]
         assert displayed == ["Team 1", "Team 2"]
         assert [decided.by_platz[platz].name for platz in sorted(decided.by_platz)] == displayed
 

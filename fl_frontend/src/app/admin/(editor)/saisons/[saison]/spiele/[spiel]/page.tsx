@@ -1,13 +1,7 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { AnswerRowsPlaceholder } from "@/kit/AnswerRows";
-import { CardRowsPlaceholder } from "@/kit/Card";
-import { EditorShell } from "@/kit/EditorShell";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { SectionPlaceholder } from "@/kit/Section";
-import { SwitchPlaceholder } from "@/kit/Switch";
-import { TablePlaceholder } from "@/kit/Table";
+import { AGREED_CHIP, DECLINED_CHIP, EXPIRED_CHIP, owedChip } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
 import { COPY } from "@/core/copy";
@@ -16,8 +10,8 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielBody, spielePatchSpielBodyNoteOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
-import { eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
+import { AUFSTELLUNG_CHIP, STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { adminSpielChipOf, eventOf, previewOf, quelleWords } from "@/features/spiele/blocks";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { creditedSide, isNoShow } from "@/features/spiele/result";
 import { spielerName } from "@/features/spieler/constants";
@@ -29,11 +23,11 @@ import { createSpielort } from "../../../../../createSpielort";
 import { SPIELORT_RULES } from "../../../../../spielortRules";
 import { saveSpiel } from "./saveSpiel";
 import { SpielEditor } from "./SpielEditor";
-import { NO_SONDEREREIGNIS, NOBODY, valuesOf } from "./spielValues";
+import { NO_SONDEREREIGNIS, NOBODY, takesNoResult, valuesOf } from "./spielValues";
 
 import type { Copy, Words } from "@/core/copy";
 import type {
-  FLSpielbestaetigung,
+  FLSpielbestaetigungEditorRow,
   FLSpieleAdminSingleResponse,
   FLSpielEditorBericht,
   FLSpielJoinedAdmin,
@@ -67,10 +61,9 @@ const REQUIRED = {
   payment: requires(schiedsrichter.options[0].shape.payment, null),
 };
 
-/** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it, and the wait its bars. */
+/** The report's table, whose cells `berichtRows` fills: the editor draws its rows under it. */
 const REPORT_HEAD: TableHead = {
   nameLabel: COPY.shared.spieler,
-  linked: false,
   stack: true,
   columns: [
     { key: "event", label: WORDS.event },
@@ -111,65 +104,9 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
   );
 }
 
-/** A booking and its money under it while the match is read, each at its width. */
-function BookingPlaceholder() {
-  return (
-    <>
-      <FieldPlaceholder />
-      <FieldPlaceholder
-        holds={5}
-        unit={COPY.shared.unit.euro}
-      />
-    </>
-  );
-}
-
 /** The match editor, on its one view read. */
-export default function SpielEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A public season's match, the editor's state most days, links its page from the strip.
-        link: COPY.shared.toSpiel,
-        sections: [
-          ["pair", <BookingPlaceholder key="spielort" />, <BookingPlaceholder key="schiedsrichter" />],
-          [
-            <SwitchPlaceholder
-              key="result"
-              label={COPY.shared.withObject(WORDS.ergebnis, "enter")}
-            />,
-            "score",
-          ],
-          [{ titled: "paragraph" }],
-          [{ titled: "field" }],
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <TablePlaceholder
-                    head={REPORT_HEAD}
-                    rows={3}
-                    plaques
-                    bare
-                  />
-                }
-              />
-            ),
-          },
-          [
-            <AnswerRowsPlaceholder
-              key="answers"
-              rows={3}
-            />,
-          ],
-          // Both sides' line-up rows, as a dated match with its two clubs shows them.
-          { block: <SectionPlaceholder list={<CardRowsPlaceholder rows={2} />} /> },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function SpielEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** A pupil a goal names, by the names their record holds; a goal naming nobody, „anonym“. */
@@ -242,80 +179,122 @@ function adoptionOf(spiel: FLSpielJoinedAdmin, bericht: FLSpielEditorBericht | n
   return { version: bericht.version, text: WORDS.fromReport(WORDS.score({ team1: tore1, team2: tore2 }, elfmeterschiessen)), values };
 }
 
-/** The party's open row about the fixture's Ansetzung as it stands, closed ones being about one it left. */
-const openRowOf = (rows: readonly FLSpielbestaetigung[], party: (row: FLSpielbestaetigung) => boolean) =>
-  rows.find((row) => row.closed === null && party(row));
+/** An answer the party has not given: the chip of one still owed, and the line of one that lapsed on no day. */
+const ANSWER_MISSING = SERVER_COPY.overview.missing(COPY.area.answer);
 
 /**
- * One party's answer as a row: its name, its answer's chip, and under them the answer's day, the day it is due by, or
- * that the party has not been asked; a declining club's proposed date after its day, and its reason in its own words.
+ * One party's answer as a row, by the state its newest row reads as: its name, its chip, and under them the answer's
+ * day, the day it is due by, or that the party has not been asked; a declining club's proposed date after its day, and
+ * its reason in its own words. An answer that lapsed unanswered, which the party can no longer give, says so and the day
+ * it lapsed on, as every other page under that chip does; one an exit or a decision ended before its answer was due lapsed on no day, and its line
+ * says the answer is missing. A discarded proposal reads as the agreement the fixture counts. An answer about a slot the
+ * match has left is drawn as given beside that slot, which it alone is about. A row about a slot the match has left that
+ * holds no answer, or about a call-off since undone, asks nothing about the match as it stands, and a row in time that
+ * nobody could be mailed on has asked nothing yet: the party reads as not asked.
  */
-function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigung | undefined): AnswerRow {
+function answerRow(id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined): AnswerRow {
   const shown = { id, name, ...(plaque === null ? {} : { plaque: { record: plaque } }) };
-  // One word in one hue, the area's for a state still waiting: the line under it says whether the party was asked.
-  const open = { tone: "warn", label: COPY.template.open } as const;
-  if (row === undefined) return { ...shown, chip: open, line: WORDS.notAsked };
+  // Both wait in the warn hue: a party never asked on the league, one asked on its answer, in the word its own list says.
+  if (
+    row === undefined ||
+    (row.state === "invalid" && row.answer === null) ||
+    row.state === "cancelled" ||
+    (row.state === "valid" && row.asked_at === null)
+  ) {
+    return { ...shown, chip: { tone: "warn", label: COPY.template.open }, line: WORDS.notAsked };
+  }
+  if (row.state === "expired") {
+    const line = row.lapsed_on === null ? ANSWER_MISSING : COPY.admin.schiedsrichter.expiredOn(dayOf(row.lapsed_on));
+    return { ...shown, chip: EXPIRED_CHIP, line };
+  }
   const { answer } = row;
-  if (answer === null) return { ...shown, chip: open, line: WORDS.answerBy(dayOf(row.deadline)) };
+  // Unanswered and in time: its party may still answer, a referee until the slot's day, which no deadline binds.
+  if (answer === null) return { ...shown, chip: owedChip(ANSWER_MISSING), line: WORDS.answerBy(dayOf(row.due_by)) };
+  const reason = answer.reason === null ? {} : { reason: { record: answer.reason } };
+  if (row.state === "invalid") {
+    const slot = SERVER_COPY.season.labelled(
+      COPY.admin.facts.before,
+      COPY.spielplan.when(dayOf(row.ansetzung.date), timeOf(row.ansetzung.time)),
+    );
+    return answer.kind === "agreed" ? { ...shown, chip: AGREED_CHIP, line: slot } : { ...shown, chip: DECLINED_CHIP, line: slot, ...reason };
+  }
   const day: Words = answer.by.kind === "admin" ? WORDS.enteredByLeague : { record: formatDate(dayOf(answer.at)) };
-  if (answer.kind === "agreed") return { ...shown, chip: { tone: "success", label: WORDS.agreed }, line: day };
-  const { vorschlag, reason } = answer;
+  // The chip follows the state, so a decline whose proposal the league discarded reads as the agreement it counts as.
+  if (row.state === "agreed") {
+    return answer.kind === "agreed"
+      ? { ...shown, chip: AGREED_CHIP, line: day }
+      : { ...shown, chip: AGREED_CHIP, line: COPY.admin.actionLog.action["spielbestaetigung.vorschlag_discarded"], ...reason };
+  }
+  const { vorschlag } = answer;
   const line =
     vorschlag === null
       ? day
       : SERVER_COPY.season.labelled(day, WORDS.proposed(COPY.spielplan.when(dayOf(vorschlag.date), timeOf(vorschlag.time))));
-  return { ...shown, chip: { tone: "danger", label: WORDS.declined }, line, ...(reason === null ? {} : { reason: { record: reason } }) };
+  return { ...shown, chip: DECLINED_CHIP, line, ...reason };
 }
 
-/** Each party's answer about the fixture as it stands: both clubs, then the referee where a booking names one. */
+/**
+ * Each party's answer about the fixture as it stands, by the party's newest row, a closed one too, which still holds
+ * the answer or that it lapsed: both clubs, then the referee where a booking names one. An event ends every question
+ * still owed about the match, so on a match carrying one only a party that agreed or declined shows, its answer being
+ * what it said of the match before the event.
+ */
 function answerRows(view: FLSpieleAdminSingleResponse): AnswerRow[] {
   const { spiel, spielbestaetigungen: rows } = view;
+  const party = (id: string, name: Words, plaque: string | null, row: FLSpielbestaetigungEditorRow | undefined) =>
+    spiel.sonderereignis === null || row?.state === "agreed" || row?.state === "declined" ? [answerRow(id, name, plaque, row)] : [];
+  // The rows are served newest first, so a party's first row is its newest.
   const club = (side: "team1" | "team2", team: FLSpielTeamFieldJoined | null) =>
     team === null
       ? []
-      : [
-          answerRow(
-            side,
-            { record: team.name },
-            team.shorthand,
-            openRowOf(rows, (row) => row.party.kind === "team" && row.party.team_id === team.team_id),
-          ),
-        ];
+      : party(
+          side,
+          { record: team.name },
+          team.shorthand,
+          rows.find((row) => row.party.kind === "team" && row.party.team_id === team.team_id),
+        );
   const booked = spiel.schiedsrichter;
   // A booking naming nobody, which an erasure leaves on a played match, has no party to ask or to answer.
   const referee =
     booked === null || booked.name === null
       ? []
-      : [
-          answerRow(
-            "schiedsrichter",
-            { record: booked.name },
-            null,
-            openRowOf(rows, (row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
-          ),
-        ];
+      : party(
+          "schiedsrichter",
+          { record: booked.name },
+          null,
+          rows.find((row) => row.party.kind === "schiedsrichter" && row.party.schiedsrichter_id === booked.schiedsrichter_id),
+        );
   return [...club("team1", spiel.team1), ...club("team2", spiel.team2), ...referee];
 }
 
 /**
  * A row per side leading to its club's line-up, under the club's name: how many it names and how many start, or
- * „Fehlt“ where none is stored. A side the draw has not settled has no club to name one; a match with no day or hour,
- * and one called off, owe none, so neither shows a row.
+ * „Fehlt“ where none is stored, with the club's own pages' „Überfällig“ from its due mark on, past the club's lock
+ * too. A side the draw has not settled has no club to name one, and a match with no day or hour owes none, so neither
+ * shows a row. A match carrying any event owes none either, as the club's own pages read it, yet the league still enters
+ * its line-ups: each row stays with what is stored, and nothing on it says one is owed.
  */
 function aufstellungRows(view: FLSpieleAdminSingleResponse): Array<CardActRowProps & { id: string }> {
-  const { spiel, aufstellungen } = view;
-  if (spiel.date === null || spiel.time === null || spiel.sonderereignis === "ausgefallen") return [];
+  const { spiel, aufstellungen, aufstellung_marks: marks } = view;
+  if (spiel.date === null || spiel.time === null) return [];
+  // The served marks read the clock alone and never the event, so the page judges the event itself.
+  const owed = spiel.sonderereignis === null;
   const words = COPY.area.team.aufstellung;
   return (["team1", "team2"] as const).flatMap((side) => {
     const club = spiel[side];
     if (club === null) return [];
     const stored = aufstellungen[side];
+    const mark = marks[side];
+    // The club's lock locks nothing for the league, which still enters the line-up: a missing one past it is overdue here.
+    const chip = !owed || mark === null || mark.stored ? undefined : AUFSTELLUNG_CHIP[mark.phase === "locked" ? "overdue" : mark.phase];
+    const line = stored !== null ? words.counts(stored.count, stored.starters, STARTERS_MAX) : owed ? words.missing : undefined;
     return [
       {
         id: side,
         href: ROUTES.adminAufstellung.path(spiel.saison_id, spiel.id, club.team_id),
         name: words.ofTeam({ record: club.name }),
-        line: stored === null ? words.missing : words.counts(stored.count, stored.starters, STARTERS_MAX),
+        ...(chip === undefined ? {} : { chip }),
+        ...(line === undefined ? {} : { line }),
       },
     ];
   });
@@ -338,24 +317,28 @@ async function readEditor(params: Props["params"]) {
   // A finished season's matches take no write (`saison_past`), so the editor opens on one read-only.
   const closed = view.saison_status === "past";
 
-  // A no-show needs both sides: while one is open, the write refuses it, so it is offered disabled.
+  // An event recording the match waits for the season's start, and a no-show needs both sides: the write refuses
+  // either, so it is offered disabled. A call-off and a strike-out record nothing and stay open before the start.
+  const begun = view.saison_begun;
   const bothSides = saved.team1 !== null && saved.team2 !== null;
   const sonderereignisse: Option[] = [
     { id: NO_SONDEREREIGNIS, label: WORDS.none },
     ...Object.values(FLSonderereignis).map((event): Option => {
       const label = SONDEREREIGNISSE[event];
-      const open = !bothSides && isNoShow(event);
-      return open ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
+      if (!begun && !takesNoResult(event)) return { id: event, label, isDisabled: true, note: COPY.admin.untilStart };
+      return !bothSides && isNoShow(event) ? { id: event, label, isDisabled: true, note: WORDS.needsBothSides } : { id: event, label };
     }),
   ];
 
   return (
     <SpielEditor
       title={nameOf(saved)}
+      chip={adminSpielChipOf(saved)}
       preview={previewOf(saved)}
       record={{ id: saved.id, version: saved.version, values: valuesOf(saved) }}
       save={saveSpiel}
       phase={saved.saison_phase}
+      begun={begun}
       sides={{
         team1: saved.team1 === null ? null : { name: { record: saved.team1.name }, plaque: { record: saved.team1.shorthand } },
         team2: saved.team2 === null ? null : { name: { record: saved.team2.name }, plaque: { record: saved.team2.shorthand } },

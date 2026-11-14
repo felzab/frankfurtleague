@@ -1,10 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { SeatRowsPlaceholder } from "@/kit/SeatRows";
-
 import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, formatDate } from "@/core/format";
@@ -31,10 +26,6 @@ import type { TeamRow } from "./TeamEditor";
 type Props = PageProps<"/admin/saisons/[saison]/teams/[team]">;
 
 const WORDS = COPY.admin.team;
-const LINK_WORDS = COPY.admin.saison;
-
-/** One of the editor's selects of a few short choices while it is read. */
-const SELECT = <FieldPlaceholder key="select" />;
 
 /** The club the address names in its season, retired or not: `null` for a malformed id and for one no record holds. */
 async function find(params: Props["params"]) {
@@ -49,66 +40,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The team editor, on the club's one view read in the season its address names. */
-export default function TeamEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            <FieldPlaceholder
-              key="shorthand"
-              holds={5}
-            />,
-            "field",
-            SELECT,
-            "field",
-            <FieldPlaceholder
-              key="description"
-              kind="paragraph"
-            />,
-          ],
-          ["pair", "pair", "field"],
-          // A club that left: the box says since when, over the exit's three facts.
-          {
-            note: LINK_WORDS.lockedSinceStart,
-            rows: [
-              SELECT,
-              SELECT,
-              <FactsPlaceholder
-                key="austritt"
-                pairs={3}
-              />,
-            ],
-          },
-          [<SeatRowsPlaceholder key="seats" />],
-          // A live link's three acts, in the box's one footer.
-          [
-            <FactsPlaceholder
-              key="link"
-              pairs={2}
-            />,
-            {
-              acts: [
-                COPY.shared.withObject(COPY.account.address.link, "send"),
-                COPY.shared.withObject(COPY.account.address.link, "replace"),
-                COPY.shared.withObject(COPY.account.address.link, "withdraw"),
-              ],
-            },
-          ],
-        ],
-        danger: [
-          { name: WORDS.austrittAct, consequence: WORDS.austrittRowLine, act: COPY.shared.verb.remove },
-          {
-            name: COPY.shared.withObject(COPY.shared.facts.team, "retire"),
-            consequence: WORDS.retireConsequence,
-            act: COPY.shared.verb.retire,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function TeamEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** The boxes of the club's row of the season, each lock read off what its write would refuse. */
@@ -117,20 +50,13 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
   const austritt = membership.austritt;
   const departed = austritt === null ? undefined : COPY.admin.spiel.departed;
   const stands = austritt === null ? null : COPY.shared.austritt[austritt.type];
-  const note =
-    austritt !== null && stands !== null
-      ? COPY.shared.austrittSince(stands.state, dayOf(austritt.date))
-      : drawn && saison.begun
-        ? LINK_WORDS.lockedSinceStart
-        : undefined;
   return {
     saisonTitle: COPY.shared.saisonName(saison.id),
-    ...(note === undefined ? {} : { note }),
     gruppen: gruppeOptions(gruppen, membership.gruppe),
-    gruppeLocked: drawn || austritt !== null,
-    ...(drawn && !saison.begun ? { gruppeNote: LINK_WORDS.lockedByDraw } : {}),
+    // The exit fixes the group whether or not a draw stands too, so the lock says the one reason for both fields.
+    gruppeLocked: austritt !== null ? "departed" : drawn ? "byDraw" : null,
     colours: trikotOptions(taken),
-    colourLocked: austritt !== null,
+    colourLocked: austritt !== null ? "departed" : null,
     austritt:
       austritt === null || stands === null
         ? null
@@ -153,7 +79,8 @@ function rowOf(read: FLTeamSaisonAdminResponse, membership: FLTeamMembership, li
         : {
             earliest: dayOf(saison.start_date),
             today: dayIn(now()),
-            ...(saison.begun ? {} : { locked: WORDS.fromStart }),
+            recipients: read.austritt_recipients,
+            ...(saison.begun ? {} : { locked: COPY.admin.untilStart }),
           },
   };
 }
@@ -174,9 +101,8 @@ async function readEditor(params: Props["params"]) {
       team={team.id}
       saison={saison.id}
       title={{ record: team.full_name }}
-      {...(chip === undefined ? {} : { chip })}
+      chip={chip}
       {...(closed === undefined ? {} : { closed })}
-      {...(retired ? { closedChip: { tone: "neutral", label: COPY.shared.retired } } : {})}
       record={{ id: team.id, version: read.version, values: valuesOf(team, membership) }}
       save={saveTeam}
       rules={TEAM_SAVE_RULES}

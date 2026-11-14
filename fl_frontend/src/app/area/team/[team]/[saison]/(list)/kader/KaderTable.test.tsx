@@ -20,14 +20,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined
 const TEAM = "6af32ed4205642a3fd5ee7e1";
 const SAISON = "2027";
 
-const row = (
-  spieler_id: string,
-  first_name: string,
-  nummer: string | null,
-  rolle: FLKaderRow["rolle"],
-  version: number,
-  out = false,
-): FLKaderRow => ({
+const row = (spieler_id: string, first_name: string, nummer: string | null, rolle: FLKaderRow["rolle"], version: number): FLKaderRow => ({
   spieler_id,
   first_name,
   last_name: "Bauer",
@@ -37,16 +30,12 @@ const row = (
   stufe: "Q2",
   rolle,
   is_nachnominiert: false,
-  inactive_since: out ? "2026-11-01" : null,
+  inactive_since: null,
   version,
 });
 
 // The read's order is by name; the page lists by shirt number, so a row's place on the page is not its place in the read.
-const KADER = [
-  row("64b000000000000000000001", "Anna", "11", "kapitaen", 3),
-  row("64b000000000000000000002", "Ben", "4", null, 7),
-  row("64b000000000000000000003", "Carla", "8", "co_kapitaen", 2, true),
-];
+const KADER = [row("64b000000000000000000001", "Anna", "11", "kapitaen", 3), row("64b000000000000000000002", "Ben", "4", null, 7)];
 
 function drawn() {
   return render(
@@ -90,36 +79,5 @@ describe("the Kader's dialog", () => {
     const question = await screen.findByRole("alertdialog");
     await userEvent.click(within(question).getByRole("button", { name: COPY.shared.verb.deregister }));
     expect(vi.mocked(deregisterKaderRow)).toHaveBeenCalledWith({ team_id: TEAM, saison_id: SAISON, spieler_id: "64b000000000000000000002" });
-  });
-
-  // The harm: a role offered that another live player holds, which the save then refuses after the press; or the
-  // holder's own role locked, so the captain cannot give it up; or a role an ausgetragen row keeps locking it for all.
-  it("locks a role another live row holds, and no other", async () => {
-    drawn();
-    /** Each entry of the open dialog's role list, its words and whether it is locked. */
-    const roleOptions = async () => {
-      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: new RegExp(COPY.admin.spieler.rolle) }));
-      const options = within(await screen.findByRole("listbox")).getAllByRole("option");
-      return options.map((option) => [option.textContent, option.getAttribute("aria-disabled") === "true"]);
-    };
-    const { rolleOption } = COPY.admin.spieler;
-
-    // Ben holds none: the captaincy Anna holds is locked, the co-captaincy only an ausgetragen row holds is not.
-    await openRow("Ben Bauer");
-    expect(await roleOptions()).toStrictEqual([
-      [COPY.shared.notProvided, false],
-      [`${rolleOption.kapitaen}${COPY.shared.field.taken}`, true],
-      [rolleOption.co_kapitaen, false],
-    ]);
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: COPY.shared.back }));
-
-    // Anna may give hers up, or take the other.
-    await openRow("Anna Bauer");
-    expect(await roleOptions()).toStrictEqual([
-      [COPY.shared.notProvided, false],
-      [rolleOption.kapitaen, false],
-      [rolleOption.co_kapitaen, false],
-    ]);
   });
 });

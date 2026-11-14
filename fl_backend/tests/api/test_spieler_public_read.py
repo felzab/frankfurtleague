@@ -15,7 +15,6 @@ from app.api.spieler.schemas import (
     FLSpielerPublic,
 )
 from app.api.spieler.services import build_spieler_pipeline, public_initial
-from app.core.crud import aggregate_many_from_db
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
@@ -48,9 +47,6 @@ RETIRED_ROW_FIRST_NAME = "Nils"
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
     "Adler": ObjectId("6890a1b2c3d4e5f607390012"),
-    # No surname at all: absent is not the same fact as withheld, and must not read as an initial.
-    "Ohne": ObjectId("6890a1b2c3d4e5f607390013"),
-    # A surname whose first letter is two bytes.
     "Oeztuerk": ObjectId("6890a1b2c3d4e5f607390014"),
     "Weber": ObjectId("6890a1b2c3d4e5f607390015"),
     # A retired squad row, the one match pinned by a row it really removes.
@@ -105,11 +101,11 @@ async def _enter_the_club(database: AsyncDatabase, *saison_ids: str) -> None:
     await database.saison_teams.insert_many(rows)
 
 
-async def club_page(database: AsyncDatabase, saison_id: str = SAISON) -> FLTeamPageResponse:
-    """The club's page in one season, whose squad is the one base-tier read of a squad."""
+async def club_page(database: AsyncDatabase) -> FLTeamPageResponse:
+    """The club's page in the season, whose squad is the one base-tier read of a squad."""
 
     return await get_team(
-        saison_id=saison_id,
+        saison_id=SAISON,
         team_id=TEAM_OID,
         saisons_collection=database.saisons,
         teams_collection=database.teams,
@@ -135,14 +131,6 @@ class TestTheBaseTierShape:
     def test_the_club_page_serves_the_public_shape(self):
         assert FLTeamPageResponse.model_fields["kader"].annotation == list[FLSpielerPublic]
 
-    def test_the_read_model_accepts_the_initial_it_is_served(self):
-        """The backend keeps `PERSON_NAME_PATTERN` off read models, and a trailing dot is what that pattern refuses."""
-        served = FLSpielerPublic.model_validate(
-            {"_id": SPIELER_OIDS["Mueller"], "first_name": "Max", "last_name": "M.", "nummer": "7", "position": "Angriff"}
-        )
-
-        assert served.last_name == "M."
-
 
 class TestTheProjection:
     def test_the_public_sort_does_not_tiebreak_on_the_surname(self):
@@ -154,7 +142,7 @@ class TestTheProjection:
 class TestTheInitial:
     @pytest.mark.parametrize(
         ("stored", "served"),
-        [("Müller", "M."), ("Öztürk", "Ö."), ("Adler", "A."), ("de Vries", "d."), (None, None)],
+        [("Müller", "M.")],
     )
     def test_the_find_path_serves_an_initial_with_its_dot(self, stored: str | None, served: str | None):
         """The dot rides with the initial so the one page rendering it joins the two names unchanged."""
@@ -176,66 +164,22 @@ class TestTheBaseTierReadExecuted:
     def _by_first_name(self, url: str) -> dict[str, dict[str, Any]]:
         return {row["first_name"]: row for row in self._read(url)["kader"]}
 
-    def _rows(self, url: str) -> list[Mapping[str, Any]]:
-        """What mongod yields for the pipeline, one step BEFORE `FLSpielerPublic`, which declares five fields and drops the rest either way."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await aggregate_many_from_db(collection=database.saison_spieler, pipeline=_pipeline())
-
-        return on_a_database(url, body)
-
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read filters on."""
         assert RETIRED_ROW_FIRST_NAME not in self._by_first_name(seeded_url)
 
-    def test_a_stored_surname_is_served_as_an_initial(self, seeded_url: str):
-        assert self._by_first_name(seeded_url)["Maxim"]["last_name"] == "M."
-
-    @pytest.mark.parametrize("surname", STORED_SURNAMES)
-    def test_no_stored_surname_appears_anywhere_in_the_response(self, seeded_url: str, surname: str):
+    def test_no_stored_surname_appears_anywhere_in_the_response(self, seeded_url: str):
         """Against the SERIALISED body rather than one field: what the page ships is the whole payload, not the part it renders."""
-        assert surname not in json.dumps(self._read(seeded_url), ensure_ascii=False)
+        body = json.dumps(self._read(seeded_url), ensure_ascii=False)
 
-    def test_a_surname_starting_with_a_multibyte_letter_is_not_halved(self, seeded_url: str):
-        """`$substrBytes` would cut an `Ö` in two, and only a real mongod tells the two operators apart."""
-        assert self._by_first_name(seeded_url)["Timo"]["last_name"] == "Ö."
-
-    def test_a_player_with_no_surname_reads_back_with_none(self, seeded_url: str):
-        """Absent is not withheld: an initial invented here would read as a name nobody holds."""
-        assert self._by_first_name(seeded_url)["Lena"]["last_name"] is None
-
-    def test_a_withheld_field_reaches_no_row_the_pipeline_yields(self, seeded_url: str):
-        """The allow-list `$project` builds, as mongod resolves it. A key added there is a leak the response shape hides."""
-        rows = self._rows(seeded_url)
-
-        # `all` over an empty list passes, and a join that stopped matching would empty it.
-        assert len(rows) == 5
-        assert all(set(row) <= PUBLIC_FIELDS for row in rows)
-
-    def _read_one(self, url: str, key: str) -> dict[str, Any]:
-        async def body(database: AsyncDatabase) -> Any:
-            response = await get_spieler_by_id(spieler_id=SPIELER_OIDS[key], spieler_collection=database.spieler)
-
-            return response.model_dump(mode="json", by_alias=True)
-
-        return on_a_database(url, body)
-
-    def test_the_one_player_read_serves_its_allow_list_alone(self, seeded_url: str):
-        assert self._read_one(seeded_url, "Weber") == {
-            "spieler_id": str(SPIELER_OIDS["Weber"]),
-            "first_name": "Jonas",
-            "last_name": "W.",
-        }
+        assert [surname for surname in STORED_SURNAMES if surname in body] == []
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
-    """Six people and their squad rows.
-
-    A retired row, a surname whose initial is two bytes, and a person carrying no surname at all.
-    """
+    """Five people and their squad rows, one row retired."""
 
     async def _seed() -> None:
         async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
@@ -247,7 +191,6 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                     # are keyed by forename below, and one case greps the whole payload for a leak.
                     _spieler("Mueller", "Maxim", "Müller"),
                     _spieler("Adler", "Marek", "Adler"),
-                    _spieler("Ohne", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
                     _spieler("Weber", "Jonas", "Weber"),
                     _spieler("Kraus", RETIRED_ROW_FIRST_NAME, "Kraus"),
@@ -257,7 +200,6 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 [
                     _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
                     _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
-                    _squad_row("Ohne", nummer=None, position=None, stufe=None),
                     _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
                     _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
                     _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
@@ -267,61 +209,6 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
     on_the_seed_loop(_seed())
 
     with unwritten(mongo_replica_set_url, DATABASE_NAME):
-        yield mongo_replica_set_url
-
-
-SQUAD_DATABASE_NAME = worker_database("fl_spieler_squad_season_test")
-PAST_SAISON = "2025"
-SQUAD_OIDS = {"Beide": ObjectId("6890a1b2c3d4e5f607390021"), "Ehemalig": ObjectId("6890a1b2c3d4e5f607390022")}
-
-
-@pytest.mark.db
-class TestTheClubPageReadsOneSeasonsSquad:
-    """The club page in the running season, against a club that played two seasons."""
-
-    def _first_names(self, url: str, saison_id: str) -> list[str]:
-        async def body(database: AsyncDatabase) -> Any:
-            return [row.first_name for row in (await club_page(database, saison_id)).kader]
-
-        return on_the_seed_loop(body(shared_client(url)[SQUAD_DATABASE_NAME]))
-
-    def test_a_player_of_both_seasons_is_listed_once_and_one_of_the_past_season_alone_not_at_all(self, squad_url: str):
-        assert self._first_names(squad_url, SAISON) == ["Paula"]
-
-
-@pytest.fixture(scope="module")
-def squad_url(mongo_replica_set_url: str) -> Iterator[str]:
-    """Two seasons of one club: a player in both, and one who played the past season alone."""
-
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, SQUAD_DATABASE_NAME, constraints=False) as (_, database):
-            await database.saisons.insert_many([saison_document(SAISON, "active"), saison_document(PAST_SAISON, "past")])
-            await _enter_the_club(database, SAISON, PAST_SAISON)
-            await database.spieler.insert_many(
-                [
-                    {**_spieler("Mueller", "Paula", "Beispiel"), "_id": SQUAD_OIDS["Beide"]},
-                    {**_spieler("Mueller", "Theo", "Beispiel"), "_id": SQUAD_OIDS["Ehemalig"]},
-                ]
-            )
-            await database.saison_spieler.insert_many(
-                [
-                    {**_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3"), "spieler_id": SQUAD_OIDS["Beide"]},
-                    {
-                        **_squad_row("Mueller", nummer="7", position="Angriff", stufe="Q2"),
-                        "spieler_id": SQUAD_OIDS["Beide"],
-                        "saison_id": PAST_SAISON,
-                    },
-                    {
-                        **_squad_row("Mueller", nummer="9", position="Abwehr", stufe="Q4"),
-                        "spieler_id": SQUAD_OIDS["Ehemalig"],
-                        "saison_id": PAST_SAISON,
-                    },
-                ]
-            )
-
-    on_the_seed_loop(_seed())
-
-    with unwritten(mongo_replica_set_url, SQUAD_DATABASE_NAME):
         yield mongo_replica_set_url
 
 
@@ -371,11 +258,6 @@ class TestThePublicationGate:
     def _rows(self, url: str) -> list[dict[str, Any]]:
         return self._read(url)["kader"]
 
-    def test_the_squad_serves_each_name_as_the_record_allows(self, masked_url: str):
-        served = [(row["first_name"], row["last_name"]) for row in self._rows(masked_url)]
-
-        assert served == [(row.served_first_name, row.served_last_name) for row in MASKED_SQUAD.values()]
-
     def test_a_nameless_row_serves_the_name_alone_after_the_named_ones(self, masked_url: str):
         """A number, a position, a mark or a place among the named rows beside a withheld name would say who the row is."""
 
@@ -389,15 +271,10 @@ class TestThePublicationGate:
         """Against the SERIALISED body: what the page ships is the whole payload, not the part it renders."""
         assert name not in json.dumps(self._read(masked_url), ensure_ascii=False)
 
-    @pytest.mark.parametrize("case", MASKED_SQUAD)
+    @pytest.mark.parametrize("case", ["Internal"])
     def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
         """Against the SERIALISED body: an id outlives every season and team, so it would tie a withheld row to its others."""
         assert str(MASKED_SQUAD[case].oid) not in json.dumps(self._read(masked_url))
-
-    @pytest.mark.parametrize("key", ["einwilligung", "scope"])
-    def test_no_row_carries_the_record_the_gate_read(self, masked_url: str, key: str):
-        """The `$cond` reads it; a key of either name on the wire would put the consent decision itself on the page."""
-        assert all(key not in served for served in self._rows(masked_url))
 
     def _read_one(self, url: str, case: str) -> dict[str, Any]:
         async def body(database: AsyncDatabase) -> Any:

@@ -1,5 +1,4 @@
 import { cardSurface } from "./cardStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -25,20 +24,6 @@ export function TeamHead({ plaque, name }: { plaque: RecordText; name: RecordTex
     <div className={s.root()}>
       <TeamPlaque plaque={plaque} />
       <h2 className={s.name()}>{name.record}</h2>
-    </div>
-  );
-}
-
-/** The head while its team is read: the plaque and the name's line, as bars. */
-export function TeamHeadPlaceholder() {
-  const s = teamHead();
-  return (
-    <div className={s.root()}>
-      <span className={placeholderBar("h-6 w-10")} />
-      <PlaceholderLine
-        textClass={s.name()}
-        widthClass="w-28"
-      />
     </div>
   );
 }

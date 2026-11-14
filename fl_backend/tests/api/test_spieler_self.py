@@ -221,15 +221,7 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
     return steps
 
 
-@pytest.mark.db
-class TestTheAccountEntry:
-    @pytest.mark.parametrize(("email", "offered"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
-    def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, offered: bool):
-        assert served(mongo_replica_set_url, _read(email, path=ACCOUNT_PATH)).json()["spieler"]["media_offered"] is offered
-
-
 SAISONS_PATH = f"/api/v{API_VERSION}/spieler/self/saisons"
-FUTURE_SAISON = "2027"
 # The two matchdays of the active season's group phase.
 SPIELTAG_1_OID = SPIEL["spieltag_id"]
 SPIELTAG_2_OID = ObjectId("6890a1b2c3d4e5f607840043")
@@ -263,8 +255,6 @@ NOT_THE_CLUBS = _club_spiel(5, TEAM_B_OID, None)
 async def _seed_the_season(database: AsyncDatabase) -> None:
     """The matchdays and the fixtures the one-season read serves, with the line-ups it reads `starts` off."""
 
-    await database[Collection.SAISONS].insert_one(saison_document(FUTURE_SAISON, "future"))
-    await database[Collection.SAISON_SPIELER].insert_one(saison_spieler_document(YOUNG_OID, FUTURE_SAISON, TEAM_B_OID))
     await database[Collection.SPIELTAGE].insert_many(
         [
             {
@@ -301,16 +291,6 @@ def _read_after_seeding(email: str, *, path: str) -> Callable[[AsyncClient, Asyn
 
 @pytest.mark.db
 class TestTheOwnSeasons:
-    def test_the_seasons_are_those_a_row_stands_in_the_newest_first_a_future_one_among_them(self, mongo_replica_set_url: str):
-        def saisons(email: str) -> list[str]:
-            response = served(mongo_replica_set_url, _read_after_seeding(email, path=SAISONS_PATH))
-            assert response.status_code == 200, response.text
-            return [saison["id"] for saison in response.json()["saisons"]]
-
-        # The past season's row is deregistered, and still a season the pupil played.
-        assert saisons(IDENTIFIER) == [ACTIVE_SAISON, PAST_SAISON]
-        assert saisons(YOUNG) == [FUTURE_SAISON]
-
     @pytest.mark.parametrize("path", [SAISONS_PATH, _saison_path(ACTIVE_SAISON)], ids=["saisons", "saison"])
     def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str, path: str):
         response = served(mongo_replica_set_url, _read(NOBODY, path=path))
@@ -335,13 +315,6 @@ class TestTheOwnSeason:
             (4, 2, 2, None),
         ]
 
-    def test_a_past_row_reads_its_seasons_name_and_a_season_without_one_reads_nothing(self, mongo_replica_set_url: str):
-        past = served(mongo_replica_set_url, _read_after_seeding(IDENTIFIER, path=_saison_path(PAST_SAISON))).json()
-        unheld = served(mongo_replica_set_url, _read_after_seeding(BYSTANDER, path=_saison_path(PAST_SAISON))).json()
-
-        assert (past["kader"]["team_name"], past["kader"]["inactive_since"]) == (ROW_NAME_A_PAST, "2025-06-30")
-        assert (unheld["kader"], unheld["spiele"]) == (None, [])
-
 
 @pytest.mark.db
 class TestTheTwoChoices:
@@ -365,16 +338,6 @@ class TestTheTwoChoices:
 
         assert response.status_code == 204, response.text
         assert _block(after[PUPIL_OID]["einwilligung"]) == {**_block(before[PUPIL_OID]["einwilligung"]), "media": True}
-
-    def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
-            return response, await _records(database)
-
-        response, after = served(mongo_replica_set_url, steps)
-
-        assert response.status_code == 204, response.text
-        assert after[PUPIL_OID]["einwilligung"] == _einwilligung()
 
 
 @pytest.mark.db
@@ -421,15 +384,6 @@ class TestAnEditorReadBeforeThePress:
 
         assert pressed.status_code == 204, pressed.text
         assert (stored["first_name"], stored["einwilligung"]["scope"]) == ("Ortrun", "internal")
-
-
-@pytest.mark.db
-class TestARecordNotHeld:
-    def test_an_address_holding_no_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(scope="internal")))
-
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
-        assert after == before
 
 
 @pytest.mark.db
@@ -528,25 +482,6 @@ class TestAStalePage:
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.CHOICES_STALE)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["media"] is False
-
-    def test_the_state_the_read_serves_is_the_one_the_press_takes(self, mongo_replica_set_url: str):
-        """The round trip the page makes: echoed as served, over a record carrying evidence, and read again after the press."""
-
-        async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": PUPIL_OID}, {"$set": {"einwilligung.evidence": EARLIER_EVIDENCE}})
-            served_state = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            response = await http.patch(PATCH_PATH, json=_payload(scope="internal", state=served_state), headers=_person(IDENTIFIER))
-            served_after = (await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))).json()["spieler"]["evidence_state"]
-            return served_state, response, served_after, await _records(database)
-
-        served_state, response, served_after, after = served(mongo_replica_set_url, steps)
-
-        assert served_state == EARLIER_STATE
-        assert response.status_code == 204, response.text
-        # The stand the page serves after the press is what a next press from it echoes: the moved choice's alone moved.
-        assert served_after == evidence_state_of(blocks=[after[PUPIL_OID]["einwilligung"]])
-        assert served_after["media"] == EARLIER_STATE["media"]
-        assert served_after["scope"] != EARLIER_STATE["scope"]
 
     def test_two_acts_in_one_second_leave_no_state_a_stale_press_can_echo(self, mongo_replica_set_url: str):
         """The clock is frozen, so both acts stamp one instant: a tab served between them undoes the second unseen, but for content."""

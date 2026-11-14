@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import NextLink from "next/link";
 
 import {
   Menu as AriaMenu,
@@ -24,6 +23,7 @@ import { SheetFrame } from "./Sheet";
 import { tv } from "./tv";
 import { useDesktop } from "./useDesktop";
 import { useOpenUntilHidden } from "./useOpenUntilHidden";
+import { NavigationLink, usePressed } from "./WholePage";
 
 import type { Copy, RecordText, Words } from "@/core/copy";
 import type { Route } from "next";
@@ -195,9 +195,14 @@ function Entry({
   );
 }
 
-/** The current link of a list, which its section selects; `null` where the list marks none. */
-function current(links: ReadonlyArray<MenuLink>) {
-  return links.find((link) => link.isCurrent === true)?.href ?? null;
+/**
+ * The current link of a list, which its section selects; `null` where the list marks none. A list that marks one marks,
+ * from the press of a link of its own, the one the navigation goes to.
+ */
+function useCurrent(links: ReadonlyArray<MenuLink>) {
+  const pressed = usePressed(links.map((link) => link.href));
+  const marks = links.some((link) => link.isCurrent !== undefined);
+  return (marks ? pressed : undefined) ?? links.find((link) => link.isCurrent === true)?.href ?? null;
 }
 
 /**
@@ -214,7 +219,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
       href={link.href}
       render={(props) =>
         "href" in props ? (
-          <NextLink
+          <NavigationLink
             {...props}
             href={link.href}
             replace={link.replace}
@@ -241,7 +246,7 @@ function LinkItem({ link, size }: { link: MenuLink; size: Size }) {
 
 /** A list of links in its own menu: the desktop submenu, or the phone's second sheet after „Zurück“. */
 function LinkList({ label, links, size, onBack }: { label: Copy; links: ReadonlyArray<MenuLink>; size: Size; onBack?: () => void }) {
-  const key = current(links);
+  const key = useCurrent(links);
   return (
     <AriaMenu
       aria-label={label}
@@ -279,7 +284,7 @@ function LinkList({ label, links, size, onBack }: { label: Copy; links: Readonly
 }
 
 function Group({ entries, size, onOpenSubmenu }: { entries: ReadonlyArray<MenuEntry>; size: Size; onOpenSubmenu: (entry: number) => void }) {
-  const key = current(entries.flatMap((entry) => (entry.kind === "link" ? [entry] : [])));
+  const key = useCurrent(entries.flatMap((entry) => (entry.kind === "link" ? [entry] : [])));
 
   return (
     <MenuSection

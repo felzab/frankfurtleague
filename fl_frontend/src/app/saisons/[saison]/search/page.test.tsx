@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { describe, expect, it } from "vitest";
 
-import SpielSearchPage from "./page";
-
-import type { FLSpielJoined, FLSpielplanResponse } from "@/core/generated/client/types";
+import type { FLSaisonFrameResponse, FLSpielJoined, FLSpielplanResponse } from "@/core/generated/client/types";
 import type { ListPage } from "@/kit/ListPage";
 import type { ComponentProps, ReactElement } from "react";
 
@@ -56,10 +56,20 @@ const SPIELPLAN = {
   ].map((spieltag) => ({ ...spieltag, saison_id: "2027", start: null, end: null, count_spiele: 1, version: 1 })),
 } as FLSpielplanResponse;
 
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
-  getSpielplan: async () => SPIELPLAN,
-}));
+/** The seasons the public may read: 2027 alone. */
+const FRAME = {
+  saisons: [{ id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" }],
+  active_saison_id: "2027",
+} satisfies FLSaisonFrameResponse;
+
+/** The backend's reads the page makes: the season pages' frame and 2027's Spielplan; anything else goes unanswered. */
+const ANSWERS: Readonly<Record<string, unknown>> = { "/saisons/frame": FRAME, "/saisons/2027/spielplan": SPIELPLAN };
+
+serveBackend(({ method, path }) => (method === "GET" ? ANSWERS[path] : undefined));
+// The cached reads declare their tag and lifetime through `next/cache`, which answers only inside Next's cache scope.
+doubleNextRequest();
+
+const { default: SpielSearchPage } = await import("./page");
 
 /** The numbers of the matches the page lists for the address's query. */
 async function found(query: Record<string, string>) {

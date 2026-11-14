@@ -39,7 +39,7 @@ reads like a constant of this league is nearly always one some season chose for 
   - one pupil's registration to play it (`registrierungen`);
   - one minted registration link (`invitations`);
   - one party's answer about one fixture's Ansetzung (`spielbestaetigungen`);
-  - one fixture's report by its referee or an administrator (`spielberichte`);
+  - one fixture's report by its referee (`spielberichte`);
   - one club's line-up for one fixture (`aufstellungen`);
   - one change of the address a person signs in on (`address_changes`);
   - one barred address (`ban_list`);
@@ -232,6 +232,11 @@ start; after a match it would reopen what the start locks closed.
   which the start locks, never fields a departed club. No rule reads which route it took: only a day
   strictly before the record's date is still the club's. A fixture fielding the club from that date on is
   reported, a group placing decided from then falls to the club below, and a podium place stands vacant.
+- **No match takes a result before its season's start** (`ergebnis_before_saison_start`, judged by
+  `has_started`): goals, a shoot-out, a no-show and an abandonment are refused, and a call-off or a strike-out,
+  which records nothing, is saved. The save is what keeps a record off a fixture before the start, so the group
+  swap and a replacement, which the start locks, rewrite a side without handing anybody's goals to another club,
+  and a result fixes the start date only once the season has begun.
 
 ---
 

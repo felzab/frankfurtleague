@@ -1,4 +1,4 @@
-import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { LinkRows } from "@/kit/LinkRows";
 
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, KONTAKT_EMAIL, KONTAKT_MAILTO, THREADS_URL } from "@/core/brand";
@@ -20,7 +20,10 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 export default function KontaktPage() {
   return (
     <ClassicPage width="form">
-      <ClassicTitle text={COPY.page.contact} />
+      <PageHead
+        title={COPY.page.contact}
+        lead={[SERVER_COPY.description.contact]}
+      />
       <LinkRows
         rows={[
           {

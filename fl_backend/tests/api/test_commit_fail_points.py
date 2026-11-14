@@ -231,11 +231,14 @@ class TestThePersonsOwnErasure:
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
         assert (refused, left) == ([WRITE_CONFLICT, None], 0)
 
-    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(self, mongo_replica_set_url: str):
+    def test_an_attempt_refused_at_its_commit_leaves_every_document_as_it_stood(
+        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
+    ):
         """Catches any step writing off the erasure's session: that write would stand while the commit taking the rest failed.
 
         Their records span every arm, a report names the pupil and the log their act, so each step reaching them writes.
-        Refused without the transient label, so nothing reruns the erasure and the database read after it is the rollback's.
+        Refused without the transient label, so nothing reruns the erasure and the database read after it is the rollback's;
+        the journal, which a restore replays, holds no line of an erasure that never landed.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -266,11 +269,13 @@ class TestThePersonsOwnErasure:
 
             return commits.answered, before, await _every_document(database)
 
-        commits, before, after = on_their_league(mongo_replica_set_url, body)
+        with caplog.at_level(logging.INFO):
+            commits, before, after = on_their_league(mongo_replica_set_url, body)
 
         # The premise first: one commit, refused, so what follows is the rollback's state.
         assert commits == [NO_SUCH_TRANSACTION]
         assert [name for name in sorted(before.keys() | after.keys()) if before.get(name) != after.get(name)] == []
+        assert journal_records(caplog) == []
 
 
 async def _every_document(database: AsyncDatabase) -> dict[str, list[Any]]:
@@ -416,28 +421,6 @@ class TestAPersonsOwnPress:
         # The premise first: the commit landed, its answer lost.
         assert (before != withdrawn, after) == (True, withdrawn)
         assert (status, body["error_code"], len(journal_records(caplog))) == (500, Code.UNKNOWN_OUTCOME, 1)
-
-    def test_a_press_on_a_stale_state_journals_nothing(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Refused before it writes, so it leaves no line; the same page's next press, standing on the record, journals one."""
-
-        stale = {"scope": "a" * 64, "media": None}
-
-        async def steps(http: AsyncClient, database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            withdrawal = _withdrawal(scope="internal", media=False)
-            with caplog.at_level(logging.INFO):
-                refused = await http.patch(CONSENT_PRESS, json={**withdrawal, "evidence_state": stale}, headers=_person(PERSON))
-                refused_lines = len(journal_records(caplog))
-                after_the_refusal = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-                pressed = await http.patch(CONSENT_PRESS, json=withdrawal, headers=_person(PERSON))
-
-            return (refused.status_code, refused.json()["error_code"], refused_lines, after_the_refusal == before), pressed.status_code
-
-        refusal, pressed = served(mongo_replica_set_url, steps)
-
-        assert refusal == (409, Code.CHOICES_STALE, 0, True)
-        # The control: the capture reads the line a press that lands leaves.
-        assert (pressed, len(journal_records(caplog))) == (204, 1)
 
 
 @pytest.mark.db

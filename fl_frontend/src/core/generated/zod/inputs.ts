@@ -1949,8 +1949,7 @@ export const SpielbestaetigungenPostTeamAnswerBody = zod
 /**
  * Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
  *
- * The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
- * the date stands.
+ * The public fixture counts it as the club's agreement, and the club is told that the date stands.
  * @summary Discard a club's proposed date
  */
 export const spielbestaetigungenDiscardSpielbestaetigungPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2011,7 +2010,9 @@ export const SpieleGetSpielParams = zod.object({
 /**
  * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+ * A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
+ * no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
+ * nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
  * later results the save would delete, which the save's `voided_results` must name back.
  * @summary Update a Spiel
  */

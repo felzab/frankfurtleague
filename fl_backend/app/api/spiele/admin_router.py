@@ -110,6 +110,7 @@ async def get_spiel_admin(
     spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
     saison_teams_collection: SaisonTeamsReadCollection,
     aufstellungen_collection: AufstellungenReadCollection,
+    now: datetime = Depends(get_germany_now),
 ) -> FLSpieleAdminSingleResponse:
     """
     The match editor's one read: the fixture in the admin shape, money and `version` included, and its season's status.
@@ -130,6 +131,7 @@ async def get_spiel_admin(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         saison_teams_collection=saison_teams_collection,
         aufstellungen_collection=aufstellungen_collection,
+        now=now,
     )
 
 
@@ -170,7 +172,9 @@ async def patch_spiel(
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
+    A save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises
+    no `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches
+    nothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the
     later results the save would delete, which the save's `voided_results` must name back.
     """
 
@@ -187,13 +191,17 @@ async def patch_spiel(
     )
 
     if dry_run:
-        return await preview_spiel_save(
-            spiel_id=spiel_id,
-            payload=spiel_data,
-            collections=collections,
-            spielbestaetigungen_collection=spielbestaetigungen_collection,
-            now=now,
-        )
+        # Opened here as `get_snapshot_session` opens one, not declared: the dry run alone reads outside a transaction,
+        # and a declared session would be started for every save.
+        async with db.start_session(snapshot=True) as session:
+            return await preview_spiel_save(
+                spiel_id=spiel_id,
+                payload=spiel_data,
+                collections=collections,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                now=now,
+                session=session,
+            )
 
     async def write_and_resolve_the_bracket(session: AsyncClientSession) -> FLPatchSpielDataResponse:
         return await save_spiel_in_session(

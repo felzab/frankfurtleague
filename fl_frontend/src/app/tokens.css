@@ -4,8 +4,7 @@
 @layer base {
   :root {
     /* The page. A card stands a step brighter than the page in both themes, as the dark card does on its black page: the
-       light page is a grey, its cards white. The grey is as dark as a status chip's tint on it allows while its
-       word keeps 4.5:1, since a chip stands on the page after a page's title and in a card's head. */
+       light page is a grey, its cards white. */
     --bg: #eaeaea;
     /* The rail's fill, and a chosen box's lift: the card's, as in the dark theme. */
     --bg-surface: #ffffff;
@@ -33,12 +32,24 @@
     --brand-accent: #8fc752;
     --success: #006a3e;
     --info: #1853c6;
-    --warn: #865400;
-    --danger: #b71920;
+    --warn: #855300;
+    --danger: #b61920;
+    /* A status chip's ground, the neutral one's included: its hue at 12 % over a grey halfway between the page and a
+       card, as one opaque colour, so the chip paints the same whatever stands beneath it, the page, a card, a card's
+       head or a row under the pointer, and its word keeps 4.5:1 on it in both themes. Opaque, nothing composites
+       under the word, so the pair the contrast rule measures is the pair the browser paints. */
+    --success-tint: #d7e4df;
+    --info-tint: #dae1ef;
+    --warn-tint: #e7e1d7;
+    --danger-tint: #eddadb;
+    --fg-muted-tint: #e1e1e1;
     --danger-solid: #b71920;
     --danger-solid-hover: #d22e30;
-    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. */
-    --scrim: rgb(0 0 0 / 0.1);
+    /* The veil a dialog and a sheet lay over the page, one value in both themes: a dark page darkens little. Its
+       strength is a token of its own, since the root's ground under a standing veil mixes the same black into the
+       page's ground as one solid colour. */
+    --scrim-strength: 10%;
+    --scrim: color-mix(in srgb, #000 var(--scrim-strength), transparent);
 
     --menu-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02), 0 4px 8px -4px rgba(0, 0, 0, 0.04), 0 16px 24px -8px rgba(0, 0, 0, 0.06);
@@ -62,7 +73,12 @@
     --success: #57c886;
     --info: #7ea7f3;
     --warn: #ecae30;
-    --danger: #e96c64;
+    --danger: #eb7c75;
+    --success-tint: #142119;
+    --info-tint: #181d26;
+    --warn-tint: #261e0f;
+    --danger-tint: #251817;
+    --fg-muted-tint: #1d1d1d;
 
     --menu-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
     --dialog-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
@@ -86,24 +102,10 @@
     }
   }
 
-  /* How long a wait runs before its placeholder shows: a wait shorter than this draws nothing. Defined
-     under reduced motion too, since it times a placeholder's appearance rather than any movement. */
-  :root {
-    --loading-delay: 100ms;
-  }
-
   /* How long a place a link pointed to stays marked after the link brought the reader there (`kit-target`).
      Defined under reduced motion too: the mark is a colour that fades, which moves nothing. */
   :root {
     --target-highlight: 2s;
-  }
-
-  /* The text colour of the ground a placeholder's bar stands on, which `skeleton-bar` takes 12 % of. A name of its own,
-     never `currentColor`: a bar holding unseen words has a transparent `color`, and a muted line's would fade with it.
-     The band redeclares it as it redeclares `--focus-ring`. Resolved on the root, which carries `data-theme`, so it
-     follows the theme. */
-  :root {
-    --bar-ink: var(--fg);
   }
 
   /* Defined only where motion is welcome: under `reduce` each name is unset, so a duration reading it
@@ -113,7 +115,7 @@
     :root {
       --motion-state: 100ms;
       --motion-in: 200ms;
-      /* An overlay's exit, and the cross-fade between pages and from a template's skeleton to its content. */
+      /* An overlay's exit, and the cross-fade between pages. */
       --motion-out: 150ms;
     }
   }
@@ -135,15 +137,18 @@
   }
 
   /* The pictures stand in an overlay over the whole page, each part's in its own group, the rest of the page live
-     beneath them all. A frame's band, its phone bar, an editor's bar and a rail page's title strip, which the
-     page scrolls under, would stay in the page beneath, and a fading part would show what scrolled under them over them:
-     each carries a `view-transition-name` of its own, `band`, `bar` or `strip`, so it is pictured apart. The groups paint in
-     the order their names were captured, and a name only in the new state is captured after every name of the old
-     one, so a part React's streamed reveal brings in would paint over them; `z-index` is what lifts the three over any
-     other group, the strip a step below the two, since on a phone it scrolls under the band. The classic band and the
-     rail's phone band share `band`, and the phone bar and an editor's bar, which takes its place, share `bar`, neither
-     pair ever standing on one page together. */
-  ::view-transition-group(strip) {
+     beneath them all. A frame's band, its phone bar, an editor's bar, a rail page's title strip and the page's title
+     standing on it, which the page scrolls under, would stay in the page beneath, and a fading part would show what
+     scrolled under them over them: each carries a `view-transition-name` of its own, `band`, `bar`, `strip` or `title`,
+     so it is pictured apart. The groups paint in the order their names were captured, and a name only in the new state
+     is captured after every name of the old one, so a part only the new page holds would paint over them;
+     `z-index` is what lifts the four over any other group, the strip and the title a step below the band and the bar,
+     since on a phone the title scrolls under the band. The strip's ground precedes the title in the document, so of
+     the two at one step the title paints over it. The classic band and the rail's phone band share `band`, and the
+     phone bar and an editor's bar, which takes its place, share `bar`, neither pair ever standing on one page
+     together. */
+  ::view-transition-group(strip),
+  ::view-transition-group(title) {
     z-index: 1;
   }
 
@@ -172,6 +177,20 @@
   }
 }
 
+/* The navigation bar's segment crossing the bar while a page is on its way (`NavigationBar`), defined where motion
+   is welcome alone: under `reduce` the name resolves to nothing, and the bar pulses whole, which the motion rule keeps
+   running. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes kit-navigation {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
+}
+
 /* A row that scrolls sideways fades the edge with more to read, driven by the scroll position: at the
    start only the end fades, at the end only the start. Outside the gate above: the fade is a mask the
    scroll position sets, not movement that plays, and a reader who asked for less motion still needs the
@@ -190,23 +209,6 @@
     --kit-fade-start: 24px;
     --kit-fade-end: 0px;
   }
-}
-
-/* A placeholder's arrival: it is drawn invisible and becomes visible once `--loading-delay` has passed.
-   Outside the gate above, so under reduced motion it still appears, at once rather than fading. */
-@keyframes kit-appear {
-  to {
-    opacity: 1;
-  }
-}
-
-/* A placeholder's bar, the kit's `Skeleton`: 12 % of its ground's text colour, the hover layer's figure, so a bar shows
-   on the page, a card, a card's head and the band alike, pulsing as Tailwind's `animate-pulse` pulses. One utility, so
-   a page waiting in hundreds of bars carries one class for all of this rather than its every class on each bar. Its
-   properties sort it ahead of the single-property utilities on the same property, so a bar's own display, size or
-   corners, set beside it, win. */
-@utility skeleton-bar {
-  @apply block shrink-0 animate-pulse overflow-hidden rounded-md bg-bar-ink/12;
 }
 
 /* The place a link pointed to, such as a club's row in the Tabelle opened from its match: tinted as a chosen
@@ -266,7 +268,6 @@
   --color-bg-muted: var(--bg-muted);
   --color-bg-card: var(--bg-card);
   --color-bg-card-head: var(--bg-card-head);
-  --color-bar-ink: var(--bar-ink);
   --color-bg-overlay: var(--bg-overlay);
   --color-bg-logo: var(--bg-logo);
   --color-fg: var(--fg);
@@ -282,6 +283,11 @@
   --color-info: var(--info);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
+  --color-success-tint: var(--success-tint);
+  --color-info-tint: var(--info-tint);
+  --color-warn-tint: var(--warn-tint);
+  --color-danger-tint: var(--danger-tint);
+  --color-fg-muted-tint: var(--fg-muted-tint);
   --color-danger-solid: var(--danger-solid);
   --color-danger-solid-hover: var(--danger-solid-hover);
   --color-scrim: var(--scrim);
@@ -365,15 +371,18 @@
   --container-signin: 22rem; /* the sign-in's column */
   --container-question: 25rem; /* a dialog asking one question */
   --container-card: 28rem; /* a status card, and the classic column holding one */
-  --container-bracket-phone: 5rem; /* a bracket card on a phone: the plaque and a two-digit figure inside 8-px padding */
-  --container-bracket: 15rem; /* a bracket card on desktop with 8 px of room on each side, the most a round's column gives it: its 224-px card holds „Verlierer von Spiel 13“ whole */
-  --container-dialog: 35rem; /* a dialog holding a form */
+  --container-bracket-narrow: 5rem; /* a bracket card in a box under 42 rem: the plaque and a two-digit figure inside 8-px padding */
+  --container-bracket: 15rem; /* a bracket card in a box of 42 rem and more, with 8 px of room on each side, the most a round's column gives it: its 224-px card holds „Verlierer von Spiel 13“ whole */
+  --container-dialog: 35rem; /* a dialog holding a form, and a mailed page's question card */
   --container-field: 24rem; /* a form's standard field, at every screen width: a name, an address or a choice; wider than a phone's row, so a phone's field fills its row */
   --container-form: 47.5rem; /* the form column: a classic form page's, an editor's and a read page's */
   --container-classic: 61rem; /* the classic frame's header and footer */
   --container-content: 80rem; /* a rail page's content */
-  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: 64 of the body face's figures, in rem so its fallback face draws the same box */
-  --container-panel: calc(100vw - 2rem); /* a floating panel: the screen less the page's two 16-px gutters */
+  --container-measure: 39.25rem; /* a line of running text on a legal or consent page: about 84 characters of German prose, as measured on the privacy notice; in rem so its fallback face draws the same box */
+  /* A floating panel: the page's width less its two 16-px gutters. For a root that always scrolls, CSS Values 4 has
+     `vw` leave the scrollbar's track out, which Chromium does; where scrollbars overlay the page it is the whole
+     viewport. */
+  --container-panel: calc(100vw - 2rem);
 }
 
 /* The rail's breakpoint, Tailwind's own `lg`, emitted on the root although no stylesheet reads it as a

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -13,6 +12,8 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
@@ -105,20 +106,11 @@ const DB_DOUBLE = overriding(PRODUCTION_DB, {
 
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: (message: string) => void warnings.push(message),
-    error: (message: string) => void errors.push(message),
-  },
-};
-
 /** The work each removal owes behind its answer, its notice among it, which a case runs once the answers are in. */
 const behind: (() => unknown)[] = [];
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble({}, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({}, { mongodbUri: () => MONGO_URL }), db: DB_DOUBLE },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
     "next/cache": NEXT_CACHE_DOUBLE,
@@ -170,8 +162,11 @@ class Gate {
 /** The gate no case holds: every read passes. */
 const OPEN_GATE = { arrive: async () => undefined };
 
-const warnings: string[] = [];
-const errors: string[] = [];
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
+
+/** The events of the lines written at `level` since the case began. */
+const eventsAt = (level: "WARNING" | "ERROR"): string[] => log.lines().flatMap((line) => (line.level === level ? [line.message] : []));
 const barrier = new Barrier();
 
 /** Where a removal's in-transaction read of the passkey rows waits: nowhere, unless a case holds it. */
@@ -200,15 +195,13 @@ const authDb = () => realClient.db("auth");
 
 beforeEach(async () => {
   barrier.disarm();
-  warnings.length = 0;
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
-  errors.length = 0;
   await buildAuthIndexes();
-  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
@@ -276,7 +269,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
     successes: answers.map((answer) => answer.ok).sort(),
     refusals: answers.flatMap((answer) => (answer.ok ? [] : [answer.reason])),
     notices: sent.length - mailedBefore,
-    warnings: [...warnings],
+    warnings: eventsAt("WARNING"),
     rows: (await passkeyRows()).length,
   };
 }
@@ -388,7 +381,7 @@ describe("the sessions a removal ends, against a real database", () => {
       runs,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
-      warnings: [...warnings],
+      warnings: eventsAt("WARNING"),
     }).toStrictEqual({ answer: { ok: true, value: "otherDevices" }, runs: 2, rows: 1, open: [false, true], warnings: [] });
   });
 
@@ -409,7 +402,7 @@ describe("the sessions a removal ends, against a real database", () => {
       answer,
       rows: (await passkeyRows()).length,
       open: [await opens(other.cookie), await opens(own.cookie)],
-      warnings: [...warnings],
+      warnings: eventsAt("WARNING"),
     }).toStrictEqual({ answer: UNEXPECTED, rows: 2, open: [true, true], warnings: [] });
   });
 });

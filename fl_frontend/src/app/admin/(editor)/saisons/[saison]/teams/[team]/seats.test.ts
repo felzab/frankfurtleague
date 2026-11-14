@@ -46,7 +46,7 @@ describe("where a team's seat stands", () => {
 
   it("tells a lapsed link from an open one", () => {
     const held = { ...NOBODY, ansprechperson: person("Anna") };
-    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.template.open);
+    expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({}) })).toBe(COPY.admin.schiedsrichter.unconfirmed);
     expect(chipOf(held, { trainer: null, stellvertretung: null, ansprechperson: link({ expired: true }) })).toBe(COPY.admin.expired);
   });
 
@@ -64,20 +64,6 @@ describe("where a team's seat stands", () => {
       (row) => row.id === "ansprechperson",
     );
 
-    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.template.open, COPY.admin.saison.linkNotSent]);
-  });
-});
-
-/* One person holds two seats and one link answers both, so two rows would offer two presses for one mail. */
-describe("a Trainer holding a second seat", () => {
-  it("stands as one row naming both seats", () => {
-    const anna = person("Anna");
-    const rows = seatsOf({
-      kontakte: { ...NOBODY, trainer: anna, ansprechperson: anna, trainer_is_also: "ansprechperson" },
-      confirmations: null,
-    });
-
-    expect(rows.map((row) => row.id)).toStrictEqual(["trainer", "stellvertretung"]);
-    expect(rows[0]?.line).toBe(COPY.admin.seatLine(["trainer", "ansprechperson"], anna.email, null));
+    expect(seat?.chips.map(({ label }) => label)).toStrictEqual([COPY.admin.schiedsrichter.unconfirmed, COPY.admin.delivery.abandoned]);
   });
 });

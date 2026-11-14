@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -33,19 +34,20 @@ const STORED: FLSaisonAdmin = {
 };
 
 /** Every payload the save sends, and the season the save reads. */
-const state = vi.hoisted(() => ({ sent: [] as unknown[], saison: null as unknown }));
+const state = { sent: [] as unknown[], saison: null as unknown };
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a save clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/features/saisons/queries", () => ({ getAdminSaison: async () => ({ saison: state.saison }) }));
-
-// The backend client itself is replaced, so the write runs through the real generated call and the real dispatch.
-doubleApiClient((call) => {
-  state.sent.push(JSON.parse(call.body ?? "null"));
-  return { version: 4 };
+// The backend answers the editor's read with the stored season and the write with its new version, so the save runs
+// through the real guard, read, generated call and dispatch.
+serveBackend(({ method, path, body }) => {
+  if (method === "GET" && path === "/saisons/2027/admin") return { saison: state.saison };
+  if (method === "PATCH" && path === "/saisons/2027") {
+    state.sent.push(body);
+    return { version: 4 };
+  }
+  return undefined;
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
 
 const { saveSaison } = await import("./saveSaison");
 

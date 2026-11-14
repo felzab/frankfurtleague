@@ -2,24 +2,17 @@
 
 import { useEffect, useRef } from "react";
 
-import { COPY } from "@/core/copy";
-
 import { Button } from "./Button";
-import { buttonLook, buttonPlaceholder } from "./buttonStyles";
-import { ClassicPage, ClassicTitle, classicTitle } from "./ClassicPage";
+import { ClassicPage, ClassicTitle } from "./ClassicPage";
 import { CodeField } from "./CodeField";
-import { FieldPlaceholder } from "./FieldPair";
 import { StatusLine } from "./FieldParts";
 import { FieldStack } from "./FieldStack";
-import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
-import { Link } from "./Link";
-import { PlaceholderLine, Waiting } from "./Skeleton";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
-import type { Route } from "next";
 import type { ReactNode } from "react";
 
 /** A press the view offers: its words, the spinner while it runs, and what it does. */
@@ -82,18 +75,7 @@ type PasskeyView = Head & {
   later?: Act;
 };
 
-/** `/signin` for somebody signed in: who they are, the address set semibold inside the sentence, the way on, and signing out. */
-type SignedInView = Head & {
-  view: "signedIn";
-  /** The sentence's two parts around the address. */
-  sentence: { before: Copy; after: Copy };
-  /** The account signed in: data, not catalogue text. */
-  address: string;
-  continue: { label: Copy; href: Route };
-  signOut: Act;
-};
-
-export type SignInView = AddressView | CodeView | PasskeyView | SignedInView;
+export type SignInView = AddressView | CodeView | PasskeyView;
 
 const look = tv({
   slots: {
@@ -133,83 +115,6 @@ export function SignInPage(props: SignInView) {
   );
 }
 
-/**
- * The sign-in while its session is read, drawn with the step's own column and blocks as placeholders. Where the page
- * names the title before the read, the step is the address view, which shares that title with the signed-in view: the
- * title, the address field, „Code senden“, the „oder“ divider and the passkey's button. Where the title waits on the
- * read too, the passkey's step, in the offer's shape, which everyone but an administrator meets: the title's line, the
- * sentence's two lines, the address's line, its button and „Später“ under it, each in its place in the step's blocks.
- */
-export function SignInPlaceholder({ title }: { title: Copy | null }) {
-  const slots = look();
-  return (
-    <ClassicPage width="signin">
-      <div className={slots.column()}>
-        {title === null ? (
-          <Waiting layoutClass="flex flex-col gap-4">
-            <div className={slots.head()}>
-              <PlaceholderLine
-                textClass={classicTitle()}
-                words={COPY.signIn.passkey.offer.title}
-              />
-              <span className="grid w-full justify-items-center">
-                <PlaceholderLine
-                  textClass={slots.sentence()}
-                  widthClass="w-72"
-                />
-                <PlaceholderLine
-                  textClass={slots.sentence()}
-                  widthClass="w-40"
-                />
-              </span>
-              <PlaceholderLine
-                textClass={slots.sentence()}
-                widthClass="w-48"
-              />
-            </div>
-            <div className={slots.acts()}>
-              <span className={buttonPlaceholder("w-full")} />
-              <span className={buttonLook({ look: "quiet" })}>
-                <PlaceholderLine
-                  textClass=""
-                  words={COPY.signIn.passkey.later}
-                />
-              </span>
-            </div>
-          </Waiting>
-        ) : (
-          <>
-            <ClassicTitle text={title} />
-            <Waiting layoutClass="flex flex-col gap-4">
-              <div className={slots.form()}>
-                <FieldStack>
-                  <FieldPlaceholder />
-                  {/* The bot check's place: it shows nothing unless it asks the visitor to act. */}
-                  <span />
-                  <FormFooterPlaceholder place="column">
-                    <span className={buttonPlaceholder()} />
-                  </FormFooterPlaceholder>
-                </FieldStack>
-              </div>
-              <div className={slots.divider()}>
-                <span className={slots.rule()} />
-                <PlaceholderLine
-                  textClass="text-xs"
-                  widthClass="w-6"
-                />
-                <span className={slots.rule()} />
-              </div>
-              <div className={slots.acts()}>
-                <span className={buttonPlaceholder("w-full")} />
-              </div>
-            </Waiting>
-          </>
-        )}
-      </div>
-    </ClassicPage>
-  );
-}
-
 function Body(props: SignInView) {
   const slots = look();
 
@@ -222,7 +127,10 @@ function Body(props: SignInView) {
       return (
         <>
           <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
+            <ClassicTitle
+              text={props.title}
+              place="page"
+            />
             <p className={slots.sentence()}>
               {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
             </p>
@@ -253,7 +161,10 @@ function Body(props: SignInView) {
       return (
         <>
           <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
+            <ClassicTitle
+              text={props.title}
+              place="page"
+            />
             <p className={slots.sentence()}>{props.sentence}</p>
             <p className={slots.sentence()}>
               <strong className={slots.marked()}>{props.address}</strong>
@@ -270,33 +181,6 @@ function Body(props: SignInView) {
                 {...later}
               />
             )}
-          </div>
-        </>
-      );
-    }
-
-    case "signedIn": {
-      const { signOut } = props;
-      return (
-        <>
-          <div className={slots.head()}>
-            <ClassicTitle text={props.title} />
-            <p className={slots.sentence()}>
-              {props.sentence.before} <strong className={slots.marked()}>{props.address}</strong> {props.sentence.after}
-            </p>
-          </div>
-          <div className={slots.acts()}>
-            <Link
-              href={props.continue.href}
-              placement="button"
-              look="primary"
-              label={props.continue.label}
-            />
-            {/* The step out beside the way on, quiet as „Später“ is. */}
-            <Button
-              variant="quiet"
-              {...signOut}
-            />
           </div>
         </>
       );
@@ -319,7 +203,10 @@ function AddressBody({ title, address, check, send: { onPress: send, ...button }
   return (
     <>
       {/* The column's 16 px above the field. */}
-      <ClassicTitle text={title} />
+      <ClassicTitle
+        text={title}
+        place="page"
+      />
       <HeldForm
         ref={form}
         validationErrors={address.error}

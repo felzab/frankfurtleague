@@ -143,22 +143,35 @@ def drawn(database: AsyncDatabase, client: AsyncMongoClient, *, replace: bool) -
     )
 
 
-class TestTheEditorReadsTheDraw:
-    def test_a_season_holding_fixtures_and_no_matchday_reads_drawn(self, mongo_replica_set_url: str):
-        """A first draw refuses on those rows: read undrawn, the editor offers the press its write refuses."""
+class TestTheEditorSaysAFixtureHasTakenPlace:
+    @pytest.mark.parametrize(
+        ("sides", "taken_place"),
+        [
+            pytest.param((None, None), False, id="nothing entered"),
+            # A save keeps one side's goals while the other's are blank, and stores no result until both are in.
+            pytest.param((1, None), True, id="one side's goals"),
+        ],
+    )
+    def test_the_flag_reads_the_seasons_fixtures(self, mongo_replica_set_url: str, sides: tuple[int | None, int | None], taken_place: bool):
+        """Read wrong, the start date's box stands open to a save `saison_start_taken_place` refuses, or locked for nothing."""
 
-        async def _run() -> Any:
+        async def _run() -> bool:
             async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
                 await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "future", start_date=START))
                 await database[Collection.SPIELE].insert_one(
-                    spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=ObjectId())
+                    spiel_document(
+                        spiel_id=ObjectId(),
+                        saison_id=SAISON_ID,
+                        spiel_nr=1,
+                        spieltag_id=ObjectId(),
+                        team1={"team_id": ObjectId(), "tore": sides[0]},
+                        team2={"team_id": ObjectId(), "tore": sides[1]},
+                    )
                 )
 
-                return (await read(database)).spielplan
+                return (await read(database)).saison.taken_place
 
-        drawn_as = on_the_seed_loop(_run())
-
-        assert (drawn_as.spieltage, drawn_as.spiele) == (0, 1)
+        assert on_the_seed_loop(_run()) is taken_place
 
 
 class TestTheEditorsActsAreRefusedAsTheirWritesRefuse:

@@ -1,6 +1,4 @@
-import { PageWait } from "./PageFade";
 import { formColumn, RailPage } from "./RailFrame";
-import { Waiting } from "./Skeleton";
 
 import type { ReactElement } from "react";
 import type { PageTitle } from "./RailFrame";
@@ -12,18 +10,15 @@ async function StepsOnceRead({ steps }: { steps: Promise<ReactElement> }) {
 
 /**
  * A run over several records in the editor's column, each taken in turn and then confirmed once: the title in the strip,
- * and under it the step the run stands at, `StepCard` or `CheckStep`, `wait` the first card's placeholder while the
- * records are read.
+ * and under it the step the run stands at, `StepCard` or `CheckStep`.
  */
-export function StepsPage({ title, wait, steps }: { title: PageTitle; wait: ReactElement; steps: Promise<ReactElement> }) {
+export function StepsPage({ title, steps }: { title: PageTitle; steps: Promise<ReactElement> }) {
   return (
     <RailPage
       scope="area"
       title={title}>
       <div className={formColumn()}>
-        <PageWait fallback={<Waiting layoutClass="grid gap-6">{wait}</Waiting>}>
-          <StepsOnceRead steps={steps} />
-        </PageWait>
+        <StepsOnceRead steps={steps} />
       </div>
     </RailPage>
   );

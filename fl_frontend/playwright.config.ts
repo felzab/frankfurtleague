@@ -111,5 +111,27 @@ export default defineConfig<JourneyOptions>({
       testMatch: "first-pass/**/*.spec.ts",
       use: devices["Desktop Chrome"],
     },
+    // The sessions the layout guard reads a pupil's, a referee's and a team contact's pages under, each signed in once a run.
+    {
+      name: "layout-sessions",
+      testMatch: "layout/sessions.setup.ts",
+      use: devices["Desktop Chrome"],
+    },
+    // The layout-shift guard: Chromium at both of its widths, since WebKit reports no layout shift. CI runs it on stacks
+    // of its own, since its landing's cases run again under each state the database is re-seeded in.
+    {
+      name: "layout",
+      dependencies: ["administrator", "layout-sessions"],
+      testMatch: "layout/**/*.spec.ts",
+      // Each case its own unit, so CI's `--shard` splits the guard's one file by case rather than handing it whole to one
+      // shard. Its cases only read, so a case may run on any stack; under the one worker they still run in file order.
+      fullyParallel: true,
+      use: {
+        ...devices["Desktop Chrome"],
+        // The track the root always keeps, as a desktop browser draws it: headless Chromium is launched with
+        // `--hide-scrollbars`, which leaves a track of 0 px, and the launch option filters that one argument out.
+        launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
+      },
+    },
   ],
 });

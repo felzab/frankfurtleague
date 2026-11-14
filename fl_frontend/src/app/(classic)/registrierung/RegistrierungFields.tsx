@@ -32,8 +32,8 @@ export function RegistrierungFields({
   /** The season's Stufen in the league's order: a choice the write refuses is never offered. */
   stufen: readonly FLSpielerStufe[];
   /**
-   * The line over the box, which the page's wait draws too: the Art. 21 objection with the league's address as its
-   * link, in the server catalogue's one wording.
+   * The line over the box: the Art. 21 objection with the league's address as its link, in the server catalogue's one
+   * wording.
    */
   objection: Line;
 }) {

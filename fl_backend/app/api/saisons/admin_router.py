@@ -86,7 +86,6 @@ from app.api.spieler.services import CAPPED_SQUAD_ROW
 from app.api.teams.services import (
     TAKEN_PLACE_FIELDS,
     find_gruppe_swap_refusal,
-    find_swap_pair_refusal,
     has_taken_place,
 )
 from app.core.codes import Code
@@ -152,7 +151,7 @@ async def _rewrite_gruppenphase_sides(
     """Rewrite each club's side of these fixtures to the other, by its `team_id` alone.
 
     Neither the club's name nor `tore` moves: every read joins a side's name from its season row, and goals belong to
-    whoever scored them, a swap running only on fixtures none of which has taken place. Named by `_id` from a snapshot
+    whoever scored them: a swap runs only before the season's start, when the save refuses a result. Named by `_id` from a snapshot
     read before any write: filtering on the club would let the second pass match what the first just wrote and swap it
     back.
     """
@@ -252,11 +251,10 @@ async def get_saison_admin(
     saison_status = str(saison_raw["status"])
 
     # Two groups of reads sent at once, because `asyncio.gather`'s typing stops at six.
-    (rows, spiele, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
+    (rows, count_spieltage, clubs, finale_by_saison), (activation, recorded_rows, berichte, planned) = await asyncio.gather(
         asyncio.gather(
-            # Each whole, as the bracket's advance reads its season: a truncated
-            # list grades a club open whose taken-place fixture fell past the page, and offers a club the replacement
-            # refuses as entered.
+            # Whole, as the bracket's advance reads its season: a truncated list offers a club the replacement refuses as
+            # entered.
             pull_whole_from_db(
                 collection=saison_teams_collection,
                 db_filter={"saison_id": saison_id},
@@ -264,12 +262,6 @@ async def get_saison_admin(
                 projection=["team_id", "name", "shorthand", "gruppe", "austritt"],
                 sort_by=[("name", 1)],
                 collation=GERMAN_COLLATION,
-            ),
-            pull_whole_from_db(
-                collection=spiele_collection,
-                db_filter={"saison_id": saison_id},
-                what=f"season {saison_id}'s fixtures",
-                projection=["saison_phase", "team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
             ),
             spieltage_collection.count_documents({"saison_id": saison_id}),
             pull_whole_from_db(
@@ -317,21 +309,12 @@ async def get_saison_admin(
     def code_of(refusal: WriteRefusal | None) -> Code | None:
         return None if refusal is None else refusal.error_code
 
-    played = [spiel for spiel in spiele if has_taken_place(spiel)]
-
-    def has_played(team_id: Any, *, group_only: bool) -> bool:
-        return any(
-            team_id in ((spiel.get("team1") or {}).get("team_id"), (spiel.get("team2") or {}).get("team_id"))
-            for spiel in played
-            if not group_only or spiel.get("saison_phase") == "gruppenphase"
-        )
-
     entered = {row["team_id"] for row in rows}
     saison = FLSaisonAdmin.model_validate(
         {
             **with_schedule(saison_raw),
             "begun": has_started(start_date=str(saison_raw["start_date"]), today=today),
-            "taken_place": bool(played),
+            "taken_place": any(has_taken_place(spiel) for spiel in recorded_rows),
             "decided": decided_podium(finale_by_saison.get(saison_id, [])) is not None,
         }
     )
@@ -354,16 +337,7 @@ async def get_saison_admin(
 
     return FLSaisonAdminResponse(
         saison=saison,
-        teams=[
-            FLSaisonAdminTeam.model_validate(
-                {
-                    **row,
-                    "group_spiel_taken_place": has_played(row["team_id"], group_only=True),
-                    "spiel_taken_place": has_played(row["team_id"], group_only=False),
-                }
-            )
-            for row in rows
-        ],
+        teams=[FLSaisonAdminTeam.model_validate(row) for row in rows],
         incoming_teams=[FLSaisonAdminIncomingTeam.model_validate(club) for club in clubs if club["_id"] not in entered],
         shapes=workable_shapes(saison.rules),
         spielplan=spielplan,
@@ -676,19 +650,20 @@ async def _judge_the_activation(
 async def _pull_recorded_fact_rows(
     *, spiele_collection: ReadCollection, saison_id: str, session: AsyncClientSession | None
 ) -> list[Mapping[str, Any]]:
-    """The season's fixtures as `holds_a_recorded_fact` reads them, which the planning window of the replace and the undraw turns on.
+    """The season's fixtures as `holds_a_recorded_fact` and `has_taken_place` read them.
 
-    The predicate's own fields, so the projection cannot fall behind what it reads: a venue, a referee or an admin's note
-    is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
+    The first is what the planning window of the replace and the undraw turns on, the second the start's lock. The
+    predicates' own fields, so the projection cannot fall behind what either reads: a venue, a referee or an admin's
+    note is work a replace would destroy, and the window closes on one exactly as on a result. Read one over the cap and
     refused past it: a truncated list counts fewer records than the season holds, and the window opens on work the
-    removal would destroy.
+    removal would destroy, or the start stays open while a fixture that took place fell past the page.
     """
 
     return await pull_whole_from_db(
         collection=spiele_collection,
         db_filter={"saison_id": saison_id},
         what=f"season {saison_id}'s fixtures",
-        projection=list(RECORDED_FACT_FIELDS),
+        projection=[*RECORDED_FACT_FIELDS, *TAKEN_PLACE_FIELDS],
         session=session,
     )
 
@@ -813,9 +788,6 @@ async def swap_gruppen(
     `tore` nor `austritt` moves.
     """
 
-    # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
-    refuse(find_swap_pair_refusal(team1_id=swap_data.team1_id, team2_id=swap_data.team2_id))
-
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
 
@@ -842,7 +814,15 @@ async def swap_gruppen(
         # judgement conflicts and the retry judges the season it left.
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": saison_id}, session=session)
 
-        # The fixtures the rewrite moves, read once for the refusal below too, so the two cannot disagree.
+        refuse(
+            find_gruppe_swap_refusal(
+                team1_gruppe=gruppe_of.get(swap_data.team1_id),
+                team2_gruppe=gruppe_of.get(swap_data.team2_id),
+                saison_status=str(saison_raw["status"]),
+                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
+            )
+        )
+
         gruppenphase_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={
@@ -850,18 +830,8 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
+            projection=["team1.team_id", "team2.team_id"],
             session=session,
-        )
-
-        refuse(
-            find_gruppe_swap_refusal(
-                team1_gruppe=gruppe_of.get(swap_data.team1_id),
-                team2_gruppe=gruppe_of.get(swap_data.team2_id),
-                saison_status=str(saison_raw["status"]),
-                started=has_started(start_date=str(saison_raw["start_date"]), today=today),
-                taken_place=any(has_taken_place(spiel) for spiel in gruppenphase_spiele),
-            )
         )
 
         rewritten = await _rewrite_gruppenphase_sides(

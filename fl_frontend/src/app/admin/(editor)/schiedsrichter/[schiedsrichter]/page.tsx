@@ -1,16 +1,11 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { deliveryChip } from "@/features/bewerbungen/deliveryState";
-import { confirmationStateOf } from "@/features/schiedsrichter/confirmationState";
+import { confirmationStateOf, refereeChip } from "@/features/schiedsrichter/confirmationState";
 import { SAVE_RULES } from "@/features/schiedsrichter/fieldRules";
 import { getSchiedsrichterById } from "@/features/schiedsrichter/queries";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
@@ -23,7 +18,7 @@ import { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 import { valuesOf } from "./schiedsrichterValues";
 
 import type { Copy } from "@/core/copy";
-import type { FLSchiedsrichter, FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichterSingleResponse } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { Metadata, ResolvingMetadata } from "next";
@@ -56,66 +51,17 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** A referee's editor, on its one read by id and its write on the version it was read at. */
-export default function SchiedsrichterEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            "field",
-            <FieldPlaceholder
-              key="default_payment"
-              holds={5}
-              unit={COPY.shared.unit.euro}
-            />,
-          ],
-          ["field", "field"],
-          // A confirmed referee's box, as nearly every entry lands: one waiting on its answer adds its act.
-          [
-            <FactsPlaceholder
-              key="confirmation"
-              pairs={2}
-            />,
-          ],
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(COPY.shared.schiedsrichter, "retire"),
-            consequence: WORDS.retireConsequence,
-            act: COPY.shared.verb.retire,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
-}
-
-/** The chip after the name, as the list puts it: „Stillgelegt“, or where an entry not yet confirmed stands. */
-function chipOf(referee: FLSchiedsrichter): ChipProps | undefined {
-  if (referee.inactive_since !== null) return { tone: "neutral", label: COPY.shared.retired };
-  switch (confirmationStateOf(referee)) {
-    case "confirmed":
-      return undefined;
-    case "objected":
-      return { tone: "danger", label: SERVER_COPY.entryConfirmation.objected };
-    case "unanswered":
-    case "unasked":
-      return { tone: "warn", label: WORDS.unconfirmed };
-  }
+export default async function SchiedsrichterEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /**
  * The chips after the name, as a seat's row sets them: the state's, then what the last confirmation mail met where it
- * met trouble (`deliveryChip`). A confirmed entry carries no state chip, so its mail's trouble, a complaint after the
- * delivery, stands first.
+ * met trouble (`deliveryChip`), such as a complaint after a confirmed entry's delivery.
  */
-function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip?: ChipProps; flag?: ChipProps } {
-  const state = chipOf(referee);
-  const mail = deliveryChip(delivery) ?? undefined;
-  if (state === undefined) return mail === undefined ? {} : { chip: mail };
-  return { chip: state, ...(mail === undefined ? {} : { flag: mail }) };
+function chipsOf({ schiedsrichter: referee, delivery }: FLSchiedsrichterSingleResponse): { chip: ChipProps; flag?: ChipProps } {
+  const mail = deliveryChip(delivery);
+  return { chip: refereeChip(referee), ...(mail === null ? {} : { flag: mail }) };
 }
 
 /**
@@ -132,7 +78,7 @@ function standingOf({ schiedsrichter: referee, confirmation_expired: expired }: 
       return confirmation?.declined_at == null ? null : WORDS.objectedOn(dayOf(confirmation.declined_at));
     case "unanswered":
       if (confirmation === null) return null;
-      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : WORDS.openUntil(dayOf(confirmation.deadline));
+      return expired ? WORDS.expiredOn(dayOf(confirmation.deadline)) : COPY.admin.spiel.answerBy(dayOf(confirmation.deadline));
     case "unasked":
       return null;
   }
@@ -172,11 +118,7 @@ async function readEditor(params: Props["params"]) {
       record={{ id: referee.id, version: referee.version, values: valuesOf(referee) }}
       save={saveSchiedsrichter}
       rules={SAVE_RULES}
-      address={
-        state === "confirmed" && referee.einwilligung !== null
-          ? { kind: "fixed", confirmed: WORDS.confirmedOn(dayOf(referee.einwilligung.confirmed_at)) }
-          : { kind: "asks" }
-      }
+      address={state === "confirmed" ? "fixed" : "asks"}
       confirmation={confirmationFacts(found)}
       {...(asking ? { sendLink: sendSchiedsrichterLink } : {})}
       danger={

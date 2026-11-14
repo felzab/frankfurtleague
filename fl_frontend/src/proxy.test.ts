@@ -48,7 +48,7 @@ const store = memoryStore(STORE);
 const { NextRequest } = await import("next/server");
 const { auth } = await import("./core/auth/library.ts");
 const { getAdminSession } = await import("./core/auth/guards.ts");
-const { getSignInLanding } = await import("./core/auth/landing.ts");
+const { getPasskeyStep, getSignInLanding } = await import("./core/auth/landing.ts");
 const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { adapter } = await import("next/dist/server/web/adapter.js");
@@ -358,5 +358,109 @@ describe("where a session that is only read slides", () => {
     expect(row.createdAt.getTime(), "the slide moved the stamp both the cap and the touch are judged from").toBe(signedIn.getTime());
     arriveAs(cookie);
     expect(await getAdminSession(), "a slid session outlived the administrator's cap").toBe(null);
+  });
+});
+
+const SIGN_IN_URL = "http://localhost:3000/signin";
+
+/** The address a redirect names, its path and query as the browser would request them, or `null` where none was sent. */
+function sentTo(answer: Response): string | null {
+  const location = answer.headers.get("location");
+  if (location === null) return null;
+  const { pathname, search } = new URL(location, SIGN_IN_URL);
+  return `${pathname}${search}`;
+}
+
+describe("where the proxy sends a session asking for the sign-in", () => {
+  /* Reverted, a signed-in person pressing „Konto“ meets the sign-in form, whose code would replace the session they hold. */
+  it("sends it on to the landing before the page renders, the return address carried where the allowlist holds it", async () => {
+    const { cookie } = await signIn("leserin@example.org");
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
+    expect(sentTo(await visit(`${SIGN_IN_URL}?return=%2Faccount`, cookie))).toBe(`${ROUTES.signInLanding.path()}?return=%2Faccount`);
+    expect(sentTo(await visit(`${SIGN_IN_URL}?return=%2F%2Fexample.com`, cookie))).toBe(ROUTES.signInLanding.path());
+
+    // The form's own server action posts to the sign-in's address, and a redirect would replay it as a POST it cannot read.
+    const action = await proxy(
+      new NextRequest(SIGN_IN_URL, { method: "POST", headers: { host: "localhost:3000", cookie, "next-action": "1" } }),
+    );
+    expect(sentTo(action), "the proxy redirected the form's server action").toBe(null);
+  });
+
+  it("lets a cookie naming no stored session through to the form", async () => {
+    const { cookie, row } = await signIn("leserin@example.org");
+    store.session.splice(store.session.indexOf(row), 1);
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(null);
+  });
+
+  /* Reverted, the landing sends the session back to the sign-in alive, and the proxy sends it to the landing again:
+     the browser follows the two redirects until it gives up. */
+  it("ends a granted address's spent session at the landing, so its next request for the sign-in meets the form", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    // Past the administrator's twenty-four hours and inside a person's figures: no passkey step is left to offer it.
+    row.createdAt = new Date(Date.now() - 25 * 60 * MINUTE_MS);
+    refreshedAgo(row, MINUTE_MS);
+    arriveAs(cookie);
+    assert.ok(await getSubjectSession(), "the person lane serves no such session, so the case proves nothing");
+
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document"))).toBe(ROUTES.signInLanding.path());
+    expect(await landedAt(cookie)).toBe(landsOn(ROUTES.signIn.path()));
+    expect(
+      store.session.some(({ token }) => token === row.token),
+      "the landing left the spent session standing",
+    ).toBe(false);
+    expect(sentTo(await visit(SIGN_IN_URL, cookie, "document")), "the sign-in sent the spent session to the landing again").toBe(null);
+  });
+});
+
+const PASSKEY_URL = "http://localhost:3000/signin/passkey";
+
+describe("where the proxy sends a request for the passkey step", () => {
+  /* Reverted, the page paints the sign-in's frame and then redirects from inside it, and the footer jumps before the
+     landing loads. */
+  it("sends a session holding no step on to the landing before the page renders, the return address carried where the allowlist holds it", async () => {
+    const landing = ROUTES.signInLanding.path();
+    // Made by a passkey, so no card is left to show it.
+    arriveAs(removed.cookie);
+    assert.equal(await getPasskeyStep(), null, "the session holds a step, so the case proves nothing");
+
+    expect(sentTo(await visit(PASSKEY_URL, removed.cookie, "document"))).toBe(landing);
+    expect(sentTo(await visit(`${PASSKEY_URL}?return=%2Faccount`, removed.cookie))).toBe(`${landing}?return=%2Faccount`);
+    expect(sentTo(await visit(`${PASSKEY_URL}?return=%2F%2Fexample.com`, removed.cookie))).toBe(landing);
+    expect(sentTo(await visit(PASSKEY_URL, undefined, "document")), "a visitor holding no session met the page").toBe(landing);
+
+    // The step's own form posts its server action to the page's address, and a redirect would replay it as a POST it cannot read.
+    const action = await proxy(
+      new NextRequest(PASSKEY_URL, { method: "POST", headers: { host: "localhost:3000", cookie: removed.cookie, "next-action": "1" } }),
+    );
+    expect(sentTo(action), "the proxy redirected the form's server action").toBe(null);
+
+    // The landing sends it to its place rather than back here, so the two cannot loop.
+    const landed = await landedAt(removed.cookie);
+    assert.ok(landed.startsWith("NEXT_REDIRECT;replace;/area"), `the landing sent a session holding no step to ${landed}`);
+  });
+
+  it("lets a session holding each kind of step through to the page the landing sends it to", async () => {
+    const person = await signIn("leserin@example.org");
+    const administrator = await signIn(ADMIN_EMAIL);
+    // Whatever an earlier case enrolled for the administrator, so the first look finds the enrolment owed.
+    for (const held of store.passkey.filter((row) => row.userId === administrator.row.userId)) {
+      store.passkey.splice(store.passkey.indexOf(held), 1);
+    }
+
+    for (const [kind, cookie, arrange] of [
+      ["offer", person.cookie, () => undefined],
+      ["enrol", administrator.cookie, () => undefined],
+      // A passkey held while the session is still the code's.
+      ["assert", administrator.cookie, () => void madeByPasskey(store, { userId: administrator.row.userId })],
+    ] as const) {
+      arrange();
+      arriveAs(cookie);
+      assert.equal((await getPasskeyStep())?.step, kind, `the session holds no ${kind} step, so the case proves nothing`);
+
+      expect(sentTo(await visit(PASSKEY_URL, cookie, "document")), `the proxy turned away a session owing the ${kind} step`).toBe(null);
+      expect(await landedAt(cookie), `the landing sends a session owing the ${kind} step elsewhere`).toBe(landsOn(ROUTES.signInPasskey.path()));
+    }
   });
 });

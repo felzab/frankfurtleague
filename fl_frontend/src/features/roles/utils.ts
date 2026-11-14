@@ -45,17 +45,26 @@ function targetsOf(roles: readonly Role[]): RoleTarget[] {
 }
 
 /**
- * Where a person's landing sends them straight on to: Konto's list where they hold no place, the place where they hold
- * one, whatever kind it is; `null` where they hold several, which the landing lists. Every way into the person area
- * asks this, so a sign-in lands where `/area` would send it without passing through it.
+ * Where a person's landing sends them: Konto's list where they hold no place, the place where they hold one, whatever
+ * kind it is, and the chooser where they hold several. Every way into the person area asks this, so a sign-in lands
+ * where `/area` would send it without passing through it.
  */
-export function landingTargetOf(targets: readonly RoleTarget[]): Route | null {
+export function landingTargetOf(targets: readonly RoleTarget[]): Route {
   const [first, ...rest] = targets;
   if (first === undefined) return ROUTES.account.path();
-  return rest.length === 0 ? first.href : null;
+  return rest.length === 0 ? first.href : ROUTES.areaRoles.path();
 }
 
 export const placesOf = (subject: SubjectSession): RoleTarget[] => targetsOf(rolesOf(subject).roles);
+
+/**
+ * Whether the session's address holds a grant the session does not carry, past the administrator's window or short of
+ * the passkey: it owes a fresh sign-in or its passkey step, which the sign-in's landing sends it on to, and is sent to no
+ * person's place meanwhile.
+ */
+export function owesSignInStep(subject: SubjectSession): boolean {
+  return !subject.isAdmin && subject.records.admin_tier !== null;
+}
 
 /**
  * One naming for every list of a person's places: a team by its name, with its season and the seats held there, and the
@@ -71,7 +80,7 @@ export function placeOf(target: RoleTarget): { href: Route; name: Words; seats?:
       return {
         href,
         name: { record: first.team_name },
-        seats: COPY.account.role.seats(COPY.shared.saisonName(first.saison_id), rollen),
+        seats: COPY.account.role.seats(COPY.shared.saisonNameBound(first.saison_id), rollen),
         teamLine: COPY.area.team.accountLine({ record: first.team_shorthand }, rollen),
       };
     }

@@ -12,6 +12,7 @@ from app.api.spiele.schemas import (
     PHASE_RANK,
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_NO_SHOW,
+    SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLBracketFault,
     FLBracketFaultBooking,
@@ -597,7 +598,7 @@ def _opening_round_rank(spiele: Iterable[FLSpielCommon]) -> int | None:
     """The round this season's bracket opens on, or `None` where it plays none.
 
     Off the rounds the season holds rather than a phase name: four
-    qualifiers open at the Halbfinale, two at the Finale.
+    qualifiers open at the Halbfinale, sixteen at the Achtelfinale.
     """
 
     ranks = [PHASE_RANK[spiel.saison_phase] for spiel in spiele if spiel.saison_phase != "gruppenphase"]
@@ -1117,6 +1118,41 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
         )
 
     return None
+
+
+def find_ergebnis_before_start_refusal(stored: FLSpiel, patched: FLSpiel, *, started: bool) -> WriteRefusal | None:
+    """`ergebnis_before_saison_start`: goals, a shoot-out, a no-show or an abandonment a save would newly store before the season's start.
+
+    `started` is the season's own `has_started`, the one start every start lock reads; `patched` is the fixture as the
+    save composes it (`apply_payload_to_spiel`), so a figure the save drops is never refused. Judged against the stored
+    fixture, as the start's own edit is, so a fixture already holding a result is never trapped: that result
+    resubmitted unchanged passes, and so does clearing it; a match called off or struck out stores no result and passes
+    too.
+    """
+
+    if started:
+        return None
+
+    new_goals = any(
+        saved is not None and saved.tore is not None and saved.tore != (None if held is None else held.tore)
+        for saved, held in ((patched.team1, stored.team1), (patched.team2, stored.team2))
+    )
+    new_record = patched.sonderereignis in SONDEREREIGNIS_PRODUCING_A_RECORD and patched.sonderereignis != stored.sonderereignis
+    # A shoot-out decides a level knockout result, so the bracket advances its winner. Compared by its counts: the
+    # composed fixture carries the payload's model, which is not the stored one's, and two models of different classes
+    # never compare equal.
+    saved_shoot_out, held_shoot_out = patched.elfmeterschiessen, stored.elfmeterschiessen
+    new_shoot_out = saved_shoot_out is not None and (
+        held_shoot_out is None or (saved_shoot_out.team1, saved_shoot_out.team2) != (held_shoot_out.team1, held_shoot_out.team2)
+    )
+
+    if not new_goals and not new_record and not new_shoot_out:
+        return None
+
+    return WriteRefusal(
+        error_code=Code.ERGEBNIS_BEFORE_SAISON_START,
+        status=HTTPStatus.CONFLICT,
+    )
 
 
 def find_eligibility_refusal(

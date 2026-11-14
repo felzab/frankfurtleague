@@ -1,10 +1,7 @@
 import { cache } from "react";
 
-import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 import { mailedMetadata } from "@/kit/mailedLinkState";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
@@ -39,8 +36,6 @@ const WORDS = SERVER_COPY.schiedsrichterConfirmation;
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
-const { scope } = SCHIEDSRICHTER_WORDINGS;
-
 const { shape } = SchiedsrichterPostConfirmationBody;
 
 /** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
@@ -52,26 +47,7 @@ const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires
  * person did and on which day; and the link no longer valid, an expired, mistyped or tampered link alike.
  */
 export default function SchiedsrichterConfirmationPage({ searchParams }: Props) {
-  return (
-    <MailedPage
-      page={readState(searchParams)}
-      facts={0}
-      act={COPY.page.entryConfirmation}
-      second={COPY.shared.verb.oppose}
-      // Any day's words are about as long, set unseen, so the paragraph stands as many lines as it will at every width.
-      sentence={WORDS.question("2027-01-31")}
-      fields={
-        <>
-          <FieldPlaceholder kind="date" />
-          <RadioGroupPlaceholder
-            label={scope.question}
-            choices={[scope.options.kader_public, scope.options.internal]}
-          />
-          <ConsentLinePlaceholder line={scope.line} />
-        </>
-      }
-    />
-  );
+  return <MailedPage page={readState(searchParams)} />;
 }
 
 /** The link's own read; `null` for a token no referee holds or one the backend will not parse, a dead link either way. */

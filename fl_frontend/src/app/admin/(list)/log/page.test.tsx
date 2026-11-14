@@ -1,23 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { refusal, serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it, vi } from "vitest";
 
 import { byOptions } from "@/features/action-log/filters";
-
-import ActionLogPage from "./page";
 
 import type { FLActionLogFilterPayload, FLActionLogListResponse } from "@/core/generated/client/types";
 import type { ListMore, ListSearch } from "@/kit/ListTable";
 import type { TableBody } from "@/kit/Table";
 
-const state = vi.hoisted(() => ({ asked: [] as FLActionLogFilterPayload[], answer: null as unknown }));
+/** What the backend answers the log's read with: a page of it, or a failure. */
+const state = { answer: null as unknown };
 
-vi.mock("@/features/action-log/queries", () => ({
-  getActionLog: (params: FLActionLogFilterPayload) => {
-    state.asked.push(params);
-    return state.answer instanceof Error ? Promise.reject(state.answer) : Promise.resolve(state.answer);
-  },
-}));
-
+// A server function, which the page hands the list's „Mehr laden“ and a client reaches over the network: no case presses it.
 vi.mock("@/features/action-log/actions", () => ({ loadActionLog: () => Promise.resolve({ ok: true, value: { rows: [], cursor: null } }) }));
+
+// The log's read, through the real guard, query and generated call.
+const backend = serveBackend(({ method, path }) => (method === "POST" && path === "/action_log/view" ? state.answer : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
+
+const { default: ActionLogPage } = await import("./page");
 
 const answer = (overrides: Partial<FLActionLogListResponse>): FLActionLogListResponse => ({
   action_log: [],
@@ -38,14 +40,13 @@ const pageOf = (searchParams: Record<string, string | string[]>) =>
 
 async function read(searchParams: Record<string, string | string[]>) {
   const page = pageOf(searchParams);
-  // Both, as the page's two boundaries await both: the toolbar's filters and the list come of one read.
+  // Both, as the list template awaits both: the toolbar's filters and the list come of one read.
   const [, content] = await Promise.all([page.props.filters, page.props.list.content]);
   return content;
 }
 
-beforeEach(() => {
-  state.asked = [];
-});
+/** The filters each read of the log posted, in the order the page sent them. */
+const askedFor = () => backend.sent.map(({ body }) => body as FLActionLogFilterPayload);
 
 describe("the Protokoll's reads", () => {
   /* A next page read past the filters would run on with rows the page says it left out. */
@@ -60,15 +61,14 @@ describe("the Protokoll's reads", () => {
   it("reads the whole log for a `by` it does not hold", async () => {
     state.answer = answer({});
     const { more, table } = await read({ by: "gone@example.de" });
-    expect(state.asked.map(({ by }) => by)).toStrictEqual([null]);
+    expect(askedFor().map(({ by }) => by)).toStrictEqual([null]);
     expect(more.carry).toStrictEqual({});
     expect(table.empty.kind).toBe("none");
   });
 
   /* An outage answering „Noch keine Einträge.“ would read as a log with nothing in it. */
   it("leaves a failed read to the boundary", async () => {
-    const failure = new Error("read failed");
-    state.answer = failure;
-    await expect(read({})).rejects.toBe(failure);
+    state.answer = refusal("database_failed", { status: 503 });
+    await expect(read({})).rejects.toMatchObject({ name: "APIBadStatusError", statusCode: 503, serverErrorCode: "database_failed" });
   });
 });

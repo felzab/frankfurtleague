@@ -1,4 +1,4 @@
-import { AccountList, AccountListPlaceholder, AccountPage } from "@/kit/AccountPage";
+import { AccountList, AccountPage } from "@/kit/AccountPage";
 import { Callout } from "@/kit/Callout";
 
 import { rolesOf } from "@/core/roles";
@@ -58,9 +58,7 @@ async function AccountListContent() {
 /** Konto's list of its four pages, which a phone opens on. */
 export default function AccountListPage() {
   return (
-    <AccountPage
-      route="account"
-      wait={<AccountListPlaceholder />}>
+    <AccountPage route="account">
       <AccountListContent />
     </AccountPage>
   );

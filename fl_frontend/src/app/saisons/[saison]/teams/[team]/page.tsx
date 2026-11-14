@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
-import { ClubHead, ClubHeadPlaceholder } from "@/kit/ClubHead";
-import { ReadFolds, ReadFoldsPlaceholder } from "@/kit/ReadFolds";
+import { ClubHead } from "@/kit/ClubHead";
+import { ReadFolds } from "@/kit/ReadFolds";
 import { ReadPage } from "@/kit/ReadPage";
 
 import { COPY } from "@/core/copy";
@@ -57,14 +57,6 @@ export default function TeamPage({ params }: Props) {
   return (
     <ReadPage
       scope="saison"
-      wait={{
-        club: <ClubHeadPlaceholder />,
-        groups: [
-          { kind: "tiles", layout: "four" },
-          { title: COPY.page.spiele, kind: "timeline", count: 3, matches: true },
-          { kind: "folds", folds: <ReadFoldsPlaceholder count={1} /> },
-        ],
-      }}
       record={readRecord(params)}
     />
   );
@@ -80,10 +72,16 @@ function personOf(spieler: FLSpielerPublic): Pick<TableRow, "name" | "mark"> {
   return mark === undefined ? { name } : { name, mark };
 }
 
-/** A pupil's number and position, each left out while the record holds none. */
-const cellsOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">) => ({
-  ...(nummer === null ? {} : { nummer: { record: nummer } }),
-  ...(position === null ? {} : { position: { record: position } }),
+/**
+ * A pupil's number and position, each left out while the record holds none; the position also on the row's line, which
+ * a phone shows in the column's place, since the row opens nothing.
+ */
+const numberAndPositionOf = ({ nummer, position }: Pick<FLSpielerPublic, "nummer" | "position">): Pick<TableRow, "cells" | "phoneLine"> => ({
+  ...(position === null ? {} : { phoneLine: { record: position } }),
+  cells: {
+    ...(nummer === null ? {} : { nummer: { record: nummer } }),
+    ...(position === null ? {} : { position: { record: position } }),
+  },
 });
 
 /** The club's standing at a glance: its place in its group, its points, its matches played and its goals. */
@@ -176,13 +174,13 @@ async function readRecord(params: Props["params"]): Promise<ReadRecord> {
                     label: COPY.page.teamKader,
                     nameLabel: column.name,
                     columns: [
-                      { key: "nummer", label: column.nummer, figures: true },
-                      { key: "position", label: column.position, width: "word" },
+                      { key: "nummer", label: column.nummer, figures: true, narrow: true, width: "count" },
+                      { key: "position", label: column.position, hideOnPhone: true, width: "word" },
                     ],
                     rows: kader.map((spieler, index) => ({
                       id: String(index),
                       ...personOf(spieler),
-                      cells: cellsOf(spieler),
+                      ...numberAndPositionOf(spieler),
                     })),
                     empty: { kind: "none", plural: COPY.page.teamKader, one: true, glyph: "teams" },
                   },

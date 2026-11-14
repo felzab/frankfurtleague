@@ -26,11 +26,11 @@ afterEach(() => {
 });
 
 describe("copyTextToClipboard", () => {
-  it("hands the composed string over and reports the copy", async () => {
+  it("hands the text over and reports the copy", async () => {
     withClipboard(RECORDER);
 
-    expect(await copyTextToClipboard("Anna Schmidt, anna@example.org")).toBe(true);
-    expect(handedOver).toStrictEqual(["Anna Schmidt, anna@example.org"]);
+    expect(await copyTextToClipboard("Anna Schmidt")).toBe(true);
+    expect(handedOver).toStrictEqual(["Anna Schmidt"]);
   });
 
   /* Drop the guard and this fails on the second assertion: the empty write goes through, the answer
@@ -42,8 +42,12 @@ describe("copyTextToClipboard", () => {
     expect(handedOver, "an empty write reached the clipboard, over whatever the reader had there").toStrictEqual([]);
   });
 
-  it("reports no copy where the browser hands out no clipboard", async () => {
-    withClipboard(undefined);
+  /* Rejected rather than answered, the caller shows no toast: the reader learns nothing of the failed copy. */
+  it.each([
+    ["hands out no clipboard", undefined],
+    ["refuses the write", { writeText: (): Promise<void> => Promise.reject(new DOMException("Write permission denied.", "NotAllowedError")) }],
+  ])("reports no copy where the browser %s", async (_, clipboard) => {
+    withClipboard(clipboard);
 
     expect(await copyTextToClipboard("Anna Schmidt")).toBe(false);
   });

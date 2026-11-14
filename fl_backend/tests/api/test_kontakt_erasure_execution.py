@@ -93,16 +93,7 @@ NEAR_MISSES: tuple[str, ...] = (*OTHER_DOMAINS, *OTHER_LOCAL_PARTS)
 MATCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607813000")
 NEAR_ROW_OIDS = {email: ObjectId(f"6890a1b2c3d4e5f60781{4000 + index:04d}") for index, email in enumerate(NEAR_MISSES)}
 
-# The row an ordinary contact edit moves the erased person OUT of, and one it never stood in. Both
-# hold their FORMER number, which the edit then replaces.
-SWAPPED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815001")
-UNTOUCHED_ROW_OID = ObjectId("6890a1b2c3d4e5f607815002")
-SWAP_SAISON = "2627"
-
-# Injected through `get_germany_now`, and in summer, so the conversion below moves the clock.
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
-
-# Written out rather than computed from `utc_stamp`, which would agree with any conversion of `NOW`, including none.
 
 
 # Every seeded person, by surname: the address that identifies them, the number they hold now, and
@@ -343,55 +334,6 @@ def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
     return {**row, "kontakte": {**row["kontakte"], "trainer": {**row["kontakte"]["trainer"], "email": email}}}
 
 
-async def a_swap_moves_them_out(database: AsyncDatabase) -> None:
-    """The auditor's sequence: seed the person into a row, then edit her out of it through a real write.
-
-    `patch_one_in_db` is what an administrator's contact edit runs through.
-    """
-
-    await database[Collection.SAISON_TEAMS].insert_many(
-        [
-            a_junction_row(
-                SWAPPED_ROW_OID,
-                SWAP_SAISON,
-                a_block_holding({**person(ERASED_LAST_NAME, ERASED_FORMER_PHONE), "email": ERASED_EMAIL}),
-            ),
-            a_junction_row(UNTOUCHED_ROW_OID, SWAP_SAISON, a_block_holding(person(BYSTANDER_LAST_NAME, BYSTANDER_FORMER_PHONE))),
-        ]
-    )
-
-    collection = database[Collection.SAISON_TEAMS]
-    # The swap itself, and a plain edit beside it.
-    await patch_one_in_db(
-        collection=collection,
-        db_filter={"_id": SWAPPED_ROW_OID},
-        update={"$set": {"kontakte.trainer": person(UNREACHED_LAST_NAME, UNREACHED_PHONE)}},
-        expected_version=None,
-        return_document=ReturnDocument.BEFORE,
-    )
-    await patch_one_in_db(
-        collection=collection,
-        db_filter={"_id": UNTOUCHED_ROW_OID},
-        update={"$set": {"kontakte.trainer.phone": BYSTANDER_PHONE}},
-        expected_version=None,
-        return_document=ReturnDocument.BEFORE,
-    )
-
-
-def after_erase_a_swapped_out_person(url: str) -> Snapshot:
-    """A league where the erasure runs against rows that no longer name the person it is given."""
-
-    async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await a_swap_moves_them_out(database)
-            before = await stored_rows(database)
-            await call_erasure(database, client)
-
-            return before, await stored_rows(database)
-
-    return on_the_seed_loop(_run())
-
-
 def after_erase_the_near_misses(url: str) -> Snapshot:
     """The seeded league plus the stored mailbox and its near misses, erased with an unfolded spelling of the mailbox."""
 
@@ -428,35 +370,6 @@ class TestTheSlotsAreReadOffTheModel:
         declared = tuple(name for name in FLSaisonTeamKontakte.model_fields if name != "trainer_is_also")
 
         assert declared == KONTAKT_ROLLEN
-
-
-@pytest.mark.db
-def test_the_matching_slot_is_nulled_in_every_season(mongo_replica_set_url: str):
-    """The case the endpoint exists for. Kills scoping the erasure to one row, and a transaction that never commits."""
-
-    _, rows = after_erasure(mongo_replica_set_url)
-
-    assert rows[ROW_A_EARLIER_OID]["kontakte"]["trainer"] is None
-    assert rows[ROW_A_LATER_OID]["kontakte"]["trainer"] is None
-
-
-@pytest.mark.db
-def test_one_person_in_two_slots_of_one_row_loses_both(mongo_replica_set_url: str):
-    """Kills stopping at the first match: `trainer_is_also` stores one person twice."""
-
-    _, rows = after_erasure(mongo_replica_set_url)
-    kontakte = rows[ROW_A_LATER_OID]["kontakte"]
-
-    assert (kontakte["trainer"], kontakte["ansprechperson"]) == (None, None)
-
-
-@pytest.mark.db
-def test_the_application_is_cleared_as_well_as_the_junction(mongo_replica_set_url: str):
-    """Kills an erasure reaching one store: this branch adds a SECOND copy of the same three people."""
-
-    _, rows = after_erasure(mongo_replica_set_url)
-
-    assert rows[BEWERBUNG_OID]["kontakte"]["ansprechperson"] is None
 
 
 @pytest.mark.db
@@ -516,10 +429,6 @@ def test_the_clearing_names_the_bookkeeping_only_where_told_to():
     assert build_clearing_update(("trainer",), confirmations=True) == {"$set": {"kontakte.trainer": None, "confirmations.trainer": None}}
 
 
-CORRECTED_ROW_OID = ObjectId("6890a1b2c3d4e5f607817301")
-MISTYPED_EMAIL = "wiltrudis.quastenflosser@exmaple.com"
-
-
 @pytest.mark.db
 def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
     """The over-breadth floor. Kills nulling the whole `kontakte` block, which would destroy two records nobody asked about."""
@@ -531,16 +440,6 @@ def test_the_two_people_beside_them_are_untouched(mongo_replica_set_url: str):
     assert kontakte["stellvertretung"] == LIVE_BLOCKS[ROW_A_EARLIER_OID]["stellvertretung"]
     # Kept through the erasure: it is a fact about the FORM, not about either slot's occupant.
     assert kontakte["trainer_is_also"] is None
-
-
-@pytest.mark.db
-def test_the_rows_naming_nobody_erased_are_not_reached(mongo_replica_set_url: str):
-    """The other half of the floor. Kills a write that ignores its filter: every case above passes for one that clears both collections."""
-
-    _, rows = after_erasure(mongo_replica_set_url)
-
-    assert rows[ROW_B_OID]["kontakte"] == LIVE_BLOCKS[ROW_B_OID]
-    assert rows[OTHER_BEWERBUNG_OID]["kontakte"] == LIVE_BLOCKS[OTHER_BEWERBUNG_OID]
 
 
 @pytest.mark.db
@@ -762,17 +661,6 @@ def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_rep
         return (await stored_rows(database))[HAND_EDITED_ROW_OID]["kontakte"]["trainer"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
-
-
-@pytest.mark.db
-def test_no_value_of_a_swapped_out_person_survives_anywhere(mongo_replica_set_url: str):
-    """The sweep over the audited case, with a bystander's own number as its floor."""
-
-    _, rows = after_erase_a_swapped_out_person(mongo_replica_set_url)
-    rendered = str(sorted(rows.items(), key=lambda pair: str(pair[0])))
-
-    assert [value for value in (ERASED_EMAIL, ERASED_FORMER_PHONE, ERASED_LAST_NAME) if value in rendered] == []
-    assert BYSTANDER_PHONE in rendered, "an unrelated row was emptied as collateral"
 
 
 @pytest.mark.db

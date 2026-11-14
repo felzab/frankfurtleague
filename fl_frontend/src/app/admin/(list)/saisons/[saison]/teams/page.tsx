@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 
-import { actLabel } from "@/kit/dialogAct";
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
 
@@ -55,15 +54,18 @@ export async function generateMetadata({ params, searchParams }: Props, parent: 
   return metadataFor(read({ params, searchParams }), () => pageMetadata(parent, ROUTES.adminTeams, ROUTES.adminTeams.path(saison)));
 }
 
-/** One club's row, opening its editor in this season: its Kürzel, its name with its chip, its group and its colour. */
+/**
+ * One club's row, opening its editor in this season: its Kürzel, its name with its state, „Aktiv“ while it plays on
+ * and muted once out, its group and its colour.
+ */
 function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
-  const chip = adminTeamChip(team.inactive_since, team.austritt_type);
   return {
     id: team.id,
     name: { record: team.name },
     plaque: { record: team.shorthand },
     href: ROUTES.adminTeam.path(saison, team.id),
-    ...(chip === undefined ? {} : { chip, muted: true }),
+    chip: adminTeamChip(team.inactive_since, team.austritt_type),
+    muted: team.inactive_since !== null || team.austritt_type !== null,
     cells: {
       gruppe: team.gruppe === null ? COPY.shared.noValue : COPY.shared.season.gruppe(team.gruppe),
       trikotFarbe: team.trikot_farbe === null ? COPY.shared.noValue : trikotFarbeLabel(team.trikot_farbe),
@@ -71,7 +73,6 @@ function rowOf(saison: string, team: FLTeamsAdminRow): TableRow {
   };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: TEAM,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -92,14 +93,11 @@ export default function AdminTeamsPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminTeams" } }}
       filters={readFilters(list, searchParams)}
-      filterCount={2}
-      create={{ label: actLabel(ACT), act: readCreate(list, params) }}
+      create={readCreate(list, params)}
       list={{
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        wait: 24,
-        plaques: true,
         content: readTeams(list, params, searchParams),
       }}
     />

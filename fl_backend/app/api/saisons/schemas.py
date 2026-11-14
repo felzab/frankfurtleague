@@ -28,7 +28,7 @@ from app.core.crud import Anchored
 from app.core.exceptions import Bound, rule_refusal
 from app.shared.schemas.bounds import KADER_SIZE_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, CustomTimeString, CustomVersion, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSpielerStufe
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSonderereignis, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
@@ -339,22 +339,14 @@ class FLSwapGruppenResponse(BaseAPIResponse):
     rewritten_spiele: int
 
 
-# Both flags are `has_taken_place` over the row's fixtures, the predicate each write's refusal reads, so a control
-# closes exactly where its write refuses.
 class FLSaisonAdminTeam(BaseReadModel):
-    """One club's row of the season as the swap and the replacement list it, graded as each write judges it.
-
-    `group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and
-    `spiel_taken_place` closes its replacement, which hands the whole schedule over.
-    """
+    """One club's row of the season as the swap and the replacement list it, and as its registration link's row names it."""
 
     team_id: CustomObjectId
     name: str
     shorthand: str
     gruppe: FLGruppenNames
     austritt: FLAustritt | None
-    group_spiel_taken_place: bool
-    spiel_taken_place: bool
 
 
 class FLSaisonAdminIncomingTeam(BaseReadModel):
@@ -616,6 +608,8 @@ class FLLandingOpeningSpiel(BaseReadModel):
     spieltag_position: int = Field(ge=1)
     team1: FLLandingSide | None
     team2: FLLandingSide | None
+    # What befell the match, so the line draws it as every match block does.
+    sonderereignis: FLSonderereignis | None
 
 
 def saison_start(start_date: str) -> datetime:
@@ -662,7 +656,10 @@ class FLLandingBeforeStart(_FLLandingSaisonFacts):
 
 
 class FLLandingRunning(_FLLandingSaisonFacts):
-    """From its start date: the latest result and the next match, at most one of each, empty where there is none."""
+    """From its start date: two matches where the season has two, each side nearest first.
+
+    A latest result and a next match where both exist, else two of the side that has them.
+    """
 
     state: Literal["running"]
     recent: list[FLSpielJoined]

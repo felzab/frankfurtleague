@@ -1,17 +1,14 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { LineupPlaceholder } from "@/kit/Lineup";
-
 import { COPY } from "@/core/copy";
 import { dayIn, dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
+import { AUFSTELLUNG_CHIP } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellungSelf } from "@/features/aufstellungen/queries";
 import { readAsSeatHolder, requireTeamSeats, teamMetadata } from "@/features/roles/resolvers";
-import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { objectIdParamOf } from "@/shared/utils/routeParams";
 
@@ -54,20 +51,29 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /**
  * The line under the title: the matchday, as the Spiele list names it, and when the match is played; and where nothing
- * is stored before the lock, the day the line-up is due, or since when it is overdue. Due and overdue refuse nothing:
- * they are words alone. From the lock, the closed editor's reason says the league alone changes it.
+ * is stored before the lock, the day the line-up is due, or since when it is overdue, unless something befell the
+ * match, which then needs no line-up from the club. Due and overdue refuse nothing: they are words alone. From the
+ * lock, the closed editor's reason says the league alone changes it.
  */
 function leadOf({ spiel, marks }: FLAufstellungResponse): Copy {
   const when = COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time));
   const words = COPY.area.team.aufstellung;
-  const due = marks === null || marks.stored || marks.phase === "locked" ? null : dayIn(new Date(marks.due_at));
+  const due =
+    marks === null || marks.stored || marks.phase === "locked" || spiel.sonderereignis !== null ? null : dayIn(new Date(marks.due_at));
   const owed = due === null ? null : marks?.phase === "overdue" ? words.overdueSince(due) : words.dueBy(due);
   return COPY.shared.line([matchdayOf(spiel, spiel), when, owed]);
 }
 
-/** The chip after the title while nothing is stored past the due mark. */
-const overdueChip = ({ marks }: FLAufstellungResponse): ChipProps | undefined =>
-  marks !== null && !marks.stored && marks.phase === "overdue" ? { tone: "danger", label: COPY.area.team.aufstellung.overdue } : undefined;
+/**
+ * The chip after the title, the line-up's own state: what befell the match, as every match block draws it; else
+ * „Gesperrt“ from the lock, the closed editor's reason saying who enters it now; else „Überfällig“ while nothing is
+ * stored past the due mark.
+ */
+function chipOf({ spiel, marks }: FLAufstellungResponse): ChipProps | undefined {
+  if (spiel.sonderereignis !== null) return eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null);
+  if (marks === null || (marks.stored && marks.phase !== "locked")) return undefined;
+  return AUFSTELLUNG_CHIP[marks.phase];
+}
 
 /**
  * The page once read: the editor until one hour before kick-off, and from then the same editor closed, as the
@@ -83,7 +89,7 @@ async function readEditor(params: Props["params"]) {
   const closed = found.marks?.phase === "locked" ? words.lockedLine : undefined;
   // The block's every act answers a press with why it is closed: the lock before the missing slot.
   const locked = closed ?? (found.marks === null ? words.needsSlot : undefined);
-  const chip = overdueChip(found);
+  const chip = chipOf(found);
   return (
     <TeamAufstellung
       team={seat.team_id}
@@ -101,25 +107,6 @@ async function readEditor(params: Props["params"]) {
 }
 
 /** A match's line-up as its club's seats enter it, on one read of the fixture, the squad and the stored line-up. */
-export default function AufstellungPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
-        sections: [
-          {
-            block: (
-              <LineupPlaceholder
-                words={LINEUP_WORDS}
-                picked={STARTERS_MAX}
-                rest={9}
-              />
-            ),
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function AufstellungPage({ params }: Props) {
+  return await readEditor(params);
 }

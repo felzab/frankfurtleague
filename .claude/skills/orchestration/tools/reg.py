@@ -56,7 +56,9 @@ FIELD_RE: Final = re.compile(r"^(?P<label>[^\n]{1,80}?):(?:[ \t]+(?P<text>.*))?$
 # The brief template's line, at a line's start, its entries parted by a comma and a space.
 OWNS_RE: Final = re.compile(r"^Owns:[ \t]*(?P<paths>.*)$", re.MULTILINE)
 AGENT_BRANCH_RE: Final = re.compile(r"^worktree-agent-(?P<id>[A-Za-z0-9]+)$")
-GLOB_CHARS: Final = frozenset("*?[")
+# The brief template's globs know `*` and `**` alone, so `?` and `[` stay literal: a Next route folder
+# such as `[saison]` read as a character class matched no path, and no overlap on it was ever named.
+GLOB_CHARS: Final = frozenset("*")
 # The live-agent states an agent holds its rows and its worktree in; `pause` writes the second.
 LIVE_STATES: Final = ("RUNNING", "PAUSED")
 DONE_RE: Final = re.compile(r"^DONE (?P<stamp>\d{4}-\d\d-\d\d \d\d:\d\d)\b")
@@ -476,7 +478,7 @@ def matches(path: str, pattern: str) -> bool:
     """A repository path against a brief's path: a glob, else the path or a folder holding it."""
     pattern = pattern.replace("\\", "/").removeprefix("./")
     if GLOB_CHARS & set(pattern):
-        return PurePosixPath(path).full_match(pattern)
+        return PurePosixPath(path).full_match(re.sub(r"[?\[]", lambda found: f"[{found.group()}]", pattern))
     return path == pattern.rstrip("/") or path.startswith(pattern.rstrip("/") + "/")
 
 

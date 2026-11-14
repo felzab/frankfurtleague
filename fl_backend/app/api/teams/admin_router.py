@@ -39,7 +39,7 @@ from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_takes_registrierungen
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import find_saison_past_refusal, has_started
-from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session
+from app.api.spielbestaetigungen.crud import owe_the_austritt_notices_in_session, pull_austritt_recipients
 from app.api.teams.crud import (
     enter_a_club,
     found_a_club,
@@ -48,6 +48,7 @@ from app.api.teams.crud import (
     refuse_a_taken_colour,
     write_the_club,
 )
+from app.api.teams.panel import FLAustrittRecipients, FLTeamSaisonAdminResponse
 from app.api.teams.schemas import (
     FLAustrittPayload,
     FLKontaktInviteResponse,
@@ -66,11 +67,9 @@ from app.api.teams.schemas import (
     FLTeamRecord,
     FLTeamsAdminFilterParams,
     FLTeamsAdminListResponse,
-    FLTeamSaisonAdminResponse,
     FLTeamSaisonFacts,
 )
 from app.api.teams.services import (
-    TAKEN_PLACE_FIELDS,
     build_team_saisons_pipeline,
     build_team_spiele_filter,
     compose_confirmations_with,
@@ -87,7 +86,6 @@ from app.api.teams.services import (
     find_replacement_refusal,
     find_retire_refusal,
     gruppe_offer,
-    has_taken_place,
     kontakt_row_of,
     links_owed,
     membership_row_ids,
@@ -128,6 +126,9 @@ from app.core.dependencies import (
     SaisonsReadCollection,
     SaisonTeamsCollection,
     SaisonTeamsReadCollection,
+    SchiedsrichterReadCollection,
+    SnapshotSession,
+    SpielbestaetigungenReadCollection,
     SpieleCollection,
     SpieleReadCollection,
     TeamsCollection,
@@ -358,7 +359,11 @@ async def get_team_saison_admin(
     spiele_collection: SpieleReadCollection,
     invitations_collection: InvitationsReadCollection,
     outbox_collection: OutboxReadCollection,
+    spielbestaetigungen_collection: SpielbestaetigungenReadCollection,
+    schiedsrichter_collection: SchiedsrichterReadCollection,
+    session: SnapshotSession,
     today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLTeamSaisonAdminResponse:
     """What the team editor shows in one read: the club, its row of the season, and what each act of the page would meet.
 
@@ -389,7 +394,8 @@ async def get_team_saison_admin(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id},
             what=f"season {saison_id}'s clubs",
-            projection=["team_id", "gruppe", "trikot_farbe"],
+            # The seats, exits and names too, which judge and name whom an exit would mail.
+            projection=["team_id", "gruppe", "trikot_farbe", "name", "kontakte", "austritt"],
         ),
         pull_many_from_db(collection=saisons_collection, db_filter={"_id": {"$in": held_saison_ids}}, projection=["status"]),
         spiele_collection.count_documents(build_team_spiele_filter(saison_id=saison_id, team_id=team_id)),
@@ -418,6 +424,21 @@ async def get_team_saison_admin(
         )
 
     memberships = served[0]["memberships"]
+    austritt_recipients = (
+        []
+        if row_raw is None or row_raw.get("austritt") is not None
+        else await pull_austritt_recipients(
+            spiele_collection=spiele_collection,
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            schiedsrichter_collection=schiedsrichter_collection,
+            saison_id=saison_id,
+            team_id=team_id,
+            start_date=str(saison_raw["start_date"]),
+            vereine={row["team_id"]: row for row in season_rows},
+            now=now,
+            session=session,
+        )
+    )
 
     return FLTeamSaisonAdminResponse(
         version=composite_version(team_raw, *([] if row_raw is None else [row_raw])),
@@ -435,6 +456,7 @@ async def get_team_saison_admin(
         taken_trikot_farben=assigned_trikot_farben(stored=[row.get("trikot_farbe") for row in season_rows if row["team_id"] != team_id]),
         retire_blocked_by=saison_blocking_retirement(held_saisons),
         link=link,
+        austritt_recipients=[FLAustrittRecipients(date=day, recipients=recipients) for day, recipients in austritt_recipients],
     )
 
 
@@ -698,6 +720,11 @@ async def put_austritt(
         start_date = str(saison_raw["start_date"])
         refuse(find_austritt_refusal(start_date=start_date, started=has_started(start_date=start_date, today=today)))
 
+        # Every fixture of the season, not only the club's: a save judges this row's exit on a read it never writes, and
+        # writes the fixture it saves, which may be one fielding the club only once it lands. So any save judging under
+        # this exit conflicts with it, and its retry is judged against the exit. The exit is rare, a retried save cheap.
+        await anchor_in_db(collection=spiele_collection, db_filter={"saison_id": saison_id}, session=session)
+
         await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter=row_filter,
@@ -865,26 +892,26 @@ async def replace_saison_team(
             session=session,
         )
 
-        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
-        spiele = await pull_many_from_db(
-            collection=spiele_collection,
-            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team2.team_id", *TAKEN_PLACE_FIELDS],
-            session=session,
-        )
-
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
                 started=has_started(start_date=str(saison_raw["start_date"]), today=today),
-                taken_place=any(has_taken_place(spiel) for spiel in spiele),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
+        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
+        spiele = await pull_many_from_db(
+            collection=spiele_collection,
+            db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
+            projection=["team1.team_id", "team2.team_id"],
+            session=session,
+        )
+
         # The row's identity, reseeded as `enter_a_club` seeds one at entry: every fixture of the season reads its
-        # side's name from here. No `tore`: a replacement runs only on fixtures none of which has taken place.
+        # side's name from here. No `tore`: a replacement runs only before the season's start, when the save refuses a
+        # result.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

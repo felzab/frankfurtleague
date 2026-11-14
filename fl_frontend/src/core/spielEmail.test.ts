@@ -27,30 +27,162 @@ describe("the fixture request", () => {
   });
 });
 
-/* A move told on its own reaches a party to be asked again alike with one whose answer about the new slot stands and one
-   the move took off the fixture, and nothing but `asked_again` keeps the other two from being promised a request that
-   never comes. */
+/* A party still on a moved fixture is told the move whether or not the fixture holds a new slot, and one taken off it is
+   told the request no longer holds: told the other, a club waits at the slot it left, or a staying referee reads that
+   they no longer referee. A notice queued before `stays` was written keeps the mail it was queued for. */
 describe("the notice of a move", () => {
   const left = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
-  const next = { ...left, date: "2026-11-27" };
-  const shapes = [next, null].flatMap((movedTo) =>
+  const next = { ...left, date: "2026-11-27", spielort: "Halle Nord" };
+  const recipients = ["team", "schiedsrichter"] as const;
+  const moved = (mail: ReturnType<typeof mailFor>) => JSON.stringify(mail).includes("ist verlegt");
+
+  it.each(recipients)("tells a staying %s of the move, promising nothing, where the fixture holds no new slot", (recipient) => {
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient, appointment: left, moved_to: null, stays: true, asked_again: false },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+
+    expect(moved(mail)).toBe(true);
+    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+  });
+
+  it("tells a club taken off the fixture that its request no longer holds", () => {
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: null, stays: false, asked_again: false },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+
+    expect(JSON.stringify(mail)).toContain("gilt nicht mehr");
+  });
+
+  it("names the ground the fixture moved to, in the block a request names it in", () => {
+    const sameHour = { ...next, date: left.date };
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: sameHour, stays: true, asked_again: false },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+    const block = mail?.block;
+    const facts = block !== undefined && "facts" in block ? block.facts : [];
+
+    expect(facts).toContainEqual({ label: COPY.spielplan.fact.spielort, value: "Halle Nord" });
+    expect(JSON.stringify(mail)).not.toMatch(/neue (Anfrage|Einteilung)/);
+  });
+
+  const queued = [{ ...next, spielort: null }, null].flatMap((movedTo) =>
     [true, false].map((askedAgain) => ({ movedTo, askedAgain, slot: movedTo === null ? "no new slot" : "a new slot" })),
   );
 
-  it.each(shapes)(
-    "promises the next request or Einteilung only where it follows: $slot, asked again $askedAgain",
-    ({ movedTo, askedAgain }) => {
-      for (const [recipient, promise] of [
-        ["team", "neue Anfrage"],
-        ["schiedsrichter", "neue Einteilung"],
-      ] as const) {
+  /* A replacement or a bracket correction changes the sides and keeps the slot: worded as moved, the reader looks for a
+     new day that does not exist. */
+  it("words a new pairing at its slot as no move, in a request, an Einteilung and a notice", () => {
+    const replaced = { ...left, team1: "Carl-Schurz-Schule", spielort: "Halle Nord" };
+    const origin = { token: null, secret: null, origin: ORIGIN };
+    const mails = [
+      mailFor(
+        "spiel_request",
+        {
+          kind: "spiel_request",
+          team: "Goethe-Gymnasium",
+          team_id: "6890a1b2c3d4e5f607000001",
+          saison_id: "2026",
+          ansetzung: replaced,
+          deadline: "2026-11-13",
+          moved_from: left,
+        },
+        origin,
+      ),
+      mailFor("spiel_einteilung", { kind: "spiel_einteilung", ansetzung: replaced, moved_from: left }, origin),
+      mailFor(
+        "spiel_moved",
+        { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
+        origin,
+      ),
+    ];
+
+    for (const mail of mails) {
+      const block = mail?.block;
+      const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
+
+      // The word in a move's subject and in its sentence alike, each time after a space.
+      expect(JSON.stringify(mail)).not.toContain(" verlegt");
+      // The slot named once, and beside it the pairing that held it: a „Neu“ row would repeat the moment left.
+      expect(labels).toStrictEqual([COPY.spielplan.fact.date, COPY.spielplan.fact.time, COPY.admin.facts.before, COPY.spielplan.fact.spielort]);
+      expect(JSON.stringify(mail)).toContain(left.team1);
+      // The lead opens on the change the mail exists for, the new pairing at the slot it keeps.
+      expect(mail?.paragraphs[0]?.[0]).toBe(`Am selben Termin spielt jetzt ${replaced.team1} vs. ${replaced.team2}.`);
+    }
+  });
+
+  // An hour moved on the same day is a move, whatever the sides did.
+  it("words a new pairing at a new hour of the same day as a move", () => {
+    const replaced = { ...left, team1: "Carl-Schurz-Schule", time: "16:00:00", spielort: "Halle Nord" };
+    const mail = mailFor(
+      "spiel_moved",
+      { kind: "spiel_moved", recipient: "team", appointment: left, moved_to: replaced, stays: true, asked_again: false },
+      { token: null, secret: null, origin: ORIGIN },
+    );
+
+    expect(JSON.stringify(mail)).toContain(" verlegt");
+  });
+
+  // The hand-out serves such a row with `stays` at its default, false, and `asked_again` as it was written.
+  it.each(queued)("builds a notice queued before `stays` as it was queued: $slot, asked again $askedAgain", ({ movedTo, askedAgain }) => {
+    for (const [recipient, promise, unbooked] of [
+      ["team", "neue Anfrage", "gilt nicht mehr"],
+      ["schiedsrichter", "neue Einteilung", "nicht mehr."],
+    ] as const) {
+      const mail = mailFor(
+        "spiel_moved",
+        { kind: "spiel_moved", recipient, appointment: left, moved_to: movedTo, stays: false, asked_again: askedAgain },
+        { token: null, secret: null, origin: ORIGIN },
+      );
+      const text = JSON.stringify(mail);
+
+      expect(text.includes(promise)).toBe(askedAgain);
+      expect(text.includes(unbooked)).toBe(movedTo === null && !askedAgain);
+    }
+  });
+});
+
+/* One mail serves every event that keeps a match from being played: worded alike, a match struck out or decided by a
+   no-show would read as called off. None promises a request: a match called off and set again on its own day is
+   asked about by nobody. */
+describe("the notice of a match that will not be played", () => {
+  const appointment = { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", date: "2026-11-20", time: "14:30:00" };
+  // What the event means for the result, in the match page's own sentence: a no-show counts for the side that turned up.
+  const { consequence } = COPY.spielplan.sonderereignis;
+  const events = [
+    { sonderereignis: "ausgefallen", subject: "Ausgefallen: Spiel am 20. November 2026", counted: consequence.notScored },
+    { sonderereignis: "annulliert", subject: "Annulliert: Spiel am 20. November 2026", counted: consequence.notScored },
+    {
+      sonderereignis: "nichtantreten_team1",
+      subject: "Nicht angetreten: Spiel am 20. November 2026",
+      counted: consequence.nichtantreten({ record: appointment.team2 }),
+    },
+    {
+      sonderereignis: "nichtantreten_team2",
+      subject: "Nicht angetreten: Spiel am 20. November 2026",
+      counted: consequence.nichtantreten({ record: appointment.team1 }),
+    },
+  ] as const;
+
+  it.each(events)(
+    "names $sonderereignis in its subject, counts the match as the match page does, and promises no request",
+    ({ sonderereignis, subject, counted }) => {
+      for (const recipient of ["team", "schiedsrichter"] as const) {
         const mail = mailFor(
-          "spiel_moved",
-          { kind: "spiel_moved", recipient, appointment: left, moved_to: movedTo, asked_again: askedAgain },
+          "spiel_cancelled",
+          { kind: "spiel_cancelled", recipient, appointment, sonderereignis },
           { token: null, secret: null, origin: ORIGIN },
         );
+        const text = JSON.stringify(mail);
 
-        expect(JSON.stringify(mail).includes(promise)).toBe(askedAgain);
+        expect(mail?.subjectLine).toBe(subject);
+        expect(text.includes(counted)).toBe(true);
+        expect(text).not.toMatch(/neue (Anfrage|Einteilung)/);
       }
     },
   );
@@ -79,5 +211,9 @@ describe("the notice of a club's exit", () => {
     const labels = block !== undefined && "facts" in block ? block.facts.map((fact) => fact.label) : [];
 
     expect(labels).toStrictEqual(["14. März 2027 um 15:30", "21. März 2027", COPY.spielplan.when(null, null)]);
+    // The lead alone, before the block or after it: nothing mails the walkover, so a sentence saying the league writes
+    // again is a promise nobody keeps.
+    expect(mail?.paragraphs).toStrictEqual([[expect.anything()]]);
+    expect(mail?.afterBlock).toBeUndefined();
   });
 });

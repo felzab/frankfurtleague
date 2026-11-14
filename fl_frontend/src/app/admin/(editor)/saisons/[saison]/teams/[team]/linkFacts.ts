@@ -10,13 +10,12 @@ const WORDS = COPY.admin.team;
 const LINK_WORDS = COPY.admin.saison;
 
 /**
- * Where the link stands, by the season's press and the live link: a finished season, which shuts every link whatever
- * else stood, as the editor's „Abgeschlossen“ says; a club the press passes over, none yet, a link that opens nothing
- * for now, or its mail. A planned season's link opens nothing either until its activation, which is the state it is
- * minted and mailed in, so only a running season's shut link is said.
+ * Where the link stands, by the season's press and the live link, in every season, as the season editor's links table
+ * states it, a finished season's closure being the lock line's: a club the press passes over, none yet, a link that
+ * opens nothing for now, or its mail. A planned season's link opens nothing either until its activation, which is the
+ * state it is minted and mailed in, so only a running season's shut link is said.
  */
 function linkStateOf({ skipped, invitation, paused, running }: FLTeamLinkState, status: FLSaisonStatus): Copy {
-  if (status === "past") return COPY.template.closed;
   if (skipped === "no_kontakt_block" || skipped === "no_confirmed_kontaktperson") return LINK_WORDS.noConfirmedAddress;
   if (invitation === null) return LINK_WORDS.noLinkYet;
   if (paused) return LINK_WORDS.registrierungPaused;

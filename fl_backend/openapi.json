@@ -264,8 +264,8 @@
           "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
-          "replace_sides_taken_place",
           "ergebnis_side_emptied",
+          "ergebnis_before_saison_start",
           "retire_blocked",
           "spielort_still_booked",
           "schiedsrichter_still_assigned",
@@ -308,7 +308,6 @@
           "state_nichtantreten_without_two_sides",
           "swap_not_a_swap",
           "swap_saison_started",
-          "swap_sides_taken_place",
           "austritt_before_saison_start",
           "payload_refused",
           "body_unreadable",
@@ -517,21 +516,10 @@
                 "type": "null"
               }
             ]
-          },
-          "wait_tier": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdminTier"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
-          "open",
-          "wait_tier"
+          "open"
         ],
         "title": "FLAccountAddressChangeResponse",
         "type": "object"
@@ -2590,6 +2578,16 @@
           "saison_phase": {
             "$ref": "#/components/schemas/FLSaisonPhase"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spiel Id",
@@ -2643,7 +2641,8 @@
           "date",
           "time",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLAufstellungSpiel",
         "type": "object"
@@ -2867,6 +2866,50 @@
           "date"
         ],
         "title": "FLAustrittPayload",
+        "type": "object"
+      },
+      "FLAustrittRecipients": {
+        "description": "Whom an exit of the club mails, by the day it reaches them from: an exit dated on or before `date` mails them.",
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "recipients": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "schiedsrichter": "#/components/schemas/FLSpielRecipientSchiedsrichter",
+                  "team": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientTeam"
+                },
+                {
+                  "$ref": "#/components/schemas/FLSpielRecipientSchiedsrichter"
+                }
+              ]
+            },
+            "title": "Recipients",
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "recipients"
+        ],
+        "title": "FLAustrittRecipients",
         "type": "object"
       },
       "FLAustrittType": {
@@ -6726,6 +6769,16 @@
             "title": "Date",
             "type": "string"
           },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spieltag_position": {
             "minimum": 1.0,
             "title": "Spieltag Position",
@@ -6769,7 +6822,8 @@
           "time",
           "spieltag_position",
           "team1",
-          "team2"
+          "team2",
+          "sonderereignis"
         ],
         "title": "FLLandingOpeningSpiel",
         "type": "object"
@@ -6847,7 +6901,7 @@
         "type": "object"
       },
       "FLLandingRunning": {
-        "description": "From its start date: the latest result and the next match, at most one of each, empty where there is none.",
+        "description": "From its start date: two matches where the season has two, each side nearest first.\n\nA latest result and a next match where both exist, else two of the side that has them.",
         "properties": {
           "id": {
             "title": "Id",
@@ -7681,10 +7735,34 @@
       "FLOverviewParty": {
         "description": "One party's open confirmation row, a club's or the booked referee's: the row „Zusage eintragen“ records its agreement on.\n\n`name` is the one its own record holds, as each act's recipients are named, so the page names every party one way.",
         "properties": {
-          "deadline": {
+          "asked_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "due_by": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
+            "title": "Due By",
             "type": "string"
+          },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
           },
           "name": {
             "minLength": 1,
@@ -7719,7 +7797,9 @@
           "spielbestaetigung_id",
           "party",
           "name",
-          "deadline"
+          "asked_at",
+          "due_by",
+          "lapsed_on"
         ],
         "title": "FLOverviewParty",
         "type": "object"
@@ -7803,7 +7883,7 @@
         "type": "object"
       },
       "FLOverviewSpielbestaetigungRow": {
-        "description": "A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today.",
+        "description": "A fixture whose parties owe their answer: overdue where one party's answer has lapsed, else still due.",
         "properties": {
           "kind": {
             "$ref": "#/components/schemas/FLOverviewAnswerKind"
@@ -7828,7 +7908,7 @@
         "type": "object"
       },
       "FLOverviewVorschlagRow": {
-        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question\nnames them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the\ndiscard tells the date stands, none once its kick-off has come.",
+        "description": "A club's decline proposing another date and hour, neither adopted nor discarded; its row is the one both acts write.\n\nEach act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question\nnames them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the\ndiscard tells the date stands.",
         "properties": {
           "adoption_recipients": {
             "items": {
@@ -10201,7 +10281,7 @@
         "type": "object"
       },
       "FLSaisonAdminTeam": {
-        "description": "One club's row of the season as the swap and the replacement list it, graded as each write judges it.\n\n`group_spiel_taken_place` closes a swap pairing the club, the swap rewriting group fixtures alone, and\n`spiel_taken_place` closes its replacement, which hands the whole schedule over.",
+        "description": "One club's row of the season as the swap and the replacement list it, and as its registration link's row names it.",
         "properties": {
           "austritt": {
             "anyOf": [
@@ -10212,10 +10292,6 @@
                 "type": "null"
               }
             ]
-          },
-          "group_spiel_taken_place": {
-            "title": "Group Spiel Taken Place",
-            "type": "boolean"
           },
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
@@ -10228,10 +10304,6 @@
             "title": "Shorthand",
             "type": "string"
           },
-          "spiel_taken_place": {
-            "title": "Spiel Taken Place",
-            "type": "boolean"
-          },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
@@ -10243,9 +10315,7 @@
           "name",
           "shorthand",
           "gruppe",
-          "austritt",
-          "group_spiel_taken_place",
-          "spiel_taken_place"
+          "austritt"
         ],
         "title": "FLSaisonAdminTeam",
         "type": "object"
@@ -11285,6 +11355,10 @@
       "FLSchiedsrichterSpiel": {
         "description": "One fixture booked to the signed-in referee, as their one list shows it: the booking they were asked about and the report they owe.",
         "properties": {
+          "bericht_owed": {
+            "title": "Bericht Owed",
+            "type": "boolean"
+          },
           "date": {
             "anyOf": [
               {
@@ -11299,6 +11373,10 @@
           },
           "entered": {
             "title": "Entered",
+            "type": "boolean"
+          },
+          "officiates": {
+            "title": "Officiates",
             "type": "boolean"
           },
           "past": {
@@ -11317,9 +11395,15 @@
             ],
             "title": "Reason"
           },
-          "reportable": {
-            "title": "Reportable",
-            "type": "boolean"
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSonderereignis"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11421,13 +11505,15 @@
           "date",
           "time",
           "spielort",
+          "sonderereignis",
           "spielbestaetigung_id",
           "state",
           "reason",
           "entered",
+          "officiates",
           "past",
-          "reportable",
-          "submitted_at"
+          "submitted_at",
+          "bericht_owed"
         ],
         "title": "FLSchiedsrichterSpiel",
         "type": "object"
@@ -11669,6 +11755,37 @@
           "voided_sonderereignis"
         ],
         "title": "FLSpielAdvancement",
+        "type": "object"
+      },
+      "FLSpielEditorAufstellungMarks": {
+        "description": "Each side's line-up marks, off the clock alone, as the club's own pages are served them.\n\nNull for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,\nwhich a page reads off its `sonderereignis`, as the club's own pages do.",
+        "properties": {
+          "team1": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungMarks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team2": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAufstellungMarks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "team1",
+          "team2"
+        ],
+        "title": "FLSpielEditorAufstellungMarks",
         "type": "object"
       },
       "FLSpielEditorAufstellungen": {
@@ -12494,7 +12611,7 @@
           "moved_to": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielMailAppointment"
+                "$ref": "#/components/schemas/FLSpielMailAnsetzung"
               },
               {
                 "type": "null"
@@ -12508,6 +12625,11 @@
             ],
             "title": "Recipient",
             "type": "string"
+          },
+          "stays": {
+            "default": false,
+            "title": "Stays",
+            "type": "boolean"
           }
         },
         "required": [
@@ -12515,13 +12637,14 @@
           "recipient",
           "appointment",
           "moved_to",
+          "stays",
           "asked_again"
         ],
         "title": "FLSpielMovedData",
         "type": "object"
       },
       "FLSpielNoticeData": {
-        "description": "A party's word that a fixture it was asked about was called off: the slot it was asked about.",
+        "description": "A party's word that a fixture it was asked about will not be played: the slot it was asked about, and the event.",
         "properties": {
           "appointment": {
             "$ref": "#/components/schemas/FLSpielMailAppointment"
@@ -12538,15 +12661,35 @@
             ],
             "title": "Recipient",
             "type": "string"
+          },
+          "sonderereignis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielNoticeEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "kind",
           "recipient",
-          "appointment"
+          "appointment",
+          "sonderereignis"
         ],
         "title": "FLSpielNoticeData",
         "type": "object"
+      },
+      "FLSpielNoticeEvent": {
+        "enum": [
+          "ausgefallen",
+          "annulliert",
+          "nichtantreten_team1",
+          "nichtantreten_team2"
+        ],
+        "type": "string"
       },
       "FLSpielPageResponse": {
         "description": "One match as its page and its pop-up show it.\n\nThe match, its matchday's `position` and its phase's count of matchdays, which together name the matchday, where\neach side stands, each side's line-up from the moment its club stores one, and what the public may read of its\nreport, null where none is stored.",
@@ -13156,7 +13299,7 @@
         "type": "object"
       },
       "FLSpielberichtBericht": {
-        "description": "The referee's account of one match, one proposal, a correction after its adoption reading `differing`.",
+        "description": "The referee's account of one match and its one proposal; the referee's every correction clears its adoption.",
         "properties": {
           "adopted": {
             "title": "Adopted",
@@ -13973,109 +14116,6 @@
         "title": "FLSpielberichtVorschlagPayload",
         "type": "object"
       },
-      "FLSpielbestaetigung": {
-        "description": "One party's confirmation of one Ansetzung, as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying.",
-        "properties": {
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
-          },
-          "answer": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAnswer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "asked_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Asked At"
-          },
-          "closed": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungClosed"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "deadline": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Deadline",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "party": {
-            "discriminator": {
-              "mapping": {
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
-                "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
-              }
-            ],
-            "title": "Party"
-          },
-          "reminded_at": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reminded At"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "saison_id",
-          "spiel_id",
-          "party",
-          "ansetzung",
-          "deadline",
-          "asked_at",
-          "reminded_at",
-          "answer",
-          "closed"
-        ],
-        "title": "FLSpielbestaetigung",
-        "type": "object"
-      },
       "FLSpielbestaetigungAnsetzung": {
         "description": "The Ansetzung a row answers about: every input of `digest`, stored beside it.\n\nA digest is opaque to an aggregation, so the public fixture's verdict compares these five values\nrather than `digest`.",
         "properties": {
@@ -14305,6 +14345,142 @@
           "reason"
         ],
         "title": "FLSpielbestaetigungClosed",
+        "type": "object"
+      },
+      "FLSpielbestaetigungEditorRow": {
+        "description": "A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.\n\nNever `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.",
+        "properties": {
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielbestaetigungAnsetzung"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "closed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungClosed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deadline": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "due_by": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Due By",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
+          },
+          "party": {
+            "discriminator": {
+              "mapping": {
+                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter",
+                "team": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartyTeam"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielbestaetigungPartySchiedsrichter"
+              }
+            ],
+            "title": "Party"
+          },
+          "reminded_at": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reminded At"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "spiel_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spiel Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "valid",
+              "vorschlag",
+              "agreed",
+              "declined",
+              "expired",
+              "invalid",
+              "cancelled"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "saison_id",
+          "spiel_id",
+          "party",
+          "ansetzung",
+          "deadline",
+          "asked_at",
+          "reminded_at",
+          "answer",
+          "closed",
+          "state",
+          "due_by",
+          "lapsed_on"
+        ],
+        "title": "FLSpielbestaetigungEditorRow",
         "type": "object"
       },
       "FLSpielbestaetigungEnterPayload": {
@@ -14567,8 +14743,15 @@
       "FLSpieleAdminSingleResponse": {
         "description": "One fixture for the match editor, money and `version` included, and all its sections offer and show beside it.",
         "properties": {
+          "aufstellung_marks": {
+            "$ref": "#/components/schemas/FLSpielEditorAufstellungMarks"
+          },
           "aufstellungen": {
             "$ref": "#/components/schemas/FLSpielEditorAufstellungen"
+          },
+          "saison_begun": {
+            "title": "Saison Begun",
+            "type": "boolean"
           },
           "saison_status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
@@ -14595,7 +14778,7 @@
           },
           "spielbestaetigungen": {
             "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigung"
+              "$ref": "#/components/schemas/FLSpielbestaetigungEditorRow"
             },
             "title": "Spielbestaetigungen",
             "type": "array"
@@ -14625,12 +14808,14 @@
         "required": [
           "spiel",
           "saison_status",
+          "saison_begun",
           "spielorte",
           "schiedsrichter",
           "teams",
           "spielbericht",
           "spielbestaetigungen",
-          "aufstellungen"
+          "aufstellungen",
+          "aufstellung_marks"
         ],
         "title": "FLSpieleAdminSingleResponse",
         "type": "object"
@@ -17399,6 +17584,18 @@
             "title": "Deadline",
             "type": "string"
           },
+          "lapsed_on": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapsed On"
+          },
           "side": {
             "$ref": "#/components/schemas/FLSpielSide"
           },
@@ -17433,6 +17630,7 @@
           "side",
           "state",
           "deadline",
+          "lapsed_on",
           "vorschlag"
         ],
         "title": "FLTeamPanelSpielbestaetigung",
@@ -17526,6 +17724,13 @@
       "FLTeamSaisonAdminResponse": {
         "description": "What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet.",
         "properties": {
+          "austritt_recipients": {
+            "items": {
+              "$ref": "#/components/schemas/FLAustrittRecipients"
+            },
+            "title": "Austritt Recipients",
+            "type": "array"
+          },
           "gruppe_locked": {
             "title": "Gruppe Locked",
             "type": "boolean"
@@ -17596,7 +17801,8 @@
           "gruppe_locked",
           "taken_trikot_farben",
           "retire_blocked_by",
-          "link"
+          "link",
+          "austritt_recipients"
         ],
         "title": "FLTeamSaisonAdminResponse",
         "type": "object"
@@ -18103,7 +18309,7 @@
         ]
       },
       "get": {
-        "description": "The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.\n\nThe pending address is served whole only where the person typed it, and masked where an administrator started the change.",
+        "description": "The change pending on the signed-in address, null where none is.\n\nThe pending address is served whole only where the person typed it, and masked where an administrator started the change.",
         "operationId": "account_get_address_change",
         "responses": {
           "200": {
@@ -26235,7 +26441,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/discard": {
       "post": {
-        "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that\nthe date stands.",
+        "description": "Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.\n\nThe public fixture counts it as the club's agreement, and the club is told that the date stands.",
         "operationId": "spielbestaetigungen_discard_spielbestaetigung",
         "parameters": [
           {
@@ -26546,7 +26752,7 @@
         ]
       },
       "patch": {
-        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
+        "description": "Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.\n\nA save storing what stands, where the bracket's resolution would move nothing either, writes no fixture and raises\nno `version`: with `adopts_bericht` it stamps the Spielbericht alone, and it is refused where that stamp matches\nnothing. A `dry_run` writes nothing and answers the same report, with the parties the confirmation pass would mail and the\nlater results the save would delete, which the save's `voided_results` must name back.",
         "operationId": "spiele_patch_spiel",
         "parameters": [
           {

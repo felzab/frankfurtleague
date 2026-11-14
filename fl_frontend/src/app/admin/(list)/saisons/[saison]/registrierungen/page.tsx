@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 
 import { filterValue } from "@/kit/filterValue";
 import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, NOT_SENT_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { NOT_SENT } from "@/features/bewerbungen/seats";
 import { getRegistrierungenAdmin } from "@/features/registrierungen/queries";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -41,23 +41,26 @@ const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label:
 
 /** Whether the pupil answered, and where they did not whether they were ever asked: the row lapses on its day either way. */
 function chipOf(row: FLRegistrierungAdminRow): ChipProps {
-  if (row.confirmed) return { tone: "success", label: COPY.admin.confirmed };
-  return row.unmailed ? NOT_SENT : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed };
+  if (row.confirmed) return CONFIRMED_CHIP;
+  return row.unmailed ? NOT_SENT_CHIP : UNCONFIRMED_CHIP;
 }
 
 /**
  * One pending registration, opening its team: a registration is decided by its team, so this list is read-only, and an
- * administrator cures what holds one up on the team's page.
+ * administrator cures what holds one up on the team's page. That page names the team but not the day the registration
+ * came in, so on a phone the row's line says it.
  */
 function rowOf(saison: string, row: FLRegistrierungAdminRow): TableRow {
+  const received = dayOf(row.submitted_at);
   return {
     id: row.id,
     name: { record: `${row.first_name} ${row.last_name}` },
     href: ROUTES.adminTeam.path(saison, row.team_id),
     chip: chipOf(row),
+    phoneLine: COPY.admin.bewerbung.receivedOn(received),
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
-      received: { record: formatDate(dayOf(row.submitted_at)) },
+      received: { record: formatDate(received) },
     },
   };
 }
@@ -104,7 +107,7 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   return { saison, filters: [team, state] as const, shown, cut: answer.complete ? null : COPY.admin.registrierung.cut };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
+/** The table's head; on a phone a row's line stands for its day. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -124,13 +127,11 @@ export default function RegistrierungenPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminRegistrierungen" } }}
       filters={season.then(({ filters }) => filters)}
-      filterCount={2}
       notice={season.then(({ cut }) => cut)}
       list={{
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
-        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminRegistrierungen.title,

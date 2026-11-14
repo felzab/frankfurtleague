@@ -176,6 +176,20 @@ UNMETERED: Final[tuple[Unmetered, ...]] = (
         "the mail provider's webhook: a refusal starts its retry schedule and, sustained, disables the endpoint, and its "
         "signature check is the gate",
     ),
+    *(
+        Unmetered(
+            path,
+            "a GET answering with one redirect to the page in the season the site is on, off the cached season list every "
+            "visitor shares, as cheap as the page GETs `location /` leaves unmetered",
+        )
+        for path in ("/saisons", "/saisons/ko-runde", "/saisons/tabelle", "/saisons/teams", "/saisons/search")
+    ),
+    Unmetered(
+        "/area",
+        "a signed-in person's landing, a GET answering with one redirect off the session read and the backend lookup "
+        "every page under it makes, as cheap as the page GETs `location /` leaves unmetered; on the sign-in's zone it "
+        "would spend that budget twice on every sign-in",
+    ),
 )
 
 
@@ -199,24 +213,18 @@ UNCEILINGED: Final[tuple[Unceilinged, ...]] = (
 
 @dataclass(frozen=True)
 class Metadata:
-    """One code-generated metadata convention, and why the URL Next serves it at is owed no meter."""
+    """One code-generated metadata convention, by its file's stem, and why the URL Next serves it at is owed no meter."""
 
     stem: str
-    url: str
     why: str
 
 
 # Beside REASONS rather than in it: what covers these at the edge is the catch-all, and a reason
 # naming `/` would count it as coverage -- the one direction this check may not fail in.
-
-# The URLs mirror Next's own metadata routing rather than anything here:
-# https://nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap, `.../robots` and
-# `.../manifest`, and for the generated manifest's `.webmanifest` spelling, which those pages leave
-# unsaid, Next's own `next/dist/lib/metadata/is-metadata-route.js`.
 METADATA: Final[tuple[Metadata, ...]] = (
-    Metadata("sitemap", "/sitemap.xml", "the route table's listed pages, rendered from the cached season list"),
-    Metadata("robots", "/robots.txt", "a constant object, and the crawl entry point every other URL is reached through"),
-    Metadata("manifest", "/manifest.webmanifest", "a constant object, fetched once per install"),
+    Metadata("sitemap", "the route table's listed pages, rendered from the cached season list"),
+    Metadata("robots", "a constant object, and the crawl entry point every other URL is reached through"),
+    Metadata("manifest", "a constant object, fetched once per install"),
 )
 
 # Reserved and deliberately unplaced until a row above places one: what each answers is decided per

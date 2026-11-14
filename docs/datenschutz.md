@@ -104,7 +104,10 @@ stand in [section 11](#11-open-and-owed-a-decision). Other documents link sectio
   - a full squad;
   - Cloudflare's bot check on the sign-in code request, the application form and the registration
     form (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`);
-  - an address that is not plain ASCII (`fl_backend/app/shared/folding.py :: league_address`);
+  - an address that is not plain ASCII (`fl_backend/app/shared/folding.py :: league_address`), which
+    the browser's copy of that rule refuses first, before anything is sent
+    (`fl_frontend/src/core/emailAddress.ts :: isDeliverableAddress`, read by
+    `fl_frontend/src/kit/TextField.tsx :: judgeOf` and the sign-in form's schema);
   - the code sign-in's limits (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`, the
     per-address counts under `fl_frontend/src/core/auth/signInRows.ts :: boundIdentifier`).
 - **A mailbox past the forms' bound is mailed nothing, and nobody is refused.** Once a mailbox holds
@@ -132,7 +135,10 @@ measures section 8's. "Administrators" are the holders of a grant to the adminis
     school's details, its address among them. The persons are named by whoever submits the
     application or by an administrator, so their data is taken from a third party (Art. 14).
   - Recipients: administrators; an application's Ansprechperson, who is told which other seats are
-    still open and which objected, by role alone, at an address that may be unconfirmed.
+    still open and which objected, by role alone, at an address that may be unconfirmed; every seat
+    holder of a season row, who sees on the team's overview each other seat's holder by name, the
+    seats they hold and whether they confirmed, never their address, telephone number or birthdate
+    (`fl_backend/app/api/teams/schemas.py :: FLTeamSeat`).
 - **Squads** (`registrierungen`, `spieler`, `saison_spieler`, `invitations`).
   - Purpose and basis: entering a pupil in a team's squad and fielding them; Art. 6(1)(f), the
     name's publication and media on consent.
@@ -672,8 +678,10 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
       telephone number or a form must stand beside it;
     - whether the interviews the media consent foresees are journalistic-editorial content needing
       a responsible person under § 18(2) MStV;
-    - which basis the notice and the page's description should cite, they citing § 5 DDG where this
-      record cites § 18(1) MStV first.
+    - which basis the notice, the page's description and the lead the page opens with should cite,
+      each citing § 5 DDG where this record cites § 18(1) MStV first
+      (`fl_frontend/src/core/serverCopy.ts :: SERVER_COPY`'s `description.legalNotice`, the page's
+      description and its lead alike).
 20. **The objection line's place**: whether a footer of 12 px under the Impressum and privacy links
     in each first-contact mail, and not on the confirmation page, is „presented clearly and
     separately from any other information“ under Art. 21(4).
@@ -689,8 +697,15 @@ the notice and the procedures in [`ops/runbooks.md`](ops/runbooks.md) stand as t
 24. **A Trainer of 16 or 17**: a contact person may be 16, can give the WhatsApp consent and decides
     admissions to a squad, seeing other minors' names to do so. Whether the answers on pupils and on
     the two 18 seats carry that too.
-25. **The Ansprechperson as a recipient**: whether the mails naming the other seats make that person
-    a recipient under Art. 4(9), as section 3 and the notice treat them.
+25. **The Ansprechperson and the seat holders as recipients**: whether the mails naming the other
+    seats make the Ansprechperson a recipient under Art. 4(9), as section 3 and the notice treat
+    them. The same holds for every seat holder of a season row, whom section 3 and the notice name
+    as a recipient of the other seat holders' names, of the seats each holds and of whether each
+    confirmed. And if they are: an administrator can seat a person directly on a season row, and
+    the row's confirmed seat holders then read that person's name before the person has received
+    any mail, while the confirmation mail waits in the Postausgang or after its delivery failed.
+    Whether Art. 14(3)(c) owes the information before that first disclosure, or the name is held
+    back until the seat is confirmed.
 26. **A seat past the bound and Art. 14**: such a person is stored untold, the first mail being
     where the notice stands. That lasts at most the application's 14 days and one, or a
     registration's deadline, unless an administrator sends the link. Whether that is the reasonable

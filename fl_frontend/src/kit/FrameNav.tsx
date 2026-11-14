@@ -1,21 +1,20 @@
 "use client";
 
-import { createContext, Suspense, use, useContext } from "react";
-import NextLink from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { createContext, use, useContext, useEffect, useState } from "react";
+import { useParams, usePathname } from "next/navigation";
 
 import { useTheme } from "next-themes";
 import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
-import { ROUTES } from "@/core/routes";
+import { ROLE_ROOTS, ROUTES } from "@/core/routes";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { signOut } from "@/shared/utils/signOut";
 
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { entryMark } from "./fieldStyles";
-import { GlyphChoices, GlyphChoicesPlaceholder } from "./GlyphChoices";
+import { GlyphChoices } from "./GlyphChoices";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { useLeaveGuard } from "./LeaveGuard";
@@ -25,9 +24,9 @@ import { currentOf, FreshPerPage, placeOf } from "./navPlace";
 import { RailTooltip, useRailCollapsed } from "./RailState";
 import { groupHeading, railFade, railGlyph } from "./railStyles";
 import { Sheet } from "./Sheet";
-import { Placeholder, placeholderBar, PlaceholderLine } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
+import { NavigationLink, useNavigate, usePressed } from "./WholePage";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
@@ -76,8 +75,8 @@ export type Saisons = {
 };
 
 /**
- * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
- * settles; `null` where the person has no season yet.
+ * A frame's seasons, read for the frame and handed down unawaited, so the read runs beside the page's own; `null`
+ * where the person has no season yet.
  */
 type SaisonFrame = {
   saisons: Promise<Saisons | null>;
@@ -108,16 +107,35 @@ export type FrameSaisons = SaisonFrame | TeamFrame;
 /** A frame's seasons with the season pages its menu lists. */
 type SaisonScopeValue = (SaisonFrame & { pages: readonly SaisonPage[] }) | (TeamFrame & { pages: readonly TeamPage[] });
 
-const SaisonContext = createContext<SaisonScopeValue | null>(null);
+/** A frame's seasons, with the season the last address naming one named, which a page whose address names none works in. */
+const SaisonContext = createContext<(SaisonScopeValue & { chosen?: string }) | null>(null);
 
-/** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
+/**
+ * Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach, and holds the
+ * last season an address named for as long as the frame's layout stays mounted: React state alone, so a reload or a new
+ * sign-in starts at the standard season, and nothing is stored.
+ */
 export function SaisonScope({ value, children }: { value: SaisonScopeValue; children: ReactNode }) {
-  return <SaisonContext value={value}>{children}</SaisonContext>;
+  const [chosen, setChosen] = useState<string>();
+  return (
+    <SaisonContext value={{ ...value, chosen }}>
+      {/* Reads the address, which no prerender knows: it renders with the page, at the page's request. */}
+      <SaisonMemory choose={setChosen} />
+      {children}
+    </SaisonContext>
+  );
 }
 
-/** Whether the frame holds seasons at all, which it knows before they are read: a frame with none draws no season button. */
-export function useHoldsSaison() {
-  return useContext(SaisonContext) !== null;
+/**
+ * Records the season the address names once the page showing it is committed. The record is read only on a page whose
+ * address names none, so the render after it changes nothing a person sees.
+ */
+function SaisonMemory({ choose }: { choose: (saison: string) => void }) {
+  const { saison } = useParams();
+  useEffect(() => {
+    if (typeof saison === "string") choose(saison);
+  }, [saison, choose]);
+  return null;
 }
 
 type Params = ReturnType<typeof useParams>;
@@ -135,21 +153,34 @@ type FrameSaison = {
   pages: ReadonlyArray<SaisonAddress>;
 };
 
+/** The frame's root, the address naming no season where its first page stands in the standard season (`ROLE_ROOTS`). */
+function rootOf(frame: SaisonScopeValue | null): Route | undefined {
+  return frame === null || frame.teams !== undefined ? undefined : ROLE_ROOTS[frame.home];
+}
+
 /**
- * The season the page works in: the one its address names where the frame holds it, else the frame's standard, in a
- * team's frame among the seasons of the team the address names; `null` where there is none.
+ * The season the page works in: the one its address names where the frame holds it; at the frame's root, which draws
+ * the standard season's page, the standard; on another page whose address names none, the one the last address naming
+ * one named where the frame holds it; else the frame's standard. In a team's frame among the seasons of the team the
+ * address names; `null` where there is none.
  */
 export function useFrameSaison(): FrameSaison | null {
   const frame = useContext(SaisonContext);
   const { saison, team } = useParams();
+  const path = usePathname();
   if (frame === null) return null;
+  // The season chosen before is sought only where the address names none and the page is no root: an address naming a
+  // season the frame does not hold, as a not-found page's, falls to the standard, as it would on the first page the
+  // frame shows, and so does a root, whose page is the standard season's.
+  const sought = typeof saison === "string" ? saison : path === rootOf(frame) ? undefined : frame.chosen;
+  const activeIn = (held: Saisons) => held.entries.find((entry) => entry.id === sought)?.id ?? held.standard;
 
   if (frame.teams !== undefined) {
     const held = use(frame.teams).find((each) => each.team === team);
     if (held === undefined) return null;
     return {
       entries: held.entries,
-      active: held.entries.find((entry) => entry.id === saison)?.id ?? held.standard,
+      active: activeIn(held),
       team: held.team,
       home: (to) => ROUTES[frame.home].path(held.team, to),
       pages: frame.pages.map((page) => (to) => ROUTES[page].path(held.team, to)),
@@ -160,7 +191,7 @@ export function useFrameSaison(): FrameSaison | null {
   if (saisons === null) return null;
   return {
     entries: saisons.entries,
-    active: saisons.entries.find((entry) => entry.id === saison)?.id ?? saisons.standard,
+    active: activeIn(saisons),
     home: (to) => ROUTES[frame.home].path(to),
     pages: frame.pages.map((page) => (to) => ROUTES[page].path(to)),
   };
@@ -236,7 +267,8 @@ function useEntries(groups: ReadonlyArray<RailGroup>) {
         const href = hrefOf(entry);
         if (href === undefined) return [];
         const own = entry.saison === undefined || saison !== null || led.filter((each) => each === href).length === 1;
-        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own }];
+        const home = entry.saison !== undefined && entry.saison === frame?.home;
+        return [{ id: entry.id, label: entry.label, icon: entry.icon, href, own, home }];
       }),
     }))
     .filter((group) => group.entries.length > 0);
@@ -311,11 +343,6 @@ export function ThemeChoice() {
   );
 }
 
-/** The theme's control while its box waits: one glyph's bar per theme. */
-export function ThemeChoicePlaceholder() {
-  return <GlyphChoicesPlaceholder count={THEMES.length} />;
-}
-
 /**
  * The account menu, the same in every area: „Funktion wechseln“ in a group of its own for a person holding two or
  * more Funktionen, its submenu marking the one the page lies under; Konto and Abmelden; Impressum and Datenschutz; and at
@@ -362,16 +389,33 @@ function AccountMenu({
   );
 }
 
-/** The entry the address belongs to: only by an address of its own, since a page several entries lead to is the place of none of them. */
-function useCurrent<Entry extends { href: Route; own: boolean }>(entries: ReadonlyArray<Entry>) {
+/**
+ * The entry the address belongs to: only by an address of its own, since a page several entries lead to is the place of
+ * none of them; at the frame's root, the first page's, which the root draws, its entry leading to the season's address.
+ */
+function useCurrent<Entry extends { href: Route; own: boolean; home: boolean }>(entries: ReadonlyArray<Entry>) {
   const { saison } = useParams();
+  const path = usePathname();
+  const root = rootOf(useContext(SaisonContext));
   const own = entries.filter((entry) => entry.own);
+  if (path === root) return own.find((entry) => entry.home);
   const href = placeOf(
-    usePathname(),
+    path,
     typeof saison === "string" ? saison : undefined,
     own.map((entry) => entry.href),
   );
   return own.find((entry) => entry.href === href);
+}
+
+/**
+ * The entry a list marks current: from the press of an entry of its own, the one the navigation goes to, so the mark
+ * moves at once; else the one the address belongs to (`useCurrent`).
+ */
+function useMarked<Entry extends { href: Route; own: boolean; home: boolean }>(entries: ReadonlyArray<Entry>) {
+  const current = useCurrent(entries);
+  const own = entries.filter((entry) => entry.own);
+  const pressed = usePressed(own.map((entry) => entry.href));
+  return pressed === undefined ? current : own.find((entry) => entry.href === pressed);
 }
 
 // The current entry carries the rail's own mark of the page it is on (`entryMark`'s `place`), the link carrying
@@ -401,10 +445,14 @@ const railRule = tv({
   base: "pointer-events-none absolute inset-x-0 -top-2 mx-auto h-px w-4.5 bg-border opacity-0 transition-opacity duration-(--motion-in) group-data-collapsed:opacity-100",
 });
 
-/** The rail's entries in their groups, the current one in the brand colour on the muted fill. */
-export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup> }) {
+/**
+ * The rail's entries in their groups, the current one in the brand colour on the muted fill, led by the seasons' read:
+ * for a season the frame does not hold, to its standard, since the not-found page stands in the frame, and a menu
+ * following an unknown season would lead every entry to another not-found page.
+ */
+export function RailEntries({ groups: given, prefetch }: { groups: ReadonlyArray<RailGroup>; prefetch?: true }) {
   const groups = useEntries(given);
-  const current = useCurrent(groups.flatMap((group) => group.entries));
+  const current = useMarked(groups.flatMap((group) => group.entries));
   return (
     // One column no wider than the rail: an implicit column grows to its group's unbreakable content, and a
     // heading or an entry's words, each kept on one line, outgrow the collapsed rail, which would carry every
@@ -428,8 +476,9 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
               <RailTooltip
                 key={entry.id}
                 label={entry.label}>
-                <NextLink
+                <NavigationLink
                   href={entry.href}
+                  prefetch={prefetch}
                   aria-current={entry === current ? "page" : undefined}
                   data-selected={entry === current || undefined}
                   data-kit-focus="inset"
@@ -441,56 +490,13 @@ export function RailEntries({ groups: given }: { groups: ReadonlyArray<RailGroup
                     />
                   </span>
                   <span className={railFade()}>{entry.label}</span>
-                </NextLink>
+                </NavigationLink>
               </RailTooltip>
             ))}
           </div>
         </div>
       ))}
     </nav>
-  );
-}
-
-/**
- * The rail's entries while the season their addresses name is read: every group and entry as `RailEntries` draws it,
- * each heading's and name's words a bar as wide as they will stand and each glyph a bar of its size, so the entries
- * appear in their places. No entry is marked current, which the address decides once the read lands.
- */
-export function RailEntriesPlaceholder({ groups }: { groups: ReadonlyArray<RailGroup> }) {
-  return (
-    <Placeholder layoutClass="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-hidden px-3 py-2">
-      {groups.map((group, index) => (
-        <div
-          key={group.heading ?? index}
-          className="relative">
-          {group.heading !== undefined && (
-            <div className={railHeading}>
-              <PlaceholderLine
-                textClass="text-xs"
-                words={group.heading}
-              />
-            </div>
-          )}
-          <div className="grid gap-1">
-            {group.entries.map((entry) => (
-              <span
-                key={entry.id}
-                className={railEntry({ current: false })}>
-                <span className={railGlyph()}>
-                  <span className={placeholderBar("size-4.5")} />
-                </span>
-                <span className={railFade()}>
-                  <PlaceholderLine
-                    textClass="text-sm"
-                    words={entry.label}
-                  />
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </Placeholder>
   );
 }
 
@@ -511,8 +517,8 @@ const avatar = tv({
 });
 
 /**
- * The person signed in, read for the frame and handed down unawaited, so the frame streams before the session
- * is judged; `null` for a session the area turns away, whose page sends it on.
+ * The person signed in, read for the frame and handed down unawaited, so the read runs beside the page's own;
+ * `null` for a session the area turns away, whose page sends it on.
  */
 export type AccountRead = Promise<Account | null>;
 
@@ -560,30 +566,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
   );
 }
 
-/**
- * The rail's foot while the session is judged: the row `AccountRow` draws, its avatar and its two lines as bars of
- * their sizes, so the foot keeps its height and the entries above stay where they are.
- */
-export function AccountRowPlaceholder() {
-  return (
-    <Placeholder layoutClass="flex h-12 w-full items-center gap-3 overflow-hidden rounded-lg px-2">
-      <span className={placeholderBar(avatar({ size: "rail" }))} />
-      <span className={railFade({ class: "grid min-w-0 flex-1" })}>
-        <PlaceholderLine
-          textClass="text-sm"
-          widthClass="w-3/4"
-        />
-        <PlaceholderLine
-          textClass="text-xs"
-          widthClass="w-1/2"
-        />
-      </span>
-    </Placeholder>
-  );
-}
-
-// A place's placeholder names no `host`: it borrows the box and answers nothing. The current place keeps its green
-// under the pointer, and every other turns its words full colour.
+// The current place keeps its green under the pointer, and every other turns its words full colour.
 const barPlace = tv({
   base: "flex h-full min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-(--motion-state)",
   variants: {
@@ -606,9 +589,13 @@ const barPlace = tv({
 export type FrameMenu = {
   groups: ReadonlyArray<RailGroup>;
   bar: ReadonlyArray<string>;
-  /** Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“. */
+  /**
+   * Links the rail keeps in its foot or the strip, which the phone reaches through „Mehr“.
+   */
   extra: ReadonlyArray<{ label: Copy; href: Route }>;
   account?: AccountRead;
+  /** Whether the entries prefetch their pages whole (`RailFrame`'s `prefetch`); the extra links prefetch as Next does by default. */
+  prefetch?: true;
 };
 
 const MenuContext = createContext<FrameMenu | null>(null);
@@ -627,23 +614,25 @@ export function BarPlaces() {
   return menu === null ? null : <Places {...menu} />;
 }
 
-function Places({ groups: given, bar, extra, account }: FrameMenu) {
+function Places({ groups: given, bar, extra, account, prefetch }: FrameMenu) {
   const groups = useEntries(given);
   const entries = groups.flatMap((group) => group.entries);
-  const current = useCurrent(entries);
+  const current = useMarked(entries);
   const placed = bar.flatMap((id) => entries.filter((entry) => entry.id === id));
   const rest = groups
     .map((group) => ({ ...group, entries: group.entries.filter((entry) => !bar.includes(entry.id)) }))
     .filter((group) => group.entries.length > 0);
 
   return (
+    // At the column's foot, by its margin, whether a page stands above it or none does yet.
     <nav
       aria-label={COPY.template.navigation}
-      className="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
+      className="sticky bottom-0 z-20 mt-auto grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg [view-transition-name:bar] lg:hidden">
       {placed.map((entry) => (
-        <NextLink
+        <NavigationLink
           key={entry.id}
           href={entry.href}
+          prefetch={prefetch}
           aria-current={entry === current ? "page" : undefined}
           data-kit-focus="inset"
           className={barPlace({ current: entry === current, host: "link" })}>
@@ -654,7 +643,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
           {/* No inset of its own: five places share a 360-px bar, and „K.-o.-Runde“ needs its column's whole width;
               the words stand centred, so the room their columns leave them parts two labels. */}
           <span className="max-w-full truncate">{entry.label}</span>
-        </NextLink>
+        </NavigationLink>
       ))}
       {(rest.length > 0 || extra.length > 0) && (
         <FreshPerPage>
@@ -678,9 +667,10 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                   className="grid gap-1">
                   {group.heading !== undefined && <h2 className={groupHeading({ class: "px-3 py-1" })}>{group.heading}</h2>}
                   {group.entries.map((entry) => (
-                    <NextLink
+                    <NavigationLink
                       key={entry.id}
                       href={entry.href}
+                      prefetch={prefetch}
                       aria-current={entry === current ? "page" : undefined}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
@@ -689,20 +679,20 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                         size={18}
                       />
                       {entry.label}
-                    </NextLink>
+                    </NavigationLink>
                   ))}
                 </div>
               ))}
               {extra.length > 0 && (
                 <div className="grid gap-1 border-t border-border pt-2">
                   {extra.map((link) => (
-                    <NextLink
+                    <NavigationLink
                       key={link.href}
                       href={link.href}
                       data-kit-focus="inset"
                       className={menuEntry({ size: "phone" })}>
                       {link.label}
-                    </NextLink>
+                    </NavigationLink>
                   ))}
                 </div>
               )}
@@ -710,69 +700,8 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
           </Sheet>
         </FreshPerPage>
       )}
-      {account !== undefined && (
-        // The bar's places stand drawn while the session is judged; the account's keeps its column, drawn as it waits.
-        <Suspense
-          fallback={
-            <Placeholder layoutClass="h-full">
-              <PlacePlaceholder
-                label={COPY.template.account}
-                glyph={avatar({ size: "bar" })}
-              />
-            </Placeholder>
-          }>
-          <AccountPlace account={account} />
-        </Suspense>
-      )}
+      {account !== undefined && <AccountPlace account={account} />}
     </nav>
-  );
-}
-
-/** One of the phone bar's places while it waits: its glyph and its words as bars, over one another as the place sets them. */
-function PlacePlaceholder({ label, glyph }: { label: Copy; glyph: string }) {
-  return (
-    <span className={barPlace({ current: false })}>
-      <span className={placeholderBar(glyph)} />
-      <PlaceholderLine
-        textClass="text-xs"
-        words={label}
-      />
-    </span>
-  );
-}
-
-/**
- * The phone's bottom bar while the season its addresses name is read: every place `BarPlaces` will draw, the pages,
- * „Mehr“ and the account, each its glyph and its words as bars, so the bar stands at once at its height.
- */
-export function BarPlacesPlaceholder() {
-  const menu = useContext(MenuContext);
-  if (menu === null) return null;
-  const entries = menu.groups.flatMap((group) => group.entries);
-  const placed = menu.bar.flatMap((id) => entries.filter((entry) => entry.id === id));
-  const more = entries.length > placed.length || menu.extra.length > 0;
-  return (
-    <Placeholder layoutClass="sticky bottom-0 z-20 grid h-14 auto-cols-fr grid-flow-col border-t border-border bg-bg lg:hidden">
-      {placed.map((entry) => (
-        <PlacePlaceholder
-          key={entry.id}
-          label={entry.label}
-          glyph="size-4.5"
-        />
-      ))}
-      {more && (
-        <PlacePlaceholder
-          label={COPY.template.more}
-          glyph="size-4.5"
-        />
-      )}
-      {menu.account !== undefined && (
-        <PlacePlaceholder
-          label={COPY.template.account}
-          glyph={avatar({ size: "bar" })}
-        />
-      )}
-    </Placeholder>
   );
 }
 
@@ -818,7 +747,7 @@ const back = tv({
  */
 export function BackControl({ href }: { href: Route }) {
   const guard = useLeaveGuard();
-  const router = useRouter();
+  const navigate = useNavigate();
   const content = (
     <>
       <Icon
@@ -831,12 +760,12 @@ export function BackControl({ href }: { href: Route }) {
 
   if (guard === null) {
     return (
-      <NextLink
+      <NavigationLink
         href={href}
         data-kit-focus="ring"
         className={back({ host: "link" })}>
         {content}
-      </NextLink>
+      </NavigationLink>
     );
   }
   return (
@@ -847,7 +776,7 @@ export function BackControl({ href }: { href: Route }) {
       tone="danger"
       onConfirm={() => {
         guard.discard();
-        router.push(href);
+        navigate(href);
       }}
       control={
         <AriaButton
@@ -857,22 +786,6 @@ export function BackControl({ href }: { href: Route }) {
         </AriaButton>
       }
     />
-  );
-}
-
-/**
- * „‹ Zurück“ while the address it leads to is read, an editor's list or an area's own way back: its glyph and its
- * words as the band's bars, in the place and at the size the control takes.
- */
-export function BackPlaceholder() {
-  return (
-    <Placeholder layoutClass={back({ class: "gap-1" })}>
-      <span className={placeholderBar("size-4.5")} />
-      <PlaceholderLine
-        textClass="text-sm"
-        words={COPY.shared.back}
-      />
-    </Placeholder>
   );
 }
 

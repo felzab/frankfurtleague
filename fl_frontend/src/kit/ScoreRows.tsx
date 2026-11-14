@@ -6,9 +6,8 @@ import { textOf } from "@/core/copy";
 import { formatNumber } from "@/core/format";
 
 import { smallCaps } from "./cardStyles";
-import { RequiredMark } from "./FieldParts";
+import { LockMark, RequiredMark, useFieldLock } from "./FieldParts";
 import { fieldFrame } from "./fieldStyles";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { TextField } from "./TextField";
 import { tv } from "./tv";
@@ -33,6 +32,11 @@ type ScoreColumn = {
   values: readonly [string, string];
   onChange: (side: 0 | 1, value: string) => void;
   isRequired: boolean;
+  /**
+   * Held fixed by its record: both fields read-only and marked with the lock (`useFieldLock`), a headed column at its
+   * head and the goals' unheaded one after each row's club, the name a goal field stands beside.
+   */
+  isLocked?: boolean;
 };
 
 /**
@@ -56,6 +60,9 @@ const scoreRows = tv({
     row: "col-span-full grid grid-cols-subgrid gap-y-1 py-1",
     head: smallCaps(),
     side: "col-start-1 row-start-1 flex h-8 min-w-0 items-center gap-2 pointer-coarse:h-10",
+    // The club's name and its goal fields' lock mark as one part of the side, so the side's gap stands before the name and
+    // the mark stands at its own distance after it, as after a field's label.
+    named: "flex min-w-0 items-center",
     name: "truncate text-sm font-medium",
     field: "contents [&_[data-kit-message]]:row-start-2 [&_[data-kit-message]]:text-end [&_input]:row-start-1 [&>*]:contents",
     // A counted figure in a field's place and at its width and inset, so it stands where a typed one would, in the bold
@@ -137,10 +144,14 @@ export function ScoreRows({
   const lineId = `${id}-line`;
   // A plaque on both sides or on neither, so the two names start at one edge.
   const plaques = sides[0].plaque !== null && sides[1].plaque !== null;
+  // The shoot-out's column is marked at its head; the goals' column has none, so each goal field is marked after the
+  // club naming its row.
+  const shootOutLock = useFieldLock(false, shootOut?.isLocked ?? false);
+  const toreLock = useFieldLock(false, !("counted" in tore) && tore.isLocked === true);
   const columnHead = (column: "shootOut", shown: ScoreColumn) => (
     <span className={slots.head({ column })}>
       {shown.head ?? shown.label}
-      <RequiredMark isRequired={shown.isRequired} />
+      {shootOutLock.isMarked ? <LockMark /> : <RequiredMark isRequired={shown.isRequired} />}
     </span>
   );
   const counted = (side: 0 | 1, { label, counted: figures }: CountedColumn) => (
@@ -152,7 +163,7 @@ export function ScoreRows({
       <span>{formatNumber(figures[side])}</span>
     </span>
   );
-  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired }: ScoreColumn) => (
+  const field = (side: 0 | 1, column: "tore" | "shootOut", { label, names, values, onChange, isRequired, isLocked }: ScoreColumn) => (
     <div
       // Keyed by what it posts, so a column opening beside it leaves a field and its focus where they are.
       key={names[side]}
@@ -164,6 +175,7 @@ export function ScoreRows({
         holds={2}
         kind="digits"
         isRequired={isRequired}
+        isLocked={isLocked}
         value={values[side]}
         onChange={(value) => onChange(side, value)}
       />
@@ -189,10 +201,13 @@ export function ScoreRows({
           className={slots.row({ place: side })}>
           <span className={slots.side()}>
             {plaques && sides[side].plaque !== null && <TeamPlaque plaque={sides[side].plaque} />}
-            <span
-              id={`${id}-${side}`}
-              className={slots.name()}>
-              {textOf(sides[side].name)}
+            <span className={slots.named()}>
+              <span
+                id={`${id}-${side}`}
+                className={slots.name()}>
+                {textOf(sides[side].name)}
+              </span>
+              {toreLock.isMarked && <LockMark />}
             </span>
           </span>
           {"counted" in tore ? counted(side, tore) : field(side, "tore", tore)}
@@ -206,29 +221,6 @@ export function ScoreRows({
           {said}
         </p>
       )}
-    </div>
-  );
-}
-
-/** The score's rows while the match is read: its goals' column and two sides, the shoot-out's column being the rare one. */
-export function ScoreRowsPlaceholder() {
-  const slots = scoreRows({ columns: 1 });
-  return (
-    <div className={slots.root()}>
-      {SIDES.map((side) => (
-        <div
-          key={side}
-          className={slots.row({ place: side })}>
-          <span className={slots.side()}>
-            <span className={placeholderBar("h-6 w-10")} />
-            <PlaceholderLine
-              textClass={slots.name()}
-              widthClass="w-24"
-            />
-          </span>
-          <span className={placeholderBar(`col-start-2 row-start-1 rounded-lg text-sm pointer-coarse:text-base ${SCORE_FIELD_CLASSES}`)} />
-        </div>
-      ))}
     </div>
   );
 }

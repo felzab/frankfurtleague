@@ -7,10 +7,8 @@ import { Text } from "react-aria-components/Text";
 import { textOf } from "@/core/copy";
 
 import { CutText } from "./CutText";
-import { FieldLabel, MessageLine } from "./FieldParts";
-import { choiceButton, choiceGroup, fieldLabel, fieldRoot, messageLine } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
-import { PlaceholderLine } from "./Skeleton";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { choiceButton, choiceGroup, fieldRoot, messageLine } from "./fieldStyles";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy } from "@/core/copy";
@@ -76,6 +74,7 @@ export function Segmented({
   labelHidden?: boolean;
 }) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <RadioGroup
       ref={root}
@@ -84,14 +83,15 @@ export function Segmented({
       orientation="horizontal"
       value={value}
       onChange={onChange}
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       // Only while refused: a stated `false` would hide the browser's own check, which React Aria then never shows.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(false)}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       {!labelHidden && (
         <FieldLabel
           label={label}
-          isRequired={isRequired}
+          isRequired={lock.isRequired}
         />
       )}
       <div className={choiceGroup({ kind: "segmented" })}>
@@ -119,33 +119,6 @@ export function Segmented({
 }
 
 /**
- * `ToggleBoxes` while its record is read: the label's line, each box at its own edge around a bar for its word, wrapping
- * as the boxes wrap.
- */
-export function ToggleBoxesPlaceholder({ count }: { count: number }) {
-  return (
-    <div className={fieldRoot()}>
-      <PlaceholderLine
-        textClass={fieldLabel()}
-        widthClass="w-24"
-      />
-      <span className={choiceGroup({ kind: "boxes" })}>
-        {Array.from({ length: count }, (_, index) => (
-          <span
-            key={index}
-            className={choiceButton({ kind: "boxes" })}>
-            <PlaceholderLine
-              textClass=""
-              widthClass="w-5"
-            />
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
-
-/**
  * A small multi-select of short words, such as a season's allowed Stufen: the label above, one box per answer,
  * each chosen box edged and tinted in the link green. React Aria's `CheckboxGroup`, the boxes its checkboxes, so the
  * group is heard as required and as invalid, and the browser's own check refuses it left with none chosen at the send.
@@ -162,19 +135,21 @@ export function ToggleBoxes({
   onChange?: (ids: string[]) => void;
 }) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <CheckboxGroup
       ref={root}
       className={fieldRoot()}
       value={value === undefined ? undefined : [...value]}
       onChange={onChange}
-      isRequired={isRequired}
+      isRequired={lock.isRequired}
       // Only while refused, as `Segmented`'s.
       isInvalid={errorMessage === undefined ? undefined : true}
-      isDisabled={useDisabled(false)}>
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
       />
       <div className={choiceGroup({ kind: "boxes" })}>
         {choices.map((choice) => (

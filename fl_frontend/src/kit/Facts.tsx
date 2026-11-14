@@ -4,7 +4,6 @@ import { AddressWords, addressWords, isAddress } from "./AddressWords";
 import { cardSurface, stacked } from "./cardStyles";
 import { Icon } from "./Icon";
 import { Link } from "./Link";
-import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy, Words } from "@/core/copy";
@@ -55,7 +54,8 @@ const facts = tv({
         // included, takes the row's whole width, so no empty cell stands beside it.
         row: `${stacked()} px-3 py-2 @lg:odd:not-last:border-e @lg:odd:last:col-span-2 @lg:nth-2:border-t-0`,
       },
-      // No box and no hairlines, two pairs a row at every width: the match pop-up's facts under its teams. A lone pair
+      // No box and no hairlines, two pairs a row at every width: facts inside a card or a pop-up, which draws no box
+      // inside its own. A lone pair
       // takes the row's whole width, so its value never wraps in half a phone's column beside nothing.
       free: {
         list: "grid grid-cols-2 gap-x-4 gap-y-3",
@@ -72,67 +72,10 @@ const facts = tv({
 });
 
 /**
- * A venue's name while the match is read, set unseen for a placeholder's size alone: it wraps in a narrow box as a
- * real venue does and stands on one line in a wide one. Never shown.
- */
-export const SPIELORT_WORDS = "Sportanlage am Riederwald";
-
-/**
- * A person's e-mail address while it is read, set unseen as a venue's name is: most addresses wrap in a phone's column
- * and stand on one line in a wide one. Never shown.
- */
-export const EMAIL_WORDS = "vorname.nachname@example.com";
-
-/**
- * The facts while the record is read: the block's own list in `look`, with `pairs` of its pairs, each a label's line
- * over a value's, two a row where `Facts` sets them so. `wraps` is the place of a pair whose value wraps in a narrow
- * column, and words as long as such a value is, set unseen, so the value stands as many lines as it will at every width.
- */
-export function FactsPlaceholder({
-  pairs,
-  look = "boxed",
-  wraps,
-}: {
-  pairs: number;
-  look?: "boxed" | "free";
-  wraps?: { pair: number; words: string };
-}) {
-  const { list, row, term, detail } = facts({ look });
-  return (
-    <div className="@container grid w-full gap-2 text-sm">
-      <div className={list()}>
-        {Array.from({ length: pairs }, (_, index) => (
-          <div
-            key={index}
-            className={row()}>
-            <PlaceholderLine
-              textClass={term()}
-              widthClass="w-1/4"
-            />
-            {index === wraps?.pair ? (
-              <PlaceholderSentence
-                textClass={detail()}
-                words={wraps.words}
-                lines={2}
-              />
-            ) : (
-              <PlaceholderLine
-                textClass={detail()}
-                widthClass="w-1/2"
-              />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
  * A record's data, read rather than edited: stacked pairs, each a 12-px muted label over its value, in a
  * hairline box with hairlines between the rows and two pairs a row where the box is wide, one hairline between the
- * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box as the
- * match pop-up sets them under the pairing. The one block that pairs a label with a value.
+ * columns, the rows' rules running the whole width and an odd last pair across both columns; or free of the box inside
+ * a card or a pop-up. The one block that pairs a label with a value.
  */
 export function Facts({ facts: rows, look = "boxed" }: { facts: ReadonlyArray<Fact>; look?: "boxed" | "free" }) {
   const { list } = facts({ look });

@@ -1,3 +1,5 @@
+import { ACTIVE_CHIP, RETIRED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 
 import type { Copy } from "@/core/copy";
@@ -15,24 +17,23 @@ function austrittKuerzel(type: FLAustrittType): Copy {
   return AUSTRITT_WORDS[type].shorthand;
 }
 
-// A disqualification is the league's sanction, so its chip takes the danger hue; a withdrawal is the club's own act.
-const AUSTRITT_TONE = { disqualifikation: "danger", rueckzug: "neutral" } as const satisfies Record<FLAustrittType, ChipProps["tone"]>;
-
 /**
  * A club's exit chip, after its name wherever a public list or its page names it: the route's two letters, which a
- * screen reader hears as the club's state, so every public surface draws one chip for one record.
+ * screen reader hears as the club's state, so every public surface draws one chip for one record. Red by either route:
+ * a withdrawal takes the danger hue as a disqualification does.
  */
 export function austrittChip(type: FLAustrittType): ChipProps {
-  return { tone: AUSTRITT_TONE[type], label: austrittKuerzel(type), spoken: austrittState(type) };
+  return { tone: "danger", label: austrittKuerzel(type), spoken: austrittState(type) };
 }
 
 /**
- * The chip after a club's name in the administration: „Stillgelegt“ once it left the league, else how it left the
- * season, whichever route, in the danger hue and in the full word, which the list and the editor have room for.
+ * The chip after a club's name in the administration, the list's „Stand“ column's and the editor's head alike:
+ * „Stillgelegt“ once it left the league, else how it left the season, red as the public chip draws it, and in the full
+ * word, which the list and the editor have room for; „Aktiv“ while it plays on.
  */
-export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps | undefined {
-  if (retiredSince !== null) return { tone: "neutral", label: COPY.shared.retired };
-  return exit === null ? undefined : { tone: "danger", label: austrittState(exit) };
+export function adminTeamChip(retiredSince: string | null, exit: FLAustrittType | null): ChipProps {
+  if (retiredSince !== null) return RETIRED_CHIP;
+  return exit === null ? ACTIVE_CHIP : { tone: "danger", label: austrittState(exit) };
 }
 
 export function trikotFarbeLabel(farbe: FLTrikotFarbe): Copy {

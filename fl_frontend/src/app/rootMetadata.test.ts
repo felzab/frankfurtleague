@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+import { createElement as h } from "react";
+
+import { underNext } from "@/test-support/nextContexts";
+import { renderToStaticMarkup } from "react-dom/server";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { SERVER_COPY } from "@/core/serverCopy";
 
@@ -12,7 +17,7 @@ vi.mock("next/font/google", () => {
 const SHARE_IMAGE = { src: "/_next/static/media/share-image.0a1b2c3d.png", width: 1200, height: 630 };
 vi.mock("./share-image.png", () => ({ default: SHARE_IMAGE }));
 
-const { metadata } = await import("./layout.tsx");
+const { default: RootLayout, metadata } = await import("./layout.tsx");
 
 describe("what every page inherits from the root layout", () => {
   // A page declaring none of these inherits the root's, so a signed-in page, a sign-in page or one a mail
@@ -28,5 +33,20 @@ describe("what every page inherits from the root layout", () => {
       { url: SHARE_IMAGE.src, width: SHARE_IMAGE.width, height: SHARE_IMAGE.height, alt: SERVER_COPY.shareImage.alt },
     ]);
     expect(metadata.openGraph).not.toHaveProperty("url");
+  });
+
+  // Without the link, or with its element anywhere but last, a slow device paints a page in pieces, and a table's column
+  // widens under the reader as its later rows arrive; every test and the build still pass.
+  it("holds the first paint until the body's last element is parsed", () => {
+    const html = renderToStaticMarkup(
+      underNext(h(RootLayout, { params: Promise.resolve({}), modal: h("aside"), children: h("main", null, h("p", null, "Absatz")) })),
+    );
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+
+    const link = parsed.head.querySelector('link[rel="expect"][blocking="render"]');
+    assert(link !== null, "the head holds no render-blocking expect link");
+    const href = link.getAttribute("href") ?? "";
+    expect(href, "the link names an element of the document by its fragment").toMatch(/^#./);
+    expect(parsed.body.lastElementChild?.id, "the element the link names is the body's last").toBe(href.slice(1));
   });
 });

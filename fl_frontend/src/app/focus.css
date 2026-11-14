@@ -40,12 +40,16 @@
    drawn for that focus stays after the pointer has clicked away, until a second click. A picker shows its edge while
    its pop-up is open, which holds the focus outside the field and so goes by the picker's own `data-open`, and
    under the keys, `data-focus-visible`, which on a group means anything inside it. Every other control rings on the
-   keyboard alone: React Aria's `data-focus-visible`, or `:focus-visible` on the kit's `next/link` anchor, which React
-   Aria never marks. */
+   keyboard alone: React Aria's `data-focus-visible`, or `:focus-visible` on the kit's `next/link` anchor and its
+   contents list's native `summary`, which React Aria never marks. */
 [data-kit-focus="field"]:is(:focus, :focus-within, [data-focused]):not(button, :has(button:focus)),
 [data-open] > [data-kit-focus="field"],
 [data-kit-focus="field"][data-focus-visible],
-:is([data-kit-focus="ring"], [data-kit-focus="inset"], [data-kit-focus="text"]):is([data-focus-visible], a:focus-visible),
+:is([data-kit-focus="ring"], [data-kit-focus="inset"], [data-kit-focus="text"]):is(
+  [data-focus-visible],
+  a:focus-visible,
+  summary:focus-visible
+),
 [data-focus-visible] > [data-kit-focus="box"] {
   outline-width: 2px;
   /* Lifts a flex or grid item's ring over the neighbour painted after it. */
@@ -87,8 +91,8 @@
   @apply bg-layer;
 }
 
-/* In a field showing its error, the active part tints red the way a chip or a callout does, 12 % of the
-   red over the ground, and its figures turn red. */
+/* In a field showing its error, the active part tints red the way a callout does, 12 % of the red over
+   the ground, and its figures turn red. */
 [data-kit-focus="item"][data-focused]:is([data-invalid], [data-invalid] *) {
   background-color: color-mix(in srgb, var(--danger) 12%, var(--bg));
   color: var(--danger);

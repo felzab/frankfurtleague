@@ -6,21 +6,23 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import days_after
 from app.api.spielbestaetigungen.services import (
+    AnsetzungState,
+    asked_with_its_move,
     compose_ansetzung,
     deadline_of,
-    discard_owes_a_notice,
     notice_owed,
     parties_told_of_the_change,
     reason_to_close,
     request_is_due,
+    team_state_of,
 )
 from app.core import clock
 
 TODAY = "2026-04-01"
 ALPHA = ObjectId("6890a1b2c3d4e5f607760001")
 BETA = ObjectId("6890a1b2c3d4e5f607760002")
+GAMMA = ObjectId("6890a1b2c3d4e5f607760003")
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077600c1")
-AFTER_THE_DAY = days_after(day=TODAY, days=8)
 
 
 def noon(day: str) -> datetime:
@@ -68,23 +70,44 @@ class TestTheDeadline:
         assert deadline_of(date=days_after(day=TODAY, days=3), today=TODAY) == TODAY
 
 
-class TestTheMintAsksInsideItsWindowAlone:
+class TestTheMintFirstAsksInsideItsWindow:
     def test_a_spiel_today_is_not_asked(self):
         """The floor's edge, a day and not the kick-off: a match today is asked of nobody, though it kicks off hours from now.
 
         A request asks ahead of the day, its deadline lying before it.
         """
 
-        assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW) is False
+        assert request_is_due(spiel=spiel(date=TODAY), austritte={}, now=NOW, asked_before=False) is False
+
+    def test_a_club_gone_after_the_spiel_is_still_asked(self):
+        """Its exit the day after the fixture, the club still plays it: only an exit by the fixture's day shuts the row."""
+
+        assert request_is_due(spiel=spiel(), austritte={ALPHA: days_after(day=spiel()["date"], days=1)}, now=NOW, asked_before=False) is True
+
+    def test_a_spiel_past_the_window_is_not_asked_first(self):
+        assert request_is_due(spiel=spiel(date=days_after(day=TODAY, days=60)), austritte={}, now=NOW, asked_before=False) is False
+
+
+class TestAPartyAskedIsAskedAboutAMoveAtOnce:
+    """Left to the window, a party told only of the move hears of no later move, call-off or exit until the window reaches it."""
+
+    @pytest.mark.parametrize(
+        ("moved_to", "asked"),
+        [
+            pytest.param(days_after(day=TODAY, days=60), True, id="past the window"),
+            # Nobody is asked about a match on its own day, so the move is told with no promise.
+            pytest.param(TODAY, False, id="onto today"),
+        ],
+    )
+    def test_its_row_is_the_mints_to_close(self, moved_to: str, asked: bool):
+        assert asked_with_its_move(row=row(TEAM, asked_at=TODAY), spiel=spiel(date=moved_to), austritte={}, now=NOW) is asked
 
 
 class TestWhyARowCloses:
     @pytest.mark.parametrize(
         ("party", "overrides", "austritte", "reason"),
         [
-            pytest.param(TEAM, {}, {}, None, id="nothing moved"),
             pytest.param(TEAM, {"time": "19:00:00"}, {}, "ansetzung_changed", id="a new hour"),
-            pytest.param(TEAM, {"spielort": None}, {}, "ansetzung_changed", id="the ground gone"),
             pytest.param(TEAM, {"ergebnis": "1:0", "time": "19:00:00"}, {}, "spiel_decided", id="decided and moved"),
             pytest.param(TEAM, {"sonderereignis": "ausgefallen"}, {}, "cancelled", id="called off"),
             pytest.param(TEAM, {"sonderereignis": "nichtantreten_team2"}, {}, "cancelled", id="a no-show entered before the day"),
@@ -95,35 +118,78 @@ class TestWhyARowCloses:
                 REFEREE, {"schiedsrichter": None, "time": "19:00:00"}, {}, "schiedsrichter_switched", id="taken off, ahead of the move"
             ),
             pytest.param(TEAM, {"schiedsrichter": None}, {}, None, id="a club's row keeps its referee change"),
+            # A party taken off is told so, never of a call-off of a match it no longer plays or officiates.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "sonderereignis": "ausgefallen"},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of the call-off",
+            ),
+            pytest.param(
+                TEAM,
+                {"team1": {"team_id": GAMMA, "tore": None}, "sonderereignis": "ausgefallen"},
+                {},
+                "ansetzung_changed",
+                id="the club taken off, ahead of the call-off",
+            ),
+            # Told it no longer plays or officiates the match, never that it was decided, which reaches nobody.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "team1": {"team_id": ALPHA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of the decision",
+            ),
+            pytest.param(
+                TEAM,
+                {"team1": {"team_id": GAMMA, "tore": 2}, "team2": {"team_id": BETA, "tore": 1}},
+                {},
+                "ansetzung_changed",
+                id="the club taken off, ahead of the decision",
+            ),
+            # Nor of the call-off an early no-show records.
+            pytest.param(
+                REFEREE,
+                {"schiedsrichter": None, "sonderereignis": "nichtantreten_team1"},
+                {},
+                "schiedsrichter_switched",
+                id="the referee taken off, ahead of a no-show before the day",
+            ),
         ],
     )
     def test_the_reason(self, party: dict[str, Any], overrides: dict[str, Any], austritte: dict[Any, str], reason: str | None):
         assert reason_to_close(row=row(party), spiel=spiel(**overrides), austritte=austritte, now=NOW) == reason
 
-    def test_an_answered_row_closes_as_an_open_one_does(self):
-        """The close's reach is `closed: null` alone, so a kept agreement records why it stopped applying."""
 
-        answered = row(TEAM, answer={"kind": "agreed"})
+# A club's decline the administrator discarded: its row closed, the decline its answer to the Ansetzung it was asked.
+DISCARDED = row(TEAM, asked_at=TODAY, answer={"kind": "declined"}, closed={"reason": "discarded"})
 
-        assert reason_to_close(row=answered, spiel=spiel(time="19:00:00"), austritte={}, now=NOW) == "ansetzung_changed"
-        assert reason_to_close(row=answered, spiel=spiel(), austritte={}, now=noon(AFTER_THE_DAY)) == "spiel_past"
+THE_DAY_AFTER = noon(days_after(day=spiel()["date"], days=1))
+
+
+class TestADiscardEndsWhereAnAgreementWouldEnd:
+    """Kept, the discard would count as its club's agreement in the public verdict where an agreement no longer counts."""
+
+    @pytest.mark.parametrize(
+        ("overrides", "now", "reason"),
+        [
+            pytest.param({"team1": {"team_id": ALPHA, "tore": 2}}, NOW, "spiel_decided", id="decided"),
+            pytest.param({}, THE_DAY_AFTER, "spiel_past", id="its day gone by"),
+            # Its discard told the club the date stands: kept, it would never hear it no longer plays the match.
+            pytest.param({"team1": {"team_id": GAMMA, "tore": None}}, NOW, "ansetzung_changed", id="its club taken off"),
+            # A move ends it whoever tells of it, the mint's request or the close's notice: kept beside the request, it
+            # would owe a second notice of the move, or of the next change, on top of the newer row's.
+            pytest.param({"time": "19:00:00"}, NOW, "ansetzung_changed", id="moved, its club asked about the new slot"),
+            pytest.param({"date": TODAY}, NOW, "ansetzung_changed", id="moved onto today, nobody asked"),
+        ],
+    )
+    def test_the_close_ends_it(self, overrides: dict[str, Any], now: datetime, reason: str):
+        assert reason_to_close(row=DISCARDED, spiel=spiel(**overrides), austritte={}, now=now) == reason
 
 
 # `spiel()`'s kick-off, on the zone the request's clock reads, as the report's own rule converts it.
 KICK_OFF = clock.german_instant(spiel()["date"], spiel()["time"]).astimezone(clock.GERMANY)
-
-
-class TestARowClosesAtItsKickOff:
-    @pytest.mark.parametrize("party", [pytest.param(TEAM, id="a club's"), pytest.param(REFEREE, id="a referee's")])
-    def test_open_a_minute_before_and_closed_from_it(self, party: dict[str, Any]):
-        """Open until midnight instead, a referee's decline pressed after the match unbooks them from the match just played."""
-
-        before, at = (
-            reason_to_close(row=row(party), spiel=spiel(), austritte={}, now=now) for now in (KICK_OFF - timedelta(minutes=1), KICK_OFF)
-        )
-
-        assert (before, at) == (None, "spiel_past")
-
 
 A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF = (KICK_OFF - timedelta(minutes=1), KICK_OFF)
 
@@ -139,6 +205,20 @@ class TestANoticeIsAboutASlotStillToCome:
 
         assert owed == [True, False]
 
+    @pytest.mark.parametrize(
+        ("now", "moved_to"),
+        [
+            pytest.param(THE_DAY_AFTER, days_after(day=spiel()["date"], days=7), id="off a day gone by"),
+            pytest.param(NOW, days_after(day=TODAY, days=-1), id="onto a day gone by"),
+        ],
+    )
+    def test_a_move_is_told_while_either_day_is_to_come(self, now: datetime, moved_to: str):
+        """Its slot left void and the fixture's asked afresh, a party is told of either while it still lies ahead."""
+
+        asked = row(TEAM, asked_at=TODAY)
+
+        assert notice_owed(row=asked, reason="ansetzung_changed", spiel=spiel(date=moved_to), now=now) is True
+
     def test_a_closing_other_than_a_move_is_about_the_slot_its_row_asked(self):
         """The fixture moved a week on and its referee taken off, both after the kick-off: the referee is told nothing.
 
@@ -153,11 +233,6 @@ class TestANoticeIsAboutASlotStillToCome:
         assert reason_to_close(row=asked, spiel=moved_and_taken_off, austritte={}, now=KICK_OFF) == "schiedsrichter_switched"
         assert notice_owed(row=asked, reason="schiedsrichter_switched", spiel=moved_and_taken_off, now=KICK_OFF) is False
 
-    def test_a_discard_after_the_kick_off_tells_the_club_nothing(self):
-        owed = [discard_owes_a_notice(row=row(TEAM), now=now) for now in A_MINUTE_BEFORE_AND_AT_THE_KICK_OFF]
-
-        assert owed == [True, False]
-
 
 class TestASaveNamesOnlyThoseItsOwnChangeTells:
     def test_a_second_move_before_the_pass_names_nobody_the_first_already_tells(self):
@@ -170,8 +245,47 @@ class TestASaveNamesOnlyThoseItsOwnChangeTells:
         first, second = spiel(time="19:00:00"), spiel(time="20:00:00")
 
         told = [
-            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, austritte={}, now=NOW)
+            parties_told_of_the_change(rows=asked, stored=stored, changed=changed, stored_austritte={}, changed_austritte={}, now=NOW)
             for stored, changed in ((spiel(), first), (first, second))
         ]
 
         assert told == [[TEAM], []]
+
+    def test_an_asked_move_names_the_discarded_club_its_request_tells(self):
+        """The mint asks the discarded club about the new slot, naming the slot left: a mail of the move, so the question names it."""
+
+        opponent = {"kind": "team", "team_id": BETA}
+        rows = [DISCARDED, row(opponent, asked_at=TODAY)]
+        moved = spiel(time="19:00:00")
+
+        told = parties_told_of_the_change(rows=rows, stored=spiel(), changed=moved, stored_austritte={}, changed_austritte={}, now=NOW)
+
+        # The premise: the mint asks about the new slot, so neither row is the close step's to tell.
+        assert all(asked_with_its_move(row=held, spiel=moved, austritte={}, now=NOW) for held in rows)
+        assert told == [TEAM, opponent]
+
+
+class TestATeamsPagesDropARowItsMatchDecided:
+    @pytest.mark.parametrize(
+        "decided",
+        [pytest.param({"ergebnis": "2:1"}, id="a result"), pytest.param({"sonderereignis": "nichtantreten_team2"}, id="a no-show")],
+    )
+    @pytest.mark.parametrize("answer", [pytest.param(None, id="unanswered"), pytest.param({"kind": "agreed"}, id="agreed")])
+    def test_before_the_pass_closes_it(self, decided: dict[str, Any], answer: dict[str, Any] | None):
+        """Kept until the hourly close, an unanswered row reads „Abgelaufen“ and „Die Liga entscheidet“ about a match decided."""
+
+        unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
+        state = AnsetzungState(spiel=spiel(**decided), vereine=[])
+
+        assert (
+            team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=KICK_OFF + timedelta(hours=2), vorschlag_open=None) is None
+        )
+
+    @pytest.mark.parametrize("answer", [pytest.param(None, id="unanswered"), pytest.param({"kind": "declined"}, id="declined")])
+    def test_or_its_opponent_left_by_its_day(self, answer: dict[str, Any] | None):
+        """Inside its deadline, an exit ends the question: kept until the close, the row would read „Abgelaufen“ or as its answer."""
+
+        unclosed = row(TEAM, deadline=TODAY, answer=answer, closed=None)
+        state = AnsetzungState(spiel=spiel(), vereine=[{"team_id": BETA, "austritt": {"date": TODAY}}])
+
+        assert team_state_of(spielbestaetigung_raw=unclosed, ansetzung_state=state, now=NOW, vorschlag_open=None) is None

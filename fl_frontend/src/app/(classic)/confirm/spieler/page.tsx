@@ -1,10 +1,7 @@
 import { cache } from "react";
 
-import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 import { mailedMetadata } from "@/kit/mailedLinkState";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
-import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { requires } from "@/core/action";
 import { MEDIA_MIN_AGE } from "@/core/bounds";
@@ -39,18 +36,10 @@ const WORDS = SERVER_COPY.registrierungConfirmation;
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
-const { scope } = SPIELER_WORDINGS;
-
 const { shape } = RegistrierungenPostConfirmationBody;
 
 /** What the confirmation's write asks of the two answers, a day and a choice that post nothing while unanswered. */
 const REQUIRED = { birth_date: requires(shape.birth_date, null), scope: requires(shape.scope, null) };
-
-/**
- * The question's first paragraph for the wait, a school's name standing as words about as long as a team's, and never
- * shown: set unseen, so the paragraph stands as many lines as it will at every width.
- */
-const SENTENCE_WORDS = `${WORDS.text(WORDS.opening(COPY.team.fullName, "2027"), WORDS.stored)} ${WORDS.more.before}${COPY.page.privacyNotice}${WORDS.more.after}`;
 
 /**
  * `/confirm/spieler`, the link a pupil's registration mails them, on the mailed-page template: the question, with
@@ -59,30 +48,7 @@ const SENTENCE_WORDS = `${WORDS.text(WORDS.opening(COPY.team.fullName, "2027"), 
  * league already holds meets the same question as a new one.
  */
 export default function RegistrierungConfirmationPage({ searchParams }: Props) {
-  return (
-    <MailedPage
-      page={readState(searchParams)}
-      facts={4}
-      act={COPY.page.registrierungConfirmation}
-      sentence={SENTENCE_WORDS}
-      // Any day's words are about as long, set unseen.
-      sentenceAfter={WORDS.deadline("2027-01-31")}
-      fields={
-        <>
-          {/* The floor the page reads is any age's words about as long, set unseen. */}
-          <FieldPlaceholder
-            kind="date"
-            description={WORDS.ageCheck(16)}
-          />
-          <RadioGroupPlaceholder
-            label={scope.question}
-            choices={[scope.options.kader_public, scope.options.internal]}
-          />
-          <ConsentLinePlaceholder line={scope.line} />
-        </>
-      }
-    />
-  );
+  return <MailedPage page={readState(searchParams)} />;
 }
 
 /** The link's own read; `null` for a token no registration holds or one the backend will not parse, a dead link either way. */

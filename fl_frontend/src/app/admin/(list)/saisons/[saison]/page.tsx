@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ListPage } from "@/kit/ListPage";
+import { DECLINED_CHIP, EXPIRED_CHIP } from "@/kit/stateChips";
 import { TextField } from "@/kit/TextField";
 
 import { requires } from "@/core/action";
@@ -24,12 +25,14 @@ import { ZusageDialog } from "./ZusageDialog";
 import type { Copy, Words } from "@/core/copy";
 import type {
   FLBracketFault,
+  FLOverviewParty,
   FLOverviewRow,
   FLSpielJoinedAdmin,
   FLSpielRecipientSchiedsrichter,
   FLSpielRecipientTeam,
 } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
+import type { ChipProps } from "@/kit/Chip";
 import type { Metadata, ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 import type { OpenParty } from "./ZusageDialog";
@@ -103,6 +106,16 @@ function faultLine(fault: FLBracketFault): Copy {
   }
 }
 
+/**
+ * A fixture's answers still due, by the party owing first, as the match editor words that party's row: by the day it is
+ * due by, a club's deadline and a referee's kick-off day, and a club whose request was never mailed as not asked.
+ */
+function dueLine(parties: readonly FLOverviewParty[]): Copy {
+  const [owing] = parties.toSorted((one, other) => one.due_by.localeCompare(other.due_by));
+  if (owing === undefined) return WORDS.missing(COPY.area.answer);
+  return owing.asked_at === null ? SPIEL.notAsked : SPIEL.answerBy(dayOf(owing.due_by));
+}
+
 /** Whether the Zusage's write asks for the party's row, which its segments choose. */
 const PARTY_REQUIRED = requires(SpielbestaetigungenEnterSpielbestaetigungParams.shape.spielbestaetigung_id, "");
 
@@ -121,21 +134,27 @@ function ReasonField() {
   );
 }
 
-/** What is open on a fixture's row, and the act done there where the row offers one. */
-function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Copy; acts?: ReactElement } {
+/**
+ * What is open on a fixture's row, the chip of the trouble it is in where it is in some, and the act done there where
+ * the row offers one.
+ */
+function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { chip?: ChipProps; line: Copy; acts?: ReactElement } {
   const { spiel } = row;
   switch (row.kind) {
     case "spielbestaetigung_due":
     case "spielbestaetigung_overdue": {
       const parties = row.parties.map((party): OpenParty => ({ id: party.spielbestaetigung_id, name: { record: party.name } }));
-      // The earliest deadline a club of the row was given, which its answer is overdue since.
-      const deadline = row.parties.map((party) => party.deadline).toSorted()[0];
-      const line = row.kind === "spielbestaetigung_due" || deadline === undefined ? WORDS.answerDue : WORDS.answerOverdue(dayOf(deadline));
+      // The earliest day a party's answer lapsed on.
+      const lapsed = row.parties.flatMap(({ lapsed_on }) => (lapsed_on === null ? [] : [lapsed_on])).toSorted()[0];
+      const shown =
+        row.kind === "spielbestaetigung_due" || lapsed === undefined
+          ? { line: dueLine(row.parties) }
+          : { chip: EXPIRED_CHIP, line: COPY.admin.schiedsrichter.expiredOn(dayOf(lapsed)) };
       const [first, ...rest] = parties;
       return first === undefined
-        ? { line }
+        ? shown
         : {
-            line,
+            ...shown,
             acts: (
               <ZusageDialog
                 parties={[first, ...rest]}
@@ -151,6 +170,7 @@ function openOf(row: Exclude<FLOverviewRow, { kind: "bewerbung" }>): { line: Cop
       const current = slotOf(spiel.date, spiel.time);
       const [from, to] = [COPY.spielplan.when(current.day, current.time), COPY.spielplan.when(proposed.day, proposed.time)];
       return {
+        chip: DECLINED_CHIP,
         line: WORDS.proposal(to, team),
         acts: (
           <VorschlagActs
@@ -208,20 +228,25 @@ function rowOf(row: FLOverviewRow, saison: string): CardActRowProps & { id: stri
       line: WORDS.seatsConfirmed(row.seats_confirmed, row.seats),
     };
   }
-  const { line, acts } = openOf(row);
+  const { chip, line, acts } = openOf(row);
   return {
     // A fixture stands once on a card.
     id: row.spiel.id,
     href: ROUTES.adminSpiel.path(saison, row.spiel.id),
     name: nameOf(row.spiel),
+    ...(chip === undefined ? {} : { chip }),
     line,
     ...(acts === undefined ? {} : { acts }),
   };
 }
 
-/** The season's open work, read once: not-found for a season the league does not hold. */
-async function readOverview(params: Props["params"]) {
-  const { saison } = await params;
+/**
+ * The season's open work, read once: not-found for a season the league does not hold, and the season list, where the
+ * first is created, while the league holds none.
+ */
+async function readOverview(of: Promise<string | null>) {
+  const saison = await of;
+  if (saison === null) redirect(ROUTES.adminSaisons.path());
   const read = await getSaisonOverview(saison);
   if (read === null) notFound();
   return {
@@ -237,25 +262,17 @@ async function readOverview(params: Props["params"]) {
  * The administrator's Übersicht of one season: its open work on four cards in the order of urgency, every card drawn
  * every day, a fixture once on each, for its first open kind. A slot still to set, a club's Zusage heard elsewhere and
  * a club's proposed date are each done on their row; everything else opens the fixture's editor, or the application's
- * page.
+ * page. Drawn for the season the address names, and at `/admin` for the season the administration works in by standard.
  */
-export default function OverviewPage({ params }: Props) {
+export function AdminOverview({ saison }: { saison: Promise<string | null> }) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminOverview" } }}
-      list={{
-        kind: "cards",
-        wait: {
-          rows: 5,
-          cards: [
-            { title: WORDS.card.due, acts: [COPY.shared.withObject(COPY.admin.overview.zusage, "enter")] },
-            { title: WORDS.card.ergebnisse },
-            { title: WORDS.card.dates, acts: [COPY.shared.withObject(COPY.admin.overview.appointment, "set")] },
-            { title: WORDS.card.bewerbungen },
-          ],
-        },
-        content: readOverview(params),
-      }}
+      list={{ kind: "cards", content: readOverview(saison) }}
     />
   );
+}
+
+export default function OverviewPage({ params }: Props) {
+  return <AdminOverview saison={params.then(({ saison }) => saison)} />;
 }

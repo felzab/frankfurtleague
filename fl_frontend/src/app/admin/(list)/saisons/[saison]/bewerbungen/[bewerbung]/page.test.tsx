@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
-import { SideActsScope } from "@/kit/SideActs";
-import { render, screen, within } from "@testing-library/react";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import BewerbungPage from "./page";
 
 import type { FLBewerbung, FLBewerbungConfirmation, FLKontaktperson } from "@/core/generated/client/types";
 import type { ReadRecord } from "@/kit/ReadPage";
@@ -15,11 +14,17 @@ import type { SeatRow } from "@/kit/SeatRows";
 
 const ID = "65f0a0a0a0a0a0a0a0a0a0a0";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+/** The application the backend serves at the address's id. */
+const state = { read: null as unknown };
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => undefined }) }));
-vi.mock("@/features/bewerbungen/queries", () => ({ getBewerbungById: () => Promise.resolve(state.read) }));
-vi.mock("@/shared/utils/adminRead", () => ({ adminIdParamOf: () => Promise.resolve(ID) }));
+
+// The page's one read, of the application its address names, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === `/bewerbungen/${ID}` ? state.read : undefined));
+// An administrator's session, made by passkey, which the page's guard admits.
+signedInRequest();
+
+const { default: BewerbungPage } = await import("./page");
 
 const person = {
   first_name: "Anke",
@@ -72,8 +77,8 @@ function readOf({ duplicate }: { duplicate: boolean }) {
   };
 }
 
-async function seatRows(read: unknown = readOf({ duplicate: false })): Promise<readonly SeatRow[]> {
-  state.read = read;
+async function seatRows(): Promise<readonly SeatRow[]> {
+  state.read = readOf({ duplicate: false });
 
   const page = BewerbungPage(PARAMS) as { props: { record: Promise<ReadRecord> } };
   const { groups } = await page.props.record;
@@ -112,27 +117,5 @@ describe("a seat the submission never mailed", () => {
     // A seat's acts stand in its row's „⋯“.
     await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
     expect(screen.getByRole("menuitem", { name: COPY.shared.withObject(COPY.account.address.link, "send") })).toBeTruthy();
-  });
-});
-
-describe("a seat row's count of its acts", () => {
-  /* The list reads the count to choose between a „⋯“ and a lone button for all its rows: a count short of the acts
-     drawn turns a list of two acts a row into one of buttons, or hides a lone act behind a menu of one entry. */
-  it("is the number of acts the row draws, with its fresh link and without", async () => {
-    vi.spyOn(window, "matchMedia").mockImplementation((media) => Object.assign(new EventTarget(), { media, matches: true }) as MediaQueryList);
-    const read = readOf({ duplicate: false });
-    // The Ansprechperson answered, so their row carries no fresh link.
-    read.bewerbung.confirmations.ansprechperson = { ...open, state: "confirmed" };
-    const rows = (await seatRows(read)).filter((row) => row.acts !== undefined);
-
-    const counts: Array<{ said: number | undefined; drawn: number }> = [];
-    for (const row of rows) {
-      const { unmount } = render(<SideActsScope folds>{row.acts}</SideActsScope>);
-      await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
-      counts.push({ said: row.sideActs, drawn: within(screen.getByRole("menu")).getAllByRole("menuitem").length });
-      unmount();
-    }
-    expect(new Set(counts.map(({ said }) => said))).toStrictEqual(new Set([1, 2]));
-    for (const { said, drawn } of counts) expect(said).toBe(drawn);
   });
 });

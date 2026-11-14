@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-
-import SpielberichtPage from "./page";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import type { FLSpielberichtSchiedsrichterResponse } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
@@ -47,19 +47,26 @@ const READ: FLSpielberichtSchiedsrichterResponse = {
   version: 3,
 };
 
-vi.mock("@/features/roles/resolvers", () => ({
-  requireRole: () => Promise.resolve({}),
-  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
-}));
-vi.mock("@/features/spielberichte/queries", () => ({ getOwnSpielbericht: () => Promise.resolve(READ) }));
-vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: () => Promise.resolve({ saisons: [] }) }));
+// The page's two reads: the referee's own report of the fixture the address names, and the public frame's seasons,
+// which withhold 2027. Any other read, another fixture's report among them, fails the case.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === `/spielberichte/${SPIEL_ID}/bericht`) return READ;
+  if (path === "/saisons/frame") return { active_saison_id: null, saisons: [] };
+  return undefined;
+});
+// A referee, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { schiedsrichter: [{ schiedsrichter_id: "64b0000000000000000000ee" }] } });
+const { default: SpielberichtPage } = await import("./page");
 
 /** The pupils each side's player lists offer, each by id and whether it can be picked. */
 async function offered() {
-  const page = SpielberichtPage({ params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }) } as Parameters<typeof SpielberichtPage>[0]) as {
-    props: { editor: Promise<ReactElement<{ squads: Record<"team1" | "team2", Option[]> }>> };
-  };
-  const { squads } = (await page.props.editor).props;
+  const page = (await SpielberichtPage({ params: Promise.resolve({ saison: "2027", spiel: SPIEL_ID }) } as Parameters<
+    typeof SpielberichtPage
+  >[0])) as ReactElement<{
+    squads: Record<"team1" | "team2", Option[]>;
+  }>;
+  const { squads } = page.props;
   const of = (options: readonly Option[]) => options.map(({ id, isDisabled }) => ({ id, disabled: isDisabled === true }));
   return { team1: of(squads.team1), team2: of(squads.team2) };
 }

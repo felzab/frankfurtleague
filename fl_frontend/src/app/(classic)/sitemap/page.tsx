@@ -1,9 +1,7 @@
 import { connection } from "next/server";
 
-import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
-import { PageWait } from "@/kit/PageFade";
-import { Prose, ProseLinksPlaceholder } from "@/kit/Prose";
-import { SAISON_WORDS } from "@/kit/Skeleton";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
+import { ProseOnceRead } from "@/kit/Prose";
 
 import { COPY } from "@/core/copy";
 import { ROUTES, SAISONLESS_PAGES } from "@/core/routes";
@@ -13,54 +11,44 @@ import { pageMetadata } from "@/shared/utils/metadata";
 
 import { LEGAL_LINKS, LIGA_LINKS } from "../frame";
 
+import type { ProseSection } from "@/kit/Prose";
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
   return pageMetadata(parent, ROUTES.sitemap, ROUTES.sitemap.path(), { description: SERVER_COPY.description.sitemap });
 }
 
-/** Every season the public may read, the newest first, each with its pages. Read on a request: the build reaches no backend. */
-async function SaisonGroups() {
-  await connection();
-  const { saisons } = await getSaisonFrame();
-  if (saisons.length === 0) return null;
-  return (
-    <Prose
-      blocks={saisons.flatMap(({ id }) => [
-        { kind: "heading", text: COPY.shared.saisonName(id) },
-        { kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) },
-      ])}
-    />
-  );
-}
+/** The footer's groups, which stand under the seasons. */
+const FRAME_GROUPS: ReadonlyArray<ProseSection> = [
+  { heading: COPY.template.liga, blocks: [{ kind: "links", links: LIGA_LINKS }] },
+  { heading: COPY.template.legal, blocks: [{ kind: "links", links: LEGAL_LINKS }] },
+];
 
 /**
- * Every public page in the footer's groups, for a person looking for one. The page waits for the read naming the
- * seasons, the groups below them landing with them in one reveal: the seasons are as many as the league has played, so
- * no wait can stand at their height, and groups standing below the wait would drop when more than its one arrive. The
- * column's gap is the one the headings keep inside `Prose`.
+ * Every season the public may read, the newest first, each with its pages, over the footer's groups. Read on a
+ * request: the build reaches no backend.
  */
+async function readGroups(): Promise<ReadonlyArray<ProseSection>> {
+  await connection();
+  const { saisons } = await getSaisonFrame();
+  return [
+    ...saisons.map(({ id }): ProseSection => ({
+      heading: COPY.shared.saisonName(id),
+      blocks: [{ kind: "links", links: SAISONLESS_PAGES.map(({ page }) => ({ label: ROUTES[page].title, href: ROUTES[page].path(id) })) }],
+    })),
+    ...FRAME_GROUPS,
+  ];
+}
+
+/** Every public page in the footer's groups, for a person looking for one. */
 export default function SitemapPage() {
   return (
     <ClassicPage width="form">
-      <ClassicTitle text={COPY.page.sitemap} />
-      <PageWait
-        fallback={
-          <ProseLinksPlaceholder
-            heading={SAISON_WORDS}
-            links={SAISONLESS_PAGES.map(({ page }) => ROUTES[page].title)}
-          />
-        }>
-        <SaisonGroups />
-        <Prose
-          blocks={[
-            { kind: "heading", text: COPY.template.liga },
-            { kind: "links", links: LIGA_LINKS },
-            { kind: "heading", text: COPY.template.legal },
-            { kind: "links", links: LEGAL_LINKS },
-          ]}
-        />
-      </PageWait>
+      <PageHead
+        title={COPY.page.sitemap}
+        lead={[SERVER_COPY.description.sitemap]}
+      />
+      <ProseOnceRead sections={readGroups()} />
     </ClassicPage>
   );
 }

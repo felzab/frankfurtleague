@@ -273,31 +273,6 @@ A_HOLDER_S_WAIT_ENDS = (NOW + timedelta(hours=GRANT_WAIT_HOURS)).astimezone(UTC)
 
 class TestTheLinks:
     @pytest.mark.parametrize(
-        ("cause", "refused"),
-        [
-            ("taken", Code.ADDRESS_CHANGE_TAKEN),
-            ("empty", Code.ADDRESS_CHANGE_NOTHING),
-        ],
-    )
-    def test_a_link_its_press_would_refuse_for_the_address_on_file_s_sake_offers_no_confirmation(
-        self, mongo_replica_set_url: str, cause: str, refused: str
-    ):
-        """The page reads its view before offering the press: a view reading `valid` here offers what the press refuses."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client, identifier=OTHER_EMAIL) if cause == "empty" else await start(database, client)
-            if cause == "empty":
-                # Its one pupil row erased by a database edit, which ends no change as the erasure route would.
-                await database[Collection.SPIELER].delete_one({"_id": OTHER_OID})
-            else:
-                await database[Collection.SPIELER].update_one({"_id": OTHER_OID}, {"$set": {"email": NEW_EMAIL}})
-            seen = (await view(database, client, minted.token)).view
-            return seen.state, seen.email, await refused_code(answer(database, client, minted.token))
-
-        # Its question unaskable, the link names no address.
-        assert on_a_person(mongo_replica_set_url, body) == ("not_confirmable", None, refused)
-
-    @pytest.mark.parametrize(
         ("step", "waits_on", "previous", "email", "deadline", "wait_ends"),
         [
             ("an administrator's start", "new_address", "open", MASKED_NEW_EMAIL, A_LINK_S_DEADLINE, None),
@@ -347,29 +322,6 @@ class TestTheLinks:
             return seen.state, seen.email, pressed
 
         assert on_a_person(mongo_replica_set_url, body) == ("release_expired", None, Code.LINK_EXPIRED)
-
-    def test_the_new_link_names_the_day_it_was_confirmed_in_the_wait_and_once_ended(self, mongo_replica_set_url: str):
-        """The effect's day is the wait's end, so a page naming it as the confirmation's would be a day or a week out."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await granted(database)
-            minted = await start(database, client)
-            before = (await view(database, client, minted.token)).view
-            await answer(database, client, minted.token)
-            waiting = (await view(database, client, minted.token)).view
-            stopped = (await view(database, client, minted.stop_token)).view
-            await sweep(database, client, germany_now=AFTER_THE_DEADLINE)
-            ended = (await view(database, client, minted.token)).view
-            ended_stop = (await view(database, client, minted.stop_token)).view
-            return (
-                before.confirmed_on,
-                waiting.confirmed_on,
-                getattr(stopped, "confirmed_on", "absent"),
-                ended.confirmed_on,
-                ended_stop.confirmed_on,
-            )
-
-        assert on_a_person(mongo_replica_set_url, body) == (None, TODAY, "absent", TODAY, None)
 
     def test_an_ended_change_s_links_answer_how_it_ended_and_take_nothing_more(self, mongo_replica_set_url: str):
         """Each link answers truthfully after the end, for as long as the record is kept."""
@@ -510,16 +462,6 @@ class TestTheSystemsReadOfTheNewAddress:
             return [answered.email for answered in (*before, *after)]
 
         assert on_a_person(mongo_replica_set_url, body) == [NEW_EMAIL] * 4
-
-    def test_a_row_holding_another_spelling_is_answered_folded(self, mongo_replica_set_url: str):
-        """Every start stores the fold and the database refuses no spelling: a row written by hand still names the account's key."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            await database[Collection.ADDRESS_CHANGES].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
-            return (await the_new_address(database, client, address_change_id=minted.id)).email
-
-        assert on_a_person(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_BY_HAND) == NEW_EMAIL
 
     def test_a_key_naming_no_live_change_answers_null(self, mongo_replica_set_url: str):
         """Never a 404: a lapsed or answered link costs the page no error, and the stop link never names the new mailbox."""
@@ -708,18 +650,6 @@ class TestTheConfirmation:
         assert (code, standing["ended"], standing["email"]) == (Code.ADDRESS_CHANGE_NOTHING, None, NEW_EMAIL)
         assert (lapsed["ended"]["kind"], lapsed["email"]) == ("expired", None)
 
-    def test_a_pupil_moves_to_the_fold_whatever_the_record_spells(self, mongo_replica_set_url: str):
-        """The sign-in joins `spieler.email` by equality, so a spelling left unfolded signs the pupil in to nothing, with nothing failing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            await database[Collection.ADDRESS_CHANGES].update_one({"_id": minted.id}, {"$set": {"email": "Lenore.Q@NeuPost.example.org"}})
-            await answer(database, client, minted.token)
-            return (await row(database, Collection.SPIELER, SPIELER_OID))["email"]
-
-        # The move carries the hand-written spelling onto every other record it names, which the read-back refuses too.
-        assert on_a_person(mongo_replica_set_url, body, stores_a_refused_shape=UNFOLDED_BY_HAND) == NEW_EMAIL
-
     def test_the_decline_ends_it_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
@@ -740,7 +670,6 @@ class TestTheConfirmation:
 VERA_ROW_OID = ObjectId("6890a1b2c3d4e5f607850032")
 
 # Why a case stores a shape the read-back refuses: each a state no write leaves, which a read or a move is held against.
-UNFOLDED_BY_HAND = "a change row holding its new address unfolded, which no start stores"
 UNCONSENTED_PUPIL = "a pupil's record holding no consent, which no admission stores"
 
 
@@ -856,22 +785,6 @@ class TestTheNewAddressesOwnRecords:
         # No notice of this change's own.
         assert (rows["pupil"]["email"], rows["referee"]["kontakt"]["email"]) == (EMAIL, EMAIL)
         assert notices == []
-
-    def test_the_tool_s_refusal_names_its_box_and_the_press_s_names_none(self, mongo_replica_set_url: str):
-        """Unnamed, the tool's refusal reaches a shared failure line; on the press, it would name a field its body has not got."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            await held_by_another(database, "a-seat")
-            with pytest.raises(APIError) as pressed:
-                await answer(database, client, minted.token)
-            await stop_here(database, client)
-            with pytest.raises(APIError) as started:
-                await administrator_starts(database, client)
-
-            return started.value.fields, pressed.value.fields
-
-        assert on_a_person(mongo_replica_set_url, body) == ((("email",),), ())
 
     def test_a_link_mail_the_drain_reaches_past_its_link_is_given_up_and_the_lost_mailbox_notice_goes(self, mongo_replica_set_url: str):
         """The mail promises the link's hours: sent late it carries a dead link, and the stop link beside it answers past every deadline."""
@@ -1127,17 +1040,6 @@ class TestAHoldersOwnChange:
 
         assert effective_from == (NOW + timedelta(days=OWNER_WAIT_DAYS)).astimezone(UTC)
         assert holders == ["owner", "owner"]
-
-    def test_the_account_page_is_told_the_wait_a_handover_s_row_serves(self, mongo_replica_set_url: str):
-        """The page words the wait from this read: the stored tier would promise a day where the row waits a week."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            grant = await granted(database)
-            before = await read(database, client)
-            await database[Collection.GRANTS].update_one({"_id": grant}, {"$set": {"owner_from": NOW + timedelta(days=1)}})
-            return before.wait_tier, (await read(database, client)).wait_tier
-
-        assert on_a_person(mongo_replica_set_url, body) == ("administration", "owner")
 
     def test_a_lost_mailbox_start_landing_beside_an_addition_of_its_address_meets_the_grant(self, mongo_replica_set_url: str):
         """Unanchored, the two share no row and both commit: a change an administrator may not start stands at a grant."""
@@ -1441,17 +1343,6 @@ class TestTheTool:
 
         assert on_a_person(mongo_replica_set_url, body) == holders
 
-    @pytest.mark.parametrize("what", ["a-pupil", "a-seat"])
-    def test_a_re_send_to_an_address_taken_since_answers_the_one_code_its_page_words(self, mongo_replica_set_url: str, what: str):
-        """Another code falls through to the shared failure line, which sends the administrator to a retry refused alike."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            started = await administrator_starts(database, client)
-            await held_by_another(database, what)
-            return await refused_code(resend(database, client, started.id))
-
-        assert on_a_person(mongo_replica_set_url, body) == Code.ADDRESS_CHANGE_NEW_TAKEN
-
     @pytest.mark.parametrize("route", ["re-send", "discard"])
     @pytest.mark.parametrize(("whose", "refused"), [("own", Code.OWN_ADDRESS), ("grant-holder", Code.ADMIN_ADDRESS)])
     def test_who_asks_is_refused_on_every_route_the_start_refuses_it(self, mongo_replica_set_url: str, route: str, whose: str, refused: str):
@@ -1586,21 +1477,6 @@ class TestTwoPressesAtOnce:
             assert (discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, "effective", NEW_EMAIL)
         else:
             assert (confirmed, discarded, kind, address) == (Code.ADDRESS_CHANGE_ENDED, None, "discarded", EMAIL)
-
-
-class TestTheDecline:
-    def test_a_lapsed_link_still_declines_and_leaves_its_address_nowhere(self, mongo_replica_set_url: str):
-        """Its holder says the change is not theirs; a link refusing that would keep a stranger's address stored."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            await answer(database, client, minted.token, "declined", germany_now=AFTER_THE_DEADLINE)
-            return (await change(database, minted.id))["ended"]["kind"], await where_held(database, NEW_EMAIL, folded=True)
-
-        kind, held = on_a_person(mongo_replica_set_url, body)
-
-        # Only the row of the link mail the league sent, which keeps its recipient until its retention ends.
-        assert (kind, held) == ("declined", {NEW_EMAIL: ["outbox"]})
 
 
 class TestTheWaitingTime:

@@ -1,19 +1,17 @@
-import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
-import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { refused } from "@/test-support/refusals.ts";
+import { refusal, serveBackend } from "@/test-support/backend.ts";
+import { signedInRequest } from "@/test-support/session.ts";
 import { describe, expect, it } from "vitest";
+
+import { APIBadStatusError } from "@/core/errors.ts";
 
 import type { Code } from "@/core/generated/client/types.ts";
 
-/** What the doubled client throws for every read, set by each case. */
-let failure: unknown;
+/** What the backend answers every read with, set by each case. */
+let failure: () => Response;
+const backend = serveBackend(() => failure());
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
-
-doubleApiClient(() => {
-  throw failure;
-});
+signedInRequest();
 
 const bewerbungen = await import("@/features/bewerbungen/queries.ts");
 const schiedsrichter = await import("@/features/schiedsrichter/queries.ts");
@@ -29,18 +27,19 @@ const READS: Readonly<Record<string, () => Promise<unknown>>> = {
   getAdminSpielplan: () => spiele.getAdminSpielplan("2027"),
 };
 
-const notFound = (code: Code | undefined) => refused(code, { status: 404 });
-
 describe("a read of a record the API says is missing", () => {
   /* By the code and never the status: a 404 carrying none is a route the edge or the framework did not
      find, and reading it as none would render a page's missing state while the API is unreachable. */
   it("keeps a 404 carrying no code, or another code, the failure it is", async () => {
-    for (const code of [undefined, "no_route"] as const) {
-      const thrown = notFound(code);
-      failure = thrown;
+    for (const code of [undefined, "no_route"] as const satisfies readonly (Code | undefined)[]) {
+      failure = () => refusal(code, { status: 404 });
 
       for (const [name, read] of Object.entries(READS)) {
-        await expect(read(), `${name} with ${String(code)}`).rejects.toSatisfy((error) => error === thrown);
+        const sent = backend.sent.length;
+        await expect(read(), `${name} with ${String(code)}`).rejects.toSatisfy(
+          (error) => error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === code,
+        );
+        expect(backend.sent.length, `${name} never asked the backend, so no answer was read`).toBe(sent + 1);
       }
     }
   });

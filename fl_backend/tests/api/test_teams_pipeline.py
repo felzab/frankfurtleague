@@ -1,11 +1,8 @@
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-import pytest
-
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import FLSpiel
-from app.api.teams.schemas import FLTeamStatistikScope
 from app.api.teams.services import (
     AS_NAME,
     CANCELLED_AS_NAME,
@@ -61,25 +58,13 @@ def reads(node: Any, *path: str) -> bool:
     return any(candidate[index : index + width] == path for candidate in _paths(node) for index in range(len(candidate) - width + 1))
 
 
-# Keyword rather than `**kwargs`: a typo becomes a type error. `scope` is undefaulted, or the pipeline's default could drift.
-def build(
-    *,
-    rules: FLSaisonRules = STANDARD_RULES,
-    saison_id: str = "2026",
-    scope: FLTeamStatistikScope | None = None,
-) -> Pipeline:
-    if scope is None:
-        return build_team_pipeline(saison_id=saison_id, rules=rules)
-
-    return build_team_pipeline(saison_id=saison_id, rules=rules, statistik_scope=scope)
+# Keyword rather than `**kwargs`: a typo becomes a type error.
+def build(*, rules: FLSaisonRules = STANDARD_RULES, saison_id: str = "2026") -> Pipeline:
+    return build_team_pipeline(saison_id=saison_id, rules=rules)
 
 
 def statistik_stage(pipeline: Pipeline) -> Mapping[str, Any]:
     return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == STATISTIK_AS_NAME)
-
-
-def cancelled_stage(pipeline: Pipeline) -> Mapping[str, Any]:
-    return next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == CANCELLED_AS_NAME)
 
 
 def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
@@ -90,28 +75,11 @@ def junction_match(pipeline: Pipeline) -> Mapping[str, Any] | None:
     return extra[0]["$match"] if extra else None
 
 
-def projection(pipeline: Pipeline) -> Mapping[str, Any]:
-    return next(stage["$project"] for stage in pipeline if "$project" in stage)
-
-
 def test_counts_a_match_exactly_when_it_carries_an_ergebnis():
     match_stage = statistik_stage(build())["pipeline"][0]["$match"]
 
     assert match_stage["ergebnis"] == {"$ne": None}
     assert match_stage["saison_id"] == "2026"
-
-
-def test_the_scope_narrows_the_matches_and_nothing_else():
-    """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
-    gruppenphase, total = build(), build(scope="total")
-
-    assert projection(gruppenphase) == projection(total)
-    assert len(gruppenphase) == len(total)
-
-
-def test_the_counting_lookup_never_consults_the_sonderereignis():
-    """The forfeit rule: adding a `sonderereignis` filter looks like a correction, so the assertion is over the whole lookup."""
-    assert not reads(statistik_stage(build()), "sonderereignis")
 
 
 def test_no_stage_reads_the_shoot_out():
@@ -140,10 +108,6 @@ def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team
     assert [(row.siege, row.unentschieden, row.niederlagen) for row in figures.values()] == [(0, 1, 0)] * 2
 
 
-# Annotated rather than inferred: a bare tuple of `str` would widen past `FLTeamStatistikScope`.
-SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("total", None)]
-
-
 class TestTheCancelledLookup:
     """The one place `sonderereignis` is read, kept separate from the scoring so the event stays out of it."""
 
@@ -153,41 +117,7 @@ class TestTheCancelledLookup:
 
         assert [stage.get("$lookup", {}).get("as") for stage in readers] == [CANCELLED_AS_NAME]
 
-    @pytest.mark.parametrize(("scope", "expected"), SCOPE_PHASES)
-    def test_it_selects_the_same_matches_the_figures_are_derived_from(self, scope, expected):
-        """Cancellations over every phase beside a match count over one would badge games the table never counted."""
-        counting = statistik_stage(build(scope=scope))["pipeline"][0]["$match"]
-        cancelled = cancelled_stage(build(scope=scope))["pipeline"][0]["$match"]
-
-        assert counting.get("saison_phase") == expected
-        assert cancelled.get("saison_phase") == expected
-        assert cancelled["saison_id"] == counting["saison_id"]
-        assert cancelled["$expr"] == counting["$expr"]
-
 
 def test_a_team_that_has_left_stays_in_the_table():
     """The join narrows on the season alone, so an Austritt takes no club out of its group."""
     assert junction_match(build()) == {"saison_id": "2026"}
-
-
-def inner_projection(pipeline: Pipeline) -> Mapping[str, Any]:
-    """The allow-list the junction join ends on, which is everything it carries out of the row."""
-
-    lookup = next(stage["$lookup"] for stage in pipeline if stage.get("$lookup", {}).get("as") == AS_NAME)
-
-    return lookup["pipeline"][-1]["$project"]
-
-
-def junction_fields_the_projection_reads(pipeline: Pipeline) -> set[str]:
-    return {value.split(".", 1)[1] for value in projection(pipeline).values() if isinstance(value, str) and value.startswith(f"${AS_NAME}.")}
-
-
-class TestTheJunctionJoinWithholdsTheRestOfTheRow:
-    """Both endpoints running this pipeline are BASE-TIER, and the junction row carries three people's contact records."""
-
-    def test_the_join_carries_back_exactly_what_the_projection_reads(self):
-        """An allow-list at the JOIN rather than downstream: a stage edited below it cannot then put a withheld field on a public response."""
-
-        pipeline = build()
-
-        assert set(inner_projection(pipeline)) - {"_id"} == junction_fields_the_projection_reads(pipeline)

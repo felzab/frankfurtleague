@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { SignInShell } from "@/kit/SignInShell";
-
 import { getPasskeyStep } from "@/core/auth/landing";
 import { RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
 import { ROUTES } from "@/core/routes";
@@ -20,18 +18,9 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 // Never under `/admin`: the session that must reach this page is the one the admin guard is
 // refusing, so a page behind that guard is a page nobody can open.
 
-/**
- * Resolves nothing itself: a top-level await would tie the static shell to one URL, and this page is a
- * function of the session on the request. It waits in the sign-in's skeleton, as `/signin` does, its title a bar:
- * the step the session reads names it.
- */
-export default function PasskeyPage({ searchParams }: Props) {
-  return (
-    <SignInShell
-      title={null}
-      view={readView(searchParams)}
-    />
-  );
+/** The passkey step the session on the request owes. */
+export default async function PasskeyPage({ searchParams }: Props) {
+  return await readView(searchParams);
 }
 
 async function readView(searchParams: Props["searchParams"]) {
@@ -39,8 +28,9 @@ async function readView(searchParams: Props["searchParams"]) {
   // enforces is judged per request, beside the session lifetimes.
   const step = await getPasskeyStep();
   if (step === null) {
-    // A session the step does not hold goes on to the landing with the address a mailed link asked for, which the
-    // landing honours where the allowlist holds it.
+    // The proxy sends a session holding no step on before the render; one whose step ended since, a window closing or
+    // a passkey enrolled in another tab, goes on from here, with the address a mailed link asked for where the
+    // allowlist holds it.
     const asked = (await searchParams)[RETURN_PARAMETER];
     redirect(withReturnAddress(ROUTES.signInLanding.path(), typeof asked === "string" ? asked : null));
   }

@@ -1,6 +1,4 @@
-import { Suspense } from "react";
-
-import { RailColumn, RailPage } from "@/kit/RailFrame";
+import { RailColumn } from "@/kit/RailFrame";
 import { StatusPage } from "@/kit/StatusPage";
 
 import { SERVER_COPY } from "@/core/serverCopy";
@@ -18,27 +16,16 @@ import { TeamEnd } from "./TeamEnd";
 export default function TeamNotFound() {
   return (
     <RailColumn>
-      {/* The choice waits on the frame's seats, which a page's read has waited on before it ends here. Where they have
-          not reached the browser yet, the strip stands with its title's bar and no card, never the other end's. */}
-      <Suspense
-        fallback={
-          <RailPage
+      <TeamEnd
+        missing={<AreaNotFound />}
+        refused={
+          <StatusPage
             scope="area"
-            title={null}>
-            {null}
-          </RailPage>
-        }>
-        <TeamEnd
-          missing={<AreaNotFound />}
-          refused={
-            <StatusPage
-              scope="area"
-              title={SERVER_COPY.area.forbidden}
-              card={{ tone: "warn", next: AREA_HOME }}
-            />
-          }
-        />
-      </Suspense>
+            title={SERVER_COPY.area.forbidden}
+            card={{ tone: "warn", next: AREA_HOME }}
+          />
+        }
+      />
     </RailColumn>
   );
 }

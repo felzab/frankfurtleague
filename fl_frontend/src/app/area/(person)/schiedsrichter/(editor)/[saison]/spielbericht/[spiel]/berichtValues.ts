@@ -1,6 +1,8 @@
+import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
 import { creditedSide } from "@/features/spiele/result";
 
 import type { FLCardColour, FLSpielberichtSchiedsrichterResponse, FLSpielSide } from "@/core/generated/client/types";
+import type { EditorSave } from "@/kit/useEditor";
 
 /** The Sonderereignis' first entry, nothing beyond the match being played: a select's choice is a string. */
 export const NO_SONDEREREIGNIS = "none";
@@ -27,15 +29,24 @@ export type BerichtValues = {
   remarks: string;
 };
 
-type Read = Pick<FLSpielberichtSchiedsrichterResponse, "bericht" | "kader" | "sides_changed">;
+type Read = Pick<FLSpielberichtSchiedsrichterResponse, "bericht" | "kader" | "sides_changed" | "spiel">;
+
+/** The events a referee may state, as the report's write publishes them: a match called off or struck out takes no report. */
+const STATED_EVENTS: ReadonlyArray<string> = Object.values(FLSpielberichtVorschlagSonderereignis);
 
 /**
- * The stored report as the form's values, an empty form where none is stored. On a side fielding another club since
- * the report was last written, each row naming a pupil outside that side's squad now loses its player: the write
- * refuses to name them there, so the referee picks each anew, and the save writes the report about the clubs playing.
+ * The stored report as the form's values. Where none is stored, an empty form opening at the event the league holds
+ * for the match where it is one the referee may state, so the page reads as it does once the referee picked it. On a
+ * side fielding another club since the report was last written, each row naming a pupil outside that side's squad now
+ * loses its player: the write refuses to name them there, so the referee picks each anew, and the save writes the
+ * report about the clubs playing.
  */
-export function valuesOf({ bericht, kader, sides_changed: changed }: Read): BerichtValues {
-  if (bericht === null) return { sonderereignis: NO_SONDEREREIGNIS, shootOut1: "", shootOut2: "", scorers: [], cards: [], remarks: "" };
+export function valuesOf({ bericht, kader, sides_changed: changed, spiel }: Read): BerichtValues {
+  if (bericht === null) {
+    const held = spiel.sonderereignis;
+    const sonderereignis = held !== null && STATED_EVENTS.includes(held) ? held : NO_SONDEREREIGNIS;
+    return { sonderereignis, shootOut1: "", shootOut2: "", scorers: [], cards: [], remarks: "" };
+  }
   const departed = (side: FLSpielSide, spielerId: string) =>
     changed.includes(side) && !kader[side].some((spieler) => spieler.spieler_id === spielerId);
   const { sonderereignis, elfmeterschiessen } = bericht.ergebnis_vorschlag;
@@ -57,6 +68,18 @@ export function valuesOf({ bericht, kader, sides_changed: changed }: Read): Beri
     })),
     remarks: bericht.remarks ?? "",
   };
+}
+
+/**
+ * What a save sends, the whole form on the report's first save. The editor counts its changes against the values the
+ * form opened at, so an event the form opened at from the league's match, saved untouched, would otherwise reach the
+ * write as no change, and the write would store the empty report's none in its place.
+ */
+export function wholeOnFirstSave(
+  opened: BerichtValues,
+  sent: EditorSave<BerichtValues, number | null>,
+): EditorSave<BerichtValues, number | null> {
+  return sent.version === null ? { ...sent, changes: { ...opened, ...sent.changes } } : sent;
 }
 
 /** Each side's goals as the write counts them from the goals entered: a row whose side is not chosen counts for neither. */

@@ -1,14 +1,12 @@
 import { textOf } from "@/core/copy";
 
-import { buttonPlaceholder } from "./buttonStyles";
 import { actRow, card, cardHover, nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Words } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement, ReactNode } from "react";
 import type { ChipProps } from "./Chip";
@@ -57,105 +55,6 @@ export function Card({ title, count, chip, body = "rows", children, line }: Card
       {children !== undefined && <div className={s.body()}>{children}</div>}
     </section>
   );
-}
-
-/**
- * A card while its records are read: its own box and head, the title where the page knows it and a bar where the
- * record names it, a bar where the count will stand, and over its body the placeholders the page's rows draw, such
- * as a table's or `CardRowsPlaceholder`. `chip` keeps the chip's place at the head's end, where the card carries one,
- * `line` the line under the title's, and `body` is the body's kind, as `Card`'s.
- */
-export function CardPlaceholder({
-  title,
-  count = false,
-  chip = false,
-  line = false,
-  body = "rows",
-  children,
-}: {
-  title?: Words;
-  count?: boolean;
-  chip?: boolean;
-  line?: boolean;
-  body?: "rows" | "fields";
-  children?: ReactNode;
-}) {
-  const s = card({ body });
-  const name =
-    title === undefined ? (
-      <PlaceholderLine
-        textClass={s.title()}
-        widthClass="w-1/3"
-      />
-    ) : (
-      <span className={s.title()}>{textOf(title)}</span>
-    );
-  return (
-    <div className={s.root()}>
-      <div className={s.head()}>
-        {name}
-        {chip && (
-          <span className={s.end()}>
-            <span className={placeholderBar("h-5 w-16")} />
-          </span>
-        )}
-        {count && (
-          <span className={s.count()}>
-            <span className={placeholderBar("h-3 w-4")} />
-          </span>
-        )}
-        {line && (
-          <PlaceholderLine
-            textClass={s.line()}
-            widthClass="w-1/4"
-          />
-        )}
-      </div>
-      {children !== undefined && <div className={s.body()}>{children}</div>}
-    </div>
-  );
-}
-
-/**
- * A card's rows while they are read: `rows` of `CardActRow`'s rows, drawn from its recipe inside its container, so each
- * takes the form the card's width gives the rows: its name over the line a row may add as bars, its `acts` as buttons'
- * placeholders by their labels where the card's rows carry acts, and the chevron at its end where a row leads on. A
- * row's chip stands on its name's line and adds nothing to its height, so the wait draws none.
- */
-export function CardRowsPlaceholder({ rows, acts }: { rows: number; acts?: ReadonlyArray<Copy> }) {
-  const s = actRow({ opens: true });
-  return Array.from({ length: rows }, (_, index) => (
-    <div
-      key={index}
-      className={CARD_ROW_CLASSES}>
-      <span className={s.frame()}>
-        <span className={s.words()}>
-          <PlaceholderLine
-            textClass="text-sm"
-            widthClass="w-1/2"
-          />
-          <PlaceholderLine
-            textClass={s.line()}
-            widthClass="w-1/3"
-          />
-        </span>
-        {acts !== undefined && (
-          <span className={s.acts()}>
-            {acts.map((label) => (
-              <span
-                key={label}
-                className={buttonPlaceholder()}>
-                {label}
-              </span>
-            ))}
-          </span>
-        )}
-        <span className={s.end()}>
-          <RowEnd />
-        </span>
-      </span>
-    </div>
-  ));
 }
 
 /**

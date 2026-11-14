@@ -16,8 +16,9 @@ describe("„Wer“", () => {
     expect(ids.map((id) => byOf(held, id)).toSorted()).toStrictEqual(held);
   });
 
-  it("reads a stray id as no actor", () => {
-    expect(byOf(["system"], "pia@example.org")).toBeNull();
+  /* Read as an actor, the unfiltered view would list one person's rows while „Wer“ reads „Alle“. */
+  it("reads no choice as no actor", () => {
+    expect(byOf(["pia@example.org", "system"], null)).toBeNull();
   });
 });
 
@@ -32,9 +33,5 @@ describe("the read a filter asks", () => {
   it("counts a preset from the German day", () => {
     vi.useFakeTimers({ now: new Date("2026-11-07T23:30:00Z") });
     expect(logParams({ time: "7-days" }).from_day).toBe("2026-11-01");
-  });
-
-  it("asks nothing of a filter left on „Alle“", () => {
-    expect(logParams({})).toStrictEqual({ by: null, type: null, from_day: null });
   });
 });

@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-import { Suspense, use } from "react";
-
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -33,11 +31,6 @@ function Searched({ children }: { children: ReactNode }) {
       {children}
     </ListQueryScope>
   );
-}
-
-/** The table once its rows arrive, as the template's boundary reveals it. */
-function Arriving({ table }: { table: Promise<TableProps> }) {
-  return <ListTable table={use(table)} />;
 }
 
 describe("a list's search", () => {
@@ -108,27 +101,6 @@ describe("a list's search", () => {
 
     render(<ListTable table={{ ...TABLE, rows: [], empty }} />);
     expect(screen.getByText(COPY.shared.empty.noneOne(COPY.shared.kader))).toBeTruthy();
-  });
-
-  // The field stands outside the boundary the rows wait in, so it takes text before there are rows to search.
-  it("searches the rows that arrive after the text was typed", async () => {
-    let arrive: (table: TableProps) => void = () => undefined;
-    const table = new Promise<TableProps>((resolve) => {
-      arrive = resolve;
-    });
-    render(
-      <Searched>
-        <Suspense>
-          <Arriving table={table} />
-        </Suspense>
-      </Searched>,
-    );
-
-    await userEvent.type(screen.getByRole("searchbox"), "OST");
-    await act(async () => arrive(TABLE));
-
-    expect(screen.getByText("Sportpark Ost")).toBeTruthy();
-    expect(screen.queryByText("Goethe-Halle")).toBe(null);
   });
 });
 

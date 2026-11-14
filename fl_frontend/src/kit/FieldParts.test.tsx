@@ -8,7 +8,12 @@ import { describe, expect, it } from "vitest";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { MessageLine } from "./FieldParts";
+import { ComboBox } from "./ComboBox";
+import { DateField } from "./DateField";
+import { FieldLabel, MessageLine } from "./FieldParts";
+import { FormClosed } from "./formClosed";
+import { Select } from "./Select";
+import { TextField as KitTextField } from "./TextField";
 
 import type { ComponentProps } from "react";
 
@@ -33,6 +38,82 @@ function Addressed({ validationErrors }: Pick<ComponentProps<typeof Form>, "vali
     </Form>
   );
 }
+
+describe("a field's label", () => {
+  // A demand on a value nobody can change reads as a task the reader cannot do.
+  it("draws the required mark in an open form and none in a closed one", () => {
+    const { container } = render(
+      <>
+        <FieldLabel
+          label={COPY.signIn.address}
+          isRequired
+        />
+        <FormClosed value>
+          <FieldLabel
+            label={COPY.signIn.address}
+            isRequired
+          />
+        </FormClosed>
+      </>,
+    );
+    expect([...container.querySelectorAll("label")].map((label) => label.textContent)).toStrictEqual([
+      `${COPY.signIn.address} *`,
+      COPY.signIn.address,
+    ]);
+  });
+});
+
+// The harm: a keyboard user passes over every value a record holds fixed, and a screen reader never reads it, which no
+// sighted reader sees.
+describe("a locked field", () => {
+  it("is reached by Tab and read as read-only with its value, of every kind, as is a closed form's field", async () => {
+    const options = [{ id: "a", label: { record: "Gruppe A" } }];
+    render(
+      <>
+        <KitTextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isLocked
+          value="Lena"
+        />
+        <FormClosed value>
+          <KitTextField
+            label={COPY.shared.startelf}
+            kind="text"
+            value="Mara"
+          />
+        </FormClosed>
+        <Select
+          label={COPY.signIn.address}
+          options={options}
+          isLocked
+          value="a"
+        />
+        <ComboBox
+          label={COPY.signIn.address}
+          options={options}
+          isLocked
+          value="a"
+        />
+        <DateField
+          label={COPY.signIn.address}
+          isLocked
+          value="2027-03-14"
+        />
+      </>,
+    );
+    const boxes = [...screen.getAllByRole<HTMLInputElement>("textbox"), screen.getByRole<HTMLInputElement>("combobox")];
+    expect(boxes.map((box) => box.value)).toStrictEqual(["Lena", "Mara", "Gruppe A", "Gruppe A"]);
+    // A date's day, month and year are each a stop of their own, read-only by their ARIA state.
+    const segments = screen.getAllByRole("spinbutton");
+    expect(segments.map((segment) => segment.textContent)).toStrictEqual(["14", "03", "2027"]);
+    for (const field of [...boxes, ...segments]) {
+      await userEvent.tab();
+      expect(document.activeElement).toBe(field);
+      expect(field instanceof HTMLInputElement ? field.readOnly : field.getAttribute("aria-readonly") === "true").toBe(true);
+    }
+  });
+});
 
 describe("a field's message line", () => {
   // The browser's own wording for its flag, in its own language, is the one message no catalogue entry holds.

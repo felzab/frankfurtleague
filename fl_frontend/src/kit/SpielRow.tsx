@@ -1,12 +1,12 @@
 import { COPY, textOf } from "@/core/copy";
 import { ERGEBNIS_SEPARATOR } from "@/core/format";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { Link } from "./Link";
 import { RowEnd } from "./RowEnd";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -72,15 +72,12 @@ export const spielPairs = tv({
   },
 });
 
-/**
- * The list of `spielPairs`' boxes in the container its columns read, since a query reads an ancestor; `w-full`, since a
- * container's width counts none of its content.
- */
+/** The list of `spielPairs`' boxes, in the box its columns read. */
 export function SpielPairList({ children }: { children: ReactNode }) {
   return (
-    <div className="@container w-full">
+    <BlockBox>
       <div className={spielPairs().list()}>{children}</div>
-    </div>
+    </BlockBox>
   );
 }
 
@@ -89,8 +86,7 @@ export const spielSubgrid = tv({ base: "col-span-full grid grid-cols-subgrid" })
 
 /**
  * The one-line row and the card's lines. A card's date line is a chip's height, chip or none, so every card stands as
- * tall as every other and as its wait, which cannot know whether a list holds a chip; it spans the columns, which it
- * does not use.
+ * tall as every other; it spans the columns, which it does not use.
  */
 const forms = tv({
   slots: {
@@ -102,7 +98,8 @@ const forms = tv({
 /**
  * How a side's name and goals are marked wherever a match's two sides stand, in a row, a bracket card or the
  * pop-up's head: the winner's name semibold; goals bold, a shoot-out loser's regular, and no result yet
- * muted. Each block extends it with its own layout and takes its variants from `look`.
+ * muted; and where something befell the match, both names muted and the side that did not turn up struck. Each
+ * block extends it with its own layout and takes its variants from `look`.
  */
 export const sideMarks = tv({
   slots: {
@@ -118,6 +115,12 @@ export const sideMarks = tv({
       lost: { goals: "font-normal" },
       none: { goals: "font-normal text-fg-muted" },
     },
+    muted: {
+      true: { name: "text-fg-muted" },
+    },
+    struck: {
+      true: { name: "line-through" },
+    },
   },
 });
 
@@ -131,12 +134,6 @@ const row = tv({
     // The first side on desktop: the name before its plaque, so the plaque stands nearest the score.
     mirrored: {
       true: { side: "justify-end" },
-    },
-    muted: {
-      true: { name: "text-fg-muted" },
-    },
-    struck: {
-      true: { name: "line-through" },
     },
   },
 });
@@ -329,59 +326,6 @@ function SpielRow({ href, when, team1, team2, result, chip, muted, absent, prefe
   );
 }
 
-/** A side while its match is read: the plaque and the name's line as bars, mirrored as the one-line row mirrors the first. */
-function SidePlaceholder({ mirrored = false }: { mirrored?: boolean }) {
-  const plaque = <span className={placeholderBar("h-6 w-10")} />;
-  return (
-    <span className={row({ mirrored }).side()}>
-      {!mirrored && plaque}
-      <PlaceholderLine
-        textClass="text-sm"
-        widthClass="w-24"
-      />
-      {mirrored && plaque}
-    </span>
-  );
-}
-
-/**
- * A match row while its match is read, in both of `SpielRow`'s forms on the row's own grid, which the box's width
- * picks between as it picks the row's: the one line, when, the sides about the score and the chevron; or the card,
- * the date line over each side with its goals at the right.
- */
-function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
-  const form = forms();
-  return (
-    <div className={spielSubgrid({ class: layout === "rows" ? stacked() : "" })}>
-      <span className={form.line()}>
-        <span className="col-start-1 row-span-2 row-start-1">
-          <span className={placeholderBar("h-3 w-24")} />
-        </span>
-        <span className="col-start-2 row-span-2 row-start-1">
-          <SidePlaceholder mirrored />
-        </span>
-        <span className={scoreCell({ shootOut: false, class: "flex justify-center" })}>
-          <span className={placeholderBar("h-4 w-10")} />
-        </span>
-        <span className="col-start-4 row-span-2 row-start-1">
-          <SidePlaceholder />
-        </span>
-        <span className="col-start-5 row-span-2 row-start-1 flex self-stretch">
-          <RowEnd />
-        </span>
-      </span>
-      <span className={form.card()}>
-        <span className={placeholderBar("h-3 w-32")} />
-        <span />
-        <SidePlaceholder />
-        <span className={placeholderBar("ms-auto h-4 w-3")} />
-        <SidePlaceholder />
-        <span className={placeholderBar("ms-auto h-4 w-3")} />
-      </span>
-    </div>
-  );
-}
-
 /**
  * The box of a list's rows: the card's surface, or none where it stands `bare` inside a card's body; the holder of the
  * rows' columns and the container whose width picks their form, or, `outer`, a part handing on the columns of the list
@@ -391,48 +335,6 @@ function SpielRowPlaceholder({ layout }: { layout: "rows" | "cards" }) {
 function rowsBox(bare: boolean, columns: "own" | "outer") {
   const grid = columns === "own" ? `@container ${spielColumns()}` : spielSubgrid();
   return bare ? grid : cardSurface({ class: `overflow-hidden ${grid}` });
-}
-
-/**
- * Matches while they are read, in the box or the boxes `SpielList` sets them in: `count` rows one under another, or
- * cards two a row from 42 rem of the list where `layout` is `cards`, each row in the row's own forms; `bare` inside a card's body,
- * `columns` as the list's.
- */
-export function SpielListPlaceholder({
-  count,
-  layout = "rows",
-  bare = false,
-  columns = "own",
-}: {
-  count: number;
-  layout?: "rows" | "cards";
-  bare?: boolean;
-  columns?: "own" | "outer";
-}) {
-  const rows = Array.from({ length: count }, (_, index) => index);
-  if (layout === "cards") {
-    return (
-      <SpielPairList>
-        {rows.map((index) => (
-          <div
-            key={index}
-            className={spielPairs().box()}>
-            <SpielRowPlaceholder layout="cards" />
-          </div>
-        ))}
-      </SpielPairList>
-    );
-  }
-  return (
-    <div className={rowsBox(bare, columns)}>
-      {rows.map((index) => (
-        <SpielRowPlaceholder
-          key={index}
-          layout="rows"
-        />
-      ))}
-    </div>
-  );
 }
 
 /**

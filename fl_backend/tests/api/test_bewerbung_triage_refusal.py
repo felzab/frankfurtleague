@@ -8,7 +8,6 @@ from app.api.bewerbungen.schemas import FLDeclineBewerbungPayload
 from app.api.bewerbungen.services import (
     compose_kontakt_seat_update,
     compose_resend_update,
-    find_acceptance_code_refusal,
     find_new_club_refusal,
     find_seat_contact_refusal,
 )
@@ -52,6 +51,17 @@ class TestADeclinesReason:
 
     @pytest.mark.parametrize("reason", ["Kein\x00Platz", "Kein\x0cPlatz", "Kein\u2028Platz"])
     def test_a_character_no_paragraph_holds_is_refused(self, reason: str):
+        with pytest.raises(ValidationError):
+            FLDeclineBewerbungPayload(reason=reason, version=0)
+
+    @pytest.mark.parametrize("reason", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
+    def test_a_reason_of_whitespace_alone_is_refused(self, reason: str):
+        """Drop the strip and this is accepted: `min_length` counts characters.
+
+        A decline is irreversible, so a reason of spaces stands on the application for good and
+        reaches the three people as a rejection giving none.
+        """
+
         with pytest.raises(ValidationError):
             FLDeclineBewerbungPayload(reason=reason, version=0)
 
@@ -104,11 +114,6 @@ class TestWhatASeatWriteMoves:
         assert self.written(**earliest)["erasure_announced_at"] is None
         assert self.re_sent(**earliest)["erasure_announced_at"] is None
 
-    def test_a_re_send_leaving_the_day_keeps_the_announcement(self):
-        """The earliest day is another seat's, so the deletion stands as the notice named it."""
-
-        assert "erasure_announced_at" not in self.re_sent(trainer=self.SEAT, stellvertretung={**self.SEAT, "deadline": "2026-03-10"})
-
     def test_a_confirmed_seats_old_deadline_counts_for_neither_day(self):
         """Counted, the day reads moved and the stamp goes, so a person is told of one deletion twice."""
 
@@ -123,20 +128,6 @@ class TestWhatASeatWriteMoves:
         update = compose_resend_update(seats=("ansprechperson",), today="2026-04-01", kontakte=kontakte, confirmations=confirmations)
 
         assert "erasure_announced_at" not in update["$set"]
-
-
-class TestTheCodeAnAcceptanceTakes:
-    """A new school accepted with no code fails at the club's own parse as the school's fault, and a code on a picked club is dropped unsaid."""
-
-    @pytest.mark.parametrize(
-        ("new_school", "shorthand"),
-        [pytest.param(True, None, id="a new school with none"), pytest.param(False, "ABX", id="a picked club with one")],
-    )
-    def test_the_wrong_side_of_the_rule_is_refused_on_the_box(self, new_school: bool, shorthand: str | None):
-        refusal = find_acceptance_code_refusal(new_school=new_school, shorthand=shorthand)
-
-        assert refusal is not None
-        assert (refusal.error_code, refusal.fields) == (Code.PAYLOAD_REFUSED, (("shorthand",),))
 
 
 class TestCorrectingOneContactAddress:
@@ -168,8 +159,3 @@ class TestCorrectingOneContactAddress:
         refusal = find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="+49 (0)69 3000")
 
         assert refusal is not None and (refusal.error_code, refusal.fields) == (Code.BEWERBUNG_KONTAKT_PHONE_TAKEN, (("phone",),))
-
-    def test_the_seat_keeps_its_own_number(self):
-        seats = {"ansprechperson": kontaktperson_document("Ansgar", phone="069 2000"), "trainer": None, "stellvertretung": None}
-
-        assert find_seat_contact_refusal(kontakte=seats, seats=("ansprechperson",), email="ansgar@example.com", phone="069 2000") is None

@@ -8,14 +8,19 @@ const plaqueLook = tv({
   base: "inline-flex h-6 w-10 shrink-0 items-center justify-center rounded-md align-middle font-numeric text-xs tracking-display uppercase",
   variants: {
     known: {
-      // The text colour at the chip's tint over whatever it stands on, so it rises one step off the page, a
-      // card and a card's head alike, in both themes.
+      // The text colour at 12 % over whatever it stands on, so it rises one step off the page, a card and a
+      // card's head alike, in both themes.
       true: "bg-fg/12 font-semibold text-fg",
       // A side the draw has not settled: dashed and muted, its source in place of a club.
       false: "border border-dashed border-border-control bg-transparent font-medium text-fg-muted",
     },
     muted: {
       true: "text-fg-muted",
+    },
+    // The side that did not turn up, struck where its plaque stands for its club alone: in a bracket narrower than
+    // 42 rem, whose card draws the plaque without its name, which bears the strike in a wider one.
+    struck: {
+      true: "@max-2xl:line-through",
     },
   },
 });
@@ -26,10 +31,12 @@ const plaqueLook = tv({
  */
 export type Plaque = RecordText | { quelle: Copy | null };
 
-/** The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place. */
-export function TeamPlaque({ plaque: held, muted = false }: { plaque: Plaque; muted?: boolean }) {
+/**
+ * The 40 × 24-px plaque before a club's name, holding its three-letter Kürzel; one size for every place.
+ */
+export function TeamPlaque({ plaque: held, muted = false, struck = false }: { plaque: Plaque; muted?: boolean; struck?: boolean }) {
   return "record" in held ? (
-    <span className={plaqueLook({ known: true, muted })}>{held.record}</span>
+    <span className={plaqueLook({ known: true, muted, struck })}>{held.record}</span>
   ) : (
     <span className={plaqueLook({ known: false })}>{held.quelle}</span>
   );

@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { Table } from "@/kit/Table";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
-import SpielPage, { generateMetadata } from "./page";
-
-import type { FLAufstellungEntryPublic, FLSpielPageResponse } from "@/core/generated/client/types";
+import type { FLAufstellungEntryPublic, FLSaisonFrameResponse, FLSpielPageResponse } from "@/core/generated/client/types";
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { ResolvingMetadata } from "next";
@@ -16,16 +16,25 @@ import type { ReactElement } from "react";
 
 const ID = "2".repeat(24);
 
-/** Each match id the read was asked for, so a case can tell that none was; and the page the read answers. */
-const read = vi.hoisted(() => ({ spiele: [] as string[], page: null as unknown }));
+/** The seasons the public may read: 2027 alone. */
+const FRAME = {
+  saisons: [{ id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" }],
+  active_saison_id: "2027",
+} satisfies FLSaisonFrameResponse;
 
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
-  getSpielPage: async (_saison: string, spiel: string) => {
-    read.spiele.push(spiel);
-    return read.page;
-  },
-}));
+/** The match page the backend serves at `ID`, which a case sets. */
+let served: FLSpielPageResponse | undefined;
+
+// The frame and the one match's page; a read of any other match goes unanswered, which fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/saisons/frame") return FRAME;
+  return path === `/saisons/2027/spiele/${ID}` ? served : undefined;
+});
+// The cached reads declare their tag and lifetime through `next/cache`, which answers only inside Next's cache scope.
+doubleNextRequest();
+
+const { default: SpielPage, generateMetadata } = await import("./page");
 
 /** An unplayed group match between Ahorn and Kastanie, Ahorn's line-up `spieler` and Kastanie's none. */
 const pageOf = (spieler: FLAufstellungEntryPublic[]): FLSpielPageResponse => ({
@@ -59,7 +68,7 @@ const pageOf = (spieler: FLAufstellungEntryPublic[]): FLSpielPageResponse => ({
 
 /** Ahorn's starters as the page folds them, rendered alone. */
 async function renderStartelf(spieler: FLAufstellungEntryPublic[]) {
-  read.page = pageOf(spieler);
+  served = pageOf(spieler);
   const page = SpielPage({ params: Promise.resolve({ saison: "2027", spiel: ID }), searchParams: Promise.resolve({}) }) as {
     props: { record: Promise<ReadRecord> };
   };
@@ -92,7 +101,7 @@ describe("the match page's server render", () => {
 
     // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
     await expect(metadata).resolves.toBe(NOT_FOUND_METADATA);
-    expect(read.spiele).toStrictEqual([]);
+    expect(backend.sent.filter(({ path }) => path.includes("/spiele/"))).toStrictEqual([]);
   });
 });
 

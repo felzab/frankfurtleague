@@ -18,7 +18,6 @@ from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxRefe
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_COUNTED_AS_CANCELLED,
     SONDEREREIGNIS_PRODUCING_A_RECORD,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLSpielCommon,
@@ -140,7 +139,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
 
 
 def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) -> Mapping[str, Any]:
-    """This team's called-off fixtures, counted in a stage of their own.
+    """This team's fixtures that ended with no result, called off or struck out, counted in a stage of their own.
 
     Never a second accumulator inside the counting `$lookup`: aggregation `$eq: [null, null]` is
     true, so a goalless cancellation would score as a draw.
@@ -154,9 +153,9 @@ def build_cancelled_lookup_stage(saison_id: str, scope: FLTeamStatistikScope) ->
                 {
                     "$match": {
                         **_spiele_of_this_team(saison_id, scope),
-                        # The flag is the whole rule: `ergebnis: None` beside it would drop the
-                        # forfeits, which are nearly every cancellation here.
-                        "sonderereignis": {"$in": list(SONDEREREIGNIS_COUNTED_AS_CANCELLED)},
+                        # The flag is the whole rule: a fixture with no result and no event is
+                        # one still to play, never one called off.
+                        "sonderereignis": {"$in": list(SONDEREREIGNIS_WITHOUT_A_RESULT)},
                     }
                 },
                 {"$count": CANCELLED_COUNT_NAME},
@@ -310,7 +309,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
         for team_id in sides:
             figures.setdefault(team_id, dict(ZERO_STATISTIK))
 
-        if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_CANCELLED:
+        if spiel.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT:
             for team_id in sides:
                 figures[team_id]["count_cancelled_spiele"] += 1
 
@@ -1516,35 +1515,19 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
     return None
 
 
-def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
-    """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
-
-    if team1_id != team2_id:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.SWAP_NOT_A_SWAP,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("team1_id",), ("team2_id",)),
-    )
-
-
 def find_gruppe_swap_refusal(
     *,
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
     # `has_started`: a swap rewrites fixtures, and once the season is under
-    # way a fixture is a record of who played it.
+    # way a fixture is a record of who played it. Before the start the save refuses a result
+    # (`ergebnis_before_saison_start`), which keeps records out of what the rewrite moves.
     started: bool,
-    # Whether a fixture the swap rewrites `has_taken_place`: a result entered before the start is a record
-    # too, and the rewrite would hand it to the other club, `tore` staying where they are.
-    taken_place: bool,
 ) -> WriteRefusal | None:
     """Why exchanging these two clubs' groups must be refused, or `None`.
 
-    **The order is the argument**: it narrows from "not a swap" through the season to the two clubs, and the one
-    repairable refusal comes last, so nobody does work a terminal refusal wastes. The season's start is the one lock,
+    **The order is the argument**: it narrows from "not a swap" through the season. The season's start is the one lock,
     an exit is recorded only from it (`austritt_before_saison_start`) and the start never moves later past a stored one
     (`saison_start_austritt_stored`), so the fixtures an exchange rewrites never field a club that has left.
     """
@@ -1557,6 +1540,7 @@ def find_gruppe_swap_refusal(
             fields=(("team1_id",), ("team2_id",)),
         )
 
+    # One club named on both sides reads its one group twice, so it is refused here as no swap.
     if team1_gruppe == team2_gruppe:
         return WriteRefusal(
             error_code=Code.SWAP_NOT_A_SWAP,
@@ -1576,12 +1560,6 @@ def find_gruppe_swap_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    if taken_place:
-        return WriteRefusal(
-            error_code=Code.SWAP_SIDES_TAKEN_PLACE,
-            status=HTTPStatus.CONFLICT,
-        )
-
     return None
 
 
@@ -1593,8 +1571,8 @@ TAKEN_PLACE_FIELDS: tuple[str, ...] = ("ergebnis", "sonderereignis", "team1.tore
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     """Whether this fixture happened. Not `unplayed_spiel_nrs` negated: a half-entered score reads unfinished there."""
 
-    # An abandonment and a no-show each left a record that a rewrite would hand to another club. A
-    # fixture called off or struck out left none, so its sides are still free to move.
+    # An abandonment and a no-show each left a record of the match. A fixture called off or struck
+    # out left none, so it fixes nothing that a played match fixes.
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
@@ -1631,11 +1609,9 @@ def find_replacement_refusal(
     *,
     saison_status: str,
     # `has_started`: once the season is under way, a club leaves it by its
-    # Austritt and is never replaced.
+    # Austritt and is never replaced. Before the start the save refuses a result
+    # (`ergebnis_before_saison_start`), which keeps the incoming club from inheriting a record it never made.
     started: bool,
-    # Whether a fixture the replacement rewrites `has_taken_place`, the swap's rule: the incoming club would
-    # inherit a record it never made.
-    taken_place: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
 ) -> WriteRefusal | None:
@@ -1654,12 +1630,6 @@ def find_replacement_refusal(
     if started:
         return WriteRefusal(
             error_code=Code.REPLACE_SAISON_STARTED,
-            status=HTTPStatus.CONFLICT,
-        )
-
-    if taken_place:
-        return WriteRefusal(
-            error_code=Code.REPLACE_SIDES_TAKEN_PLACE,
             status=HTTPStatus.CONFLICT,
         )
 

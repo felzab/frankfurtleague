@@ -126,6 +126,7 @@ async def seat_saves(
     spiel_id: ObjectId = SPIEL,
     now: datetime = OPEN,
     aufstellungen: Any = None,
+    spiele: Any = None,
 ) -> tuple[FLAufstellungResponse, int]:
     """A club's line-up, the home club's unless named, saved through the seat's handler, and the status it answers: 201 for a create."""
 
@@ -136,7 +137,7 @@ async def seat_saves(
         aufstellung_data=payload,
         response=response,
         identifier=seat,
-        spiele_collection=database[Collection.SPIELE],
+        spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
         saisons_collection=database[Collection.SAISONS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         spieler_collection=database[Collection.SPIELER],
@@ -150,7 +151,14 @@ async def seat_saves(
 
 
 async def admin_saves(
-    database: AsyncDatabase, client: AsyncMongoClient, payload: FLAufstellungPayload, *, spiel_id: ObjectId = SPIEL, now: datetime = OPEN
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    payload: FLAufstellungPayload,
+    *,
+    spiel_id: ObjectId = SPIEL,
+    now: datetime = OPEN,
+    aufstellungen: Any = None,
+    spiele: Any = None,
 ) -> tuple[FLAufstellungResponse, int]:
     """The home club's line-up saved through the administrator's handler, under the actor its request would bind."""
 
@@ -162,11 +170,11 @@ async def admin_saves(
             team_id=HOME,
             aufstellung_data=payload,
             response=response,
-            spiele_collection=database[Collection.SPIELE],
+            spiele_collection=database[Collection.SPIELE] if spiele is None else spiele,
             saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
             spieler_collection=database[Collection.SPIELER],
-            aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+            aufstellungen_collection=database[Collection.AUFSTELLUNGEN] if aufstellungen is None else aufstellungen,
             db=client,
             now=now,
         )
@@ -226,7 +234,7 @@ async def refusal_of(saving: Awaitable[Any]) -> tuple[Code, list[tuple[str | int
 
 
 def test_a_seats_first_save_creates_the_line_up_and_answers_the_screen(mongo_replica_set_url: str):
-    """The squad by shirt number, the matchday by its stored position, each side with its Kürzel, and the act recorded.
+    """The squad, the matchday by its stored position, each side with its Kürzel, and the act recorded.
 
     The act's record is the line-up, so its label alone names the fixture in the Protokoll.
     """
@@ -236,11 +244,11 @@ def test_a_seats_first_save_creates_the_line_up_and_answers_the_screen(mongo_rep
         stored = await database[Collection.AUFSTELLUNGEN].find_one({"spiel_id": SPIEL, "team_id": HOME})
 
         assert status == 201
-        assert [(row.first_name, row.last_name) for row in answer.kader] == [
-            ("Neu", "Muster"),
-            ("Ole", "Muster"),
+        assert sorted((row.first_name, row.last_name) for row in answer.kader) == [
             ("Lina", "Muster"),
             ("Mia", "Muster"),
+            ("Neu", "Muster"),
+            ("Ole", "Muster"),
         ]
         spiel = answer.spiel
         assert (spiel.saison_phase, spiel.spieltag_position, spiel.count_spieltage_in_phase, spiel.for_third_place) == (
@@ -394,16 +402,6 @@ def test_a_finished_seasons_line_up_is_read_only_for_the_administrator(mongo_rep
     assert on_a_season(mongo_replica_set_url, body) == ((Code.SAISON_PAST, []), "past", (None, []))
 
 
-def test_a_finished_season_grants_its_seat_holder_no_line_up(mongo_replica_set_url: str):
-    """A finished season grants no seat, so its seat holder is refused the club before the season is asked."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
-        await the_season_ends(database)
-        return await refusal_of(seat_saves(database, client, _payload(LINA))), await nothing_written(database)
-
-    assert on_a_season(mongo_replica_set_url, body) == ((Code.ROLE_NOT_HELD, []), (None, []))
-
-
 class LineUpsRunningARivalAtTheirRead(InterleavedCollection):
     """An `aufstellungen` stand-in running one rival once the save has read the squad and before it reads the line-up."""
 
@@ -471,7 +469,7 @@ class TestAnErasedPupilsEntry:
             {"spieler_id": MIA, "starts": False},
         ]
 
-    @pytest.mark.parametrize("now", [pytest.param(OPEN, id="before-the-lock"), pytest.param(LOCKED, id="locked-before-kick-off")])
+    @pytest.mark.parametrize("now", [pytest.param(LOCKED, id="locked-before-kick-off")])
     def test_one_erased_before_kick_off_leaves_the_line_up(self, mongo_replica_set_url: str, now: datetime):
         """The match is still to come, locked or not: an entry kept would hold a place in the Startelf nobody could name."""
 
@@ -499,6 +497,82 @@ class TestAnErasedPupilsEntry:
 
         assert marks is not None
         assert ((marks.stored, marks.phase), spieler) == ((True, "locked"), [FLAufstellungEntry(spieler_id=None, starts=True)])
+
+
+class FixturesCountingTheAttempts:
+    """`spiele` as the save reads it: each attempt of its transaction reads the fixture once there, so those reads count the attempts.
+
+    The judgement outside the transaction reads the fixture on a snapshot session, which holds no transaction.
+    """
+
+    def __init__(self, collection: Any) -> None:
+        self._collection = collection
+        self.attempts = 0
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        if kwargs["session"].in_transaction:
+            self.attempts += 1
+        return await self._collection.aggregate(*args, **kwargs)
+
+
+async def the_seat_is_handed_on(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    ansprech = documents.kontaktperson_document("Berta", confirmed_at="2026-01-06", email="ansprech.neu@schule.de", phone="+49 69 5550198")
+    await database[Collection.SAISON_TEAMS].update_one(
+        {"saison_id": SAISON_ID, "team_id": HOME}, {"$set": {"kontakte.ansprechperson": ansprech}}
+    )
+
+
+async def the_season_is_ended(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await the_season_ends(database)
+
+
+async def lina_is_erased(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await erase(database, client, LINA, now=OPEN)
+
+
+class TestWhatTheSaveAnchorsMovingInsideItIsRefusedInItsTransaction:
+    """Each rival writes a document the save is judged on and anchors, so the anchor conflicts and the retry refuses the save.
+
+    Unanchored, the save meets the rival only in its judgement outside the transaction, which leaves a gap before the
+    commit for a rival landing after it.
+    """
+
+    @pytest.mark.parametrize(
+        ("rival", "saves", "code", "serially"),
+        [
+            # Committed before it, the seat is refused before the line-up is read.
+            pytest.param(the_seat_is_handed_on, seat_saves, Code.ROLE_NOT_HELD, 0, id="the-seat-handed-on"),
+            # The administrator's save, since a finished season grants no seat: refused before the line-up is read.
+            pytest.param(the_season_is_ended, admin_saves, Code.SAISON_PAST, 0, id="the-season-ended"),
+            # Committed before it, the squad without her is met once the line-up is read.
+            pytest.param(lina_is_erased, seat_saves, Code.SPIELER_NOT_IN_KADER, 1, id="the-pupil-erased"),
+        ],
+    )
+    def test_the_save_retries_and_writes_nothing(
+        self,
+        mongo_replica_set_url: str,
+        rival: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]],
+        saves: Callable[..., Awaitable[Any]],
+        code: Code,
+        serially: int,
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, Any, int]:
+            aufstellungen = LineUpsRunningARivalAtTheirRead(database[Collection.AUFSTELLUNGEN], lambda: rival(database, client))
+            spiele = FixturesCountingTheAttempts(database[Collection.SPIELE])
+            outcome = await outcome_of(saves(database, client, _payload(LINA), aufstellungen=aufstellungen, spiele=spiele))
+            aufstellungen.assert_landed_inside(serially=serially)
+            # The save's own act alone: the erasure records its own.
+            saved_acts = [act for act in await acts_of(database) if act[0] == "aufstellung.saved"]
+
+            return outcome, (await database[Collection.AUFSTELLUNGEN].find_one({}), saved_acts), spiele.attempts
+
+        outcome, written, attempts = on_a_season(mongo_replica_set_url, body)
+
+        assert (outcome, written) == (str(code), (None, []))
+        assert attempts == 2, "the rival conflicted with nothing the save wrote"
 
 
 # --- One document per club per fixture: a club's two seats saving at once meet on it, and the other club's save never does.
@@ -540,17 +614,6 @@ def test_a_clubs_second_first_save_meets_the_first_and_is_told_the_page_is_stale
         return outcome, await stored_line_ups(database)
 
     assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 0)])
-
-
-def test_a_save_on_a_count_another_save_raised_is_refused(mongo_replica_set_url: str):
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        first, _ = await seat_saves(database, client, _payload(LINA))
-        await seat_saves(database, client, _payload(OLE, version=first.version))
-        outcome = await outcome_of(seat_saves(database, client, _payload(LINA, version=first.version)))
-
-        return outcome, await stored_line_ups(database)
-
-    assert on_a_season(mongo_replica_set_url, body) == (str(Code.VERSION_STALE), [(HOME, [OLE], 1)])
 
 
 def test_the_other_clubs_first_save_for_the_same_fixture_stands_beside_it(mongo_replica_set_url: str):

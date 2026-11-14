@@ -1,18 +1,14 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { LineupPlaceholder } from "@/kit/Lineup";
-
 import { COPY } from "@/core/copy";
 import { ContractBreakError } from "@/core/errors";
 import { dayOf, timeOf } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
-import { STARTERS_MAX } from "@/features/aufstellungen/constants";
 import { LINEUP_WORDS, playersOf } from "@/features/aufstellungen/players";
 import { getAufstellung } from "@/features/aufstellungen/queries";
-import { matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchdayOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -74,10 +70,15 @@ async function readEditor(params: Props["params"]) {
   const closed = found.saison_status === "past" ? SERVER_COPY.refusalLine.saison_past : undefined;
   // The block's every act answers a press with why it is closed: the season's end before the missing slot.
   const locked = closed ?? (found.marks === null ? COPY.area.team.aufstellung.needsSlot : undefined);
+  const { spiel } = found;
   return (
     <AdminAufstellung
       team={found.team_id}
-      title={matchTitle(found.spiel.team1?.name ?? null, found.spiel.team2?.name ?? null)}
+      title={matchTitle(spiel.team1?.name ?? null, spiel.team2?.name ?? null)}
+      // What befell the match, after the title as every match block draws it.
+      {...(spiel.sonderereignis === null
+        ? {}
+        : { chip: eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null) })}
       lead={leadOf(found)}
       aufstellung={{ id: found.spiel.spiel_id, version: found.version, spieler: found.spieler }}
       players={playersOf(found)}
@@ -89,25 +90,6 @@ async function readEditor(params: Props["params"]) {
 }
 
 /** One club's line-up for a match as the league enters it, on one read of the fixture, the squad and the stored line-up. */
-export default function AdminAufstellungPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A typical line-up: eleven named over the squad's nine others, as a club that has entered one opens it.
-        sections: [
-          {
-            block: (
-              <LineupPlaceholder
-                words={LINEUP_WORDS}
-                picked={STARTERS_MAX}
-                rest={9}
-              />
-            ),
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function AdminAufstellungPage({ params }: Props) {
+  return await readEditor(params);
 }

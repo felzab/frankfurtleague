@@ -1,9 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { RecordRowsPlaceholder } from "@/kit/RecordRows";
-import { SectionPlaceholder } from "@/kit/Section";
 import { StatusPage } from "@/kit/StatusPage";
 
 import { requires } from "@/core/action";
@@ -20,7 +17,7 @@ import { SERVER_COPY } from "@/core/serverCopy";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 import { isPublicSaison } from "@/features/saisons/resolvers";
 import { getOwnSpielbericht } from "@/features/spielberichte/queries";
-import { matchName, matchTitle } from "@/features/spiele/blocks";
+import { eventChipOf, matchName, matchTitle } from "@/features/spiele/blocks";
 import { spielerName } from "@/features/spieler/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -57,7 +54,7 @@ const address = ({ saison, spiel }: Segments) => ROUTES.schiedsrichterSpielberic
 
 /**
  * What the address holds for the signed-in referee: the report's read, or `unbooked` for a fixture booked to another
- * referee, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
+ * referee or one a club's exit took them off, whose read is refused; `null` for a malformed id, a fixture that does not exist and one of another season.
  * A referee whose record went between the frame's check and the read is sent on as every person place sends them.
  * Memoised for the render, so the tab's title and the page share the one read.
  */
@@ -92,47 +89,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** The report's form, on its one read, or the status card saying why the fixture takes no report from this referee. */
-export default function SpielberichtPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        lead: true,
-        // A public season's match, the report's state most days, links its page from the strip.
-        link: COPY.shared.toSpiel,
-        sections: [
-          ["score", "rule", "field"],
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <RecordRowsPlaceholder
-                    rows={3}
-                    lines={2}
-                    add={COPY.shared.withObject(WORDS.goal, "enter")}
-                  />
-                }
-              />
-            ),
-          },
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <RecordRowsPlaceholder
-                    rows={1}
-                    lines={3}
-                    add={COPY.shared.withObject(WORDS.card, "enter")}
-                  />
-                }
-              />
-            ),
-          },
-          [{ titled: "paragraph" }],
-        ],
-      }}
-      editor={readPage(params)}
-    />
-  );
+export default async function SpielberichtPage({ params }: Props) {
+  return await readPage(params);
 }
 
 /** A pupil by number and name as the squad lists them; one no record holds is „anonym“, as every page names them. */
@@ -204,9 +162,15 @@ async function readPage(params: Props["params"]) {
   return (
     <BerichtEditor
       title={title}
+      // What befell the match, as every match block draws it.
+      {...(spiel.sonderereignis === null
+        ? {}
+        : { chip: eventChipOf(spiel.sonderereignis, spiel.team1?.name ?? null, spiel.team2?.name ?? null) })}
       lead={COPY.shared.line([
         COPY.spielplan.when(dayOf(spiel.date), timeOf(spiel.time)),
         spiel.spielort === null ? null : { record: spiel.spielort.name },
+        // A side fielding another club than the stored report names: its rows naming the old club's pupils have lost them.
+        found.sides_changed.length === 0 ? null : SERVER_COPY.overview.report.sides_changed,
       ])}
       record={{ id: spiel.spiel_id, version: found.version, values: valuesOf(found) }}
       save={saveBericht}
@@ -217,7 +181,6 @@ async function readPage(params: Props["params"]) {
       required={REQUIRED}
       eigentor={SERVER_COPY.season.spiel.eigentor}
       remarksMax={spielberichtePutSpielberichtBerichtBodyBerichtRemarksOneMax}
-      sidesChanged={found.sides_changed.length > 0}
       {...(found.completed ? { closed: SERVER_COPY.refusalLine.saison_past } : {})}
       {...((await isPublicSaison(saison)) ? { spielPage: ROUTES.spiel.path(saison, spiel.spiel_id) } : {})}
     />

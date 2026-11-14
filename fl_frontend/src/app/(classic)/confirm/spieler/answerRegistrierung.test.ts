@@ -1,15 +1,20 @@
-import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { describe, expect, it } from "vitest";
 
 import { SPIELER_TEXT_VERSIONS } from "@/core/consentWordings";
 
 import { CONFIRMED } from "./ends";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+import type { FLRegistrierungConfirmationResponse } from "@/core/generated/client/types";
 
-const { calls } = doubleApiAnswers();
+// The answer's one write, answered as the backend stores it; any other request goes unanswered and fails its case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === "/registrierungen/confirmation"
+    ? ({ birth_date: "2008-03-14", media: false, outcome: "confirmed", scope: "internal" } satisfies FLRegistrierungConfirmationResponse)
+    : undefined,
+);
+doubleNextRequest();
 
 const { answerRegistrierung } = await import("./answerRegistrierung");
 
@@ -32,9 +37,9 @@ describe("the pupil's answer", () => {
     expect(await answerRegistrierung(confirmation("on"))).toStrictEqual({ ok: true, value: CONFIRMED });
     expect(await answerRegistrierung(confirmation())).toStrictEqual({ ok: true, value: CONFIRMED });
 
-    expect(requestsOf(calls).map(({ endpoint, body }) => ({ endpoint, body }))).toStrictEqual(
+    expect(backend.sent.map(({ path, body }) => ({ path, body }))).toStrictEqual(
       [true, false].map((media) => ({
-        endpoint: "/registrierungen/confirmation",
+        path: "/registrierungen/confirmation",
         body: { token: TOKEN, birth_date: "2008-03-14", scope: "internal", media, text_versions: SPIELER_TEXT_VERSIONS },
       })),
     );

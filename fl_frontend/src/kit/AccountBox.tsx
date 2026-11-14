@@ -5,17 +5,16 @@ import { startTransition, useRef, useState } from "react";
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
-import { askingLook, buttonLook, buttonPlaceholder } from "./buttonStyles";
+import { askingLook } from "./buttonStyles";
 import { cardSurface, stacked } from "./cardStyles";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CutText } from "./CutText";
 import { Dialog } from "./Dialog";
 import { useLocked } from "./draftUnsaved";
 import { FieldStack } from "./FieldStack";
-import { FormFooter, FormFooterPlaceholder } from "./FormFooter";
+import { FormFooter } from "./FormFooter";
 import { HeldForm } from "./HeldForm";
 import { boxHead, dangerEdge, SectionTitle } from "./Section";
-import { placeholderBar, PlaceholderLine, PlaceholderSentence } from "./Skeleton";
 import { appToast } from "./Toast";
 import { tv } from "./tv";
 import { statusOf, useFormAction } from "./useFormAction";
@@ -25,6 +24,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { Copy, RecordText, Verb, Words } from "@/core/copy";
 import type { ReactElement, ReactNode } from "react";
 import type { ConfirmWords } from "./ConfirmDialog";
+import type { TouchVerb } from "./dialogAct";
 import type { FormStatus } from "./useFormAction";
 
 /**
@@ -102,101 +102,6 @@ const box = tv({
     inline: "flex flex-wrap items-center justify-between gap-4 p-4",
   },
 });
-
-/**
- * A Konto box while the person's records are read: the box's own shape, its title's line and its sentence, then its
- * content, the placeholders `children` names or `rows` of `AccountRows`' rows, and the footer band with its button
- * where the box has an act; or, with `control`, the one row of words beside a control that acts at once.
- */
-export function AccountBoxPlaceholder({
-  description,
-  rows = 0,
-  foot,
-  danger = false,
-  control,
-  children,
-}: {
-  /** The box's sentence, or the commonest form of one the read words, which wraps as the sentence will. */
-  description: Copy;
-  rows?: number;
-  /** The footer band's button's label, where the box has an act. */
-  foot?: Copy;
-  /** The box is a danger box, its edge in the danger hue before it lands. */
-  danger?: boolean;
-  /** The placeholder of the control that acts at once. */
-  control?: ReactElement;
-  children?: ReactNode;
-}) {
-  const slots = box();
-  const words = (
-    <>
-      <PlaceholderLine
-        textClass="text-base font-semibold"
-        widthClass="w-1/3"
-      />
-      <PlaceholderSentence
-        textClass={slots.description()}
-        words={description}
-      />
-    </>
-  );
-  if (control !== undefined)
-    return (
-      <div className={slots.root()}>
-        <div className={slots.inline()}>
-          <div className={slots.words()}>{words}</div>
-          {control}
-        </div>
-      </div>
-    );
-  const row = rowLook();
-  const hasContent = children !== undefined || rows > 0;
-  const held = boxHead({ ruled: hasContent });
-  return (
-    <div className={slots.root(danger ? { class: dangerEdge() } : {})}>
-      <div className={held.head()}>{words}</div>
-      {hasContent && (
-        <div className={held.content()}>
-          <FieldStack>
-            {children}
-            {rows > 0 && (
-              <div className={row.list()}>
-                {Array.from({ length: rows }, (_, index) => (
-                  <div
-                    key={index}
-                    className={row.row()}>
-                    <span className={row.words()}>
-                      <PlaceholderLine
-                        textClass="text-sm"
-                        widthClass="w-1/2"
-                      />
-                      <PlaceholderLine
-                        textClass="text-xs"
-                        widthClass="w-1/3"
-                      />
-                    </span>
-                    {[0, 1].map((act) => (
-                      <span
-                        key={act}
-                        className={buttonLook({ look: "icon", host: "aria" })}>
-                        <span className={placeholderBar("size-4")} />
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </FieldStack>
-        </div>
-      )}
-      {foot !== undefined && (
-        <FormFooterPlaceholder place="strip">
-          <span className={buttonPlaceholder()}>{foot}</span>
-        </FormFooterPlaceholder>
-      )}
-    </div>
-  );
-}
 
 /**
  * One box of a Konto page, every box the same shape: its 16-px title and one sentence under it saying what the box
@@ -355,14 +260,19 @@ type Rename = { title: Copy; run: (formData: FormData) => Promise<ActionAnswer>;
  * where the page knows at render that the act would be refused, the button saying why (`Button`).
  */
 type Remove = {
-  verb: Verb;
   subject: Copy;
   consequence: Copy;
-  /** The address the page was drawn for, the one account the touch may answer for. */
-  touch?: { holder: string };
   locked?: Copy;
   run: () => Promise<ActionAnswer<unknown>>;
-};
+} & (
+  | { verb: Verb; touch?: never }
+  | {
+      /** A verb the touched act's toast words as done. */
+      verb: TouchVerb;
+      /** The address the page was drawn for, the one account the touch may answer for. */
+      touch: { holder: string };
+    }
+);
 
 /** One record of a box: its name, the line under it, and its acts as icon buttons at the row's end. */
 export type AccountRow = { id: string; name: RecordText; detail: Copy; rename?: Rename; remove: Remove };
@@ -378,7 +288,10 @@ const rowLook = tv({
   },
 });
 
-/** A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog. */
+/**
+ * A box's records as rows, each with its own acts, whose outcome stands in the act's own dialog, or, for an act behind
+ * the passkey touch, in its toast.
+ */
 export function AccountRows({ rows: records }: { rows: ReadonlyArray<AccountRow> }) {
   const slots = rowLook();
   return (
@@ -436,12 +349,11 @@ function RemoveAct({ remove }: { remove: Remove }) {
     );
   return (
     <ConfirmDialog
-      verb={remove.verb}
+      {...(remove.touch === undefined ? { verb: remove.verb } : { verb: remove.verb, touch: remove.touch })}
       subject={remove.subject}
       consequence={remove.consequence}
       tone="danger"
       onConfirm={remove.run}
-      touch={remove.touch}
       trigger={face}
     />
   );

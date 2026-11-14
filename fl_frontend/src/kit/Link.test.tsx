@@ -8,12 +8,14 @@ import { Link } from "./Link";
 
 import type { ComponentProps } from "react";
 
-// Next's link, standing in as an anchor that says it navigates on the client: a client navigation is what an
-// intercepting route catches.
-vi.mock("next/link", () => ({
-  default: ({ children, ...props }: ComponentProps<"a">) => (
+// Next's link, standing in as an anchor that says it navigates on the client, a client navigation being what an
+// intercepting route catches, and what it was asked to prefetch.
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
+  default: ({ children, prefetch, ...props }: ComponentProps<"a"> & { prefetch?: boolean | null }) => (
     <a
       data-client-navigation
+      data-prefetch={String(prefetch)}
       {...props}>
       {children}
     </a>
@@ -82,6 +84,38 @@ describe("the kit's link", () => {
     const link = screen.getByRole("link", { name: "Sponsor" });
     expect(link.getAttribute("rel")).toBe("sponsored noopener noreferrer");
     expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  // A prefetch dropped on the way costs the next press a wait for its server render, and one added costs a server render
+  // per link in view: neither shows in any page's look.
+  it("asks Next's link for the prefetch it is given: the whole page, nothing, or the shell where none is given", () => {
+    render(
+      <>
+        <Link
+          href={SPIEL}
+          placement="button"
+          look="primary"
+          label={COPY.page.spielplan}
+          prefetch
+        />
+        <Link
+          href={SPIEL}
+          placement="row"
+          label={COPY.shared.toSpiel}
+          prefetch={false}
+        />
+        <Link
+          href={SPIEL}
+          placement="standalone"
+          label={COPY.page.tabelle}
+        />
+      </>,
+    );
+
+    const prefetchOf = (name: string) => screen.getByRole("link", { name }).getAttribute("data-prefetch");
+    expect(prefetchOf(COPY.page.spielplan)).toBe("true");
+    expect(prefetchOf(COPY.shared.toSpiel)).toBe("false");
+    expect(prefetchOf(COPY.page.tabelle)).toBe("undefined");
   });
 
   it("with `fullPage`, is a plain anchor loading the target as a whole document", () => {

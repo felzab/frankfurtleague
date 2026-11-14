@@ -1,17 +1,25 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import css from "@eslint/css";
+import { RuleTester } from "eslint";
 import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 
 import { buttonLook } from "../src/kit/buttonStyles.ts";
-import { PAIRS } from "./token-contrast.mjs";
+import { Chip } from "../src/kit/Chip.tsx";
+import tokenContrast, { PAIRS } from "./token-contrast.mjs";
+
+RuleTester.describe = describe;
+RuleTester.it = it;
+
+const TOKENS_FILE = path.resolve(import.meta.dirname, "..", "src", "app", "tokens.css");
+const TOKENS = readFileSync(TOKENS_FILE, "utf8");
 
 /** The colour tokens, by the light theme's declarations in `tokens.css`. */
 const COLOURS = (() => {
-  const file = path.resolve(import.meta.dirname, "..", "src", "app", "tokens.css");
   const colours = new Set();
-  postcss.parse(readFileSync(file, "utf8"), { from: file }).walkRules(":root", (rule) => {
+  postcss.parse(TOKENS, { from: TOKENS_FILE }).walkRules(":root", (rule) => {
     rule.walkDecls(/^--/, (decl) => {
       if (/^#[0-9a-f]{6}$/i.test(decl.value)) colours.add(decl.prop.slice(2));
     });
@@ -38,10 +46,7 @@ const MEASURED = new Set(PAIRS.map(([ink, ground]) => `${ink} on ${ground}`));
  * while its label lost its contrast.
  */
 describe("a button's label on its fill", () => {
-  // A placeholder's label stands unseen, sizing the bar, so it has no contrast to measure.
-  const cases = Object.keys(buttonLook.variants.look)
-    .filter((look) => look !== "placeholder")
-    .flatMap((look) => ["aria", "link"].map((host) => ({ look, host })));
+  const cases = Object.keys(buttonLook.variants.look).flatMap((look) => ["aria", "link"].map((host) => ({ look, host })));
 
   it.each(cases)("is a measured pair for a $look button as $host, in every state", ({ look, host }) => {
     const classes = buttonLook({ look, host });
@@ -57,4 +62,42 @@ describe("a button's label on its fill", () => {
     );
     expect(pairs.filter((pair) => !MEASURED.has(pair))).toStrictEqual([]);
   });
+});
+
+/*
+ * A chip on a see-through tint would stand on whatever holds it, a row under the pointer among them, which no pair
+ * names: each tone's word and ground are one measured pair.
+ */
+describe("a chip's word on its ground", () => {
+  // The tones `ChipProps` names.
+  it.each(["success", "info", "warn", "danger", "neutral"])("is a measured pair for the %s chip", (tone) => {
+    const classes = Chip({ tone, label: "Wort" }).props.className;
+    expect(MEASURED.has(`${painted(classes, "", "text")} on ${painted(classes, "", "bg")}`)).toBe(true);
+  });
+});
+
+/** `tokens.css` with one theme's declaration of `token` set to `value`. */
+const withToken = (token, value, theme) => {
+  const opener = theme === "dark" ? '[data-theme="dark"] {' : ":root {";
+  const block = TOKENS.indexOf(opener);
+  const at = TOKENS.indexOf(`--${token}:`, block);
+  const end = TOKENS.indexOf(";", at);
+  return `${TOKENS.slice(0, at)}--${token}: ${value}${TOKENS.slice(end)}`;
+};
+
+const tester = new RuleTester({ plugins: { css }, language: "css/css", languageOptions: { tolerant: true } });
+
+const tooLow = (code) => ({ code, filename: "tokens.css", errors: [{ messageId: "tooLow" }] });
+
+tester.run("tokens/contrast", tokenContrast, {
+  valid: [{ code: TOKENS, filename: "tokens.css" }],
+  invalid: [
+    // A status chip's word on its tint, in either theme.
+    tooLow(withToken("danger-tint", "#d0bdbe", "light")),
+    tooLow(withToken("danger-tint", "#4a3a39", "dark")),
+    // The neutral chip.
+    tooLow(withToken("fg-muted-tint", "#bdbdbd", "light")),
+    // A tint that lets the ground through cannot be measured.
+    { code: withToken("warn-tint", "#85530020", "light"), filename: "tokens.css", errors: [{ messageId: "notHex" }] },
+  ],
 });

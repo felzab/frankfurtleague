@@ -298,12 +298,13 @@ jobs:
     needs: images
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912), as the db job says.
     runs-on: ubuntu-22.04
-    timeout-minutes: 16
-    # Two legs, each on a runner and a stack of its own, by Playwright project
+    timeout-minutes: 33
+    # Six legs, each on a runner and a stack of its own, every case on every event
     # (https://playwright.dev/docs/ci: "consider sharding - distributing tests across multiple CI
-    # jobs"): a project's seeded people are its own, where a `--shard` would split the cases of one
-    # project across two databases. `fail-fast: false`, or a red leg cancels the other and its
-    # verdict is lost. `first-pass` depends on `administrator` alone, so it rides the desktop leg.
+    # jobs"). The journeys split by Playwright project: a project's seeded people are its own, where a
+    # `--shard` would split the cases of one project across two databases. `fail-fast: false`, or a red
+    # leg cancels the others and their verdicts are lost. `first-pass` depends on `administrator` alone,
+    # so it rides the desktop leg.
     strategy:
       fail-fast: false
       matrix:
@@ -312,6 +313,20 @@ jobs:
             projects: --project=desktop --project=first-pass
           - leg: phone
             projects: --project=phone
+          # The layout-shift guard (`fl_frontend/e2e/layout/shift.spec.ts`), on stacks of its own: the public leg
+          # re-seeds its database for each state of the landing, and the signed-in legs' setup enrols the
+          # administrator's passkey, which `--no-deps` spares the public one. The guard's cases only read, so its
+          # signed-in ones split by case with `--shard` (https://playwright.dev/docs/test-sharding), each shard
+          # running the setups on its own stack: in three, each takes about as long as the public leg, which then
+          # sets the job's length.
+          - leg: layout-public
+            projects: --project=layout --no-deps --grep-invert @signed-in
+          - leg: layout-signed-in-1
+            projects: --project=layout --grep @signed-in --shard=1/3
+          - leg: layout-signed-in-2
+            projects: --project=layout --grep @signed-in --shard=2/3
+          - leg: layout-signed-in-3
+            projects: --project=layout --grep @signed-in --shard=3/3
     name: journeys (${{ matrix.leg }})
     env:
       # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
@@ -380,6 +395,7 @@ jobs:
       # yet running are created: without `--force-recreate`, `up` recreates a container only for a
       # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
       - name: Start the stack
+        id: stack
         run: docker compose up -d --no-build --wait --wait-timeout 240
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
@@ -411,6 +427,49 @@ jobs:
             --env CI --env GITHUB_WORKSPACE \
             "$PLAYWRIGHT_IMAGE" \
             node_modules/.bin/playwright test "${projects[@]}"
+      # The landing's cases again under each other state `scripts/ops/seed/seed.js :: LANDING_STATES` seeds, as
+      # `local.sh --e2e --landing=<state>` does: the seed in mongosh's environment, its read-back, then the frontend
+      # recreated, since Next keeps the landing's read in memory for minutes. Every state runs, and each failed one is
+      # named before the step fails, `(stack)` beside one whose seed, read-back or recreate failed before its cases ran.
+      # Each state's HTML report goes to a folder of its own, through the reporter's `PLAYWRIGHT_HTML_OUTPUT_DIR`, which
+      # wins over the config's folder: in one folder each run would replace the last. `!cancelled()`, so a red main run
+      # still leaves every state its verdict: a step's `if` without a status function implies `success()`
+      # (https://docs.github.com/en/actions/reference/workflows-and-actions/expressions). Never over a stack that did
+      # not start, where each state would wait out its recreate. Its own bound, by the rule above the jobs and below
+      # the job's: a step's timeout fails the step, where the job's cancels the job, and in a cancelled job the two
+      # `failure()` steps below keep neither the report nor the stack's logs.
+      - name: Run the landing's cases under each of its states
+        if: ${{ !cancelled() && steps.stack.outcome == 'success' && matrix.leg == 'layout-public' }}
+        timeout-minutes: 5
+        run: |
+          base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
+          failed=()
+          for state in running-two-one-side countdown countdown-with-opening decided window none; do
+            echo "::group::The landing ${state}"
+            # In a condition, where `-e` stops nothing, so a failed state is named and the next one runs.
+            if ! { docker compose exec -T --env "SEED_LANDING=${state}" mongo \
+                     mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js \
+                   && docker compose exec -T backend python -m app.readback \
+                   && docker compose up -d --no-build --no-deps --force-recreate --wait --wait-timeout 240 frontend; }; then
+              failed+=("$state (stack)")
+              echo "::endgroup::"
+              continue
+            fi
+            docker run --rm --init --ipc=host --network=host \
+              --user "$(id -u):$(id -g)" \
+              --volume "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+              --workdir "${GITHUB_WORKSPACE}/fl_frontend" \
+              --env CI --env GITHUB_WORKSPACE \
+              --env "PLAYWRIGHT_HTML_OUTPUT_DIR=../.tmp-playwright/report-landing-${state}" \
+              "$PLAYWRIGHT_IMAGE" \
+              node_modules/.bin/playwright test --project=layout --no-deps --grep @landing || failed+=("$state")
+            echo "::endgroup::"
+          done
+          if (( ${#failed[@]} )); then
+            printf -v named '%s, ' "${failed[@]}"
+            echo "::error::The landing's cases failed under: ${named%, }"
+            exit 1
+          fi
       - name: Keep the report of a failed run
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

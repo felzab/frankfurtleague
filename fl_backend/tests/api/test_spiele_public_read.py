@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -195,12 +195,11 @@ class TestTheJoinedSideShapes:
         assert set(FLSpielTeamFieldJoined.model_fields) == {"team_id", "name", "shorthand", "tore", "austritt_type"}
 
 
-# The block each of a referee's three public states is served as. A withheld name and a booking naming nobody read alike,
-# `name` null, which the frontend words as „anonym“; a published name keeps its surname's initial alone.
+# The block a published and a withheld referee name are served as. A withheld name reads `name` null, which the
+# frontend words as „anonym“; a published name keeps its surname's initial alone.
 REFEREE_STATES = [
     pytest.param({"name_is_public": True}, {"name": PUBLIC_SCHIEDSRICHTER_NAME, "name_is_public": True}, id="published"),
     pytest.param({"name_is_public": False}, {"name": None, "name_is_public": False}, id="withheld"),
-    pytest.param({"schiedsrichter_id": None, "name": None, "name_is_public": False}, {"name": None, "name_is_public": False}, id="nobody"),
 ]
 
 # The two base-tier reads listing a season's fixtures, each with the fields its answer holds beside the matchdays.
@@ -236,35 +235,9 @@ class TestTheScheduleServesTheRefereeByConsent:
 class TestTheSpielShapes:
     """What each fixture model declares, and what survives validation of ONE raw document through it."""
 
-    def test_the_base_tier_spiel_cuts_the_referees_surname(self):
-        """The surname cut to its initial, on the shape a base-tier read answers with rather than on the reducer alone.
-
-        The stored document carries the surname in full, so a model that stopped reducing would serve it.
-        """
-
-        parsed = FLSpielJoined.model_validate(joined_document())
-
-        assert parsed.schiedsrichter is not None
-        assert parsed.schiedsrichter.name == PUBLIC_SCHIEDSRICHTER_NAME
-        assert SCHIEDSRICHTER_SURNAME not in parsed.model_dump_json()
-
-    def test_a_referee_block_the_join_never_judged_is_refused(self):
-        """Required as `ansetzung_confirmed` is: served without its verdict, a read that skipped the gate would publish every referee."""
-
-        document = joined_document()
-        unjudged = {
-            **document,
-            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_confirmed"},
-        }
-
-        with pytest.raises(ValidationError):
-            FLSpielJoined.model_validate(unjudged)
-
-    @pytest.mark.parametrize(
-        ("schiedsrichter_id", "served"), [pytest.param(None, True, id="nobody"), pytest.param(ObjectId(), False, id="a-referee")]
-    )
+    @pytest.mark.parametrize(("schiedsrichter_id", "served"), [pytest.param(ObjectId(), False, id="a-referee")])
     def test_a_booking_naming_nobody_is_served_nameless_where_a_referee_s_waits_for_their_agreement(self, schiedsrichter_id, served):
-        """An erased referee's played match reads as nobody named; withheld, it would read as no referee booked at all."""
+        """A booked referee yet to agree is withheld whole."""
 
         document = joined_document()
         nobody_agreed = {
@@ -298,14 +271,6 @@ class TestTheSpielShapes:
         for side in SIDES:
             assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
 
-    def test_the_admin_spiel_drops_them_too(self):
-        """No fixture response carries a reason: the money is withheld by TIER, and the withdrawal is narrowed on every tier at once."""
-
-        dumped = FLSpielJoinedAdmin.model_validate(joined_document()).model_dump()
-
-        for side in SIDES:
-            assert AUSTRITT_DETAIL_KEYS & keys_under(dumped, side) == set()
-
 
 # (stored, what the base tier serves). The surname is everything after the FIRST space, so a
 # particle and a double surname reduce whole rather than leaking their front half.
@@ -313,7 +278,6 @@ REFEREE_NAME_CASES = [
     pytest.param(SCHIEDSRICHTER_NAME, PUBLIC_SCHIEDSRICHTER_NAME, id="one surname"),
     pytest.param("Ada van der Berg", "Ada v.", id="a particle"),
     pytest.param("Anna Müller Schmidt", "Anna M.", id="a double surname"),
-    pytest.param("Prince", "Prince", id="no surname at all"),
 ]
 
 

@@ -1,12 +1,6 @@
-import { AccountBoxPlaceholder } from "@/kit/AccountBox";
 import { AccountEmpty, AccountPage } from "@/kit/AccountPage";
-import { CheckboxPlaceholder } from "@/kit/Checkbox";
-import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { RadioGroupPlaceholder } from "@/kit/RadioGroup";
 
 import { MEDIA_MIN_AGE } from "@/core/bounds";
-import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatEuro } from "@/core/format";
 import { ROUTES } from "@/core/routes";
@@ -148,35 +142,10 @@ async function EntriesContent() {
   );
 }
 
-/**
- * Deine Einträge: each record of the person's own, with its consents. It waits in one box of the commonest kind, a
- * pupil's, in that kind's own words: which records stand is what the read decides.
- */
+/** Deine Einträge: each record of the person's own, with its consents. */
 export default function AccountEntriesPage() {
   return (
-    <AccountPage
-      route="accountEntries"
-      wait={
-        <AccountBoxPlaceholder
-          description={WORDS.description.spieler}
-          foot={COPY.shared.verb.save}>
-          <FactsPlaceholder
-            pairs={2}
-            look="free"
-          />
-          <RadioGroupPlaceholder
-            label={SPIELER_WORDINGS.scope.question}
-            choices={Object.values(SPIELER_WORDINGS.scope.options)}
-          />
-          <ConsentLinePlaceholder line={SPIELER_WORDINGS.scope.line} />
-          {/* The floor is the record's; any two figures stand as wide. */}
-          <CheckboxPlaceholder
-            label={SPIELER_WORDINGS.media.label}
-            description={WORDS.mediaFrom(MEDIA_MIN_AGE)}
-          />
-          <ConsentLinePlaceholder line={SPIELER_WORDINGS.media.line} />
-        </AccountBoxPlaceholder>
-      }>
+    <AccountPage route="accountEntries">
       <EntriesContent />
     </AccountPage>
   );

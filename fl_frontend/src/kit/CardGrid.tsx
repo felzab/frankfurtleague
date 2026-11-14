@@ -1,6 +1,9 @@
+import { BlockBox } from "./BlockBox";
+import { CardLink } from "./Card";
 import { tv } from "./tv";
 
 import type { ReactNode } from "react";
+import type { CardLinkProps } from "./Card";
 
 const grid = tv({
   base: "grid gap-6",
@@ -28,10 +31,22 @@ export function CardGrid({
   children: ReactNode;
 }) {
   return (
-    // The container the grid's columns read, since a query reads an ancestor; `w-full`, since a container's width counts
-    // none of its content, and a parent starting its children would shrink it to nothing.
-    <div className="@container w-full">
+    <BlockBox>
       <div className={grid({ across })}>{children}</div>
-    </div>
+    </BlockBox>
+  );
+}
+
+/** The role chooser's places, each a card linking it, the page arriving whole with them. */
+export async function RoleChoices({ choices }: { choices: Promise<ReadonlyArray<CardLinkProps>> }) {
+  return (
+    <CardGrid across={3}>
+      {(await choices).map((choice) => (
+        <CardLink
+          key={choice.href}
+          {...choice}
+        />
+      ))}
+    </CardGrid>
   );
 }

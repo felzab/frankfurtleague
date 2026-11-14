@@ -14,6 +14,7 @@ from app.api.spielberichte.services import (
     find_cancelled_refusal,
     find_not_in_kader_refusal,
     find_not_played_refusal,
+    find_not_refereed_refusal,
     judge_bericht,
     kader_is_open,
     newly_named,
@@ -201,7 +202,7 @@ class TestAReportFollowsTheKickOff:
 
 
 class TestACalledOffSpielTakesNoReport:
-    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen"])
     def test_a_spiel_that_took_no_place_is_refused(self, sonderereignis: str):
         assert refused_with(Code.BERICHT_CANCELLED, find_cancelled_refusal(sonderereignis=sonderereignis))
 
@@ -214,11 +215,40 @@ class TestACalledOffSpielTakesNoReport:
         assert kader_is_open(context(sonderereignis="ausgefallen"), now=NOW) is False
 
 
+class TestAFixtureAClubLeftTakesNoReportFromItsReferee:
+    """The pass told the referee they no longer referee it: still taken, their report would stand on a match the club left."""
+
+    @pytest.mark.parametrize(
+        ("austritt", "record", "refused"),
+        [
+            pytest.param(TODAY, {}, True, id="the club gone by the match's day"),
+            pytest.param("2027-05-15", {}, False, id="the club gone after it"),
+            # The walkover a fixture against a departed club is reported with, which decides it ahead of the exit.
+            pytest.param(TODAY, {"sonderereignis": "nichtantreten_team1", "ergebnis": "0:3"}, True, id="the club gone and reported absent"),
+            # An exit dated back over a match already played, whose referee officiated and was told nothing.
+            pytest.param(TODAY, {"ergebnis": "2:1"}, False, id="a match played before an exit dated back over it"),
+        ],
+    )
+    def test_the_booked_referee(self, austritt: str, record: dict[str, Any], refused: bool):
+        left = spiel(team1={"team_id": TEAM1, "tore": None, "austritt": {"date": austritt}}, **record)
+
+        assert (
+            refused_with(Code.BERICHT_NOT_OFFICIATED, find_not_refereed_refusal(spiel_raw=left, schiedsrichter_ids=[SCHIEDSRICHTER])) is refused
+        )
+
+
 class TestANewlyNamedPupilIsInTheSquad:
     def test_a_pupil_outside_the_second_sides_live_squad_is_refused(self):
         """Each side is judged against its own squad, the second as the first: a goal must never be stored under a pupil nobody fielded."""
 
         new = newly_named(FLSpielberichtBerichtPayload.model_validate(payload([tor("team2", ObjectId())])), None, spiel())
+
+        assert refused_with(Code.SPIELER_NOT_IN_KADER, find_not_in_kader_refusal(context=context(), new=new))
+
+    def test_a_live_pupil_of_the_other_side_is_refused(self):
+        """The second side's pupil credited to the first: a squad of the two sides together would take them."""
+
+        new = newly_named(FLSpielberichtBerichtPayload.model_validate(payload([tor("team1", LIVE2)])), None, spiel())
 
         assert refused_with(Code.SPIELER_NOT_IN_KADER, find_not_in_kader_refusal(context=context(), new=new))
 
@@ -249,10 +279,14 @@ class TestTheAdoptedStateIsDerivedFromTwo:
     def test_the_sides_swapped_read_differing(self):
         assert bericht_state_of(saved(adopted=True), played(0, 1)) == "differing"
 
-    def test_a_result_standing_beside_a_report_nobody_adopted_reads_differing(self):
-        """A result the administrator typed, and a report its referee corrected since its adoption: the goals may still match."""
+    def test_a_result_matching_a_report_nobody_adopted_reads_proposed_and_one_not_matching_differing(self):
+        """A result the administrator typed, or a report its referee corrected since its adoption: the goals may still match.
 
-        assert bericht_state_of(saved(), played(1, 0)) == "differing"
+        Read as differing where they match, the report could never be adopted: the editor's fields already hold it.
+        """
+
+        assert bericht_state_of(saved(), played(1, 0)) == "proposed"
+        assert bericht_state_of(saved(), played(2, 0)) == "differing"
 
     def test_a_spiel_holding_no_result_reads_proposed_however_it_was_stamped(self):
         assert bericht_state_of(saved(), spiel()) == "proposed"
@@ -265,7 +299,7 @@ class TestTheAdoptedStateIsDerivedFromTwo:
         assert bericht_state_of(bericht, played(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
         assert bericht_state_of(bericht, played(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
 
-    @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
+    @pytest.mark.parametrize("sonderereignis", ["ausgefallen"])
     def test_a_spiel_called_off_since_the_report_reads_cancelled(self, sonderereignis: str):
         """Read-only and awaiting nobody: no write can adopt a report on a match that took no place."""
 

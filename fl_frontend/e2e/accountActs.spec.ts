@@ -33,7 +33,8 @@ test("„Alle anderen abmelden“ ends a second device's session and keeps this 
   // Both sessions alive before the press, so the press is seen ending one rather than finding one already gone.
   await expect(page.getByRole("main").getByText("Du bist auf 2 Geräten angemeldet.")).toBeVisible();
   await page.getByRole("button", { name: "Alle anderen abmelden" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Abmelden" }).click();
+  // The question is named: the toast an act answers in is an `alertdialog` too.
+  await page.getByRole("alertdialog", { name: "Alle anderen abmelden?" }).getByRole("button", { name: "Abmelden" }).click();
   // The press's end: the count names this device alone, where it named two before.
   await expect(page.getByRole("main").getByText("Du bist auf 1 Gerät angemeldet.")).toBeVisible();
   // The page's own guard sends the ended session to the sign-in. Judged on the whole path, since `/account/signin`
@@ -99,7 +100,7 @@ test("the person deletes their account from the mailed link, signed out when it 
   await page.goto("/account/signin");
   const before = await filedMessages();
   await page.getByRole("button", { name: "Konto löschen" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+  await page.getByRole("alertdialog", { name: "Konto löschen?" }).getByRole("button", { name: "Löschen" }).click();
   const link = await mailedLink(leaver, "Konto löschen", before);
 
   // Opened signed out, the link leads through the sign-in and back to itself.

@@ -95,8 +95,10 @@ describe("the rail frame's own boundary", () => {
     onTestFinished(() => quiet.mockRestore());
 
     const next = { label: COPY.shared.end.toOverview, href: ROUTES.admin.path() };
-    render(underNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED));
-    await act(() => Promise.resolve());
+    // The frame drawn again commits once its account read settles, so the render waits for it.
+    await act(async () => {
+      render(underNext(h(RailFrameBoundary, { groups: [], bar: ["overview"], next }, h(FailingRead)), ROUTED));
+    });
     const reports = sent.mock.calls.map(([input, init]) => ({ address: String(input), method: init?.method }));
 
     expect(reports).toHaveLength(1);

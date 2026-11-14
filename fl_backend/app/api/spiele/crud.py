@@ -1,6 +1,7 @@
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
@@ -9,7 +10,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aufstellungen.crud import drop_nameless_entries
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.saisons.services import find_saison_past_refusal
+from app.api.saisons.services import find_saison_past_refusal, has_started
 from app.api.spielberichte.crud import stamp_the_adoption
 from app.api.spielberichte.services import sides_of
 from app.api.spielbestaetigungen.services import CLOSE_FIELDS, build_holding_filter, parties_told_of_the_change
@@ -50,6 +51,7 @@ from app.api.spiele.services import (
     find_double_bookings,
     find_double_entries,
     find_eligibility_refusal,
+    find_ergebnis_before_start_refusal,
     find_gruppen_not_run,
     find_references_to_anchor,
     find_result_removal_refusal,
@@ -78,16 +80,20 @@ from app.api.teams.services import (
     is_played,
     offered_gruppen,
 )
+from app.core import clock
+from app.core.codes import Code
 from app.core.crud import (
     VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
+    find_stale_save_refusal,
     patch_one_in_db,
     pull_many_from_db,
     pull_one_from_db,
     pull_whole_from_db,
     refuse,
 )
+from app.core.exceptions import APIError
 from app.core.readonly import ReadCollection
 from app.core.recording import FLAction, record_act
 from app.shared.einwilligung import is_confirmed
@@ -689,7 +695,7 @@ async def _judge_spiel_save(
     # it closes, so a rollover landing under this save conflicts with its write and the retry reads `past`. Ahead of
     # the normalisation because a forfeit is awarded from the rules rather than typed.
     saison_raw = await pull_one_from_db(
-        collection=collections.saisons, db_filter={"_id": saison_id}, projection=["rules", "status"], session=session
+        collection=collections.saisons, db_filter={"_id": saison_id}, projection=["rules", "status", "start_date"], session=session
     )
     rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
@@ -710,10 +716,19 @@ async def _judge_spiel_save(
     # nothing about this payload is worth judging further.
     refuse(find_saison_past_refusal(saison_status=str(saison_raw["status"])))
 
+    # Before the bracket and the clubs: a season not yet started takes no result at all, whatever this one would wire.
+    # A start moved under this judgement anchors every fixture of the season, this one included, so the two writes
+    # conflict and the retry judges the moved start.
+    started = has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now))
+    # What the save would store, composed once: the start rule judges it, and the write stores it.
+    patched = apply_payload_to_spiel(stored, payload, rules, now=now)
+    refuse(find_ergebnis_before_start_refusal(stored, patched, started=started))
+
     refuse(find_wiring_refusal(spiel_id, payload, season, number_of_gruppen=rules.number_of_gruppen))
 
     # Through the session, as every read here is: a fixture's save and a proposal's adoption judge inside their own
-    # transaction, and neither writes a club's season row before this read; the dry run reads outside one.
+    # transaction. Neither writes a club's season row, so a club's exit conflicts with them by anchoring the season's
+    # fixtures, which this save writes; the dry run reads outside a transaction.
     membership = await pull_saison_membership(saison_teams_collection=collections.saison_teams, saison_id=saison_id, session=session)
     refuse(find_eligibility_refusal(spiel_id, payload, season, membership))
 
@@ -758,7 +773,7 @@ async def _judge_spiel_save(
         rules=rules,
         season=season,
         releases=verdict.releases,
-        patched=apply_payload_to_spiel(stored, payload, rules, now=now),
+        patched=patched,
         # Returned rather than left to the caller to derive, so every transaction judging here anchors what the two
         # rules above judged.
         anchored=find_references_to_anchor(stored, payload, rules),
@@ -771,6 +786,7 @@ async def pull_party_names(
     parties: Sequence[Mapping[str, Any]],
     membership: Mapping[CustomObjectId, SaisonMembership],
     schiedsrichter_collection: ReadCollection,
+    session: AsyncClientSession,
 ) -> dict[tuple[str, Any], str]:
     """The name each of `parties` holds on its own record: a club its season row's, already read as `membership`, a referee their own."""
 
@@ -781,6 +797,7 @@ async def pull_party_names(
         projection={"name": 1},
         # `_id` is unique, so `len(referee_ids)` rows is the whole answer and the cap can never cut it short.
         limit=max(len(referee_ids), 1),
+        session=session,
     )
 
     return {
@@ -796,13 +813,15 @@ async def preview_spiel_save(
     collections: SpielSaveCollections,
     spielbestaetigungen_collection: ReadCollection,
     now: datetime,
+    session: AsyncClientSession,
 ) -> FLPatchSpielDataResponse:
     """What this payload would move, destroy and have the confirmation pass mail, judged against the season as it stands, written nowhere.
 
-    No transaction: a preview that took a write lock would be paying for a question.
+    No transaction: a preview that took a write lock would be paying for a question. Read in a snapshot `session`
+    instead, so a referee erased under it, rows and record in one write, is either named or reached by no row.
     """
 
-    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=None)
+    judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)
     # The fixture's rows holding their party's question, as the pass's close reads them. Whole, as the pass judges
     # them: a row cut from the read is a mail the question would not name.
     rows = await pull_whole_from_db(
@@ -810,15 +829,20 @@ async def preview_spiel_save(
         db_filter={"spiel_id": spiel_id, **build_holding_filter()},
         what=f"fixture {spiel_id}'s held confirmations",
         projection=CLOSE_FIELDS,
+        session=session,
     )
+    austritte = {team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None}
     told = parties_told_of_the_change(
         rows=rows,
         stored=stored_in_slice(spiel_id, judged.season).model_dump(context={"keep_oid": True}),
         changed=judged.patched.model_dump(context={"keep_oid": True}),
-        austritte={team_id: member.departed_from for team_id, member in judged.membership.items() if member.departed_from is not None},
+        stored_austritte=austritte,
+        changed_austritte=austritte,
         now=now,
     )
-    names = await pull_party_names(parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter)
+    names = await pull_party_names(
+        parties=told, membership=judged.membership, schiedsrichter_collection=collections.schiedsrichter, session=session
+    )
     advanced_to, released_sides = await preview_bracket_after_patch(
         teams_collection=collections.teams,
         saison_id=judged.saison_id,
@@ -837,6 +861,70 @@ async def preview_spiel_save(
     )
 
 
+async def _hold_the_read_version(
+    *,
+    spiel_id: CustomObjectId,
+    stored: FLSpiel,
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    session: AsyncClientSession,
+) -> None:
+    """Refuse a save on a `version` the fixture has moved past, where the save writes no field of the fixture itself.
+
+    The version off this transaction's read, held by the anchor: a rival save committing since conflicts with it, and
+    the retry reads the version that save left.
+    """
+
+    await anchor_in_db(collection=collections.spiele, db_filter={"_id": spiel_id}, session=session)
+    refuse(find_stale_save_refusal({VERSION_FIELD: stored.version}, version=payload.version))
+
+
+async def _save_moving_nothing(
+    *,
+    spiel_id: CustomObjectId,
+    stored: FLSpiel,
+    # The clubs the stored fixture fields, which the save leaves.
+    sides: Mapping[FLSpielSide, Any],
+    payload: FLPatchSpielDataPayload,
+    collections: SpielSaveCollections,
+    adopts_bericht: int | None,
+    session: AsyncClientSession,
+) -> FLPatchSpielDataResponse:
+    """A save whose fixture write would store what stands: judged as the write would be, and the report's stamp alone written.
+
+    Refused where the fixture's write would be: on a `version` the fixture has moved past, and on results it names that
+    no save deletes. Refused too where it asks a stamp that matches nothing, since it would then answer a save that did
+    nothing at all.
+    """
+
+    await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
+    refuse(find_voided_results_refusal(confirmed=payload.voided_results, voided=[]))
+
+    if adopts_bericht is not None:
+        stamped = await stamp_the_adoption(
+            spielberichte_collection=collections.spielberichte,
+            spiel_id=spiel_id,
+            version=adopts_bericht,
+            sides=sides,
+            session=session,
+        )
+        # The report moved since the editor read it: its reload shows what the referee wrote.
+        if not stamped:
+            raise APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
+
+    return FLPatchSpielDataResponse(voided_results=[], version=stored.version, recipients=None)
+
+
+async def _bracket_moves(judged: _JudgedSave, *, collections: SpielSaveCollections, session: AsyncClientSession) -> bool:
+    """Whether resolving the season's bracket as it stands would rewrite any fixture: the advancement's own resolution."""
+
+    resolution = await _resolve_one_saison(
+        teams_collection=collections.teams, saison_id=judged.saison_id, rules=judged.rules, spiele=judged.season, session=session
+    )
+
+    return bool(resolution.advancements)
+
+
 async def save_spiel_in_session(
     *,
     spiel_id: CustomObjectId,
@@ -853,38 +941,63 @@ async def save_spiel_in_session(
     """Save one fixture wholesale inside the caller's transaction and resolve its season's bracket.
 
     Safe to retry: every pass re-reads what it judges. With `adopts_bericht` the fixture's report is stamped adopted
-    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing.
+    where its document still stands at that version about the clubs the save leaves; a miss refuses nothing where the
+    fixture moved, and refuses a save moving nothing else.
     """
 
     judged = await _judge_spiel_save(spiel_id=spiel_id, payload=payload, collections=collections, now=now, session=session)
+    stored = stored_in_slice(spiel_id, judged.season)
 
     # From the normalised fixture, with keys off the payload's field set: keys off the fixture would put `saison_id`,
     # `saison_phase`, `spiel_nr` and `spieltag_id` in the `$set`.
-    document = judged.patched.model_dump(context={"keep_oid": True}, include={*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"})
+    written = {*SPIEL_PATCH_WRITTEN_FIELDS, "ergebnis"}
+    document = judged.patched.model_dump(context={"keep_oid": True}, include=written)
 
-    await patch_one_in_db(
-        collection=collections.spiele,
-        db_filter={"_id": spiel_id},
-        update={"$set": document},
-        expected_version=payload.version,
-        session=session,
-        return_document=ReturnDocument.BEFORE,
-    )
-    stored = stored_in_slice(spiel_id, judged.season)
-    # A match to come holds no entry naming nobody: a re-dating that puts a played match back among those to come drops
-    # them from its line-ups, as `apply_payload_to_spiel` drops such a booking.
-    if is_played(date=stored.date, time=stored.time, now=now) and not is_played(date=judged.patched.date, time=judged.patched.time, now=now):
-        await drop_nameless_entries(aufstellungen_collection=collections.aufstellungen, spiel_id=spiel_id, session=session)
+    # The fixture's one count moves for a change alone: a save storing what stands, as an adoption of the result its
+    # fields already hold, raises no version that would refuse every other open editor, and the Protokoll records no
+    # change nobody made. Only where resolving the bracket would move nothing either, as the dry run resolves it: on a
+    # stale bracket it names results the resolution voids, and a save skipping it would refuse their confirmation.
+    unchanged = document == stored.model_dump(context={"keep_oid": True}, include=written)
+    if unchanged and not judged.releases and not await _bracket_moves(judged, collections=collections, session=session):
+        return await _save_moving_nothing(
+            spiel_id=spiel_id,
+            stored=stored,
+            sides=sides_of(document),
+            payload=payload,
+            collections=collections,
+            adopts_bericht=adopts_bericht,
+            session=session,
+        )
 
-    # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
-    ergebnis_moved = judged.patched.ergebnis != stored.ergebnis
-    await record_act(
-        collection=collections.spiele,
-        action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
-        record_id=spiel_id,
-        label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
-        session=session,
-    )
+    if unchanged:
+        # On a stale bracket the save runs the release and the resolution alone: the fixture's own write and its Protokoll
+        # row would raise its version and record a change nobody made.
+        await _hold_the_read_version(spiel_id=spiel_id, stored=stored, payload=payload, collections=collections, session=session)
+    else:
+        await patch_one_in_db(
+            collection=collections.spiele,
+            db_filter={"_id": spiel_id},
+            update={"$set": document},
+            expected_version=payload.version,
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+        # A match to come holds no entry naming nobody: a re-dating that puts a played match back among those to come
+        # drops them from its line-ups, as `apply_payload_to_spiel` drops such a booking.
+        if is_played(date=stored.date, time=stored.time, now=now) and not is_played(
+            date=judged.patched.date, time=judged.patched.time, now=now
+        ):
+            await drop_nameless_entries(aufstellungen_collection=collections.aufstellungen, spiel_id=spiel_id, session=session)
+
+        # Split on the stored result, so the Protokoll tells a result from a re-dating without holding either value.
+        ergebnis_moved = judged.patched.ergebnis != stored.ergebnis
+        await record_act(
+            collection=collections.spiele,
+            action=act or ("spiel.ergebnis_changed" if ergebnis_moved else "spiel.changed"),
+            record_id=spiel_id,
+            label=spiel_label(judged.saison_id, judged.patched.spiel_nr),
+            session=session,
+        )
 
     # Before the resolution: a slot this release opens can be refilled by that same resolution, and the reverse order
     # would leave the season one pass behind.

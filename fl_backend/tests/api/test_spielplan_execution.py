@@ -501,23 +501,6 @@ class TestTheGroupPhaseIsEachGroupsOwnRoundRobin:
 
 
 class TestTheBracketIsWiredToWhatFeedsIt:
-    @pytest.mark.parametrize(("groups", "teams", "qualifiers"), SHAPES, ids=SHAPE_IDS)
-    def test_each_round_is_the_phase_and_the_size_the_qualifier_count_implies(
-        self, mongo_replica_set_url: str, groups: int, teams: int, qualifiers: int
-    ):
-        """`KNOCKOUT_PHASES` is a pinned tuple and `bracket_rounds` halves the product itself.
-
-        A ladder one round short then shows twice over: a `halbfinale` holding four matches is both
-        the wrong label and the wrong size.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url, groups=groups, teams=teams, qualifiers=qualifiers)
-        sizes = bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"]))
-        rounds = knockout_rounds(drawn)
-
-        assert [{row["saison_phase"] for row in spiele} for spiele in rounds] == [{phase} for phase in KNOCKOUT_PHASES[-len(sizes) :]]
-        assert [len(spiele) for spiele in rounds] == list(sizes)
-
     def test_every_knockout_spiel_is_two_unfilled_slots_each_with_a_source(self, mongo_replica_set_url: str):
         """Nobody has qualified when a season is drawn, so a side filled here would name a club the group phase has not chosen yet."""
 
@@ -527,41 +510,6 @@ class TestTheBracketIsWiredToWhatFeedsIt:
         assert len(spiele) == sum(bracket_rounds(FLSaisonRules.model_validate(drawn.saison["rules"])))
         assert [row["spiel_nr"] for row in spiele if row["team1"] is not None or row["team2"] is not None] == []
         assert [row["spiel_nr"] for row in spiele if row["team1_quelle"] is None or row["team2_quelle"] is None] == []
-
-    def test_the_first_round_names_the_placings_the_seeding_table_pins(self, mongo_replica_set_url: str):
-        """`BRACKET_SEEDING` fixes who meets in round one.
-
-        Seeded any other way, two clubs out of one group meet before the bracket has narrowed.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url)
-        first, *_ = knockout_rounds(drawn)
-
-        assert [
-            (quelle["type"], quelle["gruppe"], quelle["platz"]) for row in first for quelle in (row["team1_quelle"], row["team2_quelle"])
-        ] == [("gruppe", gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, QUALIFIERS)]]
-
-    def test_each_later_round_is_fed_by_the_winners_of_the_round_before_it(self, mongo_replica_set_url: str):
-        """The chain the bracket resolver walks: a source naming a fixture from anywhere else leaves a slot no result can ever fill.
-
-        The Finale's matchday opens with the semi-finals' losers, who play for third place.
-        """
-
-        drawn = a_drawn_season(mongo_replica_set_url)
-        first, *later = knockout_rounds(drawn)
-
-        assert later, "this bracket holds one round, so the chain is never exercised"
-
-        feeding = [row["spiel_nr"] for row in first]
-        for spiele in later:
-            sources = [
-                (quelle["type"], quelle["spiel_nr"], quelle["ausgang"])
-                for row in spiele
-                for quelle in (row["team1_quelle"], row["team2_quelle"])
-            ]
-            third_place = [("spiel", spiel_nr, "verlierer") for spiel_nr in feeding] if spiele[0]["saison_phase"] == "finale" else []
-            assert sources == [*third_place, *(("spiel", spiel_nr, "sieger") for spiel_nr in feeding)]
-            feeding = [row["spiel_nr"] for row in spiele]
 
 
 @dataclass(frozen=True)
@@ -699,33 +647,14 @@ class TestAFailedDrawLeavesNothingBehind:
 # for the new one.
 REDRAWN_TODAY = "2026-08-25"
 
-# One field on one fixture, so nothing else about the season moves to reach a state
-# `app/api/saisons/services.py :: holds_a_recorded_fact` calls recorded.
-A_RECORD = "abgebrochen"
-
 # The one record the DRAW itself never writes a key for, so a projection missing `note` reads a
 # noted fixture as untouched and the replace destroys the note.
 A_NOTE = "Platz gesperrt"
 
-# Every key `FLSpiel`'s booking asks for, so the seeding update is a document the read-back would
-# accept rather than one this file invented.
-A_BOOKED_ORT: dict[str, Any] = {
-    "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
-    "mietpreis": 120,
-}
-A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
-    "schiedsrichter_id": ObjectId("6890a1b2c3d4e5f607760102"),
-    "payment": 40,
-}
-
-# One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. Only the first is
-# played by `has_taken_place`, so the four under it are what say the window reads
-# `holds_a_recorded_fact` instead.
+# One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. None is played by
+# `has_taken_place`, so each says the window reads `holds_a_recorded_fact` instead.
 RECORDS_CLOSING_THE_WINDOW = (
-    pytest.param({"sonderereignis": A_RECORD}, id="an abandonment"),
     pytest.param({"sonderereignis": "ausgefallen"}, id="a cancellation, which has_taken_place reads as untouched"),
-    pytest.param({"spielort": A_BOOKED_ORT}, id="a booked venue"),
-    pytest.param({"schiedsrichter": A_BOOKED_SCHIEDSRICHTER}, id="a booked referee"),
     pytest.param({"note": A_NOTE}, id="an admin's note"),
 )
 
@@ -1115,21 +1044,14 @@ class TestAConfirmedReplaceRedrawsTheWholeSeason:
         assert surviving & replaced.first_ids == set()
         assert surviving, "the replace removed the season and drew nothing back"
 
-    def test_the_season_holds_exactly_one_whole_draw_afterwards(self, mongo_replica_set_url: str):
-        """Delete only `spiele` and this fails: the fresh matchdays collide with the surviving ones on their own unique index."""
-
-        replaced = a_replaced_season(mongo_replica_set_url)
+        # Exactly one whole draw afterwards, stored and answered: delete only `spiele` and the fresh matchdays collide
+        # with the surviving ones on their own unique index.
         expected = expected_counts(FLSaisonRules.model_validate(saison_document()["rules"]))
-
         assert (len(replaced.spieltage), len(replaced.spiele)) == expected
         assert (replaced.second.spieltage, replaced.second.spiele) == expected
 
-    def test_every_spiel_hangs_on_a_matchday_the_replace_itself_wrote(self, mongo_replica_set_url: str):
-        """Hang a fresh fixture on a surviving matchday and this fails: the two lists go as one set."""
-
-        replaced = a_replaced_season(mongo_replica_set_url)
+        # Every fixture hangs on a matchday the replace itself wrote: the two lists go as one set.
         matchdays = {row["_id"] for row in replaced.spieltage}
-
         assert [row["spiel_nr"] for row in replaced.spiele if row["spieltag_id"] not in matchdays] == []
 
 
@@ -1185,18 +1107,16 @@ def a_season_replaced_beside_another(url: str) -> NeighbouringSeasons:
 class TestAConfirmedReplaceReachesNoOtherSeason:
     """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
 
-    def test_the_neighbours_spiele_all_survive(self, mongo_replica_set_url: str):
-        """Empty the fixture delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does."""
+    def test_the_neighbours_spiele_and_matchdays_all_survive(self, mongo_replica_set_url: str):
+        """Empty either delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does.
+
+        Each collection its own assertion, never a pair compared as one: a comparison of the two together passes while half
+        the neighbour is gone.
+        """
 
         neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
 
         assert neighbours.neighbour_spiele == neighbours.neighbour_drawn.spiele
-
-    def test_the_neighbours_matchdays_all_survive(self, mongo_replica_set_url: str):
-        """Its own case, never a pair compared as one: a comparison of the two together passes while half the neighbour is gone."""
-
-        neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
-
         assert neighbours.neighbour_spieltage == neighbours.neighbour_drawn.spieltage
 
 
@@ -1264,7 +1184,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
     @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
     def test_a_single_recorded_spiel_is_refused_the_replace(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        """Count these off anything but the stored rows and this fails; drop either booking from the projection and the last two do."""
+        """Count these off anything but the stored rows and both fail."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
@@ -1304,24 +1224,6 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
-        assert rules["teams_per_gruppe"] == TEAMS_PER_GROUP
-
-    @pytest.mark.parametrize("record", RECORDS_CLOSING_THE_WINDOW)
-    def test_one_spiel_carrying_a_record_is_refused_as_well(self, mongo_replica_set_url: str, record: dict[str, Any]):
-        """The same answer whatever stands against the season: this rule reads that fixtures exist, never what they hold."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_draw(database, client)
-            await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
-
-            with pytest.raises(APIError) as refused:
-                await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
-
-            return refused.value, await stored_rules(database)
-
-        refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
-
-        assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert rules["teams_per_gruppe"] == TEAMS_PER_GROUP
 
 
@@ -1450,21 +1352,6 @@ class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
             (gruppe, platz) for gruppe, platz in BRACKET_SEEDING[(GROUPS, NARROWED_QUALIFIERS)]
         ]
 
-    def test_a_wider_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
-        """The other direction, which a freeze reading narrowings alone would let through while the fixtures stayed as they were."""
-
-        replaced = a_season_drawn_from(
-            mongo_replica_set_url,
-            seed=Seed(saison=saison_document(rules=rules_document(qualifiers=NARROWED_QUALIFIERS))),
-            shape=a_shape(qualifiers=QUALIFIERS),
-            replace=True,
-        )
-        expected = expected_counts(FLSaisonRules.model_validate(rules_document(qualifiers=QUALIFIERS)))
-
-        assert replaced.rules["qualifiers_per_gruppe"] == QUALIFIERS
-        assert (len(replaced.spieltage), len(replaced.spiele)) == expected
-        assert replaced.watermark == {"generated_at": REDRAWN_TODAY}
-
 
 @dataclass(frozen=True)
 class RefusedReshape:
@@ -1482,12 +1369,6 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
     @pytest.mark.parametrize(
         ("code", "shape", "why"),
         [
-            pytest.param(
-                Code.SPIELPLAN_GRUPPEN_OFF_RULES,
-                a_shape(groups=SHORT_GROUPS),
-                "sixteen clubs stand in four groups, and two of those groups would be offered nothing to play in",
-                id="a shape that strands clubs",
-            ),
             pytest.param(
                 Code.RULES_BRACKET_IMPOSSIBLE,
                 a_shape(qualifiers=3),

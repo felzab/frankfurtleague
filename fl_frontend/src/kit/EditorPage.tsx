@@ -15,9 +15,9 @@ import { statusLine } from "./fieldStyles";
 import { FormClosed } from "./formClosed";
 import { HeldForm } from "./HeldForm";
 import { formColumn, RailPage } from "./RailFrame";
-import { dangerRow, Section } from "./Section";
+import { dangerRow, editorHead, lockSlot, Section } from "./Section";
 
-import type { Copy } from "@/core/copy";
+import type { Copy, LockReason } from "@/core/copy";
 import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { ChipProps } from "./Chip";
@@ -27,16 +27,20 @@ import type { PageTitle } from "./RailFrame";
 import type { Editor, EditorValue } from "./useEditor";
 
 /**
- * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ, its fields, and `note`,
- * the sentence under the title saying why some of its fields cannot change, such as a season's start fixed once a
- * match has taken place. A sentence under a field is cut at the field's width, and a short field is narrower than one.
+ * One of an editor's sections, in the order the person's task takes them: its title, its ⓘ and its fields. A sentence
+ * under a field is cut at the field's width, and a short field is narrower than one.
  */
-export type EditorSection = { id: string; title: Copy; help?: readonly [Copy, ...Copy[]]; note?: Copy; fields: ReactElement };
+export type EditorSection = {
+  id: string;
+  title: Copy;
+  help?: readonly [Copy, ...Copy[]];
+  fields: ReactElement;
+};
 
 /**
  * A part of an editor that draws its own boxes, such as a line-up's two lists (`Lineup`): placed bare in the sections'
  * column, where a section's box around it would stand as a box in a box. It says its own state on its own lines; a
- * closed editor's reason stands under the first section's title, or under the lead where no section has one.
+ * closed editor's reason stands in the lock line under the title, as every editor's does.
  */
 type EditorBlock = { id: string; block: ReactElement };
 
@@ -70,7 +74,7 @@ export type DangerAct = {
     }
 );
 
-/** One danger row, whose question or dialog answers for its act, a passkey touch's refusal among what it shows. */
+/** One danger row, whose question or dialog answers for its act, or, behind the passkey touch, its toast. */
 function DangerRow({ act }: { act: DangerAct }) {
   const label = act.dialog === undefined ? COPY.shared.verb[act.confirm.verb] : actLabel(act.dialog.act);
   const locked = useLocked(act.locked);
@@ -112,13 +116,19 @@ function DangerRow({ act }: { act: DangerAct }) {
  * under its own title holding the danger rows, the one place an editor's irreversible and retiring acts stand,
  * apart from the fields the bar saves as GitHub's danger zone stands apart from a repository's settings; an
  * editor with none of its acts open draws no such box. The fields are the kit's, bound to `editor`'s draft by
- * the page's own client code, which the template's server half, `EditorShell`, waits for.
+ * the page's own client code, which the page renders once it has read the record.
  *
- * A record its season no longer lets change opens `closed`, read-only rather than open to a save the write
- * refuses: every field disabled, the reason under the first box's title, or under the lead in an editor of blocks
- * alone, the chip „Abgeschlossen“ after the
- * title, and neither the danger box nor the bar, since there is nothing to save. A danger box whose acts are about more
- * than the closed record stays (`outlivesClosed`), as a club is retired from the league and not from a finished season.
+ * A lock is a state, said once: one muted line under the title, after the Vorschau, names why fields stand locked,
+ * each reason once (`COPY.template.lockLine`), and each locked field shows the lock at its label (`isLocked`), so the
+ * line names no field and no box carries a note for it. The line's place stands in every editor, empty where nothing
+ * is locked, at one line's height in every state (`lockSlot`), so nothing under the title moves as a lock comes or goes.
+ * The warn hue is left to what a change being made will cause. A record its season no longer lets change opens
+ * `closed`, read-only rather than open to a save the write refuses: every field read-only, its reason in the lock line,
+ * and neither the danger box nor the bar, since there is nothing to save. The chip after the title
+ * is the record's own state, as its list and its card show it, a phase that locks the record included, such as a
+ * line-up's „Gesperrt“, and the lock line says why. A danger box
+ * whose acts are about more than the closed record stays (`outlivesClosed`), as a club is retired from the league and
+ * not from a finished season.
  */
 export function EditorPage<Values extends Record<string, EditorValue>>({
   title,
@@ -130,8 +140,8 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   barText,
   sections,
   danger,
+  locks = [],
   closed,
-  closedChip = { tone: "neutral", label: COPY.template.closed },
 }: {
   title: PageTitle;
   chip?: ChipProps;
@@ -139,16 +149,21 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   flag?: ChipProps;
   /**
    * The Vorschau: one line under the title saying a fact about the record as it is stored, such as a match's pairing,
-   * its day and its result or that none is stored yet, or that the website shows a season. Never the unsaved
-   * changes, which the bar's status line counts.
+   * its day and its result or that none is stored yet. Never the unsaved changes, which the bar's status line counts.
    */
   lead?: Copy;
   /** The way to the record's public page in the strip, such as a match's own page, once the record has one (`RailPage`). */
   link?: { href: Route; label: Copy };
-  /** The reason the record is closed read-only, such as its season having finished; absent while it is open. */
+  /**
+   * Why some of its fields stand locked while the record is open, each reason once, which the lock line says; each
+   * field it holds is `isLocked`, off the same fact.
+   */
+  locks?: readonly LockReason[];
+  /**
+   * The reason the record is closed read-only, such as its season having finished, which stands as the lock line;
+   * absent while it is open.
+   */
   closed?: Copy;
-  /** The chip of a closed record whose state says more than „Abgeschlossen“. */
-  closedChip?: ChipProps;
   editor: Editor<Values>;
   /** The page's own words on the bar's status line, before its count of unsaved changes (`EditorBar`'s `text`). */
   barText?: Copy;
@@ -157,13 +172,14 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
   danger?: { title: Copy; acts: ReadonlyArray<DangerAct>; outlivesClosed?: true };
 }) {
   const form = useRef<HTMLFormElement>(null);
-  const titled = sections.find((section) => !("block" in section));
+  // A closed record's one reason covers every field, so it stands alone.
+  const lock = closed ?? (locks.length === 0 ? undefined : COPY.template.lockLine(locks));
 
   return (
     <RailPage
       scope="area"
       title={title}
-      chip={closed === undefined ? chip : closedChip}
+      chip={chip}
       flag={flag}
       link={link}
       bar={
@@ -190,10 +206,11 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
           if (!editor.isPending) editor.submit();
         }}
         className={formColumn()}>
-        {lead !== undefined && <p className="text-sm text-fg-muted">{lead}</p>}
-        {/* An editor of blocks alone has no section's title to stand its reason under: it stands over the blocks, in
-            the hue a section's note takes. */}
-        {closed !== undefined && titled === undefined && <p className="text-sm text-warn">{closed}</p>}
+        {/* The lines under the title, the Vorschau and the lock, one step apart as a box's title and its line are. */}
+        <div className={editorHead()}>
+          {lead !== undefined && <p>{lead}</p>}
+          <p className={lockSlot()}>{lock}</p>
+        </div>
         <FormClosed value={closed !== undefined}>
           <DraftUnsaved value={editor.count > 0 ? COPY.template.draftUnsaved : undefined}>
             {sections.map((section) =>
@@ -203,9 +220,7 @@ export function EditorPage<Values extends Record<string, EditorValue>>({
                 <Section
                   key={section.id}
                   title={section.title}
-                  help={section.help}
-                  // A closed record's one reason covers every field, so it stands alone, under the first box's title.
-                  note={closed === undefined ? section.note : section === titled ? closed : undefined}>
+                  help={section.help}>
                   {section.fields}
                 </Section>
               ),

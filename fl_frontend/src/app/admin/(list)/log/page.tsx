@@ -42,11 +42,10 @@ async function readLog(searchParams: Props["searchParams"]) {
   return { filters, page, by };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. Its rows stack on a phone and open nothing. */
+/** The table's head. Its rows stack on a phone and open nothing. */
 const HEAD: TableHead = {
   nameLabel: WORDS.what,
   stack: true,
-  linked: false,
   columns: [
     { key: "who", label: WORDS.who, width: "line" },
     { key: "when", label: WORDS.when, width: "instant" },
@@ -63,14 +62,10 @@ export default function ActionLogPage({ searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminActionLog" } }}
       filters={log.then(({ filters }) => filters)}
-      filterCount={3}
       list={{
         kind: "table",
         search: { label: WORDS.search, maxLength: actionLogGetActionLogBodyQOneMax },
         head: HEAD,
-        // The kit's cap on a list's wait, short of the 50 a page holds.
-        wait: 30,
-        paged: true,
         content: log.then(({ filters, page, by }) => {
           const chosen = filters.flatMap(({ name, value }) => (value === null ? [] : [[name, value] as const]));
           return {

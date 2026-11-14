@@ -80,17 +80,47 @@ ok "every image is on this host"
 # Through a second file and a rename, so the pin is never half written.
 pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 
+# Every service the compose file defines that is not running and healthy, into FAILING: one with no
+# running container, and one whose health is anything but none or `healthy`, `starting` included.
+# `up --wait` judges each service once, so one can turn unhealthy while it waits on another, and some
+# Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
+# the project's running containers and no one-off container `docker compose run` left
+# (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
+# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read or named no
+# service, of which a read can find none failing.
+FAILING=()
+read_states() {
+  local defined listed service state health
+  local -i services=0
+  local -A running=() other=()
+  FAILING=()
+  defined="$(docker compose config --services)" || return 2
+  listed="$(docker compose ps --format '{{.Service}} {{.State}} {{.Health}}')" || return 2
+  while IFS=' ' read -r service state health; do
+    if [[ "$state" == running && ( -z "$health" || "$health" == healthy ) ]]; then
+      running[$service]=1
+    elif [[ -n "$service" ]]; then
+      other[$service]=1
+    fi
+  done <<<"$listed"
+  while IFS= read -r service; do
+    if [[ -z "$service" ]]; then continue; fi
+    services+=1
+    if [[ -n "${other[$service]-}" || -z "${running[$service]-}" ]]; then FAILING+=("$service"); fi
+  done <<<"$defined"
+  (( services )) || return 2
+  (( ${#FAILING[@]} == 0 ))
+}
+
 # The services' own healthchecks decide, and their last lines say why.
 show_failure() {
   local IFS=' '
-  local -a failing=()
   info "compose's own account of each service:"
   docker compose ps --all 2>&1 | detail || true
-  mapfile -t failing < <(docker compose ps --all --format '{{.Service}} {{.State}} {{.Health}}' 2>/dev/null \
-    | awk '$2 != "running" || ($3 != "" && $3 != "healthy") { print $1 }')
-  if (( ${#failing[@]} )); then
-    info "the last 60 lines of ${failing[*]}:"
-    docker compose logs --tail=60 "${failing[@]}" 2>&1 | detail || true
+  read_states || true
+  if (( ${#FAILING[@]} )); then
+    info "the last 60 lines of ${FAILING[*]}:"
+    docker compose logs --tail=60 "${FAILING[@]}" 2>&1 | detail || true
   fi
 }
 
@@ -100,17 +130,21 @@ up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orp
 # `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
 # keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
 # `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
-# output, says which: `start worker processes` at notice, the image's nginx.conf level, or the reason.
-# Matched as an error-log line from its start, which no request can write.
+# output, says which, each line naming the pid that wrote it. The master logs `reconfiguring`, then
+# the reason it refuses or `start worker processes` at notice, the image's nginx.conf level. Only the
+# master's lines are read: a worker's request can log an alert of its own, such as its connections
+# running out, which bears no connection number either.
 reload_nginx() {
-  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said refused i
+  local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
   quietly docker compose exec -T nginx nginx -s reload || return 1
   failure="nginx was sent this checkout's configuration and confirmed neither taking nor refusing it"
   for (( i = 0; i < 15; i++ )); do
     sleep 1
     said="$(docker compose logs --no-log-prefix --since "$since" nginx 2>&1)" \
       || { info "compose could not read nginx's output:"; detail <<<"$said"; return 1; }
-    refused="$(grep -E '^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ' <<<"$said" || true)"
+    master="$(sed -nE 's/^[0-9/]+ [0-9:]+ \[notice\] ([0-9]+)#[0-9]+: reconfiguring$/\1/p' <<<"$said" | tail -n 1)"
+    if [[ -z "$master" ]]; then continue; fi
+    refused="$(grep -E "^[0-9/]+ [0-9:]+ \[(emerg|alert|crit)\] ${master}#[0-9]+: " <<<"$said" || true)"
     if [[ -n "$refused" ]]; then
       failure="$refusal"
       info "nginx's running master refused the configuration nginx -t passed, which a restart of nginx, a
@@ -118,7 +152,7 @@ reboot included, loads afresh:"
       detail <<<"$refused"
       return 1
     fi
-    if grep -Eq '^[0-9/]+ [0-9:]+ \[notice\] [0-9]+#[0-9]+: start worker processes$' <<<"$said"; then return 0; fi
+    if grep -Eq "^[0-9/]+ [0-9:]+ \[notice\] ${master}#[0-9]+: start worker processes$" <<<"$said"; then return 0; fi
   done
   info "nginx logged neither new workers nor a refusal within 15 seconds of the reload."
   return 1
@@ -132,20 +166,33 @@ fi
 step "Starting ${tag}"
 failure="${tag} did not come up"
 if up; then
-  ok "every service is running and healthy"
-  # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
-  step "nginx's configuration"
-  failure="nginx did not take this checkout's configuration and still runs the one it had"
-  if ! quietly docker compose exec -T nginx nginx -t; then
-    # Going back moves the images alone, and nginx reads the checkout's files at any restart.
-    warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
+  # What `up` answered and nothing more: the read below judges each service.
+  ok "compose's wait ended without a failure"
+  # Before nginx is reloaded, so a run this read fails goes back with nginx on the configuration it had.
+  step "Every service's state"
+  read_rc=0
+  read_states || read_rc=$?
+  if (( read_rc == 0 )); then
+    ok "every service is running and healthy"
+    # A mounted configuration loads only on a reload. Tested first, so a refused one is named by nginx -t.
+    step "nginx's configuration"
+    failure="nginx did not take this checkout's configuration and still runs the one it had"
+    if ! quietly docker compose exec -T nginx nginx -t; then
+      # Going back moves the images alone, and nginx reads the checkout's files at any restart.
+      warn "this checkout's nginx/ still holds the configuration nginx refused, which a restart of nginx, a
 reboot included, loads and fails on. Pull a commit whose configuration nginx takes and deploy it."
-  elif reload_nginx; then
-    ok "tested, and its new workers started"
-    pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
+    elif reload_nginx; then
+      ok "tested, and its new workers started"
+      pin "$tag" || die "${tag} is live, but the .env could not be written and still pins ${prev:-no build}.
 Write TAG=${tag} into it, or the next failed run goes back past ${tag}."
-    ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
-    exit 0
+      ok "${tag} is live.${prev:+ The build before it was ${prev}.}"
+      exit 0
+    fi
+  elif (( read_rc == 1 )); then
+    printf -v named '%s, ' "${FAILING[@]}"
+    failure="${tag} came up, but the last read finds ${named%, } not running and healthy"
+  else
+    failure="${tag} came up, but compose could not read each service's state after it"
   fi
 fi
 
@@ -161,11 +208,20 @@ fi
 
 # The images alone go back: the checkout's compose file and nginx's configuration stay as pulled.
 # nginx is not reloaded, so unless the start above recreated it, it runs the configuration it had
-# before this run.
+# before this run, except after a reload nginx confirmed neither way, which the failure names.
 step "Going back to ${prev}"
 export TAG="$prev"
+back_rc=1
 if up; then
+  back_rc=0
+  read_states || back_rc=$?
+fi
+if (( back_rc == 0 )); then
   die "${failure}, so the stack went back to ${prev}, which is live."
 fi
 show_failure
+# `up` answered 0 and nothing read the services after it, so the build is neither live nor down.
+if (( back_rc == 2 )); then
+  die "${failure}, so the stack went back to ${prev}, but compose could not read each service's state after it. .env pins ${prev}."
+fi
 die "${failure}, and ${prev} did not come up either when the stack went back to it. .env pins ${prev}."

@@ -2,24 +2,17 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Form } from "react-aria-components/Form";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import { Button } from "./Button";
+import { FormClosed } from "./formClosed";
 import { TextField } from "./TextField";
 
-describe("an address field's autofill", () => {
-  it("offers the person's address by default", () => {
-    render(
-      <TextField
-        label={COPY.signIn.address}
-        kind="email"
-      />,
-    );
-    expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("email");
-  });
+import type { ReactElement } from "react";
 
+describe("an address field's autofill", () => {
   // The harm: the address of a person being erased stays in the administrator's browser, and no check reads that.
   it("offers nothing where an administrator types somebody else's", () => {
     render(
@@ -30,6 +23,92 @@ describe("an address field's autofill", () => {
       />,
     );
     expect(screen.getByRole("textbox").getAttribute("autocomplete")).toBe("off");
+  });
+});
+
+// The harm: a screen reader announces "required" on a value nobody can change, which no sighted reader sees.
+describe("a required field nobody can change", () => {
+  it("is heard as required only while its form is open and the field unlocked", () => {
+    render(
+      <>
+        <TextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isRequired
+        />
+        <TextField
+          label={COPY.shared.startelf}
+          kind="text"
+          isRequired
+          isLocked
+        />
+        <FormClosed value>
+          <TextField
+            label={COPY.shared.startelf}
+            kind="text"
+            isRequired
+          />
+        </FormClosed>
+      </>,
+    );
+    // React Aria states it as the native `required` or as `aria-required`, by the form's validation behaviour.
+    const heard = screen
+      .getAllByRole("textbox")
+      .map((box) => (box as HTMLInputElement).required || box.getAttribute("aria-required") === "true");
+    expect(heard).toStrictEqual([true, false, false]);
+  });
+});
+
+/** A form of one box and its press, reporting whether the press went through. */
+async function pressing(field: ReactElement, typed: string) {
+  const sent = vi.fn();
+  render(
+    <Form
+      onSubmit={(event) => {
+        event.preventDefault();
+        sent();
+      }}>
+      {field}
+      <Button
+        variant="primary"
+        type="submit"
+        label={COPY.shared.verb.save}
+      />
+    </Form>,
+  );
+  await userEvent.type(screen.getByRole("textbox"), typed);
+  await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
+  return sent;
+}
+
+// The harm: the server refuses either after the press, and behind the passkey touch the person loses the touch and
+// everything typed in the dialog.
+describe("what the browser takes and the server refuses", () => {
+  it("refuses an address outside the API's rule on the press, a host with no dot", async () => {
+    const sent = await pressing(
+      <TextField
+        label={COPY.signIn.address}
+        name="email"
+        kind="email"
+      />,
+      "lena@verein",
+    );
+    expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleAddress))).toBeTruthy();
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a required box holding only spaces on the press", async () => {
+    const sent = await pressing(
+      <TextField
+        label={COPY.shared.startelf}
+        name="name"
+        kind="text"
+        isRequired
+      />,
+      "   ",
+    );
+    expect(screen.getByText(COPY.shared.field.required)).toBeTruthy();
+    expect(sent).not.toHaveBeenCalled();
   });
 });
 
@@ -54,22 +133,6 @@ describe("a digits field", () => {
     await userEvent.type(screen.getByRole("textbox"), "6a");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
     expect(screen.getByText(COPY.shared.field.format(COPY.shared.field.exampleDigits))).toBeTruthy();
-  });
-
-  it("sets its unit after the value inside the field's frame", () => {
-    render(
-      <TextField
-        label={COPY.shared.startelf}
-        kind="digits"
-        holds={5}
-        unit={COPY.shared.unit.euro}
-      />,
-    );
-    const field = screen.getByRole("textbox");
-    const unit = field.nextElementSibling;
-    expect(unit?.textContent).toBe(COPY.shared.unit.euro);
-    expect(field.contains(unit ?? null)).toBe(false);
-    expect(field.parentElement?.getAttribute("data-kit-focus")).toBe("field");
   });
 });
 

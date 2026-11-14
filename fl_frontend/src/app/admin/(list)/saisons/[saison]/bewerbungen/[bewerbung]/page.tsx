@@ -105,10 +105,13 @@ function schoolFacts({ team_name, full_name, schulform, address, website_url }: 
   ];
 }
 
-/** Why „Annehmen“ cannot run, by the order a repair could reach it: a season that took its start repairs nothing. */
+/**
+ * Why „Annehmen“ cannot run, by the order a repair could reach it: a season no longer planned repairs nothing, since an
+ * acceptance enters its club, which the write does in a planned season alone.
+ */
 function lockedReason(status: FLBewerbungSingleResponse["saison"]["status"], standing: Standing): Copy | undefined {
   if (status === "past") return COPY.template.closed;
-  if (status === "active") return COPY.admin.saison.lockedSinceStart;
+  if (status === "active") return COPY.admin.team.onlyPlanned;
   return standing === "complete" ? undefined : WORDS.awaitsConfirmations;
 }
 
@@ -216,14 +219,6 @@ export default function BewerbungPage({ params }: Props) {
   return (
     <ReadPage
       scope="area"
-      wait={{
-        groups: [
-          // The tallest the page stands: a new school's application, accepted, with its decision's three facts and its act.
-          { title: COPY.bewerbung.object, kind: "facts", pairs: 11, acts: [COPY.shared.toTeam] },
-          { title: COPY.team.kontakte, kind: "seats" },
-          { title: FACTS.school, kind: "facts", pairs: 5 },
-        ],
-      }}
       record={readRecord(params)}
     />
   );

@@ -98,7 +98,7 @@ class FLSpielberichtSides(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal, a correction after its adoption reading `differing`."""
+    """The referee's account of one match and its one proposal; the referee's every correction clears its adoption."""
 
     ergebnis_vorschlag: FLSpielberichtVorschlag
     scorers: list[FLSpielberichtScorer]

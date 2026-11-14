@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { ListPage } from "@/kit/ListPage";
+import { CONFIRMED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
 
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
 import { COPY } from "@/core/copy";
@@ -60,7 +61,7 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
   return {
     id: row.registrierung_id,
     name: { record: name },
-    chip: row.admissible ? { tone: "success", label: COPY.admin.confirmed } : { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
+    chip: row.admissible ? CONFIRMED_CHIP : UNCONFIRMED_CHIP,
     ...(line === undefined ? {} : { line }),
     cells: { received },
     entry: {
@@ -79,9 +80,8 @@ function rowOf(row: FLOpenRegistrierung, at: Omit<Decided, "registrierung_id">):
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are: the name and the day it came in, as the
- * administration's Registrierungen list stands in two columns, every other fact and both acts in the row's dialog, so a
- * desktop name is never pressed thin by them.
+ * The table's head: the name and the day it came in, as the administration's Registrierungen list stands in two
+ * columns, every other fact and both acts in the row's dialog, so a desktop name is never pressed thin by them.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
@@ -130,7 +130,6 @@ export default function RegistrierungenPage({ params }: Props) {
         kind: "table",
         search: { label: COPY.admin.registrierung.search },
         head: HEAD,
-        wait: 3,
         content: read.then(({ drawn }) => ({ drawn })),
       }}
     />

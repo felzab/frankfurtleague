@@ -5,7 +5,6 @@ import path from "node:path";
 import { filesUnder } from "@/test-support/treeWalk";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
@@ -16,7 +15,6 @@ import { FieldGroup } from "./FieldGroup";
 import { FieldRows, FieldSubgroup } from "./FieldRows";
 import { fieldStack } from "./fieldStyles";
 import { Filters } from "./Filters";
-import { MailedPage } from "./MailedPage";
 import { OneShotForm } from "./OneShot";
 import { QuestionForm } from "./QuestionForm";
 import { Section } from "./Section";
@@ -25,10 +23,8 @@ import { StepCard } from "./StepCard";
 import { TextField } from "./TextField";
 
 import type { ReactElement } from "react";
-import type { MailedState } from "./MailedPage";
 
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
-vi.mock("./useBotCheck", () => ({ useBotCheck: () => ({ widget: null, takeToken: vi.fn() }) }));
 
 const FIRST = COPY.shared.firstName;
 const SECOND = COPY.shared.lastName;
@@ -60,12 +56,6 @@ async function holding(container: ReactElement): Parts {
   return [screen.getByRole("textbox", { name: FIRST }), screen.getByRole("textbox", { name: SECOND })];
 }
 
-/** Markup a server sent, standing in the document as a browser holds it before the page's code runs. */
-const served: HTMLElement[] = [];
-
-/** A read that never lands, so a page shows its wait. */
-const READING = new Promise<MailedState>(() => {});
-
 /** jsdom lays nothing out, so it sees nothing come into view, which is how React Aria's sheet knows it has slid in. */
 class NothingInView {
   observe(): void {}
@@ -73,7 +63,6 @@ class NothingInView {
 }
 
 afterEach(() => {
-  for (const root of served.splice(0)) root.remove();
   vi.unstubAllGlobals();
 });
 
@@ -155,31 +144,6 @@ const CONTAINERS: Readonly<Record<string, ReadonlyArray<readonly [string, () => 
             {twoFields()}
           </OneShotForm>,
         ),
-    ],
-  ],
-  "MailedPage.tsx": [
-    [
-      "a mailed page's wait, as the server sends it",
-      async () => {
-        const root = document.createElement("div");
-        root.innerHTML = renderToString(
-          <MailedPage
-            page={READING}
-            facts={0}
-            act={COPY.shared.verb.next}
-            fields={twoFields()}
-          />,
-        );
-        document.body.append(root);
-        served.push(root);
-        // A wait is hidden from assistive technology, so its fields are found by their names.
-        const named = (name: string) => {
-          const found = root.querySelector(`input[name="${name}"]`);
-          if (found === null) throw new Error(`the wait holds no field ${name}`);
-          return found;
-        };
-        return [named("first"), named("second")];
-      },
     ],
   ],
   "StepCard.tsx": [

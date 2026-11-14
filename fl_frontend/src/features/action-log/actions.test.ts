@@ -1,25 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { logParams } from "./filters";
 
-/** Every read's filters, as the Protokoll's next page asked them. */
-const asked = vi.hoisted(() => [] as unknown[]);
+import type { FLActionLogListResponse } from "@/core/generated/client/types";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({
-  judgeAdminRequest: async () => {
-    (await import("@/core/requestScope")).setRequestActor({ email: "admin@example.org", lane: "admin", authTime: 0, factor: "passkey" });
-    return { session: {} };
-  },
-  passesPasskeyTouch: async () => true,
-}));
-vi.mock("./queries", () => ({
-  getActionLog: async (filters: unknown) => {
-    asked.push(filters);
-    return { action_log: [], by_options: [], cursor: null };
-  },
-}));
+// The log's read alone is answered, with an empty last page, so the real guard, query, generated call and dispatch
+// run, and any other request fails the case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === "/action_log/view"
+    ? ({ action_log: [], by_options: [], cursor: null } satisfies FLActionLogListResponse)
+    : undefined,
+);
+// An administrator's session, made by passkey, which the act's guard admits.
+signedInRequest();
 
 const { loadActionLog } = await import("./actions");
 
@@ -31,6 +26,6 @@ describe("the Protokoll's next page", () => {
 
     expect(await loadActionLog({ ...carried, query: "Birke", cursor })).toStrictEqual({ ok: true, value: { rows: [], cursor: null } });
 
-    expect(asked).toStrictEqual([{ ...logParams(carried), q: "Birke", cursor }]);
+    expect(backend.sent.map(({ body }) => body)).toStrictEqual([{ ...logParams(carried), q: "Birke", cursor }]);
   });
 });

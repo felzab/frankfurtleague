@@ -5,7 +5,6 @@ import { ToggleButtonGroup } from "react-aria-components/ToggleButtonGroup";
 
 import { choiceButton, choiceGroup } from "./fieldStyles";
 import { Icon } from "./Icon";
-import { placeholderBar } from "./Skeleton";
 import { Tooltip } from "./Tooltip";
 
 import type { Copy } from "@/core/copy";
@@ -59,20 +58,5 @@ export function GlyphChoices({
         </Tooltip>
       ))}
     </ToggleButtonGroup>
-  );
-}
-
-/** `GlyphChoices` while it waits: the frame, and each segment's glyph as a bar in its place. */
-export function GlyphChoicesPlaceholder({ count }: { count: number }) {
-  return (
-    <span className={choiceGroup({ kind: "segmented" })}>
-      {Array.from({ length: count }, (_, index) => (
-        <span
-          key={index}
-          className={choiceButton({ kind: "segmented", content: "glyph" })}>
-          <span className={placeholderBar("size-4")} />
-        </span>
-      ))}
-    </span>
   );
 }

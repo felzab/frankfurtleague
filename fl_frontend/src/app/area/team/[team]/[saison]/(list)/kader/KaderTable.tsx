@@ -6,7 +6,7 @@ import { ListTable } from "@/kit/ListTable";
 
 import { COPY } from "@/core/copy";
 import { byShirtNumber, kaderName, roleMarkOf } from "@/features/spieler/constants";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 
 import { KaderRowDialog } from "./KaderRowDialog";
 
@@ -21,7 +21,6 @@ import type { TableHead, TableRow } from "@/kit/Table";
 function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): TableRow[] {
   return kader.toSorted(byShirtNumber).map((row) => {
     const isLive = row.inactive_since === null;
-    const chip = rowChip(row);
     const mark = roleMarkOf(row.rolle);
     const facts = [
       row.position === null ? null : { record: row.position },
@@ -32,7 +31,7 @@ function rowsOf(kader: readonly FLKaderRow[], open: (row: FLKaderRow) => void): 
       name: { record: kaderName(row) },
       // A role an ausgetragen row held is no longer the squad's: the write frees it for another live row.
       ...(isLive && mark !== undefined ? { mark } : {}),
-      ...(chip === undefined ? {} : { chip }),
+      chip: rowState(row),
       ...(facts.length === 0 ? {} : { phoneLine: COPY.shared.line(facts) }),
       muted: !isLive,
       ...(isLive ? { onOpen: () => open(row) } : {}),

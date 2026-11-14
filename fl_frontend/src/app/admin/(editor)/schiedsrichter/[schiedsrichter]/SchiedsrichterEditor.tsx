@@ -26,10 +26,10 @@ const OBJECT = COPY.shared.schiedsrichter;
 type Act = (input: { id: string }) => Promise<ActionAnswer>;
 
 /**
- * How the address stands for this person: `fixed` once they have confirmed, when only an address change moves it,
- * with the day they confirmed; `asks` while they have not, when a corrected address is mailed a fresh link.
+ * How the address stands for this person: `fixed` once they have confirmed, when it keys their sign-in and only an
+ * address change moves it; `asks` while they have not, when a corrected address is mailed a fresh link.
  */
-type Address = { kind: "fixed"; confirmed: Copy } | { kind: "asks" };
+type Address = "fixed" | "asks";
 
 /**
  * The referee editor: the person and their fee, and how to reach them, saved together from the editor's bar; where
@@ -99,6 +99,7 @@ export function SchiedsrichterEditor({
       chip={chip}
       flag={flag}
       editor={editor}
+      locks={address === "fixed" ? ["confirmed"] : []}
       danger={{ title: COPY.admin.retirement, acts: [dangerAct] }}
       sections={[
         {
@@ -143,15 +144,13 @@ export function SchiedsrichterEditor({
           title: WORDS.kontaktData,
           fields: (
             <>
-              {address.kind === "fixed" ? (
-                // A confirmed person's address keys their sign-in, which only an address change moves.
+              {address === "fixed" ? (
                 <TextField
                   label={COPY.signIn.address}
                   name="email"
                   kind="email"
                   autofill="off"
-                  isDisabled
-                  description={address.confirmed}
+                  isLocked
                   value={draft.email}
                 />
               ) : (

@@ -9,7 +9,8 @@ import { SpielbestaetigungenEnterSpielbestaetigungBody, SpielbestaetigungenEnter
 /**
  * Records, from the Übersicht's row, that a party agreed to its fixture's date elsewhere than through its link: the
  * row the party chose in the dialog, and the reason saying how it reached the league, which the confirmation stores.
- * A row a seat answered meanwhile, or one closed since the page was read, is refused as the stale page it is.
+ * A row a seat answered meanwhile, or one closed or left by its fixture since the page was read, is refused as the
+ * stale page it is.
  */
 export const enterZusage = action({
   lane: "admin",
