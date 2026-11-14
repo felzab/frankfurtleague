@@ -34,7 +34,7 @@ export const ADMIN_EMAIL = "vorstand@example.org";
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
-/** A secret's reader in `fl_frontend/src/core/config.ts`, by its exported name, as a double answers it. */
+/** A secret's reader in the config, by its exported name, as a double answers it. */
 type SecretReaders = Readonly<Record<string, () => string | undefined>>;
 
 /** The run's own secret files, as the real config reads them, so a double hands a suite the same values. */
@@ -67,8 +67,8 @@ type AdapterOptions = Parameters<ReturnType<typeof memoryAdapter>>[0];
 
 /**
  * The library's in-memory adapter over `store`, minting ids as the Mongo adapter does rather than at
- * random: an `ObjectId` rising with each insert, which settles two sessions stamped in one millisecond
- * (`fl_frontend/src/core/auth/minting.ts :: mintedBefore`).
+ * random: an `ObjectId` rising with each insert, which settles which of two sessions stamped in one
+ * millisecond was minted first.
  */
 export const insertOrderedAdapter =
   (store: MemoryDB) =>
@@ -106,8 +106,8 @@ export const faultingAdapter = <T extends object>(adapter: T, fail: (operation: 
   });
 
 /**
- * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
- * `auth/library.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
+ * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real sign-in
+ * library is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
 export const memoryAdapterDouble = (store: string): DoubledExports => ({
   mongodbAdapter: () => insertOrderedAdapter(Reflect.get(globalThis, store) as MemoryDB),
@@ -130,8 +130,7 @@ const OUTBOX_SIGN_IN_PATH = "/outbox/sign_in";
 
 /**
  * Answers the Postausgang's enqueue on the backend and drains it in one step: a sign-in mail owed is recorded as the
- * backend would store it, then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the
- * suite's own key, and sent; every other mail is owed by the backend's own write and drained by nothing here.
+ * backend would store it, then opened and rendered as the drain does, under the suite's own key, and sent; every other mail is owed by the backend's own write and drained by nothing here.
  */
 function doubleOutbox(): {
   sent: SentMail[];
@@ -185,7 +184,7 @@ type AuthDoubles = {
 };
 
 /**
- * Doubles, through `vi.doMock`, the store client `fl_frontend/src/core/auth/library.ts` builds on, and answers on the
+ * Doubles, through `vi.doMock`, the store client the sign-in library builds on, and answers on the
  * file's backend the lookup its grant is read over and the Postausgang its mails are owed through. The library runs
  * under the real config, over the run's environment and secret files, unless `core` names a `config` of its own.
  */

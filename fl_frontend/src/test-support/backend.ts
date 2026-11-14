@@ -7,7 +7,9 @@
  * - `serveBackend(answer)` at module level answers the backend at `BACKEND_ORIGIN/api/v0`. `answer` takes each request
  *   (the endpoint below the base path, its query, headers and parsed body) and returns a body, answered `200` as JSON,
  *   or a `Response`: `refusal(code)` for a refusal, `networkFailure()` for a backend that never answers. `undefined`
- *   answers nothing.
+ *   answers nothing. An answer names the method and the path it means and leaves every other request `undefined`, so
+ *   that a request to the wrong endpoint fails its case:
+ *   `serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/frame" ? FRAME : undefined))`.
  * - A case reads `sent`, the requests its answer was handed, after awaiting `answered()`; `served` holds those the
  *   sign-in helpers' standing answers took. `answerWith` replaces the answer for the rest of a case.
  * - `serveHost(origin, answer)` answers another host, Cloudflare's or the mail provider's, through the same face, and
@@ -31,13 +33,13 @@ import { afterAll, afterEach, assert, beforeEach } from "vitest";
 import type { Code, FLRefusedField } from "@/core/generated/client/types.ts";
 
 /**
- * Where the backend is served: the address the runner's environment hands the real `fl_frontend/src/core/config.ts`,
- * so a request the code under test sends arrives here.
+ * Where the backend is served: the address the runner's environment hands the real config, so a request the code
+ * under test sends arrives here.
  */
 export const BACKEND_ORIGIN = TEST_ENVIRONMENT.API_URL;
 
 /**
- * The path every endpoint is spelled under, spelled rather than imported from `fl_frontend/src/core/api.ts`: this
+ * The path every endpoint is spelled under, spelled rather than imported from the client: this
  * module loads from the setup file, ahead of every suite's doubles, and so imports no module of the application. A
  * renamed base path leaves every request unanswered, which fails every case.
  */
@@ -208,7 +210,7 @@ const abortOf = (signal: AbortSignal): Promise<never> =>
  * relative address resolved against the page's where one is open (jsdom's `http://localhost/`) and refused as Node
  * refuses one where none is; an aborted signal rejects with its reason, before or during the answer; and an answer of
  * `Response.error()` rejects as a network failure does, a `TypeError` naming `fetch failed`, which
- * `fl_frontend/src/core/api.ts` reads as an `APINetworkError`.
+ * the client reads as an `APINetworkError`.
  */
 async function answeringFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const relative = typeof input === "string" && typeof location !== "undefined" && !URL.canParse(input);
@@ -257,7 +259,7 @@ function keepOurFetch(): void {
 }
 
 /**
- * Installs the answering `fetch`, from `fl_frontend/src/test-support/setup.ts`, before any test file's own code: a
+ * Installs the answering `fetch`, from the setup file, before any test file's own code: a
  * request a file sends while it loads is answered too. Assigned rather than stubbed through `vi.stubGlobal`, which
  * would record the platform's `fetch` as the original: a suite's own `vi.unstubAllGlobals()` would put that back and
  * send its next request for real. A suite stubbing or spying `fetch` for its own subject replaces this one for itself,
@@ -302,7 +304,7 @@ export function serveTheNetwork(): void {
 
 /**
  * Answers every later request with `stand` ahead of the case's own answer, in every case of the file: the sign-in
- * store's lookups and mails, which `fl_frontend/src/test-support/authDoubles.ts` answers. A request it leaves
+ * store's lookups and mails, which the sign-in helpers answer. A request it leaves
  * `undefined` goes on to the case's answer; one it answers is in `served`, not `sent`.
  */
 export function answerInEveryCase(stand: BackendAnswer): void {
@@ -367,14 +369,14 @@ export function serveBackend(answer?: BackendAnswer): Backend {
 
 /**
  * The status the backend refuses `code` at, unless a case names another: a missing record at 404, which
- * `fl_frontend/src/core/errors.ts :: isRecordMissing` reads beside its code, a refused body at 422, and every rule at 409.
+ * the client reads as a missing record beside its code, a refused body at 422, and every rule at 409.
  */
 export const refusalStatus = (code: Code | undefined): number =>
   code === "document_not_found" ? 404 : code === "payload_refused" || code === "body_unreadable" ? 422 : 409;
 
 /**
- * The backend's failure body for `code`, or for none, as a response: the network's twin of
- * `fl_frontend/src/test-support/refusals.ts :: refused`, at `refusalStatus` unless a case names the status.
+ * The backend's failure body for `code`, or for none, as a response, at `refusalStatus` unless a case names the
+ * status.
  */
 export function refusal(
   code: Code | undefined,

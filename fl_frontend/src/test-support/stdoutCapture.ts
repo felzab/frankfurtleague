@@ -3,7 +3,7 @@ import { afterAll, afterEach, assert, beforeEach } from "vitest";
 /** Test-only: every export below replaces `process.stdout.write` for the length of a call or a file. */
 
 /**
- * Where `fl_frontend/src/core/logging.ts` stands in a stack: a chunk is the logger's when the logger's own frame
+ * Where the application's logger stands in a stack: a chunk is the logger's when the logger's own frame
  * wrote it, so a library's line, however it is shaped, passes on to the stream untouched.
  */
 const LOGGER_FRAME = /[\\/]src[\\/]core[\\/]logging\.ts:\d+/;
@@ -65,7 +65,7 @@ export async function documentsWrittenByAsync(run: () => Promise<unknown>): Prom
   return documents;
 }
 
-/** One line `fl_frontend/src/core/logging.ts :: logger` wrote, read back from either of its two formats. */
+/** One line the application's logger wrote, read back from either of its two formats. */
 export type LoggedLine = {
   readonly level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   readonly message: string;
