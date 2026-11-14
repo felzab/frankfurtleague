@@ -204,6 +204,11 @@ describe("a request to another host", () => {
     expect(mailed.map(({ method, url, body }) => [method, url.href, body])).toStrictEqual([["POST", "https://mail.example/emails", {}]]);
   });
 
+  // Right after a case the file's host answered: its record holds that case's request unless emptied before this one.
+  it("begins each case with the file's host record empty, as `sent` is", () => {
+    expect(mailed).toStrictEqual([]);
+  });
+
   it("is answered where the case serves its host, and recorded", async () => {
     const verified = serveHost(NOWHERE, ({ body }) => ({ success: body === "token" }));
 

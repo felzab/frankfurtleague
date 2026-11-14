@@ -12,16 +12,14 @@ import type { FLPostRegistrierungResponse } from "@/core/generated/client/types"
 const BOT_CHECK_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
 
 /**
- * Cloudflare's verdict, asked over the network by the real bot check, for the rest of the case: it passes the token the
- * form posts and answers nothing else, which fails the case. Served inside the case, so the record it hands back holds
- * that case's requests alone.
+ * Cloudflare's verdict, asked over the network by the real bot check: it passes the token the form posts and answers
+ * nothing else, which fails the case.
  */
-const serveSiteverify = () =>
-  serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
-    method === "POST" && url.pathname === "/turnstile/v0/siteverify" && (body as { response?: string }).response === BOT_CHECK_TOKEN
-      ? { success: true, "error-codes": [] }
-      : undefined,
-  );
+const siteverify = serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
+  method === "POST" && url.pathname === "/turnstile/v0/siteverify" && (body as { response?: string }).response === BOT_CHECK_TOKEN
+    ? { success: true, "error-codes": [] }
+    : undefined,
+);
 // The registration's one write, answered as the backend stores it.
 const backend = serveBackend(({ method, path }) =>
   method === "POST" && path === "/registrierungen"
@@ -61,7 +59,6 @@ describe("the registration a press sends", () => {
   // The harm: a press whose answer was lost, sent again under another key, is a second registration and a second mail;
   // an untouched optional box sent as "" is refused by the write's pattern, on a box the pupil never filled in.
   it("sends the form's replay key and the boxes as the write spells them, forgets the link once done, and leads on", async () => {
-    const siteverify = serveSiteverify();
     const thrown: unknown = await submitRegistrierung(posted(BOXES)).catch((error: unknown) => error);
     // Next's redirect, thrown past the action, names the done page; the link's own page would read the forgotten link.
     const [kind, , address] = (thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "").split(";");

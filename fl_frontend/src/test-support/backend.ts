@@ -11,7 +11,8 @@
  * - A case reads `sent`, the requests its answer was handed, after awaiting `answered()`; `served` holds those the
  *   sign-in helpers' standing answers took. `answerWith` replaces the answer for the rest of a case.
  * - `serveHost(origin, answer)` answers another host, Cloudflare's or the mail provider's, through the same face, and
- *   returns the record of what it took: called at module level for the whole file, inside a case for its rest.
+ *   returns the record of what it took in the running case, as `sent` is: called at module level for the whole file,
+ *   inside a case for its rest.
  *
  * What holds without a call, in every file of every project:
  * - Nothing leaves the machine: no request is ever sent. A request nothing answers, an answer that throws, and a
@@ -64,7 +65,7 @@ type HostRequest = { method: string; url: URL; headers: Headers; body: unknown }
 /** What another host answers one request with, as `BackendAnswer` does. */
 type HostAnswer = (request: HostRequest) => unknown;
 
-/** A host a file or a case serves: its answer, and every request it took. */
+/** A host a file or a case serves: its answer, and every request it took since the case began. */
 type Host = { answer: HostAnswer; taken: HostRequest[] };
 
 /**
@@ -278,6 +279,7 @@ export function serveTheNetwork(): void {
     network.running = task.name;
     network.sent.length = 0;
     network.served.length = 0;
+    for (const { taken } of network.fileHosts.values()) taken.length = 0;
     network.answering = network.initial;
   });
   afterEach(async () => {
@@ -330,6 +332,7 @@ export type Backend = {
 /**
  * Answers every request to `origin` (`https://challenges.cloudflare.com`, say) with `answer`, and records each: for
  * the whole file where called outside a case, for the rest of the case where called inside one, ahead of the file's.
+ * The record a file serves is emptied before each case, so a case reads only its own requests in it, as in `sent`.
  * `undefined` answers nothing, which fails the case.
  */
 export function serveHost(origin: string, answer: HostAnswer): readonly HostRequest[] {
