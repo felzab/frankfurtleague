@@ -93,11 +93,7 @@ const API_ORIGIN = "http://backend.test";
 /* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
    stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
    file is checking with itself. */
-const {
-  sent,
-  owed,
-  answerWith: answerMail,
-} = registerAuthDoubles({
+const { sent, owed } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
     // Where the send gate's backend read goes, answered by `serveBackend` below rather than a server, and the admin key
@@ -1662,24 +1658,6 @@ describe("what a ban ends in the sign-in store", () => {
   });
 });
 
-/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
-   drain's, recorded on the row. */
-describe("a sign-in mail the Postausgang never took", () => {
-  const failedLines = (event: string) =>
-    logged()
-      .filter((line) => line.message === event)
-      .map((line) => line.meta);
-
-  it("logs the code's send by the error's name alone", async () => {
-    answerMail(() => "lost");
-    log.clear();
-
-    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-
-    expect(failedLines("auth.code_send_failed")).toStrictEqual([{ name: "APINetworkError" }]);
-  });
-});
-
 describe("what the code costs an address holding nothing", () => {
   it("mails the granted address and mails the other nothing, on the same answer", async () => {
     const before = sent.length;
@@ -2017,16 +1995,6 @@ describe("which addresses the send gate mails", () => {
     expect(granted.mailed).toStrictEqual([ADMIN_EMAIL]);
     expect(asked).toStrictEqual(["/api/v0/identity/sign_in", "/api/v0/identity/sign_in"]);
     expect(granted.answer).toStrictEqual(seated.answer);
-  });
-
-  it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
-    BACKENDS.set(PERSON_EMAIL, "throws");
-    const loggedBefore = logged().length;
-
-    expect((await askFor(PERSON_EMAIL)).mailed).toStrictEqual([]);
-
-    const lines = logged().slice(loggedBefore);
-    expect(lines.map((line) => [line.message, line.meta])).toStrictEqual([["auth.sign_in_gate_failed", { name: "APINetworkError" }]]);
   });
 
   /* The three refusals are three reasons to the gate and one answer to the person asking: which of

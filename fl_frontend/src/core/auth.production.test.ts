@@ -1,4 +1,4 @@
-import { ADMIN_EMAIL, cookieHeader, ORIGIN, sessionByCode, signInByCode } from "@/test-support/authDoubles.ts";
+import { ADMIN_EMAIL, answerTheLookup, cookieHeader, ORIGIN, sessionByCode, signInByCode } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
 import { signedInRequest } from "@/test-support/session.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
@@ -10,7 +10,7 @@ import { assert, describe, expect, it } from "vitest";
 // the sign-in's lines to.
 
 serveBackend();
-const { store } = signedInRequest();
+const { store, outbox } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
@@ -19,6 +19,9 @@ const { auth } = await import("./auth/library.ts");
 const { toNextJsHandler } = await import("better-auth/next-js");
 
 const handler = toNextJsHandler(auth);
+
+/** An address holding nothing, the send gate's to judge. */
+const PERSON_EMAIL = "spielerin@example.org";
 
 /** A code of the right shape that is not `otp`. */
 const wrongFor = (otp: string): string => (otp === "000000" ? "111111" : "000000");
@@ -72,6 +75,38 @@ describe("the sign-in's own lines", () => {
       userId !== undefined && !lines.some(({ raw }) => raw.includes(ADMIN_EMAIL) || raw.includes("[address]")),
       "the address reached a sign-in line",
     );
+  });
+});
+
+/** Each line `message` names, by its fields and the error it carries, which a line logged by name alone carries none of. */
+const linesNamed = (message: string) =>
+  log
+    .lines()
+    .filter((line) => line.message === message)
+    .map(({ fields, error }) => ({ fields, error }));
+
+/* What the send and the notice owe the stream where the backend never took the mail: a held or barred send is the
+   drain's, recorded on the row. A failure on the send's path routinely carries the submitted address. */
+describe("a sign-in mail the Postausgang never took", () => {
+  it("logs the code's send by the error's name alone", async () => {
+    outbox.answerWith(() => "lost");
+
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    expect(linesNamed("auth.code_send_failed")).toStrictEqual([{ fields: { name: "APINetworkError" }, error: undefined }]);
+  });
+});
+
+/* The person cannot tell a failed read from an unknown address, so the line is the only signal, and the read's failure
+   can carry the address it posted. */
+describe("the send gate whose read fails", () => {
+  it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
+    answerTheLookup(() => null);
+
+    await auth.api.sendVerificationOTP({ body: { email: PERSON_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    expect(outbox.sent.map(({ to }) => to)).toStrictEqual([]);
+    expect(linesNamed("auth.sign_in_gate_failed")).toStrictEqual([{ fields: { name: "APINetworkError" }, error: undefined }]);
   });
 });
 
