@@ -17,7 +17,6 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({ saison: address.saison }),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
-vi.mock("next/server", () => ({ connection: async () => undefined }));
 // Typed whole, so a field the frame stops serving fails the compile rather than standing in the fixture.
 const FRAME = {
   saisons: [

@@ -1,6 +1,6 @@
 import { serveBackend } from "@/test-support/backend.ts";
 import { doubleNextRequest } from "@/test-support/nextRequest.ts";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
 
@@ -9,7 +9,6 @@ import type { FLSaisonFrameResponse } from "@/core/generated/client/types";
 /** The season the site is on, which each case sets. */
 let active: string | null = null;
 
-vi.mock("next/server", () => ({ connection: async () => undefined }));
 // The season pages' frame alone: any other read goes unanswered, which fails the case.
 serveBackend(({ method, path }) =>
   method === "GET" && path === "/saisons/frame" ? ({ saisons: [], active_saison_id: active } satisfies FLSaisonFrameResponse) : undefined,

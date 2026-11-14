@@ -1,6 +1,6 @@
 import { serveBackend } from "@/test-support/backend.ts";
 import { doubleNextRequest } from "@/test-support/nextRequest.ts";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
 import { LEGAL_PAGES, LIGA_PAGES, ROUTES, SAISONLESS_PAGES } from "@/core/routes.ts";
@@ -10,7 +10,6 @@ import type { RouteEntry } from "@/core/routes.ts";
 
 /** The season pages' frame as the sitemap reads it; each case sets the season the site is on. */
 const frame: FLSaisonFrameResponse = { saisons: [], active_saison_id: null };
-vi.mock("next/server", () => ({ connection: async () => undefined }));
 // The season pages' frame alone: any other read goes unanswered, which fails the case.
 serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/frame" ? frame : undefined));
 // The frame is a cached read, which declares its tag and lifetime through `next/cache`, answering only in Next's cache scope.

@@ -99,7 +99,6 @@ async function afterChange(type = "RSPrimary"): Promise<void> {
 
 beforeEach(() => {
   builds.length = 0;
-  log.clear();
   running.clear();
   answer = () => Promise.resolve("built");
 });

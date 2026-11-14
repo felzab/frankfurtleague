@@ -209,7 +209,6 @@ beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
   barrier.disarm();
   counting.disarm();
-  log.clear();
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;

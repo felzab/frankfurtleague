@@ -195,7 +195,6 @@ const authDb = () => realClient.db("auth");
 
 beforeEach(async () => {
   barrier.disarm();
-  log.clear();
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();

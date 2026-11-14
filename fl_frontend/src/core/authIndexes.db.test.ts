@@ -70,7 +70,6 @@ const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {
-  log.clear();
   requestHeaders = undefined;
   await store().dropDatabase();
 });

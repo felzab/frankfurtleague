@@ -48,7 +48,6 @@ const judged =
     json({ success: codes.length === 0, "error-codes": codes });
 
 beforeEach(() => {
-  log.clear();
   asked.length = 0;
   answers = [];
 });
