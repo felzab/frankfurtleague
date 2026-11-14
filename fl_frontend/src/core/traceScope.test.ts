@@ -1,5 +1,5 @@
-import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
 import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest.ts";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

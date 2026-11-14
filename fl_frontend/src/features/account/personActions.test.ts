@@ -1,4 +1,3 @@
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   configDouble,
   GATE_BACKEND_CONFIG,
@@ -10,6 +9,7 @@ import {
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
 import { serveBackend } from "@/test-support/backend.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 

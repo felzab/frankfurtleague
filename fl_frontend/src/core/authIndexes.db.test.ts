@@ -1,4 +1,3 @@
-import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -11,6 +10,7 @@ import {
   signInByCode,
 } from "@/test-support/authDoubles.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { ObjectId } from "mongodb";
 import { assert, beforeEach, describe, expect, it } from "vitest";
