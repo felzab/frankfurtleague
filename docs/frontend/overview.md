@@ -9,16 +9,16 @@ its invalidation live here rather than in the backend.
 
 ## How it is organised
 
-| Folder                   | Holds                                                                                                                                                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                                                     |
-| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                                              |
-| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                                                 |
-| `src/shared/`            | What a rendered page is built from beside the kit: hooks and utilities                                                                                                                                      |
-| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                                             |
-| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                                          |
-| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                            |
-| `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`, and `support/`, the fixtures and helpers they import |
+| Folder                   | Holds                                                                                                                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/`               | The routes: the public pages, `saisons/` for the season pages, `area/`, `admin/` and `account/` for the signed-in areas                                                                                                                                                     |
+| `src/kit/`               | The design system's components, built on React Aria Components                                                                                                                                                                                                              |
+| `src/core/`              | What the server process is and what every surface needs: configuration, the API client, auth, mail, logging, the string catalogue and the formatting module                                                                                                                 |
+| `src/shared/`            | What a rendered page is built from beside the kit: hooks and utilities                                                                                                                                                                                                      |
+| `src/features/<domain>/` | One slice per domain: its cached reads, server actions, schemas and the components of its pages                                                                                                                                                                             |
+| `src/proxy.ts`           | The request proxy in front of every signed-in area                                                                                                                                                                                                                          |
+| `src/test-support/`      | What the unit and database tests share and production never imports: doubles, fixtures, the test setup and the sweeps' tree walk                                                                                                                                            |
+| `e2e/`                   | The Playwright journeys against the end-to-end stack, both browser projects' at its top and one project's under `desktop/`, `phone/` or `first-pass/`; the layout-shift guard and its sessions' setup under `layout/`; and `support/`, the fixtures and helpers they import |
 
 **Routes are thin**: a page fetches, then hands off. A page's own write sits beside its route, in
 one module per act or per record's acts (`saveSpiel.ts` beside the match editor, `kaderRowActs.ts`
@@ -89,6 +89,64 @@ deliberate: the Docker builder stage has **no reachable backend or sign-in store
 tried to prerender its data would fail the image build, and a prefetched shell carries nothing a
 read past the wait decides. A `"use cache"` body may not call it, so the wait stands at its caller.
 
+**Every page arrives whole**: no `Suspense` boundary stands anywhere in the tree, so no part of a
+page waits behind a placeholder of its own. A placeholder costs more than the read it stands for,
+since React holds a boundary's reveal for 300 ms after the last one, and a page fade holds every
+commit until it ends.
+
+- Lint refuses `Suspense`, `next/dynamic` and any route's `loading.tsx` in production code.
+- A page opened by address, by a reload or by a typed address, is one document. The server sends it
+  once the whole page is rendered.
+- The browser paints that document once its body is parsed, whole. The root layout
+  (`fl_frontend/src/app/layout.tsx`) names an empty element last in the body in a head link with
+  `rel="expect"` and `blocking="render"`, which holds rendering until that element is parsed. Only
+  Next's scripts follow it.
+- A browser without that link type paints the document as it parses it, so a slow device may paint
+  it in pieces: a table's column widening as its later rows arrive, the phone bar's tracks narrowing
+  as its later links do. Chrome and Edge from version 124 and Safari from 18.2 honour the link;
+  Firefox does not.
+- The block holds a page's first paint for as long as the browser takes to parse the document up to
+  that element. Measured in headless Chromium, that is nothing on a fast device and about 0.2 s on a
+  processor slowed ten times for the largest administrator page, a document of about 260 kB. React's
+  own form of this block gives it up for a document past 512 kB, since holding the paint of a larger
+  one costs more than a late shift; a page that grows towards that size needs the same cap.
+- Where the element never comes, the end of parsing lifts the block, and Chromium paints at about
+  the load event.
+- A page that finds nothing, is refused or throws while the server renders it arrives as Next's bare
+  error document, which holds neither the root layout's link nor its element. Its body is empty, so
+  the visitor sees a bare ground until the page's code runs and draws the segment's not-found or
+  error page in its frame.
+- The ground of a bare error document rendered per request, and of Next's own not-found document
+  for an address no route matches, is in the device's own colour scheme: the head carries the root
+  layout's `color-scheme` meta. On a light device, a visitor who chose the dark theme sees a white
+  ground first.
+- A bare error document prerendered at build time carries no such meta, since Next builds that
+  shell without the page's viewport, so its ground is white on every device. Two stand in the
+  build: the area's catch-all at `/area/<anything>`, which answers 404, and Next's global error
+  document.
+- A client navigation keeps the page it leaves until the next one is complete, since Next's router
+  makes it a transition and a transition never hides content it has revealed. The page fade runs
+  once, between two finished pages.
+- The root layout (`fl_frontend/src/app/layout.tsx`) exports `instant = false`, which lifts the
+  build's check that a route's prerendered shell holds something, for every route. It leaves the
+  development server's check of a navigation between two pages below the root as Next sets it by
+  default: `next dev` still checks such a navigation and warns.
+
+**One fact says a navigation is under way**: the address it goes to, which
+`fl_frontend/src/kit/WholePage.tsx :: WholePages`, placed around every route by the root layout,
+sets as optimistic state inside the navigation's own transition, so it ends in the render that
+commits the page. Every navigating control feeds it through `WholePage.tsx :: NavigationLink`, the one reader of
+`next/link`, which lint holds, or `useNavigate` for a control navigating on its own press.
+
+- Each frame places one `NavigationBar` at the top of its page area. It shows once a navigation has
+  been pending 200 ms and goes at the commit; it is a visual sign alone.
+- At the press, every list of links marks the entry the navigation goes to (`usePressed`), and a
+  filter shows its new choice (`usePendingQuery`).
+- While a navigation to another path is pending, the page's content, inside each frame's
+  `PageContent`, is `inert`; the frame stays pressable, and a navigation staying on the path leaves
+  the page live.
+- `NavigationLink` never prefetches the sign-in, which the proxy's matcher skips on a prefetch.
+
 ## Styling and copy
 
 Tailwind v4, configured in CSS: `src/app/globals.css` and the design tokens in `src/app/tokens.css`.
@@ -98,14 +156,25 @@ uses `oklch()`, `color-mix()` and `@property`; it does not govern Next's own pol
 **A block chooses its form by a container query on its own box, never by the screen's width**,
 because the rail opens and closes under one viewport, so only the box says how much room a block
 has. Lists, tables and bordered boxes, match rows, card grids and folds among them, stack below
-42 rem (`@2xl`) and spread from it. A card's act row, `Facts` and `LinkRows` switch at 32 rem
+42 rem (`@2xl`) and spread from it. A list of records is a table from 42 rem, and below it each row
+stacks: the name with its chips, at most one `narrow` column beside them, one muted line under the
+name, then a decision's acts. A column the stacked row leaves out keeps its fact where
+[a recurring job's pattern](copy.md#a-recurring-job-takes-its-fixed-pattern) says. The Tabelle, a
+`stack` table and a `prose` table keep forms of their own (`fl_frontend/src/kit/Table.tsx`). A
+card's act row, `Facts` and `LinkRows` switch at 32 rem
 (`@lg`). The five match tiles stand in one row from 47.5 rem, the form column's width
-(`fl_frontend/src/kit/StatTiles.tsx`). Two kinds of block switch by the screen at `lg` instead:
+(`fl_frontend/src/kit/StatTiles.tsx`). The K.-o.-Baum draws its cards of plaques alone below
+42 rem and with each side's name and the date line from it, by the tree's box, since a card's own
+width is the form's result (`fl_frontend/src/kit/BracketTree.tsx`). The organisers stand in four
+columns from 44 rem, where the widest entry fits whole (`fl_frontend/src/kit/Organisers.tsx`). Two
+kinds of part switch by the screen at `lg` instead:
 
-- **A block, or a use of one, standing in the classic frame alone**, such as the landing's rows of
-  cards, its hero, the classic footer, and the tiles the landing and the sponsors page set with
-  `reads="screen"` (`fl_frontend/src/kit/TileGrid.tsx :: TilesReads`). On the landing every block
-  reads the screen, so the page switches as one.
+- **A frame, and a classic page's own layout, which no block's box holds**: the frames' bands, rail
+  and footer, a classic page's spacing, the landing's hero beside the season card, the gaps between
+  the landing's sections, and a reading page's contents list beside its text
+  (`fl_frontend/src/kit/ClassicPage.tsx`, `fl_frontend/src/kit/LandingPage.tsx`,
+  `fl_frontend/src/kit/Prose.tsx`). Every block inside a landing section reads its own box, as on a
+  rail page.
 - **A part that answers a phone's touch rather than the room**: a form footer's acts stacking
   across the width, the filters folding into a sheet, a read page's acts, and a row's taller touch
   height. The screen tells the device, and a box does not.
@@ -133,9 +202,13 @@ nothing from the next request on. Every admin server action opens on
 `fl_frontend/src/core/auth/guards.ts :: judgeAdminRequest`, through the builder's admin lane.
 
 **Route protection is layered.** `src/proxy.ts` turns away a request to `/area`, `/admin` or `/account` carrying no
-session cookie before any read, and judges nothing further, as Next's and Better Auth's guidance has a
-proxy check. The session, its sign-in factor and the grant are judged where the data is read: no
-layout turns a session away, because Next renders a page whatever its layout decides.
+session cookie before any read, as Next's and Better Auth's guidance has a proxy check. It sends a page load of
+`/signin` whose cookie names a stored session on to the sign-in's landing, which decides where that session goes. It
+sends a page load of `/signin/passkey` on to the landing too where the request holds no passkey step, asking
+`fl_frontend/src/core/auth/landing.ts :: getRequestPasskeyStep`, the page's own judgement, so the page never paints
+its frame only to redirect. Both carry the return address through the allowlist and judge nothing further. The
+session, its sign-in factor and the grant are judged where the data is read: no layout turns a session away, because
+Next renders a page whatever its layout decides.
 
 **A person's sign-in is managed on Konto, `/account` and its four pages**, whichever area they hold:
 every frame's account menu links it, and an act on the passkey touch's fixed
@@ -151,6 +224,15 @@ dialog, presses the final button, and that press asks the touch and then runs th
 each secret to the one module that may read it; a failure names the variables, never their values,
 and the process exits. Tests sit beside the module they test as `*.test.ts`, a `*.db.test.ts` needing
 the sign-in store's MongoDB; the scripts in `fl_frontend/package.json` run them.
+
+A unit test runs the real modules of `fl_frontend/src/` and fakes only the edges beneath them, through
+the helpers of `fl_frontend/src/test-support/`: the backend and every other host on a stub of the
+global `fetch` that sends nothing, the sign-in store as the library's own memory adapter, and Next's
+request-time functions. The lint
+(`fl_frontend/eslint-rules/no-own-module-double.mjs`) refuses a test's stand-in of any other module
+of ours, save the few that are nothing but their edge and a server function as a client calls it. A
+`*.production.test.ts` file runs under the `NODE_ENV` that `next build` inlines, so its cases read
+the log lines a production build writes.
 
 ## Read next
 

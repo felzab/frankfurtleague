@@ -1,15 +1,23 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
-
-import RegistrierungenPage from "./page";
 
 import type { FLRegistrierungAdminRow } from "@/core/generated/client/types";
 import type { ChipProps } from "@/kit/Chip";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+/** The season's registrations the backend serves. */
+const state = { read: null as unknown };
 
-vi.mock("@/features/registrierungen/queries", () => ({ getRegistrierungenAdmin: () => Promise.resolve(state.read) }));
+// The page's one read, of the season its address names, through the real guard, query and generated call.
+serveBackend(({ method, path, search }) =>
+  method === "GET" && path === "/registrierungen/list/admin" && search.get("saison_id") === "2028" ? state.read : undefined,
+);
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
+
+const { default: RegistrierungenPage } = await import("./page");
 
 const row = (overrides: Partial<FLRegistrierungAdminRow>) =>
   ({

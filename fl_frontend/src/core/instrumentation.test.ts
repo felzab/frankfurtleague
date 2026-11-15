@@ -1,5 +1,5 @@
 import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { APIBadStatusError, APINetworkError, MailSendError } from "./errors.ts";
 import { onRequestError } from "./instrumentation.ts";
@@ -37,9 +37,7 @@ async function crashLine(thrown: unknown): Promise<Record<string, unknown>> {
 /** The fields every crash line carries, whatever was thrown. */
 const ENVELOPE = { level: "ERROR", service: "fl_frontend", trace_id: REQUEST_TRACE, message: "system.request_crashed", route: ROUTE };
 
-beforeEach(() => void vi.stubEnv("NODE_ENV", "production"));
-afterEach(() => void vi.unstubAllEnvs());
-
+// Run by the `unit-production` project under a production build's `NODE_ENV`, whose crash line is the JSON one.
 describe("the request-error hook", () => {
   /* Next catches a throw of the hook's own and prints it as plain text, so the line joining the crash to its request
      would be lost exactly where the server threw something no reader expects. */

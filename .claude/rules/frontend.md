@@ -22,8 +22,10 @@ Each fails silently. The ratified decisions for this surface are in `docs/decisi
   a `textarea` holding text stands `readOnly` (`fl_frontend/src/kit/TextField.tsx :: ParagraphBox`),
   since React writes that text back while hydrating, before any effect reads the edit; a
   `contenteditable` control stands `inert` (`fl_frontend/src/kit/dateParts.tsx :: Segments`, which the
-  lint keeps React Aria's date segments in), since a changed text fails hydration and discards its
-  whole boundary. Pages call the kit: React Aria and a raw control are banned outside it.
+  lint keeps React Aria's date segments in), since a changed text fails hydration, and React renders
+  anew in the browser from the nearest Suspense boundary, the whole page where none stands, as none
+  does in the tree, discarding every edit there. Pages call the kit: React Aria and a raw control
+  are banned outside it.
 - An act behind the passkey touch asks it from its final press alone, through the `touch` slot of
   `fl_frontend/src/kit/ConfirmDialog.tsx` or `fl_frontend/src/kit/dialogAct.ts`, a Konto box or the
   one-shot form (`fl_frontend/src/kit/usePasskeyTouch.ts`). A touch fired from an effect, or behind

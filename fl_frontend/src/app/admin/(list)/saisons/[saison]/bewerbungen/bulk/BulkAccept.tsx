@@ -12,6 +12,7 @@ import { answering } from "@/kit/useFormAction";
 import { COPY } from "@/core/copy";
 import { dayOf, formatDate, formatNumber } from "@/core/format";
 import { ROUTES } from "@/core/routes";
+import { STANDING_CHIP, standingOf } from "@/features/bewerbungen/standing";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 
 import { AcceptFields } from "../[bewerbung]/AcceptFields";
@@ -51,22 +52,29 @@ function formOf(row: FLBewerbungListRow, draft: Draft): FormData {
   return form;
 }
 
-/** A row of the check page: entered with its chip, turned away with why and its way back, else what the run will write. */
+/**
+ * A row of the check page, its state in its „Stand“ column whatever the run did: entered, „Angenommen“; turned away for
+ * its Kürzel, that chip; else the application's own standing, with why it was turned away where it was and its way back
+ * to its card. An entered row opens nothing, so on a phone every row's line says the colour and the Kürzel its columns
+ * would, a colour left open left out as the squad's line leaves an empty fact.
+ */
 function checkRow(row: FLBewerbungListRow, run: Run, outcome: Outcome | undefined, open: (id: string) => void): TableRow {
   const draft = run.drafts[row.id];
+  const colour = draft === undefined || draft.trikot_farbe === "" ? null : trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe);
+  const shorthand = { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" };
   const cells = {
     gruppe: draft === undefined ? COPY.shared.noValue : COPY.shared.season.gruppe(draft.gruppe),
-    farbe: draft === undefined || draft.trikot_farbe === "" ? COPY.shared.notProvided : trikotFarbeLabel(draft.trikot_farbe as FLTrikotFarbe),
-    shorthand: { record: row.shorthand ?? draft?.shorthand.toUpperCase() ?? "" },
+    farbe: colour ?? COPY.shared.notProvided,
+    shorthand,
   };
-  const base = { id: row.id, name: { record: row.name }, cells };
-  if (outcome?.kind === "accepted") return { ...base, chip: { tone: "success", label: WORDS.accepted } };
+  const base = { id: row.id, name: { record: row.name }, phoneLine: COPY.shared.line([colour, shorthand]), cells };
+  if (outcome?.kind === "accepted") return { ...base, chip: STANDING_CHIP.accepted };
   const refused = outcome?.kind === "refused" ? outcome : null;
   const line = refused?.taken === true ? undefined : (refused?.line ?? Object.values(refused?.fieldErrors ?? {})[0]);
   return {
     ...base,
     onOpen: () => open(row.id),
-    ...(refused?.taken === true ? { chip: { tone: "danger", label: WORDS.shorthandTaken } } : {}),
+    chip: refused?.taken === true ? { tone: "danger", label: WORDS.shorthandTaken } : STANDING_CHIP[standingOf(row)],
     ...(line === undefined ? {} : { refusal: line }),
   };
 }
@@ -195,7 +203,8 @@ export function BulkAccept({
           { key: "shorthand", label: COPY.team.shorthand, hideOnPhone: true, width: "code" },
         ],
         rows: shown.map((row) => checkRow(row, run, run.outcomes[row.id], go)),
-        empty: { kind: "none", plural: COPY.page.adminBewerbungen, glyph: "bewerbungen" },
+        // A run with no applications ended above, so an empty table is one whose every card was skipped.
+        empty: { kind: "skipped", plural: COPY.page.adminBewerbungen },
       }}
       refused={open.some((row) => run.outcomes[row.id]?.kind === "refused")}
       act={

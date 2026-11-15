@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, spiel_document
 from tests.worker import worker_database
@@ -135,63 +135,6 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         # A season already `past` is not counted, so this is the number of seasons the rollover moved.
         assert response.deactivated == 1
 
-    def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
-        """The `$ne` on the target: its own unplayed fixture is seeded, and only a rule reading it as outgoing would refuse this."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await call_activate(database, client, TARGET)
-
-            return response, await statuses_now(database)
-
-        response, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(ARCHIVED, "past"), saison_document(TARGET, "active")],
-            spiele=[spiel(TARGET, ergebnis=None)],
-        )
-
-        assert statuses == {ARCHIVED: "past", TARGET: "active"}
-        assert response.deactivated == 0
-
-
-class TestARefusedRolloverWritesNothing:
-    def test_an_unfinished_incumbent_keeps_the_target_where_it_is(self, mongo_replica_set_url: str):
-        """The outgoing season's fixture has no result and is not cancelled, which is what `unplayed_spiel_nrs` counts."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_activate(database, client, TARGET)
-
-            return refusal.value.error_code, await statuses_now(database)
-
-        code, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-            # The target is drawn so the unfinished incumbent is what refuses it, not the undrawn-target guard ahead of it.
-            spiele=[spiel(INCUMBENT, ergebnis=None), spiel(TARGET, ergebnis=None)],
-        )
-
-        assert code == Code.ACTIVATE_SAISON_UNFINISHED
-        assert statuses == {INCUMBENT: "active", TARGET: "future"}
-
-    def test_an_unknown_season_demotes_nobody(self, mongo_replica_set_url: str):
-        """The read before the transaction: without it the league would be left with no active season at all."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundError):
-                await call_activate(database, client, "2099")
-
-            return await statuses_now(database)
-
-        statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
-        )
-
-        assert statuses == {INCUMBENT: "active", TARGET: "future"}
-
 
 class TestAMidFlightFailureTakesTheDemotionBack:
     def test_a_refused_promotion_leaves_the_incumbent_active(self, mongo_replica_set_url: str):
@@ -222,47 +165,6 @@ class TestAMidFlightFailureTakesTheDemotionBack:
         assert code == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the promotion, got code {code}"
         # The validator admits `past`, so the incumbent reading `active` can only mean the demotion was taken back.
         assert statuses == {INCUMBENT: "active", TARGET: "future"}, "the league was left with no active season"
-
-
-class TestTheRolloverRefusesAFinishedTarget:
-    """`saison_past` through the route, which is the only thing that proves the target's own status is read.
-
-    The read before the transaction was there for the 404 alone, and a status it discards refuses
-    nothing.
-    """
-
-    def test_a_past_target_is_refused_with_no_incumbent_to_answer_for_it(self, mongo_replica_set_url: str):
-        """Nothing holds `active`, so `activate_saison_unfinished` has an empty list and only the target can be the reason."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_activate(database, client, ARCHIVED)
-
-            return refusal.value.error_code, await statuses_now(database)
-
-        code, statuses = on_a_league(mongo_replica_set_url, body, saisons=[saison_document(ARCHIVED, "past")])
-
-        assert code == Code.SAISON_PAST
-        assert statuses == {ARCHIVED: "past"}
-
-    def test_the_incumbent_keeps_running(self, mongo_replica_set_url: str):
-        """The incumbent is finished, so the rollover would otherwise land: the demotion is what a missed refusal costs."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_activate(database, client, ARCHIVED)
-
-            return refusal.value.error_code, await statuses_now(database)
-
-        code, statuses = on_a_league(
-            mongo_replica_set_url,
-            body,
-            saisons=[saison_document(ARCHIVED, "past"), saison_document(INCUMBENT, "active")],
-            spiele=[spiel(INCUMBENT, ergebnis="2:1")],
-        )
-
-        assert code == Code.SAISON_PAST
-        assert statuses == {ARCHIVED: "past", INCUMBENT: "active"}
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:

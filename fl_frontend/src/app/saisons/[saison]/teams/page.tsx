@@ -56,7 +56,6 @@ export default function TeamsPage({ params, searchParams }: Props) {
       filters={season.then(({ filter }) => [filter])}
       list={{
         kind: "tiles",
-        wait: 24,
         search: { label: COPY.page.teams },
         content: season.then(({ saison, teams, filter }) => ({
           tiles: teams

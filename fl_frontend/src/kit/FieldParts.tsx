@@ -8,7 +8,9 @@ import { Text } from "react-aria-components/Text";
 
 import { COPY, textOf } from "@/core/copy";
 
-import { fieldLabel, messageLine, requiredMark, statusLine } from "./fieldStyles";
+import { fieldLabel, lockMark, messageLine, requiredMark, statusLine } from "./fieldStyles";
+import { FormClosed } from "./formClosed";
+import { Icon } from "./Icon";
 
 import type { Copy, Words } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
@@ -57,12 +59,21 @@ function fieldMessage({ validationDetails, validationErrors }: ValidationResult,
 }
 
 /**
- * The asterisk after a required field's label, a checkbox's included. Hidden from assistive technology, which
- * hears the field's required state instead.
+ * Whether a field asks for a value, to the eye and to assistive technology alike: never in a closed form or on a
+ * locked field, since a value nobody can change asks nothing of the reader. React Aria sets `required` or
+ * `aria-required` from `isRequired` whatever `isReadOnly` says, so a field hands it this answer, never its own prop.
+ */
+function asksForValue(isRequired: boolean, isClosed: boolean, isLocked: boolean): boolean {
+  return isRequired && !isClosed && !isLocked;
+}
+
+/**
+ * The asterisk after a required field's label, a score column's head included. Hidden from assistive technology,
+ * which hears the field's required state instead; drawn only where the field asks for a value (`asksForValue`).
  */
 export function RequiredMark({ isRequired }: { isRequired: boolean }) {
   return (
-    isRequired && (
+    asksForValue(isRequired, useContext(FormClosed), false) && (
       <span
         aria-hidden
         className={requiredMark()}>
@@ -73,14 +84,53 @@ export function RequiredMark({ isRequired }: { isRequired: boolean }) {
 }
 
 /**
- * The label above a field, an asterisk after it where a value is required: the catalogue's words, or a wording of its
- * own such as a consent's question, which stands as it was shown.
+ * A field's read-only state, its required state and whether its label carries the lock mark, the one place a lock or a
+ * closed form decides them. A field `isLocked` is one its record holds fixed, such as a season's points once it has
+ * begun: read-only, and marked at its label, so what stands locked is seen at the field while the editor's lock line
+ * says why. A closed form makes every field read-only and marks none, since its one reason covers them all and a mark
+ * on each would single out nothing. Read-only rather than disabled, since the value is the record's own: React Aria's
+ * `isReadOnly` keeps the field in the keys' order and its value readable, where a disabled field is passed over.
+ * `isDisabled` stays the field's own, for a value unavailable until something else is given, which no lock lifts.
+ * Neither a lock nor a closed form asks for a value (`asksForValue`), so `isRequired` is what the field hands React
+ * Aria and its label.
  */
-export function FieldLabel({ label, isRequired }: { label: Words; isRequired: boolean }) {
+export function useFieldLock(
+  isDisabled: boolean,
+  isLocked: boolean,
+  isRequired = false,
+): { isDisabled: boolean; isReadOnly: boolean; isMarked: boolean; isRequired: boolean } {
+  const isClosed = useContext(FormClosed);
+  return {
+    isDisabled,
+    isReadOnly: isClosed || isLocked,
+    isMarked: isLocked && !isClosed,
+    isRequired: asksForValue(isRequired, isClosed, isLocked),
+  };
+}
+
+/** The lock mark after a locked control's label, a field's or a switch's alike, `useFieldLock`'s `isMarked`. */
+export function LockMark() {
+  return (
+    <span className={lockMark()}>
+      <Icon
+        glyph="locked"
+        size={16}
+      />
+    </span>
+  );
+}
+
+/**
+ * The label above a field, an asterisk after it where a value is required and the form is open: the catalogue's words,
+ * or a wording of its own such as a consent's question, which stands as it was shown. A locked field's label takes the
+ * lock mark in the asterisk's place, since a value nobody can change asks nothing of the reader; the field is named by
+ * its words alone.
+ */
+export function FieldLabel({ label, isRequired, isLocked = false }: { label: Words; isRequired: boolean; isLocked?: boolean }) {
   return (
     <Label className={fieldLabel()}>
       {textOf(label)}
-      <RequiredMark isRequired={isRequired} />
+      {isLocked ? <LockMark /> : <RequiredMark isRequired={isRequired} />}
     </Label>
   );
 }

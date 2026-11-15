@@ -1,27 +1,31 @@
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
 import { SERVER_COPY } from "@/core/serverCopy";
-
-import HomePage from "./page";
 
 import type { FLLandingResponse } from "@/core/generated/client/types";
 import type { ComponentProps } from "react";
 
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
-vi.mock("next/server", async (original) => ({ ...(await original<object>()), connection: async () => undefined }));
 
-/** The landing's read each case serves: no season yet, no figures, and the window a case sets. */
-const landing = vi.hoisted((): { counts: FLLandingResponse["counts"]; current: FLLandingResponse | Promise<FLLandingResponse> } => {
-  const counts = { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 };
-  return { counts, current: { saison: null, bewerbung_window: null, bewerbung_opens_on: null, bewerbung_window_held: false, counts } };
-});
+/** The landing's figures: none yet. */
+const COUNTS: FLLandingResponse["counts"] = { count_saisons: 0, count_schulen: 0, count_spiele: 0, count_tore: 0 };
 
-vi.mock("./landing", async (original) => ({ ...(await original<object>()), readLanding: async () => landing.current }));
+/** The landing's read each case serves, which `rendered` sets. */
+let landing: FLLandingResponse | undefined;
+
+// The landing's one read alone: any other request goes unanswered, which fails the case.
+serveBackend(({ method, path }) => (method === "GET" && path === "/saisons/landing" ? landing : undefined));
+// The landing's read is cached, and declares its tag and lifetime through `next/cache`, answering only in Next's cache scope.
+doubleNextRequest();
+
+const { default: HomePage } = await import("./page");
 
 /** The landing's whole server render for the window given: the document a browser shows before hydrating. */
 async function rendered(
@@ -29,7 +33,7 @@ async function rendered(
   opensOn: FLLandingResponse["bewerbung_opens_on"] = null,
   { held = false, saison = null }: { held?: boolean; saison?: FLLandingResponse["saison"] } = {},
 ) {
-  landing.current = { saison, bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held, counts: landing.counts };
+  landing = { saison, bewerbung_window: window, bewerbung_opens_on: opensOn, bewerbung_window_held: held, counts: COUNTS };
   const stream = await renderToReadableStream(<HomePage />);
   await stream.allReady;
   return new Response(stream).text();
@@ -39,7 +43,7 @@ async function rendered(
 const hrefs = (html: string): string[] =>
   [...html.matchAll(/<a[^>]*href="([^"]+)"/g)].flatMap(([, href]) => (href === undefined ? [] : [href]));
 
-/** Every landed paragraph's words: a wait's sentence, set unseen in a `span` beside the landed page, is none of them. */
+/** Every paragraph's words. */
 const paragraphs = (html: string): string[] =>
   [...html.matchAll(/<p[^>]*>([^<]*)<\/p>/g)].flatMap(([, words]) => (words === undefined ? [] : [words]));
 
@@ -75,22 +79,5 @@ describe("the landing's band while no window is open", () => {
 
   it("sends a school to next season only where no season not ended holds one", async () => {
     expect(paragraphs(await rendered(null, null, { held: false, saison: DECIDED }))).toContain(SERVER_COPY.landing.join.closed);
-  });
-});
-
-// Static sections moved behind the read would leave the wait short of the page, and a reload while scrolled would land
-// the person higher than they were, which only a slow read shows.
-describe("the landing while its read waits", () => {
-  it("stands every static section at once", async () => {
-    landing.current = new Promise(() => undefined);
-    const shell = new AbortController();
-    const stream = await renderToReadableStream(<HomePage />, { signal: shell.signal, onError: () => undefined });
-    // Abandons what still waits, leaving the shell alone in the document, its boundaries at their fallbacks.
-    shell.abort();
-    const html = await new Response(stream).text();
-    const words = SERVER_COPY.landing;
-    for (const title of [words.pillars.title, words.join.title, words.season.title, words.organisers.title, COPY.page.sponsors]) {
-      expect(html).toContain(`>${title}</h2>`);
-    }
   });
 });

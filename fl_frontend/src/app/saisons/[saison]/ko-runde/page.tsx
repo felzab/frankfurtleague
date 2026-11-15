@@ -27,8 +27,7 @@ export default function KoRundePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "kORunde" } }}
-      // The widest bracket eight groups draw, two a group: a rail page waits at its taller state.
-      list={{ kind: "tree", wait: 16, content: readTree(params) }}
+      list={{ kind: "tree", content: readTree(params) }}
     />
   );
 }

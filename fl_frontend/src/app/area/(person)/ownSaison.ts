@@ -1,14 +1,10 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
-
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { readOwnSaisons } from "@/features/roles/queries";
 import { readAsRoleHolder, requireRole } from "@/features/roles/resolvers";
 
 import type { PersonKind } from "@/features/roles/queries";
-import type { StatusCardProps } from "@/kit/StatusCard";
 
 /** Each person place's two rows: its address without a season, and a season's Übersicht. */
 const PLACE = {
@@ -28,18 +24,12 @@ export async function isOwnSaison(kind: PersonKind, saison: string): Promise<boo
 }
 
 /**
- * A place's address without a season, the one „Funktion wechseln“, a mail and the sign-in lead to: a redirect to the
- * Übersicht of the season the frame's season button stands on, or, while the person's records stand in no season, the
- * card saying so with the way to Konto. The seasons are the frame's own read, so they cost the page no request of its
- * own; the frame's shell streams first, so the redirect reaches the browser inside the stream.
+ * The season a place's address without a season draws its Übersicht in, the one the frame's season button stands on
+ * by standard; `null` while the person's records stand in no season. A person holding no such Funktion is sent on
+ * before. The seasons are the frame's own read, so they cost the page no request of its own.
  */
-export async function standardSaisonCard(kind: PersonKind): Promise<StatusCardProps> {
+export async function standardSaison(kind: PersonKind): Promise<string | null> {
   await requireRole(kind, PLACE[kind].area.path());
   const saisons = await readAsRoleHolder(kind, () => readOwnSaisons(kind));
-  if (saisons !== null) redirect(PLACE[kind].overview.path(saisons.standard));
-  return {
-    tone: "info",
-    title: COPY.shared.end.noSaison,
-    next: { label: COPY.shared.end.toAccount, href: ROUTES.account.path() },
-  };
+  return saisons?.standard ?? null;
 }

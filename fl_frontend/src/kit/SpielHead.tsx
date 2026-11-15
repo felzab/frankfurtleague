@@ -1,16 +1,14 @@
-import { Suspense } from "react";
-
 import { COPY, textOf } from "@/core/copy";
 
-import { buttonPlaceholder } from "./buttonStyles";
 import { Callout } from "./Callout";
 import { headGround } from "./cardStyles";
+import { classicTitle } from "./ClassicPage";
 import { CutText } from "./CutText";
-import { RouteDialog, RouteDialogBody } from "./Dialog";
-import { Facts, FactsPlaceholder, SPIELORT_WORDS } from "./Facts";
+import { DialogTitle, RouteDialog, RouteDialogBody } from "./Dialog";
+import { Facts } from "./Facts";
 import { Link } from "./Link";
-import { Placeholder, placeholderBar, PlaceholderLine, Waiting } from "./Skeleton";
 import { figures, GoalSeparator, goalsOf, look, sideMarks } from "./SpielRow";
+import { StatusCardBody } from "./StatusCard";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -19,6 +17,7 @@ import type { Route } from "next";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
 import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
+import type { StatusCardProps } from "./StatusCard";
 
 /**
  * A side as the head names it: the club's name a link to its page once the club is known, and under it a
@@ -42,6 +41,8 @@ export type SpielHeadProps = {
   team2: SpielHeadSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: SpielRowProps["result"];
+  /** The side that did not turn up, its name struck as a list's row strikes it, the box under the head naming the event. */
+  absent?: SpielRowProps["absent"];
 };
 
 const head = tv({
@@ -71,9 +72,12 @@ function Goals({ score, part }: { score: Figures; part: "team1" | "team2" }) {
   return <span className={head(look(score, part)).goals()}>{goalsOf(score, part)}</span>;
 }
 
-/** A side as the centred look sets it: the plaque over the name, and under it where the club stands. */
-function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part: "team1" | "team2" }) {
-  const style = head(look(score, part));
+/**
+ * A side as the centred look sets it: the plaque over the name, and under it where the club stands. A struck name that
+ * is a link takes the strike on the link itself, in the link's own colour and kept under its hover's underline.
+ */
+function Side({ side, score, part, struck }: { side: SpielHeadSide; score: Figures; part: "team1" | "team2"; struck: boolean }) {
+  const style = head({ ...look(score, part), struck: struck && side.href === undefined });
   return (
     <span className={style.side()}>
       <TeamPlaque plaque={side.plaque} />
@@ -85,7 +89,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
         ) : (
           <Link
             href={side.href}
-            placement="standalone"
+            placement={struck ? "struck" : "standalone"}
             label={side.name}
           />
         )}
@@ -109,7 +113,7 @@ function Side({ side, score, part }: { side: SpielHeadSide; score: Figures; part
  * shoot-out's score, on a surface of its own, the band across the dialog's top or a box of the page. The one
  * block that names a match by its two sides.
  */
-export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
+export function SpielHead({ eyebrow, team1, team2, result, absent, placement = "dialog" }: SpielHeadProps & { placement?: "dialog" | "page" }) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.afterElfmeterschiessen : null;
   const style = head({ placement });
@@ -121,6 +125,7 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
           side={team1}
           score={score}
           part="team1"
+          struck={absent === "team1"}
         />
         <span className="grid justify-items-center pt-0.5">
           <span className="text-3xl leading-none">
@@ -141,51 +146,8 @@ export function SpielHead({ eyebrow, team1, team2, result, placement = "dialog" 
           side={team2}
           score={score}
           part="team2"
+          struck={absent === "team2"}
         />
-      </div>
-    </div>
-  );
-}
-
-/** A side of the head while its match is read: the plaque, the name's line and the standing's line, centred. */
-function SidePlaceholder() {
-  const style = head();
-  return (
-    <span className={style.side()}>
-      <span className={placeholderBar("h-6 w-10")} />
-      <PlaceholderLine
-        textClass="text-sm"
-        widthClass="w-24"
-      />
-      <PlaceholderLine
-        textClass={style.standing()}
-        widthClass="w-20"
-      />
-    </span>
-  );
-}
-
-/**
- * A match's head while the match is read, in the place the head will take: the head's own surface, its eyebrow's line
- * over the two sides about the score, each as bars at their sizes, the line under the score kept.
- */
-export function SpielHeadPlaceholder({ placement = "page" }: { placement?: "dialog" | "page" }) {
-  const style = head({ placement });
-  return (
-    <div className={style.root()}>
-      <PlaceholderLine
-        textClass={style.eyebrow()}
-        widthClass="w-24"
-      />
-      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
-        <SidePlaceholder />
-        <span className="grid justify-items-center pt-0.5">
-          <span className="flex h-[1em] items-center text-3xl leading-none">
-            <span className={placeholderBar("h-[0.75em] w-16")} />
-          </span>
-          <span className="h-4" />
-        </span>
-        <SidePlaceholder />
       </div>
     </div>
   );
@@ -224,39 +186,37 @@ async function PopupBody({ popup }: { popup: Promise<SpielPopupContent> }) {
   );
 }
 
-/** The match pop-up's body while the match is read: the band, the four facts and the act, named by the wait's word. */
-function PopupPlaceholder() {
-  return (
-    <RouteDialogBody
-      title={COPY.shared.loading}
-      act={
-        <Placeholder layoutClass="grid">
-          <span className={buttonPlaceholder("w-full")} />
-        </Placeholder>
-      }>
-      <Waiting layoutClass="grid gap-6">
-        <SpielHeadPlaceholder placement="dialog" />
-        <FactsPlaceholder
-          look="free"
-          pairs={4}
-          wraps={{ pair: 2, words: SPIELORT_WORDS }}
-        />
-      </Waiting>
-    </RouteDialogBody>
-  );
-}
-
 /**
  * The match pop-up: the matchday and the pairing on the band across its top, the facts under them, what befell
- * the match where something did, and the way to the match's page as the dialog's act. It opens at once, on the press,
- * and waits for its match in its one boundary, inside the dialog, as its body's placeholders.
+ * the match where something did, and the way to the match's page as the dialog's act. It opens with its match read,
+ * the page it was pressed on standing until then.
  */
 export function SpielPopup({ beneath, popup }: { beneath: Route; popup: Promise<SpielPopupContent> }) {
   return (
     <RouteDialog beneath={beneath}>
-      <Suspense fallback={<PopupPlaceholder />}>
-        <PopupBody popup={popup} />
-      </Suspense>
+      <PopupBody popup={popup} />
+    </RouteDialog>
+  );
+}
+
+/**
+ * The match pop-up whose match is not there, as a match deleted after its Spielplan was read: the status card in the
+ * dialog, its title naming the dialog in a status card's title look, so a missing match opens where a found one does.
+ */
+export function SpielPopupEnd({ beneath, tone, title, next }: { beneath: Route } & Omit<StatusCardProps, "quiet">) {
+  return (
+    <RouteDialog beneath={beneath}>
+      <StatusCardBody
+        place="dialog"
+        tone={tone}
+        next={next}
+        title={
+          <DialogTitle
+            text={title}
+            className={classicTitle()}
+          />
+        }
+      />
     </RouteDialog>
   );
 }

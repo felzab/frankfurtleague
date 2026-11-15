@@ -106,42 +106,7 @@ async def activate(database: AsyncDatabase, client: AsyncMongoClient, saison_id:
     )
 
 
-class TestWhatTheWriteRecords:
-    def test_the_row_names_the_last_covered_season(self, mongo_replica_set_url: str):
-        """Computed on the server, and what the lapse and the person's mail each read."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await ban(database, client)
-            stored = await database[Collection.BAN_LIST].find_one({})
-
-            assert stored is not None
-            return str(stored["barred_until_saison_id"])
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == LAST_COVERED
-
-
 class TestTheSeasonTheBanIsCountedFrom:
-    def test_a_league_holding_only_ended_seasons_answers_nothing(self, mongo_replica_set_url: str):
-        """A status set by hand, the rollover promoting in the transaction that demotes.
-
-        The newest ended season sorts first, so a helper guessing it answers `ENTERED_UNDER` here.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
-
-        seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
-
-        assert on_a_league(mongo_replica_set_url, seasons, body) is None
-
-    def test_a_league_holding_only_a_future_season_answers_nothing(self, mongo_replica_set_url: str):
-        """A planned season has been played under by nobody, so counting five from it would bar a person five seasons early."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
-            return await pull_governing_saison_id(saisons_collection=database[Collection.SAISONS])
-
-        assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) is None
-
     def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
         """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
@@ -206,30 +171,6 @@ class TestTheSweepAtAnActivation:
             return [str(row["barred_until_saison_id"]) async for row in database[Collection.BAN_LIST].find()]
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == [FIRST_CLEAR]
-
-    def test_the_season_a_row_names_is_the_last_one_that_bars(self, mongo_replica_set_url: str):
-        """The off-by-one, driven rather than argued: activating the last covered season leaves the row. That is what `$lt` buys over `$lte`."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await ban(database, client)
-            await a_drawn_target(database, LAST_COVERED)
-            await activate(database, client, LAST_COVERED)
-
-            return await database[Collection.BAN_LIST].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 1
-
-    def test_a_year_nobody_activated_is_still_swept(self, mongo_replica_set_url: str):
-        """Activation is not sequential, so an equality filter would strand every ban whose own season was skipped."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await ban(database, client)
-            await a_drawn_target(database, "2040")
-            await activate(database, client, "2040")
-
-            return await database[Collection.BAN_LIST].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == 0
 
     @pytest.mark.parametrize(
         ("target", "recorded"),

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 
 import { ROUTES } from "@/core/routes";
 import { teamMetadata } from "@/features/roles/resolvers";
@@ -23,8 +24,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * Every address under a team's season no page holds. An address no route matches is the root's to answer, which draws
  * the site's bare not-found card outside every frame; matched here, it ends in the team area's own not-found page,
- * inside the team's frame, which chooses between not found and „Kein Zugang“ from the seats the frame holds.
+ * inside the team's frame, which chooses between not found and „Kein Zugang“ from the seats the frame holds. It ends
+ * at request time, as its title does, which reads the session: a body the build could prerender whole beside a title
+ * read per request is a pairing Next refuses.
  */
-export default function UnknownTeamPage(): never {
+export default async function UnknownTeamPage(): Promise<never> {
+  await connection();
   notFound();
 }

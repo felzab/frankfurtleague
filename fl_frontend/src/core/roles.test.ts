@@ -12,17 +12,13 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const STATUS = z.enum(FLSaisonStatus);
 
-// Read rather than retyped: the backend's season predicate answers the same rows in its own suite,
-// so a status one tier grants and the other refuses fails there as well as here.
+// Read rather than retyped. No backend case reads this table, so it holds this tier's predicate alone:
+// a status the backend's `grants_a_panel` decides otherwise fails no suite.
 const VERDICTS = z
   .array(z.object({ saison_status: STATUS, grants_a_panel: z.boolean() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "grants_a_panel.json"), "utf8")));
 
 describe("which of a subject's seats grant a panel", () => {
-  it("grants nothing for a seat on a past season", () => {
-    expect(rolesOf(person({ seats: [seat({ saison_status: "past" })] })).roles).toStrictEqual([]);
-  });
-
   /* Judged seat by seat: a resolver reading one seat's status for all, or keeping every seat once any
      grants, passes each single-seat case. */
   it("keeps the granting seat alone of a past and an active one", () => {

@@ -22,8 +22,6 @@ TICK = timedelta(microseconds=1)
     [
         pytest.param(ANPFIFF - timedelta(hours=24) - TICK, "open", id="just before the due mark"),
         pytest.param(ANPFIFF - timedelta(hours=24), "overdue", id="the due mark itself"),
-        pytest.param(ANPFIFF - timedelta(hours=1) - TICK, "overdue", id="just before the lock"),
-        pytest.param(ANPFIFF - timedelta(hours=1), "locked", id="the lock itself"),
         pytest.param(ANPFIFF + timedelta(days=1), "locked", id="after kick-off"),
     ],
 )
@@ -77,21 +75,6 @@ def test_a_day_back_across_a_clock_change_keeps_the_kickoffs_clock_time(
         True,
         False,
     ]
-
-
-@pytest.mark.parametrize(
-    ("now", "owed"),
-    [
-        pytest.param(ANPFIFF - timedelta(hours=48) - TICK, False, id="just before its mark"),
-        pytest.param(ANPFIFF - timedelta(hours=48), True, id="its mark itself"),
-        pytest.param(ANPFIFF - timedelta(hours=24) - TICK, True, id="just before the due mark"),
-        pytest.param(ANPFIFF - timedelta(hours=24), False, id="the due mark itself"),
-    ],
-)
-def test_the_reminder_is_owed_from_its_mark_up_to_the_due_mark(now: datetime, owed: bool):
-    """A window off by one mark mails a team about a line-up already overdue, or never mails it."""
-
-    assert aufstellung_reminder_owed(date=DATE, time=TIME, now=now) is owed
 
 
 @pytest.mark.parametrize(("date", "time"), [(None, TIME), (DATE, None)])

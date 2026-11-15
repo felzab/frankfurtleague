@@ -18,8 +18,8 @@ export async function GET(request: NextRequest): Promise<never> {
   const area = ROUTES.area.path();
 
   // `/area`'s own landing rule over the person the landing read, so the sign-in lands where `/area` would send it
-  // without a second redirect; a backend that did not answer is `/area`'s to say, which renders its outage panel.
-  const landing = destination === area ? (asked ?? (subject === null ? null : landingTargetOf(placesOf(subject))) ?? area) : null;
+  // without a second redirect; a backend that did not answer is `/area`'s to say, which asks it again.
+  const landing = destination === area ? (asked ?? (subject === null ? area : landingTargetOf(placesOf(subject)))) : null;
 
   // Outside any `try`, as Next documents for a Route Handler: `redirect` throws to lead on.
   redirect(landing ?? withReturnAddress(destination, asked));

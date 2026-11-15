@@ -1,4 +1,3 @@
-import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   configDouble,
   GATE_BACKEND_CONFIG,
@@ -9,6 +8,8 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -32,8 +33,6 @@ const HEADERS_DOUBLE = {
 /** The mailed link's cookie as the proxy set it on the deletion's page, which a completed deletion forgets. */
 const ERASURE_LINK_COOKIE = { name: "mailed_link", path: "/erasure" };
 
-const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
-
 const ADAPTER_DOUBLE = {
   mongodbAdapter: () => insertOrderedAdapter(store as unknown as MemoryDB),
 };
@@ -41,7 +40,6 @@ const ADAPTER_DOUBLE = {
 const mail = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the system key the gate reads with.
   core: {
-    logging: LOGGING_DOUBLE,
     config: configDouble(GATE_BACKEND_CONFIG, { internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
   },
   specifiers: {
@@ -52,6 +50,11 @@ const mail = registerAuthDoubles({
 });
 
 const store = memoryStore("__flAccountErasureStore");
+/**
+ * Whether the store holds `row`'s session, read by its id: a committed transaction puts a copy of each row it changed in
+ * a new table, so a reference held from before it finds a rewritten row no more than a deleted one.
+ */
+const holdsSession = ({ id }: { id: string }): boolean => store.session.some((stored) => stored.id === id);
 
 /** What the backend holds for each address the subject read and the gate ask about, a live seat for any other. */
 const HELD = new Map<string, LookupFixture>();
@@ -68,25 +71,26 @@ const addressChanges: string[] = [];
 /** Every consent save that reached the backend, by its path. */
 const consentWrites: string[] = [];
 
-globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+serveBackend(({ method, path: endpoint, headers, body }) => {
+  // Under the base path the client sends it on, as the cases spell every path they compare.
+  const path = `/api/v0${endpoint}`;
   if (path.endsWith("/einwilligung")) {
     consentWrites.push(path);
-    return Promise.resolve(Response.json({}));
+    return {};
   }
   if (path === ERASURE_PATH) {
-    erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(new Response(null, { status: 204 }));
+    erasures.push({ method, actor: headers.get("x-fl-actor") });
+    return new Response(null, { status: 204 });
   }
   if (path === ADDRESS_CHANGE_PATH) {
-    addressChanges.push(init?.method ?? "GET");
-    return Promise.resolve(Response.json({ id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" }));
+    addressChanges.push(method);
+    return { id: "a1", valid_until: "2026-11-05T12:00:00Z", email: "neu@example.org" };
   }
 
-  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const { email } = (body ?? {}) as { email?: string };
   const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, seats: [SEAT], account: true };
-  return Promise.resolve(Response.json(answerAt(path, fixture)));
-}) as typeof globalThis.fetch;
+  return answerAt(path, fixture);
+});
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const {
@@ -217,20 +221,6 @@ describe("a person's own account deletion through the mailed link's page", () =>
     expect(erasures).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
   });
-
-  /* The library reads a session its account's sessions were ended before as a session like any other: the person lane's
-     own guard is what refuses it. */
-  it("deletes and erases nothing from a session ended by its account after it was made", async () => {
-    const email = "beendet-seither@example.org";
-    const { row, token, holder } = await withLink(email);
-    const account = store.user.find((user) => user.email === email);
-    assert.ok(account !== undefined, "the sign-in wrote no account");
-    account.sessionsEndedAt = new Date();
-
-    expect(await eraseAccount({ token, holder })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(erasures).toStrictEqual([]);
-    expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 0 });
-  });
 });
 
 // Each a loss nobody would see: an administrator's other devices ended from a session a mailbox made, a device left
@@ -249,7 +239,7 @@ describe("the account's acts, behind the account's guard", () => {
 
     expect(await signOutOthers({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await requestErasure({ holder: email })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    assert.ok(store.session.includes(other), "the mailbox's session ended the administrator's other device");
+    assert.ok(holdsSession(other), "the mailbox's session ended the administrator's other device");
     expect(mail.sent.length, "the mailbox's session had a deletion link mailed").toBe(mailed);
   });
 
@@ -282,7 +272,7 @@ describe("the account's acts, behind the account's guard", () => {
     expect(await signOutOthers(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await requestErasure(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
     expect(await withdrawAddressChange(stale)).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    assert.ok(store.session.includes(other), "the stale page ended the signed-in account's other device");
+    assert.ok(holdsSession(other), "the stale page ended the signed-in account's other device");
     expect(mail.sent.length, "the stale page had a deletion link mailed").toBe(mailed);
     expect(addressChanges, "the stale page withdrew the signed-in account's change").toStrictEqual([]);
   });

@@ -48,8 +48,7 @@ export default function SpielplanPage({ params, searchParams }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "spielplan" }, action: <SearchLink params={params} /> }}
-      // Eight groups of three: three rounds of a match a group, then the four knockout rounds of sixteen qualifiers.
-      list={{ kind: "spieltage", wait: { tabs: 7, matches: 8 }, content: readSpieltage(params, searchParams) }}
+      list={{ kind: "spieltage", content: readSpieltage(params, searchParams) }}
     />
   );
 }

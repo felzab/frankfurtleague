@@ -1,22 +1,11 @@
 import { Fragment } from "react";
 
 import { Link } from "./Link";
-import { PlaceholderSentence } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { ConsentLine as Line } from "@/core/consentWordings";
 
 const consentLine = tv({ base: "text-sm text-fg-muted" });
-
-/** The line while its record is read: as many lines as its words will take. */
-export function ConsentLinePlaceholder({ line }: { line: Line }) {
-  return (
-    <PlaceholderSentence
-      textClass={consentLine()}
-      words={line.map((part) => (typeof part === "string" ? part : part.label)).join("")}
-    />
-  );
-}
 
 /**
  * The line under a consent's control, in the description's grade: the wording's own words, which its records cite,

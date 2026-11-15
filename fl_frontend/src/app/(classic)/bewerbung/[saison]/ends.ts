@@ -11,7 +11,7 @@ import type { EndState } from "@/kit/MailedPage";
 const WORDS = SERVER_COPY.bewerbung.end;
 
 /** The start page, every end's one way on. */
-const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
+export const TO_HOME = { label: COPY.shared.end.toHome, href: ROUTES.home.path() };
 
 /** The outcome replacing the form, a replayed press alike. */
 export const SUBMITTED: EndState = { tone: "success", title: WORDS.submitted, next: TO_HOME };

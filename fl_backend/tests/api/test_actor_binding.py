@@ -2,9 +2,9 @@
 API · who a request acts for: the session headers behind the admin key and the binder
 
 Which routes carry which guard is `tests/api/test_admin_guard.py`'s sweep; this file proves what each
-guard does with a request. The grants each check reads are the db tier's
-(`tests/api/test_actor_grants_execution.py`): here a request clearing every session check meets the
-missing database at the first of those reads.
+guard does with a request. The grants each check reads are in the database, which this file never
+starts: here a request clearing every session check meets the missing database at the first of
+those reads.
 """
 
 import asyncio

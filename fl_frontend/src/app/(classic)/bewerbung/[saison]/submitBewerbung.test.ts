@@ -1,5 +1,6 @@
-import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend, serveHost } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -8,15 +9,32 @@ import { TURNSTILE_FIELD } from "@/core/turnstileToken";
 import { NO_SECOND_SEAT, REPLAY_FIELD } from "./application";
 import { SUBMITTED } from "./ends";
 
-const check = vi.hoisted(() => ({ refusal: null as string | null }));
+import type { FLCreatedResponse } from "@/core/generated/client/types";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-// Cloudflare's own verdict, which `core/turnstile.test.ts` judges.
-vi.mock("@/core/turnstile", () => ({ turnstileRefusal: async () => check.refusal }));
+/** The token the form posts, which Cloudflare judges. */
+const TOKEN = "token";
 
-const { calls } = doubleApiAnswers(() => Promise.resolve({ created_id: "6890a1b2c3d4e5f607190001" }));
+const CLOUDFLARE = "https://challenges.cloudflare.com";
+
+/**
+ * Cloudflare's check, answered with `verdict` on its own address for the form's own token alone: the real
+ * `core/turnstile.ts` asks it.
+ */
+const judging =
+  (verdict: { success: boolean; "error-codes": string[] }) =>
+  ({ method, url, body }: { method: string; url: URL; body: unknown }) => {
+    if (method !== "POST" || url.pathname !== "/turnstile/v0/siteverify") return undefined;
+    return (body as { response?: string } | undefined)?.response === TOKEN ? verdict : undefined;
+  };
+
+// Passed in every case but one that serves its own refusal.
+serveHost(CLOUDFLARE, judging({ success: true, "error-codes": [] }));
+// The application's one write; anything else is unanswered and fails the case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === "/bewerbungen" ? ({ created_id: "6890a1b2c3d4e5f607190001" } satisfies FLCreatedResponse) : undefined,
+);
+// A visitor with no session: the public lane reads no sign-in, only the request.
+doubleNextRequest();
 
 const { submitBewerbung } = await import("./submitBewerbung");
 
@@ -35,7 +53,7 @@ const BOXES: Readonly<Record<string, string>> = {
   act: "primary",
   saison_id: "2027",
   [REPLAY_FIELD]: KEY,
-  [TURNSTILE_FIELD]: "token",
+  [TURNSTILE_FIELD]: TOKEN,
   team_id: CLUB,
   stufengroesse: "90",
   "kontakte.trainer_is_also": NO_SECOND_SEAT,
@@ -67,12 +85,8 @@ const posted = (entries: Readonly<Record<string, string>>) => {
   return formData;
 };
 
-/** What the one write carried, parsed. */
-const body = () => requestsOf(calls)[0]?.body as Record<string, Record<string, unknown>>;
-
-beforeEach(() => {
-  check.refusal = null;
-});
+/** What the one write carried, as the backend read it. */
+const body = () => backend.sent[0]?.body as Record<string, Record<string, unknown>>;
 
 describe("the application a press sends", () => {
   // The harm: the write refuses a seat differing from the Trainer's as a drifted client, naming no box.
@@ -94,29 +108,23 @@ describe("the application a press sends", () => {
   });
 
   // The harm: a press whose answer was lost, sent again under another key, is a second application and three more mails.
-  it("sends the form's replay key, and the backend no field of its own", async () => {
+  // The body's own fields are the generated payload's, which tsc holds.
+  it("sends the form's replay key", async () => {
     expect(await submitBewerbung(posted(BOXES))).toStrictEqual({ ok: true, value: SUBMITTED });
 
-    expect(calls[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
-    expect(Object.keys(body())).toStrictEqual([
-      "kader",
-      "kontakte",
-      "saison_id",
-      "schule",
-      "stufengroesse",
-      "team_id",
-      "trikot",
-      "wunschgegner",
-    ]);
+    expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /bewerbungen"]);
+    expect(backend.sent[0]?.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe(KEY);
   });
 });
 
 describe("a press the action stops", () => {
   // The harm: this write mails three addresses its sender names, so a script past the check mails strangers.
   it("writes nothing past a refused bot check", async () => {
-    check.refusal = COPY.shared.botCheck;
+    const asked = serveHost(CLOUDFLARE, judging({ success: false, "error-codes": ["invalid-input-response"] }));
 
     expect(await submitBewerbung(posted(BOXES))).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
-    expect(calls).toHaveLength(0);
+    // Cloudflare judged the token and refused it, and nothing reached the backend.
+    expect(asked).toHaveLength(1);
+    expect(backend.sent).toHaveLength(0);
   });
 });

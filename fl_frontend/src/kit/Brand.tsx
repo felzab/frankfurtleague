@@ -1,11 +1,10 @@
-import NextLink from "next/link";
-
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { FLLogo } from "./FLLogo";
 import { hoverLook } from "./hoverStyles";
 import { tv } from "./tv";
+import { NavigationLink } from "./WholePage";
 
 const brand = tv({
   slots: {
@@ -19,8 +18,10 @@ const brand = tv({
       // The dark-green band at the top of every frame: the mark in the accent green, the only place it goes.
       // The wordmark gives way to the mark alone where the band runs short, as at 200 % text, and in the
       // rail collapsed to its glyphs, where the mark takes a 24-px box so the rail head's 24-px inset
-      // centres it in the 72-px rail; `lg:`, since the same band heads a phone's frame.
+      // centres it in the 72-px rail; `lg:`, since the same band heads a phone's frame. On a touch screen the link is
+      // the kit's 40-px control at least, its content centred in it.
       band: {
+        root: "justify-center pointer-coarse:h-10 pointer-coarse:min-w-10",
         mark: "text-brand-accent lg:group-data-collapsed:w-6",
         wordmark: "text-on-brand lg:group-data-collapsed:hidden @max-[22rem]:hidden",
       },
@@ -34,7 +35,7 @@ const brand = tv({
 export function Brand({ ground }: { ground: "band" | "page" }) {
   const { root, mark, wordmark } = brand({ ground });
   return (
-    <NextLink
+    <NavigationLink
       href={ROUTES.home.path()}
       aria-label={COPY.brand.name}
       data-kit-focus="ring"
@@ -45,6 +46,6 @@ export function Brand({ ground }: { ground: "band" | "page" }) {
         className={wordmark()}>
         {COPY.brand.name}
       </span>
-    </NextLink>
+    </NavigationLink>
   );
 }

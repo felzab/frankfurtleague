@@ -8,20 +8,25 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.grants.guard import verify_actor_is_admin
 from app.api.outbox.services import enqueue_mails
-from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_named_spiele
+from app.api.spielbestaetigungen.crud import (
+    JUDGED_SPIEL_FIELDS,
+    JUDGED_VEREIN_FIELDS,
+    anchor_the_mailboxes_told,
+    anchor_the_spiele_acted_on,
+    pull_ansetzung_state,
+    pull_named_spiele,
+)
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAppointment,
     FLSpielbestaetigungEnterPayload,
 )
 from app.api.spielbestaetigungen.services import (
     ADOPTION_TWINS,
-    ANSETZUNG_QUELLEN,
     AnsetzungState,
     build_answerable_filter,
     build_discardable_filter,
     compose_closing_update,
     compose_enter_update,
-    discard_owes_a_notice,
     discard_refusal,
     enter_refusal,
     find_adoption_refusal,
@@ -76,8 +81,11 @@ async def enter_spielbestaetigung(
     spielbestaetigung_id: CustomRouteObjectId,
     enter_data: Annotated[FLSpielbestaetigungEnterPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
+    spiele_collection: SpieleCollection,
+    saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> None:
     """Record that the party of an open confirmation agreed to its Ansetzung elsewhere than signed in, the reason saying how.
 
@@ -85,14 +93,27 @@ async def enter_spielbestaetigung(
     goes at the season's end.
     """
 
+    async def judged(row: Mapping[str, Any], *, session: AsyncClientSession | None) -> None:
+        # The fixture and the clubs' exits, as the pass's close judges them: an agreement it would shut settles nothing.
+        state = await pull_ansetzung_state(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            verein_projection=JUDGED_VEREIN_FIELDS,
+            session=session,
+        )
+        if state is None:
+            raise DocumentNotFoundError()
+        refuse(find_enter_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+
     async def settle_for_the_party(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"_id": spielbestaetigung_id},
-            projection=["saison_id", "answer", "closed"],
+            projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
-        refuse(find_enter_refusal(spielbestaetigung_raw=row))
+        await judged(row, session=session)
 
         try:
             # The state term as a seat's press writes it. A seat's answer committing under
@@ -116,6 +137,10 @@ async def enter_spielbestaetigung(
             session=session,
         )
 
+        # The settle writes no fixture and no season row, so a save or an exit landing under this transaction raises no
+        # conflict: judged again outside it before answering.
+        await judged(row, session=None)
+
         return entered
 
     async with transaction_session(db) as session:
@@ -138,24 +163,8 @@ async def discard_spielbestaetigung(
 ) -> None:
     """Close a club's open decline proposing another date, which then stands as that club's one answer to this Ansetzung.
 
-    The public fixture counts it as the club's agreement, and where its kick-off is still to come the club is told that
-    the date stands.
+    The public fixture counts it as the club's agreement, and the club is told that the date stands.
     """
-
-    async def judged(row: Mapping[str, Any], session: AsyncClientSession | None) -> Mapping[str, Any]:
-        # Through the name join: the notice names the clubs as the fixture fields them.
-        found = await pull_named_spiele(
-            spiele_collection=spiele_collection,
-            db_filter={"_id": row["spiel_id"]},
-            projection={key: 1 for key in (*ANSETZUNG_QUELLEN.values(), "team1.name", "team2.name")},
-            session=session,
-        )
-        if not found:
-            raise DocumentNotFoundError()
-        spiel = found[0]
-        refuse(find_discard_refusal(spielbestaetigung_raw=row, spiel=spiel))
-
-        return spiel
 
     async def discard_the_proposal(session: AsyncClientSession) -> Mapping[str, Any]:
         row = await pull_one_from_db(
@@ -164,7 +173,25 @@ async def discard_spielbestaetigung(
             projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
-        spiel = await judged(row, session)
+        # The close's own read, through the name join: the notice names the clubs as the fixture fields them.
+        found = await pull_named_spiele(
+            spiele_collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, projection=JUDGED_SPIEL_FIELDS, session=session
+        )
+        if not found:
+            raise DocumentNotFoundError()
+        vereine = await pull_many_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"]]}},
+            # With what the notice reads too: the seats are the mailboxes told, and the name the one stated.
+            projection={**JUDGED_VEREIN_FIELDS, "_id": 1, "name": 1, "kontakte": 1},
+            session=session,
+        )
+        state = AnsetzungState(spiel=found[0], vereine=vereine)
+        refuse(find_discard_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
+        # A save moving the match writes the fixture, and a club's exit every fixture of its season, so either landing
+        # beside this write conflicts with it and the retry judges the fixture it left, rather than the club being told
+        # that a slot stands which the match has left.
+        await anchor_the_spiele_acted_on(spiele_collection=spiele_collection, spiel_ids=[row["spiel_id"]], session=session)
 
         try:
             discarded = await patch_one_in_db(
@@ -186,31 +213,18 @@ async def discard_spielbestaetigung(
             session=session,
         )
 
-        if discard_owes_a_notice(row=row, now=now):
-            # The club's season row as it stands, its seats the mailboxes told and its name the one the notice states.
-            vereine = await pull_many_from_db(
-                collection=saison_teams_collection,
-                db_filter={"saison_id": row["saison_id"], "team_id": {"$in": [row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"]]}},
-                projection=["team_id", "name", "kontakte"],
-                session=session,
-            )
-            # An open proposal's club stands on the fixture, whose every side holds a season row: a replacement moves both.
-            verein = next(verein for verein in vereine if verein["team_id"] == row["party"]["team_id"])
-            names = vereinsnamen_of(spielbestaetigung_raw=row, ansetzung_state=AnsetzungState(spiel=spiel, vereine=vereine))
-            data = notice_data_of(
-                reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
-            )
-            mails = team_mails(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
-            if mails:
-                # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
-                await anchor_the_mailboxes_told(
-                    saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session
-                )
-            await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
-
-        # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
-        # again outside it before answering.
-        await judged(row, None)
+        # Owed though no request was ever stamped, as `notice_owed` asks: the decline it discards was the club's own
+        # answer, given signed in. An open proposal's club stands on the fixture, whose every side holds a season row.
+        verein = next(verein for verein in state.vereine if verein["team_id"] == row["party"]["team_id"])
+        names = vereinsnamen_of(spielbestaetigung_raw=row, ansetzung_state=state)
+        data = notice_data_of(
+            reason="discarded", party_kind="team", appointment=spiel_mail_appointment_of(spielbestaetigung_raw=row, names=names)
+        )
+        mails = team_mails(spielbestaetigung_raw=row, kontakte=verein.get("kontakte"), data=data, occasion="discarded")
+        if mails:
+            # A seat emptied or an address moved beside this write conflicts with it rather than leaving the old mailbox told.
+            await anchor_the_mailboxes_told(saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
         return discarded
 
@@ -264,9 +278,17 @@ async def adopt_spielbestaetigung(
             projection=["saison_id", "spiel_id", "party", "ansetzung", "answer", "closed"],
             session=session,
         )
-        # The whole fixture: the save carries every field of it but the day and the hour.
-        spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": row["spiel_id"]}, session=session)
-        refuse(find_adoption_refusal(spielbestaetigung_raw=row, spiel=spiel))
+        # The whole fixture, which the save carries every field of but the day and the hour, and the clubs' exits.
+        state = await pull_ansetzung_state(
+            spiele_collection=spiele_collection,
+            saison_teams_collection=saison_teams_collection,
+            spielbestaetigung_raw=row,
+            verein_projection=JUDGED_VEREIN_FIELDS,
+            session=session,
+        )
+        if state is None:
+            raise DocumentNotFoundError()
+        refuse(find_adoption_refusal(spielbestaetigung_raw=row, ansetzung_state=state, now=now))
         vorschlag = FLSpielbestaetigungAppointment.model_validate(row["answer"]["vorschlag"])
         refuse(as_judged_on_stored_state(find_vorschlag_past_refusal(vorschlag=vorschlag, today=today), twins=ADOPTION_TWINS))
 
@@ -276,7 +298,7 @@ async def adopt_spielbestaetigung(
         try:
             await save_spiel_in_session(
                 spiel_id=row["spiel_id"],
-                payload=proposal_payload(FLSpiel.model_validate(spiel), vorschlag),
+                payload=proposal_payload(FLSpiel.model_validate(state.spiel), vorschlag),
                 collections=collections,
                 adopts_bericht=None,
                 now=now,

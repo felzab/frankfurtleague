@@ -6,10 +6,11 @@ import { TextField as AriaTextField, Input, TextArea } from "react-aria-componen
 import { useIsSSR } from "react-aria/SSRProvider";
 
 import { COPY, textOf } from "@/core/copy";
+import { isDeliverableAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
-import { fieldFrame, fieldRoot, fieldUnit } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { fieldFrame, fieldRoot, fieldSignifier, fieldUnit, groupInput } from "./fieldStyles";
+import { Icon } from "./Icon";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
@@ -20,6 +21,11 @@ type Shared = {
   label: Words;
   isRequired?: boolean;
   isDisabled?: boolean;
+  /**
+   * Held fixed by its record, such as a season's points once it has begun: read-only, its label marked with the lock
+   * (`useFieldLock`), while the editor's lock line says why.
+   */
+  isLocked?: boolean;
   name?: string;
   value?: string;
   defaultValue?: string;
@@ -106,6 +112,26 @@ const KINDS = {
 const EXAMPLE = { email: COPY.shared.field.exampleAddress, digits: COPY.shared.field.exampleDigits } as const;
 
 /**
+ * What the browser's own check passes and the server refuses, judged on the press so a slip costs no round trip and,
+ * behind the passkey touch, no touch: a required box holding only spaces, which the server trims to nothing, and an
+ * address outside the API's rule, such as a host with no dot, which `type=email` takes. Each in the phrase the
+ * server's refusal puts on the box. React Aria shows it once the value is committed or the form pressed, as every
+ * field message, and the press goes nowhere while it stands. The sign-in library's own rule and every rule reading a
+ * record stay the server's.
+ */
+function judgeOf(kind: TextFieldProps["kind"], isRequired: boolean) {
+  return (value: string): Copy | null => {
+    const trimmed = value.trim();
+    if (trimmed === "") return isRequired && value !== "" ? COPY.shared.field.required : null;
+    // Past the ceiling the browser's `maxLength`, or the server's, names the length rather than the shape.
+    if (kind === "email" && trimmed.length <= KONTAKT_EMAIL_MAX_LENGTH && !isDeliverableAddress(trimmed)) {
+      return COPY.shared.field.format(COPY.shared.field.exampleAddress);
+    }
+    return null;
+  };
+}
+
+/**
  * A paragraph's control. While hydrating, React writes a stored text back over a `textarea` before any effect can read
  * what a person typed there, so `useEarlyEdit` has nothing to raise and a press would save nothing under
  * „Gespeichert“. So a stored paragraph takes no edit until the page's code runs: `readOnly` paints as the live field
@@ -119,7 +145,8 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
     <TextArea
       data-kit-focus="field"
       rows={4}
-      readOnly={isWaiting && isStored}
+      // Unset rather than false once the code runs, so a locked or closed field's read-only state from its field stands.
+      readOnly={(isWaiting && isStored) || undefined}
       className={className}
     />
   );
@@ -131,7 +158,18 @@ function ParagraphBox({ isStored, className }: { isStored: boolean; className: s
  * committed or the form submitted, never while typing.
  */
 export function TextField(props: TextFieldProps) {
-  const { label, labelHidden = false, description, consequence, isRequired = false, isDisabled = false, kind, maxLength, minLength } = props;
+  const {
+    label,
+    labelHidden = false,
+    description,
+    consequence,
+    isRequired = false,
+    isDisabled = false,
+    isLocked = false,
+    kind,
+    maxLength,
+    minLength,
+  } = props;
   const keys = KINDS[kind];
   const width = kind === "paragraph" ? "full" : props.holds === undefined ? "standard" : "short";
   const constraints: Constraints = {
@@ -158,6 +196,7 @@ export function TextField(props: TextFieldProps) {
   const unit = fieldUnit({ holds: props.holds });
   const unitId = useId();
   const root = useEarlyEdit();
+  const lock = useFieldLock(isDisabled, isLocked, isRequired);
 
   return (
     <AriaTextField
@@ -168,8 +207,10 @@ export function TextField(props: TextFieldProps) {
       value={props.value}
       defaultValue={props.defaultValue}
       onChange={props.onChange}
-      isRequired={isRequired}
-      isDisabled={useDisabled(isDisabled)}
+      isRequired={lock.isRequired}
+      validate={judgeOf(kind, lock.isRequired)}
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}
       maxLength={maxLength}
       minLength={minLength}
       type={keys.type}
@@ -180,7 +221,8 @@ export function TextField(props: TextFieldProps) {
       {!labelHidden && (
         <FieldLabel
           label={label}
-          isRequired={isRequired}
+          isRequired={lock.isRequired}
+          isLocked={lock.isMarked}
         />
       )}
       {props.unit === undefined ? (
@@ -209,6 +251,70 @@ export function TextField(props: TextFieldProps) {
         description={description}
         consequence={consequence}
         constraints={constraints}
+      />
+    </AriaTextField>
+  );
+}
+
+/**
+ * A select its record holds fixed or its form closed (`Select`), drawn as the answer it shows. React Aria's select takes
+ * no read-only state, its props omitting `isReadOnly`, and its closed trigger changes the value by the arrow keys and
+ * by typing, so it stands as a read-only text field holding the chosen answer's words: in the trigger's own frame, in
+ * every field's read-only look, its arrow a read-only signifier (`fieldSignifier`), reachable by the keys and heard as read-only as every other locked field is. It posts nothing, as a
+ * disabled select does, and takes no edit before hydration, its input standing `readOnly` in the server's markup too.
+ */
+export function ChosenField({
+  label,
+  labelHidden,
+  words,
+  isRequired,
+  isMarked,
+  frame,
+  description,
+  consequence,
+}: {
+  label: Words;
+  labelHidden: boolean;
+  /** The chosen answer's words, or nothing where none is chosen, as the select shows them. */
+  words: string;
+  /** The select's own answer (`useFieldLock`), which a lock or a closed form never asks. */
+  isRequired: boolean;
+  isMarked: boolean;
+  /** The select trigger's frame, so the field stands at the trigger's size. */
+  frame: string;
+  description: Copy | undefined;
+  consequence: Copy | undefined;
+}) {
+  return (
+    <AriaTextField
+      className={fieldRoot()}
+      aria-label={labelHidden ? textOf(label) : undefined}
+      value={words}
+      isReadOnly>
+      {!labelHidden && (
+        <FieldLabel
+          label={label}
+          isRequired={isRequired}
+          isLocked={isMarked}
+        />
+      )}
+      <div
+        data-kit-focus="field"
+        className={frame}>
+        <Input
+          data-kit-focus
+          className={groupInput({ class: "truncate" })}
+        />
+        <span className={fieldSignifier({ class: "flex" })}>
+          <Icon
+            glyph="expand"
+            size={16}
+          />
+        </span>
+      </div>
+      <MessageLine
+        description={description}
+        consequence={consequence}
       />
     </AriaTextField>
   );

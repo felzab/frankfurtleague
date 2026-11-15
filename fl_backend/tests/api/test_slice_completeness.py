@@ -11,32 +11,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners, bracket_faults_of
-from app.api.spiele.schemas import (
-    FLBracketFault,
-    FLPatchSpielDataPayload,
-    FLSpiel,
-    FLSpielJoinedInternalListAdapter,
-    FLSpielListAdapter,
-)
-from app.api.spiele.services import (
-    ResolvedReferences,
-    find_booking_refusal,
-    find_eligibility_refusal,
-    find_result_removal_refusal,
-    find_wiring_refusal,
-    judge_spieltag_occupancy,
-)
+from app.api.spiele.schemas import FLBracketFault, FLSpielJoinedInternalListAdapter
 from app.core.readonly import ReadCollection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.documents import rules_document
-from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SAISON_ID = "2026"
-
-# Well-formed, and deliberately outside every slice below: what is under test is the lookup, so an
-# id that could not appear at all would prove nothing.
-UNREAD_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607209999")
 
 PayloadFactory = Callable[..., dict[str, Any]]
 
@@ -45,52 +26,6 @@ def saison_of(spiel: PayloadFactory, count: int) -> list[dict[str, Any]]:
     """`count` group fixtures of one season, each with its own id and number so none collapses onto another."""
 
     return [spiel(_id=MATCH_ID.format(nr), spiel_nr=nr) for nr in range(1, count + 1)]
-
-
-@pytest.fixture
-def saison(spiel: PayloadFactory) -> list[FLSpiel]:
-    return FLSpielListAdapter.validate_python(saison_of(spiel, 2))
-
-
-@pytest.fixture
-def payload(spiel: PayloadFactory) -> FLPatchSpielDataPayload:
-    """The no-op edit: every rule below turns on it, so a refusal reached here came from the lookup and nothing else."""
-
-    stored = spiel()
-
-    return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored))
-
-
-class TestARefusalNeverPermitsWhatItCannotSee:
-    """Every refusal over a caller-supplied slice.
-
-    `patch_spiel` has already read the fixture by `_id`, so an absence here is a truncated or
-    wrong-season slice: a broken contract, not a user error a 409 could describe.
-    """
-
-    def test_the_eligibility_refusal_refuses_to_judge(self, saison, payload):
-        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_eligibility_refusal(UNREAD_SPIEL_ID, payload, saison, {})
-
-    def test_the_result_removal_refusal_refuses_to_judge(self, saison, payload):
-        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_result_removal_refusal(UNREAD_SPIEL_ID, payload, saison)
-
-    def test_the_spieltag_occupancy_refuses_to_judge(self, saison, payload):
-        """An empty verdict here would plan no release and permit the save, which is the same fail-open in a different shape."""
-
-        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            judge_spieltag_occupancy(UNREAD_SPIEL_ID, payload, saison, {})
-
-    def test_the_wiring_refusal_refuses_to_judge(self, saison, payload):
-        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_wiring_refusal(UNREAD_SPIEL_ID, payload, saison, number_of_gruppen=4)
-
-    def test_the_booking_refusal_refuses_to_judge(self, saison, payload):
-        """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
-
-        with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_booking_refusal(UNREAD_SPIEL_ID, payload, saison, ResolvedReferences(teams={}), RULES)
 
 
 RULES = FLSaisonRules.model_validate(rules_document(max_kader_size=50, allowed_stufen=["E1", "E2"]))

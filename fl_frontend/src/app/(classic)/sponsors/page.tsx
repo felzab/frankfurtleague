@@ -1,4 +1,4 @@
-import { ClassicPage, ClassicTitle } from "@/kit/ClassicPage";
+import { ClassicPage, PageHead } from "@/kit/ClassicPage";
 import { Door } from "@/kit/Doors";
 import { Link } from "@/kit/Link";
 import { SponsorTiles } from "@/kit/TileGrid";
@@ -24,11 +24,11 @@ export default function SponsorsPage() {
   const words = SERVER_COPY.landing;
   return (
     <ClassicPage width="form">
-      <ClassicTitle text={COPY.page.sponsors} />
-      <SponsorTiles
-        sponsors={SPONSORS}
-        reads="screen"
+      <PageHead
+        title={COPY.page.sponsors}
+        lead={[SERVER_COPY.description.sponsors]}
       />
+      <SponsorTiles sponsors={SPONSORS} />
       <Door
         title={words.doors.support}
         level={2}

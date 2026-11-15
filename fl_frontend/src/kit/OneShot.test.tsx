@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
@@ -13,10 +13,37 @@ import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { EndState, OneShotActs } from "./OneShot";
 
-const check = vi.hoisted(() => ({ take: vi.fn() }));
-
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
-vi.mock("./useBotCheck", () => ({ useBotCheck: () => ({ widget: null, takeToken: check.take }) }));
+
+/** The options the form's check rendered Cloudflare's widget with, whose callbacks the case calls as Cloudflare would. */
+let widget: Record<string, unknown> | undefined;
+
+const isCallback = (value: unknown): value is (...args: unknown[]) => unknown => typeof value === "function";
+
+/** Cloudflare's callback of that name, as the widget was handed it. */
+const cloudflare = (name: string) => {
+  const callback = widget?.[name];
+  if (!isCallback(callback)) throw new Error(`the widget was rendered without its ${name}`);
+  return (...args: unknown[]) => act(() => void callback(...args));
+};
+
+// Cloudflare's script, loaded before the form mounts: jsdom fetches no script, and the check renders its widget through
+// these calls of the client-side rendering page alone.
+beforeEach(() => {
+  widget = undefined;
+  vi.stubGlobal("turnstile", {
+    render: (_: HTMLElement, options: Record<string, unknown>) => {
+      widget = options;
+      return "widget";
+    },
+    reset: () => undefined,
+    remove: () => undefined,
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const REFUSED: ActionAnswer<EndState> = { ok: false, reason: COPY.shared.failure.tooManyAttempts };
 
@@ -36,9 +63,10 @@ const press = () => act(async () => void fireEvent.click(screen.getByRole("butto
 describe("a form anybody may send", () => {
   // The harm: a press with no token is refused on the server in words that tell the visitor nothing they can do.
   it("sends nothing while the check holds no token, and says the check's own sentence", async () => {
-    check.take.mockResolvedValueOnce({ sentence: COPY.shared.botCheck });
     const action = vi.fn(async () => REFUSED);
     render(form(action));
+    // Cloudflare asks the visitor to click, so no token is minted until they do.
+    cloudflare("before-interactive-callback")();
 
     await press();
 
@@ -49,7 +77,6 @@ describe("a form anybody may send", () => {
   // The harm: a retry carrying a new key, after an answer lost on its way, stores a second application; an edit sent
   // under the old key is answered as the press before it, the edit stored nowhere and nothing on the page saying so.
   it("posts each press's token, the last press's key on a retry, and a new key once a field changed", async () => {
-    check.take.mockResolvedValueOnce({ token: "first" }).mockResolvedValueOnce({ token: "second" }).mockResolvedValueOnce({ token: "third" });
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
     render(
       form(
@@ -61,10 +88,15 @@ describe("a form anybody may send", () => {
         />,
       ),
     );
+    // Each press spends the token it posts, and Cloudflare mints the next one after it.
+    const minted = cloudflare("callback");
 
+    minted("first");
     await press();
+    minted("second");
     await press();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Mia" } });
+    minted("third");
     await press();
 
     const [first, retry, edited] = action.mock.calls.map(([sent]) => sent);

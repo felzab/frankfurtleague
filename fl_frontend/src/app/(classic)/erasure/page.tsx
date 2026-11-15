@@ -39,14 +39,7 @@ const ENTRIES = COPY.account.entries;
  * sign in; another account's is refused at the press, nothing on a signed-out request naming whose it is.
  */
 export default function AccountErasurePage() {
-  return (
-    <MailedPage
-      page={readState()}
-      // The address and the one kind of record most people hold, a pupil's entry or a contact's seat.
-      facts={2}
-      act={COPY.page.accountErasure}
-    />
-  );
+  return <MailedPage page={readState()} />;
 }
 
 // `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the
@@ -104,9 +97,9 @@ function factsOf(email: string, passkeys: number, view: FLAccountErasureViewResp
   for (const { rolle, team_name, saison_id } of seats) {
     add(ENTRIES.seats([rolle]), ENTRIES.teamSeason({ record: team_name }, COPY.shared.saisonName(saison_id)));
   }
-  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonName(saison_id)));
+  for (const { rolle, saison_id } of bewerbungen) add(ENTRIES.seats([rolle]), ENTRIES.bewerbung(COPY.shared.saisonNameBound(saison_id)));
   for (const { team_name, saison_id } of registrierungen) {
-    add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonName(saison_id)));
+    add(ENTRIES.spieler, ENTRIES.registrierung(team_name === null ? null : { record: team_name }, COPY.shared.saisonNameBound(saison_id)));
   }
 
   const count = (label: Copy, figure: number): Fact[] =>

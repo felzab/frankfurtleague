@@ -60,6 +60,8 @@ export const ADDRESS_WORDS = [
   "log",
   "mail",
   "passkey",
+  // A Funktion's code word, as the glossary spells it in code.
+  "roles",
   "search",
   "security",
   "settings",
@@ -81,13 +83,16 @@ export const ADDRESS_WORDS = [
 export const ROUTES = {
   /** The landing, named by the line the footer carries; the title template adds the league's name. */
   home: { path: () => "/" as const, title: COPY.template.oberstufenliga, crawl: "index" },
-  /** The season the site is on, for a link that cannot know which: its page sends the reader on to that season's Spielplan. */
-  saisons: { path: () => "/saisons" as const, title: COPY.page.spielplan, crawl: "noindex" },
+  /**
+   * The season the site is on, for a link that cannot know which: a route handler sending the request on to that
+   * season's Spielplan.
+   */
+  saisons: { path: () => "/saisons" as const, title: null, crawl: "noindex" },
   // The same for the season's other pages, a fixed segment taking the address before `[saison]`.
-  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: COPY.shared.kORunde, crawl: "noindex" },
-  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: COPY.page.tabelle, crawl: "noindex" },
-  saisonsTeams: { path: () => "/saisons/teams" as const, title: COPY.page.teams, crawl: "noindex" },
-  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: COPY.page.spielSearch, crawl: "noindex" },
+  saisonsKORunde: { path: () => "/saisons/ko-runde" as const, title: null, crawl: "noindex" },
+  saisonsTabelle: { path: () => "/saisons/tabelle" as const, title: null, crawl: "noindex" },
+  saisonsTeams: { path: () => "/saisons/teams" as const, title: null, crawl: "noindex" },
+  saisonsSpielSearch: { path: () => "/saisons/search" as const, title: null, crawl: "noindex" },
   spielplan: {
     path: (saison: string) => `/saisons/${saison}` as const,
     title: COPY.page.spielplan,
@@ -137,6 +142,11 @@ export const ROUTES = {
    * engine, whatever its window: the sitemap's one season is the season the site is on and not the one taking applications.
    */
   bewerbung: { path: (saison: string) => `/bewerbung/${saison}` as const, title: COPY.page.bewerbung, crawl: "noindex" },
+  /**
+   * The application's address naming no season, which the footer links to: the form of the season whose window runs
+   * today, drawn in place under that season's title, or the closed card. Unlisted as the season's address is.
+   */
+  bewerbungRoot: { path: () => "/bewerbung" as const, title: COPY.page.bewerbung, crawl: "noindex" },
   /** Signing in, which every page signed out offers as „Konto“. */
   signIn: { path: () => "/signin" as const, title: COPY.signIn.title, crawl: "noindex" },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
@@ -187,12 +197,17 @@ export const ROUTES = {
   accountAppearance: { path: () => "/account/appearance" as const, title: COPY.page.accountAppearance, crawl: "disallow" },
   accountEntries: { path: () => "/account/entries" as const, title: COPY.page.accountEntries, crawl: "disallow" },
 
-  /** Where a signed-in person lands, the switch between every Funktion they hold. */
-  area: { path: () => "/area" as const, title: COPY.shared.overview, crawl: "disallow" },
+  /**
+   * Where a signed-in person lands: a route handler sending the request on to Konto for a person holding no Funktion,
+   * to the one place they hold, or to the chooser between several.
+   */
+  area: { path: () => "/area" as const, title: null, crawl: "disallow" },
+  /** The chooser between every Funktion a person holds, each its card. */
+  areaRoles: { path: () => "/area/roles" as const, title: COPY.shared.overview, crawl: "disallow" },
   /**
    * A pupil's and a referee's own pages, each a season's. The address without the season is the place itself, which
-   * „Funktion wechseln“ and a mail lead to, neither knowing the season: its page sends the reader on to the Übersicht
-   * of the season their records stand in, as `/admin` sends an administrator on.
+   * „Funktion wechseln“ and a mail lead to, neither knowing the season: it draws the Übersicht of the season the
+   * frame's season button stands on by standard, as `/admin` draws an administrator's (`ROLE_ROOTS`).
    */
   areaSpieler: { path: () => "/area/spieler" as const, title: COPY.shared.overview, crawl: "disallow" },
   spielerOverview: {
@@ -241,8 +256,8 @@ export const ROUTES = {
   },
 
   /**
-   * The administration's root, which a link uses where it cannot know the season: its page sends the reader on to the
-   * Übersicht of the season the site is on, as `/saisons` sends a visitor on to its Spielplan.
+   * The administration's root, which a link uses where it cannot know the season: it draws the Übersicht of the season
+   * the administration works in by standard (`ROLE_ROOTS`).
    */
   admin: { path: () => "/admin" as const, title: COPY.shared.overview, crawl: "disallow" },
   adminOverview: {
@@ -391,9 +406,23 @@ export const SAISONLESS_PAGES = [
   { route: "saisonsSpielSearch", page: "spielSearch" },
 ] as const satisfies ReadonlyArray<{ route: keyof typeof ROUTES; page: keyof typeof ROUTES }>;
 
+/**
+ * Each role's Übersicht with its root, the address naming no season where it stands in the season its frame takes by
+ * standard: drawn in place there rather than sent on, so every link to a root is already the page. At a root the frame
+ * marks the Übersicht's entry and works in the standard season, whatever season an address named before.
+ */
+export const ROLE_ROOTS: Partial<Record<keyof typeof ROUTES, `/${string}`>> = {
+  adminOverview: ROUTES.admin.path(),
+  spielerOverview: ROUTES.areaSpieler.path(),
+  schiedsrichterOverview: ROUTES.areaSchiedsrichter.path(),
+};
+
 /** The league's own pages and its legal pages, in the order the classic footer lists them. */
 export const LIGA_PAGES = ["about", "contact", "sponsors"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 export const LEGAL_PAGES = ["legalNotice", "privacyNotice"] as const satisfies ReadonlyArray<keyof typeof ROUTES>;
 
-/** The landing's section on how a school joins the league, which a link reaches as the fragment of `ROUTES.home`. */
+/**
+ * The landing's section on how a school joins the league, its fragment on `ROUTES.home`. No page links to it: the
+ * fragment is kept for the copies of `/#bewerbung` people hold, which reach the section by it.
+ */
 export const JOIN_SECTION = "bewerbung";

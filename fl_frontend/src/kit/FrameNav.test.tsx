@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { Suspense } from "react";
 
-import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
 import { BarPlaces, MenuScope, RailEntries, SaisonScope } from "./FrameNav";
 
-import type { ReactNode } from "react";
 import type { RailGroup, Saisons } from "./FrameNav";
 
 const address = vi.hoisted(() => ({ path: "", saison: undefined as string | undefined, team: undefined as string | undefined }));
@@ -19,8 +20,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined }),
 }));
 
-// The sheet's list, drawn in place: how the sheet opens is its own test's.
-vi.mock("./Sheet", () => ({ Sheet: ({ children }: { children: ReactNode }) => <>{children}</> }));
+// jsdom lays nothing out, so it sees nothing come into view, which is how React Aria's sheet knows it has slid in.
+beforeEach(() => {
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe(): void {}
+      disconnect(): void {}
+    },
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const GROUPS: RailGroup[] = [
   { entries: [{ id: "overview", label: ROUTES.adminOverview.title, saison: "adminOverview", icon: "overview" }] },
@@ -62,6 +75,18 @@ describe("the entry marked as the current page", () => {
     await renderMenus(ROUTES.adminSaisons.path(), null);
 
     expect(lit()).toEqual([ROUTES.adminSaisons.title, ROUTES.adminSaisons.title]);
+    // „Mehr“'s sheet, holding the two season pages the bar leaves out, which lead to that address too.
+    await userEvent.click(screen.getByRole("button", { name: COPY.template.more }));
+    const sheet = await screen.findByRole("dialog", { name: COPY.template.more });
+    expect(
+      within(sheet)
+        .getAllByRole("link")
+        .map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      [ROUTES.adminSpiele.title, ROUTES.adminSaisons.path()],
+      [ROUTES.adminTeams.title, ROUTES.adminSaisons.path()],
+    ]);
+    expect(within(sheet).queryAllByRole("link", { current: "page" })).toEqual([]);
   });
 
   it("is the one season page of a frame holding no season, at the address it leads to meanwhile", async () => {
@@ -79,6 +104,78 @@ describe("the entry marked as the current page", () => {
     );
 
     expect(lit()).toEqual([page.title]);
+  });
+});
+
+/** Where each link of the rail, the bar and its sheet leads. */
+const hrefs = () => screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+
+// A page whose address names no season, such as the Spielorte, keeps the season the person last chose: one that fell back
+// to the standard would send their next press into another season's pages, which looks right on every page alone.
+describe("the season a page whose address names none works in", () => {
+  it("is the one the last address named, while the frame stays mounted", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.adminSpielorte.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2025"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2025"),
+      ROUTES.adminTeams.path("2025"),
+    ]);
+  });
+
+  // A role's root draws the standard season's Übersicht, so a frame keeping the season chosen before there names 2025
+  // around a page showing 2026, and marks no entry for the page the person is on.
+  it("is the standard at the role's root, whose Übersicht is the entry marked, whatever was chosen before", async () => {
+    const seasons = Promise.resolve<Saisons>({
+      entries: [
+        { id: "2026", span: "" },
+        { id: "2025", span: "" },
+      ],
+      standard: "2026",
+    });
+    const menus = () => (
+      <Suspense fallback={null}>
+        <SaisonScope value={{ saisons: seasons, home: "adminOverview", withoutSaison: ROUTES.adminSaisons.path(), pages: [] }}>
+          <RailEntries groups={GROUPS} />
+        </SaisonScope>
+      </Suspense>
+    );
+    address.path = ROUTES.adminSpiele.path("2025");
+    address.saison = "2025";
+    const { rerender } = await act(async () => render(menus()));
+
+    address.path = ROUTES.admin.path();
+    address.saison = undefined;
+    await act(async () => rerender(menus()));
+
+    expect(hrefs()).toEqual([
+      ROUTES.adminOverview.path("2026"),
+      ROUTES.adminSaisons.path(),
+      ROUTES.adminSpiele.path("2026"),
+      ROUTES.adminTeams.path("2026"),
+    ]);
+    expect(lit()).toEqual([ROUTES.adminOverview.title]);
   });
 });
 

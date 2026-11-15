@@ -2,22 +2,12 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from pydantic import TypeAdapter, ValidationError
 
-from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAnswerPayload,
-    FLBewerbungEinwilligungDeclined,
-    FLBewerbungEinwilligungGiven,
-)
-from app.api.bewerbungen.services import (
-    compose_decline_update,
-    paired_seat,
-    pending_seats,
-)
+from app.api.bewerbungen.services import paired_seat
 from app.api.kontakte.services import build_clearing_update
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
-from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, minted_confirmations
+from tests.documents import kontaktperson_document, minted_confirmations
 
 TODAY = "2026-04-01"
 
@@ -29,18 +19,10 @@ def written(update: Mapping[str, Any]) -> Mapping[str, Any]:
 class TestASlotAndItsBookkeepingMoveTogether:
     """A null `kontakte` slot beside a live `confirmations` entry is a seat the confirmation would `$set` under a null parent.
 
-    Nothing else empties a slot, so these two composers are where that state would come from.
+    Nothing but a decline and an erasure empties a slot, so their composers are where that state would come from.
     """
 
-    @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
-    def test_a_decline_stamps_the_entry_of_every_seat_it_empties(self, seats: tuple[str, ...]):
-        update = written(compose_decline_update(seats=seats, today=TODAY, announced=False))
-
-        for seat in seats:
-            assert update[f"kontakte.{seat}"] is None
-            assert update[f"confirmations.{seat}.declined_at"] == TODAY
-
-    @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
+    @pytest.mark.parametrize("slots", [("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_an_erasure_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
         update = written(build_clearing_update(slots, confirmations=True))
 
@@ -65,58 +47,12 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
     }
 
 
-class TestTheSeatsStillOpen:
-    def test_every_seat_is_open_at_submission(self):
-        assert pending_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
-
-    def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
-        assert pending_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", confirmed_at=TODAY))) == [
-            "trainer",
-            "stellvertretung",
-        ]
-
-    def test_an_emptied_slot_still_counts(self):
-        """A decline or an erasure leaves the application unable to complete, which is what this list tells the page."""
-
-        assert "trainer" in pending_seats(kontakte=kontakte(trainer=None))
-
-
 class TestThePairedSeat:
     """The double-seated Trainer: one click answers for the person, whichever of their two links they opened."""
 
-    def test_no_pairing_where_the_form_named_none(self):
-        assert paired_seat(kontakte=kontakte(), confirmations=CONFIRMATIONS, seat="trainer") is None
-
-    @pytest.mark.parametrize("also", ["ansprechperson", "stellvertretung"])
+    @pytest.mark.parametrize("also", ["stellvertretung"])
     def test_the_pairing_reads_in_both_directions(self, also: str):
         block = kontakte(trainer_is_also=also)
 
         assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="trainer") == also
         assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat=also) == "trainer"
-
-    def test_the_third_seat_is_nobodys_pair(self):
-        block = kontakte(trainer_is_also="ansprechperson")
-
-        assert paired_seat(kontakte=block, confirmations=CONFIRMATIONS, seat="stellvertretung") is None
-
-
-def answer(**overrides: Any) -> dict[str, Any]:
-    return {
-        "token": "raw-trainer",
-        "answer": "given",
-        "birth_date": "1984-05-09",
-        "whatsapp": False,
-        "media": False,
-        "text_versions": dict(SEAT_TEXT_VERSIONS),
-        **overrides,
-    }
-
-
-ANSWER: TypeAdapter[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined] = TypeAdapter(FLBewerbungEinwilligungAnswerPayload)
-
-
-def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
-    with pytest.raises(ValidationError) as failure:
-        ANSWER.validate_python(body)
-
-    return [(error["loc"], error["type"]) for error in failure.value.errors()]

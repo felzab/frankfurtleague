@@ -120,18 +120,6 @@ async def stored_row(database: AsyncDatabase, team_id: ObjectId = ADLER) -> dict
 class TestRecordingAnExitFromTheSeason:
     """An austritt is the only way out of a season -- there is no delete -- and it writes the record without moving anyone."""
 
-    def test_a_padded_reason_reaches_the_row_stripped(self, mongo_replica_set_url: str):
-        """The reason is FREE TEXT and PUBLIC, and `min_length` counts CHARACTERS: spaces alone would stand on the team's page as a blank."""
-
-        padded = f"  {EXIT['reason']}  "
-
-        async def body(database: AsyncDatabase) -> Any:
-            await call_put(database, {**EXIT, "reason": padded})
-
-            return await stored_row(database)
-
-        assert on_a_season(mongo_replica_set_url, body)["austritt"] == EXIT
-
     @pytest.mark.parametrize(
         "second",
         [

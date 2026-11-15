@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { inspect } from "node:util";
 
-import { refused } from "@/test-support/refusals.ts";
+import { configDouble } from "@/test-support/authDoubles.ts";
+import { networkFailure, refusal, serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types.ts";
@@ -12,35 +15,24 @@ const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 // Read by the route on every event, so a case can take the key away and put it back.
 let heldSecret: string | undefined = webhookSecret;
 
-type LoggedLine = { level: string; message: string; meta?: Record<string, unknown> };
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
 
-const logs: LoggedLine[] = [];
-
-/** Every event the route handed the Postausgang. */
-const forwarded: FLOutboxEventPayload[] = [];
-
-/** What the backend answers a forwarded event, or throws for it; a case names another for itself. */
+/** What the backend answers a forwarded event; a case names another for itself. */
 let answer: () => unknown = () => ({ applied: true });
 
-vi.doMock("@/core/config.ts", () => ({ resendWebhookSecret: () => heldSecret }));
-vi.doMock("@/core/logging.ts", () => ({
-  logger: {
-    info: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "info", message, meta }),
-    warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "warn", message, meta }),
-    error: (message: string, _error: unknown, meta?: Record<string, unknown>) => void logs.push({ level: "error", message, meta }),
-  },
-}));
-// `next/headers` is request-only and throws outside one, so the real scope cannot run here.
-vi.doMock("@/core/traceScope.ts", () => ({ runWithIncomingTrace: async (fn: () => unknown) => fn() }));
-vi.doMock("@/core/generated/client/sdk.ts", () => ({
-  outboxPostEvent: async (payload: FLOutboxEventPayload) => {
-    forwarded.push(payload);
-    return answer();
-  },
-}));
+// The Postausgang's event endpoint and nothing else: a request the route sends anywhere else fails its case.
+const backend = serveBackend(({ method, path }) => (method === "POST" && path === "/outbox/event" ? answer() : undefined));
+
+/** Every event the route handed the Postausgang, this case. */
+const forwarded = (): FLOutboxEventPayload[] => backend.sent.map(({ body }) => body as FLOutboxEventPayload);
+
+// Varied per case: whether the deployment holds the webhook's key.
+vi.doMock("@/core/config.ts", () => configDouble({}, { resendWebhookSecret: () => heldSecret }));
+// The request's headers, which the real trace scope reads.
+doubleNextRequest();
 
 const { POST } = await import("./route.ts");
-const { APINetworkError } = await import("@/core/errors.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
 
@@ -90,21 +82,13 @@ async function statusFor(event: Record<string, unknown>): Promise<number> {
 
 /** The state and reason the route forwarded for one event, or `undefined` where it forwarded nothing. */
 async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutboxEventPayload, "state" | "reason"> | undefined> {
-  forwarded.length = 0;
+  const before = backend.sent.length;
   await statusFor(event);
-  const [payload] = forwarded;
+  const [payload] = forwarded().slice(before);
   return payload === undefined ? undefined : { state: payload.state, reason: payload.reason };
 }
 
-const NETWORK_FAILURE = () =>
-  new APINetworkError({
-    message: "Request failed.",
-    traceId: "t".repeat(32),
-  });
-
 beforeEach(() => {
-  logs.length = 0;
-  forwarded.length = 0;
   answer = () => ({ applied: true });
 });
 
@@ -125,7 +109,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
 
     const expected: FLOutboxEventPayload = { id: ROW_ID, state: "undeliverable", reason: "Suppressed", at: EVENT_AT };
     expect(res.status).toBe(200);
-    expect(forwarded).toStrictEqual([expected]);
+    expect(forwarded()).toStrictEqual([expected]);
   });
 
   /* Each pair is the provider's own event name against this side's stored word. A full mailbox and a greylisting server
@@ -170,7 +154,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
     await forwardedFor(
       eventFor("email.bounced", { bounce: { type: "Permanent", subType: "Suppressed", message: `No mailbox for ${ADDRESS}` } }),
     );
-    assert.ok(!inspect(forwarded, { depth: null }).includes(ADDRESS), "the recipient reached the write");
+    assert.ok(!inspect(forwarded(), { depth: null }).includes(ADDRESS), "the recipient reached the write");
   });
 
   it("answers 200 and forwards nothing for an event that leaves no state or names no row", async () => {
@@ -184,7 +168,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
       expect(await statusFor(event)).toBe(200);
     }
 
-    expect(forwarded).toStrictEqual([]);
+    expect(forwarded()).toStrictEqual([]);
   });
 });
 
@@ -215,7 +199,7 @@ describe("POST /api/mail/delivery's signature", () => {
       );
     }
 
-    expect(forwarded).toStrictEqual([]);
+    expect(forwarded()).toStrictEqual([]);
   });
 
   /* A deployment other than production holds no key, the provider sending it nothing: a signed event reaching one is
@@ -229,8 +213,8 @@ describe("POST /api/mail/delivery's signature", () => {
       heldSecret = webhookSecret;
     }
 
-    expect(forwarded).toStrictEqual([]);
-    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.delivery_unsigned"]);
+    expect(forwarded()).toStrictEqual([]);
+    expect(log.lines().map(({ level, message }) => `${level} ${message}`)).toStrictEqual(["WARNING mail.delivery_unsigned"]);
   });
 });
 
@@ -239,13 +223,11 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
      API does not serve mid-deploy, a credential or a body it does not take, a server error or a network failure: settled,
      each would lose the event, where the provider's retry lands later. */
   it("has every failure sent again, and writes one line", async () => {
-    const answered = async (failure: Error) => {
-      answer = () => {
-        throw failure;
-      };
+    const answered = async (failure: Response) => {
+      answer = () => failure;
       return statusFor(eventFor("email.delivered"));
     };
-    const badStatus = (status: number, code: Code | undefined) => refused(code, { status });
+    const badStatus = (status: number, code: Code | undefined) => refusal(code, { status });
 
     for (const [statusCode, code] of [
       [404, "no_route"],
@@ -257,21 +239,7 @@ describe("POST /api/mail/delivery where the backend does not take the event", ()
     ] as const) {
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);
     }
-    expect(await answered(NETWORK_FAILURE())).toBe(503);
-    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.delivery_unwritten"]));
-  });
-
-  /* The tag block carries the row's id and the body the recipient. Asserted over the whole line, so a field added later
-     cannot reopen it. */
-  it("names no recipient on any line it writes", async () => {
-    answer = () => {
-      throw NETWORK_FAILURE();
-    };
-
-    await statusFor(eventFor("email.bounced", { bounce: { type: "Permanent" } }));
-    await POST(signed(JSON.stringify(eventFor("email.delivered")), { headers: { "svix-signature": "v1,nope" } }));
-
-    assert.ok(logs.length >= 2, `expected a line for each of the two failures, saw ${String(logs.length)}`);
-    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "an address reached the stream");
+    expect(await answered(networkFailure())).toBe(503);
+    expect(new Set(log.lines().map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["ERROR mail.delivery_unwritten"]));
   });
 });

@@ -31,13 +31,12 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /**
- * The table's head, drawn while the squad is read and over it once it is: the shirt number beside the name on a phone
- * where the box holds it, position and Stufe from 42 rem of the table's box, which a phone row says in its line instead.
+ * The table's head: the shirt number beside the name on a phone where the box holds it, position and Stufe from 42 rem
+ * of the table's box, which a phone row says in its line instead.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
-  line: "phone",
   columns: [
     { key: "nummer", label: SERVER_COPY.season.column.nummer, figures: true, narrow: true, width: "count" },
     { key: "position", label: WORDS.position, hideOnPhone: true, width: "word" },
@@ -69,14 +68,7 @@ export default function KaderPage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "teamKader" } }}
-      list={{
-        kind: "table",
-        search: { label: WORDS.search },
-        head: HEAD,
-        // A squad of about twenty.
-        wait: 20,
-        content: read(params),
-      }}
+      list={{ kind: "table", search: { label: WORDS.search }, head: HEAD, content: read(params) }}
     />
   );
 }

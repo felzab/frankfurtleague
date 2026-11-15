@@ -29,8 +29,8 @@ const ACT = { verb: "save" } as const;
  * A seat row's acts, on an application and on a club alike: „Link senden“ while its person owes an answer, and „Sitz
  * bearbeiten“, whose dialog replaces the person, or fills a seat emptied, each box posting under the name both writes
  * read. An act inside an editor waits for an unsaved draft, since the write raises the count the draft's save sends.
- * Both are the row's side acts (`SideActs`), in the form the list decides: the entries of the „⋯“ at the row's end, or
- * the edit alone as its button, a locked one saying why either way. `seatActKinds` lists them from `link`, here and for
+ * Both are the row's side acts (`SideActs`), in the form the list decides: their labelled buttons in a
+ * wide box and the entries of one „⋯“ in a narrow one, a locked one saying why either way. `seatActKinds` lists them from `link`, here and for
  * the row's `sideActs`.
  */
 export function SeatActs<Key>({

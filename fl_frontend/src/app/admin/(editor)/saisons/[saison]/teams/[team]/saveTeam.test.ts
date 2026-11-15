@@ -1,8 +1,12 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 const TEAM_ID = "64b000000000000000000002";
 const SAISON = "2027";
+
+/** The one address the editor's read and the save's write share. */
+const ENDPOINT = `/teams/${TEAM_ID}/saisons/${SAISON}/admin`;
 
 /** The club read again at a count newer than the editor's: someone saved since. */
 const STORED = {
@@ -21,25 +25,21 @@ const STORED = {
 /** The editor's read, behind the stored club. */
 const EDITOR_VERSION = 8;
 
-/** Every payload the save writes. */
-const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
-
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/features/teams/queries", () => ({ getTeamSaisonAdmin: async () => STORED }));
-
-doubleApiClient((call) => {
-  state.sent.push(JSON.parse(call.body ?? "null"));
-  return { version: 11 };
+// The save reads the club and its row again and writes both at the same address, so the real guard, query, generated
+// call and dispatch all run; anything else is unanswered and fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (path !== ENDPOINT) return undefined;
+  if (method === "GET") return STORED;
+  if (method === "PATCH") return { version: 11 };
+  return undefined;
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
 
 const { saveTeam } = await import("./saveTeam");
 
-beforeEach(() => {
-  state.sent = [];
-});
+/** The bodies of every write the save sent. */
+const written = () => backend.sent.filter(({ method }) => method === "PATCH").map(({ body }) => body);
 
 describe("a club's save", () => {
   // The write replaces both documents whole: a field left alone sent as anything but stored erases a club's address or
@@ -48,7 +48,8 @@ describe("a club's save", () => {
   it("sends what it changes with the rest as stored, on the count the editor read", async () => {
     const answer = await saveTeam({ id: TEAM_ID, saison_id: SAISON, version: EDITOR_VERSION, changes: { name: "Goethe 2" } });
 
-    expect(state.sent).toStrictEqual([
+    expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual([`GET ${ENDPOINT}`, `PATCH ${ENDPOINT}`]);
+    expect(written()).toStrictEqual([
       {
         name: "Goethe 2",
         shorthand: "GOE",
@@ -69,6 +70,6 @@ describe("a club's save", () => {
   it("clears what the editor emptied", async () => {
     await saveTeam({ id: TEAM_ID, saison_id: SAISON, version: EDITOR_VERSION, changes: { schulform: "", website_url: "", trikot_farbe: "" } });
 
-    expect(state.sent).toMatchObject([{ schulform: null, website_url: null, trikot_farbe: null, gruppe: "A", name: "Goethe" }]);
+    expect(written()).toMatchObject([{ schulform: null, website_url: null, trikot_farbe: null, gruppe: "A", name: "Goethe" }]);
   });
 });

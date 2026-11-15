@@ -9,7 +9,7 @@ import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { kaderName } from "@/features/spieler/constants";
 import { getSpielerAdmin } from "@/features/spieler/queries";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 
 /** What the state filter offers, each by whether a row answers it. */
 const STATES = {
-  inKader: { label: WORDS.inKader, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
+  active: { label: COPY.admin.team.active, holds: (row: FLSpielerAdminRow) => row.inactive_since === null },
   nominee: { label: WORDS.nominee, holds: (row: FLSpielerAdminRow) => row.inactive_since === null && row.is_nachnominiert },
   deregistered: { label: WORDS.deregistered, holds: (row: FLSpielerAdminRow) => row.inactive_since !== null },
 };
@@ -43,12 +43,11 @@ const STATE_OPTIONS = (Object.keys(STATES) as State[]).map((id) => ({ id, label:
 
 /** One squad row, opening the player's editor in this season: the name with its chip, the club, the shirt and the Stufe. */
 function rowOf(saison: string, row: FLSpielerAdminRow): TableRow {
-  const chip = rowChip(row);
   return {
     id: row.spieler_id,
     name: { record: kaderName(row) },
     href: ROUTES.adminSpielerRecord.path(saison, row.spieler_id),
-    ...(chip === undefined ? {} : { chip }),
+    chip: rowState(row),
     muted: row.inactive_since !== null,
     cells: {
       team: row.team_name === null ? COPY.shared.noValue : { record: row.team_name },
@@ -94,7 +93,6 @@ async function readSeason(params: Props["params"], searchParams: Props["searchPa
   return { saison, filters: [team, state] as const, shown };
 }
 
-/** The table's head, drawn while the rows are read and over them once they are. */
 const HEAD: TableHead = {
   nameLabel: COPY.shared.name,
   state: { label: COPY.admin.schiedsrichter.state },
@@ -116,12 +114,10 @@ export default function SpielerPage({ params, searchParams }: Props) {
     <ListPage
       head={{ scope: "area", title: { route: "adminSpieler" } }}
       filters={season.then(({ filters }) => filters)}
-      filterCount={2}
       list={{
         kind: "table",
         search: { label: WORDS.search },
         head: HEAD,
-        wait: 30,
         content: season.then(({ saison, filters, shown }) => ({
           table: {
             label: ROUTES.adminSpieler.title,

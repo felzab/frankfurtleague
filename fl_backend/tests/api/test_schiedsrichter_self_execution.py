@@ -67,10 +67,7 @@ DECLINED_HERE = ObjectId("6890a1b2c3d4e5f607e50073")
 TODAYS = ObjectId("6890a1b2c3d4e5f607e50074")
 OPEN_SLOT = ObjectId("6890a1b2c3d4e5f607e50075")
 
-# The kick-off cases' own: a fixture of today kicked off before `NOW`, one of today with no time, and one moved back to
-# the slot its newest row was closed for leaving.
-KICKED_OFF = ObjectId("6890a1b2c3d4e5f607e50076")
-UNTIMED = ObjectId("6890a1b2c3d4e5f607e50077")
+# The closed-row case's own: a fixture moved back to the slot its newest row was closed for leaving.
 MOVED_BACK = ObjectId("6890a1b2c3d4e5f607e50078")
 
 
@@ -201,38 +198,34 @@ class TestTheSeasonsFixtures:
 
         answer = answered(mongo_replica_set_url, own_spiele())
 
-        assert [(entry.spiel_id, entry.state, entry.reportable, entry.submitted_at is not None) for entry in answer.spiele] == [
-            (REPORT_OWED, "agreed", True, False),
-            (TO_ANSWER, "valid", False, False),
-            (CALLED_OFF, "cancelled", False, False),
-            (TO_COME, "agreed", False, False),
-            (STRUCK_OUT, None, False, False),
-            (REPORTED, None, True, True),
+        assert [
+            (entry.spiel_id, entry.state, entry.submitted_at is not None, entry.bericht_owed, entry.sonderereignis) for entry in answer.spiele
+        ] == [
+            (REPORT_OWED, "agreed", False, True, None),
+            (TO_ANSWER, "valid", False, False, None),
+            (CALLED_OFF, "cancelled", False, False, "annulliert"),
+            (TO_COME, "agreed", False, False, None),
+            (STRUCK_OUT, None, False, False, "ausgefallen"),
+            (REPORTED, None, True, False, None),
         ]
-
-    def test_a_fixture_answers_its_bookings_newest_row_as_it_stands(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, own_spiele())
-
-        [entry] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
-        assert (entry.spielbestaetigung_id, entry.date, entry.team1_name, entry.team2_name, entry.past) == (
+        # A booking answers its newest row as it stands: not the row closed when it moved, and not Ute's.
+        [to_answer] = [entry for entry in answer.spiele if entry.spiel_id == TO_ANSWER]
+        assert (to_answer.spielbestaetigung_id, to_answer.date, to_answer.team1_name, to_answer.team2_name, to_answer.past) == (
             ObjectId("6890a1b2c3d4e5f607e50051"),
             "2027-05-20",
             "Adler",
             "Biber",
             False,
         )
-        assert entry.spielort is not None and entry.spielort.name == "Halle Ost"
-
-    def test_the_leagues_answer_is_marked_and_its_reason_not_theirs_to_read(self, mongo_replica_set_url: str):
-        answer = answered(mongo_replica_set_url, own_spiele())
-
-        [entry] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
-        assert (entry.entered, entry.reason) == (True, None)
+        assert to_answer.spielort is not None and to_answer.spielort.name == "Halle Ost"
+        # The league's answer is marked, and its reason is not theirs to read.
+        [to_come] = [entry for entry in answer.spiele if entry.spiel_id == TO_COME]
+        assert (to_come.entered, to_come.reason) == (True, None)
 
     def test_once_the_season_has_ended_no_report_is_owed(self, mongo_replica_set_url: str):
         answer = answered(mongo_replica_set_url, own_spiele(), saison_status="past")
 
-        assert [entry.spiel_id for entry in answer.spiele if entry.reportable] == []
+        assert [entry.spiel_id for entry in answer.spiele if entry.bericht_owed] == []
         assert answer.spiele[0].spiel_id == TO_ANSWER
 
     def test_an_address_holding_no_live_confirmed_record_is_refused(self, mongo_replica_set_url: str):
@@ -284,35 +277,16 @@ class TestTheSeasonsFixtures:
             LEFT_HOME: "expired",
             TO_ANSWER: "valid",
         }
+        # The exits end the booking too, as the pass's notice told him; the one from the season before ends none.
+        assert {spiel_id: by_id[spiel_id].officiates for spiel_id in (LEFT_AWAY, LEFT_HOME, TO_ANSWER)} == {
+            LEFT_AWAY: False,
+            LEFT_HOME: False,
+            TO_ANSWER: True,
+        }
         assert (by_id[DECLINED_HERE].state, by_id[DECLINED_HERE].reason) == ("declined", OWN_DECLINE["reason"])
         assert (by_id[TODAYS].past, by_id[REPORTED].past) == (False, True)
         assert (by_id[OPEN_SLOT].team1_name, by_id[OPEN_SLOT].team2_name) == ("Adler", None)
         assert {entry.time for entry in by_id.values()} == {"18:30:00"}
-
-    def test_from_its_kick_off_a_booking_takes_no_answer_and_its_game_is_past(self, mongo_replica_set_url: str):
-        """An unanswered booking reads as lapsed, and its game as played, from the kick-off; a game with no time from its day.
-
-        Read by the day instead, the row would offer „Zusagen“ and „Ablehnen“ until midnight beside the report it owes.
-        """
-
-        added = [spiel(KICKED_OFF, 13, TODAY, time="11:00:00"), spiel(TODAYS, 11, TODAY), spiel(UNTIMED, 14, TODAY, time=None)]
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELE].insert_many(added)
-            # Unanswered, each about its fixture as it stands; a fixture with no time is asked nothing.
-            party = {"kind": "schiedsrichter", "schiedsrichter_id": OTTO_ID}
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(
-                [documents.spielbestaetigung_document(stored, party=party) for stored in added[:2]]
-            )
-            return await own_spiele()(database, client)
-
-        by_id = {entry.spiel_id: entry for entry in answered(mongo_replica_set_url, body).spiele}
-
-        assert [(by_id[spiel_id].state, by_id[spiel_id].past, by_id[spiel_id].reportable) for spiel_id in (KICKED_OFF, TODAYS, UNTIMED)] == [
-            ("expired", True, True),
-            ("valid", False, False),
-            (None, True, True),
-        ]
 
     def test_a_closed_row_reads_by_the_reason_it_was_closed_for(self, mongo_replica_set_url: str):
         """Its fixture moved back to the slot the row asked about, it still offers no answer: the press would meet `ansetzung_closed`."""

@@ -239,19 +239,22 @@ async def stamp_the_adoption(
     sides: Mapping[FLSpielSide, ObjectId | None],
     # The fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
-) -> None:
-    """Stamp the report adopted, matching it only while its document still stands at `version`.
+) -> bool:
+    """Stamp the report adopted, matching it only while its document still stands at `version`, and answer whether it did.
 
-    A fan-out rather than `patch_one_in_db`, whose miss would raise and take the fixture's save with it. The stamp
-    raises the document's `version` as every write of it does, so the referee's form read before it saves stale once.
+    A fan-out rather than `patch_one_in_db`, whose miss would raise: whether a miss refuses is the save's to decide. The
+    stamp raises the document's `version` as every write of it does, so the referee's form read before it saves stale
+    once.
     """
 
-    await patch_many_in_db(
+    stamped = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"spiel_id": spiel_id, VERSION_FIELD: version, **{f"bericht.sides.{side}": sides[side] for side in SIDES}},
         update={"$set": {"bericht.adopted": True}},
         session=session,
     )
+
+    return stamped.modified_count > 0
 
 
 async def empty_pupil_entries_in_session(

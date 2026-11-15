@@ -52,10 +52,10 @@ export const PERSON_LANDING = "/area/schiedsrichter";
 
 /**
  * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place
- * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` sends the browser on in-stream to the
- * Übersicht of the season it works in, the seed's running one (`fl_frontend/src/app/admin/(list)/page.tsx`).
+ * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` draws the Übersicht of the season it
+ * works in by standard, the seed's running one (`fl_frontend/src/app/admin/(list)/page.tsx`).
  */
-export const ADMINISTRATION_LANDING = "/admin/saisons/2027";
+export const ADMINISTRATION_LANDING = "/admin";
 
 /**
  * Passes over the passkey offer by „Später“ and waits until the browser has landed at `landing`, the pathname the

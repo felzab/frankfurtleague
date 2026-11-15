@@ -84,11 +84,7 @@ export const activateSaison = action({
   },
 });
 
-/**
- * Exchanges two clubs' groups, every group match of either rewritten in the same write. The editor's pickers close
- * every pair a match of which has taken place, so `swap_sides_taken_place` meets only a match played after the read,
- * which the stale-page line answers.
- */
+/** Exchanges two clubs' groups, every group match of either rewritten in the same write. */
 export const swapGruppen = action({
   lane: "admin",
   name: "swapGruppen",
@@ -100,11 +96,7 @@ export const swapGruppen = action({
   },
 });
 
-/**
- * Hands a club's row of the season, and its whole schedule, to a club the season does not hold. The editor's picker
- * closes every club a match of which has taken place, so `replace_sides_taken_place` meets only one played after the
- * read, which the stale-page line answers.
- */
+/** Hands a club's row of the season, and its whole schedule, to a club the season does not hold. */
 export const replaceTeam = action({
   lane: "admin",
   name: "replaceTeam",

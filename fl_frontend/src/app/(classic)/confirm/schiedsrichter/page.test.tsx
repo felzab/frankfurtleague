@@ -1,29 +1,35 @@
 import { TO_ACCOUNT } from "@/kit/MailedPage";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { END, TO_HOME } from "./ends";
-import SchiedsrichterConfirmationPage, { generateMetadata } from "./page";
-
 import type { FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
 import type { MailedState } from "@/kit/MailedPage";
-import type { ResolvingMetadata } from "next";
 import type { ReactElement } from "react";
 
-const read = vi.hoisted(() => ({ view: null as FLSchiedsrichterConfirmationViewResponse | null }));
+/** The view the backend serves for the link's token, which `stateFor` sets. */
+let view: FLSchiedsrichterConfirmationViewResponse | undefined;
 
-vi.mock("@/core/traceScope", () => ({ runWithIncomingTrace: <T,>(fn: () => Promise<T>) => fn() }));
-vi.mock("@/core/generated/client/sdk", async (original) => ({
-  ...(await original<object>()),
-  schiedsrichterGetConfirmationView: async () => read.view,
-}));
+/** Whether a request's body names the link's token, which the page posts rather than spells in an address. */
+const carriesToken = (body: unknown) => typeof body === "object" && body !== null && "token" in body && body.token === "tok";
+
+// The link's one read, for its own token alone: any other request goes unanswered, which fails the case.
+serveBackend(({ method, path, body }) =>
+  method === "POST" && path === "/schiedsrichter/confirmation/view" && carriesToken(body) ? view : undefined,
+);
+// The read runs under the trace the edge sent, read off `next/headers`, which answers only inside Next's request.
+doubleNextRequest();
+
+const { END, TO_HOME } = await import("./ends");
+const { default: SchiedsrichterConfirmationPage } = await import("./page");
 
 const DAY = "2026-11-04";
 
 /** What the page shows for the view the backend serves, as the template is handed it. */
-async function stateFor(view: Partial<FLSchiedsrichterConfirmationViewResponse>): Promise<MailedState> {
-  read.view = { answered_at: null, deadline: "2026-11-18", maximum_age: 99, minimum_age: 16, state: "valid", ...view };
+async function stateFor(served: Partial<FLSchiedsrichterConfirmationViewResponse>): Promise<MailedState> {
+  view = { answered_at: null, deadline: "2026-11-18", maximum_age: 99, minimum_age: 16, state: "valid", ...served };
   const page = SchiedsrichterConfirmationPage({
     params: Promise.resolve({}),
     searchParams: Promise.resolve({ token: "tok" }),
@@ -52,14 +58,5 @@ describe("a referee's link, opened again", () => {
       next: TO_HOME,
       declined: true,
     });
-  });
-});
-
-// The harm: a tab asking for an answer over a page saying the link is dead, which no reading of the page meets.
-describe("the tab's title", () => {
-  it("says the link is dead where the page does", async () => {
-    const parent = Promise.resolve({}) as unknown as ResolvingMetadata;
-
-    expect((await generateMetadata({ searchParams: Promise.resolve({}) }, parent)).title).toBe(COPY.template.linkInvalid);
   });
 });

@@ -48,7 +48,8 @@ you write one; the strings themselves live in the catalogue, `fl_frontend/src/co
   `YYYY-MM-DD` day, and a year a range ends on is `{ year }`. A name that may be the catalogue's
   or a record's is `Words`, and lint refuses an entry returning its argument as it came.
 - **Every date, time, number, amount and score goes through `fl_frontend/src/core/format.ts`, and
-  every season's name through `COPY.shared.saisonName`**, and the current time is read through
+  every season's name through `COPY.shared.saisonName`, or `COPY.shared.saisonNameBound` inside a
+  phrase binding a word to it**, and the current time is read through
   `fl_frontend/src/core/clock.ts :: now` alone. Parsing a given date is not reading the clock.
 - **No string is rewritten for a screen about to change or go**: a change writes the strings of what
   it builds.
@@ -100,7 +101,7 @@ and takes a second line, which moves what stands below it.
 | Form refusal            | 1 short sentence, the status line's two lines on a phone  | a plain fact about the whole form, or about a field no pattern words, naming that field       |
 | Failure line            | 1 short sentence, the status line's two lines on a phone  | what happened, never the repair; a failure no reason names, the one line `failure.unexpected` |
 | Empty state             | 1 sentence, and a muted line where a list has nothing yet | which narrowing emptied it                                                                    |
-| Toast                   | a title of 1 to 3 words, no body                          | a past participle; a failure, the one line `failure.unexpected`                               |
+| Toast                   | a title of 1 to 3 words, or 1 short sentence; no body     | done, a past participle or the act's note; refused, its own sentence or `failure.unexpected`  |
 | Page or section intro   | none                                                      | a page's title is its explanation                                                             |
 | List-truncation banner  | none                                                      | the load-more control instead                                                                 |
 | Page title              | the page's catalogue title                                | followed by the one suffix „\| Frankfurt League“; a match is „{Team 1} vs. {Team 2}“          |
@@ -133,11 +134,21 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   writes and a precondition only the system knows are never explained, since the reader cannot act
   on the detail.
 - **A saved record** shows `saved` beside its save button, never as a toast.
-- **A toast** is one of `toast`'s titles, and only for an action that leaves nothing on the page to
-  change.
+- **A toast** answers an act that leaves nothing on the page to change, and an act behind the passkey
+  touch whose question or dialog has closed before it answers: one of `toast`'s titles or the act's
+  note once done, in the warn tone where it partly happened, and the refusal's own sentence once
+  refused (`fl_frontend/src/kit/Toast.tsx :: toastAnswer`). A done act's toast leaves by itself,
+  while a refusal or a partial outcome stands until it is closed. No field stands beside a toast, so
+  an act whose dialog closes words every refusal as a sentence naming what was refused, never a
+  field's phrase or `template.checkFields`: its lane declares a sentence per box and cause (`boxless`
+  in `fl_frontend/src/core/action.ts`). A form left standing under its closed question says a done
+  act on its own line alone.
 - **A busy button** keeps its label and shows a spinner named `loading`; no „Speichert …“.
-- **An empty list** says `empty.search`, `empty.filter` or `empty.none` with its own plural;
-  `empty.filter` only where the list keeps a filter.
+- **An empty list** says `empty.search`, `empty.filter`, `empty.none` or `empty.skipped` with its own
+  plural; `empty.filter` only where the list keeps a filter, `empty.skipped` only where a person left
+  every row out of a run. A list that is one record named by a masculine or neuter noun, a team's
+  „Kader“, says `empty.noneOne` with that noun, and a list of open work with nothing waiting, such as
+  an Übersicht card, says `empty.nothingOpen`, naming no plural.
 - **A confirmation** asks `question` with the verb, says one short sentence of consequence, carries that
   verb on its button and `back` as the way back; never „Ja“. What the sentence rests on stands under it
   as facts rows, never inside it: a move's old and new slot, the season a switch leaves and takes, the
@@ -150,15 +161,28 @@ Each pattern is an entry of `COPY.shared`; what the entry cannot say is when it 
   confirmed seat or address change, `end.toAccount` where Konto is the one place to change what was
   done and for an address change's or a deletion's link that no longer holds, `end.toHome` after
   anything else. The deletion's done page adds the privacy notice beneath it as a quieter link.
+- **A column a narrow box leaves out** holds no fact the row shows nowhere else: where the row
+  itself opens no page or dialog holding it, the row's phone line carries it, after its column's
+  label where the value alone would not say what it is („Gültig bis Saison 2027“). An act's
+  question is no such place, since nobody opens a removal to read a date.
 - **A Vorschau line** says a fact about the record as it is stored, such as a match's pairing, its
   day and its result or „Noch kein Ergebnis“; never the unsaved changes, which the save bar counts.
+- **A lock is said once, in an editor's lock line**, muted under its title: the reasons alone, each
+  once and short enough that the line never wraps on a 360-px phone, „Gesperrt seit Saisonbeginn und
+  durch Spielplan.“ (`COPY.template.lockLine`). Each locked field shows the lock mark at its label,
+  so the line names no field. A closed record's reason stands in its place, and no box carries a lock
+  note: the warn hue is for what a change being made will cause.
 
 ## Dates and numbers go through the formatting module
 
 `fl_frontend/src/core/format.ts` holds each form beside the function writing it: a date in a list or
 a field message, a date in a sentence or a mail, a time, a moment, a range, a number, an amount and a
 score. A season's name is the catalogue's `COPY.shared.saisonName`, since its id is its year and
-needs no formatting. Two rules no function states:
+needs no formatting. Inside a phrase binding a word to it, such as „Gültig bis Saison 2027“, it is
+`COPY.shared.saisonNameBound`, whose space is a no-break space, so a line never parts the word from
+its year; a mail's subject, a tab's title and words a person matches as typed keep the plain space.
+A moment in a list's form, „07.11.2026, 18:04“, is one fact the same way: `formatInstantShort`
+binds its date to its time. Two rules no function states:
 
 - **A range is the only place a dash appears**, and the locale writes it, dropping what both ends
   share.

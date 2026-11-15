@@ -1,4 +1,5 @@
 import { ListPage } from "@/kit/ListPage";
+import { EXPIRED_CHIP } from "@/kit/stateChips";
 
 import { requires } from "@/core/action";
 import { ADDRESS_CHANGE_WAIT_DAYS } from "@/core/addressChange";
@@ -49,7 +50,7 @@ const WAITS_ON_TONE: Readonly<Record<FLAddressChangeWaitsOn, ChipProps["tone"]>>
 
 /** What the change waits on, or that the step it waited on lapsed, which the hourly pass ends. */
 const chipOf = ({ expired, waits_on }: FLAddressChangeAdminOpen): ChipProps =>
-  expired ? { tone: "neutral", label: COPY.admin.expired } : { tone: WAITS_ON_TONE[waits_on], label: WORDS.waitsOn[waits_on] };
+  expired ? EXPIRED_CHIP : { tone: WAITS_ON_TONE[waits_on], label: WORDS.waitsOn[waits_on] };
 
 /** The moment the row's step ends, where it has one: the wait's, once it runs, else the open link's. */
 function untilOf({ effective_from, valid_until, waits_on }: FLAddressChangeAdminOpen) {
@@ -105,17 +106,14 @@ function rowOf(change: FLAddressChangeAdminOpen, holder: string): TableRow {
 }
 
 /**
- * The table's head, drawn while the rows are read and over them once they are. A row carries its ending, and a fresh
- * link before it while the change waits on the new mailbox: where some row carries both, every row's stand in its „⋯“,
- * and else each row's ending is its button (`sideAct`). The new address is a column holding an address, cut at an
- * address's step as every list's is. The muted line under a row's name is the moment its step ends in the table, where
- * it has one, and the new address before it on a stacked row; the wait draws it at every width, the taller form.
+ * The table's head. A row carries its ending, and a fresh link before it while the change waits on the new mailbox,
+ * each its labelled button in a wide box and an entry of the row's „⋯“ in a narrow one. The new address is a column
+ * holding an address, cut at an address's step as every list's is. The muted line under a row's name is the moment its
+ * step ends in the table, where it has one, and the new address before it on a stacked row.
  */
 const HEAD: TableHead = {
   nameLabel: COPY.admin.facts.before,
   state: { label: COPY.admin.schiedsrichter.state, delivery: true },
-  sideAct: COPY.shared.verb.discard,
-  line: "always",
   columns: [{ key: "after", label: COPY.admin.facts.after, hideOnPhone: true, width: "line", cut: true }],
 };
 
@@ -136,27 +134,23 @@ export default function AddressChangesPage() {
   return (
     <ListPage
       head={{ scope: "area", title: { route: "adminAddressChanges" } }}
-      create={{
-        label: START,
-        act: read.then(({ changes, holder }): ListCreate => ({
-          title: START,
-          act: { verb: "enter", object: COPY.account.address.change },
-          action: startLostMailboxChange,
-          consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
-          facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
-          touch: { holder },
-          children: (
-            <StartFields
-              running={changes.map(({ address }) => address)}
-              rules={START_RULES}
-            />
-          ),
-        })),
-      }}
+      create={read.then(({ changes, holder }): ListCreate => ({
+        title: START,
+        act: { verb: "enter", object: COPY.account.address.change },
+        action: startLostMailboxChange,
+        consequence: WORDS.startConsequence({ days: ADDRESS_CHANGE_WAIT_DAYS }),
+        facts: [{ label: COPY.admin.facts.mailTo, value: COPY.admin.mailTo.bothAddresses }],
+        touch: { holder },
+        children: (
+          <StartFields
+            running={changes.map(({ address }) => address)}
+            rules={START_RULES}
+          />
+        ),
+      }))}
       list={{
         kind: "table",
         head: HEAD,
-        wait: 3,
         content: read.then(({ changes, holder }) => ({
           table: {
             label: ROUTES.adminAddressChanges.title,

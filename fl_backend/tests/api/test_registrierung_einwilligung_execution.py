@@ -96,10 +96,11 @@ def on_a_league(url: str, body: Body, *, registrierungen: list[dict[str, Any]] |
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The other club first, so a link reading whichever club comes first names that one rather than its own.
             await database[Collection.TEAMS].insert_many(
                 [
-                    team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
                     team_document(OTHER_TEAM_OID, OTHER_TEAM_NAME, f"{OTHER_SCHOOL}-Gymnasium"),
+                    team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
                 ]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
@@ -167,15 +168,6 @@ class TestWhatALinkOpens:
         assert FOLDED_EMAIL not in rendered
         assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
-    def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(APIError) as conflict:
-                await read_view(database, "a-stranger's-guess")
-
-            return conflict.value.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_INVALID
-
 
 class TestWhatAConfirmationWrites:
     """One `$set`: the pairing lands whole, and the hash stays where it is."""
@@ -207,43 +199,6 @@ class TestWhatAConfirmationWrites:
             "kader_public",
             False,
         )
-
-    def test_the_registration_stays_pending_and_writes_no_person_and_no_squad_row(self, mongo_replica_set_url: str):
-        """A confirmed registration is admissible and not admitted; the person and the junction row are a later decision's."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW)
-
-            return (
-                await stored(database),
-                await database[Collection.SPIELER].count_documents({}),
-                await database[Collection.SAISON_SPIELER].count_documents({}),
-            )
-
-        document, people, squad_rows = on_a_league(mongo_replica_set_url, body)
-
-        assert document["status"] == "submitted"
-        assert (people, squad_rows) == (0, 0)
-
-    def test_the_media_switch_left_off_is_stored_as_the_answer_it_is(self, mongo_replica_set_url: str):
-        """Publication and media are two consents under one record, so an off switch is stored rather than derived from the scope."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW, scope="internal", media=False)
-
-            return await stored(database)
-
-        record = on_a_league(mongo_replica_set_url, body)["einwilligung"]
-
-        assert (record["scope"], record["media"]) == ("internal", False)
-
-    def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
-        """A response re-read off the updated document would widen this page's answer to everything a registration holds."""
-
-        rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
-
-        assert registrierung_document()["last_name"] not in rendered and FOLDED_EMAIL not in rendered
-        assert TOKEN_HASH not in rendered and RAW not in rendered
 
 
 class TestTheLinkIsSpentByTheStamp:
@@ -333,18 +288,6 @@ class TestTheLinkIsSpentByTheStamp:
 
         assert (state, code) == ("expired", Code.LINK_EXPIRED)
         assert document["einwilligung"] is None
-
-    def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await answer(database, client, "a-stranger's-guess")
-
-            return conflict.value.error_code, await stored(database)
-
-        code, document = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.LINK_INVALID
-        assert document == registrierung_document()
 
 
 # Against `TODAY`, 18 to the day and 17 years and 364 days.

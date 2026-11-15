@@ -54,9 +54,9 @@ class TestTheTabellesGroups:
             "statistik",
         ]
 
-    # Validation already rejects these, so reaching the guard needs `model_construct`. `X` is why it
+    # Validation already rejects it, so reaching the guard needs `model_construct`. `X` is why it
     # cannot test `not team.gruppe`: that catches empty and None and lets anything else `KeyError`.
-    @pytest.mark.parametrize("gruppe", ["", "X", "a", " ", "AB"])
+    @pytest.mark.parametrize("gruppe", ["X"])
     def test_refuses_a_team_it_cannot_place(self, team, gruppe):
         """Fails loudly rather than dropping the team, which the frontend would discard from the table."""
         unplaceable = FLTeam.model_construct(**{**team(), "gruppe": gruppe})

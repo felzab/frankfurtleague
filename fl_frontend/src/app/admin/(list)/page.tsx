@@ -1,15 +1,12 @@
-import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { StatusPage } from "@/kit/StatusPage";
-
-import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { selectSaison } from "@/features/saisons/resolvers";
 import { pageMetadata } from "@/shared/utils/metadata";
 
-import type { StatusCardProps } from "@/kit/StatusCard";
+import { AdminOverview } from "./saisons/[saison]/page";
+
 import type { Metadata, ResolvingMetadata } from "next";
 
 export async function generateMetadata(_: unknown, parent: ResolvingMetadata): Promise<Metadata> {
@@ -17,30 +14,16 @@ export async function generateMetadata(_: unknown, parent: ResolvingMetadata): P
 }
 
 /**
- * The season the administration works in, read at request time, the one the frame's season button stands on: a
- * redirect to its Übersicht, or, while the league has no season yet, the card saying so with the way to the season
- * list, where the first is created. The read is the frame's own, so it costs the page no request of its own; the
- * frame's shell streams first, so the redirect reaches the browser inside the stream rather than as a status line.
+ * The season the administration works in by standard, the one the frame's season button stands on, read at request
+ * time; `null` while the league holds none. The read is the frame's own, so it costs the page no request of its own.
  */
-async function readSaison(): Promise<StatusCardProps> {
+async function readStandard(): Promise<string | null> {
   await connection();
   const { saisons } = await getAdminSaisons();
-  const saison = selectSaison(saisons);
-  if (saison !== undefined) redirect(ROUTES.adminOverview.path(saison.id));
-  return {
-    tone: "info",
-    title: COPY.shared.end.noSaison,
-    next: { label: COPY.shared.end.toSaisons, href: ROUTES.adminSaisons.path() },
-  };
+  return selectSaison(saisons)?.id ?? null;
 }
 
-/** `/admin`: the address a link uses where it cannot know the season, which leads on to that season's Übersicht. */
+/** `/admin`: the address a link uses where it cannot know the season, drawing that season's Übersicht in place. */
 export default function AdminPage() {
-  return (
-    <StatusPage
-      scope="area"
-      title={{ route: "admin" }}
-      card={readSaison()}
-    />
-  );
+  return <AdminOverview saison={readStandard()} />;
 }

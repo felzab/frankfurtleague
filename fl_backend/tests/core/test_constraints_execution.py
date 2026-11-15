@@ -12,7 +12,6 @@ from pymongo import ASCENDING, AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.admin_router import get_bewerbungen_admin
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.registrierungen.crud import pull_open_registrierungen
@@ -689,7 +688,6 @@ def test_a_teams_confirmed_registrations_are_read_past_a_flood_without_fetching_
 
 
 KEY_LOOKUP_SCAN = "IXSCAN { idempotency_key: 1 }"
-QUEUE_SCAN = "IXSCAN { saison_id: 1, status: 1, submitted_at: -1, _id: -1 }"
 
 
 def _contact(first_name: str, phone: str) -> dict[str, str]:
@@ -758,15 +756,6 @@ async def _replayed_registration(watched: AsyncDatabase, client: AsyncMongoClien
     )
 
 
-async def _triage_list(watched: AsyncDatabase, _: AsyncMongoClient) -> Any:
-    return await get_bewerbungen_admin(
-        bewerbungen_collection=watched[Collection.BEWERBUNGEN],
-        teams_collection=watched[Collection.TEAMS],
-        saisons_collection=watched[Collection.SAISONS],
-        saison_id=SAISON_ID,
-    )
-
-
 def _key_lookup_on(collection: Collection) -> Wanted:
     return lambda sent_to, command: sent_to == collection and "idempotency_key" in (command.get("filter") or {})
 
@@ -787,14 +776,6 @@ def _key_lookup_on(collection: Collection) -> Wanted:
             _key_lookup_on(Collection.REGISTRIERUNGEN),
             [(Collection.REGISTRIERUNGEN, KEY_LOOKUP_SCAN)],
             id="the registration's key lookup",
-        ),
-        # The newest rows, the rows with a confirmed seat, and the pass marking a club named twice.
-        pytest.param(
-            "bewerbungen",
-            _triage_list,
-            lambda sent_to, _command: sent_to == Collection.BEWERBUNGEN,
-            [(Collection.BEWERBUNGEN, QUEUE_SCAN)] * 3,
-            id="the triage list",
         ),
     ],
 )

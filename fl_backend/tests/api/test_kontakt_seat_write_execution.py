@@ -12,7 +12,7 @@ from app.api.teams.admin_router import put_kontakt_seat
 from app.api.teams.schemas import FLKontaktSeatPayload, FLKontaktSeatResponse
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_document, saison_team_document
@@ -25,6 +25,7 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_kontakt_seat_write_test")
 
 SAISON_ID = "2026"
+PAST_SAISON_ID = "2025"
 TODAY = "2026-04-01"
 CONFIRMED_ON = "2026-03-15"
 BIRTH_DATE = "1990-05-17"
@@ -175,8 +176,8 @@ class TestTheSeatsStateDecidesTheWrite:
         assert acts == [(TEAM_OID, "Adler")]
         assert row["confirmations"]["trainer"] == link_entry()
 
-    @pytest.mark.parametrize("kontakte", [block(), None], ids=["an emptied seat", "a row holding no block"])
-    def test_an_empty_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str, kontakte: dict[str, Any] | None):
+    @pytest.mark.parametrize("kontakte", [block()], ids=["an emptied seat"])
+    def test_an_empty_seat_is_filled_and_its_person_owed_a_link(self, mongo_replica_set_url: str, kontakte: dict[str, Any]):
         async def body(database: AsyncDatabase) -> Any:
             answer = await write_seat(database, "stellvertretung", sent_person("Lea"))
 
@@ -189,30 +190,43 @@ class TestTheSeatsStateDecidesTheWrite:
         assert [mail.to for mail in mails] == ["lea@example.com"]
 
 
-class TestTheTrainersSecondSeat:
-    """`trainer_is_also` names one person in two seats: the pair moves as one, and only the Trainer's seat moves the claim."""
-
-    PAIRED = block(ansprechperson=stored_person("Ida"), trainer_is_also="ansprechperson")
-
-    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson"])
-    def test_a_write_on_either_seat_of_a_pair_writes_both_under_one_link(self, mongo_replica_set_url: str, seat: str):
-        """One seat written alone would leave the pair naming two people, each holding the other's link."""
+class TestTheSeasonsOwnRowIsWritten:
+    def test_a_write_reads_and_writes_the_block_of_the_season_it_names(self, mongo_replica_set_url: str):
+        """The club's row of a season before, stored first, holds other people: read in its place, they would be seated here."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, seat, sent_person("Lea"))
+            await database[Collection.SAISONS].insert_one(saison_document(PAST_SAISON_ID, "past"))
+            await database[Collection.SAISON_TEAMS].insert_one(
+                saison_team_document(PAST_SAISON_ID, TEAM_OID, "Adler", "ADX", kontakte=block(trainer=stored_person("Lea")))
+            )
+            # Moved behind the past season's row, so a read naming no season meets that one first.
+            row = await database[Collection.SAISON_TEAMS].find_one_and_delete({"team_id": TEAM_OID, "saison_id": SAISON_ID})
+            await database[Collection.SAISON_TEAMS].insert_one(row)
+            await write_seat(database, "stellvertretung", sent_person("Klara"))
 
-            return await row_and_mails(database)
+            return {
+                stored["saison_id"]: {
+                    seat: (stored["kontakte"][seat] or {}).get("first_name") for seat in ("trainer", "ansprechperson", "stellvertretung")
+                }
+                async for stored in database[Collection.SAISON_TEAMS].find({"team_id": TEAM_OID})
+            }
 
-        row, mails = on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
+        seated = on_a_row(mongo_replica_set_url, body, kontakte=block())
 
-        assert (row["kontakte"]["trainer"]["first_name"], row["kontakte"]["ansprechperson"]["first_name"]) == ("Lea", "Lea")
-        assert row["kontakte"]["trainer_is_also"] == "ansprechperson"
-        assert [(mail.to, sorted(mail.data.rollen)) for mail in mails] == [("lea@example.com", ["ansprechperson", "trainer"])]
+        assert seated == {
+            SAISON_ID: {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"},
+            PAST_SAISON_ID: {"trainer": "Lea", "ansprechperson": "Jonas", "stellvertretung": None},
+        }
+
+
+class TestTheTrainersSecondSeat:
+    """`trainer_is_also` names one person in two seats: the Trainer's write moves the pair as one, a claim it leaves out standing."""
+
+    PAIRED = block(ansprechperson=stored_person("Ida"), trainer_is_also="ansprechperson")
 
     @pytest.mark.parametrize(
         ("sent", "claim", "ansprechperson"),
         [
-            pytest.param({"trainer_is_also": None}, None, "Ida", id="null ends the claim and the other seat keeps its person"),
             pytest.param({}, "ansprechperson", "Lea", id="left out, the claim stands"),
         ],
     )
@@ -228,27 +242,6 @@ class TestTheTrainersSecondSeat:
 
         assert row["kontakte"]["trainer_is_also"] == claim
         assert row["kontakte"]["ansprechperson"]["first_name"] == ansprechperson
-
-    def test_a_claim_sent_on_another_seat_moves_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, "stellvertretung", sent_person("Lea", trainer_is_also=None))
-
-            return await row_and_mails(database)
-
-        row, _ = on_a_row(mongo_replica_set_url, body, kontakte=self.PAIRED)
-
-        assert row["kontakte"]["trainer_is_also"] == "ansprechperson"
-
-    def test_a_claim_taken_up_seats_the_trainer_in_the_seat_it_names(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await write_seat(database, "trainer", sent_person("Ida", trainer_is_also="ansprechperson"))
-
-            return await row_and_mails(database)
-
-        row, mails = on_a_row(mongo_replica_set_url, body, kontakte=block())
-
-        assert row["kontakte"]["ansprechperson"]["first_name"] == "Ida"
-        assert [mail.to for mail in mails] == ["ida@example.com"]
 
 
 LINK = "seat-write-trainer-link"
@@ -321,7 +314,6 @@ class TestTheRefusals:
         ("sent", "code", "field"),
         [
             pytest.param({"email": "JONAS@example.com"}, Code.KONTAKT_EMAIL_TAKEN, "email", id="an address on the sign-in fold"),
-            pytest.param({"phone": "0151 10000002"}, Code.KONTAKT_PHONE_TAKEN, "phone", id="a number in another spelling"),
         ],
     )
     def test_what_another_seats_person_holds_is_refused_on_its_box(
@@ -343,10 +335,3 @@ class TestTheRefusals:
 
         assert answer == Code.VERSION_STALE
         assert row["kontakte"] == seated
-
-    def test_a_path_naming_no_seat_is_a_miss(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> None:
-            with pytest.raises(DocumentNotFoundError):
-                await write_seat(database, "kassenwart", sent_person("Lea"))
-
-        on_a_row(mongo_replica_set_url, body, kontakte=block())

@@ -33,7 +33,7 @@ export default function TabellePage({ params }: Props) {
   return (
     <ListPage
       head={{ scope: "saison", title: { route: "tabelle" } }}
-      list={{ kind: "groups", head: HEAD, wait: { groups: 8, rows: 3 }, content: readGroups(params) }}
+      list={{ kind: "groups", head: HEAD, content: readGroups(params) }}
     />
   );
 }
@@ -51,7 +51,7 @@ const COLUMNS: TableProps["columns"] = [
   { key: "punkte", label: column.punkte, figures: true, strong: true },
 ];
 
-/** Every group's table's head, drawn while the Tabelle is read and over each group's rows once it is. */
+/** Every group's table's head, over each group's rows. */
 const HEAD: TableHead = {
   nameLabel: column.team,
   rankLabel: column.platz,

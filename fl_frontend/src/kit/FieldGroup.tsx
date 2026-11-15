@@ -1,6 +1,5 @@
 import { FieldStack } from "./FieldStack";
 import { SectionTitle } from "./Section";
-import { PlaceholderLine } from "./Skeleton";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -40,21 +39,5 @@ export function FieldGroup({ name, children }: { name: Copy; children: ReactNode
       </legend>
       <FieldStack>{children}</FieldStack>
     </fieldset>
-  );
-}
-
-/** The group while its fields are read: its name's line over its hairline, and the fields' placeholders. */
-export function FieldGroupPlaceholder({ children }: { children: ReactNode }) {
-  const { root, head } = fieldGroup();
-  return (
-    <div className={root()}>
-      <span className={head()}>
-        <PlaceholderLine
-          textClass="text-base font-semibold"
-          widthClass="w-1/3"
-        />
-      </span>
-      <FieldStack>{children}</FieldStack>
-    </div>
   );
 }

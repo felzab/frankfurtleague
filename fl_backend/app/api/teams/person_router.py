@@ -25,7 +25,11 @@ from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment, 
 from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     ansetzung_digest_of,
+    austritte_of,
     build_closable_filter,
+    joined_decision_of,
+    lapsed_on,
+    reason_of,
     team_state_of,
     view_ansetzung_of,
 )
@@ -230,6 +234,7 @@ class _Spielbestaetigung(NamedTuple):
     state: FLSpielbestaetigungTeamState
     # The other club's proposed date and hour while its decline stands open beside this row.
     vorschlag_open: FLSpielbestaetigungAppointment | None
+    lapsed_on: str | None
 
 
 def _spielbestaetigung_of(
@@ -252,11 +257,18 @@ def _spielbestaetigung_of(
         None,
     )
     vorschlag_open = None if proposal is None else FLSpielbestaetigungAppointment.model_validate(proposal)
-    state = team_state_of(
-        spielbestaetigung_raw=own, ansetzung_state=AnsetzungState(spiel=spiel_raw, vereine=vereine), now=now, vorschlag_open=vorschlag_open
-    )
+    ansetzung_state = AnsetzungState(spiel=spiel_raw, vereine=vereine)
+    state = team_state_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now, vorschlag_open=vorschlag_open)
+    if state is None:
+        return None
 
-    return None if state is None else _Spielbestaetigung(row=own, state=state, vorschlag_open=vorschlag_open)
+    reason = reason_of(spielbestaetigung_raw=own, ansetzung_state=ansetzung_state, now=now)
+    return _Spielbestaetigung(
+        row=own,
+        state=state,
+        vorschlag_open=vorschlag_open,
+        lapsed_on=lapsed_on(spielbestaetigung_raw=own, reason=reason, spiel=spiel_raw, austritte=austritte_of(ansetzung_state), now=now),
+    )
 
 
 def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
@@ -264,6 +276,10 @@ def _side_of(spiel_raw: Mapping[str, Any], team_id: Any) -> FLSpielSide:
 
 
 def _marks_of(spiel_raw: Mapping[str, Any], now: datetime) -> FLAufstellungMarks | None:
+    # A fixture decided, called off or fielding a club out by its day owes no line-up, as the line-up's reminder judges it.
+    if joined_decision_of(spiel_raw) is not None:
+        return None
+
     own = spiel_raw[OWN_AUFSTELLUNG_AS]
     stored = aufstellung_stands(own[0] if own else None)
 
@@ -360,6 +376,7 @@ async def get_team_overview(
                         "side": _side_of(spiel, team_id),
                         "state": spielbestaetigung.state,
                         "deadline": spielbestaetigung.row["deadline"],
+                        "lapsed_on": spielbestaetigung.lapsed_on,
                         "vorschlag": answer.get("vorschlag")
                         if declined
                         else spielbestaetigung.vorschlag_open
@@ -371,13 +388,7 @@ async def get_team_overview(
 
         marks = _marks_of(spiel, now)
         # Open work alone: one the team can still enter, on a fixture still to be played.
-        if (
-            marks is not None
-            and not marks.stored
-            and marks.phase != "locked"
-            and spiel.get("ergebnis") is None
-            and spiel.get("sonderereignis") is None
-        ):
+        if marks is not None and not marks.stored and marks.phase != "locked":
             aufstellungen.append(
                 FLTeamPanelAufstellung(spiel_id=spiel["_id"], ansetzung=view_ansetzung_of(spiel), side=_side_of(spiel, team_id), marks=marks)
             )

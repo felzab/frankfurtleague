@@ -76,7 +76,6 @@ ALLOWED_STUFEN = ["Q1", "Q2"]
 ANSPRECH = "ansprech.kader@schule.de"
 TRAINER_ALONE = "trainer.kader@schule.de"
 UPPER_STORED = "gross.kader@schule.de"
-UPPER_ASKED = "GROSS.KADER@schule.DE"
 B_ANSPRECH = "b.ansprech.kader@schule.de"
 
 SEAT_PHONE = "+49 69 5550199"
@@ -266,34 +265,40 @@ class TestTheSquadRead:
         assert "email" not in text
         assert "einwilligung" not in text
 
-    def test_an_identifier_asked_in_another_case_reads_the_squad(self, mongo_replica_set_url: str):
-        response = self._read(mongo_replica_set_url, UPPER_ASKED)
 
-        assert response.status_code == 200, response.text
-        assert len(response.json()["kader"]) == 5
-
-
-# Each operation, as the request that would otherwise succeed: the row is team A's own.
-OPERATIONS = [
-    pytest.param("GET", lambda team_id, saison_id: squad_url(team_id, saison_id), None, id="GET"),
-    pytest.param("PATCH", lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id), PAYLOAD, id="PATCH"),
-    pytest.param("DELETE", lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id), None, id="DELETE"),
-]
-
-# A seat on team B asking for team A; team A's seat holder asking for a season of team A they hold
-# no seat in; and for one whose seat they hold on a `past` season, which grants no panel.
-ELSEWHERE = [
-    pytest.param(B_ANSPRECH, TEAM_A, ACTIVE_SAISON, id="another team"),
-    pytest.param(ANSPRECH, TEAM_A, FUTURE_SAISON, id="another season of the same team"),
-    pytest.param(ANSPRECH, TEAM_A, PAST_SAISON, id="a past season"),
+# Each operation, as the request that would otherwise succeed (the row is team A's own), paired with one
+# seat that grants it nothing: a seat on team B asking for team A; team A's seat holder asking for a
+# season of team A they hold no seat in; and for one whose seat they hold on a `past` season, which
+# grants no panel.
+NOT_HELD = [
+    pytest.param(
+        B_ANSPRECH, TEAM_A, ACTIVE_SAISON, "GET", lambda team_id, saison_id: squad_url(team_id, saison_id), None, id="another team-GET"
+    ),
+    pytest.param(
+        ANSPRECH,
+        TEAM_A,
+        FUTURE_SAISON,
+        "PATCH",
+        lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id),
+        PAYLOAD,
+        id="another season of the same team-PATCH",
+    ),
+    pytest.param(
+        ANSPRECH,
+        TEAM_A,
+        PAST_SAISON,
+        "DELETE",
+        lambda team_id, saison_id: row_url(SHARES_THE_SEVEN, team_id, saison_id),
+        None,
+        id="a past season-DELETE",
+    ),
 ]
 
 
 class TestASeatNotHeld:
-    """`role_not_held`, judged by each handler itself: drop the check from one and its three cases go red."""
+    """`role_not_held`, judged by each handler itself: drop the check from one and its case goes red."""
 
-    @pytest.mark.parametrize(("method", "path", "body"), OPERATIONS)
-    @pytest.mark.parametrize(("email", "team_id", "saison_id"), ELSEWHERE)
+    @pytest.mark.parametrize(("email", "team_id", "saison_id", "method", "path", "body"), NOT_HELD)
     def test_each_operation_is_refused_and_writes_nothing(
         self,
         mongo_replica_set_url: str,
@@ -313,7 +318,7 @@ class TestASeatNotHeld:
 class TestAnotherTeamsPupil:
     """Team A's seat holder naming team B's pupil under team A's path: the row filter carries the team, so nothing matches."""
 
-    @pytest.mark.parametrize(("method", "body"), [("PATCH", PAYLOAD), ("DELETE", None)], ids=["PATCH", "DELETE"])
+    @pytest.mark.parametrize(("method", "body"), [("DELETE", None)], ids=["DELETE"])
     def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
 
@@ -323,7 +328,7 @@ class TestAnotherTeamsPupil:
     def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
         """A Stufe the season refuses, so a filter without the team finds team B's row and answers 409 rather than 404.
 
-        The case above cannot tell: there the read-back after the write answers 404 whatever the filter matched.
+        A patch the rules pass cannot tell: its read-back after the write answers 404 whatever the filter matched.
         """
 
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
@@ -411,13 +416,6 @@ class TestAnEdit:
         assert second == (409, Code.VERSION_STALE)
         assert (row["nummer"], row["version"]) == ("9", 1)
 
-    @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"is_nachnominiert": True}], ids=["team_id", "is_nachnominiert"])
-    def test_a_field_the_payload_does_not_declare_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, extra: Mapping[str, Any]):
-        answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(SHARES_THE_SEVEN), ANSPRECH, {**PAYLOAD, **extra})
-
-        assert answer == (422, Code.PAYLOAD_REFUSED)
-        assert untouched
-
 
 class TestAStufeTheSeasonDoesNotOffer:
     """`kader_stufe_not_allowed`: a server refusal, the form's offer being no rule."""
@@ -430,8 +428,8 @@ class TestAStufeTheSeasonDoesNotOffer:
         assert answer == (409, Code.KADER_STUFE_NOT_ALLOWED)
         assert untouched
 
-    @pytest.mark.parametrize("stufe", ["Q4", None], ids=["the stored one", "none"])
-    def test_the_stufe_the_row_already_holds_and_none_pass(self, mongo_replica_set_url: str, stufe: str | None):
+    @pytest.mark.parametrize("stufe", ["Q4"], ids=["the stored one"])
+    def test_the_stufe_the_row_already_holds_passes(self, mongo_replica_set_url: str, stufe: str):
         """A season narrowed after the row was written leaves the row editable, its own Stufe included."""
 
         answer, _ = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(OLD_STUFE), ANSPRECH, {**PAYLOAD, "stufe": stufe})

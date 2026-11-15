@@ -13,6 +13,10 @@
 *.woff2 binary
 *.pdf binary
 
+# Written by `pnpm patch-commit`, never by hand. A unified diff spells an empty context line as one
+# space, which is the format's own content and no whitespace error.
+fl_frontend/patches/*.patch -whitespace
+
 # Written by `pnpm run contract` in fl_frontend, never by hand, so GitHub collapses each in a diff
 # and leaves it out of the language statistics.
 fl_backend/openapi.json linguist-generated=true

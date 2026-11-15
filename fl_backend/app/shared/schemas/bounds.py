@@ -195,8 +195,8 @@ MAILBOX_ANCHOR_RETENTION_SECONDS: Final = 60 * 60
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
 SPIEL_CONFIRMATION_DEADLINE_DAYS: Final = 7
-# Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS` and
-# `SCHIEDSRICHTER_CONFIRMATION_DEADLINE_DAYS` let the other adult links.
+# How long before its deadline a fixture's parties are first asked about it; a fixture moved after they were asked is
+# asked about again at once, however far out.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
 # The one reminder falls this many days before a team row's deadline.
 SPIEL_REMINDER_DAYS: Final = 3

@@ -12,10 +12,10 @@ import { dateSegment, fieldFrame } from "./fieldStyles";
  * which carries it.
  *
  * React Aria draws a segment `contenteditable` on the server too, and a digit typed before hydration fails hydration,
- * which discards every field of the Suspense boundary with what was typed there (`useEarlyEdit`). So the segments
- * are `inert` until the page's code runs, which paints as the live field does, where `isReadOnly` would disable the
- * calendar button. Half-typed segments have no value to replay, and React's change replay covers native controls
- * alone, so no upstream release retires this.
+ * which makes React render anew in the browser from the nearest Suspense boundary, the whole root where none stands,
+ * discarding every field there with what was typed in it (`useEarlyEdit`). So the segments are `inert` until the page's code runs, which paints as the live field does, where `isReadOnly` would
+ * disable the calendar button. Half-typed segments have no value to replay, and React's change replay covers native
+ * controls alone, so no upstream release retires this.
  */
 export function Segments({ isField }: { isField: boolean }) {
   return (

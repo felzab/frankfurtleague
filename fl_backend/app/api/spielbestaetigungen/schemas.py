@@ -17,7 +17,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSpielbestaetigungAnswerKind = Literal["agreed", "declined"]
 
@@ -101,8 +101,20 @@ class FLSpielbestaetigungAnswer(BaseModel):
     reason: CustomNonEmptyString | None
 
 
-class FLSpielbestaetigungClosed(BaseModel):
+class FLSpielbestaetigungClosed(BaseReadModel):
     reason: FLSpielbestaetigungClosedReason
+
+
+class FLSpielbestaetigungClosedRecord(FLSpielbestaetigungClosed):
+    # Both served to nobody, the row's state being what a page reads.
+    # True on a discard the pass closed again, `reason` then naming that end: ended for neither a move nor a call-off,
+    # the row reads as the agreement the public fixture counted where it answered the fixture at its end (`matched`),
+    # and as `reason` reads otherwise. Absent from a row no such close wrote.
+    discarded: bool = Field(default=False)
+    # Whether the row answered its fixture as the pass's close that ended it read the fixture, so a correction since
+    # re-judges nothing. Null where no such close wrote it: held, closed otherwise, or closed before the close stored
+    # it, each judged against the fixture as it stands.
+    matched: bool | None = None
 
 
 class _FLSpielbestaetigungFields(BaseModel):
@@ -132,7 +144,9 @@ class FLSpielbestaetigung(_FLSpielbestaetigungFields):
 
 
 class FLSpielbestaetigungRecord(_FLSpielbestaetigungFields, Anchored):
-    """One confirmation as `spielbestaetigungen` stores it, with the anchor no read serves."""
+    """One confirmation as `spielbestaetigungen` stores it, with the anchor and the close's judgement no read serves."""
+
+    closed: FLSpielbestaetigungClosedRecord | None
 
 
 # --- The administrator: a row settled on its party's behalf.

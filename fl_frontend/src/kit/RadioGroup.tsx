@@ -4,10 +4,8 @@ import { RadioGroup as AriaRadioGroup, Radio } from "react-aria-components/Radio
 
 import { textOf } from "@/core/copy";
 
-import { FieldLabel, MessageLine } from "./FieldParts";
-import { choiceCard, fieldLabel, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
-import { placeholderBar, PlaceholderSentence } from "./Skeleton";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
+import { choiceCard, fieldRoot, radioDot, radioList, toggleBox, toggleRow } from "./fieldStyles";
 import { useEarlyEdit } from "./useEarlyEdit";
 
 import type { Copy, Words } from "@/core/copy";
@@ -39,31 +37,6 @@ function Circle({ isSelected, isInvalid }: { isSelected: boolean; isInvalid: boo
   );
 }
 
-/** A listed `RadioGroup` while its record is read: its label's lines, and each answer's circle and lines. */
-export function RadioGroupPlaceholder({ label, choices }: { label: string; choices: readonly string[] }) {
-  return (
-    <div className={fieldRoot()}>
-      <PlaceholderSentence
-        textClass={fieldLabel()}
-        words={label}
-      />
-      <div className={radioList({ layout: "list" })}>
-        {choices.map((choice) => (
-          <span
-            key={choice}
-            className={toggleRow({ in: "list" })}>
-            <span className={placeholderBar(toggleBox({ shape: "round", class: "border-transparent" }))} />
-            <PlaceholderSentence
-              textClass=""
-              words={choice}
-            />
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /**
  * One required choice of two to four: the label above, one drawn circle per answer, its label right. Where
  * each answer needs describing, the answers are selectable cards: the circle, the title and any line under it in a
@@ -85,6 +58,7 @@ export function RadioGroup({
   defaultValue?: string | null;
 } & ({ layout?: "list"; choices: readonly ListChoice[] } | { layout: "cards"; choices: readonly DescribedChoice[] })) {
   const root = useEarlyEdit();
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <AriaRadioGroup
       ref={root}
@@ -92,11 +66,12 @@ export function RadioGroup({
       aria-describedby={describedBy}
       name={name}
       defaultValue={defaultValue}
-      isRequired={isRequired}
-      isDisabled={useDisabled(false)}>
+      isRequired={lock.isRequired}
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
       />
       <div className={radioList({ layout: answers.layout ?? "list" })}>
         {answers.layout === "cards"

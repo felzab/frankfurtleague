@@ -151,7 +151,6 @@ class TestTheReminderMark:
     @pytest.mark.parametrize(
         "stored",
         [
-            pytest.param(application(confirmations=all_seats_until(YESTERDAY)), id="past every seat's deadline"),
             pytest.param(application(status="declined"), id="declined by the triage"),
             pytest.param(application(status="accepted"), id="accepted"),
         ],

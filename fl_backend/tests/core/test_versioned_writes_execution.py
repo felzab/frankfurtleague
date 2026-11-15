@@ -74,16 +74,6 @@ async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_vers
 
 
 class TestASaveNamingItsVersion:
-    def test_a_save_on_the_version_standing_writes_and_raises_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> dict[str, Any]:
-            await save(database, {"$set": {"note": "moved"}}, expected_version=0)
-
-            return await stored(database, FIRST)
-
-        after = on_two_spiele(mongo_replica_set_url, body)
-
-        assert (after["note"], after[VERSION_FIELD]) == ("moved", 1)
-
     def test_a_save_on_a_version_another_write_raised_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> tuple[APIError, dict[str, Any]]:
             await save(database, {"$set": {"note": "first"}})

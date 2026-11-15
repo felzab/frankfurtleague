@@ -1,7 +1,8 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
-import type { FLSpieltagAdmin, FLSpieltagWriteResponse } from "@/core/generated/client/types";
+import type { FLSpieltagAdmin, FLSpieltagAdminResponse, FLSpieltagWriteResponse } from "@/core/generated/client/types";
 
 const SPIELTAG_ID = "64b000000000000000000002";
 
@@ -23,25 +24,19 @@ const EDITOR_VERSION = 3;
 
 const WRITTEN: FLSpieltagWriteResponse = { spieltag_id: SPIELTAG_ID, version: 5 };
 
-/** Every payload the save writes. */
-const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
-
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-vi.mock("@/features/spieltage/queries", () => ({ getAdminSpieltag: async () => ({ saison_status: "active", spieltag: STORED }) }));
-
-doubleApiClient((call) => {
-  state.sent.push(JSON.parse(call.body ?? "null"));
-  return WRITTEN;
+// The save reads the matchday again and writes it, so the real guard, query, generated call and dispatch all run;
+// anything else is unanswered and fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (method === "GET" && path === `/spieltage/${SPIELTAG_ID}/admin`) {
+    return { saison_status: "active", spieltag: STORED } satisfies FLSpieltagAdminResponse;
+  }
+  if (method === "PATCH" && path === `/spieltage/${SPIELTAG_ID}`) return WRITTEN;
+  return undefined;
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
 
 const { saveSpieltag } = await import("./saveSpieltag");
-
-beforeEach(() => {
-  state.sent = [];
-});
 
 describe("a matchday's save", () => {
   // The write takes both days and is judged on the version sent: the stored one in its place would write over a
@@ -49,7 +44,10 @@ describe("a matchday's save", () => {
   it("sends the day it changes with the other as stored, on the version the editor read", async () => {
     const answer = await saveSpieltag({ id: SPIELTAG_ID, version: EDITOR_VERSION, changes: { end: "2027-03-16" } });
 
-    expect(state.sent).toStrictEqual([{ start: "2027-03-13", end: "2027-03-16", version: EDITOR_VERSION }]);
+    expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
+      { method: "GET", path: `/spieltage/${SPIELTAG_ID}/admin`, body: undefined },
+      { method: "PATCH", path: `/spieltage/${SPIELTAG_ID}`, body: { start: "2027-03-13", end: "2027-03-16", version: EDITOR_VERSION } },
+    ]);
     expect(answer).toStrictEqual({ ok: true, value: WRITTEN.version });
   });
 });

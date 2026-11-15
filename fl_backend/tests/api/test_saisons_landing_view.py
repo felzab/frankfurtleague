@@ -5,7 +5,7 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.public_router import get_landing
-from app.api.saisons.schemas import FLLandingDecided
+from app.api.saisons.schemas import FLLandingDecided, FLLandingRunning
 from app.api.spiele.schemas import FLSpielElfmeterschiessen, FLSpielJoinedInternal, FLSpielTeamFieldJoinedInternal
 from app.api.spiele.services import podium_of
 from app.api.teams.schemas import FLAustritt
@@ -123,6 +123,62 @@ def test_a_place_decided_after_its_club_left_is_served_vacant_and_the_season_dec
 
     assert type(saison) is FLLandingDecided
     assert [place and place.name for place in saison.podium] == ["Alpha", "Beta", "Dora", None]
+
+
+GROUP_DAY = ObjectId("6890a1b2c3d4e5f607440011")
+
+
+@pytest.mark.db
+@pytest.mark.parametrize(
+    ("database_name", "spiele", "recent", "upcoming"),
+    [
+        pytest.param(
+            worker_database("fl_saisons_landing_view_past_test"),
+            [match(1, GROUP_DAY, "2026-02-01", (2, 0)), match(2, GROUP_DAY, "2026-03-01", (3, 2)), match(3, GROUP_DAY, "2026-02-15", (1, 1))],
+            [2, 3],
+            [],
+            id="no coming match serves the two latest results",
+        ),
+        pytest.param(
+            worker_database("fl_saisons_landing_view_coming_test"),
+            [match(1, GROUP_DAY, "2026-04-01", None), match(2, GROUP_DAY, "2026-03-20", None), match(3, GROUP_DAY, "2026-03-10", None)],
+            [],
+            [3, 2],
+            id="no past match serves the two next matches",
+        ),
+        pytest.param(
+            worker_database("fl_saisons_landing_view_both_test"),
+            [
+                match(1, GROUP_DAY, "2026-02-15", (1, 1)),
+                match(2, GROUP_DAY, "2026-03-01", (3, 2)),
+                match(3, GROUP_DAY, "2026-03-10", None),
+                match(4, GROUP_DAY, "2026-03-20", None),
+            ],
+            [2],
+            [3],
+            id="both sides serve their nearest match each",
+        ),
+    ],
+)
+def test_a_running_season_serves_two_matches_the_nearest_first(
+    mongo_replica_set_url: str, database_name: str, spiele: list[dict[str, Any]], recent: list[int], upcoming: list[int]
+):
+    seeded(
+        mongo_replica_set_url,
+        database_name,
+        {
+            Collection.SAISON_TEAMS: [
+                documents.saison_team_document(SAISON, team_id, name, name[:3].upper()) for team_id, name in ((ALPHA, "Alpha"), (BETA, "Beta"))
+            ],
+            Collection.SPIELTAGE: [spieltag(GROUP_DAY, 1)],
+            Collection.SPIELE: spiele,
+        },
+    )
+
+    saison = landing(mongo_replica_set_url, database_name).saison
+
+    assert type(saison) is FLLandingRunning
+    assert ([spiel.spiel_nr for spiel in saison.recent], [spiel.spiel_nr for spiel in saison.upcoming]) == (recent, upcoming)
 
 
 # The numbers the draw gives a bracket with semi-finals: theirs, then the match for third place, then the final.

@@ -3,21 +3,27 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import delete_team, get_team_saison_admin, get_teams_admin, patch_team_saison, post_team_entry
 from app.api.teams.schemas import FLPatchTeamSaisonPayload, FLPostTeamEntryPayload, FLTeamListState, FLTeamsAdminFilterParams
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
+from app.core.transactions import transaction_session
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     ADDRESS,
+    kontakte_document,
     kontaktperson_document,
     rules_document,
     saison_document,
     saison_team_document,
+    schiedsrichter_document,
     spiel_document,
+    spielbestaetigung_document,
     team_document,
 )
 from tests.worker import worker_database
@@ -112,18 +118,25 @@ async def save(database: AsyncDatabase, *, version: int = 0, gruppe: str = "A", 
     )
 
 
-async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER) -> Any:
-    return await get_team_saison_admin(
-        team_id=team_id,
-        saison_id=SAISON_ID,
-        teams_collection=database[Collection.TEAMS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        invitations_collection=database[Collection.INVITATIONS],
-        outbox_collection=database[Collection.OUTBOX],
-        today=TODAY,
-    )
+async def editor(database: AsyncDatabase, team_id: ObjectId = ADLER, *, referees: Any = None) -> Any:
+    """The read as its route runs it, in one snapshot session; `referees` a stand-in for the referee records where given."""
+
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_team_saison_admin(
+            team_id=team_id,
+            saison_id=SAISON_ID,
+            teams_collection=database[Collection.TEAMS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            spiele_collection=database[Collection.SPIELE],
+            invitations_collection=database[Collection.INVITATIONS],
+            outbox_collection=database[Collection.OUTBOX],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER] if referees is None else referees,
+            session=session,
+            today=TODAY,
+            now=clock.german_instant(TODAY, "12:00:00"),
+        )
 
 
 async def listing(database: AsyncDatabase, *, state: FLTeamListState | None = None, gruppe: str | None = None) -> Any:
@@ -452,14 +465,6 @@ class TestTheEditorRead:
         assert view.retire_blocked_by == SAISON_ID
         assert view.saison.begun is True
 
-    def test_a_club_of_past_seasons_alone_blocks_no_retirement(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "past"}})
-
-            return (await editor(database)).retire_blocked_by
-
-        assert on_a_league(mongo_replica_set_url, body) is None
-
     def test_the_link_box_says_what_the_press_would_do(self, mongo_replica_set_url: str):
         """The press's own plan: a box saying otherwise offers a send that mails nobody."""
 
@@ -471,3 +476,124 @@ class TestTheEditorRead:
         assert link.invitation is None
         assert link.skipped == "no_kontakt_block"
         assert link.paused is False
+
+
+REFEREE = ObjectId("6890a1b2c3d4e5f6072800c1")
+
+
+def against(spiel_nr: int, opponent: ObjectId, date: str) -> dict[str, Any]:
+    """A fixture of Adler's, `REFEREE` booked onto it."""
+
+    sides = [{"team_id": ADLER, "tore": None}, {"team_id": opponent, "tore": None}]
+    team1, team2 = sides if spiel_nr % 2 else sides[::-1]
+
+    return spiel_document(
+        spiel_id=ObjectId(f"6890a1b2c3d4e5f6072800d{spiel_nr}"),
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=SPIELTAG_OID,
+        team1=team1,
+        team2=team2,
+        date=date,
+        time="18:00:00",
+        schiedsrichter={"schiedsrichter_id": REFEREE, "payment": 20},
+    )
+
+
+AGAINST_BIEBER = against(1, BIEBER, "2026-04-20")
+AGAINST_EULE = against(2, EULE, "2026-04-27")
+
+
+async def seat_bieber_and_ask_the_referee(database: AsyncDatabase) -> None:
+    """Bieber's seat confirmed, Eule's not; the referee asked about the first fixture and booked unasked onto the second."""
+
+    seated = kontakte_document(trainer=kontaktperson_document("Theo", confirmed_at="2026-04-01"))
+    await database[Collection.SAISON_TEAMS].update_one({"team_id": BIEBER}, {"$set": {"kontakte": seated}})
+    await database[Collection.SCHIEDSRICHTER].insert_one(
+        schiedsrichter_document(REFEREE, email="otto@example.com", name="Otto Gruber", default_payment=20, einwilligung=None)
+    )
+    await database[Collection.SPIELBESTAETIGUNGEN].insert_one(
+        spielbestaetigung_document(AGAINST_BIEBER, party={"kind": "schiedsrichter", "schiedsrichter_id": REFEREE}, asked_at="2026-04-10")
+    )
+
+
+class RefereesErasedAtTheirRead:
+    """The referee records, a rival committing once just before their read runs: after the read's other reads."""
+
+    def __init__(self, collection: Any, rival: Callable[[], Awaitable[Any]]) -> None:
+        self._collection = collection
+        self._rival: Callable[[], Awaitable[Any]] | None = rival
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    def find(self, *args: Any, **kwargs: Any) -> Any:
+        return _RivalFirstCursor(self._collection.find(*args, **kwargs), self)
+
+    async def run_the_rival(self) -> None:
+        if self._rival is not None:
+            rival, self._rival = self._rival, None
+            await rival()
+
+
+class _RivalFirstCursor:
+    def __init__(self, cursor: Any, referees: RefereesErasedAtTheirRead) -> None:
+        self._cursor = cursor
+        self._referees = referees
+
+    def sort(self, *args: Any, **kwargs: Any) -> _RivalFirstCursor:
+        self._cursor = self._cursor.sort(*args, **kwargs)
+        return self
+
+    def limit(self, *args: Any, **kwargs: Any) -> _RivalFirstCursor:
+        self._cursor = self._cursor.limit(*args, **kwargs)
+        return self
+
+    async def to_list(self, *args: Any, **kwargs: Any) -> Any:
+        await self._referees.run_the_rival()
+        return await self._cursor.to_list(*args, **kwargs)
+
+
+class TestTheExitDialogsRecipients:
+    def test_the_read_names_whom_an_exit_would_mail_by_the_day_it_reaches_them_from(self, mongo_replica_set_url: str):
+        """Named by fixed words, the dialog would promise mails to an opponent no seat reaches and a referee never asked."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await seat_bieber_and_ask_the_referee(database)
+
+            return (await editor(database)).austritt_recipients
+
+        served = on_a_league(mongo_replica_set_url, body, saison_status="active", spiele=[AGAINST_BIEBER, AGAINST_EULE])
+
+        assert [(entry.date, sorted(recipient.name for recipient in entry.recipients)) for entry in served] == [
+            ("2026-04-20", ["Bieber", "Otto Gruber"])
+        ]
+
+    def test_a_referee_erased_between_the_rows_and_the_names_is_named_as_the_rows_stood(self, mongo_replica_set_url: str):
+        """The erasure deletes the record and its rows in one write, landing here between the two reads.
+
+        Read at two moments, the rows reach a referee no name is left for, and the whole editor fails until a reload.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            await seat_bieber_and_ask_the_referee(database)
+
+            async def delete_both(session: AsyncClientSession) -> None:
+                await database[Collection.SPIELBESTAETIGUNGEN].delete_many({"party.schiedsrichter_id": REFEREE}, session=session)
+                await database[Collection.SCHIEDSRICHTER].delete_one({"_id": REFEREE}, session=session)
+
+            async def erase_the_referee() -> None:
+                async with transaction_session(database.client) as session:
+                    await session.with_transaction(delete_both)
+
+            served = await editor(database, referees=RefereesErasedAtTheirRead(database[Collection.SCHIEDSRICHTER], erase_the_referee))
+
+            return served.austritt_recipients, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE})
+
+        served, left = on_a_league(mongo_replica_set_url, body, saison_status="active", spiele=[AGAINST_BIEBER, AGAINST_EULE])
+
+        # The erasure committed before the names were read, and the read still names the referee its rows reached.
+        assert left == 0
+        assert [(entry.date, sorted(recipient.name for recipient in entry.recipients)) for entry in served] == [
+            ("2026-04-20", ["Bieber", "Otto Gruber"])
+        ]

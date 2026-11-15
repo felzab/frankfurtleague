@@ -1,6 +1,6 @@
-import { AccountBox, AccountBoxPlaceholder } from "@/kit/AccountBox";
+import { AccountBox } from "@/kit/AccountBox";
 import { AccountPage } from "@/kit/AccountPage";
-import { ThemeChoice, ThemeChoicePlaceholder } from "@/kit/FrameNav";
+import { ThemeChoice } from "@/kit/FrameNav";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -28,14 +28,7 @@ async function AppearanceContent() {
 /** Darstellung: the theme, the same three glyphs as the account menu's foot, acting at once. */
 export default function AccountAppearancePage() {
   return (
-    <AccountPage
-      route="accountAppearance"
-      wait={
-        <AccountBoxPlaceholder
-          description={COPY.account.appearance.description}
-          control={<ThemeChoicePlaceholder />}
-        />
-      }>
+    <AccountPage route="accountAppearance">
       <AppearanceContent />
     </AccountPage>
   );

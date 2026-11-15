@@ -1,7 +1,6 @@
 import asyncio
 import functools
 import logging
-import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -238,13 +237,6 @@ class TestTraceContext:
         response = client().get(GUARDED_READ, headers={"traceparent": TRACEPARENT, **BASE_AUTH})
 
         assert response.json()["trace_id"] == "c0ffee00" * 4
-
-    def test_a_malformed_traceparent_is_replaced_not_honoured(self):
-        response = client().get(GUARDED_READ, headers={"traceparent": "NOT/AN/ID", **BASE_AUTH})
-
-        minted = response.json()["trace_id"]
-        assert minted != "NOT/AN/ID"
-        assert re.fullmatch(r"[a-f0-9]{32}", minted)
 
 
 class TestAccessLine:

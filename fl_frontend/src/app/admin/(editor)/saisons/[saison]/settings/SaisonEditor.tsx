@@ -22,7 +22,7 @@ import { formatDate, formatNumber } from "@/core/format";
 import { FLSpielerStufe } from "@/core/generated/client/types";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
 import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonRequired } from "@/features/saisons/required";
@@ -45,16 +45,8 @@ const TIEBREAK: readonly Option[] = [
 
 const STUFEN = Object.values(FLSpielerStufe).map((stufe) => ({ id: stufe, label: WORDS.stufe[stufe] }));
 
-/** One club of the season as the swap and the replacement list it, graded as each write judges it. */
-export type SaisonClub = {
-  id: string;
-  name: string;
-  gruppe: string;
-  /** A group match of it has taken place, which closes every swap pair it stands in. */
-  groupTakenPlace: boolean;
-  /** Any match of it has taken place, which closes its replacement. */
-  takenPlace: boolean;
-};
+/** One club of the season as the swap and the replacement list it. */
+export type SaisonClub = { id: string; name: string; gruppe: string };
 
 /** What the season holds beyond its fields: where it stands, its draw, and what the editor's acts read. */
 export type SaisonFacts = {
@@ -92,13 +84,10 @@ export type SaisonActs = {
 /** A danger row's closing, where its read names a reason. */
 const lockedBy = (reason: Copy | undefined) => (reason === undefined ? {} : { locked: reason });
 
-/** A club as a picker lists it, „Lessing · Gruppe A“, closed with its reason where `closed` says so. */
-const optionOf = (club: SaisonClub, closed: boolean): Option =>
-  closed
-    ? { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` }, isDisabled: true, note: WORDS.tookPlace }
-    : { id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } };
+/** A club as a picker lists it, „Lessing · Gruppe A“. */
+const optionOf = (club: SaisonClub): Option => ({ id: club.id, label: { record: `${club.name} · ${COPY.shared.season.gruppe(club.gruppe)}` } });
 
-/** The group swap: two clubs of different groups, a pair closed where a group match of either has taken place. */
+/** The group swap: two clubs of different groups. */
 function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly SaisonClub[]; swap: SaisonActs["swap"]; locked: boolean }) {
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
@@ -117,8 +106,8 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       ]}>
       <ComboBox
         label={WORDS.swapFirst}
-        options={clubs.map((club) => optionOf(club, club.groupTakenPlace))}
-        isDisabled={locked}
+        options={clubs.map(optionOf)}
+        isLocked={locked}
         value={first}
         onChange={(id) => {
           setFirst(id);
@@ -127,8 +116,8 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
       />
       <ComboBox
         label={WORDS.swapSecond}
-        options={partners.map((club) => optionOf(club, club.groupTakenPlace))}
-        isDisabled={locked}
+        options={partners.map(optionOf)}
+        isLocked={locked}
         value={second}
         onChange={setSecond}
       />
@@ -136,7 +125,7 @@ function Swap({ saison, clubs, swap, locked }: { saison: string; clubs: readonly
   );
 }
 
-/** The replacement: a club leaving the season, closed once a match of it has taken place, and the club taking over. */
+/** The replacement: a club leaving the season, and the club taking over. */
 function Replacement({
   saison,
   clubs,
@@ -173,15 +162,15 @@ function Replacement({
       ]}>
       <ComboBox
         label={WORDS.outgoing}
-        options={clubs.map((club) => optionOf(club, club.takenPlace))}
-        isDisabled={locked}
+        options={clubs.map(optionOf)}
+        isLocked={locked}
         value={out}
         onChange={setOut}
       />
       <ComboBox
         label={WORDS.incoming}
         options={incoming.map((club) => ({ id: club.id, label: { record: club.name } }))}
-        isDisabled={locked}
+        isLocked={locked}
         value={into}
         onChange={setInto}
         consequence={consequence}
@@ -252,18 +241,22 @@ export function SaisonEditor({
   const touch = { holder };
   const of = { saison_id: saison, holder };
 
+  // Each field locks off the write's own refusal: the start fixes the scoring, the qualifiers, the swap and the
+  // replacement; a draw the three counts it was drawn from; a stored result the start date, which no match holds before
+  // the start, so the start's reason covers it.
+  const locks: LockReason[] = [...(facts.begun ? (["sinceStart"] as const) : []), ...(drawn ? (["byDraw"] as const) : [])];
+
   const sections: [EditorPart, ...EditorPart[]] = [
     {
       id: "period",
       title: WORDS.period,
-      ...(facts.takenPlace ? { note: WORDS.startFixed } : {}),
       fields: (
         <FieldRows>
           <DateField
             label={WORDS.start}
             name="start"
             isRequired={required.start}
-            isDisabled={facts.takenPlace}
+            isLocked={facts.takenPlace}
             value={draft.start}
             onChange={(day) => set("start", day)}
           />
@@ -284,7 +277,6 @@ export function SaisonEditor({
       title: WORDS.scoring,
       help: WORDS.scoringHelp,
       // The start fixes the points and the tiebreak; a no-show's goals stay open all season.
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <>
           <FieldRows label={WORDS.punkte}>
@@ -294,7 +286,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.winPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.winPoints}
               onChange={(value) => set("winPoints", value)}
             />
@@ -304,7 +296,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.drawPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.drawPoints}
               onChange={(value) => set("drawPoints", value)}
             />
@@ -314,7 +306,7 @@ export function SaisonEditor({
               holds={2}
               kind="digits"
               isRequired={required.lossPoints}
-              isDisabled={facts.begun}
+              isLocked={facts.begun}
               value={draft.lossPoints}
               onChange={(value) => set("lossPoints", value)}
             />
@@ -324,7 +316,7 @@ export function SaisonEditor({
             name="tiebreak"
             options={TIEBREAK}
             isRequired={required.tiebreak}
-            isDisabled={facts.begun}
+            isLocked={facts.begun}
             value={draft.tiebreak}
             onChange={(id) => {
               if (id !== null) set("tiebreak", id);
@@ -357,44 +349,42 @@ export function SaisonEditor({
     {
       id: "gruppen",
       title: WORDS.gruppenAndKoRunde,
-      // A standing draw fixes the counts it was drawn from, and the start the qualifiers.
-      ...(drawn ? { note: WORDS.lockedByDraw } : facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
-        <>
-          <FieldRows>
-            <TextField
-              label={WORDS.gruppen}
-              name="gruppen"
-              holds={2}
-              kind="digits"
-              isRequired={required.gruppen}
-              isDisabled={drawn}
-              value={draft.gruppen}
-              onChange={(value) => set("gruppen", value)}
-            />
-            <TextField
-              label={WORDS.teamsPerGruppe}
-              name="teamsPerGruppe"
-              holds={2}
-              kind="digits"
-              isRequired={required.teamsPerGruppe}
-              isDisabled={drawn}
-              value={draft.teamsPerGruppe}
-              onChange={(value) => set("teamsPerGruppe", value)}
-            />
-          </FieldRows>
+        <FieldRows>
+          <TextField
+            label={WORDS.gruppen}
+            name="gruppen"
+            holds={2}
+            kind="digits"
+            isRequired={required.gruppen}
+            isLocked={drawn}
+            value={draft.gruppen}
+            onChange={(value) => set("gruppen", value)}
+          />
+          <TextField
+            label={WORDS.teamsPerGruppe}
+            name="teamsPerGruppe"
+            holds={2}
+            kind="digits"
+            isRequired={required.teamsPerGruppe}
+            isLocked={drawn}
+            value={draft.teamsPerGruppe}
+            onChange={(value) => set("teamsPerGruppe", value)}
+          />
+          {/* A count like the two above, offered as a choice because only the counts the draw admits are valid. */}
           <Select
             label={WORDS.qualifiers}
             name="qualifiers"
+            holds={2}
             options={qualifiers}
             isRequired={required.qualifiers}
-            isDisabled={facts.begun || drawn}
+            isLocked={facts.begun || drawn}
             value={draft.qualifiers}
             onChange={(id) => {
               if (id !== null) set("qualifiers", id);
             }}
           />
-        </>
+        </FieldRows>
       ),
     },
     {
@@ -508,7 +498,6 @@ export function SaisonEditor({
     {
       id: "gruppentausch",
       title: WORDS.gruppentausch,
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <Swap
           saison={saison}
@@ -521,7 +510,6 @@ export function SaisonEditor({
     {
       id: "replacement",
       title: WORDS.replacement,
-      ...(facts.begun ? { note: WORDS.lockedSinceStart } : {}),
       fields: (
         <Replacement
           saison={saison}
@@ -643,10 +631,9 @@ export function SaisonEditor({
     <EditorPage
       title={title}
       chip={chip}
-      // Which season the site shows is a fact of the season, never a state word.
-      {...(facts.isCurrent ? { lead: WORDS.isCurrent } : {})}
       editor={editor}
       closed={closed}
+      locks={locks}
       sections={sections}
       // Titled by what its rows are about: the draw's two acts, the switch onto the season, or both.
       danger={{ title: WORDS.dangerBox(drawn, !facts.isCurrent), acts: danger }}

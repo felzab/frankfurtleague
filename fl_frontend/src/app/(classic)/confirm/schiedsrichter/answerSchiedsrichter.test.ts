@@ -1,15 +1,23 @@
-import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { describe, expect, it } from "vitest";
 
 import { SCHIEDSRICHTER_TEXT_VERSIONS } from "@/core/consentWordings";
 
 import { END } from "./ends";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+import type { FLSchiedsrichterConfirmationResponse } from "@/core/generated/client/types";
 
-const { calls } = doubleApiAnswers();
+// The two writes an answer makes, each answered as the backend does; any other request goes unanswered and fails its
+// case.
+const backend = serveBackend(({ method, path }) => {
+  if (method !== "POST") return undefined;
+  if (path === "/schiedsrichter/confirmation") {
+    return { confirmed_at: "2026-11-13", media: false, scope: "internal" } satisfies FLSchiedsrichterConfirmationResponse;
+  }
+  return path === "/schiedsrichter/confirmation/decline" ? new Response(null, { status: 204 }) : undefined;
+});
+doubleNextRequest();
 
 const { answerSchiedsrichter } = await import("./answerSchiedsrichter");
 
@@ -31,9 +39,9 @@ describe("the referee's answer", () => {
     expect(await answerSchiedsrichter(confirmation("on"))).toStrictEqual({ ok: true, value: END.confirmed });
     expect(await answerSchiedsrichter(confirmation())).toStrictEqual({ ok: true, value: END.confirmed });
 
-    expect(requestsOf(calls).map(({ endpoint, body }) => ({ endpoint, body }))).toStrictEqual(
+    expect(backend.sent.map(({ path, body }) => ({ path, body }))).toStrictEqual(
       [true, false].map((media) => ({
-        endpoint: "/schiedsrichter/confirmation",
+        path: "/schiedsrichter/confirmation",
         body: { token: TOKEN, birth_date: "2000-01-01", scope: "internal", media, text_versions: SCHIEDSRICHTER_TEXT_VERSIONS },
       })),
     );
@@ -44,6 +52,8 @@ describe("the referee's answer", () => {
     const objection = posted({ act: "secondary", token: TOKEN, birth_date: "2000-01-01", scope: "internal", media: "on" });
 
     expect(await answerSchiedsrichter(objection)).toStrictEqual({ ok: true, value: END.objected });
-    expect(requestsOf(calls)).toStrictEqual([{ endpoint: "/schiedsrichter/confirmation/decline", method: "POST", body: { token: TOKEN } }]);
+    expect(backend.sent.map(({ method, path, body }) => ({ method, path, body }))).toStrictEqual([
+      { method: "POST", path: "/schiedsrichter/confirmation/decline", body: { token: TOKEN } },
+    ]);
   });
 });

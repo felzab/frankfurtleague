@@ -5,12 +5,15 @@ and each of those slices imports this one's schemas.
 """
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from pydantic import Field
 
-from app.api.aufstellungen.schemas import FLAufstellungSummary
+from app.api.aufstellungen.schemas import FLAufstellungMarks, FLAufstellungSummary
+from app.api.aufstellungen.services import aufstellung_marks, aufstellung_stands
+from app.api.saisons.services import has_started
 from app.api.schiedsrichter.services import DECLINED_AT_PATH, is_declined
 from app.api.spielberichte.crud import pull_bericht_context, pull_named
 from app.api.spielberichte.schemas import (
@@ -22,8 +25,9 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVorschlag,
 )
 from app.api.spielberichte.services import SIDES, bericht_state_of
-from app.api.spielbestaetigungen.crud import pull_admin_rows
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung
+from app.api.spielbestaetigungen.crud import JUDGED_VEREIN_FIELDS, pull_admin_rows
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigung, FLSpielbestaetigungState
+from app.api.spielbestaetigungen.services import AnsetzungState, austritte_of, due_by_of, lapsed_on, reason_of, state_of
 from app.api.spiele.crud import pull_saison_membership
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpiel, FLSpielJoinedAdmin, FLSpielListAdapter, FLSpielTeamFieldPayload
 from app.api.spiele.services import (
@@ -33,12 +37,13 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
+from app.core import clock
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLSaisonStatus, FLSpielSide
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -104,6 +109,31 @@ class FLSpielEditorAufstellungen(BaseReadModel):
     team2: FLAufstellungSummary | None
 
 
+class FLSpielEditorAufstellungMarks(BaseReadModel):
+    """Each side's line-up marks, off the clock alone, as the club's own pages are served them.
+
+    Null for an open side and for a fixture with no day or hour. A fixture carrying an event owes no line-up either,
+    which a page reads off its `sonderereignis`, as the club's own pages do.
+    """
+
+    team1: FLAufstellungMarks | None
+    team2: FLAufstellungMarks | None
+
+
+class FLSpielbestaetigungEditorRow(FLSpielbestaetigung):
+    """A confirmation row as the match editor reads it, and the state it stands in, a closed row's included.
+
+    Never `vorschlag`, which only a club's own page tells: an open row reads `valid` while its party may still answer.
+    """
+
+    state: FLSpielbestaetigungState
+    # The day the party's answer is due by: a club's `deadline`, and a referee's slot, whom no deadline binds.
+    due_by: CustomDateString
+    # The day its answer lapsed, `due_by`; null on an answered row, on one a call-off or a move ended, and on one an exit
+    # or a decision ended before its answer was due (`lapsed_on`).
+    lapsed_on: CustomDateString | None
+
+
 class FLSpieleAdminSingleResponse(BaseAPIResponse):
     """One fixture for the match editor, money and `version` included, and all its sections offer and show beside it."""
 
@@ -111,6 +141,9 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     # On the response rather than on the fixture: the editor alone asks it, to open a finished season's match read-only,
     # which the save refuses, and a fixture carries no season-scoped state.
     saison_status: FLSaisonStatus
+    # `has_started` on the season's start, as the save judges it: before it, the save takes no result
+    # (`ergebnis_before_saison_start`), so the editor locks the result's fields.
+    saison_begun: bool
     # Every live venue and referee, and the fixture's own where it has retired, so a booking stays named.
     spielorte: list[FLSpielEditorSpielort]
     schiedsrichter: list[FLSpielEditorSchiedsrichter]
@@ -119,8 +152,23 @@ class FLSpieleAdminSingleResponse(BaseAPIResponse):
     # Null where the fixture holds no report.
     spielbericht: FLSpielEditorBericht | None
     # The fixture's confirmation rows, newest first, as an administrator reads them.
-    spielbestaetigungen: list[FLSpielbestaetigung]
+    spielbestaetigungen: list[FLSpielbestaetigungEditorRow]
     aufstellungen: FLSpielEditorAufstellungen
+    aufstellung_marks: FLSpielEditorAufstellungMarks
+
+
+async def _vereine_of(rows: Sequence[Mapping[str, Any]], *, saison_id: str, saison_teams_collection: ReadCollection) -> list[Mapping[str, Any]]:
+    """The season rows of every club the confirmation rows' Ansetzungen name, as `state_of` judges a row against them."""
+
+    clubs = {club for row in rows for club in (row["ansetzung"]["team1_id"], row["ansetzung"]["team2_id"])}
+    if not clubs:
+        return []
+
+    return await pull_many_from_db(
+        collection=saison_teams_collection,
+        db_filter={"saison_id": saison_id, "team_id": {"$in": list(clubs)}},
+        projection=JUDGED_VEREIN_FIELDS,
+    )
 
 
 async def _none() -> None:
@@ -225,8 +273,10 @@ async def _spielbericht_of(
     )
 
 
-async def _aufstellungen_of(*, spiel: FLSpielJoinedAdmin, aufstellungen_collection: ReadCollection) -> FLSpielEditorAufstellungen:
-    """Each side's stored line-up, counted: picked by the club the fixture fields there now, never by a side.
+async def _aufstellungen_of(
+    *, spiel: FLSpielJoinedAdmin, aufstellungen_collection: ReadCollection, now: datetime
+) -> tuple[FLSpielEditorAufstellungen, FLSpielEditorAufstellungMarks]:
+    """Each side's stored line-up, counted, and its marks at `now`: picked by the club the fixture fields there now, never by a side.
 
     A club a knockout correction replaced keeps its line-up, which no side then names.
     """
@@ -237,13 +287,25 @@ async def _aufstellungen_of(*, spiel: FLSpielJoinedAdmin, aufstellungen_collecti
         db_filter={"spiel_id": spiel.id, "team_id": {"$in": list(fielded.values())}},
         projection=["team_id", "spieler.starts"],
     )
-    entries_by_club: dict[Any, list[Mapping[str, Any]]] = {row["team_id"]: row["spieler"] for row in stored_raw}
+    stored_by_club: dict[Any, Mapping[str, Any]] = {row["team_id"]: row for row in stored_raw}
 
     def summary_of(side: FLSpielSide) -> FLAufstellungSummary | None:
-        entries = None if side not in fielded else entries_by_club.get(fielded[side])
-        return None if entries is None else FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
+        saved = None if side not in fielded else stored_by_club.get(fielded[side])
+        if saved is None:
+            return None
+        entries = saved["spieler"]
+        return FLAufstellungSummary(count=len(entries), starters=sum(entry["starts"] for entry in entries))
 
-    return FLSpielEditorAufstellungen(team1=summary_of("team1"), team2=summary_of("team2"))
+    def marks_of(side: FLSpielSide) -> FLAufstellungMarks | None:
+        if side not in fielded:
+            return None
+        stored = aufstellung_stands(stored_by_club.get(fielded[side]))
+        return aufstellung_marks(date=spiel.date, time=spiel.time, stored=stored, now=now)
+
+    return (
+        FLSpielEditorAufstellungen(team1=summary_of("team1"), team2=summary_of("team2")),
+        FLSpielEditorAufstellungMarks(team1=marks_of("team1"), team2=marks_of("team2")),
+    )
 
 
 async def read_spiel_editor(
@@ -259,6 +321,7 @@ async def read_spiel_editor(
     spielbestaetigungen_collection: ReadCollection,
     saison_teams_collection: ReadCollection,
     aufstellungen_collection: ReadCollection,
+    now: datetime,
 ) -> FLSpieleAdminSingleResponse:
     """Everything the match editor shows, the fixture first: `document_not_found` for an id no fixture holds."""
 
@@ -274,10 +337,10 @@ async def read_spiel_editor(
 
     # The rest named by the fixture alone, so read beside one another, in two groups because `asyncio.gather`'s typing
     # stops at six.
-    (saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations), aufstellungen = await asyncio.gather(
+    (saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations), (aufstellungen, marks) = await asyncio.gather(
         asyncio.gather(
             # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
-            pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status"]),
+            pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status", "start_date"]),
             pull_many_from_db(
                 collection=spielorte_collection,
                 db_filter=_offered(booked_spielort),
@@ -311,12 +374,27 @@ async def read_spiel_editor(
                 db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
             ),
         ),
-        _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection),
+        _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection, now=now),
     )
+    vereine = await _vereine_of(confirmations, saison_id=spiel.saison_id, saison_teams_collection=saison_teams_collection)
+    ansetzung_state = AnsetzungState(spiel=spiele_raw[0], vereine=vereine)
+    austritte = austritte_of(ansetzung_state)
+
+    def editor_row(row: Mapping[str, Any]) -> FLSpielbestaetigungEditorRow:
+        reason = reason_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now)
+        return FLSpielbestaetigungEditorRow.model_validate(
+            {
+                **row,
+                "state": state_of(spielbestaetigung_raw=row, ansetzung_state=ansetzung_state, now=now, vorschlag_open=None),
+                "due_by": due_by_of(row),
+                "lapsed_on": lapsed_on(spielbestaetigung_raw=row, reason=reason, spiel=ansetzung_state.spiel, austritte=austritte, now=now),
+            }
+        )
 
     return FLSpieleAdminSingleResponse(
         spiel=spiel,
         saison_status=saison_raw["status"],
+        saison_begun=has_started(start_date=str(saison_raw["start_date"]), today=clock.german_day(now)),
         spielorte=[FLSpielEditorSpielort.model_validate(row) for row in spielorte_raw],
         schiedsrichter=[
             FLSpielEditorSchiedsrichter.model_validate(
@@ -326,6 +404,7 @@ async def read_spiel_editor(
         ],
         teams=teams,
         spielbericht=spielbericht,
-        spielbestaetigungen=[FLSpielbestaetigung.model_validate(row) for row in confirmations],
+        spielbestaetigungen=[editor_row(row) for row in confirmations],
         aufstellungen=aufstellungen,
+        aufstellung_marks=marks,
     )

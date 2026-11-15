@@ -132,22 +132,12 @@ class TestAClubRenameReachesTheJunctionRowsOfItsOpenSeasons:
         row = junctions[(TEAM_OID, SAISON_ID)]
 
         assert (row["name"], row["shorthand"]) == (RENAMED_TEAM, RENAMED_SHORTHAND)
-
-    def test_a_closed_seasons_row_is_left_alone(self, mongo_replica_set_url: str):
-        """A `past` season is the record of what happened, so its fixtures keep the name it was played under."""
-
-        junctions = after_renaming(mongo_replica_set_url)
-        row = junctions[(TEAM_OID, PAST_SAISON_ID)]
-
-        assert (row["name"], row["shorthand"]) == TEAM_NAMES[TEAM_OID]
-
-    def test_another_clubs_row_in_the_same_season_is_untouched(self, mongo_replica_set_url: str):
-        """Without this the case above passes for a pass that ignores `team_id` and rewrites the season."""
-
-        junctions = after_renaming(mongo_replica_set_url)
-        row = junctions[(OTHER_TEAM_OID, SAISON_ID)]
-
-        assert (row["name"], row["shorthand"]) == TEAM_NAMES[OTHER_TEAM_OID]
+        # A `past` season is the record of what happened, so its fixtures keep the name it was played under.
+        closed = junctions[(TEAM_OID, PAST_SAISON_ID)]
+        assert (closed["name"], closed["shorthand"]) == TEAM_NAMES[TEAM_OID]
+        # Without this the rewrite above passes for a pass that ignores `team_id` and rewrites the season.
+        other = junctions[(OTHER_TEAM_OID, SAISON_ID)]
+        assert (other["name"], other["shorthand"]) == TEAM_NAMES[OTHER_TEAM_OID]
 
     def test_the_group_survives_the_rewrite(self, mongo_replica_set_url: str):
         """`gruppe` and `austritt` are the row's own state: a `$set` reaching them would move a club between groups on a rename."""

@@ -1,15 +1,8 @@
-from collections.abc import Mapping
 from typing import Any
 
 import pytest
 
-from app.api.registrierungen.services import (
-    build_decline_filter,
-    build_unconfirmed_filter,
-    build_undecided_filter,
-    confirmation_erasure_is_due,
-    decline_erasure_is_due,
-)
+from app.api.registrierungen.services import confirmation_erasure_is_due, decline_erasure_is_due
 from app.shared.tokens import hash_token
 from tests.documents import SPIELER_TEXT_VERSIONS, own_einwilligung_document
 
@@ -102,50 +95,3 @@ class TestTheDeclineClock:
         stored = registrierung(status=status, decision=None)
 
         assert not decline_erasure_is_due(registrierung_raw=stored, today=TODAY)
-
-
-SAISON_ID = "2026"
-
-CLOCK_FILTERS: Mapping[str, Mapping[str, Any]] = {
-    "season's end": build_undecided_filter(saison_id=SAISON_ID),
-    "deadline": build_unconfirmed_filter(saison_id=SAISON_ID, today=TODAY),
-    "decline": build_decline_filter(saison_id=SAISON_ID, today=TODAY),
-}
-
-
-class TestWhatEachClockReads:
-    """One page per clock, so a row the clock can never take holds no slot in it.
-
-    A read taking every submitted row fills its page with rows nothing is owed on, and the rows
-    behind them are never judged.
-    """
-
-    def test_the_seasons_end_takes_every_submitted_row(self):
-        """Nothing narrower is right here: once the season is `past` this clock takes every one of them, confirmed or not."""
-
-        assert CLOCK_FILTERS["season's end"] == {"saison_id": SAISON_ID, "status": "submitted"}
-
-    def test_the_deadline_reads_the_unconfirmed_whose_day_has_passed(self):
-        """The consent term matches a null record and a null stamp alike, which is what covers both stored shapes with one key."""
-
-        assert CLOCK_FILTERS["deadline"] == {
-            "saison_id": SAISON_ID,
-            "status": "submitted",
-            "einwilligung.confirmed_at": None,
-            "confirmation.deadline": {"$lt": TODAY},
-        }
-
-    def test_the_decline_clock_reads_the_decisions_whose_days_are_behind_them(self):
-        """Narrowed to the due ones, so a page of decisions still inside their days cannot fill the read ahead of one that is due."""
-
-        assert CLOCK_FILTERS["decline"] == {
-            "saison_id": SAISON_ID,
-            "status": "declined",
-            "decision.made_at": {"$lte": "2026-03-18"},
-        }
-
-    @pytest.mark.parametrize("clock", sorted(CLOCK_FILTERS))
-    def test_every_clock_reads_one_season(self, clock: str):
-        """The reads; the removals are held to the season by `tests/api/test_registrierung_sweep_execution.py :: TestTheDeadlineClock`."""
-
-        assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID

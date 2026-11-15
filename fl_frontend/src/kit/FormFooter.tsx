@@ -81,14 +81,3 @@ export function FormFooter({
     </div>
   );
 }
-
-/** A footer while its form is read: its note's placeholder where it has one, and its acts' where they will stand. */
-export function FormFooterPlaceholder({ place = "row", note, children }: { place?: FooterPlace; note?: ReactNode; children: ReactNode }) {
-  const slots = formFooter({ place });
-  return (
-    <div className={slots.root()}>
-      {note !== undefined && <div className={slots.lead()}>{note}</div>}
-      <div className={slots.acts()}>{children}</div>
-    </div>
-  );
-}

@@ -18,6 +18,7 @@ import type {
   FLSpielSideStandings,
   FLSpielTeamFieldJoined,
 } from "@/core/generated/client/types";
+import type { ChipProps } from "@/kit/Chip";
 import type { Fact } from "@/kit/Facts";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { SpielHeadProps } from "@/kit/SpielHead";
@@ -109,6 +110,14 @@ export function sidesOf(spiel: Sides): { team1: SpielSide; team2: SpielSide } {
   return { team1: sideOf(spiel.team1, spiel.team1_quelle), team2: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
+/** A match's two sides by their names alone, as an event's words name a side. */
+type Names = { team1: Words; team2: Words };
+
+function namesOf(spiel: Sides): Names {
+  const { team1, team2 } = sidesOf(spiel);
+  return { team1: team1.name, team2: team2.name };
+}
+
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
 function resultOf(spiel: Played): Pick<SpielRowProps, "result"> {
   const tore = toreOf(spiel);
@@ -130,19 +139,36 @@ export function previewOf(spiel: Sides & Played & Pick<FLSpielJoined, "date" | "
 }
 
 /**
- * What befell a match, as every list shows it: the event's chip over a muted row. A no-show's chip leaves the club
- * to the struck side and says it to a screen reader, which hears no strike.
+ * What befell a match as its chip, the one every block drawing a match takes: the event's word in the danger hue. A
+ * no-show's chip leaves the club to the struck side and says it to a screen reader, which hears no strike.
  */
+function eventChip(sonderereignis: FLSonderereignis, names: Names): ChipProps {
+  const label = sonderereignisOf(sonderereignis, names);
+  return isNoShow(sonderereignis)
+    ? { tone: "danger", label: COPY.spielplan.sonderereignis.nichtantretenChip, spoken: label }
+    : { tone: "danger", label };
+}
+
+/** `eventChip` where a read serves each side's club by its name alone, „Noch offen“ for a side not yet settled. */
+export const eventChipOf = (sonderereignis: FLSonderereignis, team1: string | null, team2: string | null): ChipProps =>
+  eventChip(sonderereignis, { team1: sideName(team1), team2: sideName(team2) });
+
+/** What befell a match, as every list shows it: the event's chip over a muted row, the side that did not turn up struck. */
 function befellOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis">): Pick<SpielRowProps, "chip" | "muted" | "absent"> {
   const { sonderereignis } = spiel;
   if (sonderereignis === null) return {};
-  const label = sonderereignisOf(sonderereignis, spiel);
-  if (!isNoShow(sonderereignis)) return { chip: { tone: "danger", label }, muted: true };
-  return {
-    chip: { tone: "danger", label: COPY.spielplan.sonderereignis.nichtantretenChip, spoken: label },
-    muted: true,
-    absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2",
-  };
+  const chip = eventChip(sonderereignis, namesOf(spiel));
+  if (!isNoShow(sonderereignis)) return { chip, muted: true };
+  return { chip, muted: true, absent: sonderereignis === "nichtantreten_team1" ? "team1" : "team2" };
+}
+
+/**
+ * A match's state as the league's „Spiele“ list and its editor's head show it: what befell it, as every list shows it,
+ * else „Vorläufig“ while its clubs, asked about its date, have not both confirmed it.
+ */
+export function adminSpielChipOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ansetzung_confirmed">): ChipProps | undefined {
+  if (spiel.sonderereignis !== null) return eventChip(spiel.sonderereignis, namesOf(spiel));
+  return spiel.ansetzung_confirmed === false ? { tone: "warn", label: COPY.admin.spiel.provisional } : undefined;
 }
 
 /** A match's row with `when` as its date line, the whole of it a link to the match. */
@@ -195,10 +221,12 @@ function standingOf(spiel: FLSpielJoined, team: FLSpielTeamFieldJoined | null, s
 
 /**
  * The match's head, as its pop-up and its page show it: the matchday over the pairing and its score, each club's
- * name a link to its page and under it where it stands, a link to that place.
+ * name a link to its page and under it where it stands, a link to that place; the side that did not turn up struck, as
+ * every list's row strikes it, the box under the head naming the event.
  */
 export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSpielSideStandings): SpielHeadProps {
   const { team1, team2 } = sidesOf(spiel);
+  const { absent } = befellOf(spiel);
   const eyebrow = matchdayOf(spiel, matchday);
   const side = (shown: SpielSide, team: FLSpielTeamFieldJoined | null, standing: FLSpielSideStanding | null) => ({
     ...shown,
@@ -210,6 +238,7 @@ export function headOf(spiel: FLSpielJoined, matchday: Matchday, standings: FLSp
     team1: side(team1, spiel.team1, standings.team1),
     team2: side(team2, spiel.team2, standings.team2),
     ...resultOf(spiel),
+    ...(absent === undefined ? {} : { absent }),
   };
 }
 
@@ -247,13 +276,13 @@ export function popupFactsOf(spiel: FLSpielJoined): Fact[] {
 }
 
 /** What befell a match in a visitor's words: a no-show names the side that did not turn up. */
-function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy {
+function sonderereignisOf(sonderereignis: FLSonderereignis, names: Names): Copy {
   const words = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":
-      return words.nichtantreten(sidesOf(spiel).team1.name);
+      return words.nichtantreten(names.team1);
     case "nichtantreten_team2":
-      return words.nichtantreten(sidesOf(spiel).team2.name);
+      return words.nichtantreten(names.team2);
     default:
       return words[sonderereignis];
   }
@@ -266,7 +295,7 @@ function sonderereignisOf(sonderereignis: FLSonderereignis, spiel: Sides): Copy 
 export function eventOf(spiel: Sides & Pick<FLSpielJoined, "sonderereignis" | "ergebnis">): { title: Copy; text: Copy } | null {
   const sonderereignis = spiel.sonderereignis;
   if (sonderereignis === null) return null;
-  const title = sonderereignisOf(sonderereignis, spiel);
+  const title = sonderereignisOf(sonderereignis, namesOf(spiel));
   const { consequence } = COPY.spielplan.sonderereignis;
   switch (sonderereignis) {
     case "nichtantreten_team1":

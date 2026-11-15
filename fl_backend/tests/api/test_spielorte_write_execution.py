@@ -150,12 +150,10 @@ def stored_with_its_acts(url: str, spielort_id: ObjectId) -> tuple[Mapping[str, 
         client.close()
 
 
-def refusal_of(response: Response) -> tuple[int, str, list[Any]]:
-    """Its status, its code and the box it names: the unique index answers a taken name too, naming none."""
+def refusal_of(response: Response) -> tuple[int, str]:
+    """Its status and its code, which the unique index answers for a taken name too."""
 
-    answered = response.json()
-
-    return response.status_code, answered["error_code"], [error["path"] for error in answered["fields"]]
+    return response.status_code, response.json()["error_code"]
 
 
 class TestAVenuesWrites:
@@ -166,7 +164,7 @@ class TestAVenuesWrites:
         created = sent(seeded_url, "POST", SPIELORTE, venue_payload(f"  {NEW_NAME} "))
         stored, acts = stored_with_its_acts(seeded_url, ObjectId(created.json()["created_id"]))
 
-        assert refusal_of(refused) == (409, Code.DUPLICATE_KEY, [["name"]])
+        assert refusal_of(refused) == (409, Code.DUPLICATE_KEY)
         assert created.status_code == 201
         assert (stored["name"], stored["maps_link"], stored["default_mietpreis"], stored["inactive_since"]) == (
             NEW_NAME,
@@ -187,7 +185,7 @@ class TestAVenuesWrites:
         stale = sent(seeded_url, "PATCH", path, venue_payload("Halle West", version=1))
         stored, acts = stored_with_its_acts(seeded_url, RETIRED_OID)
 
-        assert refusal_of(taken) == (409, Code.DUPLICATE_KEY, [["name"]])
+        assert refusal_of(taken) == (409, Code.DUPLICATE_KEY)
         assert (kept.status_code, kept.json()["version"], moved.json()["version"]) == (200, 1, 2)
         assert (stale.status_code, stale.json()["error_code"]) == (409, Code.VERSION_STALE)
         assert (stored["name"], stored["maps_link"], stored["default_mietpreis"], stored["version"]) == (

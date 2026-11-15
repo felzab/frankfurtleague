@@ -8,7 +8,7 @@ import { subjectOrNull } from "./gateReads";
 import { isAdminSession, isAdminWithinWindow } from "./guards";
 import { auth } from "./library";
 import { passkeysOf } from "./passkeys";
-import { readLibrarySession, readRequestSession, servedSessionOf } from "./session";
+import { readLibrarySession, readRequestSession, readServedSession, servedSessionOf } from "./session";
 import { isFreshForEnrolment, isWithinPersonLifetime, PASSKEY_FACTOR } from "./sessionStamps";
 
 import type { Grant } from "../grant";
@@ -16,63 +16,58 @@ import type { SubjectSession } from "../subject";
 import type { ServedSession } from "./session";
 
 /** Where `/signin/continue` sends the session it was handed, before `/area` is resolved to the page it leads to. */
-export type SignInDestination = "/signin/passkey" | "/area" | "/signin";
+type SignInDestination = "/signin/passkey" | "/area" | "/signin";
 
 /**
  * Where `/signin/continue` sends the session, and, where that is `/area` and the backend answered, the person as the
  * landing read them, so the person area's own landing rule is asked of the reads already made.
  */
-export async function getSignInLanding(): Promise<{ readonly destination: SignInDestination; readonly subject: SubjectSession | null }> {
-  const { destination, subject } = await landingOf(await headers());
-  return { destination, subject };
+export async function getSignInLanding(): Promise<Landing> {
+  return landingOf(await headers());
 }
 
-/**
- * The address `/signin` greets rather than offering a sign-in: one the landing would send on
- * anywhere but back to `/signin`, so a spent or unreadable session is offered a fresh sign-in.
- */
-export async function getSignedInAddress(): Promise<string | null> {
-  const { destination, served } = await landingOf(await headers());
-  return destination === "/signin" || served === null ? null : asSignInIdentifier(served.user.email);
-}
-
-/** The landing's verdict, the session it judged where one stands, and the person it read where the backend answered. */
-type Landing = { readonly destination: SignInDestination; readonly served: ServedSession | null; readonly subject: SubjectSession | null };
+/** The landing's verdict, and the person it read where the backend answered. */
+type Landing = { readonly destination: SignInDestination; readonly subject: SubjectSession | null };
 
 /**
- * Every guard that refuses a session sends it to `/signin`, so this is where one no lane will serve
- * again is ended, whatever missed ending it before.
+ * Every guard that refuses a session sends it to the sign-in or here, and the proxy sends every session asking for
+ * `/signin` here, so this is where each one the landing sends to sign in afresh is ended, whatever missed ending it
+ * before: one left standing would be sent from the sign-in to the landing and back again.
  */
 async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // A wait for a real request before the sign-in store: the image's build reaches no store, and a prefetched
   // shell must carry nothing a session decides.
   await connection();
   const read = await readLibrarySession(requestHeaders, false);
-  if (read === null) return { destination: "/signin", served: null, subject: null };
+  if (read === null) return { destination: "/signin", subject: null };
 
-  // Past a person's figures no lane serves it, so one past an administrator's alone stands, the person
-  // lane still serving it; its passkey gone, none ever will.
+  // Past a person's figures no lane serves it; its passkey gone, none ever will.
   const served = await servedSessionOf(read);
   if (served === null || !isWithinPersonLifetime(read.session)) return ended(read);
 
   // An unread lookup is the backend down: `/area` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing.
   const records = await subjectOrNull(served.user.email);
-  if (records === null) return { destination: "/area", served, subject: null };
+  if (records === null) return { destination: "/area", subject: null };
+
+  // A granted address's session past the administrator's figures, which the person lane alone would still serve,
+  // ends here too, as the owner ruled: the administrator signs in afresh rather than holding a session that opens
+  // neither the administration nor the landing.
+  const destination = await destinationOf(served, records);
+  if (destination === "/signin") return ended(served);
 
   // As the person guard builds it, off this one lookup.
-  const subject = { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records };
-  return { destination: await destinationOf(served, records), served, subject };
+  return { destination, subject: { email: asSignInIdentifier(served.user.email), isAdmin: isAdminSession(served, records), records } };
 }
 
 /**
  * Deleted by the row's id, never its token, which leaves the store for nothing. The browser keeps a
- * cookie naming no row, which every read answers as no session.
+ * cookie naming no row, which every read answers as no session, and the proxy's next slide expires.
  */
 async function ended(read: ServedSession): Promise<Landing> {
   const { adapter } = await auth.$context;
   await adapter.delete({ model: "session", where: [{ field: "id", value: read.session.id }] });
-  return { destination: "/signin", served: null, subject: null };
+  return { destination: "/signin", subject: null };
 }
 
 async function destinationOf(served: ServedSession, grant: Grant): Promise<SignInDestination> {
@@ -118,9 +113,17 @@ async function passkeyStepOf(served: ServedSession, isAdmin: boolean): Promise<P
   return isAdmin ? "enrol" : "offer";
 }
 
-/** `null` where that page is not the caller's to see. */
+/** `null` where that page is not the caller's to see: the render's answer, off the session its guards share. */
 export async function getPasskeyStep(): Promise<PasskeyStep | null> {
-  const served = await readRequestSession();
+  return passkeyStepFor(await readRequestSession());
+}
+
+/** The same answer for the request the proxy is handed, before anything renders. */
+export async function getRequestPasskeyStep(requestHeaders: Headers): Promise<PasskeyStep | null> {
+  return passkeyStepFor(await readServedSession(requestHeaders));
+}
+
+async function passkeyStepFor(served: ServedSession | null): Promise<PasskeyStep | null> {
   if (!served) return null;
 
   const subject = await subjectOrNull(served.user.email);

@@ -1,11 +1,10 @@
 "use client";
 
-import NextLink from "next/link";
-
 import { Focusable } from "react-aria-components/Focusable";
 
 import { Icon } from "./Icon";
 import { Tooltip } from "./Tooltip";
+import { NavigationLink } from "./WholePage";
 
 import type { Copy } from "@/core/copy";
 import type { Route } from "next";
@@ -36,7 +35,7 @@ export function IconLink({
   return (
     <Tooltip label={label}>
       <Focusable>
-        <NextLink
+        <NavigationLink
           href={href}
           target={target}
           rel={rel}
@@ -47,7 +46,7 @@ export function IconLink({
             glyph={icon}
             size={16}
           />
-        </NextLink>
+        </NavigationLink>
       </Focusable>
     </Tooltip>
   );

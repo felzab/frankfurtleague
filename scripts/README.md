@@ -16,7 +16,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails         |
 | `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run              |
 | `scripts/lib/checker_kernel.py`         | —             | The repository root and the exit contract every checker shares; imported, never run             |
-| `scripts/tests/`                        | any           | pytest over the gate's scripts and the checkers                                                 |
+| `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                     |
 | `scripts/ruff.toml`                     | —             | ruff's configuration for the Python below this folder                                           |
 | `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                        |
 

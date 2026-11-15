@@ -102,7 +102,7 @@ test("a pupil registers through their team's link, confirms, is admitted, and fi
 
   // Admitted, the pupil signs in and lands on their own season: their club, number, position and Stufe.
   await signInWithCode(page, pupil.address);
-  await declinePasskeyOffer(page, `/area/spieler/${SAISON}`);
+  await declinePasskeyOffer(page, "/area/spieler");
   await expect(valueOf(main, "Team").getByRole("link", { name: club, exact: true })).toBeVisible();
   await expect(valueOf(main, "Nummer")).toHaveText(pupil.nummer);
   await expect(valueOf(main, "Position")).toHaveText(pupil.position);

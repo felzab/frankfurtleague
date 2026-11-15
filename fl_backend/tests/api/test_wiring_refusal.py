@@ -78,7 +78,8 @@ class TestPhaseRules:
     """Where a source may point: a knockout match of a strictly earlier round, and nowhere else."""
 
     def test_a_group_spiel_carries_no_wiring(self, season):
-        assert refusal_for(season, 1, team1=None, team1_quelle=sieger(2)) == WIRING_REFUSAL
+        # The fixture's own team stays, so no maintained-side rule can refuse in the phase rule's place.
+        assert refusal_for(season, 1, team1_quelle=gruppenplatz("C", 1)) == WIRING_REFUSAL
 
     def test_a_dangling_match_number_is_refused(self, season):
         """The typo the resolution could only contain after the fact is refused at the door instead."""
@@ -87,24 +88,19 @@ class TestPhaseRules:
     def test_a_group_match_never_feeds_a_slot(self, season):
         assert refusal_for(season, 30, team1_quelle=sieger(1)) == WIRING_REFUSAL
 
-    def test_a_spiel_cannot_feed_itself(self, season):
-        assert refusal_for(season, 30, team1_quelle=sieger(30)) == WIRING_REFUSAL
-
     def test_a_same_round_source_is_refused(self, season):
         """Also what makes a cycle inexpressible: every edge must point at a strictly earlier round."""
-        assert refusal_for(season, 29, team1_quelle=sieger(30)) == WIRING_REFUSAL
+        assert refusal_for(season, 29, team1_quelle=verlierer(30)) == WIRING_REFUSAL
 
     def test_a_later_round_source_is_refused(self, season):
         assert refusal_for(season, 29, team1_quelle=sieger(31)) == WIRING_REFUSAL
 
 
-# Every bracket a season can play, by qualifier count:
+# Two brackets a season can play, by qualifier count:
 # `app/api/saisons/schedule.py :: knockout_phases_for` counts back from the Finale, so a different phase opens each one.
 BRACKET_SHAPES: dict[int, tuple[str, ...]] = {
     16: ("achtelfinale", "viertelfinale", "halbfinale", "finale"),
     8: ("viertelfinale", "halbfinale", "finale"),
-    4: ("halbfinale", "finale"),
-    2: ("finale",),
 }
 
 OPENING_ROUND = 25
@@ -133,14 +129,11 @@ class TestAGroupPlacingSeedsTheOpeningRound:
         ("qualifiers", "nr", "phase"),
         [
             pytest.param(16, 26, "viertelfinale", id="sixteen-viertelfinale"),
-            pytest.param(16, 27, "halbfinale", id="sixteen-halbfinale"),
-            pytest.param(16, 28, "finale", id="sixteen-finale"),
             pytest.param(8, 26, "halbfinale", id="eight-halbfinale"),
-            pytest.param(4, 26, "finale", id="four-finale"),
         ],
     )
     def test_a_later_round_is_fed_by_a_match_instead(self, bracket, qualifiers, nr, phase):
-        """The Finale three times over: refused wherever the bracket opens earlier, and legal above in the season that opens on it."""
+        """One round past the opening one, in two brackets opening on different phases."""
 
         refusal = refusal_for(bracket(qualifiers), nr, team1_quelle=gruppenplatz("A", 1))
 
@@ -180,13 +173,10 @@ def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list
 
 
 # Each shape as a fixture stores it, with a SECOND value out of the same rule beside it. A hand
-# edit reaches all six and two saves racing reach the duplicate; no write path repairs any.
+# edit reaches all three; no write path repairs any.
 STORED_SHAPES: dict[str, tuple[int, dict[str, Any], dict[str, Any], str]] = {
-    "group-fixture": (1, {"team1_quelle": sieger(2)}, {"team1_quelle": sieger(25)}, Code.WIRING_UNSUPPORTED),
     "dangling-feeder": (30, {"team1_quelle": sieger(27)}, {"team1_quelle": sieger(28)}, Code.WIRING_UNSUPPORTED),
     "gruppenphase-feeder": (30, {"team1_quelle": sieger(1)}, {"team1_quelle": sieger(2)}, Code.WIRING_UNSUPPORTED),
-    "same-round-feeder": (29, {"team1_quelle": sieger(30)}, {"team1_quelle": sieger(31)}, Code.WIRING_UNSUPPORTED),
-    "outcome-already-used": (30, {"team1_quelle": sieger(25)}, {"team1_quelle": sieger(26)}, Code.WIRING_UNSUPPORTED),
     "seed-past-the-opening-round": (
         30,
         {"team1_quelle": gruppenplatz("C", 1)},

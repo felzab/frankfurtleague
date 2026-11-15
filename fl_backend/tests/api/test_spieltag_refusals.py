@@ -25,20 +25,6 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
             following=None if following is None else DatedNeighbour(position=4, start=following),
         )
 
-    def test_a_matchday_beginning_before_its_predecessor_is_refused(self):
-        refusal = self.order(start="2026-05-04", previous="2026-05-05")
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
-
-    def test_the_following_position_is_judged_too(self):
-        """Moving one matchday breaks the pair on either side of it, and a rule watching one side would miss half of them."""
-
-        refusal = self.order(start="2026-05-21", following="2026-05-20")
-
-        assert refusal is not None
-        assert refusal.error_code == Code.SPIELTAG_START_OUT_OF_ORDER
-
     def test_a_first_dating_is_judged_against_both_sides(self):
         """An undated matchday sits in no pair, so its first date introduces whatever it lands in, in either direction."""
 

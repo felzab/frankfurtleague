@@ -13,7 +13,6 @@ from pydantic import (
     TypeAdapter,
 )
 
-from app.api.invitations.schemas import FLTeamLinkState
 from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -290,8 +289,9 @@ class FLTeamStatistik(BaseReadModel):
     tore_scored: int = Field(default=0, ge=0)
     tore_conceded: int = Field(default=0, ge=0)
     punkte: int = Field(default=0, ge=0)
-    # Beside the scoring, never inside it: a forfeit is in this figure and in
-    # `count_played_spiele` both.
+    # Beside the scoring, never inside it: the fixtures that ended with no result,
+    # called off or struck out. A forfeit is in `count_played_spiele` alone, its
+    # awarded result being one the table counts.
     count_cancelled_spiele: int = Field(default=0, ge=0)
 
 
@@ -620,26 +620,6 @@ class FLTeamSaisonFacts(BaseReadModel):
     # The registration window's end, past which an entry through the link is a nominee (`entry_is_a_nominee`), the link
     # opening on until the season ends; null for a season storing no window.
     registrierung_end: CustomOptionalDateString
-
-
-class FLTeamSaisonAdminResponse(BaseAPIResponse):
-    """What the team editor shows in one read: the club, its row of the season, and what each of its acts would meet."""
-
-    # The one count this page saves on (`composite_version`).
-    version: int = Field(ge=0)
-    team: FLTeamRecord
-    saison: FLTeamSaisonFacts
-    # Null for a club holding no row of the season, a retired one reached through the list's filter.
-    membership: FLTeamMembership | None
-    gruppen: list[FLTeamGruppeOffer]
-    # Whether the group's write would refuse `entry_gruppe_locked`, the club's fixtures being drawn.
-    gruppe_locked: bool
-    # The colours another row of the season holds, which `trikot_farbe_taken` refuses; this club's own stays open to it.
-    taken_trikot_farben: list[FLTrikotFarbe]
-    # The newest running or planned season the club stands in, which `retire_blocked` refuses over.
-    retire_blocked_by: str | None
-    # Null with `membership`.
-    link: FLTeamLinkState | None
 
 
 class FLTeamsSingleResponse(BaseAPIResponse):

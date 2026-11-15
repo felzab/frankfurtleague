@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -67,31 +68,29 @@ const VOIDED_NONE = { voided_ergebnis: null, voided_elfmeterschiessen: null, voi
  * The fixture the save reads before its write, every payload it writes, what the write answers, and what the write's
  * dry run, asked first, reports.
  */
-const state = vi.hoisted(() => ({
+const state = {
   read: null as unknown,
   sent: [] as unknown[],
   answer: null as unknown,
   dryRun: null as unknown,
-}));
+};
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action, and the write the real dispatch counts reaches it; whether a
-// save clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
+/** Every request the save made of the write's endpoint, its dry run's among them, with its query. */
+const calls: { endpoint: string; method: string }[] = [];
 
-// The editor's view as far as the save reads it: the fixture.
-vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => ({ spiel: state.read }),
-}));
+// The backend answers the editor's read with the fixture, the dry run with its report and the write with its answer,
+// so the save runs through the real guard, read, generated call and dispatch, which counts the write.
+serveBackend(({ method, path, search, body }) => {
+  if (method === "GET" && path === `/spiele/${SPIEL_ID}/admin`) return { spiel: state.read };
+  if (method !== "PATCH" || path !== `/spiele/${SPIEL_ID}`) return undefined;
 
-// The backend client itself is replaced, so the write runs through the real generated call and the real dispatch,
-// which counts it.
-const calls = doubleApiClient((call) => {
-  if (call.endpoint.includes("dry_run=true")) return state.dryRun;
-  state.sent.push(JSON.parse(call.body ?? "null"));
+  calls.push({ endpoint: search.size > 0 ? `${path}?${search.toString()}` : path, method });
+  if (search.get("dry_run") === "true") return state.dryRun;
+  state.sent.push(body);
   return state.answer;
 });
+// An administrator's session, made by passkey, which the save's guard admits.
+signedInRequest();
 
 const { saveSpiel } = await import("./saveSpiel");
 
@@ -124,6 +123,15 @@ describe("the match editor's save", () => {
       { endpoint: `/spiele/${SPIEL_ID}`, method: "PATCH" },
     ]);
     expect(state.sent).toEqual([{ ...SENT_AS_STORED, time: "18:00:00" }]);
+  });
+
+  // The harm: a report agreeing with a result typed in by hand, never adopted, so its cards never reach the public page.
+  it("sends a save changing no field that adopts the report to the write, stamping that report's version", async () => {
+    const answer = await saveSpiel({ ...saving({}), adoptsBericht: 2 });
+
+    expect(answer).toEqual({ ok: true, value: 4 });
+    expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, `/spiele/${SPIEL_ID}?adopts_bericht=2`]);
+    expect(state.sent).toEqual([SENT_AS_STORED]);
   });
 
   // The harm: a played match whose referee was erased loses its booking and the fee it recorded on any save of it.
@@ -245,14 +253,6 @@ describe("the match editor's question before it deletes a later result", () => {
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([DRY_RUN, DRY_RUN, `/spiele/${SPIEL_ID}`]);
     // The write is the gate: it deletes these and refuses where its own transaction would delete others.
     expect(state.sent).toMatchObject([{ voided_results: [VOIDED_31, VOIDED_33] }]);
-  });
-
-  it("names to the write that it deletes nothing where it asked nothing", async () => {
-    state.dryRun = NOTHING_MOVED;
-
-    await saveSpiel(saving({ tore1: "3", tore2: "1" }));
-
-    expect(state.sent).toMatchObject([{ voided_results: [] }]);
   });
 
   it("names under its question whom the save mails, by the dry run's names in their order, and asks again where they change", async () => {

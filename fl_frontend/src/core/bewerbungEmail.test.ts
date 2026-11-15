@@ -34,6 +34,13 @@ describe("the acceptance's kit colour", () => {
 
     assert.ok(text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
   });
+
+  /* No later mail names a colour set after the Zusage, so a sentence saying one follows is a promise nobody keeps. */
+  it("promises nothing where no colour is assigned", () => {
+    const { text } = renderMail(buildBewerbungZusageEmail({ ...ZUSAGE, trikot_farbe: null }, { origin: ORIGIN }));
+
+    expect(text).not.toMatch(/noch|später|bekommst|teilen wir|schicken wir|meldet sich|folgt/);
+  });
 });
 
 describe("the confirmation link's mail", () => {

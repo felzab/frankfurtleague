@@ -1,15 +1,26 @@
-import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { doubleNextRequest } from "@/test-support/nextRequest";
+import { describe, expect, it } from "vitest";
 
 import { SEAT_TEXT_VERSIONS } from "@/core/consentWordings";
 
 import { END } from "./ends";
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-// Next's `updateTag` throws outside a Server Action; whether a write clears the site's cache is `core/action.test.ts`'s.
-vi.mock("next/cache", () => ({ updateTag: () => undefined }));
+import type { FLBewerbungEinwilligungAnswerResponse } from "@/core/generated/client/types";
 
-const { calls } = doubleApiAnswers();
+// The answer's one write, answered as the backend stores it; any other request goes unanswered and fails its case.
+const backend = serveBackend(({ method, path }) =>
+  method === "POST" && path === "/bewerbungen/einwilligung"
+    ? ({
+        birth_date: null,
+        media: false,
+        whatsapp: false,
+        outcome: "declined",
+        quelle: "bewerbung",
+      } satisfies FLBewerbungEinwilligungAnswerResponse)
+    : undefined,
+);
+doubleNextRequest();
 
 const { answerKontakt, objectKontakt } = await import("./answerKontakt");
 
@@ -30,7 +41,7 @@ describe("a contact person's answer", () => {
     expect(await answerKontakt(posted({ ...answer, whatsapp: "on" }))).toStrictEqual({ ok: true, value: END.confirmed });
     expect(await answerKontakt(posted({ ...answer, media: "on" }))).toStrictEqual({ ok: true, value: END.confirmed });
 
-    expect(requestsOf(calls).map(({ body }) => body)).toStrictEqual(
+    expect(backend.sent.map(({ body }) => body)).toStrictEqual(
       [
         { whatsapp: true, media: false },
         { whatsapp: false, media: true },
@@ -45,7 +56,7 @@ describe("a contact person's answer", () => {
     expect(await answerKontakt(objection)).toStrictEqual({ ok: true, value: END.objected });
     expect(await objectKontakt(posted({ act: "primary", token: TOKEN }))).toStrictEqual({ ok: true, value: END.objected });
 
-    expect(requestsOf(calls).map(({ body }) => body)).toStrictEqual([
+    expect(backend.sent.map(({ body }) => body)).toStrictEqual([
       { answer: "declined", token: TOKEN },
       { answer: "declined", token: TOKEN },
     ]);

@@ -38,7 +38,7 @@ export const adoptVorschlag = action({
 
 /**
  * Closes a club's open decline whose proposed date the league will not take: the date stands, and the club is told
- * so where its day is still to come.
+ * so.
  */
 export const discardVorschlag = action({
   lane: "admin",

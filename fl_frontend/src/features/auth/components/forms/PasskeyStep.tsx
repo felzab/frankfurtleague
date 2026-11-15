@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { SignInPage } from "@/kit/SignInPage";
+import { useNavigate } from "@/kit/WholePage";
 
 import { loadAuthClient, usePreloadedAuthClient } from "@/core/auth/browserClient";
 import { allowedReturnAddress, RETURN_PARAMETER, withReturnAddress } from "@/core/auth/returnAddress";
@@ -61,6 +62,7 @@ type Props = { readonly address: string; readonly next: string } & (
 export function PasskeyStep(props: Props) {
   const { step, address, next } = props;
   const router = useRouter();
+  const navigate = useNavigate();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Copy | null>(null);
   const words = WORDS[step];
@@ -99,7 +101,7 @@ export function PasskeyStep(props: Props) {
       // The session is unchanged, so a soft navigation is the right tool here.
       later={
         props.step === "offer"
-          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => router.push(asked ?? props.later) }
+          ? { label: COPY.signIn.passkey.later, isDisabled: isPending, onPress: () => navigate(asked ?? props.later) }
           : undefined
       }
       row={error}

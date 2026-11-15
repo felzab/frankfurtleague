@@ -1,10 +1,8 @@
 import { cache } from "react";
 
-import { ConsentLine, ConsentLinePlaceholder } from "@/kit/ConsentLine";
-import { FieldPlaceholder } from "@/kit/FieldPair";
+import { ConsentLine } from "@/kit/ConsentLine";
 import { mailedMetadata } from "@/kit/mailedLinkState";
 import { MailedPage } from "@/kit/MailedPage";
-import { SectionPlaceholder } from "@/kit/Section";
 
 import { requires } from "@/core/action";
 import { KONTAKT_EMAIL, KONTAKT_MAILTO } from "@/core/brand";
@@ -76,39 +74,9 @@ const LINES: { objection: Line; notice: Line } = {
  * outcome replacing it. Where no form stands, the page is its status card: the
  * window shut or the season over, the club out of the season, the squad full, and the link no longer valid. The link is
  * the team's, opened by every pupil, so it has no state of having been answered.
- *
- * The wait draws the form, the state a link opens most days, with no sentence: only a nominee's page carries one, a
- * line the wait cannot know of before the read.
  */
 export default function RegistrierungPage() {
-  return (
-    <MailedPage
-      page={readState()}
-      facts={3}
-      act={SUBMIT}
-      sentence={false}
-      boxes
-      fields={
-        <>
-          <ConsentLinePlaceholder line={LINES.objection} />
-          <SectionPlaceholder
-            rows={[
-              "field",
-              "field",
-              "field",
-              <FieldPlaceholder
-                key="nummer"
-                holds={2}
-              />,
-              <FieldPlaceholder key="position" />,
-              <FieldPlaceholder key="stufe" />,
-            ]}
-          />
-        </>
-      }
-      note={<ConsentLinePlaceholder line={LINES.notice} />}
-    />
-  );
+  return <MailedPage page={readState()} />;
 }
 
 // `cache` memoizes per render pass, for the tab's title and the page. Never `"use cache"`, which keys on the

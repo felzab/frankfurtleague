@@ -42,7 +42,7 @@ export const takesNoResult = (sonderereignis: string | null) => sonderereignis =
 export type Proposal = { version: number; values: Partial<SpielValues> };
 
 /** Whether these values still hold the proposal, every field it sets at the value it sets. */
-export const holdsProposal = (proposal: Proposal | null, values: SpielValues) =>
+const holdsProposal = (proposal: Proposal | null, values: SpielValues) =>
   proposal !== null && Object.entries(proposal.values).every(([key, value]) => values[key as keyof SpielValues] === value);
 
 /**

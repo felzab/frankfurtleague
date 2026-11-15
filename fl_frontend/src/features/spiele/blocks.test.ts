@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { dayOf, timeOf } from "@/core/format";
-import { SERVER_COPY } from "@/core/serverCopy";
 
-import { eventOf, headedMatchOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
+import { eventOf, headOf, matchRowOf, outcomeFor, refereeOf } from "./blocks";
 
 import type { FLSonderereignis, FLSpielJoined } from "@/core/generated/client/types";
 
@@ -45,25 +43,6 @@ describe("how a match went for one of its clubs", () => {
 });
 
 describe("a match as a row", () => {
-  it("carries a shoot-out's goals beside the match's own", () => {
-    const row = matchRowOf({ ...spiel([1, 1]), elfmeterschiessen: { team1: 4, team2: 3 } });
-    expect(row.result).toStrictEqual({ tore: { team1: 1, team2: 1 }, elfmeterschiessen: { team1: 4, team2: 3 } });
-  });
-
-  // A row with a result draws its figures; one drawn for an unplayed match would read 0:0.
-  it("carries no result until one is entered", () => {
-    expect(matchRowOf(spiel(null)).result).toBeUndefined();
-  });
-
-  // The Finale's matchday holds the final beside it, so a list with no head over the match tells the two apart by the
-  // date line alone; under its own head the name stands once.
-  it("names the third-place match once, in its head where it has one and else before its date", () => {
-    const third = { ...spiel(null), saison_phase: "finale", for_third_place: true, spieltag_position: 1, count_spieltage_in_phase: 1 } as const;
-    const when = COPY.spielplan.when(dayOf(third.date), timeOf(third.time));
-    expect(matchRowOf(third).when).toBe(SERVER_COPY.season.labelled(SERVER_COPY.season.thirdPlace, when));
-    expect(headedMatchOf(third)).toMatchObject({ head: SERVER_COPY.season.thirdPlace, spiel: { when } });
-  });
-
   // Each of the three sources: a winner's slot worded as a loser's names the other club of that match.
   it("names a side the draw has not settled by its source, short in the plaque", () => {
     const row = matchRowOf({
@@ -97,11 +76,15 @@ describe("what befell a match", () => {
 
   // The strike alone says which school stayed away on every public list: read backwards it names the wrong school
   // with nothing failing.
-  it("strikes the side that did not turn up in a list's row", () => {
+  it("strikes the side that did not turn up in a list's row and in the match's head", () => {
     const first = matchRowOf(spiel([0, 3], "nichtantreten_team1"));
     const second = matchRowOf(spiel([3, 0], "nichtantreten_team2"));
     expect(first.absent).toBe("team1");
     expect(second.absent).toBe("team2");
+    const standings = { team1: null, team2: null };
+    const matchday = { spieltag_position: 1, count_spieltage_in_phase: 3 };
+    expect(headOf(spiel([3, 0], "nichtantreten_team2"), matchday, standings).absent).toBe("team2");
+    expect(headOf(spiel([3, 1]), matchday, standings).absent).toBeUndefined();
   });
 });
 

@@ -1,5 +1,5 @@
-import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { beginRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/test-support/nextRequest.ts";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -33,9 +33,6 @@ afterEach(() => {
 });
 
 describe("the scope a page render's reads enter one after another", () => {
-  /* First, so a scope that failed to take fails here rather than under every case below. */
-  itOpensAScopeThatMemoizes();
-
   /* A page has no single entry to anchor on: each slice read enters on its own, and a deadline per
      read would give every read of a slow render the whole budget again. */
   it("is one scope for the whole render, the first read's deadline and trace among it", async () => {

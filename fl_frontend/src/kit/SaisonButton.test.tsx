@@ -13,7 +13,8 @@ import type { ComponentProps } from "react";
 import type { RailGroup } from "./FrameNav";
 
 // Next's link, standing in as an anchor that says whether its navigation replaces the history entry.
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ replace, children, ...props }: ComponentProps<"a"> & { replace?: boolean }) => (
     <a
       data-replace={replace}

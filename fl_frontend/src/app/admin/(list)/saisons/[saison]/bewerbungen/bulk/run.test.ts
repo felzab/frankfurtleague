@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cardOf, gruppenFor, openRows, takenFor } from "./run.ts";
+import { gruppenFor, openRows, takenFor } from "./run.ts";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types.ts";
 import type { Draft, Run } from "./run.ts";
@@ -9,28 +9,6 @@ const row = (id: string) => ({ id }) as FLBewerbungListRow;
 const ROWS = [row("a"), row("b"), row("c")];
 const draft = (gruppe: string): Draft => ({ gruppe, trikot_farbe: "", shorthand: "" });
 const run = (overrides: Partial<Run> = {}): Run => ({ drafts: {}, skipped: new Set(), outcomes: {}, ...overrides });
-
-describe("which card a run stands at", () => {
-  it("takes the first application still to be chosen", () => {
-    expect(cardOf(ROWS, run({ drafts: { a: draft("A") } }), null)?.id).toBe("b");
-  });
-
-  /* The way back from a refused row: a card already chosen, which „the first still to be chosen“ would pass over. */
-  it("opens the card the address names, even one already chosen", () => {
-    expect(cardOf(ROWS, run({ drafts: { a: draft("A"), b: draft("A"), c: draft("B") } }), "a")?.id).toBe("a");
-  });
-
-  /* Back to a skipped card would otherwise change the address and leave the same card standing. */
-  it("opens a skipped card the address names", () => {
-    expect(cardOf(ROWS, run({ skipped: new Set(["a"]) }), "a")?.id).toBe("a");
-  });
-
-  it("leaves an entered card, and stands at the check page once every one is chosen", () => {
-    const chosen = { a: draft("A"), c: draft("B") };
-
-    expect(cardOf(ROWS, run({ drafts: chosen, outcomes: { b: { kind: "accepted" } } }), "b")).toBe(null);
-  });
-});
 
 describe("what a run still has to write", () => {
   /* A second confirm over an entered row would answer `bewerbung_already_decided` on an application that is fine. */
@@ -72,11 +50,5 @@ describe("the colours a card may not take", () => {
     const picked = run({ drafts: { a: colour("rot"), b: colour("blau"), c: colour("") } });
 
     expect(takenFor(["gelb"], ROWS, picked, "b")).toStrictEqual(["gelb", "rot"]);
-  });
-
-  it("gives a colour back once its application left the run", () => {
-    const skipped = run({ drafts: { a: colour("rot") }, skipped: new Set(["a"]) });
-
-    expect(takenFor([], ROWS, skipped, "b")).toStrictEqual([]);
   });
 });

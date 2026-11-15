@@ -2,11 +2,13 @@ import { now } from "@/core/clock";
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 
-import { Card, CardPlaceholder } from "./Card";
+import { Card } from "./Card";
+import { Chip } from "./Chip";
 import { Countdown } from "./Countdown";
 import { Link } from "./Link";
 import { Podium } from "./Podium";
-import { SpielGroup, SpielGroupPlaceholder } from "./SpielGroup";
+import { SAISON_CHIP } from "./saisonChip";
+import { SpielGroup } from "./SpielGroup";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -27,7 +29,14 @@ type OpeningSide = RecordText | null;
  * The season's first match as the countdown names it: its day and time as its row shows them, its matchday's
  * label and its two sides' plaques, a side whose slot is empty in the dashed open one.
  */
-type Opening = { when: Copy; spieltag: Copy; team1: OpeningSide; team2: OpeningSide };
+type Opening = {
+  when: Copy;
+  spieltag: Copy;
+  team1: OpeningSide;
+  team2: OpeningSide;
+  /** What befell the match, drawn after its plaques as every match block draws it. */
+  event?: ChipProps;
+};
 
 /**
  * An opening side's plaque. An empty slot's dashed open plaque names nothing, so the Spielplan's words for an open
@@ -46,8 +55,8 @@ function OpeningPlaque({ side }: { side: OpeningSide }) {
 
 /**
  * Where the season stands: before its start, a countdown to it and its opening match once one is dated; while
- * the league has no season on, the next one's application window; while it runs, its last result once there is
- * one and its next match; once decided, its places 1 to 4.
+ * the league has no season on, the next one's application window; while it runs, its last results and its next
+ * matches, each side nearest first, an empty side drawing nothing; once decided, its places 1 to 4.
  */
 type SaisonState =
   | {
@@ -57,19 +66,18 @@ type SaisonState =
       opening?: Opening;
     }
   | { kind: "window"; until: CalendarDay; apply: Route }
-  | { kind: "running"; last?: Shown; next?: Shown }
+  | { kind: "running"; last: readonly Shown[]; next: readonly Shown[] }
   | { kind: "decided"; places: readonly [Place, Place, Place, Place] };
 
 /**
- * The chip naming the state in the card's head: a season still ahead, its application window included, in the
- * informing blue, a running one in the green of success, a decided one in the warning's amber, each apart from
- * the others by its hue.
+ * The chip naming the state in the card's head, from the season's one entry, so the card and the administration draw
+ * one chip for one state: a season still ahead, its application window included, as planned.
  */
 const STATE_CHIP: Record<SaisonState["kind"], ChipProps> = {
-  countdown: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  window: { tone: "info", label: SERVER_COPY.saisonState.planned },
-  running: { tone: "success", label: SERVER_COPY.saisonState.running },
-  decided: { tone: "warn", label: SERVER_COPY.saisonState.decided },
+  countdown: SAISON_CHIP.planned,
+  window: SAISON_CHIP.planned,
+  running: SAISON_CHIP.running,
+  decided: SAISON_CHIP.decided,
 };
 
 const block = tv({
@@ -102,6 +110,7 @@ function Body({ state }: { state: SaisonState }) {
                 <OpeningPlaque side={state.opening.team1} />
                 <span aria-hidden>{COPY.shared.versus}</span>
                 <OpeningPlaque side={state.opening.team2} />
+                {state.opening.event !== undefined && <Chip {...state.opening.event} />}
               </p>
             </>
           )}
@@ -122,16 +131,16 @@ function Body({ state }: { state: SaisonState }) {
     case "running":
       return (
         <>
-          {state.last !== undefined && (
+          {state.last.length > 0 && (
             <SpielGroup
               head={SERVER_COPY.landing.saison.last}
-              spiel={state.last}
+              spiele={state.last}
             />
           )}
-          {state.next !== undefined && (
+          {state.next.length > 0 && (
             <SpielGroup
               head={SERVER_COPY.landing.saison.next}
-              spiel={state.next}
+              spiele={state.next}
             />
           )}
         </>
@@ -139,22 +148,6 @@ function Body({ state }: { state: SaisonState }) {
     case "decided":
       return <Podium places={state.places} />;
   }
-}
-
-/**
- * The season's card while the season is read: the card's own head, its name's line and its chip's place, over the
- * running season's body, the last match and the next under their heads as bars, the state a season spends most of its
- * days in, whose words the other states do not hold.
- */
-export function SaisonBlockPlaceholder() {
-  return (
-    <CardPlaceholder chip>
-      {/* The last and the next match, each under its head. */}
-      {[0, 1].map((index) => (
-        <SpielGroupPlaceholder key={index} />
-      ))}
-    </CardPlaceholder>
-  );
 }
 
 /**

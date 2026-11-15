@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { Table } from "@/kit/Table";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 
-import TeamPage, { generateMetadata } from "./page";
-
-import type { FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
+import type { FLSaisonFrameResponse, FLSpielerPublic, FLTeamPageResponse } from "@/core/generated/client/types";
 import type { FoldedCard } from "@/kit/ReadFolds";
 import type { ReadRecord } from "@/kit/ReadPage";
 import type { TableProps } from "@/kit/Table";
@@ -17,16 +17,25 @@ import type { ReactElement } from "react";
 
 const ID = "0".repeat(24);
 
-/** Each club id the read was asked for, so a case can tell that none was; and the page the read answers. */
-const read = vi.hoisted(() => ({ teams: [] as string[], page: null as unknown }));
+/** The seasons the public may read: 2027 alone. */
+const FRAME = {
+  saisons: [{ id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" }],
+  active_saison_id: "2027",
+} satisfies FLSaisonFrameResponse;
 
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
-  getTeamPage: async (_saison: string, team: string) => {
-    read.teams.push(team);
-    return read.page;
-  },
-}));
+/** The club page the backend serves at `ID`, which a case sets. */
+let served: FLTeamPageResponse | undefined;
+
+// The frame and the one club's page; a read of any other club goes unanswered, which fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/saisons/frame") return FRAME;
+  return path === `/saisons/2027/teams/${ID}` ? served : undefined;
+});
+// The cached reads declare their tag and lifetime through `next/cache`, which answers only inside Next's cache scope.
+doubleNextRequest();
+
+const { default: TeamPage, generateMetadata } = await import("./page");
 
 /** A club whose squad is `kader`, with nothing played. */
 const pageOf = (kader: FLSpielerPublic[]): FLTeamPageResponse => ({
@@ -49,7 +58,7 @@ const pageOf = (kader: FLSpielerPublic[]): FLTeamPageResponse => ({
 
 /** The squad's table as the page folds it, rendered alone. */
 async function renderKader(kader: FLSpielerPublic[]) {
-  read.page = pageOf(kader);
+  served = pageOf(kader);
   const page = TeamPage({ params: Promise.resolve({ saison: "2027", team: ID }), searchParams: Promise.resolve({}) }) as {
     props: { record: Promise<ReadRecord> };
   };
@@ -80,7 +89,7 @@ describe("the club page's server render", () => {
 
     // Titled as not found rather than thrown: a throw from the metadata leaves the tab the layout's title.
     await expect(metadata).resolves.toBe(NOT_FOUND_METADATA);
-    expect(read.teams).toStrictEqual([]);
+    expect(backend.sent.filter(({ path }) => path.includes("/teams/"))).toStrictEqual([]);
   });
 });
 

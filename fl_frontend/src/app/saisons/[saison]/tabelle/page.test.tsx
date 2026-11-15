@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { doubleNextRequest } from "@/test-support/nextRequest.ts";
+import { describe, expect, it } from "vitest";
 
-import TabellePage from "./page";
-
-import type { FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
+import type { FLSaisonFrameResponse, FLTabelleResponse, FLTabelleRow } from "@/core/generated/client/types";
 import type { ListPage } from "@/kit/ListPage";
 import type { TableRow } from "@/kit/Table";
 import type { ComponentProps, ReactElement } from "react";
@@ -28,17 +28,29 @@ const row = (id: string, platz: number | null): FLTabelleRow => ({
   statistik: STATISTIK,
 });
 
-/** The Tabelle each case serves: group A's rows, two qualifying. */
-const tabelle = vi.hoisted((): { current: FLTabelleResponse } => ({ current: { gruppen: {}, qualifiers_per_gruppe: 2 } }));
+/** The seasons the public may read: 2027 alone. */
+const FRAME = {
+  saisons: [{ id: "2027", start_date: "2026-09-01", end_date: "2027-06-30" }],
+  active_saison_id: "2027",
+} satisfies FLSaisonFrameResponse;
 
-vi.mock("@/features/saisons/queries", () => ({
-  getSaisonFrame: async () => ({ saisons: [{ id: "2027" }], active_saison_id: "2027" }),
-  getTabelle: async () => tabelle.current,
-}));
+/** The Tabelle each case serves: group A's rows, two qualifying. */
+let tabelle: FLTabelleResponse | undefined;
+
+// The frame and 2027's Tabelle; any other read goes unanswered, which fails the case.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/saisons/frame") return FRAME;
+  return path === "/saisons/2027/tabelle" ? tabelle : undefined;
+});
+// The cached reads declare their tag and lifetime through `next/cache`, which answers only inside Next's cache scope.
+doubleNextRequest();
+
+const { default: TabellePage } = await import("./page");
 
 /** Each row's bar as the page hands it to the table, by the club's id. */
 async function barsOf(rows: FLTabelleRow[]): Promise<Record<string, TableRow["qualifies"]>> {
-  tabelle.current = { gruppen: { A: rows }, qualifiers_per_gruppe: 2 };
+  tabelle = { gruppen: { A: rows }, qualifiers_per_gruppe: 2 };
   const page = TabellePage({ params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) }) as ReactElement<
     ComponentProps<typeof ListPage>
   >;

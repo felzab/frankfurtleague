@@ -1,22 +1,16 @@
 import { notFound } from "next/navigation";
 
-import { CheckboxPlaceholder } from "@/kit/Checkbox";
-import { ToggleBoxesPlaceholder } from "@/kit/ChoiceButtons";
-import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-import { SectionPlaceholder } from "@/kit/Section";
-import { TablePlaceholder } from "@/kit/Table";
+import { NOT_SENT_CHIP, outOfPlayChip, SENT_CHIP } from "@/kit/stateChips";
 
 import { getAdminSession } from "@/core/auth/guards";
 import { COPY } from "@/core/copy";
-import { dayOf } from "@/core/format";
-import { FLSpielerStufe } from "@/core/generated/client/types";
+import { dayOf, formatDate } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { getAdminSaison, getAdminSaisons } from "@/features/saisons/queries";
 import { SAISON_REQUIRED } from "@/features/saisons/required";
 import { saisonChipOf } from "@/features/saisons/saisonState";
+import { adminTeamChip } from "@/features/teams/constants";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
 
@@ -25,9 +19,10 @@ import { SaisonEditor } from "./SaisonEditor";
 import { valuesOf } from "./saisonValues";
 import { saveSaison } from "./saveSaison";
 
-import type { Copy, Words } from "@/core/copy";
+import type { Copy } from "@/core/copy";
 import type { Code, FLInvitationLinkRow, FLSaisonAdminTeam, FLSaisonStatus } from "@/core/generated/client/types";
-import type { TableHead } from "@/kit/Table";
+import type { ChipProps } from "@/kit/Chip";
+import type { TableHead, TableRow } from "@/kit/Table";
 import type { Metadata, ResolvingMetadata } from "next";
 
 type Props = PageProps<"/admin/saisons/[saison]/settings">;
@@ -35,11 +30,16 @@ type Props = PageProps<"/admin/saisons/[saison]/settings">;
 const WORDS = COPY.admin.saison;
 const TEAM = COPY.shared.facts.team;
 
-/** The registration links' head, stated with the rows this page reads for it and drawn while they are read. */
-const LINKS_HEAD: TableHead = { nameLabel: TEAM, linked: false, columns: [{ key: "link", label: COPY.account.address.link, width: "phrase" }] };
-
-/** One of the editor's selects of a few short choices while it is read. */
-const SELECT = <FieldPlaceholder key="select" />;
+/**
+ * The registration links' head. The rows open nothing, so on a phone a sent row's line says the day the „Gesendet am“
+ * column would.
+ */
+const LINKS_HEAD: TableHead = {
+  nameLabel: TEAM,
+  state: { label: COPY.admin.schiedsrichter.state },
+  // Secondary, as every list's day column: on a phone the row keeps its name and its chip.
+  columns: [{ key: "sentOn", label: WORDS.sentOn, hideOnPhone: true, width: "date" }],
+};
 
 /** The season the address names, or the not-found page. */
 async function readSaison(params: Props["params"]) {
@@ -84,92 +84,33 @@ function lockedOf(code: Code | null, status: FLSaisonStatus): Copy | undefined {
 }
 
 /**
- * A team's registration link as its row states it: the season finished, which shuts every link whatever else stood, as
- * the editor's „Abgeschlossen“ says; the club gone; the press passing it over; or its link's state.
+ * A team's registration link as its row's chip states it, the record's own state whatever the season's: the club out of
+ * the season in its exit's red, else what the link waits on, else sent. A finished season's press is shut, so nothing a
+ * link waits on can follow there: its waiting states draw grey, as every state out of play does.
  */
-function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): Words {
-  if (status === "past") return COPY.template.closed;
-  if (team?.austritt != null) return COPY.shared.austritt[team.austritt.type].state;
-  if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") return WORDS.noConfirmedAddress;
-  if (!row.has_link) return WORDS.noLinkYet;
-  return row.sent_at === null ? WORDS.linkNotSent : WORDS.linkSentOn(dayOf(row.sent_at));
+function linkOf(row: FLInvitationLinkRow, team: FLSaisonAdminTeam | undefined, status: FLSaisonStatus): ChipProps {
+  const out = team?.austritt == null ? undefined : adminTeamChip(null, team.austritt.type);
+  if (out !== undefined) return out;
+  const waiting = waitingOf(row);
+  if (waiting === null) return SENT_CHIP;
+  return status === "past" ? outOfPlayChip(waiting) : waiting;
+}
+
+/**
+ * What a team's link waits on, each amber as a state waiting on a person or a press: the press passing it over for want
+ * of a confirmed address, no link minted yet, or its mail; null once it is mailed.
+ */
+function waitingOf(row: FLInvitationLinkRow): ChipProps | null {
+  if (row.skipped === "no_kontakt_block" || row.skipped === "no_confirmed_kontaktperson") {
+    return { tone: "warn", label: WORDS.noConfirmedAddress };
+  }
+  if (!row.has_link) return { tone: "warn", label: WORDS.noLinkYet };
+  return row.sent_at === null ? NOT_SENT_CHIP : null;
 }
 
 /** The season editor, on the season's one admin read. */
-export default function SaisonSettingsPage({ params }: Props) {
-  return (
-    <EditorShell
-      // Each section in its fullest state, which no one season holds all at once: a running season's closed boxes, its draw
-      // standing, and the rows of a season not yet the site's. Only the read says which one it is.
-      wait={{
-        sections: [
-          { note: WORDS.startFixed, rows: [{ rows: 2, holds: "day" }] },
-          { note: WORDS.lockedSinceStart, rows: ["subhead", { rows: 3, holds: "count" }, SELECT, "subhead", { rows: 2, holds: "count" }] },
-          { note: WORDS.lockedByDraw, rows: [{ rows: 2, holds: "count" }, SELECT] },
-          [
-            <FieldPlaceholder
-              key="maxKader"
-              holds={2}
-            />,
-            <ToggleBoxesPlaceholder
-              key="stufen"
-              count={Object.values(FLSpielerStufe).length}
-            />,
-          ],
-          [
-            { rows: 2, holds: "day" },
-            <CheckboxPlaceholder
-              key="paused"
-              label={WORDS.bewerbungPaused}
-            />,
-          ],
-          [
-            <FieldPlaceholder key="end" />,
-            <CheckboxPlaceholder
-              key="paused"
-              label={WORDS.registrierungPaused}
-            />,
-          ],
-          [
-            <FactsPlaceholder
-              key="spielplan"
-              pairs={3}
-            />,
-          ],
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(WORDS.gruppen, "swap")] }] },
-          { note: WORDS.lockedSinceStart, rows: ["field", "field", { acts: [COPY.shared.withObject(TEAM, "replace")] }] },
-          {
-            block: (
-              <SectionPlaceholder
-                list={
-                  <TablePlaceholder
-                    head={LINKS_HEAD}
-                    rows={24}
-                    bare
-                  />
-                }
-                rows={[{ acts: [COPY.shared.withObject(WORDS.invitations, "send")] }]}
-              />
-            ),
-          },
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(COPY.page.spielplan, "recreate"),
-            consequence: WORDS.recreateConsequence,
-            act: COPY.shared.verb.recreate,
-          },
-          { name: COPY.shared.withObject(COPY.page.spielplan, "delete"), consequence: WORDS.deleteConsequence, act: COPY.shared.verb.delete },
-          {
-            name: COPY.shared.withObject(WORDS.onto("2027"), "activate"),
-            consequence: WORDS.activateConsequence("2027"),
-            act: COPY.shared.verb.activate,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function SaisonSettingsPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 async function readEditor(params: Props["params"]) {
@@ -208,27 +149,24 @@ async function readEditor(params: Props["params"]) {
         },
       }}
       shapes={shapes}
-      clubs={teams.map((team) => ({
-        id: team.team_id,
-        name: team.name,
-        gruppe: team.gruppe,
-        groupTakenPlace: team.group_spiel_taken_place,
-        takenPlace: team.spiel_taken_place,
-      }))}
+      clubs={teams.map((team) => ({ id: team.team_id, name: team.name, gruppe: team.gruppe }))}
       incoming={incoming_teams.map((club) => ({ id: club.id, name: club.name }))}
       links={{
         head: LINKS_HEAD,
-        rows: invitations.map((row) => ({
-          id: row.team_id,
-          name: { record: row.team_name },
-          cells: {
-            link: linkOf(
+        rows: invitations.map((row): TableRow => {
+          const sent = dayOf(row.sent_at);
+          return {
+            id: row.team_id,
+            name: { record: row.team_name },
+            chip: linkOf(
               row,
               teams.find((team) => team.team_id === row.team_id),
               saison.status,
             ),
-          },
-        })),
+            ...(sent === null ? {} : { phoneLine: WORDS.linkSentOn(sent) }),
+            cells: sent === null ? {} : { sentOn: { record: formatDate(sent) } },
+          };
+        }),
         mailed: mailed.length,
       }}
       holder={holder}

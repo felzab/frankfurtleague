@@ -23,13 +23,14 @@ import { COPY } from "@/core/copy";
 import { admitsShootOut, isNoShow, scoreOutcome } from "@/features/spiele/result";
 
 import { SpielortFields } from "../../../../../SpielortFields";
-import { adoptsBerichtOf, holdsProposal, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
+import { adoptsBerichtOf, NO_SONDEREREIGNIS, takesNoResult } from "./spielValues";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy, Words } from "@/core/copy";
+import type { Copy, LockReason, Words } from "@/core/copy";
 import type { FLSaisonPhase, FLSonderereignis } from "@/core/generated/client/types";
 import type { AnswerRow } from "@/kit/AnswerRows";
 import type { CardActRowProps } from "@/kit/Card";
+import type { ChipProps } from "@/kit/Chip";
 import type { EditorPart, EditorSection } from "@/kit/EditorPage";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
@@ -52,6 +53,9 @@ export type Adoption = Proposal & { text: Copy };
 /** A record to book, a venue or a referee, and what the match pays them unless set otherwise. */
 type Booking = { option: Option; price: number };
 
+/** What the editor holds: the match's fields, and whether „Übernehmen“ was pressed. */
+type Draft = SpielValues & { adopting: boolean };
+
 /** What a save sends: the changes, and the report's version where the result was carried over from it. */
 type Sent = EditorSave<SpielValues> & { adoptsBericht: number | null };
 
@@ -63,14 +67,17 @@ const goals = (text: string) => (text === "" ? null : Number(text));
  * knockout goals, and the referee's proposal carried over by „Übernehmen“; the note; the Sonderereignis, in a box of
  * its own; the report's goals and every party's answer, read-only; and last a link to each side's line-up, which its
  * own page saves. Saved together from the editor's bar; a save that would delete a later match's result the server
- * holds back with its question, which the bar asks.
+ * holds back with its question, which the bar asks. Until the season's start the result's switch and figures stand
+ * locked and „Übernehmen“ is not offered, the write taking no result before it.
  */
 export function SpielEditor({
   title,
+  chip,
   preview,
   record,
   save,
   phase,
+  begun,
   sides,
   quellen,
   clubs,
@@ -89,11 +96,15 @@ export function SpielEditor({
   spielPage,
 }: {
   title: PageTitle;
+  /** The match's state after the title, as the league's „Spiele“ list shows it; absent for a match simply set. */
+  chip?: ChipProps;
   /** The line under the title: the match as it is stored, read on the server. */
   preview: Copy;
   record: EditorRecord<SpielValues>;
   save: (sent: Sent) => Promise<ActionAnswer<number>>;
   phase: FLSaisonPhase;
+  /** The season has started: before it, the write takes no result, so the result's fields stand locked. */
+  begun: boolean;
   /** Each side's club as stored, by its name and its plaque, `null` while the side is open. */
   sides: { team1: ScoreSide | null; team2: ScoreSide | null };
   /** Where each side comes from in the bracket, in full, `null` where it follows nothing. */
@@ -107,12 +118,12 @@ export function SpielEditor({
   noteMax: number;
   /** Whether a booking's money is required beside it, read from the write on the server. */
   required: { mietpreis: boolean; payment: boolean };
-  /** The report's goals as rows, read-only, none while no report stands, under the head the page's wait draws too. */
+  /** The report's goals as rows, read-only, none while no report stands. */
   report: { head: TableHead; rows: readonly TableRow[] };
   adoption: Adoption | null;
   /** Each party's answer about the match as it stands. */
   answers: readonly AnswerRow[];
-  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored. */
+  /** A row per side whose line-up the match owes, leading to it, „Fehlt“ under it where none is stored, with its chip. */
   aufstellungen: ReadonlyArray<CardActRowProps & { id: string }>;
   createSpielort: (formData: FormData) => Promise<ActionAnswer>;
   spielortRules: SpielortRules;
@@ -121,12 +132,19 @@ export function SpielEditor({
   /** The match's public page, where the public may read its season: the strip's way there. */
   spielPage?: Route;
 }) {
-  // „Übernehmen“ was pressed, so the save stamps the report adopted while the fields still hold its proposal.
-  const [adopted, setAdopted] = useState(false);
-  const editor = useEditor(record, (change) =>
-    save({ ...change, adoptsBericht: adoptsBerichtOf(adoption, adopted, { ...record.values, ...change.changes }) }),
+  // „Übernehmen“ pressed is one of the draft's changes, so it counts, holds the way back and goes with a discard like any
+  // field, even where the fields already hold the proposal; the save stamps the report with it.
+  const editor = useEditor<Draft>(
+    { ...record, values: { ...record.values, adopting: false } },
+    ({ changes: { adopting, ...changes }, ...change }) =>
+      save({ ...change, changes, adoptsBericht: adoptsBerichtOf(adoption, adopting === true, { ...record.values, ...changes }) }),
   );
-  const { draft, set } = editor;
+  const { draft } = editor;
+  const set = <Key extends keyof SpielValues & string>(key: Key, value: Draft[Key]) => {
+    editor.set(key, value);
+    // A field the proposal sets, changed after „Übernehmen“, takes the press back: the save would stamp nothing.
+    if (adoption !== null && key in adoption.values) editor.set("adopting", false);
+  };
   // The create dialog, opened from the venue list's last entry with the name typed into the field; the dialog closes
   // this state itself when Next hides the page.
   const [creating, setCreating] = useState(false);
@@ -148,6 +166,9 @@ export function SpielEditor({
   // called off or struck out carries none.
   const resultShown = !isNoShow(sonderereignis) && !takesNoResult(sonderereignis);
   const scored = resultShown && draft.hasResult;
+  // Before the start the write takes no result: the fields stand locked, and a result stored earlier stands as it is.
+  const resultLocked = !begun;
+  const locks: LockReason[] = resultLocked ? ["untilStart"] : [];
   const shootOut = scored && admitsShootOut(phase, { tore: goals(draft.tore1) }, { tore: goals(draft.tore2) }, sonderereignis) && bothSides;
   const shootOutTyped = draft.shootOut1 !== "" || draft.shootOut2 !== "";
   const storedScore =
@@ -228,9 +249,11 @@ export function SpielEditor({
   return (
     <EditorPage
       title={title}
+      chip={chip}
       lead={preview}
       editor={editor}
       closed={closed}
+      locks={locks}
       {...(spielPage === undefined ? {} : { link: { href: spielPage, label: COPY.shared.toSpiel } })}
       sections={framed([
         {
@@ -335,8 +358,15 @@ export function SpielEditor({
                 name="hasResult"
                 isSelected={resultShown && draft.hasResult}
                 isDisabled={!bothSides || !resultShown}
+                isLocked={resultLocked}
                 onChange={(on) => set("hasResult", on)}
-                {...(!resultShown ? { description: WORDS.byEvent } : bothSides ? {} : { description: WORDS.needsBothSides })}
+                {...(resultLocked
+                  ? {}
+                  : !resultShown
+                    ? { description: WORDS.byEvent }
+                    : bothSides
+                      ? {}
+                      : { description: WORDS.needsBothSides })}
               />
               {scored && (
                 <ScoreRows
@@ -347,6 +377,7 @@ export function SpielEditor({
                     values: [draft.tore1, draft.tore2],
                     onChange: (side, value) => set(side === 0 ? "tore1" : "tore2", value),
                     isRequired: true,
+                    isLocked: resultLocked,
                   }}
                   // By itself on level knockout goals, and optional: left empty, the match and the bracket after it wait.
                   shootOut={
@@ -358,6 +389,7 @@ export function SpielEditor({
                           values: [draft.shootOut1, draft.shootOut2],
                           onChange: (side, value) => set(side === 0 ? "shootOut1" : "shootOut2", value),
                           isRequired: shootOutTyped,
+                          isLocked: resultLocked,
                         }
                       : null
                   }
@@ -365,14 +397,15 @@ export function SpielEditor({
                   {...(shootOut && !shootOutTyped ? { consequence: WORDS.shootOutMissing } : {})}
                 />
               )}
-              {adoption !== null && !holdsProposal(adoption, draft) && (
+              {/* Offered until pressed, where the fields already hold the proposal too: only the press adopts it. */}
+              {adoption !== null && !resultLocked && !draft.adopting && (
                 <AdoptLine
                   text={adoption.text}
                   onAdopt={() => {
                     for (const [key, value] of Object.entries(adoption.values)) {
-                      set(key as keyof SpielValues, value);
+                      editor.set(key as keyof SpielValues, value);
                     }
-                    setAdopted(true);
+                    editor.set("adopting", true);
                   }}
                 />
               )}

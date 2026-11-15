@@ -13,7 +13,7 @@ const GROUNDS = ["bg", "bg-surface", "bg-muted", "bg-card", "bg-card-head", "bg-
 
 /**
  * [foreground, ground, floor, the job named in the report]. `token-contrast.test.mjs` holds every button
- * look's text and ground, hovered and pressed too, to a pair listed here.
+ * look's text and ground, hovered and pressed too, and every chip tone's, to a pair listed here.
  */
 export const PAIRS = [
   ...["fg", "fg-muted", "brand", "success", "info", "warn", "danger"].flatMap((ink) => GROUNDS.map((ground) => [ink, ground, TEXT, "text"])),
@@ -27,11 +27,10 @@ export const PAIRS = [
   ["border-control", "bg-card", EDGE, "a control's edge"],
   ["border-control", "bg-overlay", EDGE, "a control's edge"],
   ["on-brand", "brand-solid", EDGE, "the focus ring on the band"],
+  // A chip's word on its own tint, which is opaque (a six-digit hex, as every measured token is), so no ground
+  // beneath the chip enters the pair.
+  ...["success", "info", "warn", "danger", "fg-muted"].map((hue) => [hue, `${hue}-tint`, TEXT, "a chip's word on its tint"]),
 ];
-
-/** A status word on its own tint: the hue at this share over the ground, as `bg-{hue}/12` paints it. */
-const TINT = 0.12;
-const TINTED = ["success", "info", "warn", "danger"].flatMap((hue) => ["bg", "bg-surface", "bg-card"].map((ground) => [hue, ground]));
 
 const HEX = /^#([0-9a-f]{6})$/i;
 const VAR = /^var\(\s*--([a-z0-9-]+)\s*\)$/;
@@ -49,9 +48,6 @@ const contrast = (one, other) => {
   const [high, low] = [luminance(one), luminance(other)].sort((a, b) => b - a);
   return (high + 0.05) / (low + 0.05);
 };
-
-/** An alpha fill composites per channel on the encoded values, which is how the browser paints it. */
-const over = (rgb, share, ground) => rgb.map((channel, index) => channel * share + ground[index] * (1 - share));
 
 /** Floored to two places, so a figure printed never reads as clearing a floor it misses. */
 const shown = (ratio) => (Math.floor(ratio * 100) / 100).toFixed(2);
@@ -106,7 +102,7 @@ const tokenContrast = {
         for (const [token, { node }] of themes.dark) if (!themes.light.has(token)) report(node, "darkOnly", { token });
         for (const { name, token, node } of bridges) if (!themes.light.has(token)) report(node, "unbridged", { name, token });
 
-        const measured = new Set([...PAIRS.flatMap(([ink, ground]) => [ink, ground]), ...TINTED.flat()]);
+        const measured = new Set(PAIRS.flatMap(([ink, ground]) => [ink, ground]));
         for (const token of measured) if (!themes.light.has(token)) report(undefined, "missing", { token });
 
         // Every declaration read once, so a value that is no colour is reported once.
@@ -123,18 +119,11 @@ const tokenContrast = {
         for (const theme of ["light", "dark"]) {
           const held = (token) => resolved[theme].get(token);
           const rgb = (token) => (held(token) === undefined ? undefined : colours.get(held(token).node));
-          const check = (ink, ground, inkRgb, groundRgb, floor, job) => {
-            if (inkRgb === undefined || groundRgb === undefined) return;
+          for (const [ink, ground, floor, job] of PAIRS) {
+            const [inkRgb, groundRgb] = [rgb(ink), rgb(ground)];
+            if (inkRgb === undefined || groundRgb === undefined) continue;
             const ratio = contrast(inkRgb, groundRgb);
             if (ratio < floor) report(held(ink).node, "tooLow", { theme, ink, ground, job, ratio: shown(ratio), floor: floor.toFixed(1) });
-          };
-          for (const [ink, ground, floor, job] of PAIRS) check(ink, ground, rgb(ink), rgb(ground), floor, job);
-          for (const [hue, ground] of TINTED) {
-            const hueRgb = rgb(hue);
-            const groundRgb = rgb(ground);
-            if (hueRgb !== undefined && groundRgb !== undefined) {
-              check(hue, `${hue} at 12 % over ${ground}`, hueRgb, over(hueRgb, TINT, groundRgb), TEXT, "a status word on its tint");
-            }
           }
         }
       },

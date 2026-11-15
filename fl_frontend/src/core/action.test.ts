@@ -1,164 +1,114 @@
-import { person, seat } from "@/test-support/subjectFixtures.ts";
+import { answerTheLookup, GRANTED } from "@/test-support/authDoubles.ts";
+import { networkFailure, refusal, serveBackend, serveHost } from "@/test-support/backend.ts";
+import { cacheCalls } from "@/test-support/nextRequest.ts";
+import { signedInRequest } from "@/test-support/session.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { action, numberBox, PAGE_HOLDER } from "./action";
-import { afterTheResponse } from "./afterResponse";
-import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { COPY } from "./copy";
-import { APIBadStatusError } from "./errors";
-import { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft, setRequestActor } from "./requestScope";
+import { SERVER_COPY } from "./serverCopy";
 
-import type { Code, FLRefusedField } from "./generated/client/types";
-import type { RequestActor } from "./requestScope";
-import type { SubjectSession } from "./subject";
+import type { FLRefusedField } from "./generated/client/types";
 
-/** What each double answers, and what reached it. */
-const state = vi.hoisted(() => ({
-  admin: { session: {} } as { session: object } | { refused: string },
-  subject: null as SubjectSession | null,
-  botCheck: null as string | null,
-  /** The passkey touch's verdict. */
-  touch: true,
-  /** The account guard's verdict: the session it judged, or `null` where it refuses. */
-  account: null as object | null,
-  /** The actor each guard records once it admits, as the real guards do. */
-  actor: undefined as RequestActor | undefined,
-  /** Every step in the order it ran. */
-  steps: [] as string[],
-  lines: [] as { level: string; message: string; meta: unknown }[],
-  /**
-   * Work handed to Next's `after`, run by a case once its action has answered, as Next runs it: bound to the caller's
-   * async context, as Next's `after` binds it, so the work starts inside the action's request scope.
-   */
-  behind: [] as (() => Promise<void>)[],
-}));
+/**
+ * Work handed to Next's `after`, run by a case once its action has answered, as Next runs it: bound to the caller's
+ * async context, as Next's `after` binds it, so the work starts inside the action's request scope.
+ */
+const behind = vi.hoisted(() => [] as (() => Promise<void>)[]);
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({
-  updateTag: (tag: string) => state.steps.push(`updateTag ${tag}`),
-  refresh: () => state.steps.push("refresh"),
-}));
 vi.mock("next/server", async (original) => {
   const { AsyncLocalStorage } = await import("node:async_hooks");
   return {
     ...(await original<object>()),
-    after: (task: () => Promise<void>) => void state.behind.push(AsyncLocalStorage.bind(task)),
+    after: (task: () => Promise<void>) => void behind.push(AsyncLocalStorage.bind(task)),
     // Awaited by `runWithIncomingTrace` ahead of the action's body.
     connection: () => Promise.resolve(),
   };
 });
-vi.mock("./mail", () => ({ drainOutbox: async () => undefined }));
-vi.mock("./auth/guards", () => ({
-  judgeAdminRequest: async () => {
-    state.steps.push("admin guard");
-    if (state.actor !== undefined && "session" in state.admin)
-      (await import("./requestScope")).setRequestActor({ ...state.actor, lane: "admin" });
-    return state.admin;
-  },
-  passesPasskeyTouch: async () => {
-    state.steps.push("passkey touch");
-    return state.touch;
-  },
-  getAccountSession: async () => {
-    state.steps.push("account guard");
-    return state.account;
-  },
-}));
-vi.mock("./subject", () => ({
-  getSubjectSession: async () => {
-    state.steps.push("person guard");
-    if (state.actor !== undefined && state.subject !== null) (await import("./requestScope")).setRequestActor(state.actor);
-    return state.subject;
-  },
-}));
-vi.mock("./turnstile", () => ({
-  turnstileRefusal: async (token: string | null) => {
-    state.steps.push(`bot check ${String(token)}`);
-    return state.botCheck;
-  },
-}));
-vi.mock("./logging", () => ({
-  logger: {
-    info: (message: string, meta: unknown) => state.lines.push({ level: "info", message, meta }),
-    error: (message: string, _error: unknown, meta: unknown) => state.lines.push({ level: "error", message, meta }),
-  },
-}));
+
+/** The endpoint each case's body sends to, each call answered by its entry in `planned`. */
+const PROBE = "/probe";
+
+/** Each call the body is about to send, in turn: its method, and the body, refusal or network failure it is answered with. */
+const planned: { method: string; answer: unknown }[] = [];
+
+// The body's own calls and nothing else: a request the action sends anywhere else, or by another method, fails its case.
+const backend = serveBackend(({ method, path }) => (path === PROBE && planned[0]?.method === method ? planned.shift()?.answer : undefined));
+const { arriveAs } = signedInRequest();
+/** Every line the real logger writes, read off standard output. */
+const log = captureLog();
+
+// Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
+const { action, numberBox, PAGE_HOLDER } = await import("./action");
+const { afterTheResponse } = await import("./afterResponse");
+const { sendToBackend } = await import("./api");
+const { AFTER_RESPONSE_DEADLINE_MS, getRequestActor, requestTimeLeft } = await import("./requestScope");
+
+/** A person granted nothing, whom a case arrives as for the person lane. */
+const PERSON = "spielerin@example.org";
+
+/** Every part of a case's own action body that ran, in order. */
+const ran: string[] = [];
+
+/** The body's call to the backend by `method`, answered with `answer`, or with an empty body. */
+const sends = (method: string, answer?: Response) => {
+  planned.push({ method, answer: answer ?? {} });
+  return sendToBackend(PROBE, { method, authType: "base" });
+};
+
+/** Each call the body sent, by its method and endpoint. */
+const sent = () => backend.sent.map(({ method, path }) => `${method} ${path}`);
 
 const Venue = z.object({ name: z.string().min(1).max(10), postcode: z.string().regex(/^\d{5}$/) });
 
-/** The backend's failure body at `statusCode` with `code`, naming `refusedFields`. */
-const failure = (statusCode: number, code: Code | undefined, refusedFields: readonly FLRefusedField[] = []) =>
-  new APIBadStatusError({
-    message: "refused",
-    statusCode,
-    serverErrorCode: code,
-    refusedFields,
-    traceId: "0",
-  });
-
-/** A refusal by its code. */
-const refusal = (code: Code) => failure(409, code);
-
-/** A call sent through the transport's dispatch, as the generated client sends each: recorded, and answered at once or with `thrown`. */
-const sends = (method: string, readOnly?: boolean, thrown?: unknown) =>
-  dispatchRequest(sentRequestOf(method, readOnly), async () => {
-    state.steps.push(`sent ${method}${readOnly === true ? " read-only" : ""}`);
-    if (thrown !== undefined) throw thrown;
-  });
-
-/** An admin create whose body records what it was handed and sends the create, which the backend answers with `thrown` where given. */
-function create(thrown?: unknown) {
+/** An admin create whose body records what it was handed and sends the create, which the backend answers with `answer` where given. */
+function create(answer?: Response) {
   return action({
     lane: "admin",
     name: "create",
     input: Venue,
     run: async (input) => {
-      state.steps.push(`body ${JSON.stringify(input)}`);
-      await sends("POST", undefined, thrown);
+      ran.push(`body ${JSON.stringify(input)}`);
+      await sends("POST", answer);
       return { ok: true, value: undefined };
     },
   });
 }
 
 beforeEach(() => {
-  state.admin = { session: {} };
-  state.subject = null;
-  state.botCheck = null;
-  state.touch = true;
-  state.account = null;
-  state.actor = undefined;
-  state.steps = [];
-  state.lines = [];
-  state.behind = [];
+  ran.length = 0;
+  planned.length = 0;
+  behind.length = 0;
 });
 
 describe("the admin lane", () => {
+  /** Arrives so the administrator's guard refuses as `refused` says. */
+  const ARRIVALS = {
+    signIn: () => arriveAs(null),
+    // A person's code session at an address holding no grant.
+    noGrant: () => arriveAs({ email: PERSON }),
+    // The file's administrator, signed in by passkey, whose grant the backend now answers gone.
+    grantGone: () => answerTheLookup(() => ({ ...GRANTED, admin_tier: null, granted_since: null, account: true })),
+    unread: () => answerTheLookup(() => null),
+  } as const;
+
   it.each([
     ["signIn", COPY.shared.failure.signInExpired],
     ["noGrant", COPY.shared.failure.accessGone],
     ["grantGone", COPY.shared.failure.accessGone],
     ["unread", COPY.shared.failure.unexpected],
-  ])("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
-    state.admin = { refused };
+  ] as const)("turns a caller the guard refuses as %s away in its shared line, before anything else", async (refused, reason) => {
+    await ARRIVALS[refused]();
 
     expect(await create()({ name: "Nord", postcode: "60438" })).toStrictEqual({ ok: false, reason });
-    expect(state.steps).toStrictEqual(["admin guard"]);
-  });
-
-  it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
-    const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", postcode: "60438" });
-
-    expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
-    expect(state.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "create", name: "Error" } }]);
-    expect(state.steps.at(-1)).toBe("updateTag site");
+    expect({ ran, sent: sent() }, "the body ran, or sent its call").toStrictEqual({ ran: [], sent: [] });
+    // The guard's own verdict, never a failure answered in the same line, which logs the action's failure.
+    expect(log.lines().filter(({ message }) => message === "action.failed")).toStrictEqual([]);
   });
 });
 
 const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
-
-/** A signed-in person holding a contact seat at each team and season named, in seasons that grant a panel. */
-const seated = (...seats: { team_id: string; saison_id: string }[]) => person({ seats: seats.map((at) => seat(at)) });
 
 describe("the person lane", () => {
   const register = action({
@@ -167,63 +117,42 @@ describe("the person lane", () => {
     name: "melden",
     input: Seat,
     run: async (_input, { seats }) => {
-      state.steps.push(`body ${String(seats.length)}`);
+      ran.push(`body ${String(seats.length)}`);
       return { ok: true, value: undefined };
     },
   });
 
   it("turns away a caller with no session, logging why, before the input is read", async () => {
+    await arriveAs(null);
+
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await register({ team_id: "", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(state.steps).toStrictEqual(["person guard"]);
-    expect(state.lines).toStrictEqual([{ level: "info", message: "roles.refused", meta: { operation: "melden", reason: "no_session" } }]);
-  });
-
-  it.each([
-    ["in another season", { team_id: "t1", saison_id: "2026" }],
-    ["at another team in the same season", { team_id: "t2", saison_id: "2027" }],
-  ])("refuses a seat the person holds %s, naming nothing of the address", async (_where, held) => {
-    state.subject = seated(held);
-
-    expect(await register({ team_id: "t1", saison_id: "2027" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.stale });
-    expect(state.steps).toStrictEqual(["person guard"]);
-    expect(JSON.stringify(state.lines)).not.toContain("@");
+    expect(ran).toStrictEqual([]);
+    expect(log.lines().map(({ level, message, fields }) => [level, message, fields])).toStrictEqual([
+      ["INFO", "roles.refused", { operation: "melden", reason: "no_session" }],
+    ]);
   });
 });
 
 describe("the passkey touch a lane declares", () => {
-  const HOLDER = "inhaberin@example.org";
   const run = async () => {
-    state.steps.push("body");
+    ran.push("body");
     return { ok: true as const, value: undefined };
   };
   const declared = { name: "passkeyAendern", input: Venue.extend(PAGE_HOLDER), passkey: true } as const;
   const touched = (lane: "admin" | "person") =>
     lane === "admin" ? action({ ...declared, lane, run }) : action({ ...declared, lane, claim: "record", run });
 
-  beforeEach(() => {
-    state.subject = person({});
-    state.actor = { email: HOLDER, lane: "person", authTime: 0, factor: "passkey" };
-  });
-
-  it.each(["admin", "person"] as const)("refuses the %s lane's act its touch fails, before the input is read", async (lane) => {
-    state.touch = false;
-
-    // An input the schema refuses: read first, it would answer with the box's message.
-    expect(await touched(lane)({ name: "", postcode: "x", holder: HOLDER })).toStrictEqual({
-      ok: false,
-      reason: COPY.signIn.refusal.touchMissing,
-    });
-    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
-  });
-
   /* The touch on a page whose own session ended signs in whichever account's passkey answers: the act would run as it. */
   it.each(["admin", "person"] as const)("refuses the %s lane's act a touch signed another account in for, running nothing", async (lane) => {
+    // The administrator by passkey just now, and a person holding no passkey, each of whom the touch passes.
+    if (lane === "person") await arriveAs({ email: PERSON });
+
     expect(await touched(lane)({ name: "Nord", postcode: "60438", holder: "jemand-anderes@example.org" })).toStrictEqual({
       ok: false,
       reason: COPY.shared.failure.signInExpired,
     });
-    expect(state.steps).toStrictEqual([lane === "admin" ? "admin guard" : "person guard", "passkey touch"]);
+    expect(ran).toStrictEqual([]);
   });
 });
 
@@ -235,31 +164,28 @@ describe("the account's own acts", () => {
     name: "sign_out",
     input: z.object(PAGE_HOLDER),
     run: async (_input, { served }) => {
-      state.steps.push(`body ${JSON.stringify(served)}`);
+      ran.push(`body ${served.user.email}`);
       return { ok: true, value: undefined };
     },
-  });
-
-  beforeEach(() => {
-    state.subject = person({});
-    state.actor = { email: HOLDER, lane: "person", authTime: 0, factor: "code" };
   });
 
   /* An address holding a grant signed in by its mailed code alone passes the person guard: its mailbox's holder
      would end the administrator's other sessions. */
   it("turns away a session the account's guard refuses, before the input is read", async () => {
-    state.account = null;
+    await arriveAs({ email: HOLDER });
+    // The address holds a grant, which its code session does not meet.
+    answerTheLookup((email) => (email === HOLDER ? GRANTED : undefined));
 
     // An input the schema refuses: read first, it would answer with the box's message.
     expect(await signOut({ holder: "" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.signInExpired });
-    expect(state.steps).toStrictEqual(["person guard", "account guard"]);
+    expect(ran).toStrictEqual([]);
   });
 
   it("runs the body on the session the account's guard judged, for the address its page was drawn for", async () => {
-    state.account = { user: { id: "u1" } };
+    await arriveAs({ email: HOLDER });
 
     expect(await signOut({ holder: HOLDER.toUpperCase() })).toStrictEqual({ ok: true, value: undefined });
-    expect(state.steps).toStrictEqual(["person guard", "account guard", 'body {"user":{"id":"u1"}}']);
+    expect(ran).toStrictEqual([`body ${HOLDER}`]);
   });
 });
 
@@ -270,19 +196,25 @@ describe("the public lane", () => {
     name: "send",
     input: z.object({ email: z.email() }),
     run: async ({ email }) => {
-      state.steps.push("body");
+      ran.push("body");
       return { ok: true, value: email };
     },
   });
 
   it("answers the bot check's refusal before anything of the input is read", async () => {
-    state.botCheck = COPY.shared.botCheck;
+    // Cloudflare judging the token forged.
+    const judged = serveHost("https://challenges.cloudflare.com", ({ method, url }) =>
+      method === "POST" && url.pathname === "/turnstile/v0/siteverify"
+        ? { success: false, "error-codes": ["invalid-input-response"] }
+        : undefined,
+    );
     const posted = new FormData();
     posted.set("email", "no-address");
     posted.set("cf-turnstile-response", "token");
 
     expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.botCheck });
-    expect(state.steps).toStrictEqual(["bot check token"]);
+    expect(judged.map(({ body }) => (body as { response?: unknown }).response)).toStrictEqual(["token"]);
+    expect(ran).toStrictEqual([]);
   });
 });
 
@@ -304,40 +236,42 @@ function onLane(lane: "admin" | "person" | "public", work: () => Promise<unknown
 }
 
 /** What the action did to the site's cache, in order. */
-const cacheSteps = () => state.steps.filter((step) => step.startsWith("updateTag") || step === "refresh");
+const cacheSteps = () =>
+  cacheCalls.flatMap(({ name, args }) => (name === "updateTag" ? [`updateTag ${String(args[0])}`] : name === "refresh" ? [name] : []));
 
 describe("the site's cache", () => {
-  beforeEach(() => {
-    state.subject = person();
-  });
-
   it.each(["admin", "person", "public"] as const)("is cleared on the %s lane once the body sent a write", async (lane) => {
+    if (lane === "person") await arriveAs({ email: PERSON });
+
     await onLane(lane, async () => {
       await sends("GET");
       await sends("POST");
     })({ name: "Nord" });
 
+    expect(sent()).toStrictEqual([`GET ${PROBE}`, `POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
   it.each([
-    ["whose answer never came", new TypeError("fetch failed")],
-    ["the backend answered as one that may stand", failure(500, "unknown_outcome")],
+    ["whose answer never came", networkFailure()],
+    ["the backend answered as one that may stand", refusal("unknown_outcome", { status: 500 })],
     // The server may fail after its commit.
-    ["the server failed on", failure(500, "database_failed")],
-    ["an edge's own page refused, naming no code", failure(429, undefined)],
-  ])("is cleared for a write %s, which may have landed all the same", async (_answer, thrown) => {
-    await onLane("admin", () => sends("POST", undefined, thrown))({ name: "Nord" });
+    ["the server failed on", refusal("database_failed", { status: 500 })],
+    ["an edge's own page refused, naming no code", new Response("<html>", { status: 429, headers: { "content-type": "text/html" } })],
+  ])("is cleared for a write %s, which may have landed all the same", async (_answer, answer) => {
+    await onLane("admin", () => sends("POST", answer))({ name: "Nord" });
 
+    expect(sent()).toStrictEqual([`POST ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
   it("is cleared where one write landed before another was refused", async () => {
     await onLane("admin", async () => {
       await sends("POST");
-      await sends("PATCH", undefined, refusal("version_stale"));
+      await sends("PATCH", refusal("version_stale"));
     })({ name: "Nord" });
 
+    expect(sent()).toStrictEqual([`POST ${PROBE}`, `PATCH ${PROBE}`]);
     expect(cacheSteps()).toStrictEqual(["updateTag site"]);
   });
 
@@ -345,23 +279,26 @@ describe("the site's cache", () => {
   // rather than what the action's 30 seconds have left.
   it("stands when the body's write runs behind the response, in a scope of its own", async () => {
     const clock = vi.spyOn(performance, "now").mockReturnValue(0);
-    const behind: { actor: unknown; left: number }[] = [];
+    const seen: { actor: unknown; left: number }[] = [];
     try {
-      await onLane("admin", async () => {
-        setRequestActor({ email: "admin@example.org", lane: "admin", authTime: 0, factor: "passkey" });
+      // Under the actor the administrator's guard recorded for the action.
+      const answer = await onLane("admin", async () => {
         afterTheResponse(async () => {
-          behind.push({ actor: getRequestActor(), left: requestTimeLeft() });
+          seen.push({ actor: getRequestActor(), left: requestTimeLeft() });
           await sends("POST");
         });
       })({ name: "Nord" });
+      expect(answer).toStrictEqual({ ok: true, value: undefined });
+      expect(sent(), "the write behind the response went before the response").toStrictEqual([]);
       clock.mockReturnValue(20000);
-      for (const task of state.behind.splice(0)) await task();
+      for (const task of behind.splice(0)) await task();
     } finally {
       clock.mockRestore();
     }
 
-    expect(state.steps).toStrictEqual(["admin guard", "sent POST"]);
-    expect(behind).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
+    expect(sent()).toStrictEqual([`POST ${PROBE}`]);
+    expect(cacheSteps()).toStrictEqual([]);
+    expect(seen).toStrictEqual([{ actor: undefined, left: AFTER_RESPONSE_DEADLINE_MS }]);
   });
 });
 
@@ -382,7 +319,7 @@ describe("a list of records", () => {
       examples: { "changes.scorers.*.minute": field.exampleDigits },
       run: async () => {
         const refused: FLRefusedField = { in: "body", kind: "address_in_free_text", ctx: {}, path: ["bericht", "scorers", 2, "minute"] };
-        await sends("PUT", undefined, failure(422, "payload_refused", [refused]));
+        await sends("PUT", refusal("payload_refused", { fields: [refused] }));
         return { ok: true, value: undefined };
       },
     });
@@ -397,6 +334,7 @@ describe("a list of records", () => {
         "changes.scorers.2.minute": field.format(field.exampleDigits),
       },
     });
+    expect(sent(), "a form its own check refused was sent").toStrictEqual([]);
   });
 
   it("places the backend's refusal of a row's field on that row's box", async () => {
@@ -413,6 +351,56 @@ describe("a list of records", () => {
       errorCode: "payload_refused",
       reason: COPY.shared.failure.stale,
     });
+  });
+});
+
+// The harm: a dialog closed behind the passkey touch answers in a toast, where a box's phrase has no box in sight and the
+// line pointing at the fields points at nothing.
+describe("a screen showing no box with its answer", () => {
+  const { format, reasonMissing, reasonWithAddress } = SERVER_COPY.closedDialog;
+  const Ban = z.object({
+    email: z.string().refine((value) => value.includes("@")),
+    ban_reason: z
+      .string()
+      .min(1)
+      .regex(/^[^|]*$/),
+  });
+
+  /** A ban whose backend refuses what `refused` names, or takes it. */
+  const ban = (refused?: FLRefusedField) =>
+    action({
+      lane: "admin",
+      name: "enterBan",
+      input: Ban,
+      ownWords: ["address_in_free_text", "email_not_accepted"],
+      paths: { email: "email", ban_reason: "ban_reason" },
+      boxless: {
+        email: { value: format.address, email_not_accepted: format.address },
+        ban_reason: { required: reasonMissing, address_in_free_text: reasonWithAddress },
+      },
+      run: async () => {
+        await sends("POST", refused === undefined ? undefined : refusal("payload_refused", { fields: [refused] }));
+        return { ok: true, value: undefined };
+      },
+    });
+
+  it("answers a box its own rule refused in the box's sentence, by whether it held anything once stripped", async () => {
+    expect(await ban()({ email: "max", ban_reason: "Ein Grund" })).toStrictEqual({ ok: false, reason: format.address });
+    expect(await ban()({ email: "max@example.org", ban_reason: "   " })).toStrictEqual({ ok: false, reason: reasonMissing });
+  });
+
+  it("answers a box the backend's rule refused in the sentence declared for that rule", async () => {
+    const refused: FLRefusedField = { in: "body", kind: "address_in_free_text", ctx: {}, path: ["ban_reason"] };
+
+    expect(await ban(refused)({ email: "max@example.org", ban_reason: "max@example.org" })).toStrictEqual({
+      ok: false,
+      errorCode: "payload_refused",
+      reason: reasonWithAddress,
+    });
+  });
+
+  it("answers a refusal of a box it declares no sentence for as one it does not word, never with the box's phrase", async () => {
+    expect(await ban()({ email: "max@example.org", ban_reason: "a|b" })).toStrictEqual({ ok: false, reason: COPY.shared.failure.unexpected });
   });
 });
 

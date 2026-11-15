@@ -26,13 +26,14 @@ from app.api.spielbestaetigungen.services import (
     CLOSE_FIELDS,
     build_holding_filter,
     build_triage_rows_filter,
-    discard_owes_a_notice,
+    due_by_of,
+    lapsed_on,
     parties_told_of_the_change,
     party_key,
-    reason_to_end,
+    reason_to_close,
 )
 from app.api.spiele.schemas import (
-    SONDEREREIGNIS_COUNTED_AS_CANCELLED,
+    SONDEREREIGNIS_OWING_NOTHING,
     FLBracketFault,
     FLSpielbestaetigungParty,
     FLSpielJoinedAdmin,
@@ -42,7 +43,7 @@ from app.api.spiele.schemas import (
 from app.api.spiele.services import PARTY_NAME_FIELD, build_party_name_stages, build_spiele_pipeline, recipients_named
 from app.core import clock
 from app.core.collections import Collection
-from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId
+from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import BaseAPIResponse
 
@@ -54,7 +55,7 @@ type FLOverviewCardName = Literal["due", "ergebnisse", "dates", "bewerbungen"]
 # missing is one kind whether nobody was booked or the booked one declined, since either asks the same act.
 type FLOverviewGapKind = Literal["ergebnis_missing", "appointment_missing", "spielort_missing", "schiedsrichter_missing", "team_missing"]
 
-# A party's answer still owed, a club's or the booked referee's: past its deadline, or due today.
+# A party's answer still owed, a club's or the booked referee's: lapsed, or not yet.
 type FLOverviewAnswerKind = Literal["spielbestaetigung_overdue", "spielbestaetigung_due"]
 
 type FLOverviewKind = FLOverviewGapKind | FLOverviewAnswerKind | Literal["spielbericht_open", "vorschlag_open", "bracket_fault", "bewerbung"]
@@ -112,11 +113,19 @@ class FLOverviewParty(BaseModel):
     spielbestaetigung_id: CustomObjectId
     party: FLSpielbestaetigungParty
     name: CustomNonEmptyString
-    deadline: CustomDateString
+    # The day the party's request was first mailed, as the match editor's row serves it; null where it was never mailed,
+    # its club holding no confirmed seat, so the league enters its Zusage.
+    asked_at: CustomOptionalDateString
+    # The day the party's answer is due by, as the match editor's row serves it: a club's stored deadline, and a
+    # referee's slot, whom no deadline binds.
+    due_by: CustomDateString
+    # The day the party's answer lapsed, its `due_by` gone by; null while it may still answer, as a referee may until
+    # the kick-off.
+    lapsed_on: CustomDateString | None
 
 
 class FLOverviewSpielbestaetigungRow(BaseModel):
-    """A fixture whose parties owe their answer: overdue where one party's deadline has passed, else due today."""
+    """A fixture whose parties owe their answer: overdue where one party's answer has lapsed, else still due."""
 
     kind: FLOverviewAnswerKind
     spiel: FLSpielJoinedAdmin
@@ -129,7 +138,7 @@ class FLOverviewVorschlagRow(BaseModel):
 
     Each act's recipients are the parties the backend mails of it, each by the name its own record holds, so its question
     names them: `adoption_recipients` those the confirmation pass tells of the move, `discard_recipients` the club the
-    discard tells the date stands, none once its kick-off has come.
+    discard tells the date stands.
     """
 
     kind: Literal["vorschlag_open"]
@@ -204,7 +213,7 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
         {"$project": {"rules": 1}},
         {"$lookup": {"from": Collection.SPIELE, "pipeline": build_spiele_pipeline(db_filter={"saison_id": saison_id}), "as": SPIELE_AS}},
         # The rows in the administrator's queue: a standing proposal, a deadline passed, or due today. Each one still has
-        # to speak for its fixture as it stands, which `reason_to_end` judges below.
+        # to speak for its fixture as it stands, which `reason_to_close` judges below.
         {
             "$lookup": {
                 "from": Collection.SPIELBESTAETIGUNGEN,
@@ -264,9 +273,9 @@ def build_overview_pipeline(*, saison_id: str, today: str) -> list[Mapping[str, 
 
 
 def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind]:
-    """What a fixture still lacks, each kind once; a fixture called off or struck out owes nothing."""
+    """What a fixture still lacks, each kind once; a fixture called off, struck out or decided by a no-show owes nothing."""
 
-    if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_CANCELLED:
+    if spiel.sonderereignis in SONDEREREIGNIS_OWING_NOTHING:
         return []
 
     open_side = spiel.saison_phase != "gruppenphase" and any(
@@ -287,7 +296,7 @@ def _gaps(spiel: FLSpielJoinedInternal, *, today: str) -> list[FLOverviewGapKind
 
 
 def _austritte(spiele: Iterable[FLSpielJoinedInternal]) -> dict[Any, str]:
-    """Each club's exit day, as the fixtures' joined sides carry it: what `reason_to_end` asks of a row's clubs."""
+    """Each club's exit day, as the fixtures' joined sides carry it: what `reason_to_close` asks of a row's clubs."""
 
     return {
         side.team_id: side.austritt.date
@@ -335,7 +344,7 @@ def overview_of(
     for row in read[QUEUE_ROWS_AS]:
         spiel_raw = spiele_raw.get(row["spiel_id"])
         # A row about an Ansetzung its fixture has left, or one the next pass ends, asks the administrator nothing.
-        if spiel_raw is None or reason_to_end(row=row, spiel=spiel_raw, austritte=austritte, now=now) is not None:
+        if spiel_raw is None or reason_to_close(row=row, spiel=spiel_raw, austritte=austritte, now=now) is not None:
             continue
         spiel = by_id[row["spiel_id"]]
         answer = row[ROW_ANSWER]
@@ -352,20 +361,33 @@ def overview_of(
                     vorschlag=vorschlag,
                     adoption_recipients=recipients_named(
                         parties_told_of_the_change(
-                            rows=held.get(spiel.id, []), stored=spiel_raw, changed=adopted, austritte=austritte, now=now
+                            rows=held.get(spiel.id, []),
+                            stored=spiel_raw,
+                            changed=adopted,
+                            stored_austritte=austritte,
+                            changed_austritte=austritte,
+                            now=now,
                         ),
                         names=names,
                     ),
-                    discard_recipients=recipients_named([row[ROW_PARTY]] if discard_owes_a_notice(row=row, now=now) else [], names=names),
+                    discard_recipients=recipients_named([row[ROW_PARTY]], names=names),
                 )
             )
             continue
         parties.setdefault(spiel.id, []).append(
-            FLOverviewParty(spielbestaetigung_id=row["_id"], party=row[ROW_PARTY], name=row.get(PARTY_NAME_FIELD), deadline=row[ROW_DEADLINE])
+            FLOverviewParty(
+                spielbestaetigung_id=row["_id"],
+                party=row[ROW_PARTY],
+                name=row.get(PARTY_NAME_FIELD),
+                asked_at=row["asked_at"],
+                due_by=due_by_of(row),
+                # No reason: the next close ends none of these rows, as judged above.
+                lapsed_on=lapsed_on(spielbestaetigung_raw=row, reason=None, spiel=spiel_raw, austritte=austritte, now=now),
+            )
         )
     rows.extend(
         FLOverviewSpielbestaetigungRow(
-            kind="spielbestaetigung_overdue" if any(party.deadline < today for party in owed) else "spielbestaetigung_due",
+            kind="spielbestaetigung_overdue" if any(party.lapsed_on is not None for party in owed) else "spielbestaetigung_due",
             spiel=by_id[spiel_id],
             parties=owed,
         )

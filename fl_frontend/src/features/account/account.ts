@@ -4,10 +4,9 @@ import { redirect } from "next/navigation";
 
 import { getAccountSession } from "@/core/auth/guards";
 import { withReturnAddress } from "@/core/auth/returnAddress";
-import { rolesOf } from "@/core/roles";
 import { ROUTES } from "@/core/routes";
 import { getSubjectSession } from "@/core/subject";
-import { placeOf, placesOf } from "@/features/roles/utils";
+import { landingTargetOf, placeOf, placesOf } from "@/features/roles/utils";
 
 import type { JudgedSession } from "@/core/auth/guards";
 import type { Copy } from "@/core/copy";
@@ -37,12 +36,15 @@ export async function readAccount(role?: Copy): Promise<Account | null> {
 }
 
 /**
- * Where Konto's „‹ Zurück“ leads, the person's Übersicht, or `null` for a person holding no Funktion: the Übersicht
- * sends that person to Konto, so a way back there would lead straight back here.
+ * Where Konto's „‹ Zurück“ leads: where the person's landing would send them, so the way back takes no second
+ * redirect, or `null` for a person holding no Funktion, whom the landing sends to Konto, so a way back there would
+ * lead straight back here.
  */
 export async function readAreaBack(): Promise<Route | null> {
   const subject = await getSubjectSession();
-  return subject !== null && rolesOf(subject).roles.length === 0 ? null : ROUTES.area.path();
+  if (subject === null) return ROUTES.area.path();
+  const target = landingTargetOf(placesOf(subject));
+  return target === ROUTES.account.path() ? null : target;
 }
 
 /**

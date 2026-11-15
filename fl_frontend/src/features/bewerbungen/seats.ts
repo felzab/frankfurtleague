@@ -1,6 +1,7 @@
+import { CONFIRMED_CHIP, ERASED_CHIP, EXPIRED_CHIP, NOT_SENT_CHIP, OBJECTED_CHIP, UNCONFIRMED_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { dayOf } from "@/core/format";
-import { SERVER_COPY } from "@/core/serverCopy";
 import { KONTAKT_ROLLEN, seatBesideTrainer } from "@/features/teams/constants";
 
 import { deliveryChip } from "./deliveryState";
@@ -27,15 +28,12 @@ export type SeatView = {
 
 const WORDS = COPY.admin.schiedsrichter;
 
-/** The submission owed no mail, its mailbox holding too many unanswered links. */
-export const NOT_SENT: ChipProps = { tone: "warn", label: COPY.admin.saison.linkNotSent };
-
 const STATE_CHIP: Readonly<Record<SeatState, ChipProps>> = {
-  confirmed: { tone: "success", label: COPY.admin.confirmed },
-  valid: { tone: "warn", label: COPY.template.open },
-  expired: { tone: "neutral", label: COPY.admin.expired },
-  declined: { tone: "danger", label: SERVER_COPY.entryConfirmation.objected },
-  erased: { tone: "neutral", label: COPY.admin.erased },
+  confirmed: CONFIRMED_CHIP,
+  valid: UNCONFIRMED_CHIP,
+  expired: EXPIRED_CHIP,
+  declined: OBJECTED_CHIP,
+  erased: ERASED_CHIP,
 };
 
 /** The day the seat's state dates from, a decided application's spent link naming none: its deadline is not why it ended. */
@@ -49,7 +47,7 @@ function dayOfState({ status, kontakte }: FLBewerbung, seat: FLKontaktRolle, ent
     case "expired":
       return status === "submitted" ? WORDS.expiredOn(dayOf(entry.deadline)) : null;
     case "valid":
-      return WORDS.openUntil(dayOf(entry.deadline));
+      return COPY.admin.spiel.answerBy(dayOf(entry.deadline));
   }
 }
 
@@ -65,7 +63,7 @@ export function seatsOf(bewerbung: FLBewerbung): SeatView[] {
     // An erasure clears the entry, which is all that parts it from the empty slot a Widerspruch leaves.
     const state = entry?.state ?? "erased";
     const day = entry === null ? null : dayOfState(bewerbung, seat, entry);
-    const delivery = entry?.sent_at === null ? NOT_SENT : deliveryChip(entry?.delivery ?? null);
+    const delivery = entry?.sent_at === null ? NOT_SENT_CHIP : deliveryChip(entry?.delivery ?? null);
     return {
       seat,
       rollen: seat === "trainer" && also !== null ? [seat, also] : [seat],

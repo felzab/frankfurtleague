@@ -1,3 +1,5 @@
+import { NOMINEE_CHIP } from "@/kit/stateChips";
+
 import { COPY } from "@/core/copy";
 import { SERVER_COPY } from "@/core/serverCopy";
 import { roleMarkOf, shirtNumber, spielerName } from "@/features/spieler/constants";
@@ -27,7 +29,7 @@ export const LINEUP_WORDS: LineupWords = {
 
 /** „Nachnominiert“ after the name of a pupil registered after the season began, whom the shortage rule holds. */
 function chipOf({ is_nachnominiert }: Pick<FLAufstellungSpieler, "is_nachnominiert">): ChipProps | undefined {
-  return is_nachnominiert ? { tone: "info", label: COPY.admin.spieler.nominee } : undefined;
+  return is_nachnominiert ? NOMINEE_CHIP : undefined;
 }
 
 function playerOf(spieler: FLAufstellungSpieler, gone: boolean): LineupPlayer {

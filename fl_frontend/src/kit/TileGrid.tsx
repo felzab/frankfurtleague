@@ -1,15 +1,14 @@
 import Image from "next/image";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
 import { Chip } from "./Chip";
 import { Link } from "./Link";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 import type { Copy, RecordText } from "@/core/copy";
 import type { Route } from "next";
-import type { ReactNode } from "react";
 import type { ChipProps } from "./Chip";
 
 /**
@@ -20,23 +19,16 @@ import type { ChipProps } from "./Chip";
 export type Sponsor = { name: RecordText; short?: RecordText; logo: string; href: string };
 
 /**
- * A club of the season: its name, its Kürzel and its page; on Teams also its group, under the name, and, where it
- * has left the season, its exit's chip after the name and its words muted, as a list row carries them.
+ * A club of the season: its name, its Kürzel and its page; on Teams also its group, under the name, and, where it has
+ * left the season, its exit's chip after the name and its words muted, as a list row carries them.
  */
 export type SchoolTile = { name: RecordText; plaque: RecordText; href: Route; line?: Copy; chip?: ChipProps; muted?: boolean };
 
-/**
- * What a grid of tiles takes its columns from. A block reads its own box; on the landing every block reads the screen,
- * so the page switches as one. `box` turns at 42 rem of the box the tiles stand in, `screen` at `lg`; the sponsors page
- * sets the landing's sponsor tiles as the landing does.
- */
-export type TilesReads = "box" | "screen";
-
 // One grid for both, since the season's schools and the sponsors were ruled one look, equal tiles in a
-// fixed grid, two columns and four from the width `reads` names; each tile's content is its own.
+// fixed grid, two columns and four from 42 rem of the box they stand in; each tile's content is its own.
 const grid = tv({
   slots: {
-    root: "grid grid-cols-2 gap-2",
+    root: "grid grid-cols-2 gap-2 @2xl:grid-cols-4",
     // The tile's edge and corners hold the link, which fills under the pointer and rings inside them.
     tile: `overflow-hidden ${cardSurface()}`,
     content: "text-sm font-medium",
@@ -50,28 +42,16 @@ const grid = tv({
       // on the dark one. The plate's height, 64 px.
       sponsor: { content: "grid content-start gap-2 p-2 text-center" },
     },
-    reads: {
-      box: { root: "@2xl:grid-cols-4" },
-      screen: { root: "lg:grid-cols-4" },
-    },
   },
 });
 
 /**
- * The container a grid reading its box takes its columns from, since a query reads an ancestor; `w-full`, since a
- * container's width counts none of its content. A grid reading the screen needs none.
- */
-function TilesBox({ reads, children }: { reads: TilesReads; children: ReactNode }) {
-  return reads === "box" ? <div className="@container w-full">{children}</div> : children;
-}
-
-/**
  * The season's schools, each an equal tile leading to its club's page.
  */
-export function SchoolTiles({ schools, reads = "box" }: { schools: readonly SchoolTile[]; reads?: TilesReads }) {
-  const slots = grid({ kind: "school", reads });
+export function SchoolTiles({ schools }: { schools: readonly SchoolTile[] }) {
+  const slots = grid({ kind: "school" });
   return (
-    <TilesBox reads={reads}>
+    <BlockBox>
       <ul className={slots.root()}>
         {schools.map((school) => (
           <li
@@ -97,40 +77,7 @@ export function SchoolTiles({ schools, reads = "box" }: { schools: readonly Scho
           </li>
         ))}
       </ul>
-    </TilesBox>
-  );
-}
-
-/**
- * The schools while they are read: `count` of the grid's tiles, each its plaque, its name's line and the line under
- * it as bars, at a tile's height.
- */
-export function SchoolTilesPlaceholder({ count, reads = "box" }: { count: number; reads?: TilesReads }) {
-  const slots = grid({ kind: "school", reads });
-  return (
-    <TilesBox reads={reads}>
-      <div className={slots.root()}>
-        {Array.from({ length: count }, (_, index) => (
-          <div
-            key={index}
-            className={slots.tile()}>
-            <span className={slots.content()}>
-              <span className={placeholderBar("h-6 w-10")} />
-              <span className="grid min-w-0 flex-1">
-                <PlaceholderLine
-                  textClass="text-sm"
-                  widthClass="w-3/4"
-                />
-                <PlaceholderLine
-                  textClass="text-xs"
-                  widthClass="w-1/3"
-                />
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </TilesBox>
+    </BlockBox>
   );
 }
 
@@ -139,10 +86,10 @@ export function SchoolTilesPlaceholder({ count, reads = "box" }: { count: number
  * `sponsored`, with no glyph saying it leaves the site. On the landing under the organisers and on the
  * sponsors' page.
  */
-export function SponsorTiles({ sponsors, reads = "box" }: { sponsors: readonly Sponsor[]; reads?: TilesReads }) {
-  const slots = grid({ kind: "sponsor", reads });
+export function SponsorTiles({ sponsors }: { sponsors: readonly Sponsor[] }) {
+  const slots = grid({ kind: "sponsor" });
   return (
-    <TilesBox reads={reads}>
+    <BlockBox>
       <ul className={slots.root()}>
         {sponsors.map((sponsor) => (
           <li
@@ -176,6 +123,6 @@ export function SponsorTiles({ sponsors, reads = "box" }: { sponsors: readonly S
           </li>
         ))}
       </ul>
-    </TilesBox>
+    </BlockBox>
   );
 }

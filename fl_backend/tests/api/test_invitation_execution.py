@@ -18,6 +18,7 @@ from app.api.invitations.services import (
 from app.api.outbox.services import enqueue_mails, final_update
 from app.api.saisons.admin_router import get_saison_admin, post_invitations_dispatch
 from app.api.teams.admin_router import delete_invitation, get_team_saison_admin, post_invitation, post_invitation_dispatch
+from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -178,17 +179,22 @@ async def revoke(database: AsyncDatabase, team_id: ObjectId) -> Any:
 async def read_state(database: AsyncDatabase, team_id: ObjectId) -> Any:
     """The team editor's read, whose `link` serves the live invitation."""
 
-    return await get_team_saison_admin(
-        team_id=team_id,
-        saison_id=SAISON_ID,
-        teams_collection=database[Collection.TEAMS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        spiele_collection=database[Collection.SPIELE],
-        invitations_collection=database[Collection.INVITATIONS],
-        outbox_collection=database[Collection.OUTBOX],
-        today=TODAY,
-    )
+    async with database.client.start_session(snapshot=True) as session:
+        return await get_team_saison_admin(
+            team_id=team_id,
+            saison_id=SAISON_ID,
+            teams_collection=database[Collection.TEAMS],
+            saison_teams_collection=database[Collection.SAISON_TEAMS],
+            saisons_collection=database[Collection.SAISONS],
+            spiele_collection=database[Collection.SPIELE],
+            invitations_collection=database[Collection.INVITATIONS],
+            outbox_collection=database[Collection.OUTBOX],
+            spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+            session=session,
+            today=TODAY,
+            now=clock.german_instant(TODAY, "12:00:00"),
+        )
 
 
 async def editor(database: AsyncDatabase) -> Any:
@@ -599,13 +605,28 @@ class TestTheSeasonWidePress:
         assert live is not None and live["_id"] == SEEDED_INVITATION
 
     def test_it_mails_the_confirmed_seats_of_the_team_it_reaches(self, mongo_replica_set_url: str):
+        """Per team, the count the plan asks for: one live invitation where it minted, one where it skipped a mailed team, none elsewhere.
+
+        The fresh row holds no link of its own: each owed mail mints one when it is handed out, and no token is answered.
+        """
+
         async def body(database: AsyncDatabase) -> Any:
             done = await press(database)
+            counts = {str(team_id): await live_count(database, team_id) for team_id in TEAM_NAMES}
+            fresh = await database[Collection.INVITATIONS].find_one({"team_id": TWO_SEATS, "revoked_at": None})
 
-            return done, {str(team_id): await owed_for(database, team_id) for team_id in (TWO_SEATS, UNCONFIRMED, NO_BLOCK, WITHDRAWN)}
+            assert fresh is not None
+            return (
+                done,
+                {str(team_id): await owed_for(database, team_id) for team_id in (TWO_SEATS, UNCONFIRMED, NO_BLOCK, WITHDRAWN)},
+                counts,
+                fresh["token_hashes"],
+            )
 
-        done, owed = on_a_league(mongo_replica_set_url, body)
+        done, owed, counts, hashes = on_a_league(mongo_replica_set_url, body)
 
+        assert counts == {str(TWO_SEATS): 1, str(UNCONFIRMED): 0, str(NO_BLOCK): 0, str(ALREADY_MAILED): 1, str(WITHDRAWN): 0}
+        assert hashes == []
         assert owed[str(TWO_SEATS)] == ["bramblewick@example.com", "quillhilde@example.com"]
         # Nobody is owed a mail for a team the press skipped.
         assert owed[str(UNCONFIRMED)] == []
@@ -613,26 +634,6 @@ class TestTheSeasonWidePress:
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
         assert owed[str(WITHDRAWN)] == []
         assert (done.mailed, done.skipped, done.failed) == (1, 4, 0)
-
-    def test_it_mints_for_the_team_it_mails_and_owes_its_confirmed_seats_in_the_same_write(self, mongo_replica_set_url: str):
-        """Per team, the count the plan asks for: one live invitation where it minted, one where it skipped a mailed team, none elsewhere.
-
-        The fresh row holds no link of its own: each owed mail mints one when it is handed out, and no token is answered.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            await press(database)
-            counts = {str(team_id): await live_count(database, team_id) for team_id in TEAM_NAMES}
-            fresh = await database[Collection.INVITATIONS].find_one({"team_id": TWO_SEATS, "revoked_at": None})
-
-            assert fresh is not None
-            return counts, fresh["token_hashes"], await owed_for(database, TWO_SEATS)
-
-        counts, hashes, owed = on_a_league(mongo_replica_set_url, body)
-
-        assert counts == {str(TWO_SEATS): 1, str(UNCONFIRMED): 0, str(NO_BLOCK): 0, str(ALREADY_MAILED): 1, str(WITHDRAWN): 0}
-        assert hashes == []
-        assert owed == ["bramblewick@example.com", "quillhilde@example.com"]
 
     def test_the_press_writes_one_row_across_the_teams_it_mails(self, mongo_replica_set_url: str):
         """One press is one act in the Protokoll, though each team it mails commits in a transaction of its own."""

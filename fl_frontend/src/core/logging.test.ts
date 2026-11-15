@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
 import { MongoServerError } from "mongodb";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { logger } from "./logging.ts";
@@ -24,9 +24,7 @@ const LOG_ADDRESSES = z
     ),
   );
 
-beforeEach(() => void vi.stubEnv("NODE_ENV", "production"));
-afterEach(() => void vi.unstubAllEnvs());
-
+// Run by the `unit-production` project under a production build's `NODE_ENV`, which writes the JSON line.
 describe("logger", () => {
   it("writes no address a store error or a field quoted, and keeps the error's frames", async () => {
     const duplicate = new MongoServerError({

@@ -1,5 +1,6 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
@@ -9,7 +10,8 @@ import type { SchiedsrichterEditor } from "./SchiedsrichterEditor";
 
 const ID = "64b0000000000000000000a1";
 
-const state = vi.hoisted(() => ({ read: null as unknown }));
+/** The referee the backend serves at the address's id. */
+const state = { read: null as unknown };
 
 /** An entry asked on 1 November and not yet answered, its last confirmation mail sent without trouble. */
 const unanswered = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleResponse => ({
@@ -49,30 +51,22 @@ const confirmed = (delivery: FLOutboxStatus | null): FLSchiedsrichterSingleRespo
 
 const sent: FLOutboxStatus = { state: "sent", delivery: null, undeliverable: false };
 const barred: FLOutboxStatus = { state: "barred", delivery: null, undeliverable: true };
-// A complaint follows a delivery: the person confirmed through the link, then marked the mail as spam.
-const complaint: FLOutboxStatus = {
-  state: "sent",
-  delivery: { state: "complaint", reason: null, at: "2026-11-04T08:00:00Z" },
-  undeliverable: true,
-};
 
-vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/core/auth/guards", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
-
-doubleApiClient(() => state.read);
+// The page's one read, of the referee its address names, through the real guard, query and generated call.
+serveBackend(({ method, path }) => (method === "GET" && path === `/schiedsrichter/${ID}` ? state.read : undefined));
+// An administrator's session, made by passkey, which the read's guard admits.
+signedInRequest();
 
 const { default: SchiedsrichterEditorPage } = await import("./page");
 
 /** The chips the editor sets after the referee's name. */
 async function chipsFor(read: FLSchiedsrichterSingleResponse) {
   state.read = read;
-  const shell = SchiedsrichterEditorPage({
+  const editor = (await SchiedsrichterEditorPage({
     params: Promise.resolve({ schiedsrichter: ID }),
     searchParams: Promise.resolve({}),
-  }) as ReactElement<{
-    editor: Promise<ReactElement<Parameters<typeof SchiedsrichterEditor>[0]>>;
-  }>;
-  const { chip, flag } = (await shell.props.editor).props;
+  })) as ReactElement<Parameters<typeof SchiedsrichterEditor>[0]>;
+  const { chip, flag } = editor.props;
   return { chip, flag };
 }
 
@@ -82,14 +76,7 @@ describe("the chips after a referee's name", () => {
   it("set the state's chip, then the mail's trouble", async () => {
     expect(await chipsFor(unanswered(barred))).toStrictEqual({
       chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
-      flag: { tone: "warn", label: COPY.admin.saison.addressBarred },
-    });
-  });
-
-  it("set a confirmed entry's mail trouble alone, it carrying no state chip", async () => {
-    expect(await chipsFor(confirmed(complaint))).toStrictEqual({
-      chip: { tone: "danger", label: COPY.admin.delivery.complaint },
-      flag: undefined,
+      flag: { tone: "danger", label: COPY.admin.saison.addressBarred },
     });
   });
 
@@ -98,6 +85,6 @@ describe("the chips after a referee's name", () => {
       chip: { tone: "warn", label: COPY.admin.schiedsrichter.unconfirmed },
       flag: undefined,
     });
-    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: undefined, flag: undefined });
+    expect(await chipsFor(confirmed(null))).toStrictEqual({ chip: { tone: "success", label: COPY.admin.confirmed }, flag: undefined });
   });
 });

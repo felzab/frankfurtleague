@@ -6,14 +6,14 @@ import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
 
-import { counterpart, useFrameSaison, useHoldsSaison } from "./FrameNav";
+import { counterpart, useFrameSaison } from "./FrameNav";
 import { hoverLook } from "./hoverStyles";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
 import { useRailCollapsed } from "./RailState";
 import { railFade } from "./railStyles";
-import { Placeholder, placeholderBar, PlaceholderLine, SAISON_WORDS } from "./Skeleton";
 import { tv } from "./tv";
+import { usePressed } from "./WholePage";
 
 const trigger = tv({
   slots: {
@@ -56,48 +56,6 @@ const trigger = tv({
 });
 
 /**
- * The season button while the seasons are read: the button's own box, outlined, its name and its span (in the rail)
- * or its one line (on the band) as bars, so the entries under it never move when it lands. Collapsed, the season's
- * glyph alone, as the button shows it.
- */
-export function SaisonButtonPlaceholder({ placement }: { placement: "rail" | "band" }) {
-  const holds = useHoldsSaison();
-  const { place, root, lines, arrow, glyph } = trigger({ placement });
-  if (!holds) return null;
-  return (
-    <Placeholder layoutClass={place()}>
-      <span className={root()}>
-        {placement === "rail" ? (
-          <>
-            <span className={glyph()}>
-              <span className={placeholderBar("size-4")} />
-            </span>
-            <span className={lines({ class: "w-full" })}>
-              <PlaceholderLine
-                textClass="text-sm"
-                words={SAISON_WORDS}
-              />
-              <PlaceholderLine
-                textClass="text-xs"
-                widthClass="w-3/4"
-              />
-            </span>
-          </>
-        ) : (
-          <PlaceholderLine
-            textClass="text-sm"
-            words={SAISON_WORDS}
-          />
-        )}
-        <span className={arrow()}>
-          <span className={placeholderBar("size-4")} />
-        </span>
-      </span>
-    </Placeholder>
-  );
-}
-
-/**
  * Switching season, at the top of the rail or in the phone's top band: always a menu, even with one
  * season, and nothing where the frame holds no season. Each entry is the page shown, in that season, read
  * from the address on the client, so the layout placing the frame need not know the page beneath it. In a
@@ -108,10 +66,17 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
   const collapsed = useRailCollapsed();
   const path = usePathname();
   const params = useParams();
+  const links =
+    saison === null
+      ? []
+      : saison.entries.map(({ id }) => ({ id, href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }) }));
+  // From the press of another season, the button names the one the navigation goes to.
+  const pressed = usePressed(links.map((link) => link.href));
   if (saison === null) return null;
 
   const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: saison.entries.length < 2 });
-  const active = saison.entries.find((entry) => entry.id === saison.active);
+  const shown = links.find((link) => link.href === pressed)?.id ?? saison.active;
+  const active = saison.entries.find((entry) => entry.id === shown);
   return (
     <div className={place()}>
       <Menu
@@ -122,10 +87,10 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
         // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
         width={placement === "rail" ? "trigger" : "content"}
         groups={[
-          saison.entries.map(({ id }) => ({
+          links.map(({ id, href }) => ({
             kind: "link" as const,
             label: COPY.shared.saisonName(id),
-            href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
+            href,
             isCurrent: id === saison.active,
             // The browser's Back skips a season switch, returning to the page before the season's pages.
             replace: true,
@@ -144,12 +109,12 @@ export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
                   />
                 </span>
                 <span className={lines()}>
-                  <span className={name()}>{COPY.shared.saisonName(saison.active)}</span>
+                  <span className={name()}>{COPY.shared.saisonName(shown)}</span>
                   <span className={span()}>{active?.span}</span>
                 </span>
               </>
             ) : (
-              COPY.shared.saisonName(saison.active)
+              COPY.shared.saisonName(shown)
             )}
             <span className={arrow()}>
               <Icon

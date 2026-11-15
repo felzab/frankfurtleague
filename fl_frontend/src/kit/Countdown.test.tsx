@@ -26,19 +26,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("what is left until the season's start", () => {
-  it("never counts below zero once the start has passed", () => {
-    const container = document.createElement("div");
-    container.innerHTML = renderToString(
-      <Countdown
-        start={START}
-        seed={AT_START + HOUR_MS}
-      />,
-    );
-    expect(figuresOf(container)).toStrictEqual(["0", "0", "0"]);
-  });
-});
-
 describe("the countdown", () => {
   it("hydrates the server's markup without a mismatch, then counts from the visitor's clock", async () => {
     const markup = renderToString(

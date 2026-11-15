@@ -14,8 +14,7 @@ export const sentRequestOf = (method: string | undefined, readOnly: boolean | un
 
 /**
  * Sends one call, a write recorded as standing before `send` runs, since one whose answer never comes may still have
- * landed, and taken back where `send` throws the backend's refusal of it. Outside the client's module because its test
- * double replaces that module and sends through here, so neither can record a write the other does not.
+ * landed, and taken back where `send` throws the backend's refusal of it.
  */
 export async function dispatchRequest<T>(sent: SentRequest, send: () => Promise<T>): Promise<T> {
   if (!mayHaveWritten(sent)) return send();

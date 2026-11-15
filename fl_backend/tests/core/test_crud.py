@@ -15,8 +15,9 @@ from app.core.crud import (
     post_many_to_db,
 )
 
-# A NUL beside every character a pattern gives a meaning to. The server's refusal of the raw NUL is
-# pinned against a real mongod by `fl_backend/tests/api/test_kontakt_erasure_execution.py`'s NUL case.
+# A NUL beside every character a pattern gives a meaning to. Python's `re` takes a raw NUL, so this
+# case stays green with the NUL left unescaped: only a real server refuses one, and the erasure's
+# database case is what reads the escape.
 LITERAL = "a\x00.*+?^$()[]{}|\\/ -#b"
 
 

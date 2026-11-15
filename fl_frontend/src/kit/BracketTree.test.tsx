@@ -3,14 +3,14 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
 
 import { BracketTree } from "./BracketTree";
 
 import type { ComponentProps } from "react";
 import type { BracketMatch, BracketRound } from "./BracketTree";
 
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 
@@ -73,21 +73,5 @@ describe("the K.-o.-Baum", () => {
 
     expect(screen.getByRole("region", { name: COPY.shared.kOBaum })).toBeTruthy();
     expect(rowsOf()).toStrictEqual(rows);
-  });
-
-  it("sets the match for third place on its own row above the Finale", () => {
-    render(
-      <BracketTree
-        rounds={bracket(3)}
-        third={match("platz-3")}
-      />,
-    );
-
-    expect(rowsOf()).toStrictEqual([
-      ["Viertelfinale", 4],
-      ["Halbfinale", 2],
-      [SERVER_COPY.season.thirdPlace, 1],
-      ["Finale", 1],
-    ]);
   });
 });

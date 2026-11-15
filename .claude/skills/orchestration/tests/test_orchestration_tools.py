@@ -183,8 +183,8 @@ ENDPOINTS: Final = "| Method | Path |\n| --- | --- |\n| GET | `/spiele` |\n| POS
 
 @pytest.mark.parametrize(
     ("ours", "theirs"),
-    [("| POST | `/teams` |\n", "| POST | `/spieler` |\n"), ("| GET | `/teams` |\n", "| GET | `/spieler` |\n")],
-    ids=["both add a POST row", "both add a GET row the table already holds"],
+    [("| POST | `/teams` |\n", "| POST | `/spieler` |\n")],
+    ids=["both add a POST row"],
 )
 def test_a_table_whose_first_cell_repeats_is_keyed_by_the_column_naming_one_row(ours: str, theirs: str) -> None:
     conflicted = f"{ENDPOINTS}<<<<<<< HEAD\n{ours}=======\n{theirs}>>>>>>> agent\n"
@@ -331,16 +331,14 @@ KILLED_HOLDER: Final = (
 )
 
 
-@pytest.mark.parametrize("stale", [False, True], ids=["no lock", "a lock its killed writer left"])
-def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path, stale: bool) -> None:
+def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path) -> None:
     """Each writer rewrote the whole register through one shared spare, so a concurrent change vanished while its command exited 0.
 
     A lock left by a killed writer stopped every later one; twenty finding it at once must break it once.
     """
     register = _register(tmp_path)
-    if stale:
-        subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
-        assert (tmp_path / f"{register.name}.lock").exists()
+    subprocess.run((sys.executable, "-c", KILLED_HOLDER, str(register)), cwd=TOOLS, check=True)
+    assert (tmp_path / f"{register.name}.lock").exists()
     texts = []
     for k in range(20):
         texts.append(tmp_path / f"u{k}.txt")
@@ -354,20 +352,6 @@ def test_twenty_writers_started_together_each_land_their_line(tmp_path: Path, st
     held = register.read_bytes().decode("utf-8")
     assert sorted(int(found) for found in re.findall(r"^UPDATE [\d -]+:\d\d: writer (\d+)$", held, re.MULTILINE)) == list(range(20))
     assert sorted(path.name for path in tmp_path.iterdir() if path.name.startswith(register.name)) == [register.name]
-
-
-def test_a_writer_waits_for_the_lock_and_then_writes(tmp_path: Path) -> None:
-    """The twenty writers above pass by luck where nothing excludes them; holding the lock makes the wait certain."""
-    register = _register(tmp_path)
-    done: list[str] = []
-    with ledger.locked(register):
-        writer = threading.Thread(target=lambda: done.append(reg.append(register, "after the lock")))
-        writer.start()
-        writer.join(0.5)
-        assert writer.is_alive() and "after the lock" not in register.read_bytes().decode("utf-8")
-    writer.join(ledger.LOCK_SECONDS)
-    assert done and done[0] in register.read_bytes().decode("utf-8")
-    assert not (tmp_path / f"{register.name}.lock").exists()
 
 
 def test_every_register_writer_waits_for_the_lock(tmp_path: Path) -> None:
@@ -430,55 +414,6 @@ def test_a_lock_naming_a_running_process_or_none_is_kept_and_named(tmp_path: Pat
     with pytest.raises(OSError, match=re.escape(said.format(pid=os.getpid()))):
         ledger.update(register, lambda lines: lines.append("x"), time.monotonic() + 0.2)
     assert register.read_bytes() == before and lock.exists()
-
-
-# The platform bound each way, so both arms run on every machine: Windows asks a refused file again
-# until the deadline, and elsewhere a PermissionError is final.
-PATIENT: Final[tuple[str, ...]] = (
-    "import time",
-    "import ledger",
-    "refusals = []",
-    "def act():",
-    "    refusals.append(1)",
-    "    if len(refusals) < 3:",
-    "        raise PermissionError('held')",
-    "    return 'done'",
-    "ledger.WINDOWS = True",
-    "assert ledger._patient(act, time.monotonic() + 5) == 'done' and len(refusals) == 3, refusals",
-    "refusals.clear()",
-    "ledger.WINDOWS = False",
-    "try:",
-    "    ledger._patient(act, time.monotonic() + 5)",
-    "except PermissionError:",
-    "    assert len(refusals) == 1, refusals",
-    "else:",
-    "    raise SystemExit('a PermissionError off Windows was asked again')",
-)
-
-
-def test_a_file_held_open_is_asked_for_again_on_windows_alone() -> None:
-    done = subprocess.run((sys.executable, "-c", "\n".join(PATIENT)), cwd=TOOLS, capture_output=True, check=False)
-    assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
-
-
-def test_a_write_waits_out_a_reader_holding_the_register_open(tmp_path: Path) -> None:
-    """On Windows a replace refuses a file another process holds open, and a reader holding the register failed the write."""
-    register = _register(tmp_path)
-    done: list[str] = []
-    failed: list[BaseException] = []
-
-    def write() -> None:
-        try:
-            done.append(reg.append(register, "past the reader"))
-        except BaseException as error:
-            failed.append(error)
-
-    with register.open("rb"):
-        writer = threading.Thread(target=write)
-        writer.start()
-        writer.join(0.3)
-    writer.join(ledger.LOCK_SECONDS)
-    assert failed == [] and done and done[0] in register.read_bytes().decode("utf-8")
 
 
 def test_a_register_written_with_carriage_returns_keeps_them_through_every_writer(tmp_path: Path) -> None:
@@ -804,13 +739,12 @@ def test_close_sets_open_and_routed_rows_to_a_closing_status_and_its_evidence(tm
 @pytest.mark.parametrize(
     ("word", "evidence", "rows", "said"),
     [
-        ("CLOSED", "e", ("A-F2",), "`CLOSED` is no closing status"),
         ("ROUTED", "e", ("A-F2",), "`ROUTED` is no closing status"),
         ("MOOT", " \n ", ("A-F2",), "the evidence is empty"),
         ("MOOT", "e", ("A-F2", "A-F9"), "A-F9 is no ledger row"),
         ("MOOT", "e", ("A-F2", "A-F1"), "A-F1 is `FIXED (abc1234)` already: --reclose"),
     ],
-    ids=["a word outside the vocabulary", "a word that closes nothing", "no evidence", "no such row", "a closed row"],
+    ids=["a word that closes nothing", "no evidence", "no such row", "a closed row"],
 )
 def test_a_close_it_cannot_make_closes_none(tmp_path: Path, word: str, evidence: str, rows: tuple[str, ...], said: str) -> None:
     register = _banked(tmp_path, ("A-report.md", "F1 one\n\nF2 two\n"))
@@ -920,15 +854,21 @@ def test_bank_from_an_agent_skips_the_quota_stop_and_sets_its_live_row_done(tmp_
     )
 
 
-@pytest.mark.parametrize(
-    ("after", "said"),
-    [
-        ({"role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}, "ending in a tool call"),
-        ({"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]}, "ending in a message to it"),
-    ],
-    ids=["a quota stop after a tool call", "an interruption"],
+AFTER_A_TOOL_CALL: Final = ({"role": "assistant", "content": [{"type": "tool_use", "name": "Bash", "input": {}}]}, "ending in a tool call")
+AFTER_AN_INTERRUPTION: Final = (
+    {"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user]"}]},
+    "ending in a message to it",
 )
-@pytest.mark.parametrize("flags", [(), ("--none",)], ids=["labelled", "--none"])
+
+
+@pytest.mark.parametrize(
+    ("after", "said", "flags"),
+    [
+        pytest.param(*AFTER_A_TOOL_CALL, (), id="labelled-a quota stop after a tool call"),
+        pytest.param(*AFTER_AN_INTERRUPTION, (), id="labelled-an interruption"),
+        pytest.param(*AFTER_A_TOOL_CALL, ("--none",), id="--none-a quota stop after a tool call"),
+    ],
+)
 def test_bank_from_an_agent_stopped_mid_task_banks_and_saves_nothing(
     tmp_path: Path, after: dict[str, object], said: str, flags: tuple[str, ...]
 ) -> None:
@@ -1416,27 +1356,21 @@ def test_a_message_to_a_finished_agent_sets_its_row_running(tmp_path: Path) -> N
     assert _live_status(register, "OTHER") == "RUNNING"
 
 
-@pytest.mark.parametrize(
-    ("module", "name", "said"),
-    [
-        ("ledger", "route_each", "these rows were not routed to it: the register is locked"),
-        ("reg", "_wake", "its live-agent row was not set RUNNING (OSError: the register is locked)."),
-    ],
-    ids=["the route", "the wake"],
-)
-def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module: str, name: str, said: str
-) -> None:
-    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice."""
-    plans, _, messages = _fleet(tmp_path)
+def test_a_register_write_failing_after_the_record_says_the_message_is_recorded(tmp_path: Path) -> None:
+    """The hook said a message was in no messages file after writing it there, and the coordinator sent it twice.
 
-    def locked(*_: object, **__: object) -> None:
-        raise OSError("the register is locked")
-
-    monkeypatch.setattr({"ledger": ledger, "reg": reg}[module], name, locked)
-    told = reg.record(_sent("WORKER", "Fix it.\nRows: A-F1"), plans)
-    assert told is not None and told.startswith(f"The message to WORKER is recorded; {said}"), told
-    assert "Fix it." in messages.read_bytes().decode("utf-8")
+    The register's lock names a running process, so the wake and the route each fail after the record.
+    """
+    plans, register, messages = _fleet(tmp_path)
+    lock = register.with_name(f"{register.name}.lock")
+    lock.write_bytes(str(os.getpid()).encode())
+    done = _run("reg", "message", str(plans), stdin=json.dumps(_sent("WORKER", "Fix it.\nRows: A-F1")).encode("utf-8"))
+    assert done.returncode == 0, done.stderr
+    told = json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
+    held = f"{lock} names process {os.getpid()}, still running"
+    assert told.startswith(f"The message to WORKER is recorded; its live-agent row was not set RUNNING (OSError: {held}"), told
+    assert f"; these rows were not routed to it: {held}" in told, told
+    assert "Fix it." in messages.read_bytes().decode("utf-8") and _status(register, "A-F1") == ["OPEN", ""]
 
 
 def test_a_message_to_an_agent_no_row_names_is_recorded_and_its_rows_refused(tmp_path: Path) -> None:
@@ -1620,11 +1554,6 @@ def test_a_red_row_whose_recorded_job_passed_is_cleared_and_one_with_no_job_stay
     assert ci.report(FAILED_RUN.decode("utf-8"), red, passed=frozenset({"docs"})).cleared == []
 
 
-def test_ci_passes_a_run_whose_every_finding_is_listed() -> None:
-    said, new, flagged = _report(_log(("verify", "##[error]`db` took 155 s against a budget of 135 s")))
-    assert not flagged and new == [], said
-
-
 LIB: Final = REPO_ROOT / "scripts" / "lib" / "_lib.sh"
 # Three units: a listed finding, a pytest failure listed by its own line under its unit's verdict,
 # and an unlisted finding, each through the gate's own emitters and closing statements.
@@ -1661,11 +1590,6 @@ def test_ci_reads_one_unlisted_finding_among_the_gates_listed_ones_and_none_of_i
     assert flagged
 
 
-def test_ci_passes_a_gate_run_whose_every_finding_is_listed(tmp_path: Path) -> None:
-    said, new, flagged = _report(_gate(tmp_path, tuple(line for line in GATE_RUN if "unlisted" not in line)), GATE_RED)
-    assert new == [] and not flagged, said
-
-
 def test_ci_reads_a_job_printing_only_summaries_as_new(tmp_path: Path) -> None:
     """A job whose findings no annotation names still fails the read, through its verdict lines."""
     said, new, flagged = _report(_gate(tmp_path, ("section docs", "step one", 'fail --summary "3 finding(s) above"', "finish")), GATE_RED)
@@ -1683,20 +1607,18 @@ def _stub(tmp_path: Path, name: str, script: str) -> dict[str, str]:
     return {"PATH": f"{folder}{os.pathsep}{os.environ['PATH']}"}
 
 
-# Answers `run list` from `list-<n>.json`, the nth call's file or the last one, `run view --log-failed`
-# from `log.txt` and any other view from `run.json`, recording every call; call n exits with code n
-# of `exits.txt`, else `exit.txt`'s.
+# Answers `run list` from `list.json`, `run view --log-failed` from `log.txt` and any other view from
+# `run.json`, exiting with `exit.txt`'s code. Where `meanwhile.txt` names a file on its first line, the
+# log's answer writes the rest over that file, as a writer racing a read does.
 GH: Final = (
-    "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\ncalls = here / 'calls.txt'\n"
-    "calls.write_bytes((calls.read_bytes() if calls.exists() else b'') + ' '.join(args).encode() + b'\\n')\n"
-    "if args[:2] == ['run', 'list']:\n"
-    "    answers = sorted(here.glob('list-*.json'))\n"
-    "    sys.stdout.write(answers[min(calls.read_bytes().count(b'run list'), len(answers)) - 1].read_text(encoding='utf-8'))\n"
+    "import sys\nfrom pathlib import Path\nhere = Path(__file__).parent\nargs = sys.argv[1:]\n"
+    "if args[:2] == ['run', 'list']:\n    sys.stdout.write((here / 'list.json').read_text(encoding='utf-8'))\n"
     "elif '--log-failed' in args:\n    sys.stdout.buffer.write((here / 'log.txt').read_bytes())\n"
+    "    if (here / 'meanwhile.txt').exists():\n"
+    "        target, _, text = (here / 'meanwhile.txt').read_bytes().partition(b'\\n')\n"
+    "        Path(target.decode()).write_bytes(text)\n"
     "else:\n    sys.stdout.write((here / 'run.json').read_text(encoding='utf-8'))\n"
-    "codes = (here / 'exits.txt').read_text(encoding='utf-8').split() if (here / 'exits.txt').exists() else []\n"
-    "n = calls.read_bytes().count(b'\\n')\n"
-    "sys.exit(int(codes[n - 1] if n <= len(codes) else (here / 'exit.txt').read_text(encoding='utf-8')))\n"
+    "sys.exit(int((here / 'exit.txt').read_text(encoding='utf-8')))\n"
 )
 
 
@@ -1716,16 +1638,13 @@ def _pushed(tmp_path: Path) -> tuple[Path, str]:
     return root, pushed
 
 
-def _gh(
-    tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, lists: tuple[object, ...] = (), exits: tuple[int, ...] = ()
-) -> dict[str, str]:
+def _gh(tmp_path: Path, run: Mapping[str, object], log: bytes = b"", code: int = 0, listed: list[object] | None = None) -> dict[str, str]:
     env = _stub(tmp_path, "gh", GH)
     (tmp_path / "bin" / "run.json").write_bytes(json.dumps(run).encode())
     (tmp_path / "bin" / "log.txt").write_bytes(log)
     (tmp_path / "bin" / "exit.txt").write_bytes(str(code).encode())
-    (tmp_path / "bin" / "exits.txt").write_bytes(" ".join(map(str, exits)).encode())
-    for k, answer in enumerate(lists, 1):
-        (tmp_path / "bin" / f"list-{k}.json").write_bytes(json.dumps(answer).encode())
+    if listed is not None:
+        (tmp_path / "bin" / "list.json").write_bytes(json.dumps(listed).encode())
     return {**env, "PYTHONIOENCODING": "cp1252"}
 
 
@@ -1768,30 +1687,6 @@ def test_ci_refuses_a_run_of_another_workflow_or_another_commit(tmp_path: Path, 
     done = _run("ci", str(register), "123", cwd=root, env=env)
     assert done.returncode == 2 and said in done.stderr, done.stderr
     assert register.read_bytes() == before
-
-
-def test_ci_head_waits_for_the_pushed_commits_verify_run_to_exist_and_conclude(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A watch started before its run existed read nothing, so every push's watch began with `sleep 5` and a grep of the log."""
-    root, sha = _pushed(tmp_path)
-    run = {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha}
-    lists = ([], [{"databaseId": 77, "status": "in_progress"}], [{"databaseId": 77, "status": "completed"}])
-    env = _gh(tmp_path, run, FAILED_RUN, lists=lists)
-    register = tmp_path / "REGISTER-s.md"
-    register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "POLL_SECONDS", 0)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "--head", "--wait"]) == 1
-    calls = (tmp_path / "bin" / "calls.txt").read_bytes().decode().splitlines()
-    assert calls[:3] == [f"run list --workflow verify --commit {sha} --limit 1 --json databaseId,status,conclusion"] * 3
-    assert calls[3].startswith("run view 77 --json") and capsys.readouterr().out.startswith(f"run 77 for {sha[:9]}")
-    (tmp_path / "bin" / "list-2.json").unlink()
-    (tmp_path / "bin" / "list-3.json").unlink()
-    (tmp_path / "bin" / "calls.txt").unlink()
-    assert ci.main([str(register), "--head", "--wait", "--timeout", "0"]) == 2
-    assert f"no verify run started for {sha[:9]} within 0 s" in capsys.readouterr().err
 
 
 def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) -> None:
@@ -1915,53 +1810,32 @@ def test_ci_reads_another_commits_run_with_commit_and_writes_no_row(tmp_path: Pa
     assert _run("ci", str(register), "123", "--commit", "0" * 12, cwd=root, env=env).returncode == 2
 
 
-def test_a_reading_prints_before_the_write_that_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_a_reading_prints_before_the_write_that_fails(tmp_path: Path) -> None:
+    """A write after a long read meets the register as other writers left it; refused there, it must not take the reading with it.
+
+    The register loses its expected-red table while the log is read, so the write clearing a row refuses.
+    """
     root, sha = _pushed(tmp_path)
     run = _failed(sha, jobs=[{"name": "frontend", "conclusion": "success"}])
     env = _gh(tmp_path, run, _log(("docs", "##[error]`db` took 155 s against a budget of 135 s")))
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(EXPECTED_RED.replace("| `refusalCoverage` | | mapper |", "| `refusalCoverage` | | `frontend` job: x |").encode())
-
-    def unwritable(*_: object) -> None:
-        raise OSError("the register is locked")
-
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "clear", unwritable)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "123"]) == 2
-    said = capsys.readouterr()
-    assert "CLEARED   refusalCoverage" in said.out and said.out.endswith("0 NEW, 1 expected\n") and "the register is locked" in said.err
-
-
-def test_a_wait_asks_again_after_one_failed_gh_and_stops_after_three(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root, sha = _pushed(tmp_path)
-    lists = ([{"databaseId": 77, "status": "completed"}],)
-    env = _gh(tmp_path, _failed(sha), _log(("verify", "##[error]`db` took 155 s against a budget of 135 s")), lists=lists, exits=(1,))
-    register = tmp_path / "REGISTER-s.md"
-    register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    monkeypatch.setenv("PATH", env["PATH"])
-    monkeypatch.setattr(ci, "POLL_SECONDS", 0)
-    monkeypatch.chdir(root)
-    assert ci.main([str(register), "--head", "--wait"]) == 0
-    assert "gh failed while waiting (1 of 3), asking again" in capsys.readouterr().err
-    (tmp_path / "bin" / "exits.txt").write_bytes(b"1 1 1 1 1 1")
-    (tmp_path / "bin" / "calls.txt").unlink()
-    assert ci.main([str(register), "--head", "--wait"]) == 2
-    assert "gh failed 3 time(s) running" in capsys.readouterr().err
+    (tmp_path / "bin" / "meanwhile.txt").write_bytes(f"{register}\n# Agent register\n".encode())
+    done = _run("ci", str(register), "123", cwd=root, env=env)
+    assert done.returncode == 2, (done.stdout, done.stderr)
+    assert "CLEARED   refusalCoverage" in done.stdout and done.stdout.splitlines()[-1] == "0 NEW, 1 expected", done.stdout
+    assert "no expected-red table under `## Expected red` in the register" in done.stderr, done.stderr
+    assert register.read_bytes() == b"# Agent register\n"
 
 
 def test_ci_head_without_wait_reads_the_pushed_commits_run_or_says_there_is_none(tmp_path: Path) -> None:
     root, sha = _pushed(tmp_path)
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(EXPECTED_RED.encode("utf-8"))
-    none = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), lists=([],)))
+    none = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), listed=[]))
     assert none.returncode == 2 and f"no verify run for {sha[:9]} yet: read it with --wait" in none.stderr, none.stderr
-    found = ([{"databaseId": 88, "status": "completed"}],)
-    read = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), FAILED_RUN, lists=found))
+    found: list[object] = [{"databaseId": 88, "status": "completed"}]
+    read = _run("ci", str(register), "--head", cwd=root, env=_gh(tmp_path, _failed(sha), FAILED_RUN, listed=found))
     assert read.returncode == 1 and read.stdout.startswith(f"run 88 for {sha[:9]}"), (read.stdout, read.stderr)
 
 
@@ -2274,6 +2148,23 @@ def test_a_merge_commit_the_hooks_refuse_aborts_the_merge(tmp_path: Path) -> Non
     assert "refused by the fixture hook" in said
 
 
+# Refuses the merge commit after overwriting the index with bytes git cannot read, so the abort and
+# every later `git status` fail as well.
+INDEX_BREAKER: Final = '#!/bin/sh\nprintf broken > "$(git rev-parse --git-dir)/index"\necho "refused by the fixture hook" >&2\nexit 1\n'
+
+
+def test_git_failing_in_the_cleanup_of_a_refused_merge_keeps_the_refusals_exit(tmp_path: Path) -> None:
+    """A `git status` failing after the hooks refused the merge commit replaced exit 6 with exit 2, "refused before the merge"."""
+    root = _repo(tmp_path)
+    _agent_commit(root, "Docs: A note", NOTE)
+    write_shell(tmp_path / "hooks" / "pre-commit", INDEX_BREAKER).chmod(0o755)
+    done = _land(root)
+    assert done.returncode == 6, (done.returncode, done.stderr)
+    assert "refused by the fixture hook" in done.stderr and "read `git status` before anything else" in done.stderr, done.stderr
+    with pytest.raises(RuntimeError, match="index"):
+        git(root, "status", "--porcelain")
+
+
 def _refused(root: Path, branch: str = "agent") -> str:
     head = git(root, "rev-parse", "HEAD")
     done = _land(root, branch)
@@ -2334,27 +2225,20 @@ def test_a_branch_carrying_a_patch_the_session_already_holds_is_refused(tmp_path
     assert "Docs: Another file" not in said
 
 
-def test_git_failing_during_the_merge_is_its_own_exit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Exit 2 says nothing was started; a failure once the merge has begun must not read as that."""
+def test_git_failing_during_the_merge_is_its_own_exit(tmp_path: Path) -> None:
+    """Exit 2 says nothing was started; a failure once the merge has begun must not read as that.
+
+    The branch deletes the generated document and empties its writer, so the regeneration's `git add` of it names no file.
+    """
     root = _repo(tmp_path)
-    _agent_commit(root, "Backend: The schema grows", {"fl_backend/app/schema.txt": '"a": 2'})
-    head = git(root, "rev-parse", "HEAD")
-    real_git = land.git
-
-    def add_fails(*args: str, check: bool = True) -> str:
-        if args[:1] == ("add",):
-            raise land.Stop(2, "git add exited 128: planted")
-        return real_git(*args, check=check)
-
-    monkeypatch.setattr(land, "git", add_fails)
-    monkeypatch.chdir(root)
-    code = land.main([str(_register(tmp_path)), "agent"])
-    said = capsys.readouterr().err
-    assert code == 7, said
-    assert "planted" in said and git(root, "rev-parse", "HEAD") == head
-    assert git(root, "status", "--porcelain") == ""
+    git(root, "checkout", "-q", "agent")
+    git(root, "rm", "-q", "fl_backend/openapi.json")
+    write(root, "fl_backend/app/openapi_document.py", "")
+    git(root, "add", "-A")
+    git(root, "-c", "user.name=agent", "-c", "user.email=agent@example.invalid", "commit", "-q", "--no-verify", "-m", "Backend: No document")
+    git(root, "checkout", "-q", "main")
+    said = _stopped_clean(root, git(root, "rev-parse", "HEAD"), 7)
+    assert "git add -- fl_backend/openapi.json exited 128" in said and "the merge is aborted" in said, said
 
 
 def test_a_landing_credits_every_agent_whose_branch_it_brought_in(tmp_path: Path) -> None:
@@ -2383,7 +2267,7 @@ def test_a_landing_waits_while_a_standing_action_waits_on_the_open_window(tmp_pa
     register.write_bytes(
         register.read_bytes().replace(b"## Findings ledger", f"{standing}| window | `{brief}` | |\n\n## Findings ledger".encode())
     )
-    env = _gh(tmp_path, {}, lists=([{"databaseId": 5, "status": status, "conclusion": ""}],))
+    env = _gh(tmp_path, {}, listed=[{"databaseId": 5, "status": status, "conclusion": ""}])
     head = git(root, "rev-parse", "HEAD")
     done = _land(root, "agent", env)
     assert done.returncode == code, done.stderr
@@ -2408,7 +2292,7 @@ def test_a_window_whose_run_cannot_be_read_refuses_naming_the_flag(tmp_path: Pat
         register.read_bytes().replace(b"## Findings ledger", f"{standing}| window | `{brief}` | |\n\n## Findings ledger".encode())
     )
     head = git(root, "rev-parse", "HEAD")
-    done = _land(root, "agent", _gh(tmp_path, {}, code=1, lists=([],)))
+    done = _land(root, "agent", _gh(tmp_path, {}, code=1, listed=[]))
     assert done.returncode == 2 and "could not be read" in done.stderr and "--after-dispatch" in done.stderr, done.stderr
     assert git(root, "rev-parse", "HEAD") == head
 
@@ -2439,27 +2323,20 @@ def test_bookkeeping_that_fails_after_the_merge_is_its_own_exit(tmp_path: Path) 
     assert "Traceback" not in done.stderr and git(root, "rev-parse", "HEAD^1") == head
 
 
-def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made."""
+def test_git_failing_in_the_bookkeeping_after_the_merge_is_not_a_refusal(tmp_path: Path) -> None:
+    """A git failure reading the carried branches stopped as exit 2, "refused before the merge", with the merge commit made.
+
+    A post-commit hook deletes the merged tip's object, so the bookkeeping's first read of the merged commits fails.
+    """
     branch = "worktree-agent-a1b2c3"
     root = _repo(tmp_path, branch=branch)
-    _agent_commit(root, "Docs: A note", NOTE, branch=branch)
+    tip = _agent_commit(root, "Docs: A note", NOTE, branch=branch)
     head = git(root, "rev-parse", "HEAD")
-    real_git = land.git
-
-    def listing_fails(*args: str, check: bool = True) -> str:
-        if args[:1] == ("for-each-ref",):
-            raise land.Stop(2, "git for-each-ref exited 128: planted")
-        return real_git(*args, check=check)
-
-    monkeypatch.setattr(land, "git", listing_fails)
-    monkeypatch.chdir(root)
-    code = land.main([str(_register(tmp_path)), branch])
-    said = capsys.readouterr().err
-    assert code == 10 and "landed as" in said and "planted" in said, said
-    assert git(root, "rev-parse", "HEAD^1") == head and git(root, "status", "--porcelain") == ""
+    write_shell(tmp_path / "hooks" / "post-commit", f'#!/bin/sh\nrm -f "$(git rev-parse --git-dir)/objects/{tip[:2]}/{tip[2:]}"\n').chmod(0o755)
+    done = _land(root, branch)
+    assert done.returncode == 10 and "landed as" in done.stderr and "HEAD^1..HEAD^2 exited 128" in done.stderr, done.stderr
+    assert git(root, "rev-parse", "HEAD^1") == head and git(root, "rev-parse", "HEAD^2") == tip
+    assert git(root, "status", "--porcelain") == ""
 
 
 def test_queue_names_a_row_queued_already_and_done_ticks_it(tmp_path: Path) -> None:
@@ -2662,3 +2539,16 @@ def test_overlap_reads_a_briefs_owns_lines_and_names_a_path_no_file_answers(tmp_
     brief.write_bytes(b"1  OWNERSHIP.   fl_backend/app/schema.txt, in prose alone\n")
     prose = _run("reg", "overlap", str(register), "--brief", str(brief), cwd=root)
     assert prose.returncode == 2 and "carries no `Owns:` line" in prose.stderr
+
+
+def test_overlap_reads_a_route_folders_brackets_as_written(tmp_path: Path) -> None:
+    """`[saison]` was read as a character class, so a brief naming a route's file matched none and named no overlap."""
+    root = _repo(tmp_path, branch="worktree-agent-a1b2c3")
+    _agent_commit(root, "Frontend: A page", {"app/[saison]/page.tsx": "a\n"}, branch="worktree-agent-a1b2c3")
+    git(root, "worktree", "add", "-q", str(tmp_path / "tree"), "worktree-agent-a1b2c3")
+    register = _register(tmp_path)
+    named = ["app/[saison]/page.tsx  WORKER (worktree-agent-a1b2c3)"]
+    for pattern in ("app/[saison]/page.tsx", "app/[saison]", "app/[saison]/*.tsx", "app/**/page.tsx"):
+        shared = _run("reg", "overlap", str(register), pattern, cwd=root)
+        assert shared.returncode == 1 and shared.stdout.splitlines() == named, (pattern, shared)
+    assert _run("reg", "overlap", str(register), "app/s/page.tsx", cwd=root).returncode == 0

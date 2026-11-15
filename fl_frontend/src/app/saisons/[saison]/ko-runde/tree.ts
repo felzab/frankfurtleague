@@ -6,10 +6,14 @@ import { matchRowOf, whenOf } from "@/features/spiele/blocks";
 import type { FLSpielJoined, FLSpielplanSpieltag, FLSpielQuelle } from "@/core/generated/client/types";
 import type { BracketMatch, BracketRound } from "@/kit/BracketTree";
 
-/** A match as its card in the tree: its date alone, the tree's own row naming the third place. */
+/**
+ * A match as its card in the tree: its date alone, the tree's own row naming the third place, and what befell it as
+ * its row in a list draws it, its chip and its sides' marks.
+ */
 function cardOf(spiel: FLSpielJoined): BracketMatch {
-  const { id, href, team1, team2, result } = matchRowOf(spiel);
-  return { id, href, when: whenOf(spiel), team1, team2, ...(result === undefined ? {} : { result }), anchor: spiel.id };
+  // A list's date line names the third place, which the tree's own row names instead.
+  const { when: _listed, ...card } = matchRowOf(spiel);
+  return { ...card, when: whenOf(spiel), anchor: spiel.id };
 }
 
 /** The match a side's winner comes from, by its number. */

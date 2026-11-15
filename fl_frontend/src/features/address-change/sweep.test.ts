@@ -1,5 +1,7 @@
-import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { beforeEach, describe, expect, it } from "vitest";
+import { networkFailure, serveBackend } from "@/test-support/backend.ts";
+import { describe, expect, it } from "vitest";
+
+import { APINetworkError } from "@/core/errors.ts";
 
 import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
 
@@ -12,31 +14,26 @@ const antwort = (removed: number, remaining: number, after: string | null = null
   after,
 });
 
-/** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
-let antworten: (FLAddressChangeSweepResponse | Error)[] = [];
-/** Every call in the order sent: the sweep's place, or the carry's list. */
-const calls: string[] = [];
-
 /** Places in the `_id` order, as the mirror demands them. */
 const ORT = `${"d".repeat(23)}4`;
 
-doubleApiClient((call) => {
-  if (call.endpoint.endsWith("/moves")) {
-    calls.push("moves");
-    return { moves: [] };
-  }
-  // A generated call carries its query in its endpoint.
-  calls.push(new URL(call.endpoint, "http://backend").searchParams.get("after") ?? "-");
-  const next = antworten.shift() ?? antwort(0, 0);
-  if (next instanceof Error) throw next;
-  return next;
+const SWEEP = "/address_change/sweep";
+const MOVES = "/address_change/sweep/moves";
+
+/** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
+let antworten: (FLAddressChangeSweepResponse | Response)[] = [];
+
+// The sweep's calls and the carry's list, and nothing else: any other request fails the case.
+const backend = serveBackend(({ method, path }) => {
+  if (method === "GET" && path === MOVES) return { moves: [] };
+  if (method === "POST" && path === SWEEP) return antworten.shift() ?? antwort(0, 0);
+  return undefined;
 });
 
 const { sweepAddressChange } = await import("./sweep.ts");
 
-beforeEach(() => {
-  calls.length = 0;
-});
+/** Every request in the order sent: the sweep's by the place it carried, the carry's list by its name. */
+const calls = (): string[] => backend.sent.map(({ path, search }) => (path === MOVES ? "moves" : (search.get("after") ?? "-")));
 
 describe("the address changes' hourly pass", () => {
   /* The pass is the caller's to hold: each call carries the place the call before it answered, and the first answer
@@ -46,7 +43,9 @@ describe("the address changes' hourly pass", () => {
 
     await sweepAddressChange();
 
-    expect(calls).toStrictEqual(["-", ORT, "moves"]);
+    expect(calls()).toStrictEqual(["-", ORT, "moves"]);
+    // A first call carrying no `after` at all, never a null one: present, the server reads it as an id.
+    expect(backend.sent[0]?.search.has("after"), "the first call carried a place").toBe(false);
   });
 
   /* A place not past the one sent would hold the pass, and every clock behind it, for ever. */
@@ -54,13 +53,14 @@ describe("the address changes' hourly pass", () => {
     antworten = [antwort(2, 5, ORT), antwort(1, 4, ORT)];
 
     await expect(sweepAddressChange()).rejects.toThrow("not past the one they were sent");
-    expect(calls).toStrictEqual(["-", ORT]);
+    expect(calls()).toStrictEqual(["-", ORT]);
   });
 
   /* The scheduler names a job only where it rejects. */
   it("rejects where a call fails", async () => {
-    antworten = [new TypeError("fetch failed")];
+    antworten = [networkFailure()];
 
-    await expect(sweepAddressChange()).rejects.toThrow(TypeError);
+    await expect(sweepAddressChange()).rejects.toThrow(APINetworkError);
+    expect(calls()).toStrictEqual(["-"]);
   });
 });

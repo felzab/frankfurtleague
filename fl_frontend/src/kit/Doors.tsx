@@ -1,10 +1,10 @@
 import { SERVER_COPY } from "@/core/serverCopy";
 
+import { BlockBox } from "./BlockBox";
 import { cardSurface } from "./cardStyles";
-import { LandingSection, LandingSectionPlaceholder } from "./LandingSection";
+import { LandingSection } from "./LandingSection";
 import { Link } from "./Link";
-import { PlaceholderLine, PlaceholderSentence } from "./Skeleton";
-import { SocialButtons, SocialButtonsPlaceholder } from "./SocialButtons";
+import { SocialButtons } from "./SocialButtons";
 import { tv } from "./tv";
 
 import type { Copy } from "@/core/copy";
@@ -23,8 +23,8 @@ const doors = tv({
     act: "mt-1",
   },
   variants: {
-    // Two side by side from `lg`; the one left once the school's door goes takes the full width.
-    pair: { true: { root: "lg:grid-cols-2" } },
+    // Two side by side from 42 rem of the block's own width; the one left once the school's door goes takes the full width.
+    pair: { true: { root: "@2xl:grid-cols-2" } },
   },
 });
 
@@ -42,34 +42,6 @@ export function Door({ title, text, level = 3, act }: { title: Copy; text?: Copy
       {text !== undefined && <p className={slots.text()}>{text}</p>}
       <div className={slots.act()}>{act}</div>
     </div>
-  );
-}
-
-/**
- * The ways in while the read says whether a window is open: the question's door across the column, as most days land
- * it, in bars, since which doors stand and what the heading counts are the read's. Its words are set unseen, so the box
- * stands as tall as the door will at every width.
- */
-export function DoorsPlaceholder({ more, question }: { more: Copy; question: { text: Copy; email: { label: Copy } } }) {
-  const slots = doors();
-  return (
-    <LandingSectionPlaceholder more={more}>
-      <div className={slots.root()}>
-        <div className={slots.door()}>
-          <PlaceholderLine
-            textClass={slots.title()}
-            widthClass="w-1/3"
-          />
-          <PlaceholderSentence
-            textClass={slots.text()}
-            words={question.text}
-          />
-          <div className={slots.act()}>
-            <SocialButtonsPlaceholder email={question.email.label} />
-          </div>
-        </div>
-      </div>
-    </LandingSectionPlaceholder>
   );
 }
 
@@ -97,33 +69,35 @@ export function Doors({
       eyebrow={eyebrow}
       title={SERVER_COPY.landing.doors.title(school !== undefined)}
       more={more}>
-      <div className={doors({ pair: school !== undefined }).root()}>
-        {school !== undefined && (
+      <BlockBox>
+        <div className={doors({ pair: school !== undefined }).root()}>
+          {school !== undefined && (
+            <Door
+              title={school.title}
+              text={school.text}
+              act={
+                <Link
+                  href={school.act.href}
+                  placement="button"
+                  look="primary"
+                  label={school.act.label}
+                />
+              }
+            />
+          )}
           <Door
-            title={school.title}
-            text={school.text}
+            title={question.title}
+            text={question.text}
             act={
-              <Link
-                href={school.act.href}
-                placement="button"
-                look="primary"
-                label={school.act.label}
+              <SocialButtons
+                email={email}
+                instagram={instagram}
+                threads={threads}
               />
             }
           />
-        )}
-        <Door
-          title={question.title}
-          text={question.text}
-          act={
-            <SocialButtons
-              email={email}
-              instagram={instagram}
-              threads={threads}
-            />
-          }
-        />
-      </div>
+        </div>
+      </BlockBox>
     </LandingSection>
   );
 }

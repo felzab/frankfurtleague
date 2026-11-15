@@ -24,8 +24,8 @@ import type { SideAct } from "@/kit/SideActs";
  * line; and its ending, asked once, naming both addresses and whom it mails: „Zurückziehen“ in the wait, as Administratoren
  * says of the same record, and „Verwerfen“ before it, in the danger hue of every destroying act.
  *
- * Both are side acts of the row (`SideActs`), as `changeActKinds` lists them, in the form the list decides: the entries
- * of its „⋯“, or the ending alone as its button. The fresh link runs from its entry's own press, which is the press the
+ * Both are side acts of the row (`SideActs`), as `changeActKinds` lists them, in the form the list decides: their
+ * labelled buttons in a wide box, and the entries of one „⋯“ in a narrow one. The fresh link runs from its entry's own press, which is the press the
  * touch is asked from; the ending's question is held here and opened by its entry or its button, and its own final
  * press asks the touch.
  */
@@ -47,6 +47,9 @@ export function ChangeActs({
   const touched = usePasskeyTouch(true, holder);
   const [isSending, startSending] = useTransition();
   const [isAsking, setAsking] = useState(false);
+  // The ending runs after its question closed, so its button or the row's „⋯“ shows it running.
+  const ending = useTransition();
+  const [isEnding] = ending;
 
   const send: SideAct = {
     label: COPY.shared.withObject(COPY.account.address.link, "send"),
@@ -56,7 +59,7 @@ export function ChangeActs({
         toastAnswer(await answering(touched(resendChangeLink), router.refresh)({ address_change_id: id, holder }), COPY.shared.toast.linkSent);
       }),
   };
-  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", onPress: () => setAsking(true) };
+  const end: SideAct = { label: COPY.shared.verb[verb], tone: "danger", isBusy: isEnding, onPress: () => setAsking(true) };
 
   return (
     <SideActs acts={changeActKinds(resends).map((kind) => ({ send, end })[kind])}>
@@ -69,6 +72,7 @@ export function ChangeActs({
         touch={{ holder }}
         onConfirm={() => discardChange({ id, holder })}
         open={{ isOpen: isAsking, onOpenChange: setAsking }}
+        transition={ending}
       />
     </SideActs>
   );

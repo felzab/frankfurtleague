@@ -1,20 +1,10 @@
-import { NEXT_HEADERS_DOUBLE } from "@/test-support/actionDoubles.ts";
-import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { describe, expect, it, vi } from "vitest";
+import { serveBackend } from "@/test-support/backend.ts";
+import { signedInRequest } from "@/test-support/session.ts";
+import { describe, expect, it } from "vitest";
 
-import type * as AdminRead from "@/shared/utils/adminRead.ts";
-
-// The admin check is the pass's collaborator, never its subject: each read runs as an admitted
-// administrator's, and only what it sends is judged. Doubled where `queries.ts`
-// imports it, so nothing on the path loads the sign-in store.
-vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
-  ...(await importOriginal<typeof AdminRead>()),
-  runAdminRead: <T>(read: () => Promise<T>): Promise<T> => read(),
-}));
-// The public reads forward the visitor's headers, which Next answers only inside a request it serves.
-vi.doMock("next/headers", () => NEXT_HEADERS_DOUBLE);
-
-const calls = doubleApiClient(() => ({}));
+const backend = serveBackend(() => ({}));
+// An administrator's session: the read runs behind the real admin check, and only what it sends is judged.
+signedInRequest();
 
 const { getBewerbungById } = await import("./queries.ts");
 
@@ -27,6 +17,6 @@ describe("the one path segment a caller interpolates", () => {
   it("encodes the id rather than letting it open a path segment", async () => {
     await getBewerbungById(`${ONE_ID}/../teams`);
 
-    expect(calls.at(-1)?.endpoint).toBe(`/bewerbungen/${ONE_ID}%2F..%2Fteams`);
+    expect(backend.sent.at(-1)?.path).toBe(`/bewerbungen/${ONE_ID}%2F..%2Fteams`);
   });
 });

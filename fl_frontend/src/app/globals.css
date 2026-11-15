@@ -21,6 +21,15 @@
     font-synthesis: none;
   }
 
+  /* A dialog's or a sheet's scroll lock hides the root's scrollbar and keeps its gutter, so the page does not
+     move. The scrim, like every box of the page, is laid out in the viewport inside that gutter, and the browser
+     paints the gutter with the root's background: while a scrim stands, that background is the ground with the
+     scrim's black mixed in, so the strip at the window's edge dims with the page. A colour and never an image:
+     Chromium paints only a solid root colour outside the scrolled contents, where the gutter is. */
+  :root:has(.bg-scrim) {
+    background-color: color-mix(in srgb, #000 var(--scrim-strength), var(--bg));
+  }
+
   /* Every control shows the pointing hand, as a link does: Tailwind 4's preflight gives a button the browser's
      arrow, and its upgrade guide restores the hand with this rule. A kit recipe drawing an entry that is no
      button, a menu's or a list's, names `cursor-pointer` itself. */
@@ -45,11 +54,12 @@
   --font-sans--font-feature-settings: "lnum";
 }
 
-/* Anton's stand-in until the face arrives, tuned by hand because the site sets Anton in capitals alone, where
-   next/font's own stand-in, scaled to Anton's average lowercase letter, draws a title about 30 % wider than Anton,
-   moving what stands beside it and breaking it over a line more. Here Arial is scaled to Anton's average capital, by
-   the frequency of each letter in German, and its line box takes Anton's ascent and descent, so a title stands as
-   wide and as tall as it will within a few pixels. */
+/* Anton's stand-in, which a view draws while the face is not in: on a slow first visit the browser still puts the face
+   in its place at about the page's load event, whatever `optional` asks, so a title is drawn in both. It is tuned by
+   hand because the site sets Anton in capitals alone, where next/font's own stand-in, scaled to Anton's average
+   lowercase letter, draws a title about 30 % wider than Anton, moving what stands beside it and breaking it over a line
+   more. Here Arial is scaled to Anton's average capital, by the frequency of each letter in German, and its line box
+   takes Anton's ascent and descent, so a title stands as wide and as tall as Anton's within a few pixels. */
 @font-face {
   font-family: "Anton Fallback";
   src: local("Arial");
@@ -59,11 +69,9 @@
   line-gap-override: 0%;
 }
 
-/* On a frame's `main`, the one part of a page that streams. Chrome restores a reload by the element it
-   saved, found by a selector, before the saved offset, and a placeholder is never the content's DOM, so
-   the selector lands on the wrong element and nothing corrects it once the content arrives. With no
-   element saved inside `main` the browser restores by offset at the first layout, and anchors live on the
-   frame outside it alone: a classic page's footer, which absorbs what the content adds. */
+/* On a frame's `main`: no element inside the page's content takes part in scroll anchoring, so the
+   browser never picks one there as the anchor it keeps in place while the layout changes, and only the
+   frame outside `main` holds anchors. */
 @utility overflow-anchor-none {
   overflow-anchor: none;
 }

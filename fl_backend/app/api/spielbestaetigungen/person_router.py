@@ -312,8 +312,10 @@ async def post_team_answer(
             session=session,
         )
 
-        # Nothing judged is written here, so a move, a club's exit, a re-dated matchday or a rival booking landing under
-        # this transaction raises no conflict: all judged again outside it before answering.
+        # A club's exit deciding this fixture conflicts with the anchor above: the exit writes its own club's season row and
+        # anchors every opponent it tells, this club among them, since the seat answering is a confirmed one. Nothing else
+        # judged is written here, so a move, a re-dated matchday or a rival booking landing under this transaction raises
+        # no conflict: all judged again outside it before answering.
         current = await pull_ansetzung_state(
             spiele_collection=spiele_collection,
             saison_teams_collection=saison_teams_collection,

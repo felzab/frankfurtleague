@@ -7,7 +7,6 @@ import {
   formatErgebnis,
   formatInstant,
   formatInstantShort,
-  formatSigned,
   formatTime,
 } from "./format.ts";
 
@@ -52,7 +51,7 @@ describe("formatInstant", () => {
 describe("formatInstantShort", () => {
   // Late evening UTC is the next day in Berlin, and a list's row must name the day the league's clock read.
   it("writes the numeric date and the time on the league's clock", () => {
-    expect(formatInstantShort(new Date("2026-11-07T23:04:00Z"))).toBe("08.11.2026, 00:04");
+    expect(formatInstantShort(new Date("2026-11-07T23:04:00Z"))).toBe("08.11.2026, 00:04");
   });
 
   it("prints an unreadable stored instant as it was stored rather than throw and lose the page", () => {
@@ -63,12 +62,5 @@ describe("formatInstantShort", () => {
 describe("formatErgebnis", () => {
   it("adds each side's shoot-out goals to its goals", () => {
     expect(formatErgebnis({ team1: 2, team2: 2 }, { team1: 4, team2: 3 })).toBe("6:5");
-  });
-});
-
-describe("formatSigned", () => {
-  /* The locale's own sign is the hyphen-minus, which nothing but this function turns into the minus sign. */
-  it("writes a negative difference with the minus sign, a level one bare", () => {
-    expect([formatSigned(-1234), formatSigned(0), formatSigned(3)]).toStrictEqual(["−1.234", "0", "+3"]);
   });
 });

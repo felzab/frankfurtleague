@@ -23,7 +23,6 @@ from app.api.account.services import (
 )
 from app.api.address_change.crud import (
     end_the_change_in_session,
-    live_grant_of,
     owe_the_notice_in_session,
     read_the_holdings,
     start_the_change_in_session,
@@ -38,7 +37,6 @@ from app.api.address_change.services import (
     is_expired,
     masked_address,
     stored_instant,
-    wait_tier,
     waits_on,
 )
 from app.api.identity.crud import roles_from
@@ -51,7 +49,6 @@ from app.core.dependencies import (
     AddressChangeReadCollection,
     DBClient,
     GrantsCollection,
-    GrantsReadCollection,
     OutboxCollection,
     SnapshotSession,
     SpielerReadCollection,
@@ -128,31 +125,26 @@ async def _address_change_answer(
     identifier: str,
     *,
     address_changes_collection: ReadCollection,
-    grants_collection: ReadCollection,
     now: datetime,
     session: AsyncClientSession | None,
 ) -> FLAccountAddressChangeResponse:
     record = await address_changes_collection.find_one(build_address_filter(identifier), session=session)
-    grant = await live_grant_of(identifier, grants_collection=grants_collection, session=session)
 
-    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now), wait_tier=wait_tier(grant))
+    return FLAccountAddressChangeResponse(open=None if record is None else _pending_addresses(record, now=now))
 
 
 @router.get("/address_change", response_model=FLAccountAddressChangeResponse, summary="The address change pending on a signed-in person")
 async def get_address_change(
     identifier: PersonIdentifier,
     address_changes_collection: AddressChangeReadCollection,
-    grants_collection: GrantsReadCollection,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
-    """The change pending on the signed-in address, null where none is, and the tier whose wait a change of it serves.
+    """The change pending on the signed-in address, null where none is.
 
     The pending address is served whole only where the person typed it, and masked where an administrator started the change.
     """
 
-    return await _address_change_answer(
-        identifier, address_changes_collection=address_changes_collection, grants_collection=grants_collection, now=germany_now, session=None
-    )
+    return await _address_change_answer(identifier, address_changes_collection=address_changes_collection, now=germany_now, session=None)
 
 
 @router.post(
@@ -257,7 +249,6 @@ async def delete_address_change(
         return await _address_change_answer(
             identifier,
             address_changes_collection=address_changes_collection,
-            grants_collection=grants_collection,
             now=germany_now,
             session=session,
         )

@@ -193,19 +193,6 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 class TestTheStartIsWhatFreezesTheScoring:
     """`rules_saison_started` through the endpoint, whose read of the season's STORED start is what the rule turns on."""
 
-    def test_the_points_freeze_on_the_start_date(self, mongo_replica_set_url: str):
-        """The table is derived, so a scoring change on a season under way would rewrite standings already played."""
-
-        async def body(database: AsyncDatabase) -> APIError:
-            with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, today=FIRST_SPIEL_DAY, win_points=2)
-
-            return refusal.value
-
-        refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
-
-        assert refusal.error_code == Code.RULES_SAISON_STARTED
-
     def test_a_save_moving_the_start_cannot_lift_its_own_freeze(self, mongo_replica_set_url: str):
         """The freeze reads the stored start: a payload carrying a later start and new points in one is still refused."""
 

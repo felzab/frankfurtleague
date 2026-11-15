@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -5,7 +6,7 @@ from typing import Any
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.crud import ERASURE_STEPS
+from app.api.identity.crud import erase_everything
 from app.api.identity.person_router import post_account_erasure
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
@@ -13,13 +14,18 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
-    """Every collection the registry's steps reach, keyed as the routes take them, any replaced by name.
+    """Every collection the erasure takes, keyed as the routes take them, any replaced by name.
 
-    Read off `app/api/identity/crud.py :: ERASURE_STEPS`: a step reaching a collection no route takes, or the reverse,
-    fails the call.
+    Read off the parameters of `app/api/identity/crud.py :: erase_everything`: a route taking a collection the erasure
+    does not, or the reverse, fails the call.
     """
 
-    handles = {f"{collection.name.lower()}_collection": database[collection] for step in ERASURE_STEPS for collection in sorted(step.reaches)}
+    # Each handle by its parameter's spelling, the collection's own name before `_collection`.
+    handles = {
+        name: database[Collection(name.removesuffix("_collection"))]
+        for name in inspect.signature(erase_everything).parameters
+        if name.endswith("_collection")
+    }
     return {**handles, **replaced}
 
 

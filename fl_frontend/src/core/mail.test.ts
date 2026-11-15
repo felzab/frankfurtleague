@@ -1,10 +1,13 @@
+import { configDouble } from "@/test-support/authDoubles.ts";
+import { networkFailure, serveBackend, serveHost } from "@/test-support/backend.ts";
+import { TEST_SECRETS } from "@/test-support/testEnvironment.mts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getRequestTraceId, runWithRequestScope } from "./requestScope.ts";
+import { runWithRequestScope } from "./requestScope.ts";
 
 import type { FLOutboxHandout, FLOutboxResultPayload } from "./generated/client/types.ts";
 
-/** Everything the drain did, in the order it did it: a send to the provider, or a report to the backend. */
+/** Everything the drain sent, in the order it sent it: a send to the provider, or a report to the backend. */
 type Step = { kind: "send"; url: string; headers: Headers; body: Record<string, unknown> } | { kind: "report"; payload: FLOutboxResultPayload };
 
 const steps: Step[] = [];
@@ -13,59 +16,42 @@ const steps: Step[] = [];
 let claims: { mails: FLOutboxHandout[]; abandoned: number }[] = [];
 
 /** How the provider answers each send. */
-let provider: () => Response | Promise<Response> = () => Response.json({ id: "re-1" });
+let provider: () => unknown = () => ({ id: "re-1" });
 
 let apiKey: string | undefined = "re_test";
 
-/** The one request scope with deadline left, where a case names one: the transport refuses a claim under any other. */
-let liveTrace: string | undefined;
+/** The backend's count for each outcome a report names. */
+const COUNTED = { sent: "sent", retry: "repeated", abandon: "abandoned", held: "held" } as const;
 
-const SDK_DOUBLE = {
-  outboxPostHandout: async () => {
-    if (liveTrace !== undefined && getRequestTraceId() !== liveTrace)
-      throw new Error("The request's deadline had passed before this call was sent.");
+// The Postausgang's two endpoints and nothing else: a request the drain sends anywhere else fails its case.
+serveBackend(({ method, path, body }) => {
+  if (method === "POST" && path === "/outbox/handout") {
     const claim = claims.shift() ?? { mails: [], abandoned: 0 };
-    const held = claim.mails.length > 0;
-    return { lease: held ? "claim-1" : null, mails: claim.mails, abandoned: claim.abandoned };
-  },
-  outboxPostResult: async (payload: FLOutboxResultPayload) => {
+    return { lease: claim.mails.length > 0 ? "claim-1" : null, mails: claim.mails, abandoned: claim.abandoned };
+  }
+  if (method === "POST" && path === "/outbox/result") {
+    const payload = body as FLOutboxResultPayload;
     steps.push({ kind: "report", payload });
-    const { result } = payload;
-    const counted = { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 };
-    const key = ({ sent: "sent", retry: "repeated", abandon: "abandoned", held: "held" } as const)[result];
-    return { ...counted, [key]: 1 };
-  },
-};
+    return { sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0, [COUNTED[payload.result]]: 1 };
+  }
+  return undefined;
+});
 
-const AUTH_SECRET = "fabricated-test-secret-not-a-credential";
+// The provider's one endpoint.
+serveHost("https://api.resend.com", ({ method, url, headers, body }) => {
+  if (method !== "POST" || url.pathname !== "/emails") return undefined;
+  steps.push({ kind: "send", url: url.href, headers, body: body as Record<string, unknown> });
+  return provider();
+});
 
-const CONFIG_DOUBLE = {
-  frontend_config: { APP_ENV: "production", AUTH_URL: "https://league.invalid" },
-  authResendKey: () => apiKey,
-  authSecret: () => AUTH_SECRET,
-};
-
-// The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
-const KINDS_DOUBLE = {
-  OUTBOX_TAG: "outbox_id",
-  mailFor: (_kind: string, data: { ban_reason: string }, { origin, secret }: { origin: string; secret: string | null }) => ({
-    kind: "notice",
-    subjectLine: "Sperre",
-    origin,
-    paragraphs: [[data.ban_reason], ...(secret === null ? [] : [[secret]])],
-  }),
-};
-
-const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
-
-vi.doMock("@/core/generated/client/sdk.ts", () => SDK_DOUBLE);
-vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
-vi.doMock("@/core/mailKinds.ts", () => KINDS_DOUBLE);
-vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
+// Varied per case: whether this deployment holds the provider's key, under the production deployment that mails.
+vi.doMock("@/core/config.ts", () =>
+  configDouble({ APP_ENV: "production", AUTH_URL: "https://league.invalid" }, { authResendKey: () => apiKey }),
+);
 
 const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 
-/** One handed-out row, its id and claim number spelled from `n`. */
+/** One handed-out ban notice, its id and claim number spelled from `n`. */
 const handed = (n: number, attempt = 1): FLOutboxHandout => ({
   id: String(n).padStart(24, "a"),
   to: `person${String(n)}@example.org`,
@@ -80,21 +66,11 @@ beforeEach(() => {
   steps.length = 0;
   claims = [];
   apiKey = "re_test";
-  liveTrace = undefined;
-  provider = () => Response.json({ id: "re-1" });
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    steps.push({
-      kind: "send",
-      url: String(url),
-      headers: new Headers(init?.headers),
-      body: JSON.parse(String(init?.body)) as Record<string, unknown>,
-    });
-    return provider();
-  });
+  provider = () => ({ id: "re-1" });
 });
 
 const sends = () => steps.filter((step): step is Extract<Step, { kind: "send" }> => step.kind === "send");
-// Each report's outcome, its claim aside: every case's claim is the one the double hands out.
+// Each report's outcome, its claim aside: every case's claim is the one the backend hands out.
 const reports = () => steps.flatMap((step) => (step.kind === "report" ? [omitClaim(step.payload)] : []));
 const omitClaim = ({ lease: _claim, ...result }: FLOutboxResultPayload) => result;
 
@@ -112,9 +88,9 @@ describe("one drain of the Postausgang", () => {
       `outbox/${handed(1).id}/1`,
       `outbox/${handed(2).id}/3`,
     ]);
-    expect(sends().map(({ body }) => body["tags"])).toStrictEqual([
-      [{ name: "outbox_id", value: handed(1).id }],
-      [{ name: "outbox_id", value: handed(2).id }],
+    expect(sends().map(({ body }) => [body["to"], body["tags"]])).toStrictEqual([
+      [handed(1).to, [{ name: "outbox_id", value: handed(1).id }]],
+      [handed(2).to, [{ name: "outbox_id", value: handed(2).id }]],
     ]);
     expect(reports()).toStrictEqual([
       { id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null },
@@ -140,14 +116,22 @@ describe("one drain of the Postausgang", () => {
   /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
      the call's mail, a sign-in code tried once among them, would wait for the hourly pass and lapse. */
   it("serves a call made during a drain that fails, under the call's own deadline", async () => {
-    liveTrace = "trace-waiting";
     claims = [{ mails: [handed(1)], abandoned: 0 }];
+    let clock = 0;
+    const reading = vi.spyOn(performance, "now").mockImplementation(() => clock);
+    try {
+      // The first scope opens at 0 and reads its first call past its 30 seconds; the second opens then, with all of its own.
+      const failing = runWithRequestScope({ traceId: "trace-spent" }, async () => {
+        clock = 31000;
+        return drainOutbox();
+      });
+      const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainOutbox);
 
-    const failing = runWithRequestScope({ traceId: "trace-spent" }, drainOutbox);
-    const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainOutbox);
-
-    await expect(failing).rejects.toThrow("deadline");
-    await expect(waiting).resolves.toBeUndefined();
+      await expect(failing).rejects.toThrow("deadline");
+      await expect(waiting).resolves.toBeUndefined();
+    } finally {
+      reading.mockRestore();
+    }
     expect(reports()).toStrictEqual([{ id: handed(1).id, result: "sent", message_id: "re-1", delivery_reason: null }]);
   });
 
@@ -155,8 +139,8 @@ describe("one drain of the Postausgang", () => {
      handed the ciphertext would mail a code nobody can type. */
   it("opens a sealed secret under the frontend's key before its kind's builder renders it", async () => {
     const { symmetricEncrypt } = await import("better-auth/crypto");
-    const secret = await symmetricEncrypt({ key: AUTH_SECRET, data: "123456" });
-    claims = [{ mails: [{ ...handed(1), secret }], abandoned: 0 }];
+    const secret = await symmetricEncrypt({ key: TEST_SECRETS.auth_secret, data: "123456" });
+    claims = [{ mails: [{ ...handed(1), data: { kind: "sign_in_code" }, secret }], abandoned: 0 }];
 
     await drainOutbox();
 
@@ -169,7 +153,7 @@ describe("one drain of the Postausgang", () => {
   it("gives up a secret its key no longer opens, and sends the mail behind it", async () => {
     const { symmetricEncrypt } = await import("better-auth/crypto");
     const foreign = await symmetricEncrypt({ key: "a-key-since-replaced-not-a-credential", data: "123456" });
-    claims = [{ mails: [{ ...handed(1), secret: foreign }, handed(2)], abandoned: 0 }];
+    claims = [{ mails: [{ ...handed(1), data: { kind: "sign_in_code" }, secret: foreign }, handed(2)], abandoned: 0 }];
 
     await drainOutbox();
 
@@ -177,6 +161,7 @@ describe("one drain of the Postausgang", () => {
       [handed(1).id, "abandon"],
       [handed(2).id, "sent"],
     ]);
+    expect(sends().map(({ body }) => body["to"])).toStrictEqual([handed(2).to]);
   });
 
   /* Read the wrong way round, the league's daily quota would give up every mail queued behind it, and a refusal no
@@ -186,7 +171,7 @@ describe("one drain of the Postausgang", () => {
     ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "retry", "rate_limit_exceeded"],
     ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "retry", "daily_quota_exceeded"],
     ["an outage", () => new Response(null, { status: 503 }), "retry", null],
-    ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "retry", null],
+    ["a broken connection", () => networkFailure(), "retry", null],
     ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "abandon", "validation_error"],
     ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "abandon", null],
   ] as const)("reports %s as %s", async (_name, answer, result, reason) => {

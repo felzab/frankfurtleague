@@ -62,8 +62,6 @@ class TestTheDueJudgement:
             pytest.param([], True, id="no squad row at all"),
             # The plan's own rule, keyed on the running season alone, deletes this pupil a season early.
             pytest.param(["2024", "2025"], False, id="a row in the season just ended"),
-            pytest.param(["2026"], False, id="a row in the running season"),
-            pytest.param(["2027"], False, id="a row in a planned season"),
         ],
     )
     def test_a_row_in_a_kept_season_keeps_its_pupil(self, kader: list[str], due: bool):

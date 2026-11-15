@@ -9,8 +9,8 @@ from app.api.saisons.services import SAISON_AS, SAISON_LOOKUP
 from app.api.schiedsrichter.schemas import FLSchiedsrichterConfirmationState, FLSchiedsrichterSpiel
 from app.api.spielberichte.services import takes_a_bericht
 from app.api.spielbestaetigungen.crud import JUDGED_SPIEL_FIELDS, JUDGED_VEREIN_FIELDS, OWN_ROW_FIELDS
-from app.api.spielbestaetigungen.services import AnsetzungState, schiedsrichter_state_of
-from app.api.spiele.schemas import FLSpielortFieldPublic, unplayed_filter
+from app.api.spielbestaetigungen.services import AnsetzungState, exit_ends_the_booking, schiedsrichter_state_of
+from app.api.spiele.schemas import SONDEREREIGNIS_KEEPING_ITS_SLOT, FLSpielortFieldPublic, unplayed_filter
 from app.api.spiele.services import build_named_spiele_pipeline
 from app.api.teams.services import is_played
 from app.core import clock
@@ -463,7 +463,8 @@ def build_self_spiele_pipeline(*, saison_id: str, schiedsrichter_ids: Sequence[A
     return [
         *build_named_spiele_pipeline(
             {"saison_id": saison_id, "schiedsrichter.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}},
-            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1},
+            # The sides' exits too, which the name join folds in: a club out by the fixture's day takes the booking off it.
+            projection={**JUDGED_SPIEL_FIELDS, "saison_id": 1, "team1.austritt.date": 1, "team2.austritt.date": 1},
         ),
         {
             "$lookup": {
@@ -541,6 +542,11 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
     # One row: a fixture's season always stands, and the read joins it by its id.
     [saison] = spiel[SAISON_AS]
     spielort = spiel.get("spielort")
+    # A club out by the fixture's day ends the booking, as the pass's notice told the referee.
+    officiates = not exit_ends_the_booking(spiel)
+    # As the report's own read judges its form open, in `kader_is_open`.
+    reportable = officiates and takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"])
+    submitted_at = None if bericht is None else bericht.get("submitted_at")
 
     def team_name(side: str) -> str | None:
         team = spiel.get(side)
@@ -555,6 +561,7 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         spielort=None
         if not isinstance(spielort, Mapping)
         else FLSpielortFieldPublic(spielort_id=spielort["spielort_id"], name=spielort["name"], maps_link=spielort["maps_link"]),
+        sonderereignis=spiel.get("sonderereignis"),
         spielbestaetigung_id=None if row is None else row["_id"],
         state=None
         if row is None
@@ -563,17 +570,27 @@ def compose_self_spiel(spiel: Mapping[str, Any], *, now: datetime) -> FLSchiedsr
         ),
         reason=None if row is None else own_reason_of(row),
         entered=row is not None and entered_of(row),
+        officiates=officiates,
         past=is_played(date=spiel.get("date"), time=spiel.get("time"), now=now),
-        # As the report's own read judges its form open, in `kader_is_open`.
-        reportable=takes_a_bericht(spiel, now=now) and not season_has_ended(saison_status=saison["status"]),
-        submitted_at=None if bericht is None else bericht.get("submitted_at"),
+        submitted_at=submitted_at,
+        bericht_owed=owes_a_bericht(reportable=reportable, submitted_at=submitted_at, sonderereignis=spiel.get("sonderereignis")),
     )
+
+
+def owes_a_bericht(*, reportable: bool, submitted_at: datetime | None, sonderereignis: str | None) -> bool:
+    """Whether the referee owes the fixture's report: one it takes now and none sent, on a fixture that kept its slot.
+
+    An abandoned one included, which used the ground and the referee: a no-show used neither, so its report stays open
+    to write and nobody owes it.
+    """
+
+    return reportable and submitted_at is None and sonderereignis in SONDEREREIGNIS_KEEPING_ITS_SLOT
 
 
 def is_open_work(spiel: FLSchiedsrichterSpiel) -> bool:
     """Whether the fixture waits on the referee: a booking to answer, or a report owed."""
 
-    return spiel.state == "valid" or (spiel.reportable and spiel.submitted_at is None)
+    return spiel.state == "valid" or spiel.bericht_owed
 
 
 def _by_day(spiel: FLSchiedsrichterSpiel) -> tuple[bool, str, str, str]:

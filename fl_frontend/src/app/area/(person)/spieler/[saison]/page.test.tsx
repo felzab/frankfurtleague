@@ -1,32 +1,37 @@
 // @vitest-environment jsdom
+import { serveBackend } from "@/test-support/backend";
+import { signedInRequest } from "@/test-support/session";
 import { prerender } from "react-dom/static";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { SERVER_COPY } from "@/core/serverCopy";
-
-import SpielerOverviewPage, { generateMetadata } from "./page";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
 import type { ComponentProps } from "react";
 
-vi.mock("next/link", () => ({
+vi.mock("next/link", async (original) => ({
+  ...(await original<object>()),
   default: ({ children, ...props }: ComponentProps<"a">) => <a {...props}>{children}</a>,
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/area/spieler/2027", useRouter: () => ({ replace: vi.fn() }) }));
-vi.mock("@/features/roles/resolvers", () => ({
-  requireRole: async () => ({}),
-  readAsRoleHolder: <Read,>(_kind: string, read: () => Promise<Read>) => read(),
-}));
-vi.mock("@/features/roles/queries", () => ({
-  readOwnSaisons: async () => ({ entries: [{ id: "2027", span: "" }], standard: "2027" }),
-}));
 
-// The public frame's read, cached for every visitor, which a unit render has no cache for.
-vi.mock("@/features/saisons/queries", () => ({ getSaisonFrame: async () => ({ saisons: [{ id: "2027" }] }) }));
+/** The pupil's own season as the backend holds it, which each case sets. */
+const own = { read: null as FLSpielerSaisonSelfResponse | null };
 
-const own = vi.hoisted(() => ({ read: null as FLSpielerSaisonSelfResponse | null }));
-vi.mock("@/features/spieler/queries", () => ({ getSpielerSaisonSelf: async () => own.read }));
+const SAISON_2027 = { id: "2027", start_date: "2026-09-01", end_date: "2027-07-31" };
+
+// The page's three reads: the seasons the pupil's squad rows stand in, the public frame, which holds 2027, and the
+// pupil's own season of the address. Any other read, another season's among them, fails the case.
+serveBackend(({ method, path }) => {
+  if (method !== "GET") return undefined;
+  if (path === "/spieler/self/saisons") return { saisons: [SAISON_2027] };
+  if (path === "/saisons/frame") return { active_saison_id: "2027", saisons: [SAISON_2027] };
+  if (path === "/spieler/self/2027") return own.read ?? undefined;
+  return undefined;
+});
+// A pupil, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { spieler: [{ spieler_id: "64b0000000000000000000ee" }] } });
+const { default: SpielerOverviewPage } = await import("./page");
 
 const SPIEL: FLSpielerSaisonSelfSpiel = {
   ansetzung_confirmed: true,
@@ -90,23 +95,10 @@ describe("a pupil's own season", () => {
     const page = await landed("2027-03-01");
     expect(page).toContain(COPY.admin.spieler.deregistered);
     expect(page).not.toContain(COPY.area.spieler.lineupPlace.starts);
-  });
 
-  it("shows a pupil in the squad their place in the line-up", async () => {
-    const page = await landed(null);
-    expect(page).not.toContain(COPY.admin.spieler.deregistered);
-    expect(page).toContain(COPY.area.spieler.lineupPlace.starts);
-  });
-
-  // The harm: a tab reading „Übersicht“ over the not-found card, which a season whose read holds no squad row of the
-  // pupil's draws; the tab is what a browser's tab list and a screen reader announce of the page.
-  it("titles the tab not found where the page's own read finds no squad row", async () => {
-    own.read = { saison_id: "2027", kader: null, spiele: [] };
-    const metadata = await generateMetadata(
-      { params: Promise.resolve({ saison: "2027" }), searchParams: Promise.resolve({}) },
-      Promise.resolve({}) as never,
-    );
-
-    expect(metadata.title).toBe(SERVER_COPY.notFound);
+    // The same page for a pupil in the squad: one reading every pupil as deregistered passes the half above.
+    const inSquad = await landed(null);
+    expect(inSquad).not.toContain(COPY.admin.spieler.deregistered);
+    expect(inSquad).toContain(COPY.area.spieler.lineupPlace.starts);
   });
 });

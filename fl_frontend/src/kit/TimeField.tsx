@@ -4,9 +4,8 @@ import { parseTime } from "@internationalized/date";
 import { TimeField as AriaTimeField } from "react-aria-components/TimeField";
 
 import { Segments } from "./dateParts";
-import { FieldLabel, MessageLine } from "./FieldParts";
+import { FieldLabel, MessageLine, useFieldLock } from "./FieldParts";
 import { fieldRoot } from "./fieldStyles";
-import { useDisabled } from "./formClosed";
 
 import type { Copy } from "@/core/copy";
 import type { TimeOfDay } from "@/core/format";
@@ -35,6 +34,7 @@ export function TimeField({
   defaultValue?: TimeOfDay | null;
   onChange?: (time: TimeOfDay | null) => void;
 }) {
+  const lock = useFieldLock(false, false, isRequired);
   return (
     <AriaTimeField<Time>
       className={fieldRoot()}
@@ -44,11 +44,12 @@ export function TimeField({
       onChange={onChange && ((time) => onChange(toTimeOfDay(time)))}
       hourCycle={24}
       shouldForceLeadingZeros
-      isRequired={isRequired}
-      isDisabled={useDisabled(false)}>
+      isRequired={lock.isRequired}
+      isDisabled={lock.isDisabled}
+      isReadOnly={lock.isReadOnly}>
       <FieldLabel
         label={label}
-        isRequired={isRequired}
+        isRequired={lock.isRequired}
       />
       <Segments isField />
       <MessageLine />

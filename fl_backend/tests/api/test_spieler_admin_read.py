@@ -5,9 +5,8 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.admin_router import get_spieler_admin, get_spieler_saison
+from app.api.spieler.admin_router import get_spieler_saison
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
@@ -70,15 +69,6 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def the_list(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Any:
-    return await get_spieler_admin(
-        saison_id=saison_id,
-        saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-    )
-
-
 async def the_editor(database: AsyncDatabase, spieler_id: ObjectId, saison_id: str = SAISON_ID) -> Any:
     return await get_spieler_saison(
         spieler_id=spieler_id,
@@ -88,17 +78,6 @@ async def the_editor(database: AsyncDatabase, spieler_id: ObjectId, saison_id: s
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
     )
-
-
-@pytest.mark.db
-class TestTheList:
-    def test_no_address_reaches_the_answer(self, mongo_replica_set_url: str):
-        """A squad list shows none, and the join is where one would ride along."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_list(database)
-
-        assert ADDRESS not in on_a_league(mongo_replica_set_url, body).model_dump_json()
 
 
 @pytest.mark.db
@@ -112,10 +91,3 @@ class TestTheEditor:
         current, former = on_a_league(mongo_replica_set_url, body)
 
         assert (current.kader.nummer, former.kader.nummer) == ("7", "9")
-
-    def test_a_person_out_of_the_season_is_not_found(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await the_editor(database, DORA_OID, OTHER_SAISON_ID)
-
-        with pytest.raises(DocumentNotFoundError):
-            on_a_league(mongo_replica_set_url, body)

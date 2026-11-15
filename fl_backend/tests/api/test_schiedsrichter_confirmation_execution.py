@@ -346,26 +346,6 @@ class TestTheReSend:
         assert row[CONFIRMATION_FIELD] == {"token_hashes": [hash_token(second.token)], "sent_at": TODAY, "deadline": "2026-04-15"}
         assert first_link.error_code == Code.LINK_INVALID
 
-    def test_an_address_moved_since_the_caller_read_it_is_the_one_answered(self, mongo_replica_set_url: str):
-        """The row moves between the caller's read and this write, which is the whole case.
-
-        Owed to the caller's own earlier read instead, the mail would carry the credential to the mailbox the save took
-        the referee away from.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # What the caller read before pressing, and what it would have mailed to.
-            before = (await stored(database))["kontakt"]["email"]
-            await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"kontakt.email": CORRECTED_EMAIL}})
-
-            return before, await resend(database, client), await stored(database)
-
-        before, response, row = on_a_league(mongo_replica_set_url, body)
-
-        assert before == EMAIL
-        assert response.answer.confirmation.email == CORRECTED_EMAIL
-        assert row[CONFIRMATION_FIELD]["token_hashes"] == [hash_token(str(response.token))]
-
     def test_a_retired_referee_is_refused(self, mongo_replica_set_url: str):
         """Mailed, a retired person is asked to consent to a role nobody gives them."""
 

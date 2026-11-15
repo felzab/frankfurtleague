@@ -118,9 +118,9 @@ export const actRow = tv({
       true: { frame: "grid-cols-[minmax(0,1fr)_auto] @lg:grid-cols-[minmax(0,1fr)_auto_auto]" },
       false: { frame: "grid-cols-[minmax(0,1fr)] @lg:grid-cols-[minmax(0,1fr)_auto]" },
     },
-    // The rows' side acts fold into one „⋯“ (`SideActs`), which stands at the row's end at every width, beside the
-    // words, as a chevron does; a lone act's button stands as every act row's does.
-    folds: {
+    // The rows' acts are side acts (`SideActs`), which stand at the row's end beside the words at every width, as a
+    // chevron does: their labelled buttons in a wide box, and the one „⋯“ they fold into in a narrow one.
+    sideActs: {
       true: { frame: "grid-cols-[minmax(0,1fr)_auto]", acts: "col-start-2 row-start-1 ms-3 mt-0" },
     },
   },

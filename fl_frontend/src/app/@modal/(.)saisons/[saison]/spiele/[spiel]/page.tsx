@@ -16,8 +16,8 @@ import type { SpielPopupContent } from "@/kit/SpielHead";
  * own layout, it would also catch a press on a season page and put that frame's layout in place of the page
  * beneath, which Next then hides. In the root layout's slot, a client navigation keeps every page beneath it.
  *
- * `/saisons` stands beneath it, where the tab's history holds nothing to go back to: the dialog opens before any read,
- * and the slot serves every page, so the season's own Spielplan is not known here.
+ * `/saisons` stands beneath it, where the tab's history holds nothing to go back to: the slot serves every page, so the
+ * season's own Spielplan is not known here.
  */
 export default function SpielPopupPage({ params }: PageProps<"/saisons/[saison]/spiele/[spiel]">) {
   return (

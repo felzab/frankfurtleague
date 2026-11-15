@@ -12,6 +12,7 @@ import checkFile from "eslint-plugin-check-file";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+import noOwnModuleDouble from "./eslint-rules/no-own-module-double.mjs";
 import serverAction from "./eslint-rules/server-action.mjs";
 import tokenContrast from "./eslint-rules/token-contrast.mjs";
 
@@ -40,9 +41,9 @@ function kindOf(path) {
   return path.endsWith(".tsx") ? "page" : "module";
 }
 
-/** A route's page, which Next renders for an address: page code a template alone may stand in. */
-const ROUTE_PAGES = ["src/app/**/page.tsx"];
-const isRoutePage = (path) => /^src\/app\/(?:.*\/)?page\.tsx$/.test(path);
+/** A route's loading file, Next's own boundary around a segment, which no route may hold. */
+const LOADING_FILES = ["src/app/**/loading.{ts,tsx}"];
+const isLoadingFile = (path) => /^src\/app\/(?:.*\/)?loading\.tsx?$/.test(path);
 
 /** `pattern` under one layer's folder; the other layer is every folder but `core` and `shared`. */
 const inLayer = (layer, pattern, ignores = []) =>
@@ -53,8 +54,8 @@ const inLayer = (layer, pattern, ignores = []) =>
 const LAYERS = ["core", "shared", "other"];
 
 /**
- * The zones as globs, which `kindOf`, `layerOf` and `isRoutePage` read the same way for one path. Page code
- * splits once more: a route's page, which the app's folder alone holds, and every other component.
+ * The zones as globs, which `kindOf`, `layerOf` and `isLoadingFile` read the same way for one path. A route's
+ * loading file, which the app's folder alone holds, is a zone of its own, a `.ts` one among them.
  */
 const ZONES = [
   ...LAYERS.map((layer) => ({ kind: "test", layer, ...inLayer(layer, "**/*.test.{ts,tsx}") })),
@@ -67,15 +68,15 @@ const ZONES = [
     ...inLayer(
       layer,
       "**/*.tsx",
-      layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT, ...ROUTE_PAGES] : TEST_FILES,
+      layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...ROOT_DOCUMENT, ...LOADING_FILES] : TEST_FILES,
     ),
   })),
-  { kind: "page", layer: "other", route: true, files: ROUTE_PAGES, ignores: [] },
   ...LAYERS.map((layer) => ({
     kind: "module",
     layer,
-    ...inLayer(layer, "**/*.ts", layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**"] : TEST_FILES),
+    ...inLayer(layer, "**/*.ts", layer === "other" ? [...TEST_FILES, "src/test-support/**", "src/kit/**", ...LOADING_FILES] : TEST_FILES),
   })),
+  { kind: "page", layer: "other", loading: true, files: LOADING_FILES, ignores: [] },
 ];
 
 const EVERY = () => true;
@@ -85,7 +86,7 @@ const PRODUCTION = (zone) => zone.kind !== "test" && zone.kind !== "support";
 const OUTSIDE_KIT = (zone) => PRODUCTION(zone) && zone.kind !== "kit";
 const KIT = (zone) => zone.kind === "kit";
 const PAGE_CODE = (zone) => zone.kind === "page";
-const ROUTE_PAGE = (zone) => zone.route === true;
+const LOADING_FILE = (zone) => zone.loading === true;
 /** What renders markup: the kit, page code and the root document. */
 const RENDERED = (zone) => ["kit", "page", "document"].includes(zone.kind);
 const LAYER = (layer) => (zone) => zone.layer === layer;
@@ -171,6 +172,16 @@ const NEXT_AFTER = {
   importNames: ["after"],
   message:
     "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out.",
+};
+
+/** The message of every ban keeping the network to `fetch`, whose replacement answers every request a test sends. */
+const FETCH_ALONE =
+  "Reach the network through fetch alone: every test answers its requests through the global fetch, and one sent any other way leaves the machine.";
+
+/** Node's HTTP clients and the library beneath Node's fetch, each of which sends past the tests' fetch. */
+const NETWORK_BESIDE_FETCH = {
+  regex: packageUnder("http", "https", "http2", "node:http", "node:https", "node:http2", "undici"),
+  message: FETCH_ALONE,
 };
 
 /** The settings module, which every server module imports and whose secret readers lint deals out to their owners. */
@@ -292,6 +303,7 @@ const IMPORT_BANS = [
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth/library.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/account/personActions.ts"] }),
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
+  importBan(NETWORK_BESIDE_FETCH, PRODUCTION),
 ];
 
 // ---------------------------------------------------------------------------------------------------
@@ -349,20 +361,13 @@ const CLASS_LIST_CONSTANT = {
   name: "^[A-Z][A-Z0-9_]*_CLASSES$",
   match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
 };
-/** The kit's placeholder builders, each taking a class list as its argument. */
-const CLASS_LIST_CALLEES = "^(?:placeholderBar|buttonPlaceholder)$";
 /** A kit component's prop holding a class list, suffixed as `className` is, so one selector reads every one. */
 const CLASS_LIST_PROP = "^[a-z][A-Za-z0-9]*Class$";
 /** The class a recipe's call adds to its own, `buttonLook({ class })`, under either of the two keys `tv` takes. */
 const RECIPE_CLASS_KEY = "^class(?:Name)?$";
 
 /** Where the kit writes a class list beyond the plugin's defaults, which read a `className` and a `tv` config alone. */
-const CLASS_LIST_SELECTORS = [
-  ...getDefaultSelectors(),
-  CLASS_LIST_CONSTANT,
-  { kind: SelectorKind.Callee, name: CLASS_LIST_CALLEES, match: [{ type: MatcherType.String }] },
-  { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP },
-];
+const CLASS_LIST_SELECTORS = [...getDefaultSelectors(), CLASS_LIST_CONSTANT, { kind: SelectorKind.Attribute, name: CLASS_LIST_PROP }];
 /**
  * A recipe call's key, read in any call, since a recipe is any function a `tv` call returned, but an assertion's matcher
  * (`toEqual`, `toMatchObject`), whose object is a value expected, never a recipe's options: the plugin reads a value under
@@ -380,7 +385,6 @@ const UNSUFFIXED_CONSTANT =
 /** Each place a class list stands, as the plugin reads it: its defaults' and `CLASS_LIST_SELECTORS`'. */
 const CLASS_LIST_SITES = [
   `JSXAttribute[name.name=/^className$|${CLASS_LIST_PROP}/] > JSXExpressionContainer`,
-  `CallExpression[callee.name=/${CLASS_LIST_CALLEES}/]`,
   `Property[key.name=/${RECIPE_CLASS_KEY}/]`,
   'CallExpression[callee.name="tv"]',
   "VariableDeclarator[id.name=/_CLASSES$/]",
@@ -705,17 +709,33 @@ const DESIGN_BANS = [
       allow,
     }),
   ),
-  // A wait is the template's: each holds one boundary around the content it draws, its fallback the skeleton
-  // of that content's box, so a page has no boundary of its own to leave without a loading state or to shape
-  // wrongly.
+  // No boundary stands anywhere in the tree: a page opened by address is one document the browser paints as it
+  // arrives, and a client navigation keeps the page it leaves until the next is complete. A boundary would commit its
+  // fallback on a navigation into its page and paint the page in steps. Next's own boundaries are the same thing by
+  // other names: a route's loading file, and a component loaded apart, whose import waits in one.
   importBan(
     {
       regex: packageUnder("react"),
       importNames: ["Suspense"],
       message:
-        "A page waits in its template's one boundary: hand the template its content as a promise, and the template draws the skeleton while it waits.",
+        "No boundary stands in the tree: a page arrives as one document, and a navigation keeps the page it leaves until the next is complete. A page awaits its read and returns its view; a template takes its content as promises where several reads run side by side.",
     },
-    ROUTE_PAGE,
+    PRODUCTION,
+  ),
+  importBan(
+    {
+      regex: packageUnder("next/dynamic"),
+      message:
+        "A component loaded apart waits in a boundary of its own, which would paint its page in steps: import it, and the page arrives as one document.",
+    },
+    PRODUCTION,
+  ),
+  syntaxBan(
+    syntax(
+      "Program",
+      "No route holds a loading file: it is a boundary around its segment, which a navigation would show in place of the page it leaves. A page arrives as one document, with no boundary above it.",
+    ),
+    LOADING_FILE,
   ),
   // The cross-fade between pages is the kit's one `PageFade`, standing first in each page template: a fade of a
   // page's own is a second motion beside it, one the tokens' duration and reduced-motion rules do not reach.
@@ -798,8 +818,18 @@ const DESIGN_BANS = [
   ...[
     [String.raw`${packageUnder("react-aria", "react-aria-components")}|^@react-(?:aria|stately)\x2F`, "React Aria"],
     [packageUnder("lucide-react"), "The icon set"],
-    [packageNamed("next/link"), "Next's link"],
   ].map(([regex, what]) => importBan({ regex, message: `${what} is the kit's to import: outside it, render the kit's control.` }, OUTSIDE_KIT)),
+  // Every client navigation feeds the one pending address the frames' bar and the lists' marks read, which Next's link
+  // pressed on its own would leave unset.
+  importBan(
+    {
+      regex: packageNamed("next/link"),
+      message:
+        "Next's link is `NavigationLink`'s alone, in src/kit/WholePage.tsx, which feeds the pending navigation the frames' bar reads: render the kit's `Link`, or `NavigationLink` inside the kit.",
+    },
+    PRODUCTION,
+    { allow: ["src/kit/WholePage.tsx"] },
+  ),
   // A primitive behind one kit file each, so a second tooltip, popover, dialog or toast has nothing to be
   // built from. The kit's other files import React Aria freely.
   ...[
@@ -869,11 +899,14 @@ const DESIGN_BANS = [
       message: "A chip is handed to the name it belongs to through a block's typed `chip` prop.",
     },
     PRODUCTION,
-    // The nine blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's, a
-    // record's facts, the page header's title, a school's tile, a figure's tile and a party's answer.
+    // The eleven blocks carrying a name: a table row's, a card's and a card row's, a line-up's pupil, a match's row, its
+    // bracket card and the season card's opening line, a record's facts, the page header's title, a school's tile, a
+    // figure's tile and a party's answer.
     {
       allow: [
         "src/kit/AnswerRows.tsx",
+        "src/kit/BracketCard.tsx",
+        "src/kit/SaisonBlock.tsx",
         "src/kit/Table.tsx",
         "src/kit/Card.tsx",
         "src/kit/Lineup.tsx",
@@ -891,6 +924,7 @@ const DESIGN_BANS = [
     { allow: ["src/kit/ConfirmDialog.tsx"] },
   ),
   ban("no-restricted-globals", { name: "confirm", message: "Ask before an irreversible act with the kit's `ConfirmDialog`." }, PRODUCTION),
+  ...["XMLHttpRequest", "WebSocket", "EventSource"].map((name) => ban("no-restricted-globals", { name, message: FETCH_ALONE }, PRODUCTION)),
 
   classBan(
     CLASS(String.raw`(?:outline|ring|ring-offset)(?:-.+)?`),
@@ -1149,10 +1183,25 @@ const NAMED = [...new Set(BANS.flatMap(({ only = [], allow }) => [...only, ...al
 const NAMED_FILES = NAMED.filter((entry) => !isGlob(entry));
 const NAMED_DIRECTORIES = NAMED.filter(isGlob);
 
-/** Every file a ban names, each of which must exist: a renamed module drops out of its ban in silence. */
+/**
+ * The modules of ours that are nothing but their edge, which a test may stand in for; every other module runs for real
+ * in a test, with the edge beneath it faked.
+ */
+const EDGE_MODULES = [
+  // The environment and the secret files, which a suite varying a setting per file replaces.
+  "src/core/config.ts",
+  // The sign-in store's driver client, a connection to a database server and nothing else.
+  "src/core/db.ts",
+  // A full document load, `window.location.assign`, which jsdom does not make.
+  "src/shared/utils/documentNavigation.ts",
+  // The sign-in library's browser client, loaded apart, whose passkey prompt is the platform's WebAuthn.
+  "src/core/auth/browserClient.ts",
+];
+
+/** Every file a ban or the edge list names, each of which must exist: a renamed module drops out of its ban in silence. */
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const GONE = [
-  ...NAMED_FILES.filter((path) => !existsSync(join(HERE, path))),
+  ...[...NAMED_FILES, ...EDGE_MODULES].filter((path) => !existsSync(join(HERE, path))),
   ...NAMED_DIRECTORIES.filter((glob) => globSync(glob, { cwd: HERE }).length === 0),
 ];
 if (GONE.length > 0) {
@@ -1162,27 +1211,30 @@ if (GONE.length > 0) {
 const fileBlocks = () => {
   const groups = new Map();
   for (const path of NAMED_FILES) {
-    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path), route: isRoutePage(path) }, path);
+    const rules = rulesFor({ kind: kindOf(path), layer: layerOf(path), loading: isLoadingFile(path) }, path);
     const key = JSON.stringify(rules);
     groups.set(key, { files: [...(groups.get(key)?.files ?? []), literally(path)], rules });
   }
   return [...groups.values()].map((block, index) => ({ name: `bans/named/${index}`, ...block }));
 };
 
+/** A zone's block name: its kind and layer, and whether it holds the loading files. */
+const zoneName = ({ kind, layer, loading }) => `${kind}/${layer}${loading === true ? "/loading" : ""}`;
+
 const BAN_BLOCKS = [
-  ...ZONES.map(({ kind, layer, route, files, ignores }) => ({
-    name: `bans/${kind}/${layer}${route === true ? "/route" : ""}`,
+  ...ZONES.map(({ files, ignores, ...zone }) => ({
+    name: `bans/${zoneName(zone)}`,
     files,
     ignores,
-    rules: rulesFor({ kind, layer, route }),
+    rules: rulesFor(zone),
   })),
   // A directory's files, zone by zone: a nested `files` array asks a file to match every pattern in it.
   ...NAMED_DIRECTORIES.flatMap((glob) =>
-    ZONES.map(({ kind, layer, route, files, ignores }) => ({
-      name: `bans/under/${glob}/${kind}/${layer}${route === true ? "/route" : ""}`,
+    ZONES.map(({ files, ignores, ...zone }) => ({
+      name: `bans/under/${glob}/${zoneName(zone)}`,
       files: files.map((pattern) => [pattern, literally(glob).replaceAll("[*][*]", "**")]),
       ignores,
-      rules: rulesFor({ kind, layer, route }, undefined, glob),
+      rules: rulesFor(zone, undefined, glob),
     })),
   ),
   // Last, so a named file's own block is the one eslint reads its options from.
@@ -1190,6 +1242,9 @@ const BAN_BLOCKS = [
 ];
 
 const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+
+/** The rules of `eslint-rules/`, one plugin: flat config refuses a plugin's name registered twice with two objects. */
+const OWN_RULES = { rules: { "server-action": serverAction, "no-own-module-double": noOwnModuleDouble } };
 
 // The name shapes, as micromatch's extended globs, in the forms eslint-plugin-check-file writes its own conventions.
 const KEBAB = "+([a-z])*([a-z0-9])*(-+([a-z0-9]))";
@@ -1310,12 +1365,13 @@ const eslintConfig = defineConfig([
   ...BAN_BLOCKS,
 
   // The one write path: every server action built by `src/core/action.ts`, which runs its lane's guard, and the
-  // route handlers no browser form posts to, the four that stay: three for callers that are not a browser, and the
-  // sign-in's landing, a GET dispatcher no form posts to.
+  // route handlers no browser form posts to: three for callers that are not a browser, and the GET dispatchers, each
+  // answering an address with one redirect before anything renders: the sign-in's landing, `/area`, and the five
+  // addresses naming no season.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
-    plugins: { fl: { rules: { "server-action": serverAction } } },
+    plugins: { fl: OWN_RULES },
     rules: {
       "fl/server-action": [
         "error",
@@ -1325,10 +1381,24 @@ const eslintConfig = defineConfig([
             "src/app/api/mail/delivery/route.ts",
             "src/app/api/client-error/route.ts",
             "src/app/(classic)/signin/continue/route.ts",
+            "src/app/area/(person)/(landing)/route.ts",
+            "src/app/saisons/route.ts",
+            "src/app/saisons/ko-runde/route.ts",
+            "src/app/saisons/search/route.ts",
+            "src/app/saisons/tabelle/route.ts",
+            "src/app/saisons/teams/route.ts",
           ],
         },
       ],
     },
+  },
+
+  // A test runs our real code and fakes only what it does not own: a stand-in of a module of ours is refused unless that
+  // module is an edge, a server function as a client calls it, or no script.
+  {
+    files: TEST_FILES,
+    plugins: { fl: OWN_RULES },
+    rules: { "fl/no-own-module-double": ["error", { edges: EDGE_MODULES }] },
   },
 
   // The a11y rule set. Only the rules are taken from the plugin: `eslint-config-next` already

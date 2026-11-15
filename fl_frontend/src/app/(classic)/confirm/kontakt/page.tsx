@@ -1,8 +1,5 @@
 import { cache } from "react";
 
-import { CheckboxPlaceholder } from "@/kit/Checkbox";
-import { ConsentLinePlaceholder } from "@/kit/ConsentLine";
-import { FieldPlaceholder } from "@/kit/FieldPair";
 import { mailedMetadata } from "@/kit/mailedLinkState";
 import { MailedPage, TO_ACCOUNT } from "@/kit/MailedPage";
 
@@ -42,18 +39,6 @@ const WORDS = SERVER_COPY.kontaktConfirmation;
 
 const INVALID: MailedState = { state: "invalid", next: TO_HOME };
 
-/**
- * The question's paragraph for the wait, as an application's seat reads it, the link most mails carry, a school's name
- * standing as words about as long, and never shown: set unseen, so the paragraph stands as many lines as it will at every
- * width.
- */
-const SENTENCE_WORDS = `${WORDS.text(
-  WORDS.opening.named(COPY.team.fullName, "2027", { record: rollenText(["trainer"]) }),
-  WORDS.stored,
-  WORDS.applicationDeadline("2027-01-31"),
-  WORDS.objectionEffect.application,
-)} ${WORDS.more.before}${COPY.page.privacyNotice}${WORDS.more.after}`;
-
 /** Whether the confirmation's write asks the date, which posts nothing while unanswered. */
 const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].shape.birth_date, null);
 
@@ -64,25 +49,7 @@ const BIRTH_DATE_REQUIRED = requires(BewerbungenPostEinwilligungBody.options[0].
  * longer valid, an expired, mistyped or tampered link and a decided application's seat alike.
  */
 export default function KontaktConfirmationPage({ searchParams }: Props) {
-  return (
-    <MailedPage
-      page={readState(searchParams)}
-      facts={4}
-      act={COPY.page.entryConfirmation}
-      second={COPY.shared.verb.oppose}
-      sentence={SENTENCE_WORDS}
-      fields={
-        <>
-          <FieldPlaceholder
-            kind="date"
-            description={WORDS.ageCheck(18)}
-          />
-          <CheckboxPlaceholder label={SEAT_WORDINGS.scope.label} />
-          <ConsentLinePlaceholder line={SEAT_WORDINGS.scope.line} />
-        </>
-      }
-    />
-  );
+  return <MailedPage page={readState(searchParams)} />;
 }
 
 /** The link's own read; `null` for a token no seat holds or one the backend will not parse, a dead link either way. */

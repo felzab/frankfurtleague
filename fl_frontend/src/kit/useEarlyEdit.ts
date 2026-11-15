@@ -62,7 +62,7 @@ export function useEarlyEdit() {
   const root = useRef<HTMLDivElement>(null);
   const isDrawn = useRef(false);
   useLayoutEffect(() => {
-    // Next's `Activity` and a boundary suspending again re-run this on each reveal, where a toggle a person pressed
+    // Next's `Activity` re-runs this on each reveal, where a toggle a person pressed
     // since differs from its default, which React never syncs.
     if (isDrawn.current) return;
     isDrawn.current = true;

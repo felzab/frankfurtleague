@@ -33,20 +33,20 @@ from app.shared.schemas.literals import (
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-# Each tuple below answers one consumer's question. They are deliberately not one predicate: a single
-# boolean would make independent consumers agree by accident, and a field telling five events apart
-# has a different right answer per consumer.
+# Each tuple below answers one question, whoever asks it. They are deliberately not one predicate: a
+# single boolean would make independent questions agree by accident, and a field telling five events
+# apart has a different right answer per question.
 
 # The fixtures that used up their slot: an abandoned match used the ground and the referee, and every other event
 # records a non-event.
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
 
 # `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
-# state barred from carrying a result reaches no figure the table is scored on.
+# state barred from carrying a result reaches no figure the table is scored on, where a no-show's awarded result
+# stands among the games played.
 SONDEREREIGNIS_WITHOUT_A_RESULT: tuple[FLSonderereignis, ...] = ("ausgefallen", "annulliert")
 
-# A no-show and an abandonment both leave a record a group swap would rewrite; a fixture called off
-# or struck out leaves none.
+# A no-show and an abandonment both leave a record of the match, where a fixture called off or struck out leaves none.
 SONDEREREIGNIS_PRODUCING_A_RECORD: tuple[FLSonderereignis, ...] = (
     "abgebrochen",
     "nichtantreten_team1",
@@ -60,10 +60,11 @@ SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team2",
 )
 
-# `count_cancelled_spiele` counts fixtures that did not take place, so an annulment is in it and
-# only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
-# accident, never by derivation: the questions differ.
-SONDEREREIGNIS_COUNTED_AS_CANCELLED: tuple[FLSonderereignis, ...] = (
+# The fixtures the administrator's Übersicht asks nothing more of: each did not take place, so an
+# annulment is in it, and a no-show's result is composed from the season's rules; only an
+# abandonment -- played until it stopped -- is out. Equal to the absence half above by accident,
+# never by derivation: the questions differ.
+SONDEREREIGNIS_OWING_NOTHING: tuple[FLSonderereignis, ...] = (
     "ausgefallen",
     "nichtantreten_team1",
     "nichtantreten_team2",

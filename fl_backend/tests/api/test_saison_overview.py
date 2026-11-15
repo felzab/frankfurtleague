@@ -47,7 +47,7 @@ CLASH_SPIELTAG = ObjectId(OID.format(0x400))
 
 # One fixture per kind, numbered so a failure names it.
 OVERDUE, DUE_TODAY, MOVED, UNPLAYED, REPORTED, PROPOSED, UNDATED, DECLINED, OPEN_SIDE = range(1, 10)
-CLASH_FIRST, CLASH_SECOND, CALLED_OFF, OTHER_SEASONS = 10, 11, 12, 13
+CLASH_FIRST, CLASH_SECOND, CALLED_OFF, OTHER_SEASONS, REFEREE_OWED = 10, 11, 12, 13, 14
 
 # As `spiele` stores them: every name the Übersicht serves is joined from the rows seeded beside them.
 ORT = {"spielort_id": SPIELORT, "mietpreis": 40}
@@ -96,6 +96,7 @@ SPIELE = {
     CLASH_SECOND: spiel(CLASH_SECOND, "2026-04-01", spieltag_id=CLASH_SPIELTAG, time="18:00:00", team2=_side(PICKED)),
     CALLED_OFF: spiel(CALLED_OFF, None, sonderereignis="ausgefallen"),
     OTHER_SEASONS: spiel(OTHER_SEASONS, None, saison_id=OTHER_SAISON),
+    REFEREE_OWED: spiel(REFEREE_OWED, "2026-03-19"),
 }
 
 ROWS = [
@@ -134,6 +135,8 @@ ROWS = [
         answer={"kind": "agreed", "at": "2026-03-13", "by": {"kind": "kontakt", "rolle": "trainer"}, "vorschlag": None, "reason": None},
     ),
     documents.spielbestaetigung_document(SPIELE[PROPOSED], party=REFEREE_PARTY, deadline="2026-03-20", asked_at=None),
+    # The referee alone still to answer, past the clubs' deadline: a referee answers until the kick-off, so nothing lapsed.
+    documents.spielbestaetigung_document(SPIELE[REFEREE_OWED], party=REFEREE_PARTY, deadline="2026-03-12", asked_at="2026-03-05"),
 ]
 
 
@@ -227,7 +230,7 @@ class TestEachKindLandsOnItsCard:
 
         assert response.status_code == 200
         assert placed(response) == {
-            "due": [("spielbestaetigung_overdue", OVERDUE), ("spielbestaetigung_due", DUE_TODAY)],
+            "due": [("spielbestaetigung_overdue", OVERDUE), ("spielbestaetigung_due", DUE_TODAY), ("spielbestaetigung_due", REFEREE_OWED)],
             "ergebnisse": [("spielbericht_open", REPORTED), ("ergebnis_missing", UNPLAYED)],
             "dates": [
                 ("vorschlag_open", PROPOSED),
@@ -273,8 +276,23 @@ class TestEachKindLandsOnItsCard:
         assert proposed["discard_recipients"] == [{**away, "name": "Goethe"}]
         assert sorted(overdue["parties"], key=str) == sorted(
             [
-                {"spielbestaetigung_id": str(ROWS[0]["_id"]), "party": home, "name": "Lessing", "deadline": "2026-03-14"},
-                {"spielbestaetigung_id": str(ROWS[5]["_id"]), "party": referee, "name": "Anna Körner", "deadline": "2026-03-14"},
+                {
+                    "spielbestaetigung_id": str(ROWS[0]["_id"]),
+                    "party": home,
+                    "name": "Lessing",
+                    "asked_at": "2026-03-10",
+                    "due_by": "2026-03-14",
+                    "lapsed_on": "2026-03-14",
+                },
+                # The clubs' deadline binds no referee, who answers until the kick-off: due by the fixture's day.
+                {
+                    "spielbestaetigung_id": str(ROWS[5]["_id"]),
+                    "party": referee,
+                    "name": "Anna Körner",
+                    "asked_at": "2026-03-10",
+                    "due_by": "2026-03-20",
+                    "lapsed_on": None,
+                },
             ],
             key=str,
         )

@@ -78,10 +78,15 @@ pull is what brings the compose file and `nginx/` up to date. A run does this, i
    (`docker compose up --wait`). Compose recreates a service only where its definition or image
    moved, so a deploy moving only the application images recreates those two, and nginx keeps
    serving across the swap.
-4. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
-   seconds for nginx's own line `start worker processes`. An `[emerg]`, `[alert]` or `[crit]` line,
-   or no line at all, fails the deploy, the line shown.
-5. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
+4. **It reads every service's state once more**, since the wait judges each service once and a
+   service can fail after it has passed. A service the compose file defines with no running
+   container, or with a healthcheck reading anything but healthy, fails the deploy, named, before
+   nginx is touched.
+5. **It tests nginx's configuration in the running container and reloads it**, then waits up to 15
+   seconds for nginx's master to log `start worker processes`. An `[emerg]`, `[alert]` or `[crit]`
+   line from the master, or neither within the wait, fails the deploy, the line shown. A worker's
+   line decides nothing, since a request can cause one.
+6. **It pins the tag as `TAG=` in the `.env` beside the compose file**, and names the build now live
    and the build before it.
 
 **A healthy verdict is container health and the reload, never a page.** The frontend answers a
@@ -107,24 +112,26 @@ through the same route.
 that fails goes back to the build it names. A pinned value that is not a `sha-` tag is warned
 about and counts as no pin.
 
-| Ending                             | Exit      | What stands afterwards                                                                                      |
-| ---------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
-| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                        |
-| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                       |
-| Failed, and went back              | 1         | The previous build's images, pinned; nginx not reloaded                                                     |
-| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                               |
-| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                             |
-| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                        |
-| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                        |
-| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                |
-| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started |
+| Ending                             | Exit      | What stands afterwards                                                                                                               |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Deployed                           | 0         | The new build, pinned; the replaced build's images still on the host                                                                 |
+| Live, but the pin unwritable       | 1         | The new build; `.env` pinning the previous one, and the line to write                                                                |
+| Failed, and went back              | 1         | The previous build's images, pinned; nginx on the configuration it had, unless the start recreated it or its reload went unconfirmed |
+| Failed, with no other build pinned | 1         | The stack as Compose left it; the pin unmoved                                                                                        |
+| Failed, and going back failed too  | 1         | The stack as Compose left it; `.env` pinning the previous build                                                                      |
+| Failed, went back, state unread    | 1         | The previous build, its services' state unknown; `.env` pinning it                                                                   |
+| Failed under `--no-rollback`       | 1         | The stack as it stands; `.env` pinning the new build                                                                                 |
+| Refused                            | 2         | The stack unchanged; unused images pruned where the run reached that                                                                 |
+| Crashed                            | 3 or more | The stack as far as the run got; its last lines name the command that failed                                                         |
+| Interrupted                        | 130       | The stack as far as Compose took it; the pin unmoved, or the new build's under `--no-rollback` once started                          |
 
 **A refusal is a wrong argument, a `HEAD` git cannot read, a machine that is not Linux, a failed
 pull, or a `--no-rollback` run whose pin could not be written.** The run names which.
 
 **Going back moves the images alone.** The compose file and `nginx/` stay as the pull left them,
 and nginx is not reloaded, so it keeps the configuration it had before the run unless the start
-recreated it. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
+recreated it, or nginx confirmed neither taking nor refusing the run's reload, which the run's last
+line then says. **Where `nginx -t` refused the configuration**, the checkout still holds the refused
 files, which any later start of nginx, a reboot included, loads and fails on: pull a commit whose
 configuration nginx takes and deploy it.
 
@@ -154,16 +161,36 @@ serves again (below).
 
 **`./scripts/ops/deploy.sh <older tag>` needs the registry**: its prune removes the older build's
 images, which no container references, and its pull fetches them again. **Without the registry**,
-start the build the last deploy replaced, whose images are still on the host, then pin it:
+start the build the last deploy replaced, whose images are still on the host, read its services,
+then pin it:
 
 ```bash
 docker image ls ghcr.io/felzab/frankfurtleague-backend
 TAG=sha-1a2b3c4 docker compose up -d --wait
+TAG=sha-1a2b3c4 docker compose ps --format '{{.Service}} {{.State}} {{.Health}}'
 printf 'TAG=%s\n' sha-1a2b3c4 > .env
 ```
 
-The first command lists the tags on the host, and the second starts the one named. The third pins
-it once it is up, so every later Compose command, and a later deploy that fails, reach it.
+The first command lists the tags on the host, and the second starts the one named. **The wait's
+answer is no verdict**: it judges each service once, so a service can be starting or unhealthy when
+it answers. The third lists each running service. Pin only once it lists all four, each `running`
+and `healthy`, and nginx `running` with nothing after it. A service still `starting` is read again
+a minute later. The fourth command pins the build, so every later Compose command, and a later
+deploy that fails, reach it.
+
+**Before going back to a build whose move notice has no `stays`, count the notices it would
+misword.** A build is such a one where `FLSpielMovedData` in its
+`fl_backend/app/api/outbox/schemas.py` declares no `stays` field. An unsent `spiel_moved` row
+holding `data.moved_to` null and `data.stays` true tells a party still on a fixture that the
+fixture lost its slot. Such a build reads no `stays`, so it sends that row as the notice that the
+party is off the match: a club reads that its request no longer holds, a referee that they no longer
+referee it.
+
+- **The count** is a read-only query on the `outbox` collection of the application database, run
+  with `mongosh --file`: rows whose `kind` is `spiel_moved`, whose `state` is `open`, and whose
+  `data.moved_to` is null and `data.stays` true.
+- **Where it counts any**, go back only once a count reads 0, as the Postausgang sends them, or roll
+  forward instead.
 
 **No build published before the first run on this server can serve again, so roll forward
 instead.** Each asks for secret files this compose file does not mount. None can read a match report
@@ -1465,10 +1492,12 @@ sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<an internal key>
 changed definition or image, never for a file's new content. So a value replaced on a running stack
 takes effect only once the services reading it are recreated, which [`spec.md`](spec.md) §1.2's
 table names. A wrong `secrets/turnstile_secret_key` fails every bot check until then. Run this in
-the checkout, naming those services; `--wait` reports their healthchecks:
+the checkout, naming those services. The wait judges each service once, so the second command reads
+them after it: the recreate has taken once each is listed `running` and `healthy`.
 
 ```bash
 docker compose up -d --wait --force-recreate frontend backend
+docker compose ps --format '{{.Service}} {{.State}} {{.Health}}' frontend backend
 ```
 
 - **The three internal keys** are read by both application services, so recreate `frontend backend`

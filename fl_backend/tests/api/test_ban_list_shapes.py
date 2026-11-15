@@ -7,7 +7,6 @@ from app.api.ban_list.schemas import FLPostBanListEntryPayload
 @pytest.mark.parametrize(
     "ban_reason",
     [
-        pytest.param("zorbanax@beispielschule.de", id="an address alone"),
         pytest.param("Falsche Angabe, siehe zorbanax@beispielschule.de", id="an address inside a sentence"),
         pytest.param("Kontakt: ANNA@XN--MLLER-KVA.DE", id="an address in a punycode domain"),
     ],

@@ -1,10 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { EditorShell } from "@/kit/EditorShell";
-import { FactsPlaceholder } from "@/kit/Facts";
-import { FieldPlaceholder } from "@/kit/FieldPair";
-
 import { requires } from "@/core/action";
 import { SPIELER_WORDINGS } from "@/core/consentWordings";
 import { COPY } from "@/core/copy";
@@ -18,7 +14,7 @@ import { ROUTES } from "@/core/routes";
 import { kaderName } from "@/features/spieler/constants";
 import { positionOptions, stufeOptions } from "@/features/spieler/options";
 import { getSpielerSaison } from "@/features/spieler/queries";
-import { rowChip } from "@/features/spieler/rowChip";
+import { rowState } from "@/features/spieler/rowChip";
 import { adminIdParamOf } from "@/shared/utils/adminRead";
 import { pageMetadata } from "@/shared/utils/metadata";
 import { metadataFor } from "@/shared/utils/notFoundMetadata";
@@ -66,55 +62,8 @@ export async function generateMetadata({ params }: Props, parent: ResolvingMetad
 }
 
 /** A player's editor in one season, on its one read and its one save over the person and their squad row. */
-export default function SpielerEditorPage({ params }: Props) {
-  return (
-    <EditorShell
-      wait={{
-        sections: [
-          [
-            "field",
-            "field",
-            <FieldPlaceholder
-              key="birth_date"
-              kind="date"
-            />,
-            <FactsPlaceholder
-              key="address"
-              pairs={1}
-            />,
-          ],
-          [
-            // A row that left the squad: the day it left beside the team.
-            <FactsPlaceholder
-              key="team"
-              pairs={2}
-            />,
-            <FieldPlaceholder
-              key="nummer"
-              holds={2}
-            />,
-            "field",
-            "field",
-            "field",
-          ],
-          [
-            <FactsPlaceholder
-              key="einwilligung"
-              pairs={4}
-            />,
-          ],
-        ],
-        danger: [
-          {
-            name: COPY.shared.withObject(WORDS.fromKader, "deregister"),
-            consequence: WORDS.deregisterConsequence,
-            act: COPY.shared.verb.deregister,
-          },
-        ],
-      }}
-      editor={readEditor(params)}
-    />
-  );
+export default async function SpielerEditorPage({ params }: Props) {
+  return await readEditor(params);
 }
 
 /** The Person box's fact: the address, a mail link to the person. */
@@ -147,12 +96,12 @@ async function readEditor(params: Props["params"]) {
   if (located === null) notFound();
   const { id, saison, found } = located;
   const { kader } = found;
-  const chip = rowChip(kader);
+  const chip = rowState(kader);
 
   return (
     <SpielerEditor
       title={{ record: kaderName(found.person) }}
-      {...(chip === undefined ? {} : { chip })}
+      chip={chip}
       record={{ id, version: found.version, values: valuesOf(found) }}
       saison={saison}
       save={saveSpieler}

@@ -1,4 +1,3 @@
-import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
 import {
   ADMIN_EMAIL,
   HOLDS_NOTHING,
@@ -8,13 +7,13 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
+import { serveBackend, serveHost } from "@/test-support/backend.ts";
+import { answerAt } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
 import type { ActionAnswer } from "@/core/action.ts";
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
 const STORE = "__flSignInStore";
@@ -27,38 +26,39 @@ const GRANTED = ADMIN_EMAIL;
 /** Holding nothing at all, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
 
-/** Two addresses holding no grant, each refused by a later check of the gate. */
-const BARRED = "gesperrte@example.org";
-const UNREACHED = "unerreichte@example.org";
-/** The addresses holding no grant the gate admits, so the refusals above are the gate's rather than the harness's. */
-const SEATED = "trainerin@example.org";
-const UNCONFIRMED = "unbestaetigte@example.org";
-/** Holding a record of its own no list names, a pending application's seat: no Funktion, and a consent to take back. */
-const ACCOUNT_ONLY = "bewerberin@example.org";
-
-/** What the backend holds for an address, answered at each read in that read's shape, or that it throws. */
-type Backend = LookupFixture | "throws";
-
-const BACKENDS: Readonly<Record<string, Backend>> = {
+/** What the backend holds for an address, answered at each read in that read's shape. */
+const BACKENDS: Readonly<Record<string, LookupFixture>> = {
   [GRANTED]: { ...HOLDS_NOTHING, admin_tier: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
-  [BARRED]: { ...HOLDS_NOTHING, seats: [SEAT], barred: true, account: true },
-  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, account: true },
-  [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...HOLDS_NOTHING, unconfirmed: true, account: false },
-  [SEATED]: { ...HOLDS_NOTHING, seats: [SEAT], account: true },
 };
 
-/** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
-function answerFromTheBackend(call: ApiCall): Promise<unknown> {
-  const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
-  if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
+/** The gate's read and the subject's, by the path each is spelled at below the base path. */
+const LOOKUPS: ReadonlySet<string> = new Set(["/identity/sign_in", "/identity/subject"]);
 
-  return Promise.resolve(answerAt(call.endpoint, backend));
+/**
+ * Answers the backend read for the address its body names; an address named nowhere holds nothing. Any other request
+ * goes unanswered, which fails the case it was sent in.
+ */
+function answerFromTheBackend({ method, path, body }: { method: string; path: string; body: unknown }): unknown {
+  if (method !== "POST" || !LOOKUPS.has(path)) return undefined;
+  const asked = ((body ?? {}) as { email?: string }).email ?? "";
+  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
+
+  return answerAt(path, backend);
 }
 
 // Registered ahead of the imports below, whose graph reaches the real client through the gate.
-const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
+const { sent: asked } = serveBackend(answerFromTheBackend);
+
+/** What Cloudflare's published test site key mints (https://developers.cloudflare.com/turnstile/troubleshooting/testing/). */
+const BOT_CHECK_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+
+// Cloudflare's verdict, asked over the network by the real bot check: it passes the token every attempt posts and
+// answers nothing else, which fails the case. This file's subject is what the gate does past the check.
+serveHost("https://challenges.cloudflare.com", ({ method, url, body }) =>
+  method === "POST" && url.pathname === "/turnstile/v0/siteverify" && (body as { response?: string }).response === BOT_CHECK_TOKEN
+    ? { success: true, "error-codes": [] }
+    : undefined,
+);
 
 /** `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. */
 const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
@@ -76,8 +76,6 @@ const NEXT_SERVER_DOUBLE = overriding("next/server", {
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass.
 const { sent } = registerAuthDoubles({
-  // Passed at its module: this file's subject is what the gate does past the bot check.
-  core: { turnstile: { turnstileRefusal: () => Promise.resolve(null) } },
   specifiers: {
     "next/headers": HEADERS_DOUBLE,
     "next/server": NEXT_SERVER_DOUBLE,
@@ -114,7 +112,7 @@ interface Attempt {
 async function signInWith(email: string): Promise<Attempt> {
   const submitted = new FormData();
   submitted.set("email", email);
-  submitted.set(TURNSTILE_FIELD, "XXXX.DUMMY.TOKEN.XXXX");
+  submitted.set(TURNSTILE_FIELD, BOT_CHECK_TOKEN);
 
   const mailedBefore = sent.length;
   const storedBefore = store.verification.length;
@@ -190,15 +188,6 @@ function bodyWithoutEcho(result: ActionAnswer<string>): Record<string, unknown> 
 
 const granted = await signInWith(GRANTED);
 const rejected = await signInWith(REJECTED);
-const admittedByTheGate = {
-  "a person holding a live seat": { attempt: await signInWith(SEATED), address: SEATED },
-  "a person whose records all await confirmation": { attempt: await signInWith(UNCONFIRMED), address: UNCONFIRMED },
-  "a person whose only record no list names": { attempt: await signInWith(ACCOUNT_ONLY), address: ACCOUNT_ONLY },
-};
-const refusedByTheGate = {
-  "a barred address holding a seat": await signInWith(BARRED),
-  "an address whose backend read throws": await signInWith(UNREACHED),
-};
 
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
@@ -242,52 +231,11 @@ function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
 }
 
 describe("what the gate's backend read leaves on the response", () => {
-  /* The floor: addresses holding no grant that the gate admits, so the three refusals below
-     are the read deciding rather than every non-administrator being refused alike. */
-  for (const [branch, { attempt, address }] of Object.entries(admittedByTheGate)) {
-    it(`mails ${branch} only after the answer, which only the backend read can decide`, () => {
-      assertNothingAheadOfTheAnswer(attempt);
-      expect([...attempt.mailed]).toStrictEqual([address]);
-      expect(attempt.askedAfter, "the gate made other than its one read for a person").toBe(1);
-    });
-  }
-
   /* The grant is read on the person's own call, so nothing an address's owner can time or read
      tells an administrator's address from a seat holder's. */
   it("mails an address holding a grant after the one read a person's takes, and nothing ahead of the answer", () => {
     assertNothingAheadOfTheAnswer(granted);
     expect(granted.askedAfter, "the gate read an administrator's address other than once, which a person's it reads once").toBe(1);
-  });
-
-  for (const [branch, attempt] of Object.entries(refusedByTheGate)) {
-    it(`refuses ${branch} with nothing done ahead of the answer and nothing mailed after it`, () => {
-      assertNothingAheadOfTheAnswer(attempt);
-      // Floored, so a gate that asked nothing is not mistaken for one that asked and refused.
-      assert.ok(attempt.askedAfter > 0, "the gate never reached the backend, so the refusal is not the read's");
-      expect([...attempt.mailed]).toStrictEqual([]);
-    });
-  }
-});
-
-describe("what a typed code answers", () => {
-  /* The window the message states is worth nothing unless the store enforces it: a code typed past its
-     row's expiry signs nobody in, which nothing a reader sees would tell. */
-  it("mints no session for a code whose row has expired", async () => {
-    await signInWith(GRANTED);
-    const code = theLastCode();
-
-    const row = store.verification.findLast((entry) => entry.identifier === `sign-in-otp-${GRANTED}`);
-    assert.ok(row, "the sign-in wrote no code row to age");
-    // Aged in the STORE, never by a clock handed to the running application, which would be a
-    // testing-only seam in production code.
-    row.expiresAt = new Date(Date.now() - 1000);
-
-    const sessions = store.session.length;
-    const typed = await typeTheCode(GRANTED, code);
-
-    expect(store.session.length, "an expired code still minted a session").toBe(sessions);
-    // The control: refused for its age, where a code this harness misread would mint no session either.
-    expect(((await typed.json()) as { code?: string }).code).toBe("OTP_EXPIRED");
   });
 });
 

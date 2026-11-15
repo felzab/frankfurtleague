@@ -181,16 +181,18 @@ def plan_invitation_dispatch(*, austritt: Any, kontakte: Any, invitation_raw: Ma
     if austritt is not None:
         return InvitationDispatchPlan([], "austritt_entered")
 
+    # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
+    # reach, and skipping on the row would leave those links unsent for ever. Ahead of the seats: this press never
+    # mails a sent link again, so a missing address over one, as the retention leaves a finished season, would send
+    # somebody to repair what no press reads.
+    if invitation_is_sent(invitation_raw):
+        return InvitationDispatchPlan([], "already_sent")
+
     if not isinstance(kontakte, Mapping):
         return InvitationDispatchPlan([], "no_kontakt_block")
 
     recipients = confirmed_recipients(kontakte=kontakte)
     if not recipients:
         return InvitationDispatchPlan([], "no_confirmed_kontaktperson")
-
-    # Its day and never the row's presence: a team holding a live link nobody was sent is a team this press exists to
-    # reach, and skipping on the row would leave those links unsent for ever.
-    if invitation_is_sent(invitation_raw):
-        return InvitationDispatchPlan([], "already_sent")
 
     return InvitationDispatchPlan(recipients, None)

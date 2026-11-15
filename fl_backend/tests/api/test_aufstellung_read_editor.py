@@ -12,6 +12,7 @@ from bson import ObjectId
 
 from app.api.aufstellungen.schemas import FLAufstellungSummary
 from app.api.spiele.editor import FLSpielEditorAufstellungen, read_spiel_editor
+from app.core import clock
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -66,6 +67,7 @@ def test_each_side_counts_the_line_up_of_the_club_it_fields_now(mongo_replica_se
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                now=clock.now(),
             )
             return answer.aufstellungen
 
@@ -121,6 +123,7 @@ def test_each_side_counts_this_fixtures_line_up_alone_and_an_open_slot_counts_no
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     aufstellungen_collection=database[Collection.AUFSTELLUNGEN],
+                    now=clock.now(),
                 )
                 return answer.aufstellungen
 

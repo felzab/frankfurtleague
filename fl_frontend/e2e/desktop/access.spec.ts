@@ -47,8 +47,9 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await expect(chip(row, "Neue offen")).toBeVisible();
   await mailedMessage(newAddress, "E-Mail-Adresse bestätigen", before);
 
+  // A question is named: the toast each act answers in is an `alertdialog` too.
   await pressRowAct(row, "Verwerfen");
-  const discard = page.getByRole("alertdialog");
+  const discard = page.getByRole("alertdialog", { name: "Änderung verwerfen?" });
   await discard.getByRole("button", { name: "Verwerfen" }).click();
   await expect(discard).toBeHidden();
   await expect(row).toHaveCount(0);
@@ -62,7 +63,7 @@ test("an administrator's acts on Adressänderungen and Löschungen take the touc
   await main.getByRole("button", { name: "Löschen" }).click();
 
   // The counts the press read, and no name: the person's one record is a referee's.
-  const question = page.getByRole("alertdialog");
+  const question = page.getByRole("alertdialog", { name: "Daten löschen?" });
   await expect(question).toContainText("Schiedsrichter");
   await question.getByRole("button", { name: "Löschen" }).click();
   await expect(question).toBeHidden();

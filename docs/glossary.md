@@ -253,7 +253,8 @@ their own record.\
 
 **Is:** the league's or a team's refusal of an application or a registration and its mail; and, in
 code alone, a referee's decline of a booking (`answer.kind` `declined`), which on screen is
-„Ablehnen“ and reads „Abgelehnt“. „Abgesagt“ is neither: it is a fixture called off, `cancelled`.\
+„Ablehnen“ and reads „Abgelehnt“. A fixture called off is neither: a page names it by its
+`sonderereignis`'s own word, such as „Ausgefallen“, where the confirmation rows read `cancelled`.\
 **In code:** `fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungAbsageEmail`,
 `fl_frontend/src/core/registrierungEmail.ts :: buildRegistrierungAbsageEmail`;
 `fl_frontend/src/app/area/(person)/schiedsrichter/(list)/[saison]/answerEinteilung.ts :: declineEinteilung`.
@@ -500,7 +501,7 @@ tree its fixtures are drawn as.\
 | `Widerspruch`               | In code `objection`, the seat's stamp `declined_at` ([its entry](#bestätigung--confirmation--one-persons-own-answer-to-their-own-link-and-the-bookkeeping-beside-it-on-a-seat-a-registration-or-a-referee)) |
 | `address_change`            | On screen „Adressänderung“, its collection `address_changes` ([its entry](#address_change--a-change-of-the-address-a-person-signs-in-on-and-the-record-it-waits-in))                                        |
 | `Fassung`                   | In code `wording`, the consent module `fl_frontend/src/core/consentWordings.ts` ([its entry](#fassung--wording--one-frozen-consent-wording-a-person-was-shown-under-its-label))                             |
-| `Dublette`                  | In code `duplicate` ([its entry](#dublette--duplicate--two-open-applications-the-triage-marks-as-colliding))                                                                                                |
+| `Dublette`                  | In code `duplicate`, on screen „Team doppelt“ ([its entry](#dublette--duplicate--two-open-applications-the-triage-marks-as-colliding))                                                                      |
 | `subject`                   | The records one mailbox matches, composed per read ([its entry](#subject--the-data-protection-subject-one-mailbox-stands-for))                                                                              |
 | `austragen`                 | In code `retire`, as `stilllegen` is ([its entry](#inactive_since--the-day-something-left))                                                                                                                 |
 | `Funktion`                  | In code `role` ([its entry](#funktion--role--what-a-person-is-on-screen-the-record-that-admits-them-to-a-panel))                                                                                            |
@@ -649,6 +650,7 @@ the row's own `state`. It is not a seat's `Stand`, which is what the person did.
 ### `area` — the address segment every signed-in person's pages sit under
 
 **Is:** `/area`, the first address segment of the pages a person reaches by signing in, which no
-screen word names; `team`, `spieler` and `schiedsrichter` follow it, each with a season. Its
+screen word names; `team`, `spieler` and `schiedsrichter` follow it, each with a season, and
+`roles`, the chooser between a person's places. Its
 `team` is a club's seats in one season, never the `Team` document.\
 **In code:** `fl_frontend/src/app/area/`; `fl_frontend/src/proxy.ts :: config`.

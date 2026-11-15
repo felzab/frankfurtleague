@@ -90,12 +90,16 @@ export function formatInstant(instant: string | Date): string {
 }
 
 /**
- * „07.11.2026, 18:04“: an instant in a list's narrow cell, where `formatInstant`'s words would not fit. An unreadable
- * stored instant is printed as stored, as `formatInstant` prints it.
+ * „07.11.2026, 18:04“: an instant in a list's narrow cell, where `formatInstant`'s words would not fit, the date and its
+ * time one fact a line never parts: every space the locale writes between them is a no-break space, whichever the
+ * runtime's ICU data writes. An unreadable stored instant is printed as stored, as `formatInstant` prints it.
  */
 export function formatInstantShort(instant: string | Date): string {
   const date = typeof instant === "string" ? new Date(instant) : instant;
-  return Number.isNaN(date.getTime()) ? String(instant) : INSTANT_SHORT.format(date);
+  if (Number.isNaN(date.getTime())) return String(instant);
+  return INSTANT_SHORT.formatToParts(date)
+    .map((part) => (part.type === "literal" ? part.value.replace(/\s/gu, " ") : part.value))
+    .join("");
 }
 
 /**

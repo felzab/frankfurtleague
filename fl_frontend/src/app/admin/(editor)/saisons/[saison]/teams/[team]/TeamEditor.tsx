@@ -19,12 +19,14 @@ import { seatActKinds } from "@/features/teams/components/forms/seatActKinds";
 import { SeatActs } from "@/features/teams/components/forms/SeatActs";
 import { schulformOptions } from "@/features/teams/options";
 
+import { exitFactsOf } from "./exitFacts";
 import { FormInvitationSection } from "./FormInvitationSection";
 import { reactivateTeam, recordAustritt, retireTeam, sendSeatLink, writeSeat } from "./teamActs";
 
 import type { ActionAnswer } from "@/core/action";
-import type { Copy } from "@/core/copy";
+import type { Copy, LockReason } from "@/core/copy";
 import type { CalendarDay } from "@/core/format";
+import type { FLAustrittRecipients } from "@/core/generated/client/types";
 import type { AustrittRules, SeatRules, TeamRules } from "@/features/teams/fieldRules";
 import type { ChipProps } from "@/kit/Chip";
 import type { DangerAct, EditorSection } from "@/kit/EditorPage";
@@ -43,17 +45,13 @@ const TEAM = COPY.shared.facts.team;
 /** The boxes of the club's row of the season, which a retired club holding none leaves out. */
 export type TeamRow = {
   saisonTitle: Copy;
-  /** Why the box's fields cannot change, or how the club left the season. */
-  note?: Copy;
   gruppen: readonly Option[];
-  /** The group is fixed: a draw stands, or the club left. */
-  gruppeLocked: boolean;
-  /** Under the group while a draw alone fixes it. */
-  gruppeNote?: Copy;
+  /** Why the group is fixed, where it is: the club left, or a draw stands. */
+  gruppeLocked: LockReason | null;
   /** The colours open to the club: every one but those another row of the season holds. */
   colours: readonly Option[];
-  /** The colour is fixed with it once the club left. */
-  colourLocked: boolean;
+  /** Why the colour is fixed, where it is: the club left. */
+  colourLocked: LockReason | null;
   /** The exit's facts, once the club left. */
   austritt: readonly Fact[] | null;
   /** The row's own count, which a seat's write sends. */
@@ -62,9 +60,28 @@ export type TeamRow = {
   invitation: InvitationView;
   /** Why a seat's link goes nowhere: the club left. */
   sendLocked?: Copy;
-  /** The exit's act, which a club already out of the season no longer offers. */
-  exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy } | null;
+  /** The exit's act, which a club already out of the season no longer offers, with whom an exit would mail by day. */
+  exit: { earliest: CalendarDay; today: CalendarDay; locked?: Copy; recipients: readonly FLAustrittRecipients[] } | null;
 };
+
+/** The exit's day, and under it whom an exit from the day typed mails: held here, so each opening starts on today. */
+function ExitDay({ exit, isRequired }: { exit: NonNullable<TeamRow["exit"]>; isRequired: boolean }) {
+  const [day, setDay] = useState<CalendarDay | null>(exit.today);
+  return (
+    <>
+      <DateField
+        label={WORDS.austrittFrom}
+        name="date"
+        isRequired={isRequired}
+        value={day}
+        onChange={setDay}
+        minValue={exit.earliest}
+        consequence={WORDS.austrittLine}
+      />
+      <Facts facts={exitFactsOf(exit.recipients, day)} />
+    </>
+  );
+}
 
 /**
  * The team editor, the record of one club in one season: the club, its address and its row of the season, saved together
@@ -77,7 +94,6 @@ export function TeamEditor({
   title,
   chip,
   closed,
-  closedChip,
   record,
   save,
   rules,
@@ -93,7 +109,6 @@ export function TeamEditor({
   chip?: ChipProps;
   /** The reason the page opens read-only. */
   closed?: Copy;
-  closedChip?: ChipProps;
   record: EditorRecord<TeamValues>;
   save: (change: EditorSave<TeamValues> & { saison_id: string }) => Promise<ActionAnswer<number>>;
   rules: TeamRules;
@@ -194,15 +209,13 @@ export function TeamEditor({
           {
             id: "saison",
             title: row.saisonTitle,
-            ...(row.note === undefined ? {} : { note: row.note }),
             fields: (
               <>
                 <Select
                   label={COPY.team.gruppe}
                   name="gruppe"
                   isRequired={rules.gruppeRequired}
-                  isDisabled={row.gruppeLocked}
-                  {...(row.gruppeNote === undefined ? {} : { description: row.gruppeNote })}
+                  isLocked={row.gruppeLocked !== null}
                   options={row.gruppen}
                   value={draft.gruppe}
                   onChange={(gruppe) => set("gruppe", gruppe ?? record.values.gruppe)}
@@ -210,7 +223,7 @@ export function TeamEditor({
                 <Select
                   label={COPY.team.trikotFarbe}
                   name="trikot_farbe"
-                  isDisabled={row.colourLocked}
+                  isLocked={row.colourLocked !== null}
                   options={row.colours}
                   value={draft.trikot_farbe}
                   onChange={(colour) => set("trikot_farbe", colour ?? "")}
@@ -315,15 +328,10 @@ export function TeamEditor({
                   maxLength={austrittRules.reasonMax}
                   description={WORDS.austrittReasonDescription}
                 />
-                <DateField
-                  label={WORDS.austrittFrom}
-                  name="date"
+                <ExitDay
+                  exit={exit}
                   isRequired={austrittRules.required.date}
-                  defaultValue={exit.today}
-                  minValue={exit.earliest}
-                  consequence={WORDS.austrittLine}
                 />
-                <Facts facts={[{ label: COPY.admin.facts.mailTo, value: WORDS.austrittMailTo }]} />
               </>
             ),
           },
@@ -355,13 +363,16 @@ export function TeamEditor({
           },
         };
 
+  // The line says each reason once, an exit's once for the group and the colour it fixes alike.
+  const locks = row === null ? [] : [row.gruppeLocked, row.colourLocked].filter((reason) => reason !== null);
+
   return (
     <EditorPage
       title={title}
       chip={chip}
       editor={editor}
       {...(closed === undefined ? {} : { closed })}
-      {...(closedChip === undefined ? {} : { closedChip })}
+      locks={locks}
       sections={[club, adresse, ...seasonBoxes]}
       danger={{
         title: WORDS.dangerBox(exitAct !== null, true),

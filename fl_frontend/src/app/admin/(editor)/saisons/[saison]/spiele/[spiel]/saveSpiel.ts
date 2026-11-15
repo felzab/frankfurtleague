@@ -138,6 +138,8 @@ const OWN_WORDS = [
   "elfmeterschiessen_without_winner",
   // The editor stays open on a finished season, whose fixtures the write refuses whole.
   "saison_past",
+  // A result before the season's start, whose fields the editor locks until then: a page read before the start moved later.
+  "ergebnis_before_saison_start",
   // A later result entered or changed between the question and the confirmed write, which refuses to delete it unasked.
   "voided_results_stale",
 ] as const;

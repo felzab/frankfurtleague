@@ -35,7 +35,6 @@ export function buildInvitationEmail({ team, saison_id: saisonId }: FLInvitation
       // The containment the link rests on: it authorises a pending registration and nothing else, so a reader who
       // forwards it widely is told what that costs before they do it rather than afterwards.
       [WORDS.key, WORDS.admission],
-      [WORDS.valid],
     ],
   };
 }

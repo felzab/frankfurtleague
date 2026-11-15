@@ -24,13 +24,26 @@ from tests.documents import spieler_document
 
 
 class TestSpieler:
-    def test_accepts_the_stufe_no_row_holds_yet(self):
-        """`E2` is offered although the current season has nobody in it — the phases run in sequence."""
-        row = FLPatchKaderRowPayload.model_validate({"nummer": None, "position": None, "stufe": "E2", "rolle": None, "version": 0})
+    @pytest.mark.parametrize(
+        "extra",
+        [pytest.param({"team_id": str(ObjectId())}, id="team_id"), pytest.param({"is_nachnominiert": True}, id="is_nachnominiert")],
+    )
+    def test_a_squad_edit_refuses_a_field_it_does_not_declare(self, extra: dict[str, Any], assert_rejects):
+        """A seat holder's edit `$set`s this model's fields, and each of these two is refused by `extra="forbid"` alone.
 
-        assert row.stufe == "E2"
+        `team_id` would move a pupil to another club, and `is_nachnominiert` would let a seat holder stand a row outside
+        `max_kader_size`.
+        """
 
-    @pytest.mark.parametrize("field", ["first_name", "birth_date", "einwilligung", "email"])
+        body = {"nummer": "11", "position": "Tor", "stufe": "Q1", "rolle": None, "version": 0}
+
+        # The body parses as it stands, so the refusal is the extra field's.
+        FLPatchKaderRowPayload.model_validate(body)
+        refused = assert_rejects(FLPatchKaderRowPayload, {**body, **extra}, next(iter(extra)))
+
+        assert [error["type"] for error in refused.errors()] == ["extra_forbidden"]
+
+    @pytest.mark.parametrize("field", ["email"])
     def test_the_record_refuses_a_person_stored_as_nobody(self, field):
         """No write stores such a person, so the read-back is the one place a hand edit blanking one shows.
 

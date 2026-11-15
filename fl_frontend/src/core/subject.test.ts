@@ -9,7 +9,7 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
+import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
@@ -567,9 +567,6 @@ describe("the actor a person's lane states", () => {
 });
 
 describe("the guard across one render pass", () => {
-  /* First, so a scope that failed to take fails here rather than under the count below. */
-  itOpensAScopeThatMemoizes();
-
   /* A layout's frame reader runs before any scope opens and records nothing; the read opening the render's
      scope afterwards is answered from the memo, and still has to name the person. */
   it("records its actor in a scope opened after its memo was filled, reading the session once", async () => {
@@ -656,5 +653,41 @@ describe("the guard across one render pass", () => {
       "a guard refused, so the count below counts a refusal",
     );
     expect(headerReads() - readsBefore, "the guards of one render pass each read the session").toBe(oneGuard);
+  });
+});
+
+/* React's `cache` keeps nothing outside a render, so before the request's own memo every admin read
+   in an action's body ran the whole guard again: a session read, a backend lookup and a token. */
+describe("the administrator's guard across a server action", () => {
+  it("judges the action's body and every admin read in it once, and the render after it afresh", async () => {
+    const { runWithIncomingTrace } = await import("./traceScope.ts");
+    const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    arriveAs(cookie);
+    const oneGuard = await readsOfOneGuard(getAdminSession);
+
+    leaveRenderPass();
+    // The read each trace scope makes for the edge's trace, which the action and each admin read open.
+    const traceBefore = headerReads();
+    await runWithIncomingTrace(() => Promise.resolve());
+    const oneTrace = headerReads() - traceBefore;
+
+    const before = { reads: headerReads(), sent: sent.length };
+    await runWithIncomingTrace(async () => {
+      assert.ok(await getAdminSession(), "the guard refused the administrator, so the counts below count a refusal");
+      await runAdminRead(() => Promise.resolve());
+      await runAdminRead(() => Promise.resolve());
+    });
+
+    expect(headerReads() - before.reads, "an admin read in the action's body read the session again").toBe(oneGuard + 3 * oneTrace);
+    expect(sent.length - before.sent, "an admin read in the action's body asked the backend for the grant again").toBe(1);
+
+    // The render after the write, an admin read in it: a request scope of its own, so a write that
+    // changed the grant is seen.
+    beginRenderPass();
+    const renderBefore = headerReads();
+    await runWithIncomingTrace(() => runAdminRead(() => Promise.resolve()));
+    expect(headerReads() - renderBefore, "the render after the action was answered from the action's verdict").toBe(oneGuard + 2 * oneTrace);
   });
 });

@@ -4,7 +4,6 @@ import { nameWithChips, stacked } from "./cardStyles";
 import { Chip } from "./Chip";
 import { CutText } from "./CutText";
 import { EmptyState } from "./EmptyState";
-import { placeholderBar, PlaceholderLine } from "./Skeleton";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
@@ -84,28 +83,6 @@ export function PartyHead({
 }
 
 /**
- * A party's name and chips while they are read: a bar each, the plaque's before the name's where the rows carry one,
- * in the line the rows draw theirs in, so the chips' bar stands where the chips will.
- */
-export function PartyHeadPlaceholder({ plaque = false }: { plaque?: boolean }) {
-  const s = nameWithChips({ card: true, led: true });
-  return (
-    <span className={PARTY_CLASSES}>
-      {plaque && <span className={placeholderBar("h-6 w-10")} />}
-      <span className={s.line()}>
-        <PlaceholderLine
-          textClass={s.name()}
-          widthClass="w-24"
-        />
-        <span className={s.chips()}>
-          <span className={placeholderBar("h-5 w-16")} />
-        </span>
-      </span>
-    </span>
-  );
-}
-
-/**
  * The parties' answers about a record, read-only, inside a box's body: a row a party, its name with its chip, a muted
  * line under it, and its reason on a line of its own, wrapping as long as it runs.
  */
@@ -130,28 +107,5 @@ export function AnswerRows({ label, rows, empty }: { label: Copy; rows: Readonly
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * The answers while they are read: `rows` parties, each a plaque, a name and a chip over the muted line. A reason is one
- * party's decline, which the read alone knows, so no row draws one.
- */
-export function AnswerRowsPlaceholder({ rows }: { rows: number }) {
-  const s = answerRows();
-  return (
-    <div className={s.root()}>
-      {Array.from({ length: rows }, (_, index) => (
-        <div
-          key={index}
-          className={s.row()}>
-          <PartyHeadPlaceholder plaque />
-          <PlaceholderLine
-            textClass={s.line()}
-            widthClass="w-1/3"
-          />
-        </div>
-      ))}
-    </div>
   );
 }

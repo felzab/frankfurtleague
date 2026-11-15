@@ -1,38 +1,34 @@
 // @vitest-environment jsdom
+import { Suspense } from "react";
+
+import { serveBackend } from "@/test-support/backend";
 import { underNext } from "@/test-support/nextContexts";
-import { person, seat } from "@/test-support/subjectFixtures";
+import { signedInRequest } from "@/test-support/session";
+import { seat } from "@/test-support/subjectFixtures";
 import { act, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
 
-import AccountListLayout from "./(list)/layout";
-import AccountLayout from "./layout";
+// No answer of its own: the frame reads nothing beyond the session's lookup, so any other request fails the case.
+serveBackend();
+// A person holding one contact seat, signed in by a typed code.
+signedInRequest({ email: "pia@example.org", records: { seats: [seat()] } });
+const { default: AccountListLayout } = await import("./(list)/layout");
+const { default: AccountLayout } = await import("./layout");
 
-import type { SubjectSession } from "@/core/subject";
-
-/** The session read each case's frame makes, settled by the case. */
-const session = vi.hoisted(() => ({ read: Promise.resolve<unknown>(null) }));
-vi.mock("@/core/subject", () => ({ getSubjectSession: () => session.read }));
-// The account's other guard, which Konto's pages ask and its frame does not: its module opens the sign-in store.
-vi.mock("@/core/auth/guards", () => ({ getAccountSession: () => Promise.resolve(null) }));
-
-/** Konto's frame around the list of its pages, for the person the session read answers. */
-async function renderFor(read: Promise<SubjectSession>) {
-  session.read = read;
-  await act(async () =>
-    render(
-      underNext(
-        <AccountLayout>
-          <AccountListLayout>
-            <p>Seite</p>
-          </AccountListLayout>
-        </AccountLayout>,
-        { pathname: ROUTES.account.path(), params: {} },
-      ),
-    ),
-  );
+/**
+ * Konto's frame around the list of its pages, for the person signed in. The layouts are server components the server
+ * renders once, so each is called once here and its reads begin once: drawn as components by the browser's React, each
+ * retry would begin them anew, and a read answered over the network would never settle before the next retry. The
+ * render stands in a boundary of its own, where a suspended read can settle before the retry.
+ */
+async function renderFor() {
+  const frame = AccountLayout({ children: AccountListLayout({ children: <p>Seite</p> }) });
+  await act(async () => render(underNext(<Suspense>{frame}</Suspense>, { pathname: ROUTES.account.path(), params: {} })));
+  // The frame holds no boundary of its own, so its page shows once every read it waits on is answered.
+  await screen.findByText("Seite");
 }
 
 /** Where each „‹ Zurück“ leads and each logo, the rail's head's and the phone's band's. */
@@ -43,23 +39,10 @@ const logos = () => screen.queryAllByRole("link", { name: COPY.brand.name }).map
 // stands on: a control that renders, takes a press and goes nowhere.
 describe("the head of Konto's rail and the band over the list of its pages", () => {
   it("lead a person holding a Funktion back to the Übersicht", async () => {
-    await renderFor(Promise.resolve(person({ seats: [seat()] })));
+    await renderFor();
 
-    expect(backs()).toEqual([ROUTES.area.path(), ROUTES.area.path()]);
-    expect(logos()).toEqual([]);
-  });
-
-  it("hold the logo for a person holding none", async () => {
-    await renderFor(Promise.resolve(person()));
-
-    expect(backs()).toEqual([]);
-    expect(logos()).toEqual([ROUTES.home.path(), ROUTES.home.path()]);
-  });
-
-  it("hold neither while the session is read", async () => {
-    await renderFor(new Promise(() => undefined));
-
-    expect(backs()).toEqual([]);
+    const team = ROUTES.teamOverview.path(seat().team_id, seat().saison_id);
+    expect(backs()).toEqual([team, team]);
     expect(logos()).toEqual([]);
   });
 });

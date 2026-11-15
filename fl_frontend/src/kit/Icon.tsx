@@ -22,6 +22,7 @@ import LayoutDashboard from "lucide-react/icons/layout-dashboard";
 import ListFilter from "lucide-react/icons/list-filter";
 import ListOrdered from "lucide-react/icons/list-ordered";
 import LoaderCircle from "lucide-react/icons/loader-circle";
+import Lock from "lucide-react/icons/lock";
 import LogIn from "lucide-react/icons/log-in";
 import Mail from "lucide-react/icons/mail";
 import MapPin from "lucide-react/icons/map-pin";
@@ -121,6 +122,8 @@ const GLYPHS = {
   back: ChevronLeft,
   // A record renamed in its row, as a passkey is.
   rename: Pencil,
+  // A field its record holds fixed, beside its label (`FieldLabel`); the editor's lock line says why.
+  locked: Lock,
 
   overview: LayoutDashboard,
   saisons: CalendarRange,

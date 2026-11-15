@@ -202,9 +202,9 @@ def played_up_to_the_finale(shape: Shape) -> tuple[tuple[FLSpiel, ...], dict[int
 class TestTheBracketWalkFillsTheMatchForThirdPlace:
     """The draw's `verlierer` pair, resolved by the walk that fills the final."""
 
-    @pytest.mark.parametrize("shape", SHAPES[2:], ids=SHAPE_IDS[2:])
+    @pytest.mark.parametrize("shape", SHAPES, ids=SHAPE_IDS)
     def test_the_semi_finals_losers_meet_and_their_winners_reach_the_final(self, shape: Shape):
-        """The three shapes with semi-finals; the two-team brackets draw no match for third place."""
+        """Every shape: each bracket the rules admit has semi-finals, so each plays for third place."""
 
         season, decided = played_up_to_the_finale(shape)
         semi_finals = sorted(spiel.spiel_nr for spiel in season if spiel.saison_phase == "halbfinale")

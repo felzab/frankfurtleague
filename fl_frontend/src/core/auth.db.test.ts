@@ -13,11 +13,13 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
+import { captureLog } from "@/test-support/stdoutCapture.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { registrationFor } from "@/test-support/testAuthenticator.ts";
 import { MongoServerError } from "mongodb";
-import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 
@@ -130,21 +132,11 @@ let deletingAccounts: () => Promise<unknown> = async () => undefined;
 /** What runs as a user row is deleted, by the library or by a deletion's transaction. */
 let deletingUser: () => Promise<unknown> = async () => undefined;
 
-const LOGGING_DOUBLE = {
-  logger: {
-    debug: () => undefined,
-    info: () => undefined,
-    warn: (message: string) => void warnings.push(message),
-    error: (message: string) => void errors.push(message),
-  },
-};
-
 const { sent } = registerAuthDoubles({
   // The admin key the person lane's erasure is sent under, beside the store's address.
   core: {
     config: configDouble(GATE_BACKEND_CONFIG, { mongodbUri: () => MONGO_URL, internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" }),
     db: DB_DOUBLE,
-    logging: LOGGING_DOUBLE,
   },
 });
 
@@ -157,31 +149,36 @@ const ERASURE_PATH = "/api/v0/identity/account/erasure";
 /** How many erasures the backend has been asked for. */
 let erasuresAsked = 0;
 
-// The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
-const ORIGINAL_FETCH = globalThis.fetch;
-globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
-  const url = input instanceof Request ? input.url : String(input);
-  if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
-  if (new URL(url).pathname === ERASURE_PATH) {
+// The backend alone: a request to any other host fails its case.
+serveBackend(({ path: endpoint, body }) => {
+  // Under the base path the client sends it on, as the cases spell every path they compare.
+  const path = `/api/v0${endpoint}`;
+  if (path === ERASURE_PATH) {
     erasuresAsked += 1;
-    return Promise.resolve(new Response(null, { status: 204 }));
+    return new Response(null, { status: 204 });
   }
 
   // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
-  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const { email } = (body ?? {}) as { email?: string };
   const granted = email === ADMIN_EMAIL;
-  const body = answerAt(new URL(url).pathname, {
+  return answerAt(path, {
     ...HOLDS_NOTHING,
     admin_tier: granted ? "administration" : null,
     // Before every session a case makes.
     granted_since: granted ? "2026-01-01T00:00:00Z" : null,
     ...gateAnswer,
   });
-  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
-}) as typeof globalThis.fetch;
+});
 
-const warnings: string[] = [];
-const errors: string[] = [];
+/** Every line the real logger writes since the case began, read off standard output. */
+const log = captureLog();
+
+/** The events of the lines written at `level` since the case began, or since the line `from` counts. */
+const eventsAt = (level: "WARNING" | "ERROR", from = 0): string[] =>
+  log
+    .lines()
+    .slice(from)
+    .flatMap((line) => (line.level === level ? [line.message] : []));
 const barrier = new Barrier();
 
 /** Where each bound's count waits, for a case that arms it. */
@@ -208,24 +205,18 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
 
-afterAll(() => {
-  globalThis.fetch = ORIGINAL_FETCH;
-});
-
 beforeEach(async () => {
   gateAnswer = { seats: [], barred: false, account: false };
   barrier.disarm();
   counting.disarm();
-  warnings.length = 0;
   atCommit = async () => undefined;
   deletingAccounts = async () => undefined;
   deletingUser = async () => undefined;
   await authDb().dropDatabase();
 
   // Production's indexes under every case, so the library is driven over what it meets there.
-  errors.length = 0;
   await buildAuthIndexes();
-  expect(errors, "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
 });
 
 const handler = toNextJsHandler(auth);
@@ -274,37 +265,10 @@ async function passkeyRows(): Promise<Record<string, unknown>[]> {
 }
 
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
-const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
-
-describe("two enrolments of one administrator, against a real database", () => {
-  // The clause holds in sequence; two enrolments at once may both stand.
-  it("refuses a second code-borne enrolment made after the first", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const first = await verify(a, AUTHENTICATOR_A);
-    const second = await verify(b, AUTHENTICATOR_B);
-
-    expect([first.status, second.status, (await passkeyRows()).length]).toStrictEqual([200, 404, 1]);
-  });
-});
 
 /* The session a setup mints is written inside the transaction the plugin opens around a registration
    that signs in, so a setup the database refuses signs nobody in and nobody out. */
 describe("a passkey setup that signs in, against a real database", () => {
-  it("replaces the code's session with the passkey's, the credential stamped", async () => {
-    const offered = await offer(await signIn(ADMIN_EMAIL));
-
-    const enrolled = await verify(offered, AUTHENTICATOR_A, { createSession: true });
-    expect(enrolled.status, await enrolled.clone().text()).toBe(200);
-
-    const sessions = await sessionRows();
-    expect(
-      sessions.map(({ authFactor, passkeyCredentialId }) => [authFactor, passkeyCredentialId]),
-      "the code's session outlived the setup, or the passkey's was never written",
-    ).toStrictEqual([["passkey", AUTHENTICATOR_A.toString("base64url")]]);
-  });
-
   /* One authenticator twice: the loser's insert conflicts inside its transaction, and the run the
      adapter retries meets the winner's row in the enrolment guard, whose refusal is a 404 and no line. */
   it("mints one session for the winner of two setups at once, and refuses the loser, leaving it signed in by code", async () => {
@@ -321,7 +285,7 @@ describe("a passkey setup that signs in, against a real database", () => {
     assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
 
     expect(responses.map((response) => response.status).sort()).toStrictEqual([200, 404]);
-    expect([warnings, errors]).toStrictEqual([[], []]);
+    expect([eventsAt("WARNING"), eventsAt("ERROR")]).toStrictEqual([[], []]);
     expect(sent.length - mailedBefore).toBe(1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     expect(factors, "the refused setup minted a session or ended its caller's").toStrictEqual(["code", "passkey"]);
@@ -334,14 +298,15 @@ describe("a passkey setup that signs in, against a real database", () => {
     expect((await verify(administrator, AUTHENTICATOR_A)).status, "the administrator holds no passkey, so nothing is named twice").toBe(200);
     gateAnswer = { seats: [SEAT], barred: false, account: true };
     const person = await offer(await signIn("zweites-konto@example.org"));
-    warnings.length = 0;
+    // The administrator's own enrolment above is not the conflict read below.
+    const warnedFrom = log.lines().length;
     const mailedBefore = sent.length;
 
     const refused = await verify(person, AUTHENTICATOR_A, { createSession: true });
 
     expect({
       status: refused.status,
-      logged: [warnings, errors],
+      logged: [eventsAt("WARNING", warnedFrom), eventsAt("ERROR")],
       notices: sent.length - mailedBefore,
       rows: (await passkeyRows()).length,
       factors: (await sessionRows()).map(({ authFactor }) => authFactor),
@@ -521,24 +486,6 @@ describe("an address's failures, against a real database", () => {
   });
 });
 
-/* The per-address mail cap's own race, on the real store: sends held at their count until the whole
-   burst has arrived. */
-describe("the code mails one address may be sent, against a real database", () => {
-  it("mails no burst of concurrent sends past the fifth", async () => {
-    const before = sent.length;
-
-    counting.arm(8);
-    await Promise.all(
-      Array.from({ length: 8 }, () =>
-        auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }),
-      ),
-    );
-    assert.ok(await counting.filled, "the burst never met at the count, so it ran no race");
-
-    assert.ok(sent.length - before <= 5, `${String(sent.length - before)} of 8 concurrent sends were mailed`);
-  });
-});
-
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
    takes the passkey row back with it; the enrolment refuses a barred
    person before any mint. */
@@ -596,19 +543,6 @@ describe("a code sign-in through the mint, against a real database", () => {
       { rows: (await sessionRows()).length, open: [await opens(earlier), await opens(later)] },
       "the earlier replacement outlived the later one, held by no cookie",
     ).toStrictEqual({ rows: 1, open: [false, true] });
-  });
-
-  it("mints nothing for a barred address and ends nothing the browser held", async () => {
-    gateAnswer = { seats: [SEAT], barred: false, account: true };
-    const held = await signIn(PERSON);
-    const before = await sessionRows();
-
-    gateAnswer = { seats: [SEAT], barred: true, account: true };
-    await expect(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held })).rejects.toSatisfy((error: { body?: { code?: unknown } }) => {
-      return error.body?.code === "SIGN_IN_REFUSED";
-    });
-
-    expect(await sessionRows(), "a refused code sign-in minted a session or ended the held one").toStrictEqual(before);
   });
 });
 

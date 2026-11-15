@@ -24,9 +24,6 @@ export const buttonLook = tv({
       // (`OneShotForm`): words alone.
       quiet: "border-transparent bg-transparent px-3.5 text-fg-muted",
       icon: "w-8 border-transparent bg-transparent text-fg pointer-coarse:w-10",
-      // A labelled button while what it acts on is read (`buttonPlaceholder`): a placeholder's bar in the button's box, its
-      // words unseen.
-      placeholder: "skeleton-bar border-transparent px-3.5 text-transparent",
     },
     // The control that marks the state, as `hoverLook` reads it.
     host: {
@@ -64,14 +61,4 @@ export const buttonLook = tv({
  */
 export function askingLook(tone: "danger" | "primary") {
   return tone === "danger" ? "dangerOutline" : "secondary";
-}
-
-/**
- * A button while what it acts on is read, the class of a `span` holding what the button will hold: its label, and its
- * leading glyph where it has one. The recipe is the button's, so the bar is exactly as wide as the button will be, or as
- * wide as its column makes it where its column stretches its buttons. `width` is for a place that sets a button's
- * width itself.
- */
-export function buttonPlaceholder(width?: string) {
-  return buttonLook({ look: "placeholder", class: width });
 }

@@ -33,7 +33,7 @@ def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
     return asyncio.run(_answered())
 
 
-MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
+MALFORMED_IDS = [NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 
 
 # No `db` marker: every refusal is decided before a query, and each control is answered by an

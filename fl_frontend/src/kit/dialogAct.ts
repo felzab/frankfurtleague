@@ -23,16 +23,26 @@ export type DialogDanger = {
   /**
    * The question its button opens, over the dialog; the button carries the question's verb and tone. The question
    * shows its act's refusal and stays open with it, as every question does, and a done act closes it and the dialog.
+   * It asks no passkey touch: the question closes before the prompt, but the dialog's own modal under it would stand
+   * and make the prompt inert.
    */
-  confirm: ConfirmQuestion;
+  confirm: ConfirmQuestion & { touch?: never };
 };
+
+/**
+ * A verb an act behind the passkey touch may carry: one the catalogue words the act's toast for, as done
+ * (`COPY.shared.toast.done`), since the act's question or dialog has closed before it answers.
+ */
+export type TouchVerb = keyof typeof COPY.shared.toast.done;
+
+/** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
+type ActWords<V extends Verb> = { verb: V; object?: Copy };
 
 /** A dialog's act, whatever opens it: its title, its verb, the action doing it and its inputs. */
 export type DialogAct<T extends Tone = Tone> = {
   /** What the dialog is about: the act in the catalogue's words, or the record a small record's dialog edits, by its name. */
   title: Words;
-  /** The verb, with its object where the verb alone does not say what it acts on („Spielort anlegen“). */
-  act: { verb: Verb; object?: Copy };
+  act: ActWords<Verb>;
   /** The server action doing the act, reading the form's fields by their `name`s. */
   action: (formData: FormData) => Promise<ActionAnswer>;
   /** The act's inputs: the kit's fields. */
@@ -57,15 +67,22 @@ export type DialogAct<T extends Tone = Tone> = {
    * act is a function, which cannot cross from the server.
    */
   danger?: DialogDanger;
-  /**
-   * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a passkey
-   * presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The dialog stands
-   * with its inputs on a refused touch.
-   */
-  touch?: { holder: string };
-};
+} & (
+  | { touch?: never }
+  | {
+      act: ActWords<TouchVerb>;
+      /**
+       * The passkey touch the act's button asks ahead of `action`, for an act on its fixed list a person holding a
+       * passkey presses: the address the page was drawn for, which the form posts as `holder` (`usePasskeyTouch`). The
+       * press closes the dialog for good before the browser asks, and the act answers in a toast, a refusal in a
+       * sentence of its own, since no field stands to carry a field's phrase, the dialog's opening button standing
+       * again for a new try with the inputs typed anew.
+       */
+      touch: { holder: string };
+    }
+);
 
 /** The act's label, on the dialog's own button and on a trigger naming the same act. */
-export function actLabel({ verb, object }: DialogAct["act"]): Copy {
+export function actLabel({ verb, object }: ActWords<Verb>): Copy {
   return object === undefined ? COPY.shared.verb[verb] : COPY.shared.withObject(object, verb);
 }

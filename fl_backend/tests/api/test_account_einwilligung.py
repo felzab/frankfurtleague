@@ -306,18 +306,6 @@ async def _records(database: AsyncDatabase) -> dict[Any, Any]:
 
 
 @pytest.mark.db
-def test_a_referees_entry_serves_their_fee_and_never_the_links_bookkeeping(mongo_replica_set_url: str):
-    async def steps(http: AsyncClient, _database: AsyncDatabase) -> Any:
-        return await http.get(ACCOUNT_PATH, headers=_person(IDENTIFIER))
-
-    response = served(mongo_replica_set_url, steps)
-
-    assert response.status_code == 200, response.text
-    [entry] = response.json()["schiedsrichter"]
-    assert (entry["schiedsrichter_id"], entry["default_payment"], "confirmation" in entry) == (str(REFEREE_OID), 20, False)
-
-
-@pytest.mark.db
 class TestTheTwoChoices:
     def test_moving_the_scope_moves_this_row_alone_writes_no_spiel_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:

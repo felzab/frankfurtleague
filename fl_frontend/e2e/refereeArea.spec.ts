@@ -42,8 +42,8 @@ test("a referee answers the coming game, saves the played game's report, and rea
   booked: { address, played, coming },
 }) => {
   await signInWithCode(page, address);
-  // `/area/schiedsrichter` sends a referee booked in a season on to that season's Übersicht.
-  await declinePasskeyOffer(page, `/area/schiedsrichter/${SAISON}`);
+  // `/area/schiedsrichter` draws the Übersicht of the season the referee is booked in, at its own address.
+  await declinePasskeyOffer(page, "/area/schiedsrichter");
 
   // The coming game waits on the answer, given on its row, which then says it.
   const comingRow = gameRow(page, coming);

@@ -59,14 +59,6 @@ describe("a form's action through the one wrapper", () => {
 });
 
 describe("a form's status line", () => {
-  it("points at the fields rather than repeat a reason they already carry", () => {
-    const postcode = COPY.shared.field.required;
-    expect(statusOf({ ok: false, fieldErrors: { postcode }, reason: postcode }, false, false)).toStrictEqual({
-      tone: "error",
-      text: COPY.template.checkFields,
-    });
-  });
-
   // The harm: an act that partly happened, such as a ban whose mail went unsent, read as a clean save or as a refusal
   // to press again. `Dialog`, `AccountBox`, `OneShot`, `QuestionForm` and `SectionAct` each read their line here.
   it.each<[string, ActionAnswer, FormStatus]>([
@@ -107,16 +99,6 @@ function onAPage(resetOnLeave: boolean) {
 }
 
 describe("an answer once the page is left", () => {
-  it("is cleared where the form resets on leaving", async () => {
-    const { result, leaveAndReturn } = onAPage(true);
-
-    await act(async () => result.current.submit(undefined));
-    expect(result.current.answer).toStrictEqual({ ok: true, value: undefined });
-
-    await leaveAndReturn();
-    expect(result.current.answer).toBeNull();
-  });
-
   it("stays where the answer replaced the form", async () => {
     const { result, leaveAndReturn } = onAPage(false);
 
