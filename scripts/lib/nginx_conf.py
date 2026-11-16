@@ -1,4 +1,4 @@
-"""nginx's configuration as a tree of directives, read once for every reader under `scripts/` and the edge test.
+"""nginx's configuration as a tree of directives, the one parser every check of the edge reads it through.
 
 A construct outside the subset this reader parses raises `NginxSyntax` rather than answering, and each
 query below refuses with the kernel's `EXIT_REFUSED` where the file does not say what it asks: a reader

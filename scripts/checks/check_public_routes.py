@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# Every caller runs this as a script, so sys.path opens with this file's directory and `lib/` is a
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
@@ -121,7 +121,6 @@ OPENAPI: Final = "fl_backend/openapi.json"
 SIZED_PER_PUPIL: Final = {"linkpage": 10}
 SIZING_MINUTES: Final = 2
 
-# The prefix of a `limit_req` argument naming its zone.
 ZONE: Final = "zone="
 
 # A prefix location matches on the URI string, so the catch-all covers every handler there is.
@@ -230,11 +229,9 @@ METADATA_IMAGES: Final = ("icon", "apple-icon", "opengraph-image", "twitter-imag
 # A route group is dropped from the URL; a dynamic segment and a catch-all stay, because what they
 # make unmeterable is exactly what this check reports.
 GROUP_RE: Final = re.compile(r"^\([^()/]+\)$")
-# A parallel route's slot is no segment of the URL either
-# (https://nextjs.org/docs/app/api-reference/file-conventions/parallel-routes).
+# A parallel route's slot is no segment of the URL either.
 SLOT_RE: Final = re.compile(r"^@[A-Za-z0-9_-]+$")
-# An intercepting segment on its own level answers the URL of the segment it names
-# (https://nextjs.org/docs/app/api-reference/file-conventions/intercepting-routes). One reaching a
+# An intercepting segment on its own level answers the URL of the segment it names. One reaching a
 # level up or the root, `(..)` or `(...)`, stays unread: no route of the tree has one.
 SAME_LEVEL_RE: Final = re.compile(r"^\(\.\)(.+)$")
 DYNAMIC_RE: Final = re.compile(r"^\[\[?(?:\.\.\.)?[A-Za-z0-9_]+\]?\]$")
@@ -256,9 +253,7 @@ class Location:
     # The arguments of each `limit_req` line, whose zones a link page is judged by and every other
     # route by whether there is one at all.
     limits: frozenset[tuple[str, ...]]
-    # The arguments of each `limit_conn` line.
     conns: frozenset[tuple[str, ...]]
-    # What `proxy_pass` names, none where the block names no `proxy_pass`.
     upstream: str | None
     # The arguments of each `error_log` line, which replace the inherited log for this block alone.
     error_logs: frozenset[tuple[str, ...]]

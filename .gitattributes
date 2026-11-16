@@ -1,4 +1,4 @@
-# Enforce Linux line endings for all text files
+# LF in every text file, committed and checked out: a CR fails a shell script on the Linux server.
 * text=auto eol=lf
 
 # Binary, declared rather than detected. `text=auto` guesses from content, and a tool that rewrites

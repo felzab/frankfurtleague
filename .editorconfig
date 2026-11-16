@@ -1,6 +1,6 @@
-# .editorconfig — the file conventions Prettier does not reach: Python, shell, TOML, nginx and the
-# Dockerfiles. Where both apply, `.prettierrc.json` wins, so the values here restate what Prettier
-# already produces rather than competing with it.
+# The file conventions Prettier does not reach: Python, shell, TOML, nginx and the Dockerfiles.
+# Where both apply, Prettier's configuration wins, so the values here restate what Prettier already
+# produces rather than competing with it.
 
 root = true
 

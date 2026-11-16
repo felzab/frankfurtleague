@@ -2,7 +2,7 @@
 
 `docker compose config` merges the files, applies the profiles, expands every short-syntax port and
 volume and resolves each service's environment, so this reads the model the engine is handed rather
-than parsing YAML again. Each rule states its invariant at its own function.
+than parsing YAML again.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlsplit
 
-# Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
+# Every caller runs this as a script, so sys.path opens with this file's directory and `lib/` is a
 # sibling of it rather than in it.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
@@ -40,7 +40,6 @@ EDGE_SERVICE: Final = "nginx"
 # The long form's `host_ip` as Compose renders a loopback binding, IPv6 unbracketed.
 LOOPBACK: Final = frozenset({"127.0.0.1", "::1"})
 
-# The checkout directory the edge's configuration is mounted from.
 EDGE_CONFIG_ROOT: Final = "nginx"
 
 # The one service whose requests production's edge takes the visitor's address from.
@@ -251,7 +250,7 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
                 continue
             held[source].append(service)
             target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
-            # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
+            # Compose reads a relative target as a name under `/run/secrets`.
             mounted = target if target.startswith("/") else f"{RUN_SECRETS}/{target}"
             if mounted != f"{RUN_SECRETS}/{source}":
                 findings.append(Finding(f"{name}: {service} mounts {source} at {mounted}, not {RUN_SECRETS}/{source}"))
@@ -297,7 +296,7 @@ def local_logins(model: dict[str, Any], name: str) -> list[Finding]:
             if not isinstance(entry, dict):
                 raise ValueError(f"{name}: {service} has a config Compose did not expand, so this is not its rendered model")
             source = str(entry.get("source"))
-            # A config's default target is `/<source>` (https://docs.docker.com/reference/compose-file/services/#configs).
+            # Compose mounts a config with no target at `/<source>`.
             target = str(entry.get("target") or f"/{source}")
             if target.rpartition("/")[0] != RUN_SECRETS:
                 continue
@@ -406,7 +405,7 @@ def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
     """Every file in the checkout directories an edge mounts, joined.
 
     Read whole: a server or a location may hold realip directives too, and its own replace the
-    ones inherited from http level (nginx's `ngx_http_realip_merge_loc_conf`).
+    ones inherited from http level.
     """
     directories = [checkout / source for source, _ in sorted(pairs) if (checkout / source).is_dir()]
     return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())
@@ -464,7 +463,6 @@ def deployment_name(model: dict[str, Any], name: str, stack: str) -> list[Findin
     ]
 
 
-# Each application service's environment file, relative to the checkout.
 ENV_FILES: Final = {"frontend": "fl_frontend/.env", "backend": "fl_backend/.env"}
 # The prefix of the name each of the gate's stand-in environment files carries, a name of its own
 # valued with its path.

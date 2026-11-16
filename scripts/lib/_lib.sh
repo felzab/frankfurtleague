@@ -175,7 +175,6 @@ detail() {
 
 # Readable because a caller grades a failure by the tool's own words, and re-running the tool to
 # read them back would pay for the gate's slowest steps twice.
-
 QUIETLY_OUTPUT=""
 # The streaming arm's copy while its command runs, so an interrupt can reclaim it.
 _QUIETLY_CAPTURE=""
@@ -270,7 +269,7 @@ section() {
   fi
 }
 
-# Called directly only to print outside every Actions group; `section` and the endings call it.
+# Called directly only to print outside every Actions group.
 end_section() {
   _STEP_MS0=""
   if (( _SECTION_OPEN < 0 )); then return 0; fi
@@ -518,8 +517,9 @@ require_platform() {
 See scripts/README.md for which script belongs to which environment."
 }
 
-# The venv layout differs by platform, and the gate runs on both. Returns 1 rather than dying: every caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR
-# trap prints a stack block over the message.
+# The venv layout differs by platform, and the gate runs on both. Returns 1 rather than dying: every
+# caller reads it through `$( )`, where a `die` exits the subshell alone and the ERR trap prints a
+# stack block over the message.
 venv_python() {
   local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
   local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
@@ -605,10 +605,8 @@ image_runs_unprivileged() { # $1.. the images
 }
 
 # The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
-# certificates of their own, and the check widens until it says nothing.
-
-# The shapes both `.dockerignore` files exclude; the image assertions' tests hold the two lists
-# together.
+# certificates of their own, and the check widens until it says nothing. The shapes both
+# `.dockerignore` files exclude; the image assertions' tests hold the two lists together.
 IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
 # A context the dockerignore stopped covering still builds.
 image_context_clean() { # $1.. the images
