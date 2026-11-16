@@ -62,6 +62,7 @@ write_keys() {
 }
 
 require_docker
+require_compose
 
 if [[ "$PHASE" == start ]]; then
   # First, so every file docker-compose.e2e.yml names exists before compose is asked anything. Written over a stack

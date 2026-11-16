@@ -41,6 +41,7 @@ printf '%s TAG=%s\n' "$*" "${TAG-}" >> "$d/calls"
 shift
 unread="$(cat "$d/unread.${TAG-}" 2>/dev/null)"
 case "$1" in
+  version) exit "$(cat "$d/compose-version")" ;;
   up) exit "$(cat "$d/up.$TAG" 2>/dev/null || printf 0)" ;;
   pull) exit "$(cat "$d/pull" 2>/dev/null || printf 0)" ;;
   config)
@@ -87,6 +88,7 @@ def deploy(
     pin: str | None = PREVIOUS,
     pull: int = 0,
     deployed: str | None = NEW,
+    compose_version: int = 0,
 ) -> tuple[int, str, str, list[str], str | None]:
     """One run deploying `NEW` over a stack whose `.env` pins `pin`, or with no `.env` for None.
 
@@ -111,6 +113,7 @@ def deploy(
     (engine / "nginx-t").write_bytes(str(nginx_t).encode())
     (engine / "reload-log").write_bytes(reload_log.encode())
     (engine / "pull").write_bytes(str(pull).encode())
+    (engine / "compose-version").write_bytes(str(compose_version).encode())
     if one_offs:
         (engine / "one-offs").write_bytes(one_offs.encode())
     for tag, read in (unread or {}).items():
@@ -299,6 +302,16 @@ def test_a_pull_that_failed_is_a_crash_with_the_stack_unchanged():
     assert code == 3, out + err
     assert "The stack has not changed." in err, err
     assert not any(call.startswith("compose up ") for call in calls), calls
+    assert pinned == f"TAG={PREVIOUS}\n", pinned
+
+
+def test_a_missing_compose_plugin_is_a_refusal_with_the_stack_unchanged():
+    """Docker answers 1 for a plugin it does not hold, which the wait's row would read as a build that never came up."""
+    code, out, err, calls, pinned = deploy(compose_version=1)
+
+    assert code == 2, out + err
+    assert "Docker Compose did not answer" in err, err
+    assert [call for call in calls if not call.startswith(("version ", "compose version "))] == [], calls
     assert pinned == f"TAG={PREVIOUS}\n", pinned
 
 

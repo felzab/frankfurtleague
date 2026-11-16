@@ -45,6 +45,7 @@ for arg in "$@"; do
 done
 
 require_docker
+require_compose
 command -v curl >/dev/null 2>&1 \
   || refuse "curl is not on PATH, so the edge was not driven."
 

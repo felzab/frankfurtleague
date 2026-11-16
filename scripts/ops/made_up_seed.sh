@@ -34,6 +34,7 @@ SEED_FILES=(fl_backend/tests/documents.py fl_backend/tests/made_up_seed.py fl_ba
 SEED_ROOT="/tmp/seed"
 
 require_docker
+require_compose
 
 step "The stack the seed loads into"
 # Before anything reaches a container, judged by what runs rather than by what a file declares: the two stacks the seed

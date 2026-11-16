@@ -123,6 +123,7 @@ holds_line() { # $1 the line · $2 the text
 
 require_platform windows
 require_docker
+require_compose
 
 if (( DOWN )); then
   section "down"

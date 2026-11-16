@@ -52,6 +52,8 @@ fi
 # On a development machine the base file alone is production's stack, which `up --remove-orphans`
 # would put in place of the local one's containers.
 require_platform linux
+require_docker
+require_compose
 
 # The last build judged healthy, which only this script writes. A first run finds none and rolls
 # nothing back: the build it replaces is then the one from before this script, which never runs again.
