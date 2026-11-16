@@ -9,6 +9,7 @@ from app.api.spielbestaetigungen.services import (
     AnsetzungState,
     asked_with_its_move,
     compose_ansetzung,
+    compose_spielbestaetigung,
     deadline_of,
     notice_owed,
     parties_told_of_the_change,
@@ -66,8 +67,14 @@ class TestTheDeadline:
     def test_a_week_before_the_spiel(self):
         assert deadline_of(date=days_after(day=TODAY, days=10), today=TODAY) == days_after(day=TODAY, days=3)
 
-    def test_today_inside_the_notice_period(self):
-        assert deadline_of(date=days_after(day=TODAY, days=3), today=TODAY) == TODAY
+    def test_a_row_minted_inside_the_notice_period_is_due_today(self):
+        """Read off the row the mint writes, so the deadline it stores is the one judged."""
+
+        minted = compose_spielbestaetigung(
+            row_id=ObjectId(), saison_id="2026", spiel=spiel(date=days_after(day=TODAY, days=3)), party=TEAM, today=TODAY, asked=True
+        )
+
+        assert minted["deadline"] == TODAY
 
 
 class TestTheMintFirstAsksInsideItsWindow:
@@ -83,6 +90,11 @@ class TestTheMintFirstAsksInsideItsWindow:
         """Its exit the day after the fixture, the club still plays it: only an exit by the fixture's day shuts the row."""
 
         assert request_is_due(spiel=spiel(), austritte={ALPHA: days_after(day=spiel()["date"], days=1)}, now=NOW, asked_before=False) is True
+
+    def test_a_club_gone_on_the_spiels_day_is_not_asked(self):
+        """The next close shuts a row its club left by the fixture's day, so a request here would be minted afresh every pass."""
+
+        assert request_is_due(spiel=spiel(), austritte={ALPHA: spiel()["date"]}, now=NOW, asked_before=False) is False
 
     def test_a_spiel_past_the_window_is_not_asked_first(self):
         assert request_is_due(spiel=spiel(date=days_after(day=TODAY, days=60)), austritte={}, now=NOW, asked_before=False) is False
@@ -206,18 +218,24 @@ class TestANoticeIsAboutASlotStillToCome:
         assert owed == [True, False]
 
     @pytest.mark.parametrize(
-        ("now", "moved_to"),
+        ("now", "moved_to", "told"),
         [
-            pytest.param(THE_DAY_AFTER, days_after(day=spiel()["date"], days=7), id="off a day gone by"),
-            pytest.param(NOW, days_after(day=TODAY, days=-1), id="onto a day gone by"),
+            pytest.param(THE_DAY_AFTER, days_after(day=spiel()["date"], days=7), True, id="off a day gone by"),
+            pytest.param(NOW, days_after(day=TODAY, days=-1), True, id="onto a day gone by"),
+            pytest.param(THE_DAY_AFTER, TODAY, False, id="from one day gone by to another"),
         ],
     )
-    def test_a_move_is_told_while_either_day_is_to_come(self, now: datetime, moved_to: str):
+    def test_a_move_is_told_while_either_day_is_to_come(self, now: datetime, moved_to: str, told: bool):
         """Its slot left void and the fixture's asked afresh, a party is told of either while it still lies ahead."""
 
         asked = row(TEAM, asked_at=TODAY)
 
-        assert notice_owed(row=asked, reason="ansetzung_changed", spiel=spiel(date=moved_to), now=now) is True
+        assert notice_owed(row=asked, reason="ansetzung_changed", spiel=spiel(date=moved_to), now=now) is told
+
+    def test_a_party_never_mailed_is_told_nothing(self):
+        """A row no request was owed for: its party never heard of the match, so its call-off is no news to them."""
+
+        assert notice_owed(row=row(TEAM, asked_at=None), reason="cancelled", spiel=spiel(sonderereignis="ausgefallen"), now=NOW) is False
 
     def test_a_closing_other_than_a_move_is_about_the_slot_its_row_asked(self):
         """The fixture moved a week on and its referee taken off, both after the kick-off: the referee is told nothing.

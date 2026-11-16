@@ -1,4 +1,3 @@
-import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -29,18 +28,30 @@ from app.shared.tokens import hash_token
 from tests.config import build_test_config
 from tests.database import a_clean_database
 from tests.documents import (
+    action_log_document,
     address_change_document,
     aufstellung_document,
+    ban_document,
     bericht_document,
+    bewerbung_document,
+    grant_document,
+    invitation_document,
     kontaktperson_document,
-    minted_confirmations,
+    new_schule_document,
     outbox_document,
     registrierung_confirmed,
     registrierung_document,
+    saison_document,
+    saison_spieler_document,
+    saison_team_document,
+    schiedsrichter_document,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
     spieler_document,
+    spielort_document,
+    spieltag_document,
+    team_document,
 )
 from tests.outbox import MAIL_NOW
 from tests.plans import Wanted, plans_of_sent_reads
@@ -78,7 +89,6 @@ IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 CONFLICTING_SUPPORT_INDEX = "address_change_token_hashes"
 # The same planting for the TTL kind: the name is claimed and the keys disagree.
 CONFLICTING_TTL_INDEX = "action_log_retention"
-ADDRESS = {"street": "Hanauer Landstraße", "house_number": "12a", "postcode": "60314", "district": "Ostend", "city": "Frankfurt am Main"}
 
 
 # The seat as its applicant named the person, and as that person then confirmed it.
@@ -92,223 +102,79 @@ def kontaktperson(first_name: str) -> dict[str, Any]:
 
 def valid_documents() -> dict[str, dict[str, Any]]:
     """Rebuilt on every call, so no test can mutate another's document."""
+    spiel = spiel_document(
+        spiel_id=SPIEL_OID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_OID,
+        team1={"team_id": TEAM_OID, "tore": None},
+        team2={"team_id": OTHER_TEAM_OID, "tore": None},
+        date="2026-03-15",
+        time="18:00:00",
+        spielort={"spielort_id": SPIELORT_OID, "mietpreis": 80},
+    )
     return {
-        "saisons": {
-            "_id": SAISON_ID,
-            "start_date": "2026-01-01",
-            "end_date": "2026-06-30",
-            "status": "active",
-            "rules": {
-                "win_points": 3,
-                "draw_points": 1,
-                "loss_points": 0,
-                "qualifiers_per_gruppe": 2,
-                "number_of_gruppen": 4,
-                "teams_per_gruppe": 4,
-                "tiebreak_order": "tordifferenz",
-                "max_kader_size": 18,
-                "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-                # Which levels this season offers — a subset of the league's set.
-                "allowed_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
-            },
-            "bewerbung": None,
-            "registrierung": None,
-            "version": 0,
-        },
-        "teams": {
-            "_id": TEAM_OID,
-            "name": "Lessing",
-            "shorthand": "LEX",
-            "description": "",
-            "full_name": "Lessing-Gymnasium",
-            "website_url": "https://lessing-gymnasium.example.de",
-            "address": dict(ADDRESS),
-            "schulform": None,
-            "inactive_since": None,
-            "version": 0,
-        },
-        # `name` and `shorthand` are the season's own copy of the club's identity, required since the
-        # junction became their home; a row without them is unreadable rather than merely stale.
-        "saison_teams": {
-            "saison_id": SAISON_ID,
-            "team_id": TEAM_OID,
-            "gruppe": "A",
-            "austritt": None,
-            "trikot_farbe": None,
-            "kontakte": None,
-            "name": "Lessing",
-            "shorthand": "LEX",
-            "version": 0,
-        },
+        "saisons": saison_document(SAISON_ID, "active"),
+        "teams": team_document(TEAM_OID, "Lessing", "LEX"),
+        "saison_teams": saison_team_document(SAISON_ID, TEAM_OID, "Lessing", "LEX"),
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
-        "saison_spieler": {
-            "spieler_id": SPIELER_OID,
-            "saison_id": SAISON_ID,
-            "team_id": TEAM_OID,
-            "is_nachnominiert": False,
-            "rolle": None,
-            "stufe": "Q2",
-            "position": "Angriff",
-            "nummer": "10",
-            "inactive_since": None,
-            "version": 0,
-        },
+        "saison_spieler": saison_spieler_document(SPIELER_OID, SAISON_ID, TEAM_OID, nummer="10"),
         "spiele": {
+            **spiel,
             "team1": {"team_id": TEAM_OID, "tore": 2},
-            "team2": {"team_id": SPIELER_OID, "tore": 1},
-            "team1_quelle": None,
-            "team2_quelle": None,
-            "date": "2026-03-15",
-            "time": "18:00:00",
-            "spielort": {"spielort_id": SPIELORT_OID, "mietpreis": 80},
+            "team2": {"team_id": OTHER_TEAM_OID, "tore": 1},
             "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_OID, "payment": 20},
             "ergebnis": "2:1",
-            "elfmeterschiessen": None,
-            "spieltag_id": SPIELTAG_OID,
-            "spiel_nr": 1,
-            "sonderereignis": None,
-            "saison_phase": "gruppenphase",
-            "saison_id": SAISON_ID,
-            "version": 0,
         },
-        "spieltage": {
-            "_id": SPIELTAG_OID,
-            # No `name` and no `count_spiele`: one is composed by the reader, the other derived, and neither stored.
-            "start": "2026-03-15",
-            "end": "2026-03-15",
-            "position": 1,
-            "saison_phase": "gruppenphase",
-            "saison_id": SAISON_ID,
-            "version": 0,
-        },
-        "spielorte": {
-            "_id": SPIELORT_OID,
-            "name": "Sportplatz Ost",
-            "address": dict(ADDRESS),
-            "maps_link": "Sportplatz Ost, Frankfurt",
-            "default_mietpreis": 80,
-            "inactive_since": None,
-            "version": 0,
-        },
-        "schiedsrichter": {
-            "_id": SCHIEDSRICHTER_OID,
-            "name": "A. Referee",
-            "schule": None,
-            "default_payment": 20,
-            "kontakt": {"phone": None, "email": "a.referee@example.com"},
-            "inactive_since": None,
-            "version": 0,
-        },
+        "spieltage": spieltag_document(SPIELTAG_OID, SAISON_ID, 1, start="2026-03-15", end="2026-03-15"),
+        "spielorte": spielort_document(SPIELORT_OID, "Sportplatz Ost"),
+        "schiedsrichter": schiedsrichter_document(
+            SCHIEDSRICHTER_OID, email="a.referee@example.com", name="A. Referee", default_payment=20, einwilligung=None
+        ),
         # Undecided, proposing a school rather than picking a club: both are nullable and exactly
         # one carries a value, a write-path rule.
-        "bewerbungen": {
-            "_id": BEWERBUNG_OID,
-            "saison_id": SAISON_ID,
-            "submitted_at": "2026-02-01",
-            "status": "submitted",
-            "team_id": None,
-            "schule": {
-                "team_name": "Lessing",
-                "full_name": "Lessing-Gymnasium",
-                "schulform": "gymnasium_g9",
-                "address": dict(ADDRESS),
-                "website_url": "https://lessing-gymnasium.example.de",
-            },
+        "bewerbungen": bewerbung_document(
+            BEWERBUNG_OID,
+            SAISON_ID,
+            "submitted",
+            schule=new_schule_document("Lessing"),
             # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
-            "kontakte": {
+            kontakte={
                 "trainer": kontaktperson("Wraxlington"),
                 "ansprechperson": kontaktperson("Quillhilde"),
                 "stellvertretung": kontaktperson("Bramblewick"),
                 "trainer_is_also": None,
             },
-            "trikot": {"existing_set": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-            "kader": {"expected_size": 14, "good_spieler": 3},
-            "stufengroesse": 96,
-            "wunschgegner": None,
-            "decision": None,
-            "confirmations": minted_confirmations(
-                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
-            ),
-            "version": 0,
-        },
-        "action_log": {
-            "_id": ACTION_LOG_ENTRY_OID,
-            "at": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
-            "by": "admin@example.invalid",
-            "team": None,
-            "action": "team.changed",
-            "record_id": TEAM_OID,
-            "label": "Lessing",
-            "count": None,
-            "trace_id": secrets.token_hex(16),
-        },
-        "ban_list": {
-            "_id": BAN_LIST_OID,
-            "address": "gesperrt@example.invalid",
-            "ban_reason": "Falsches Geburtsdatum bei der Anmeldung",
-            "created_at": "2026-03-15",
-            "barred_until_saison_id": "2031",
-        },
-        # `revoked_at` is null rather than absent because `uniq_invitation_live` reaches the rows
-        # holding null.
-        "invitations": {
-            "_id": INVITATION_OID,
-            "saison_id": SAISON_ID,
-            "team_id": TEAM_OID,
-            "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
-            "revoked_at": None,
-            "sent_at": None,
-        },
-        # Every key the submission writes, `birth_date`, `einwilligung` and `decision`
-        # included: each is a stored null rather than an absent key, which is what `required` means.
-        "registrierungen": {
-            "_id": REGISTRIERUNG_OID,
-            "saison_id": SAISON_ID,
-            "team_id": TEAM_OID,
-            "invitation_id": INVITATION_OID,
-            "submitted_at": "2026-03-16",
-            "status": "submitted",
-            "first_name": "Thessaly",
-            "last_name": "Okonkwo-Brandt",
-            "email": "thessaly@example.invalid",
-            "position": "Mittelfeld",
-            "nummer": "17",
-            "stufe": "Q1",
-            "birth_date": None,
-            "einwilligung": None,
-            "confirmation": {
-                "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
-                "sent_at": "2026-03-16",
-                "deadline": "2026-03-23",
-            },
-            "decision": None,
-        },
-        # As a grant written by hand is: a BSON date, and the sentinel where no administrator granted it.
-        "grants": {
-            "_id": GRANT_OID,
-            "address": "inhaberin@example.invalid",
-            "admin_tier": "owner",
-            "effective_from": datetime(2026, 1, 1, tzinfo=UTC),
-        },
+            submitted_at="2026-02-01",
+        ),
+        "action_log": action_log_document(
+            "team.changed", by="admin@example.invalid", at=datetime(2026, 3, 15, 9, 30, tzinfo=UTC), record_id=TEAM_OID, label="Lessing"
+        ),
+        "ban_list": ban_document("gesperrt@example.com", until="2031", _id=BAN_LIST_OID),
+        "invitations": invitation_document(INVITATION_OID, saison_id=SAISON_ID, team_id=TEAM_OID, token="the team's link"),
+        "registrierungen": registrierung_document(
+            REGISTRIERUNG_OID,
+            "thessaly@example.invalid",
+            saison_id=SAISON_ID,
+            team_id=TEAM_OID,
+            first_name="Thessaly",
+            last_name="Okonkwo-Brandt",
+            token="the pupil's link",
+            submitted_at="2026-03-16",
+            deadline="2026-03-23",
+            position="Mittelfeld",
+            nummer="17",
+            stufe="Q1",
+            invitation_id=INVITATION_OID,
+            keyed=False,
+        ),
+        "grants": grant_document("inhaberin@example.com", "owner", effective_from=datetime(2026, 1, 1, tzinfo=UTC), _id=GRANT_OID),
         # An open team row as the pass mints it.
         "spielbestaetigungen": spielbestaetigung_document(
-            spiel_document(
-                spiel_id=SPIEL_OID,
-                saison_id=SAISON_ID,
-                spiel_nr=1,
-                spieltag_id=SPIELTAG_OID,
-                team1={"team_id": TEAM_OID, "tore": None},
-                team2={"team_id": OTHER_TEAM_OID, "tore": None},
-                date="2026-03-15",
-                time="18:00:00",
-                spielort={"spielort_id": SPIELORT_OID, "mietpreis": 80},
-            ),
-            party={"kind": "team", "team_id": TEAM_OID},
-            _id=SPIELBESTAETIGUNG_OID,
-            deadline="2026-03-08",
+            spiel, party={"kind": "team", "team_id": TEAM_OID}, _id=SPIELBESTAETIGUNG_OID, deadline="2026-03-08"
         ),
-        "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
-        "aufstellungen": aufstellung_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}, TEAM_OID, starters=[SPIELER_OID]),
+        "spielberichte": spielbericht_document(spiel),
+        "aufstellungen": aufstellung_document(spiel, TEAM_OID, starters=[SPIELER_OID]),
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "address_changes": {
@@ -354,7 +220,7 @@ async def on_the_shipped_schema(url: str, body: Body) -> Any:
 DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     "uniq_saison_id_team_id": (valid_documents()["saison_teams"], valid_document("saison_teams", gruppe="B")),
     "uniq_spieler_id_saison_id": (valid_documents()["saison_spieler"], valid_document("saison_spieler", nummer="11")),
-    "uniq_saison_id_spiel_nr": (valid_documents()["spiele"], valid_document("spiele", ergebnis="0:0")),
+    "uniq_saison_id_spiel_nr": (valid_documents()["spiele"], valid_document("spiele", _id=TEAM_OID, ergebnis="0:0")),
     "uniq_shorthand": (valid_documents()["teams"], valid_document("teams", _id=SPIELER_OID, name="Lessing II")),
     # The second row differs in its price and its fee: what the index refuses on is the name alone,
     # and a pair differing in nothing else would pass while keyed on anything.

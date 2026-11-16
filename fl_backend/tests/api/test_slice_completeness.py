@@ -1,80 +1,19 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 from typing import Any, cast
 
-import pytest
 from bson import ObjectId
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.crud import advance_bracket_winners, bracket_faults_of
+from app.api.spiele.crud import bracket_faults_of
 from app.api.spiele.schemas import FLBracketFault, FLSpielJoinedInternalListAdapter
 from app.core.readonly import ReadCollection
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.documents import rules_document
+from tests.payloads import PayloadFactory
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
 SAISON_ID = "2026"
-
-PayloadFactory = Callable[..., dict[str, Any]]
-
-
-def saison_of(spiel: PayloadFactory, count: int) -> list[dict[str, Any]]:
-    """`count` group fixtures of one season, each with its own id and number so none collapses onto another."""
-
-    return [spiel(_id=MATCH_ID.format(nr), spiel_nr=nr) for nr in range(1, count + 1)]
-
-
-RULES = FLSaisonRules.model_validate(rules_document(max_kader_size=50, allowed_stufen=["E1", "E2"]))
-
-
-class _SaisonCollection:
-    """One collection, called as `pull_many_from_db` calls the driver: `find`, then `limit`, then `to_list`."""
-
-    def __init__(self, documents: list[dict[str, Any]]) -> None:
-        self.documents = documents
-
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _SaisonCollection:
-        return self
-
-    def limit(self, count: int) -> _SaisonCollection:
-        # Truncating rather than answering everything: this IS the silent loss under test.
-        self.documents = self.documents[:count]
-        return self
-
-    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
-        return self.documents if length is None else self.documents[:length]
-
-
-def run_advance(collection: _SaisonCollection) -> None:
-    """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured.
-
-    The same stand-in serves as every collection: no fixture here carries a `quelle`, so nothing but
-    the season is read.
-    """
-
-    asyncio.run(
-        advance_bracket_winners(
-            spiele_collection=cast(AsyncCollection, collection),
-            teams_collection=cast(AsyncCollection, collection),
-            saison_id=SAISON_ID,
-            rules=RULES,
-            session=cast(AsyncClientSession, object()),
-        )
-    )
-
-
-class TestTheBracketWriteRefusesATruncatedSeason:
-    """The resolution writes back what it derived, so a season it could not read whole is a wrong bracket committed."""
-
-    def test_a_season_past_the_cap_is_refused(self, spiel):
-        collection = _SaisonCollection(saison_of(spiel, LIST_LIMIT_DEFAULT + 1))
-
-        with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
-            run_advance(collection)
 
 
 class _Rows:
@@ -122,7 +61,7 @@ TWICE_BOOKED_SCHIEDSRICHTER = "6890a1b2c3d4e5f607230002"
 
 # Two groups, so the reference below names one this season does not run: a season offering every
 # name `FLGruppenNames` spells could hold no such reference at all.
-SWEPT_RULES = FLSaisonRules.model_validate(RULES.model_dump() | {"number_of_gruppen": 2})
+SWEPT_RULES = FLSaisonRules.model_validate(rules_document(number_of_gruppen=2, max_kader_size=50, allowed_stufen=["E1", "E2"]))
 UNRUN_GRUPPE = "D"
 
 

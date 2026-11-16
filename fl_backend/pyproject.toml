@@ -165,6 +165,11 @@ extend-immutable-calls = ["fastapi.Depends"]
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+# `EmailStr` never turns `allow_smtputf8` off, so a field typed with it stores a Unicode local part
+# the league's rule refuses, and a ban keyed on that address misses its folded twin. Both spellings,
+# since the ban matches the path an import names.
+"pydantic.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
+"pydantic.networks.EmailStr".msg = "Type an address `app.shared.schemas.kontakt.CustomEmail`, which runs the league's address rule."
 
 [tool.pytest.ini_options]
 # importlib is pytest's recommended import mode for new suites: no sys.path manipulation, and test
