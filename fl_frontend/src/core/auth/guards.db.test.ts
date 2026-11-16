@@ -42,7 +42,7 @@ closing(() => client.close());
 const { auth } = await import("@/core/auth/library");
 const { getAccountSession, getAdminSession } = await import("@/core/auth/guards");
 const { getPasskeyStep } = await import("@/core/auth/landing");
-const { buildAuthIndexes } = await import("@/core/authIndexes");
+const { buildAuthIndexes, MONGO_DB_NAME } = await import("@/core/authIndexes");
 const { getSubjectSession } = await import("@/core/subject");
 const { devicesOf } = await import("@/features/account/security");
 const { heldPasskeysOf } = await import("@/features/passkeys/held");
@@ -62,7 +62,7 @@ beforeAll(async () => {
 });
 
 // Each case signs the administrator in afresh.
-beforeEach(() => emptyStore(client.db("auth")));
+beforeEach(() => emptyStore(client.db(MONGO_DB_NAME)));
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.
@@ -70,7 +70,7 @@ Reflect.set(client, "monitorCommands", true);
 /** Every command sent to the sign-in store, by its name and the collection it names. */
 const sent: string[] = [];
 client.on("commandStarted", (event) => {
-  if (event.databaseName === "auth") sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
+  if (event.databaseName === MONGO_DB_NAME) sent.push(`${event.commandName} ${String(event.command[event.commandName])}`);
 });
 
 /** The commands `read` sends, in the order it sends them. */
@@ -90,11 +90,11 @@ const CREDENTIAL_ID = "fl-admin-session-db";
 async function signInAsAdministrator(): Promise<Headers> {
   const verified = await signInByCode(auth, ADMIN_EMAIL);
   await client
-    .db("auth")
+    .db(MONGO_DB_NAME)
     .collection("session")
     .updateMany({}, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID, createdAt: new Date() } });
 
-  const [user] = await client.db("auth").collection("user").find({}).toArray();
+  const [user] = await client.db(MONGO_DB_NAME).collection("user").find({}).toArray();
   assert.ok(user, "the sign-in wrote no user row");
   // Written through the library's adapter, so the row is in the shape the plugin's own writes give it.
   const { adapter } = await auth.$context;
@@ -117,7 +117,7 @@ async function signInAsAdministrator(): Promise<Headers> {
 
 /** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
 async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
-  const sessions = client.db("auth").collection<{ updatedAt: Date; expiresAt: Date }>("session");
+  const sessions = client.db(MONGO_DB_NAME).collection<{ updatedAt: Date; expiresAt: Date }>("session");
   const updateAge = auth.options.session.updateAge * 1000;
   // The library refreshes by how far `expiresAt` has run down, never by `updatedAt`, which the guards' idle windows read.
   await sessions.updateMany({}, [{ $set: { expiresAt: { $subtract: ["$expiresAt", 2 * updateAge] } } }]);
@@ -223,7 +223,7 @@ describe("the account row the session read joins, against a real store", () => {
     assert.ok(await getAdminSession(), "the administrator was refused before the stamp, so the refusals below prove nothing");
 
     await client
-      .db("auth")
+      .db(MONGO_DB_NAME)
       .collection("user")
       .updateMany({}, { $set: { sessionsEndedAt: new Date(Date.now() + 1000) } });
 
@@ -235,8 +235,8 @@ describe("the account row the session read joins, against a real store", () => {
   it("serves no session whose account row is gone, the session row standing", async () => {
     const { readServedSession } = await import("@/core/auth/session");
     requestHeaders = await signInAsAdministrator();
-    await client.db("auth").collection("user").deleteMany({});
-    expect(await client.db("auth").collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
+    await client.db(MONGO_DB_NAME).collection("user").deleteMany({});
+    expect(await client.db(MONGO_DB_NAME).collection("session").countDocuments({}), "the session row went with the account's").toBe(1);
 
     beginRenderPass();
     expect(await getAdminSession()).toBe(null);
