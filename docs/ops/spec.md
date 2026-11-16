@@ -531,7 +531,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them                   | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its `zizmor` group                             |
-| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                      | venv + pnpm install + Docker                                                                                                                   |
+| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`, the three side by side   | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
 
 **CI runs every scope on every event**, one job per scope in `.github/workflows/verify.yml`, each
@@ -600,7 +600,7 @@ log, and grades what each wrote, sent and answered:
 - each security header sent once;
 - a link page writing no error line;
 - every zone and the connection ceiling refusing past their figure;
-- both body caps it drives.
+- every body cap, taking its figure and refusing a byte past it.
 
 `scripts/checks/check_compose_model.py` reads the models `docker compose config` renders,
 production's alone and the merged local pair, and holds each to §2's rows. A model it cannot read is
@@ -620,13 +620,13 @@ before any environmental check, so a typo fails at once rather than after a Dock
 **A path answers what a file is before the file is opened**: the directory names the category, the
 prefix names the class, the stem names the subject, and the extension names the harness.
 
-| Part        | Reads as                                                                                                                                          |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract                                                          |
-| `_`         | Sourced by another script and never run on its own                                                                                                |
-| no prefix   | Run directly, by a person, by CI or by another script as a subprocess                                                                             |
-| `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's, or a CI job's own where no step needs the virtualenv |
-| `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have                                                                     |
+| Part        | Reads as                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract    |
+| `_`         | Sourced by another script and never run on its own                                          |
+| no prefix   | Run directly, by a person, by CI or by another script as a subprocess                       |
+| `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's |
+| `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have               |
 
 `scripts/lib/checker_kernel.py` is the one name the scheme does not classify: it is imported rather
 than run, so the `_` marking a sourced script would say the wrong thing about it.
@@ -776,7 +776,7 @@ be true there, a check the owner makes in its list of monitors:
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
-| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
+| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                            |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
 | The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | `scripts/tests/test_journeys_projects.py`, which asks Playwright's `--list` for each leg's flags                                                                                       |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |
