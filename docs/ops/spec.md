@@ -672,8 +672,9 @@ change needs work" from "the check never ran" acts on the wrong one.
 | `interrupted` | 130       | Ctrl-C or a hangup: the sections that had opened are all there is, none a verdict      |
 
 **Every tool's status reaches an ending through one table**, `scripts/lib/_lib.sh :: EXIT_CODES`,
-a row per tool read from its documentation for the release the repository pins, or from that
-release's source where the documentation names no status:
+a row per tool read from its documentation, or from its source where the documentation names no
+status, for the release the repository pins. Compose and buildx are pinned nowhere, so their rows
+name the release they were read from, and the gate prints the release it runs beside them:
 
 - the status by which the tool reports what it found is a finding;
 - one by which it says it could not judge, an input it could not read, a network it could not

@@ -505,9 +505,10 @@ trap on_interrupt INT TERM HUP
 # --- The exit contract -------------------------------------------------------------------------------
 
 # Each tool's own exit statuses, read into the contract every script here answers on: 0 clean,
-# 1 findings, 2 refused, 3 crashed. Each row names where its tool writes them down for the release
-# this repository pins: its documentation, or the release's own source where that names none. Every
-# row reads them by one rule:
+# 1 findings, 2 refused, 3 crashed. Each row names where its tool writes them down, its documentation
+# or its source where that names none, for the release this repository pins, or for Compose and
+# buildx, which nothing here pins, the release the row names, beside which the gate prints the one it
+# runs. Every row reads them by one rule:
 # - 1 is the status by which the tool reports what it found;
 # - 2 is one by which the tool, having started, says in its own words that it could not judge: an
 #   input it could not read, a network it could not reach, a configuration it could not load;
@@ -550,8 +551,9 @@ declare -grA EXIT_CODES=(
   # ruff 0.17.4's linter and formatter pages, "Exit codes": 1 a violation, or a file `format --check`
   # would change, 2 an invalid configuration, invalid options or an internal error alike.
   [ruff]="0:0 1:1"
-  # uv 0.12.22's `ExitStatus` (crates/uv/src/commands/mod.rs), which its documentation does not name: 1
-  # a failure its input caused, a lockfile needing an update among them, 2 an unexpected one.
+  # uv 0.13.8's `ExitStatus` (crates/uv-command-support/src/lib.rs) and its `main` (crates/uv/src/lib.rs),
+  # which its documentation does not name: 1 a failure its input caused, a lockfile needing an update
+  # among them, 2 an argument clap or uv refused and an unexpected failure alike.
   [uv]="0:0 1:1"
   # deptry 0.25.1 names no status. Its source answers 1 for the violations it found, and Python's own 1
   # answers an exception escaping it; click's 2 is a usage error.

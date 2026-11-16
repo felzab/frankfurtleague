@@ -237,11 +237,13 @@ case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
 # Compose is a plugin of the Docker CLI, so an engine that answers is no proof it is installed, and
-# without it every compose file would read as one that does not parse.
+# without it every compose file would read as one that does not parse. Its release is printed, since
+# nothing here pins the one the `compose` row's statuses are read against.
 if [[ "$SCOPE" == ops ]]; then
-  docker compose version >/dev/null 2>&1 \
+  release="$(docker compose version --short 2>/dev/null)" \
     || refuse "Docker Compose did not answer 'docker compose version', so no compose file was parsed.
 Install the Compose plugin, or start Docker Desktop, which carries it, then try again."
+  info "Docker Compose ${release}"
 fi
 case "$SCOPE" in
   scripts|format|frontend-units|frontend|db)
@@ -645,6 +647,13 @@ cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:ba
 # `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
 # under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
+  local release
+  # As the ops scope asks for Compose: without the plugin the bake would read as a build that failed.
+  # Its release is printed, since nothing here pins the one the `buildx` row's statuses are read against.
+  release="$(docker buildx version 2>/dev/null)" \
+    || refuse "Docker Buildx did not answer 'docker buildx version', so no image was built.
+Install the Buildx plugin, or start Docker Desktop, which carries it, then try again."
+  info "Docker Buildx: ${release}"
   check --exits buildx "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target." \
     docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
     --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \
