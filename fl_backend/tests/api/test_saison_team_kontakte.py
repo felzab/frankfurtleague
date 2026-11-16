@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -27,6 +27,7 @@ from tests.documents import SEAT_TEXT_VERSIONS, kontaktperson_document, saison_d
 from tests.erasure import erased, seats_cleared
 from tests.isolation import InterleavedCollection
 from tests.outbox import MAIL_NOW
+from tests.stored import the_row
 from tests.team_writes import BlockWritten, write_the_block
 from tests.worker import worker_database
 
@@ -221,11 +222,10 @@ async def erase_the_seats_person(database: AsyncDatabase) -> None:
     await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
 
 
-async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": TEAM_OID, "saison_id": saison_id})
-    assert found is not None, f"the seeded row for {saison_id} is gone"
-
-    return found
+async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Mapping[str, Any]:
+    return await the_row(
+        database, Collection.SAISON_TEAMS, {"team_id": TEAM_OID, "saison_id": saison_id}, f"the seeded row for {saison_id} is gone"
+    )
 
 
 @pytest.mark.db

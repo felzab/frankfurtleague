@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import pytest
@@ -26,6 +26,7 @@ from tests.documents import (
     spielbestaetigung_document,
     team_document,
 )
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -156,18 +157,12 @@ async def enter(database: AsyncDatabase, club: dict[str, Any], *, gruppe: str = 
     )
 
 
-async def club_now(database: AsyncDatabase) -> dict[str, Any]:
-    found = await database[Collection.TEAMS].find_one({"_id": ADLER})
-    assert found is not None
-
-    return found
+async def club_now(database: AsyncDatabase) -> Mapping[str, Any]:
+    return await the_row(database, Collection.TEAMS, {"_id": ADLER})
 
 
-async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> dict[str, Any]:
-    found = await database[Collection.SAISON_TEAMS].find_one({"team_id": ADLER, "saison_id": saison_id})
-    assert found is not None
-
-    return found
+async def row_now(database: AsyncDatabase, saison_id: str = SAISON_ID) -> Mapping[str, Any]:
+    return await the_row(database, Collection.SAISON_TEAMS, {"team_id": ADLER, "saison_id": saison_id})
 
 
 class TestTheOneSave:

@@ -7,7 +7,6 @@ rewording adds one, so no request can carry a replaced label yet, and the databa
 labels are constructed past validation.
 """
 
-import asyncio
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -35,17 +34,15 @@ def _replaced(kind: type[FLSpielerTextVersions], *choices: FLEinwilligungChoice)
     return kind.model_construct(scope=labels["scope"], media=labels["media"])
 
 
-def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
-    asyncio.run(
-        press_einwilligung(
-            blocks=blocks,
-            birth_dates=[ADULT] * len(blocks),
-            chosen=chosen,
-            evidence_state=evidence_state_of(blocks=blocks),
-            text_versions=text_versions,
-            may_give=_may_grant,
-            today=TODAY,
-        )
+async def _press(blocks: list[Mapping[str, Any]], chosen: Mapping[FLEinwilligungChoice, Any], text_versions: PressTextVersions) -> None:
+    await press_einwilligung(
+        blocks=blocks,
+        birth_dates=[ADULT] * len(blocks),
+        chosen=chosen,
+        evidence_state=evidence_state_of(blocks=blocks),
+        text_versions=text_versions,
+        may_give=_may_grant,
+        today=TODAY,
     )
 
 
@@ -59,9 +56,9 @@ def _as_stored(block: Mapping[str, Any], **moved: Any) -> dict[FLEinwilligungCho
 
 class TestAGrantThePressMovesNamesItsCurrentWording:
     @pytest.mark.parametrize(("choice", "giving"), [("scope", "kader_public"), ("media", True)])
-    def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
+    async def test_a_choice_moved_onto_a_grant_under_a_replaced_label_is_refused(self, choice: FLEinwilligungChoice, giving: Any):
         with pytest.raises(APIError) as refused:
-            _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))
+            await _press([PUPIL_WITHHELD], _as_stored(PUPIL_WITHHELD, **{choice: giving}), _replaced(FLSpielerTextVersions, choice))
 
         assert (refused.value.error_code, refused.value.status_code, refused.value.fields) == (
             Code.GRANT_WORDING_STALE,

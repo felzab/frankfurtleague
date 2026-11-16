@@ -14,6 +14,7 @@ from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
+    AUSTRITT,
     ban_document,
     bewerbung_document,
     confirmed_referee_document,
@@ -26,8 +27,6 @@ from tests.documents import (
     spieler_document,
 )
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT
 
 DATABASE_NAME = worker_database("fl_identity_references_test")
 

@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -11,8 +10,9 @@ from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.documents import (
+    AUSTRITT,
     EINWILLIGUNG,
     SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
@@ -23,8 +23,6 @@ from tests.documents import (
 )
 from tests.records import record_collections
 from tests.worker import worker_database
-
-from .conftest import AUSTRITT, unwritten
 
 DATABASE_NAME = worker_database("fl_roles_test")
 
@@ -363,10 +361,10 @@ class TestTheRetirementNarrowing:
 
 
 @pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
-def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
+async def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
     """A bare object stands in for every handle, so a lookup that went ahead would raise an attribute error rather than this."""
 
     unreachable = cast(Any, object())
 
     with pytest.raises(ValueError, match="empty identifier"):
-        asyncio.run(roles_of(identifier, unreachable, session=unreachable))
+        await roles_of(identifier, unreachable, session=unreachable)

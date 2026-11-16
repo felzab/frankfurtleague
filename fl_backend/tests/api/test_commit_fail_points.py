@@ -59,6 +59,7 @@ from tests.erasure_sweep_corpus import run as a_deletion_call
 from tests.erasure_sweep_corpus import the_league as the_pupils_league
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
+from tests.stored import the_row
 from tests.subject_corpus import IDENTIFIER as SUBJECTS_SEAT_HOLDER
 from tests.subject_corpus import the_subjects_corpus
 from tests.whole_database import where_held
@@ -412,8 +413,7 @@ class TestAPersonsOwnPress:
         withdrawn = {"scope": "internal", "media": False}
 
         async def chosen(database: AsyncDatabase) -> dict[str, Any]:
-            stored = await database[Collection.SPIELER].find_one({"_id": PUPIL_OID})
-            assert stored is not None
+            stored = await the_row(database, Collection.SPIELER, {"_id": PUPIL_OID})
 
             return {key: stored["einwilligung"][key] for key in withdrawn}
 

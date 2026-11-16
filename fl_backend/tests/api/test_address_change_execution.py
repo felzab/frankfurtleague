@@ -48,7 +48,7 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY, ADMINISTRATORS, SYSTEM_AUTH
 from tests.holds import HeldCollection
-from tests.isolation import COMMITTED, outcome_of, refused_code
+from tests.isolation import COMMITTED, GrantsRunningARivalAfterTheFirstRead, outcome_of, refused_code
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.stored import the_row
@@ -99,7 +99,6 @@ from .address_change_harness import (
     view,
 )
 from .address_change_harness import on_a_person as _on_a_person
-from .test_grants_execution import GrantsRunningARivalAfterTheFirstRead
 
 # Module level: every case below reaches a real mongod, each write being one transaction.
 pytestmark = pytest.mark.db

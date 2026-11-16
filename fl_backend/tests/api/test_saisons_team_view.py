@@ -8,10 +8,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.public_router import get_team, get_teams
 from app.core.collections import Collection
 from tests import documents
-from tests.database import a_clean_database, bounded, shared_client
+from tests.database import a_clean_database, bounded, shared_client, unwritten
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saisons_team_view_test")
 

@@ -6,10 +6,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
-from pymongo.mongo_client import MongoClient
 from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import TTL_INDEXES, apply_constraints
@@ -34,8 +33,8 @@ _Key = tuple[tuple[tuple[str, int], ...], str]
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
 _BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
-# A module global for `_BUILT`'s reason. A client belongs to the loop that opened it, so each loop keeps its own: the
-# session's, which every async case and fixture runs on, and the one `a_clean_database_sync` holds for its readers.
+# A module global for `_BUILT`'s reason. A client belongs to the loop that opened it, so each is kept under its loop:
+# every async case and fixture runs on the session's.
 _CLIENTS: dict[tuple[asyncio.AbstractEventLoop, str], AsyncMongoClient] = {}
 
 # Bounds each close. A serial `pytest -m db` may have stopped the containers by the time the session's
@@ -334,27 +333,43 @@ async def a_clean_database(
         raise AssertionError("\n".join(expired))
 
 
-@contextmanager
-def a_clean_database_sync(
-    client: MongoClient, url: str, name: str, *, constraints: bool = True, stores_a_refused_shape: str | None = None
-) -> Generator[Database]:
-    """`a_clean_database` for a fixture holding a pymongo client: the database emptied on entry, its checks run on exit.
+# One module's shared corpus: every collection it holds, each as its documents in an order two
+# reads of an untouched database agree on.
+Corpus = dict[str, list[str]]
 
-    A module fixture holds it open while its cases read, so what the module seeded and wrote is judged once they are done.
-    Entered and left on a loop of its own, a step at a time, so both share one judgement of a clean database; a
-    synchronous fixture runs while no loop does.
+_WROTE = (
+    "'{database}' holds documents its seed did not put there ({moved}). A module sharing one corpus across its tests admits reads"
+    " alone: a body that writes hands the next test a corpus nobody seeded, and fails it somewhere else entirely."
+)
+
+
+def _documents(database: Database) -> Corpus:
+    """Views and `system.*` are listed beside real collections and hold nothing a seed put there."""
+
+    return {
+        info["name"]: sorted(repr(document) for document in database[info["name"]].find())
+        for info in database.list_collections()
+        if info.get("type") == "collection" and not str(info["name"]).startswith("system.")
+    }
+
+
+@contextmanager
+def unwritten(url: str, database_name: str) -> Generator[None]:
+    """Fails a module that WROTE to the corpus seeded once for it, naming the collections it moved.
+
+    `_schema` compares the schema instead, which a write never touches.
     """
 
-    with asyncio.Runner() as runner:
-        entered = a_clean_database(url, name, constraints=constraints, stores_a_refused_shape=stores_a_refused_shape)
-        try:
-            runner.run(bounded(entered.__aenter__()))
-            try:
-                yield client[name]
-            except BaseException as failure:
-                # The failure the body raised, handed in as `async with` would, so the checks are skipped and it surfaces as itself.
-                runner.run(bounded(entered.__aexit__(type(failure), failure, failure.__traceback__)))
-                raise
-            runner.run(bounded(entered.__aexit__(None, None, None)))
-        finally:
-            runner.run(close_the_shared_clients())
+    # A client of its own: the seeding one is asynchronous, and this guard's comparison is synchronous.
+    client = MongoClient(url)
+    try:
+        seeded = _documents(client[database_name])
+
+        yield
+
+        present = _documents(client[database_name])
+        moved = sorted(name for name in seeded.keys() | present.keys() if seeded.get(name) != present.get(name))
+
+        assert not moved, _WROTE.format(database=database_name, moved=", ".join(moved))
+    finally:
+        client.close()

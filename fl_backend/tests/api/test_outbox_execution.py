@@ -6,7 +6,7 @@ are incidental: a case reaches for whichever member of the union the mechanism n
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -48,6 +48,7 @@ from app.shared.tokens import hash_token
 from tests.database import a_clean_database
 from tests.documents import ban_document, kontakte_document, kontaktperson_document, registrierung_document, saison_team_document
 from tests.outbox import claimable
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -131,10 +132,8 @@ async def owe(
     return (await stored_by_key(database, key))["_id"]
 
 
-async def stored_by_key(database: AsyncDatabase, key: str) -> dict[str, Any]:
-    row = await database[Collection.OUTBOX].find_one({"key": key})
-    assert row is not None
-    return row
+async def stored_by_key(database: AsyncDatabase, key: str) -> Mapping[str, Any]:
+    return await the_row(database, Collection.OUTBOX, {"key": key})
 
 
 async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLOutboxHandoutResponse:
@@ -170,10 +169,8 @@ async def reported(
     )
 
 
-async def stored(database: AsyncDatabase, row_id: ObjectId) -> dict[str, Any]:
-    row = await database[Collection.OUTBOX].find_one({"_id": row_id})
-    assert row is not None
-    return row
+async def stored(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any]:
+    return await the_row(database, Collection.OUTBOX, {"_id": row_id})
 
 
 class TestTheEnqueue:
@@ -490,7 +487,7 @@ class TestTheExpiry:
     async def test_a_settled_row_is_deleted_a_retention_after_its_final_state_and_keeps_no_data(self, mongo_replica_set_url: str):
         settled_at = NOW + timedelta(hours=1)
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Mapping[str, Any]:
             row_id = await owe(database, client, "ban/1")
             answer = await claimed(database, client, now=settled_at)
             await reported(database, answer.lease, row_id, "sent", now=settled_at)

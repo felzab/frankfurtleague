@@ -47,6 +47,7 @@ from tests import documents
 from tests.acts import deletions_of
 from tests.database import a_clean_database
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level: every case below reaches a real mongod, the whole slice being one transaction each.
@@ -228,10 +229,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, now: datet
 
 
 async def stored(database: AsyncDatabase, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID) -> Mapping[str, Any]:
-    found = await database[Collection.SCHIEDSRICHTER].find_one({"_id": schiedsrichter_id})
-    assert found is not None, "the referee this case seeded is gone"
-
-    return found
+    return await the_row(database, Collection.SCHIEDSRICHTER, {"_id": schiedsrichter_id}, "the referee this case seeded is gone")
 
 
 class TestTheCreateIsTheInvitation:

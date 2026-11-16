@@ -80,7 +80,6 @@ THEIR_VALUES = (
     THEIR_REASON,
 )
 
-
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607b00011")
@@ -95,7 +94,6 @@ DECLINED_OID = ObjectId("6890a1b2c3d4e5f607b00042")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607b00051")
 THEIR_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00061")
 OTHER_SPIEL_OID = ObjectId("6890a1b2c3d4e5f607b00062")
-
 
 THEIR_GRANT_OID = ObjectId("6890a1b2c3d4e5f607b00071")
 # Another pupil, moving to the person's address: the row is theirs until the change is confirmed.
@@ -117,14 +115,12 @@ MOVING_PUPIL_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c2")
 REFEREE_MOVING_ELSEWHERE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c3")
 PUPIL_MOVING_ELSEWHERE_CHANGE_OID = ObjectId("6890a1b2c3d4e5f607b000c4")
 
-
 # Their referee row's confirmation, and another referee's.
 THEIR_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a1")
 OTHER_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a3")
 # Their team's open row, which stands: a team's row names its seats by role and never by person.
 TEAM_CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607b000a4")
 OTHER_REASON = "Dienstreise nach Hamburg"
-
 
 REFEREE_NAME = f"{FIRST_NAME} {LAST_NAME}"
 PAYMENT = 25

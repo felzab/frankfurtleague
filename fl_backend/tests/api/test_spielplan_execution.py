@@ -35,6 +35,7 @@ from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -214,10 +215,7 @@ def a_shape(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: i
 async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
     """The season's whole `rules` sub-document, read outside any transaction -- what a later request would find."""
 
-    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
-    assert stored is not None, f"the seed holds no season {SAISON_ID}"
-
-    return stored["rules"]
+    return (await the_row(database, Collection.SAISONS, {"_id": SAISON_ID}, f"the seed holds no season {SAISON_ID}"))["rules"]
 
 
 async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:

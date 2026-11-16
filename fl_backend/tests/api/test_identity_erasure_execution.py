@@ -104,7 +104,6 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_roles_erasure_test")
 
-
 # The people beside them, each asserted still present: a step taking anybody else's record with theirs fails.
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
 # The two of them seated beside the person on both a season row and an application, so each is counted, not only found.

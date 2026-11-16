@@ -1,4 +1,3 @@
-import asyncio
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
@@ -7,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pymongo import AsyncMongoClient, MongoClient
+from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.system_router import sweep_registrierungen
@@ -17,7 +16,7 @@ from app.core.transactions import SWEEP_PAGE
 from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync
+from tests.database import a_clean_database
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
     own_einwilligung_document,
@@ -273,45 +272,37 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         assert sum(names.values()) == COMMANDS, names
 
 
-def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
+async def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[int, list[Mapping[str, Any]]]:
     """One call over the wire, so the guard, the system binder and the route template all run."""
 
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
-    try:
-        with a_clean_database_sync(client, url, database_name) as database:
-            database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
-            database[Collection.REGISTRIERUNGEN].insert_one(
-                registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY))
-            )
+    async with a_clean_database(url, database_name) as (_, database):
+        await database[Collection.SAISONS].insert_many([season(SAISON_ID, "active"), season(OTHER_SAISON_ID, "past")])
+        await database[Collection.REGISTRIERUNGEN].insert_one(
+            registrierung(EXPIRED_OID, confirmation=confirmation(EXPIRED_OID, deadline=YESTERDAY))
+        )
 
-            async def _called() -> int:
-                async with app_client(url, app=app_under_test(), now=NOW) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
-                    return response.status_code
+        async with app_client(url, app=app_under_test(), now=NOW) as http:
+            response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
 
-            status = asyncio.run(_called())
-
-            return status, list(database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}))
-    finally:
-        client.close()
+        return response.status_code, await database[Collection.ACTION_LOG].find({"action": "retention.registrierungen"}).to_list(length=None)
 
 
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
-    def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
-        status, rows = through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
+    async def test_the_erasure_answers_on_the_system_tier_and_writes_its_row(self, mongo_replica_set_url: str):
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)
 
         assert status == 200
         assert [(row["by"], row["label"], row["count"]) for row in rows] == [("system", SAISON_ID, 1)]
 
     @pytest.mark.parametrize("auth", [BASE_AUTH, ADMIN_AUTH], ids=("base", "admin"))
-    def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
+    async def test_neither_other_key_reaches_it(self, mongo_replica_set_url: str, auth: Mapping[str, str]):
         """The other two keys are refused as the wrong credential before any body is read, so nothing is erased."""
 
-        status, rows = through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=auth)
+        status, rows = await through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=auth)
 
         assert status == 401
         assert rows == []

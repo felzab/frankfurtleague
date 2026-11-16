@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Mapping
 from typing import Annotated, Any, cast
 
@@ -22,15 +21,12 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 NON_HEX_ID = "z" * 24
 
 
-def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
-    """The response, never the client: the driver binds a client to the loop it first ran on."""
+async def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
+    """The response rather than the client, which `app_client` closes as its block ends."""
 
-    async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI) as http:
-            with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                return await http.get(path, params=params, headers=BASE_AUTH)
-
-    return asyncio.run(_answered())
+    async with app_client(UNANSWERED_URI) as http:
+        with pymongo.timeout(UNANSWERED_DEADLINE_S):
+            return await http.get(path, params=params, headers=BASE_AUTH)
 
 
 MALFORMED_IDS = [NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
@@ -39,9 +35,9 @@ MALFORMED_IDS = [NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 # No `db` marker: every refusal is decided before a query, and each control is answered by an
 # unreachable database rather than by what it holds.
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
-def test_a_malformed_path_id_is_a_404(spiel_id: str):
+async def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
-    response = answered(f"/api/v0/spiele/{spiel_id}")
+    response = await answered(f"/api/v0/spiele/{spiel_id}")
 
     assert (response.status_code, response.json()["error_code"]) == (404, Code.NO_ROUTE)
 

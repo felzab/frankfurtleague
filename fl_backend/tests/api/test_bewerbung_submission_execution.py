@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
-from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_bewerbung
@@ -25,10 +24,11 @@ from app.shared.tokens import hash_token
 from tests.app_client import app_client, app_under_test
 from tests.bewerbung_routes import viewed
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync
+from tests.database import a_clean_database
 from tests.documents import ADDRESS, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.outbox import MAIL_NOW, drained
+from tests.stored import the_row
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -484,64 +484,52 @@ class TestTheRefusalsTheWritePathAnswers:
 
 
 # The HTTP surface, on a SECOND database: `build_test_config`'s, the one an app under test resolves
-# its collections from. Seeded with pymongo, as `tests/api/test_spiele_public_read.py` seeds its own.
+# its collections from.
 @dataclass(frozen=True)
 class Submitted:
-    """Everything a case below reads, gathered before the client that read it is closed."""
+    """What a case below reads: the response, and how many applications the database holds after it."""
 
     response: Response
     stored: int
 
 
-def through_the_app(url: str, body: Mapping[str, Any]) -> Submitted:
+async def through_the_app(url: str, body: Mapping[str, Any]) -> Submitted:
     """One submission over the wire, so the guard, the actor binder and the response model all run."""
 
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(url)
-    try:
-        with a_clean_database_sync(client, url, database_name) as database:
-            database[Collection.SAISONS].insert_one(
-                saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
-            )
-            database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
+    async with a_clean_database(url, database_name) as (_, database):
+        await database[Collection.SAISONS].insert_one(
+            saison_document(SAISON_ID, "future", rules=rules_document(number_of_gruppen=2, teams_per_gruppe=2), bewerbung=dict(OPEN_WINDOW))
+        )
+        await database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
-            async def _submitted() -> Response:
-                async with app_client(url, app=app_under_test(), now=NOW) as http:
-                    sent = dict(BASE_AUTH)
-                    sent["Idempotency-Key"] = str(uuid4())
-                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
+        async with app_client(url, app=app_under_test(), now=NOW) as http:
+            sent = dict(BASE_AUTH)
+            sent["Idempotency-Key"] = str(uuid4())
+            response = await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
-            response = asyncio.run(_submitted())
-
-            # Read HERE: the client below is closed on the way out, and a handle returned through it
-            # would be dead by the time a case touched it.
-            return Submitted(
-                response=response,
-                stored=database[Collection.BEWERBUNGEN].count_documents({}),
-            )
-    finally:
-        client.close()
+        return Submitted(response=response, stored=await database[Collection.BEWERBUNGEN].count_documents({}))
 
 
 class TestASubmissionMadeOverTheWire:
     """What calling the endpoint function directly cannot prove: the guard a real request meets."""
 
-    def test_the_base_key_reaches_the_write(self, mongo_replica_set_url: str):
+    async def test_the_base_key_reaches_the_write(self, mongo_replica_set_url: str):
         """Also the floor under the refusal below: without it that would pass on a write nothing reaches."""
 
-        submitted = through_the_app(mongo_replica_set_url, payload())
+        submitted = await through_the_app(mongo_replica_set_url, payload())
 
         assert submitted.response.status_code == 201
         assert set(submitted.response.json()) == {"created_id"}
         assert submitted.stored == 1
 
-    def test_a_repeated_contact_is_a_422_naming_its_box_and_storing_nothing(self, mongo_replica_set_url: str):
+    async def test_a_repeated_contact_is_a_422_naming_its_box_and_storing_nothing(self, mongo_replica_set_url: str):
         """Named on the box the form marks, which the block's own validators cannot: the form holds no copy of the rule."""
 
         repeating = {**KONTAKTE, "stellvertretung": {**KONTAKTE["stellvertretung"], "email": KONTAKTE["trainer"]["email"].upper()}}
 
-        submitted = through_the_app(mongo_replica_set_url, payload(kontakte=repeating))
+        submitted = await through_the_app(mongo_replica_set_url, payload(kontakte=repeating))
         answer = submitted.response.json()
 
         assert (submitted.response.status_code, answer["error_code"]) == (422, Code.BEWERBUNG_KONTAKT_REPEATED)
@@ -590,8 +578,7 @@ def naming(**addresses: str) -> dict[str, Any]:
 async def sent_days(database: AsyncDatabase, press: Any) -> dict[str, Any]:
     """Each seat's `sent_at` on the application this press stored."""
 
-    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": press.created_id})
-    assert stored is not None
+    stored = await the_row(database, Collection.BEWERBUNGEN, {"_id": press.created_id})
 
     return {seat: entry["sent_at"] for seat, entry in stored["confirmations"].items()}
 

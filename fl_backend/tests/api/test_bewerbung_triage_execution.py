@@ -51,6 +51,7 @@ from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
 from tests.outbox import MAIL_NOW, drained
 from tests.session_headers import StampedHeaders
+from tests.stored import the_row
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
@@ -240,10 +241,9 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, reason: st
 
 
 async def stored_bewerbung(database: AsyncDatabase, bewerbung_id: ObjectId) -> Mapping[str, Any]:
-    stored = await database[Collection.BEWERBUNGEN].find_one({"_id": bewerbung_id})
-    assert stored is not None, "the seeded application is gone, which no triage endpoint may do"
-
-    return stored
+    return await the_row(
+        database, Collection.BEWERBUNGEN, {"_id": bewerbung_id}, "the seeded application is gone, which no triage endpoint may do"
+    )
 
 
 async def junction_rows(database: AsyncDatabase, **narrow: Any) -> list[Mapping[str, Any]]:

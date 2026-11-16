@@ -359,7 +359,7 @@ class TestSpielNrRunsOnceThroughTheSeason:
                 slot[spiel["spieltag_id"]],
                 "" if spiel["team1"] is None else gruppe_of[spiel["team1"]["team_id"]],
             )
-            for spiel in plan.spiele
+            for spiel in sorted(plan.spiele, key=lambda spiel: spiel["spiel_nr"])
         ]
 
         assert keys == sorted(keys)

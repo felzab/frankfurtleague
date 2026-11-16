@@ -52,6 +52,7 @@ from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
 from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -240,10 +241,7 @@ async def decline_as_club(
 
 
 async def row_now(database: AsyncDatabase, row_id: ObjectId) -> Mapping[str, Any]:
-    stored = await database[Collection.SPIELBESTAETIGUNGEN].find_one({"_id": row_id})
-    assert stored is not None
-
-    return stored
+    return await the_row(database, Collection.SPIELBESTAETIGUNGEN, {"_id": row_id})
 
 
 class WritesRecorded:
@@ -1116,10 +1114,7 @@ async def decline_as_referee(database: AsyncDatabase, client: AsyncMongoClient, 
 
 
 async def spiel_now(database: AsyncDatabase, spiel_id: ObjectId = SPIEL) -> Mapping[str, Any]:
-    stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
-    assert stored is not None
-
-    return stored
+    return await the_row(database, Collection.SPIELE, {"_id": spiel_id})
 
 
 class TestARefereesDeclineReturnsTheSpiel:

@@ -6,8 +6,7 @@ result or a club for its answer. So one corpus seeds a fixture per kind, and bes
 a row about an Ansetzung its fixture has left, a fixture called off, another season's fixture, a decided application.
 """
 
-import asyncio
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -15,7 +14,6 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
-from pymongo import MongoClient
 
 from app.api.saisons.overview import _gaps
 from app.api.spiele.schemas import FLSpielJoinedInternal
@@ -24,9 +22,7 @@ from app.core.config import API_VERSION
 from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
-from tests.database import a_clean_database_sync
-
-from .conftest import unwritten
+from tests.database import a_clean_database, bounded, unwritten
 
 SAISON = "2026"
 OTHER_SAISON = "2025"
@@ -150,39 +146,38 @@ def application(bewerbung_id: ObjectId, status: str, submitted_at: str, **fields
 
 
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     database_name = build_test_config().db_base_name
 
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, database_name) as database:
-            database[Collection.GRANTS].insert_many(grants_for_the_suite())
-            database[Collection.SAISONS].insert_many(
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, database_name) as (_, database):
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
+            await database[Collection.SAISONS].insert_many(
                 [documents.saison_document(OTHER_SAISON, "past"), documents.saison_document(SAISON, "active")]
             )
-            database[Collection.TEAMS].insert_many(
+            await database[Collection.TEAMS].insert_many(
                 [
                     documents.team_document(HOME, "Lessing", "LES"),
                     documents.team_document(AWAY, "Goethe", "GOE"),
                     documents.team_document(PICKED, "Schiller", "SCH"),
                 ]
             )
-            database[Collection.SAISON_TEAMS].insert_many(
+            await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     documents.saison_team_document(SAISON, team_id, name, name[:3].upper())
                     for team_id, name in ((HOME, "Lessing"), (AWAY, "Goethe"), (PICKED, "Schiller"))
                 ]
             )
-            database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
-            database[Collection.SCHIEDSRICHTER].insert_one(
+            await database[Collection.SPIELORTE].insert_one(documents.spielort_document(SPIELORT, "Halle Ost", default_mietpreis=40))
+            await database[Collection.SCHIEDSRICHTER].insert_one(
                 documents.schiedsrichter_document(
                     SCHIEDSRICHTER, email="anna.koerner@example.com", name="Anna Körner", default_payment=20, einwilligung=None
                 )
             )
-            database[Collection.SPIELE].insert_many(list(SPIELE.values()))
-            database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
-            database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
-            database[Collection.BEWERBUNGEN].insert_many(
+            await database[Collection.SPIELE].insert_many(list(SPIELE.values()))
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_many(ROWS)
+            await database[Collection.SPIELBERICHTE].insert_one(documents.spielbericht_document(SPIELE[REPORTED]))
+            await database[Collection.BEWERBUNGEN].insert_many(
                 [
                     application(NEW_SCHOOL, "submitted", "2026-02-01", schule=documents.new_schule_document("Riedberg")),
                     application(PICKED_CLUB, "submitted", "2026-02-10", team_id=PICKED),
@@ -190,18 +185,15 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 ]
             )
 
-            with unwritten(mongo_replica_set_url, database_name):
-                yield mongo_replica_set_url
-    finally:
-        client.close()
+    await bounded(_seed())
+
+    with unwritten(mongo_replica_set_url, database_name):
+        yield mongo_replica_set_url
 
 
-def answered(uri: str, path: str) -> Response:
-    async def _answered() -> Response:
-        async with app_client(uri, app=app_under_test(), now=NOW) as http:
-            return await http.get(path, headers=dict(ADMIN_AUTH))
-
-    return asyncio.run(_answered())
+async def answered(uri: str, path: str) -> Response:
+    async with app_client(uri, app=app_under_test(), now=NOW) as http:
+        return await http.get(path, headers=dict(ADMIN_AUTH))
 
 
 def placed(response: Response) -> dict[str, list[tuple[str, Any]]]:
@@ -215,10 +207,10 @@ def placed(response: Response) -> dict[str, list[tuple[str, Any]]]:
 
 @pytest.mark.db
 class TestEachKindLandsOnItsCard:
-    def test_every_kind_is_on_its_card_and_nothing_else_is(self, seeded_url: str):
+    async def test_every_kind_is_on_its_card_and_nothing_else_is(self, seeded_url: str):
         """A kind left out, one widened to another season or a stale row, or a fixture twice on a card changes a list here."""
 
-        response = answered(seeded_url, PATH)
+        response = await answered(seeded_url, PATH)
 
         assert response.status_code == 200
         assert placed(response) == {
@@ -237,7 +229,7 @@ class TestEachKindLandsOnItsCard:
             "bewerbungen": [("bewerbung", "Riedberg"), ("bewerbung", "Schiller")],
         }
 
-    def test_each_row_carries_what_its_act_writes(self, seeded_url: str):
+    async def test_each_row_carries_what_its_act_writes(self, seeded_url: str):
         """The acts' inputs: a proposal's row and its slot and whom each act mails, each owed party's row and name, an application's seats.
 
         A referee left off the owed parties cannot be entered from the page; a recipient the page guesses names a mail the
@@ -246,7 +238,7 @@ class TestEachKindLandsOnItsCard:
 
         rows = {
             (row["kind"], row["spiel"]["spiel_nr"] if "spiel" in row else row["name"]): row
-            for card in answered(seeded_url, PATH).json()["cards"]
+            for card in (await answered(seeded_url, PATH)).json()["cards"]
             for row in card["rows"]
         }
         proposed = rows[("vorschlag_open", PROPOSED)]

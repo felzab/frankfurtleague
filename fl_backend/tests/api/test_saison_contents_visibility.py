@@ -1,24 +1,18 @@
-import asyncio
-import functools
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
-from tests.database import a_clean_database, bounded
+from tests.database import a_clean_database, bounded, unwritten
 from tests.worker import worker_database
-
-from .conftest import config_for, unwritten
 
 DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
 
@@ -126,19 +120,9 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
         yield mongo_replica_set_url
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every request a case sends: building one costs more than the request."""
-
-    return create_app(config_for(DATABASE_NAME))
-
-
-def answered(url: str, path: str) -> Response:
-    async def _answered() -> Response:
-        async with app_client(url, app=_served()) as http:
-            return await http.get(path, headers=BASE_AUTH)
-
-    return asyncio.run(_answered())
+async def answered(url: str, path: str) -> Response:
+    async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
+        return await http.get(path, headers=BASE_AUTH)
 
 
 # What fills each parameter a season-scoped read can take, for the season a case names: the season itself, or that
@@ -194,8 +178,8 @@ def request_for(path: str, parameters: list[Mapping[str, Any]], saison_id: str) 
 class TestEveryReadScopedByASeasonResolvesIt:
     """`app/api/saisons/visibility.py :: resolve_public_saison` makes the refusal; these hold each read to calling it."""
 
-    def test_the_planned_season_misses(self, path: str, parameters: list[Mapping[str, Any]], seeded_league: str):
-        response = answered(seeded_league, request_for(path, parameters, PLANNED))
+    async def test_the_planned_season_misses(self, path: str, parameters: list[Mapping[str, Any]], seeded_league: str):
+        response = await answered(seeded_league, request_for(path, parameters, PLANNED))
 
         assert response.status_code == 404, response.text
 
@@ -207,9 +191,9 @@ def test_the_inventory_is_read_off_the_app():
 
 
 @pytest.mark.db
-def test_a_match_of_another_season_misses_on_the_season_s_match_page(seeded_league: str):
+async def test_a_match_of_another_season_misses_on_the_season_s_match_page(seeded_league: str):
     """The match page names its season in the path; a readable season with another season's match id holds no such match."""
 
-    response = answered(seeded_league, f"{PREFIX}/saisons/{RUNNING}/spiele/{an_id('2', ARCHIVED)}")
+    response = await answered(seeded_league, f"{PREFIX}/saisons/{RUNNING}/spiele/{an_id('2', ARCHIVED)}")
 
     assert response.status_code == 404, response.text

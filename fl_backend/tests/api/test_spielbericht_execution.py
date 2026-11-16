@@ -4,7 +4,7 @@ API · a fixture's report written, read and judged against the shipped indexes
 The report writes its own document alone: never the fixture, whose result the administrator saves.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -34,6 +34,7 @@ from tests.database import a_clean_database
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.records import record_collections
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -629,10 +630,7 @@ async def save_the_result(database: AsyncDatabase, team1: int, team2: int) -> No
 
 
 async def spiel_version(database: AsyncDatabase) -> int:
-    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
-    assert stored_spiel is not None, "the seed holds no fixture"
-
-    return stored_spiel["version"]
+    return (await the_row(database, Collection.SPIELE, {"_id": SPIEL}, "the seed holds no fixture"))["version"]
 
 
 async def report_states(database: AsyncDatabase) -> list[tuple[ObjectId, str]]:
@@ -910,11 +908,10 @@ async def a_reported_quarter_final(database: AsyncDatabase, client: AsyncMongoCl
     await correct_the_feeder(database, client, 0, 1)
 
 
-async def quarter_final_report(database: AsyncDatabase) -> dict[str, Any]:
-    document = await database[Collection.SPIELBERICHTE].find_one({"spiel_id": VIERTELFINALE})
-    assert document is not None, "the referee's report on the quarter-final was never written"
-
-    return document
+async def quarter_final_report(database: AsyncDatabase) -> Mapping[str, Any]:
+    return await the_row(
+        database, Collection.SPIELBERICHTE, {"spiel_id": VIERTELFINALE}, "the referee's report on the quarter-final was never written"
+    )
 
 
 class TestAReportOutlivingItsSpieleClub:

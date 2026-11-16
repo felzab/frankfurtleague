@@ -21,6 +21,7 @@ from app.core import clock
 from app.core.collections import Collection
 from tests import documents
 from tests.payloads import spiel_patch_body
+from tests.stored import the_row
 
 SAISON_ID = "2026"
 
@@ -51,7 +52,6 @@ SPIELTAGE = {
 
 VIERTELFINALE = ObjectId("6890a1b2c3d4e5f607220011")
 HALBFINALE = ObjectId("6890a1b2c3d4e5f607220012")
-
 
 # Read back off the stored documents, which key by `spiel_nr` rather than by id.
 VIERTELFINALE_NR = 1
@@ -167,7 +167,6 @@ def bracket_season() -> list[dict[str, Any]]:
 SPIELORT = ObjectId("6890a1b2c3d4e5f6072200b1")
 SPIELORT_RETIRED = ObjectId("6890a1b2c3d4e5f6072200b2")
 
-
 SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6072200c1")
 SCHIEDSRICHTER_RETIRED = ObjectId("6890a1b2c3d4e5f6072200c2")
 # Entered by an administrator, its person's confirmation not yet in.
@@ -277,8 +276,7 @@ async def payload_for(database: AsyncDatabase, spiel_id: ObjectId, **overrides: 
     erased rather than kept, and the test would be about that instead.
     """
 
-    stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
-    assert stored is not None, f"the seed holds no fixture {spiel_id}"
+    stored = await the_row(database, Collection.SPIELE, {"_id": spiel_id}, f"the seed holds no fixture {spiel_id}")
 
     return FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides))
 

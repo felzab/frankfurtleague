@@ -25,6 +25,7 @@ from app.api.teams.admin_router import post_team_entry
 from app.api.teams.schemas import FLPostTeamEntryPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.core.crud import ANCHOR_FIELD
 from tests import documents
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document
@@ -40,10 +41,6 @@ DATABASE_NAME = worker_database("fl_capacity_isolation_test")
 SAISON = "2026"
 TEAMS_PER_GROUP = 4
 MAX_KADER_SIZE = 18
-
-# The season field every writer judged against one of that season's bounds advances, which is the
-# whole of what puts two of them in one write set.
-ANCHOR_FIELD = "bounded_writes"
 
 # One phase, two dated positions. The pair each writer moves to is one the other's neighbours
 # permit and the committed pair is not.

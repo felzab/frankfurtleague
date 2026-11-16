@@ -58,7 +58,6 @@ SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077500c1")
 OTHER_SCHIEDSRICHTER = ObjectId("6890a1b2c3d4e5f6077500c2")
 SPIEL = ObjectId("6890a1b2c3d4e5f6077500d1")
 
-
 REFEREE_EMAIL = "pfeife@example.com"
 OTHER_REFEREE_EMAIL = "flagge@example.com"
 
@@ -67,7 +66,6 @@ SEATS = {
     ALPHA: {"trainer": "Tamsin", "ansprechperson": "Anwen", "stellvertretung": "Stellan"},
     BETA: {"trainer": "Bertil", "ansprechperson": "Brigid", "stellvertretung": "Bodo"},
 }
-
 
 # Before any pass of a case, so the pass mails each seat: an address nobody proved is mailed nothing.
 CONFIRMED_ON = "2126-03-01"

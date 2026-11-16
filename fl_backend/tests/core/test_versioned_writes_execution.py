@@ -5,7 +5,7 @@ A save passing the version its form was read at matches only while it stands; ev
 write to a field no form saves, which goes past it.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
@@ -21,6 +21,7 @@ from app.core.exceptions import APIError
 from app.core.transactions import transaction_session
 from tests import documents
 from tests.database import a_clean_database
+from tests.stored import the_row
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -53,11 +54,8 @@ async def on_two_spiele(url: str, body: Body) -> Any:
         return await body(database)
 
 
-async def stored(database: AsyncDatabase, spiel_id: ObjectId) -> dict[str, Any]:
-    document = await database[Collection.SPIELE].find_one({"_id": spiel_id})
-    assert document is not None
-
-    return document
+async def stored(database: AsyncDatabase, spiel_id: ObjectId) -> Mapping[str, Any]:
+    return await the_row(database, Collection.SPIELE, {"_id": spiel_id})
 
 
 async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_version: int | None = None) -> None:
@@ -72,7 +70,7 @@ async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_vers
 
 class TestASaveNamingItsVersion:
     async def test_a_save_on_a_version_another_write_raised_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> tuple[APIError, dict[str, Any]]:
+        async def body(database: AsyncDatabase) -> tuple[APIError, Mapping[str, Any]]:
             await save(database, {"$set": {"note": "first"}})
             with pytest.raises(APIError) as refused:
                 await save(database, {"$set": {"note": "stale"}}, expected_version=0)
@@ -87,7 +85,7 @@ class TestASaveNamingItsVersion:
 
 class TestEveryOtherWrite:
     async def test_a_save_naming_no_version_writes_and_raises_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> dict[str, Any]:
+        async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             await save(database, {"$set": {"note": "without"}})
 
             return await stored(database, FIRST)

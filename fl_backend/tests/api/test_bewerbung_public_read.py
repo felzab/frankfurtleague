@@ -1,5 +1,4 @@
-import asyncio
-from collections.abc import Iterator, Mapping
+from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -7,23 +6,21 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId
 from httpx2 import Response
-from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH, build_test_config
-from tests.database import a_clean_database_sync
+from tests.database import a_clean_database, bounded, unwritten
 from tests.documents import rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
-
-from .conftest import unwritten
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
 CORPUS_DATABASE = build_test_config().db_base_name
 
-# `seeded_with`'s own, for `tests/api/conftest.py :: config_for`'s reason: it clears where it seeds.
+# `seeded_with`'s own: it clears where it seeds, and given the shared corpus it would leave the cases
+# reading `seeded_url` a corpus nobody seeded.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"
@@ -108,13 +105,12 @@ def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str |
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
-def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
+async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """Every way a window can stand, the clubs, and one season's assigned colours, in `CORPUS_DATABASE`."""
 
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, CORPUS_DATABASE) as database:
-            database[Collection.SAISONS].insert_many(
+    async def _seed() -> None:
+        async with a_clean_database(mongo_replica_set_url, CORPUS_DATABASE) as (_, database):
+            await database[Collection.SAISONS].insert_many(
                 [
                     _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW)),
                     _saison(SHUT_SAISON, bewerbung={"open": True, "start": "2025-03-01", "end": "2025-04-30"}),
@@ -127,10 +123,10 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                     _saison(WINDOWLESS_SAISON, bewerbung=None),
                 ]
             )
-            database[Collection.TEAMS].insert_many(
+            await database[Collection.TEAMS].insert_many(
                 [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
             )
-            database[Collection.SAISON_TEAMS].insert_many(
+            await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     _junction(OPEN_SAISON, *CLUBS[0], trikot_farbe="rot"),
                     _junction(OPEN_SAISON, *CLUBS[1], trikot_farbe="blau"),
@@ -145,13 +141,13 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 ]
             )
 
-            with unwritten(mongo_replica_set_url, CORPUS_DATABASE):
-                yield mongo_replica_set_url
-    finally:
-        client.close()
+    await bounded(_seed())
+
+    with unwritten(mongo_replica_set_url, CORPUS_DATABASE):
+        yield mongo_replica_set_url
 
 
-def seeded_with(mongo_replica_set_url: str, saisons: list[dict[str, Any]]) -> str:
+async def seeded_with(mongo_replica_set_url: str, saisons: list[dict[str, Any]]) -> str:
     """The database name holding exactly the seasons handed in, for a case that decides which one the landing offers.
 
     `seeded_url` cannot serve those: a boundary season would sort behind its fixed answer and never
@@ -159,30 +155,23 @@ def seeded_with(mongo_replica_set_url: str, saisons: list[dict[str, Any]]) -> st
     """
 
     name = WINDOW_DATABASE
-    client = MongoClient(mongo_replica_set_url)
-    try:
-        with a_clean_database_sync(client, mongo_replica_set_url, name, constraints=True) as database:
-            database[Collection.SAISONS].insert_many(saisons)
+    async with a_clean_database(mongo_replica_set_url, name, constraints=True) as (_, database):
+        await database[Collection.SAISONS].insert_many(saisons)
 
-            # The name rather than the url handed in: what a caller pairs with `answered` is the database
-            # this seeded, and a pairing it has to assemble is one it can get wrong.
-            return name
-    finally:
-        client.close()
+    # The name rather than the url handed in: what a caller pairs with `answered` is the database
+    # this seeded, and a pairing it has to assemble is one it can get wrong.
+    return name
 
 
-def answered(uri: str, path: str, *, database_name: str = CORPUS_DATABASE) -> Response:
-    async def _answered() -> Response:
-        async with app_client(uri, app=app_under_test(database_name), now=NOW) as http:
-            return await http.get(path, headers=dict(BASE_AUTH))
-
-    return asyncio.run(_answered())
+async def answered(uri: str, path: str, *, database_name: str = CORPUS_DATABASE) -> Response:
+    async with app_client(uri, app=app_under_test(database_name), now=NOW) as http:
+        return await http.get(path, headers=dict(BASE_AUTH))
 
 
-def open_window(uri: str, *, database_name: str = CORPUS_DATABASE) -> Any:
+async def open_window(uri: str, *, database_name: str = CORPUS_DATABASE) -> Any:
     """The window the landing offers today, `None` where it offers none: the one public read of the open-window query."""
 
-    response = answered(uri, f"/api/v{API_VERSION}/saisons/landing", database_name=database_name)
+    response = await answered(uri, f"/api/v{API_VERSION}/saisons/landing", database_name=database_name)
     assert response.status_code == 200
 
     return response.json()["bewerbung_window"]
@@ -194,8 +183,8 @@ pytestmark = pytest.mark.db
 class TestTheFormRead:
     """The one read of the form's page: a state it must show, and what a season not taking applications must not tell."""
 
-    def test_a_running_window_serves_the_clubs_and_the_colours(self, seeded_url: str):
-        body = answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}").json()
+    async def test_a_running_window_serves_the_clubs_and_the_colours(self, seeded_url: str):
+        body = (await answered(seeded_url, f"{PREFIX}/form/{OPEN_SAISON}")).json()
 
         assert body["window"]["state"] == "running"
         assert [row["name"] for row in body["schulen"]] == ["Adlerhorst", "Mittelbach", "Öhlerhof", "Zetteltal"]
@@ -205,8 +194,8 @@ class TestTheFormRead:
         "saison_id",
         [pytest.param(PAUSED_SAISON, id="a paused window"), pytest.param(SHUT_SAISON, id="a window that has passed")],
     )
-    def test_a_form_not_running_serves_its_state_and_nothing_else(self, seeded_url: str, saison_id: str):
-        body = answered(seeded_url, f"{PREFIX}/form/{saison_id}").json()
+    async def test_a_form_not_running_serves_its_state_and_nothing_else(self, seeded_url: str, saison_id: str):
+        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
 
         assert body["window"]["state"] == "closed"
         assert (body["schulen"], body["taken"]) == ([], [])
@@ -215,33 +204,35 @@ class TestTheFormRead:
 class TestTheWindowReads:
     """What this tier learns about a `future` season the rule otherwise withholds: the window, and that it is there."""
 
-    def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
+    async def test_the_open_window_is_the_season_whose_span_holds_today(self, seeded_url: str):
         """Two near-misses sort ahead of the answer, so a read judging less than the whole predicate picks one of them instead.
 
         The predicate's boundary days are `tests/api/test_saison_windows.py`'s, at the default tier: this case holds
         only that the landing applies it.
         """
 
-        assert open_window(seeded_url)["saison_id"] == OPEN_SAISON
+        assert (await open_window(seeded_url))["saison_id"] == OPEN_SAISON
 
-    def test_of_two_windows_open_today_the_landing_offers_the_newer_seasons(self, mongo_replica_set_url: str):
+    async def test_of_two_windows_open_today_the_landing_offers_the_newer_seasons(self, mongo_replica_set_url: str):
         """An administrator can leave two windows open, and the landing's offer is where a school starts its application.
 
         Stored older first, so a read keeping the stored order, or sorting the other way, sends schools to the earlier season.
         """
 
         running = {"open": True, "start": "2026-03-01", "end": "2026-05-31"}
-        database = seeded_with(mongo_replica_set_url, [_saison("2027", bewerbung=dict(running)), _saison("2028", bewerbung=dict(running))])
+        database = await seeded_with(
+            mongo_replica_set_url, [_saison("2027", bewerbung=dict(running)), _saison("2028", bewerbung=dict(running))]
+        )
 
-        assert open_window(mongo_replica_set_url, database_name=database)["saison_id"] == "2028"
+        assert (await open_window(mongo_replica_set_url, database_name=database))["saison_id"] == "2028"
 
-    def test_the_landing_names_the_day_the_next_window_opens(self, mongo_replica_set_url: str):
+    async def test_the_landing_names_the_day_the_next_window_opens(self, mongo_replica_set_url: str):
         """The later window sorts ahead of the sooner, and the pause and the ended season behind both open sooner still."""
 
         later = {"open": True, "start": "2026-09-01", "end": "2026-10-31"}
         sooner = {"open": True, "start": "2026-06-01", "end": "2026-07-31"}
         earliest = {"open": True, "start": "2026-05-01", "end": "2026-05-31"}
-        database = seeded_with(
+        database = await seeded_with(
             mongo_replica_set_url,
             [
                 _saison("2029", bewerbung=later),
@@ -251,7 +242,7 @@ class TestTheWindowReads:
             ],
         )
 
-        response = answered(mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", database_name=database)
+        response = await answered(mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", database_name=database)
 
         assert response.json()["bewerbung_opens_on"] == sooner["start"]
 
@@ -276,13 +267,13 @@ class TestTheWindowReads:
             ),
         ],
     )
-    def test_the_landing_says_whether_a_season_not_ended_holds_a_window(
+    async def test_the_landing_says_whether_a_season_not_ended_holds_a_window(
         self, mongo_replica_set_url: str, saisons: list[dict[str, Any]], held: bool
     ):
         """Both open on no day, so this alone keeps a pause from telling a school to wait for next season."""
 
-        response = answered(
-            mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", database_name=seeded_with(mongo_replica_set_url, saisons)
+        response = await answered(
+            mongo_replica_set_url, f"/api/v{API_VERSION}/saisons/landing", database_name=await seeded_with(mongo_replica_set_url, saisons)
         )
 
         assert response.json()["bewerbung_opens_on"] is None
@@ -292,18 +283,18 @@ class TestTheWindowReads:
         ("saison_id", "state"),
         [pytest.param(NOT_YET_OPEN_SAISON, "upcoming", id="a span not yet begun")],
     )
-    def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str, state: str):
+    async def test_a_near_miss_is_served_as_not_running(self, seeded_url: str, saison_id: str, state: str):
         """The form's page names the opening day of an `upcoming` window, so one served as closed tells a school nothing of when it opens."""
 
-        response = answered(seeded_url, f"{PREFIX}/form/{saison_id}")
+        response = await answered(seeded_url, f"{PREFIX}/form/{saison_id}")
 
         assert response.status_code == 200
         assert response.json()["window"]["state"] == state
 
-    def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
+    async def test_the_body_for_a_season_recording_no_window_carries_no_field_of_the_season(self, seeded_url: str):
         """Existence is the whole of the narrowing, so the undecoded body is searched."""
 
-        response = answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}")
+        response = await answered(seeded_url, f"{PREFIX}/form/{WINDOWLESS_SAISON}")
 
         assert response.json() == {"window": None, "schulen": [], "taken": []}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
@@ -315,10 +306,10 @@ class TestTheColoursTaken:
     """What the Wunschfarbe picker closes. The ASSIGNMENTS on `saison_teams`, never another applicant's wish."""
 
     @pytest.mark.parametrize("saison_id", [pytest.param(NOT_YET_OPEN_SAISON, id="a span not yet begun")])
-    def test_a_season_not_taking_applications_tells_nothing(self, seeded_url: str, saison_id: str):
+    async def test_a_season_not_taking_applications_tells_nothing(self, seeded_url: str, saison_id: str):
         """Gated on whether the season takes applications, so a closed one says neither its clubs nor its colours."""
 
-        body = answered(seeded_url, f"{PREFIX}/form/{saison_id}").json()
+        body = (await answered(seeded_url, f"{PREFIX}/form/{saison_id}")).json()
 
         assert (body["schulen"], body["taken"]) == ([], [])
 
@@ -326,15 +317,15 @@ class TestTheColoursTaken:
 class TestASeasonThatHasEndedTakesNoApplication:
     """A `past` season whose stored window still runs: its dates say open, and the season is over for good."""
 
-    def test_the_landing_passes_over_it(self, mongo_replica_set_url: str):
+    async def test_the_landing_passes_over_it(self, mongo_replica_set_url: str):
         """It sorts AHEAD of the running season, so a query without the status term finds it rather than `2026`."""
 
-        database = seeded_with(
+        database = await seeded_with(
             mongo_replica_set_url,
             [_saison("2027", bewerbung=dict(RUNNING_WINDOW), status="past"), _saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW))],
         )
 
-        assert open_window(mongo_replica_set_url, database_name=database)["saison_id"] == OPEN_SAISON
+        assert (await open_window(mongo_replica_set_url, database_name=database))["saison_id"] == OPEN_SAISON
 
     @pytest.mark.parametrize(
         ("status", "state"),
@@ -343,9 +334,13 @@ class TestASeasonThatHasEndedTakesNoApplication:
             pytest.param("active", "running", id="the running season"),
         ],
     )
-    def test_its_own_window_read_serves_that_it_has_ended_and_no_other_season_s_does(self, mongo_replica_set_url: str, status: str, state: str):
+    async def test_its_own_window_read_serves_that_it_has_ended_and_no_other_season_s_does(
+        self, mongo_replica_set_url: str, status: str, state: str
+    ):
         """Both sides: a field answering one value fails a case."""
 
-        database = seeded_with(mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)])
+        database = await seeded_with(mongo_replica_set_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)])
 
-        assert answered(mongo_replica_set_url, f"{PREFIX}/form/{OPEN_SAISON}", database_name=database).json()["window"]["state"] == state
+        assert (await answered(mongo_replica_set_url, f"{PREFIX}/form/{OPEN_SAISON}", database_name=database)).json()["window"][
+            "state"
+        ] == state

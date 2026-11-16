@@ -27,6 +27,7 @@ from app.api.grants.system_router import post_handover_pass
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.security import PASSKEY_FACTOR
 from app.shared.schemas.bounds import GRANT_WAIT_HOURS, OWNER_WAIT_DAYS
@@ -36,7 +37,7 @@ from tests.bans import ban_through_the_route
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import address_change_document, ban_document, rules_document, saison_document
-from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of, refused_code
+from tests.isolation import COMMITTED, GrantsRunningARivalAfterTheFirstRead, outcome_of, refused_code
 from tests.session_headers import StampedHeaders, session_headers
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -258,7 +259,7 @@ class TestAnAddition:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
             created = await add(database, client)
 
-            return await database[Collection.GRANTS].find_one({"_id": created}, {"_id": 0, "bounded_writes": 0}), await owed(database)
+            return await database[Collection.GRANTS].find_one({"_id": created}, {"_id": 0, ANCHOR_FIELD: 0}), await owed(database)
 
         row, notices = await on_a_league(mongo_replica_set_url, body)
 
@@ -507,10 +508,10 @@ class TestThePass:
     async def test_before_its_date_it_moves_nothing_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], int]:
             await hand_over(database, client)
-            before = (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"]
+            before = (await the_row(database, Collection.GRANTS, ANNA_ID))[ANCHOR_FIELD]
             handed_over = await pass_at(database, client, NOW + timedelta(days=OWNER_WAIT_DAYS) - timedelta(seconds=1))
 
-            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))["bounded_writes"] - before
+            return handed_over, await tiers(database), (await the_row(database, Collection.GRANTS, ANNA_ID))[ANCHOR_FIELD] - before
 
         handed_over, held, anchors = await on_a_league(mongo_replica_set_url, body)
 
@@ -565,26 +566,6 @@ class TestThePass:
         outcome, held = await on_a_league(mongo_replica_set_url, body)
 
         assert (outcome, held[OWNER]) == (COMMITTED, "owner")
-
-
-class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
-    """The grants a judging transaction reads, a rival write run once after that read and before its anchor.
-
-    So only the anchor can make the two conflict.
-    """
-
-    def __init__(self, collection: Any, rival: Rival) -> None:
-        async def reported() -> None:
-            self.rival_outcome = await outcome_of(rival())
-
-        super().__init__(collection, reported)
-        self.rival_outcome: str | None = None
-
-    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._collection.aggregate(*args, **kwargs)
-        await self.run_the_rival()
-
-        return cursor
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NORA_TYPED, *, grants: Any = None) -> Any:
