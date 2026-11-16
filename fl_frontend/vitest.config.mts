@@ -15,7 +15,7 @@ const PRODUCTION_BUILD = ["src/**/*.production.test.ts"];
  * transaction lifetime: a write or an index build behind a transaction a case left open waits until that transaction
  * ends (https://www.mongodb.com/docs/manual/core/transactions-production-consideration/), so the step waiting fails on
  * Vitest's bound before the server's expiry frees it and lets the case pass. A `beforeAll` builds the sign-in store's
- * indexes, each command under the client's three-second socket bound. The replica set's start is bounded apart: each
+ * indexes, asking again for any build the store answers past the client's three-second socket bound. The replica set's start is bounded apart: each
  * file awaits it at module level, where neither bound reaches (`src/test-support/replicaSet.ts :: STARTED_WITHIN_MS`).
  */
 const DB_TIER = { testTimeout: 30_000, hookTimeout: 30_000 };

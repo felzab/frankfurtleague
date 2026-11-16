@@ -203,7 +203,7 @@ closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
 
 // Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+// file, as a boot builds them once.
 beforeAll(async () => {
   const from = log.lines().length;
   await buildAuthIndexes();
