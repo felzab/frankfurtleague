@@ -1,4 +1,4 @@
-"""SCRIPTS · the orchestration skill's tools, driven over fixture repositories and registers.
+"""ORCHESTRATION · the orchestration skill's tools, driven over fixture repositories and registers.
 
 Each tool replaces a step a coordinator can get wrong in silence: a merge taking in work nobody
 committed, a clock time typed ahead of the clock, a finding banked with no ledger row, a CI red read
