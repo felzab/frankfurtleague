@@ -416,13 +416,16 @@ finish() { # [--what <what ran>] · a sentence for the green statement
 }
 
 # Its own ending: the check ran and its result cannot stand as a verdict. Ranked above `pass`, so
-# a step that passed before the refusal cannot leave the row reading green.
+# a step that passed before the refusal cannot leave the row reading green. `--summary` first, as
+# `fail`'s: the refusal restates one a script annotated itself.
 refuse() {
+  local summary=0
+  if [[ "${1-}" == --summary ]]; then summary=1; shift; fi
   _escalate 3
   # Closed first, so the message lands outside the Actions fold: a reader told to look above must
   # not be sent into something collapsed.
   end_section
-  _annotate "$*"
+  if (( ! summary )); then _annotate "$*"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "$*" >&2
   # As `die` and an interrupt: a script speaking the verbs plainly ends on its own sentence.
@@ -434,7 +437,10 @@ refuse() {
 
 # `set -e` otherwise exits in silence. A library helper passes $4, the file its line is in, read off
 # `BASH_SOURCE` at that line's frame: its caller may be a sourced file rather than the script.
+# `--summary` first, as `fail`'s: the crash is a script's that annotated its own.
 on_error() {
+  local summary=0
+  if [[ "${1-}" == --summary ]]; then summary=1; shift; fi
   local rc="$1" line="$2" cmd="$3" file="${4:-$SELF}"
   local where="${file##*/}"
   # The open section crashed whatever its steps reached: a row reading `pass` beside a crash
@@ -442,7 +448,7 @@ on_error() {
   _escalate 5
   # Outside the fold, so a reader told to look above is not sent into something collapsed.
   end_section
-  _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"
+  if (( ! summary )); then _annotate "${where} failed at line ${line}: ${cmd} (exit status ${rc})"; fi
   printf '\n' >&2
   _emit "$C_RED" "   ✗" "${where} failed
 line ${line}:  ${cmd}

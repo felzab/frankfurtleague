@@ -1068,7 +1068,7 @@ if [[ -n "$TOKEN_LINES" ]]; then
 fi
 
 if (( LINE_FAILURES + HEADER_FAILURES + ACTION_FAILURES + BODY_FAILURES + RESOLVE_FAILURES + UPSTREAM_FAILURES > 0 )); then
-  die "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap, ${RESOLVE_FAILURES} upstream and ${UPSTREAM_FAILURES} failing-frontend cases failed.
+  die --summary "${LINE_FAILURES} access-line, ${HEADER_FAILURES} header, ${ACTION_FAILURES} limit, ${BODY_FAILURES} body-cap, ${RESOLVE_FAILURES} upstream and ${UPSTREAM_FAILURES} failing-frontend cases failed.
 Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 

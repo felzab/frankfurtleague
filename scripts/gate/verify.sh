@@ -119,13 +119,14 @@ SCOPE="${SELECTED[0]}"
 # A command's status read into the exit contract through `--exits`, its tool's tables in
 # `_lib.sh :: EXIT_CODES` (`tool` where none is named, `pytest` under `--pytest`): what it found is a
 # finding, what it could not judge a refusal, anything else a crash. `--summary` is for a tool raising
-# an annotation per finding itself under Actions, as Vitest and the self-check do: what is said then
-# sums them, `fail --summary`. `--pytest` raises those annotations for pytest, one per case its
-# summary names.
-check() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · the command
+# an annotation per finding itself under Actions, as Vitest does: what is said then sums them,
+# `fail --summary`. `--annotated` is for a script on this library, which annotates its own findings,
+# refusals and crashes, so none is raised again. `--pytest` raises those annotations for pytest, one
+# per case its summary names.
+check() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · the command
   local said rc=0 command
   local -a flags=()
-  while [[ "$1" == --exits || "$1" == --summary || "$1" == --pytest ]]; do
+  while [[ "$1" == --exits || "$1" == --summary || "$1" == --annotated || "$1" == --pytest ]]; do
     if [[ "$1" == --exits ]]; then flags+=("$1" "$2"); shift 2; else flags+=("$1"); shift; fi
   done
   said="$1"; shift
@@ -152,12 +153,13 @@ exits_of() { # the flags
 }
 
 # `check`'s reading of a status the command has already answered, its output in `QUIETLY_OUTPUT`.
-verdict() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
+verdict() { # [--exits <tables>] [--summary | --annotated | --pytest] $1 what to say on a finding · $2 the status · $3 the caller's line · $4 the command
   local exits pytest=0 class=0
-  local -a summary=()
+  local -a summary=() annotated=()
   exits="$(exits_of "$@")"
   if [[ "$1" == --exits ]]; then shift 2; fi
   if [[ "$1" == --summary ]]; then summary=(--summary); shift; fi
+  if [[ "$1" == --annotated ]]; then summary=(--summary); annotated=(--summary); shift; fi
   if [[ "$1" == --pytest ]]; then pytest=1; shift; fi
   exit_class "$exits" "$2" || class=$?
   case "$class" in
@@ -166,10 +168,10 @@ verdict() { # [--exits <tables>] [--summary | --pytest] $1 what to say on a find
     1) if [[ "$QUIETLY_OUTPUT" == *ERR_PNPM_NO_SCRIPT* ]]; then on_error "$2" "$3" "$4"; fi
        if (( pytest )) && annotate_cases; then summary=(--summary); fi
        fail "${summary[@]}" "$1"; return 1 ;;
-    2) refuse "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
+    2) refuse "${annotated[@]}" "${_STEP_LABEL} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above (exit status $2)." ;;
     130) on_interrupt ;;
-    *) on_error "$2" "$3" "$4" ;;
+    *) on_error "${annotated[@]}" "$2" "$3" "$4" ;;
   esac
 }
 
@@ -215,7 +217,7 @@ run_beside() { # $1 where its files go · the command
 # A command `run_beside` ran, read under the open step as `check` reads its own: its output where
 # it failed, or under `--verbose` whole, since two steps streaming at once would interleave. The
 # step's time is the command's own rather than the moment its step was printed.
-beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
+beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated | --pytest] $2 what to say on a finding · $3 the command, as a crash names it
   local at="$1" rc=3 ms=0 class=0
   local -a said=()
   shift
@@ -272,7 +274,7 @@ esac
 scope_scripts() {
   section scripts
   step "scripts · selfcheck"
-  check --exits contract --summary "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
+  check --exits contract --annotated "scripts/gate/selfcheck.sh found the findings above." bash scripts/gate/selfcheck.sh \
     && ok "the shell scripts parse, are executable in git and lint clean, and the workflows lint clean"
 
   step "scripts · ruff  (lint, and format in check mode)"
@@ -548,7 +550,7 @@ findings above name the service and the rule." \
 
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
-  check --exits contract "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
+  check --exits contract --annotated "The running edge failed a case. Each failing case above is what nginx WROTE or SENT, and the
 files under nginx/shared/ decide it." bash scripts/checks/edge_test.sh \
     && ok "the edge logged and sent every case as written"
   return 0
