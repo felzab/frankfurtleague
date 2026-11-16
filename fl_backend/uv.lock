@@ -262,6 +262,13 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+checks = [
+    { name = "pyright", extra = ["nodejs"] },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+]
 dev = [
     { name = "deptry" },
     { name = "httpx2" },
@@ -292,6 +299,13 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+checks = [
+    { name = "pyright", extras = ["nodejs"], specifier = ">=1.1.414" },
+    { name = "pytest", specifier = ">=9.2.0" },
+    { name = "pytest-asyncio", specifier = ">=1.5.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.17.4" },
+]
 dev = [
     { name = "deptry", specifier = ">=0.25.1" },
     { name = "httpx2", specifier = ">=2.16.0" },

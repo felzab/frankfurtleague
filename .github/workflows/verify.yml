@@ -48,9 +48,11 @@ jobs:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
+      # pytest with xdist, ruff and pyright alone: no script or test of the scope imports another package.
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
+          group: checks
       # A case of the suite lists the Playwright projects through the frontend's own install.
       - uses: ./.github/actions/frontend-toolchain
       - name: Run the scripts scope
