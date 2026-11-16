@@ -80,14 +80,12 @@ ok "every image is on this host"
 # Through a second file and a rename, so the pin is never half written.
 pin() { printf 'TAG=%s\n' "$1" > .env.next && mv -f .env.next .env; }
 
-# Every service the compose file defines that is not running and healthy, into FAILING: one with no
-# running container, and one whose health is anything but none or `healthy`, `starting` included.
-# `up --wait` judges each service once, so one can turn unhealthy while it waits on another, and some
-# Compose releases answer 0 at the timeout with one still starting. `ps` without `--all` lists only
-# the project's running containers and no one-off container `docker compose run` left
-# (https://docs.docker.com/reference/cli/docker/compose/ps/), which `--all` lists under its service's
-# name. Answers 0 for none, 1 for some, and 2 where compose could not answer either read or named no
-# service, of which a read can find none failing.
+# Every service the compose file defines that is not running and healthy, into FAILING, a health of
+# `starting` included. `up --wait` judges each service once, so one can turn unhealthy while it waits
+# on another, and some Compose releases answer 0 at the timeout with one still starting. `ps` without
+# `--all` lists the project's running containers alone, never a one-off container `docker compose
+# run` left, which `--all` lists under its service's name. Answers 0 for none, 1 for some, and 2
+# where compose could not answer either read or named no service, which would read as none failing.
 FAILING=()
 read_states() {
   local defined listed service state health
@@ -128,12 +126,12 @@ show_failure() {
 up() { quietly docker compose up -d --wait --wait-timeout "$WAIT_S" --remove-orphans; }
 
 # `nginx -s reload` answers 0 once the signal is sent. The running master then starts new workers or
-# keeps its old configuration (https://nginx.org/en/docs/control.html), refusing some a fresh
-# `nginx -t` passes, such as a zone keyed anew under its old name. Its error log, the container's
-# output, says which, each line naming the pid that wrote it. The master logs `reconfiguring`, then
-# the reason it refuses or `start worker processes` at notice, the image's nginx.conf level. Only the
-# master's lines are read: a worker's request can log an alert of its own, such as its connections
-# running out, which bears no connection number either.
+# keeps its old configuration, refusing some a fresh `nginx -t` passes, such as a zone keyed anew
+# under its old name. Its error log, the container's output, says which, each line naming the pid
+# that wrote it. The master logs `reconfiguring`, then the reason it refuses or `start worker
+# processes` at notice, the image's nginx.conf level. Only the master's lines are read: a worker's
+# request can log an alert of its own, such as its connections running out, which bears no
+# connection number either.
 reload_nginx() {
   local since="${EPOCHREALTIME/,/.}" refusal="$failure" said master refused i
   quietly docker compose exec -T nginx nginx -s reload || return 1
