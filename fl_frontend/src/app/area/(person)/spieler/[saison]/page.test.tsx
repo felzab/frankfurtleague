@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { prerender } from "react-dom/static";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
 import type { FLSpielerSaisonSelfResponse, FLSpielerSaisonSelfSpiel } from "@/core/generated/client/types";
-
-vi.mock("next/navigation", () => ({ usePathname: () => "/area/spieler/2027", useRouter: () => ({ replace: vi.fn() }) }));
 
 /** The pupil's own season as the backend holds it, which each case sets. */
 const own = { read: null as FLSpielerSaisonSelfResponse | null };
@@ -71,10 +70,13 @@ async function landed(inactive_since: string | null, spiel: FLSpielerSaisonSelfS
     spiele: [spiel],
   };
   const { prelude } = await prerender(
-    <SpielerOverviewPage
-      params={Promise.resolve({ saison: "2027" })}
-      searchParams={Promise.resolve({})}
-    />,
+    underNext(
+      <SpielerOverviewPage
+        params={Promise.resolve({ saison: "2027" })}
+        searchParams={Promise.resolve({})}
+      />,
+      { pathname: "/area/spieler/2027" },
+    ),
     {
       progressiveChunkSize: Number.MAX_SAFE_INTEGER,
     },

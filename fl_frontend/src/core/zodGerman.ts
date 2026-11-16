@@ -12,8 +12,10 @@ const { field, failure } = COPY.shared;
 /** A number schema's bounds as JSON Schema states them, the one public reading that keeps a bound's exclusiveness. */
 type NumberBounds = { minimum?: number; exclusiveMinimum?: number; maximum?: number; exclusiveMaximum?: number };
 
-// A bound at the safe integers' edge is an integer's own range, which `z.int()` holds and no rule sets.
-const isRuled = (bound: number | undefined): bound is number => bound !== undefined && Math.abs(bound) < Number.MAX_SAFE_INTEGER;
+// A bound at the safe integers' edge is an integer's own range, which `z.int()` holds and no rule sets. Answered as the
+// bound or `undefined` rather than as a type predicate, whose `false` would narrow that edge to `undefined`.
+const ruled = (bound: number | undefined): number | undefined =>
+  bound !== undefined && Math.abs(bound) < Number.MAX_SAFE_INTEGER ? bound : undefined;
 
 /**
  * A number's line, naming every bound the schema sets as the figure a person can type at it: an exclusive bound moves
@@ -21,11 +23,11 @@ const isRuled = (bound: number | undefined): bound is number => bound !== undefi
  */
 function numberMessage(schema: z.core.$ZodType): Copy | undefined {
   const bounds = z.toJSONSchema(schema) as NumberBounds;
-  const lower = bounds.exclusiveMinimum === undefined ? bounds.minimum : bounds.exclusiveMinimum + 1;
-  const upper = bounds.exclusiveMaximum === undefined ? bounds.maximum : bounds.exclusiveMaximum - 1;
-  if (isRuled(lower) && isRuled(upper)) return field.between(lower, upper);
-  if (isRuled(lower)) return field.min(lower);
-  if (isRuled(upper)) return field.max(upper);
+  const lower = ruled(bounds.exclusiveMinimum === undefined ? bounds.minimum : bounds.exclusiveMinimum + 1);
+  const upper = ruled(bounds.exclusiveMaximum === undefined ? bounds.maximum : bounds.exclusiveMaximum - 1);
+  if (lower !== undefined && upper !== undefined) return field.between(lower, upper);
+  if (lower !== undefined) return field.min(lower);
+  if (upper !== undefined) return field.max(upper);
   return undefined;
 }
 

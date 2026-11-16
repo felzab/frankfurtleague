@@ -36,7 +36,7 @@ const backend = serveBackend(({ method, path, body }) => {
   return answer instanceof Response ? answer : ({ unreferenced: [...answer] } satisfies FLReferencesResponse);
 });
 const { owed } = registerAuthDoubles({ specifiers: { "@better-auth/mongo-adapter": ADAPTER } });
-const log = captureLog();
+const log = captureLog("production");
 
 const { auth } = await import("@/core/auth/library");
 const { REFERENCES_ADDRESSES_MAX, runAccountSweep } = await import("./sweep");

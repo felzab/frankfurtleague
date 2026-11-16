@@ -18,7 +18,7 @@ const builds: Build[] = [];
 // every value a line is handed, an `error` that is no `Error` among them, which a refused build's line is held to.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));

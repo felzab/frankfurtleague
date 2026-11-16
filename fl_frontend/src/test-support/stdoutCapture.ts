@@ -50,6 +50,7 @@ function beginCapture(read: (raw: string) => void): { faults: string[]; restore:
  * asynchronously; a chunk that is no one document fails the call once `run` has ended.
  */
 export async function documentsWrittenByAsync(run: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
+  requireProductionBuild();
   const documents: Record<string, unknown>[] = [];
   const { faults, restore } = beginCapture((raw) => {
     if (raw.slice(0, -1).includes("\n")) throw new Error("more than one document in one write");
@@ -65,7 +66,7 @@ export async function documentsWrittenByAsync(run: () => Promise<unknown>): Prom
   return documents;
 }
 
-/** One line the application's logger wrote, read back from either of its two formats. */
+/** One line the application's logger wrote, read back from the one of its two formats its capture reads. */
 export type LoggedLine = {
   readonly level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
   readonly message: string;
@@ -91,7 +92,9 @@ export type LoggedLine = {
 const PLAIN_LINE = /^(DEBUG|INFO|WARNING|ERROR|CRITICAL) /;
 
 /** The plain line `next dev` and every test project but `unit-production` write: `LEVEL message {fields}`, the stack below. */
-function readPlain(raw: string, level: LoggedLine["level"]): LoggedLine {
+function readPlain(raw: string): LoggedLine {
+  const level = PLAIN_LINE.exec(raw)?.[1] as LoggedLine["level"] | undefined;
+  if (level === undefined) throw new Error("a line that is no plain line");
   const [head = "", ...stackLines] = raw.slice(0, -1).split("\n");
   const rest = head.slice(level.length + 1);
   // The fields close the first line, and a message holding " {" leaves a remainder no parse accepts, so the first
@@ -131,27 +134,37 @@ function readDocument(raw: string): LoggedLine {
   };
 }
 
-/** One of the logger's chunks, in whichever of its two formats it was written. */
-function readLine(raw: string): LoggedLine {
-  const level = PLAIN_LINE.exec(raw)?.[1] as LoggedLine["level"] | undefined;
-  return level === undefined ? readDocument(raw) : readPlain(raw, level);
+/**
+ * Refuses a reader of the production document anywhere but under a production build's `NODE_ENV`, which the
+ * `unit-production` project sets: elsewhere the logger writes the plain line, which carries no trace and no `error`, so
+ * a case proving one kept off a line would pass on a line that never carries it. A suite renamed out of the project
+ * fails here instead.
+ */
+function requireProductionBuild(): void {
+  assert(
+    process.env.NODE_ENV === "production",
+    `the production document read under NODE_ENV ${String(process.env.NODE_ENV)}: name the file *.production.test.ts`,
+  );
 }
 
 /**
- * Every line the application's logger writes from this call to the end of the file, in either format: a case reads
- * the stream the logger really writes rather than a double of the logger. Called at module level, before the subject's
- * import, so a line written while the subject loads is caught too.
+ * Every line the application's logger writes from this call to the end of the file: a case reads the stream the
+ * logger really writes rather than a double of the logger. Called at module level, before the subject's import, so a
+ * line written while the subject loads is caught too.
+ * - It reads one format: the plain line, or with `"production"` the JSON document a production build writes, which a
+ *   case reading a line's `traceId` or `error`, or proving a value kept off a line, needs. A line in the other format
+ *   is one the capture cannot read.
  * - Each case begins with no line, so it reads only what it wrote; `clear` empties the lines mid-case.
  * - A chunk the logger did not write goes on to the runner's reporter untouched, whatever its shape.
  * - A line the capture cannot read fails the case it was written in, from the capture's `afterEach`, rather than
  *   throwing into the code that wrote it.
- * The plain format carries no trace and an error only as an `Error`'s stack, so a case reading a line's `traceId` or
- * `error`, or proving a value kept off a line, runs in a `.production.test.ts` file, under a production build's format.
  */
-export function captureLog(): { lines(): readonly LoggedLine[]; clear(): void } {
+export function captureLog(build?: "production"): { lines(): readonly LoggedLine[]; clear(): void } {
+  if (build === "production") requireProductionBuild();
+  const read = build === "production" ? readDocument : readPlain;
   const lines: LoggedLine[] = [];
   const { faults, restore } = beginCapture((raw) => {
-    lines.push(readLine(raw));
+    lines.push(read(raw));
   });
 
   beforeEach(() => {

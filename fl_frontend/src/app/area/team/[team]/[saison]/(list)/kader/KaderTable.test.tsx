@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { ListQueryScope } from "@/kit/ListTable";
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -10,12 +11,13 @@ import { deregisterKaderRow, saveKaderRow } from "./kaderRowActs";
 import { KaderTable } from "./KaderTable";
 
 import type { FLKaderRow } from "@/core/generated/client/types";
+import type { ReactNode } from "react";
 
 vi.mock("./kaderRowActs", () => ({
   saveKaderRow: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
   deregisterKaderRow: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const TEAM = "6af32ed4205642a3fd5ee7e1";
 const SAISON = "2027";
@@ -47,6 +49,7 @@ function drawn() {
         saison={SAISON}
       />
     </ListQueryScope>,
+    { wrapper: Next },
   );
 }
 

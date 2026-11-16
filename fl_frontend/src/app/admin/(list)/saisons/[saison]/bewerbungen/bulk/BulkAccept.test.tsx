@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,15 +10,12 @@ import { acceptBewerbung } from "../[bewerbung]/decideBewerbung";
 import { BulkAccept } from "./BulkAccept";
 
 import type { FLBewerbungListRow } from "@/core/generated/client/types";
+import type { ReactNode } from "react";
 
 const ADDRESS = "/admin/saisons/2027/bewerbungen/bulk";
 
 vi.mock("../[bewerbung]/decideBewerbung", () => ({ acceptBewerbung: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  usePathname: () => ADDRESS,
-  useRouter: () => ({ refresh: () => undefined }),
-  useSearchParams: () => new URLSearchParams(window.location.search),
-}));
+const Next = ({ children }: { children: ReactNode }) => underNext(children, { pathname: ADDRESS, search: window.location.search });
 
 const row = (id: string, name: string) =>
   ({
@@ -67,6 +65,7 @@ describe("a finished Sammel-Zusage", () => {
         taken={[]}
         rules={{ required: { gruppe: false, trikot_farbe: false } }}
       />,
+      { wrapper: Next },
     );
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(COPY.admin.bewerbung.count(1), "accept") }));
@@ -81,7 +80,7 @@ describe("a finished Sammel-Zusage", () => {
 // nothing but this case reads that cell before the run's one confirm.
 describe("the check page's „Stand“ column", () => {
   it("states each application's standing before the run writes it", async () => {
-    const { rerender } = render(run());
+    const { rerender } = render(run(), { wrapper: Next });
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));
     rerender(run());
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.next }));

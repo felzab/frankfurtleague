@@ -18,7 +18,7 @@ const PROBE = "/probe";
 const backend = serveBackend(({ method, path }) => (method === "POST" && path === PROBE ? {} : undefined));
 const { arriveAs } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { action } = await import("./action");

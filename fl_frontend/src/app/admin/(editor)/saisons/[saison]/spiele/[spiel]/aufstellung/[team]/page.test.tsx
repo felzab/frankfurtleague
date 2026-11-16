@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,6 +10,7 @@ import { COPY } from "@/core/copy";
 import { LINEUP_WORDS } from "@/features/aufstellungen/players";
 
 import type { FLAufstellungResponse } from "@/core/generated/client/types";
+import type { ReactNode } from "react";
 
 const TEAM = "6890a1b2c3d4e5f607250012";
 const OTHER_TEAM = "6890a1b2c3d4e5f607250011";
@@ -17,14 +19,8 @@ const PUPIL = "6890a1b2c3d4e5f607250031";
 
 const state = vi.hoisted(() => ({ sent: [] as unknown[] }));
 
-vi.mock("next/navigation", () => ({
-  notFound: () => {
-    throw new Error("not found");
-  },
-  usePathname: () => "/admin/saisons/2027/spiele/spiel/aufstellung/team",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const Next = ({ children }: { children: ReactNode }) =>
+  underNext(children, { pathname: "/admin/saisons/2027/spiele/spiel/aufstellung/team", params: {} });
 // The save is a server function, which the editor calls over the network as a client: what it was handed is the outcome.
 vi.mock("./saveAufstellung", () => ({
   saveAufstellung: async (input: unknown) => {
@@ -72,6 +68,7 @@ describe("a club's line-up at the league's address", () => {
         params: Promise.resolve({ saison: "2027", spiel: SPIEL, team: TEAM }),
         searchParams: Promise.resolve({}),
       }),
+      { wrapper: Next },
     );
 
     // The squad's one pupil: „Aufstellen“ is that pupil's alone.

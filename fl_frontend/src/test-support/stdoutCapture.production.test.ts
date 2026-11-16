@@ -3,7 +3,7 @@
 import { captureLog } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
-const log = captureLog();
+const log = captureLog("production");
 
 // Imported after the capture, as a suite's subject is.
 const { logger } = await import("@/core/logging");

@@ -12,12 +12,16 @@ const { register } = await import("./instrumentation");
 const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => void vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] }));
-afterEach(() => void vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
 
 /* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people.
-   The boot arms the scheduler under a production build's `NODE_ENV` alone, so any other value, `next dev`'s among them,
-   takes the branch this case boots. */
-it("arms nothing outside a production build", async () => {
+   The boot arms the scheduler under a production build's `NODE_ENV` alone. Each case states the value it boots under,
+   `next dev`'s and the suite's own, rather than taking whichever the project running it sets. */
+it.each(["development", "test"])("arms nothing under the NODE_ENV %s", async (nodeEnv) => {
+  vi.stubEnv("NODE_ENV", nodeEnv);
   await register();
   vi.advanceTimersByTime(3 * HOUR_MS);
   await backend.answered();

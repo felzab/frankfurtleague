@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,7 +14,7 @@ import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { EndState, OneShotActs } from "./OneShot";
 
-vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 /** The options the form's check rendered Cloudflare's widget with, whose callbacks the case calls as Cloudflare would. */
 let widget: Record<string, unknown> | undefined;
@@ -64,7 +65,7 @@ describe("a form anybody may send", () => {
   // The harm: a press with no token is refused on the server in words that tell the visitor nothing they can do.
   it("sends nothing while the check holds no token, and says the check's own sentence", async () => {
     const action = vi.fn(async () => REFUSED);
-    render(form(action));
+    render(form(action), { wrapper: Next });
     // Cloudflare asks the visitor to click, so no token is minted until they do.
     cloudflare("before-interactive-callback")();
 
@@ -87,6 +88,7 @@ describe("a form anybody may send", () => {
           kind="text"
         />,
       ),
+      { wrapper: Next },
     );
     // Each press spends the token it posts, and Cloudflare mints the next one after it.
     const minted = cloudflare("callback");
@@ -127,7 +129,7 @@ const confirmIn = async () => within(await screen.findByRole("alertdialog", { na
 describe("a mailed page's refusal", () => {
   it("asks before it posts, posting nothing when the question closes unanswered", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }));
+    render(refusalForm(action, { primary: COPY.page.entryConfirmation, refusal: REFUSAL }), { wrapper: Next });
     const refusal = screen.getByRole("button", { name: OPPOSE });
 
     await userEvent.click(refusal);
@@ -148,7 +150,7 @@ describe("a mailed page's refusal", () => {
 
   it("asks as the page's one act too, and posts as its main act", async () => {
     const action = vi.fn<(formData: FormData) => Promise<ActionAnswer<EndState>>>(async () => REFUSED);
-    render(refusalForm(action, { refusal: REFUSAL }));
+    render(refusalForm(action, { refusal: REFUSAL }), { wrapper: Next });
 
     await userEvent.click(screen.getByRole("button", { name: OPPOSE }));
     expect(action).not.toHaveBeenCalled();

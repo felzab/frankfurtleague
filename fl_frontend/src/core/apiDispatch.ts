@@ -1,4 +1,4 @@
-import { isRefusal, mayHaveWritten } from "./errors";
+import { asRefusal, mayHaveWritten } from "./errors";
 import { recordWriteSent } from "./requestScope";
 
 import type { SentRequest } from "./errors";
@@ -26,7 +26,7 @@ export async function dispatchRequest<T>(sent: SentRequest, send: () => Promise<
     // Taken back only where the answer says the write did not stand. The backend's promise: a 4xx refuses the
     // request. A 5xx promises nothing, since the server may fail after a commit, and a write that may stand answers
     // `unknown_outcome` with a 500; neither does an answer naming no code, an edge's own page or an unreadable body.
-    if (isRefusal(error) && error.serverErrorCode !== undefined) withdraw();
+    if (asRefusal(error)?.serverErrorCode !== undefined) withdraw();
     throw error;
   }
 }

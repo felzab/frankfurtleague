@@ -12,7 +12,7 @@ import { COPY } from "@/core/copy";
 const ERASED = "max@example.org";
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // The erasure itself, answered for the address the case erases alone.
 serveBackend(({ method, path, body }) =>
