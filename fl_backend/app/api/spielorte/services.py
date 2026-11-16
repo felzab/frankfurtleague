@@ -5,6 +5,12 @@ from typing import Any
 from app.api.spiele.schemas import unplayed_filter
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.addresses import FLAddress
+
+
+def compose_maps_link(name: str, address: FLAddress) -> str:
+    """The Google Maps search string, not a URL. Derived here so a client can never supply one."""
+    return f"{name}, {address.to_string}, Deutschland"
 
 
 def build_unplayed_booking_filter(spielort_id: Any) -> Mapping[str, Any]:

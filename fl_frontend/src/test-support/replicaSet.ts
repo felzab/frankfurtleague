@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
-import { afterAll } from "vitest";
+import { MongoClient } from "mongodb";
+import { afterAll, afterEach, assert } from "vitest";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 
@@ -83,12 +84,34 @@ function localStackMongo(): string {
   return image;
 }
 
-/** A db suite's one way to a replica set: started, and stopped once the file's cases have run. */
+/** Every transaction the server holds open, whether a request of it is running or none is, as the manual filters them. */
+const OPEN_TRANSACTIONS = [{ $currentOp: { allUsers: true, idleSessions: true } }, { $match: { transaction: { $exists: true } } }];
+
+/**
+ * Fails the case that left a transaction open, whatever it wrote or only read, and ends it. One that wrote no row a
+ * later case touches blocks nothing, so no later step waits on it and the server's expiry ends it unseen; ended here,
+ * it holds no later case either.
+ */
+async function noTransactionLeftOpen(judge: MongoClient): Promise<void> {
+  const open = await judge.db("admin").aggregate<{ lsid: unknown }>(OPEN_TRANSACTIONS).toArray();
+  if (open.length > 0) await judge.db("admin").command({ killSessions: open.map(({ lsid }) => lsid) });
+  assert(
+    open.length === 0,
+    `${String(open.length)} transaction(s) stood open once the case ended: a session the case started was neither committed nor aborted`,
+  );
+}
+
+/** A db suite's one way to a replica set: started, judged after each case, and stopped once the file's cases have run. */
 export async function startReplicaSet(): Promise<ReplicaSet> {
   const closes: (() => Promise<unknown>)[] = [];
   // A race beside the library's bound rather than instead of it: `withStartupTimeout` waits on the
   // health check alone, and the Docker calls before it (the pull, the create, the start) carry none.
   const mongod = await startedInTime(new MongoDBContainer(localStackMongo()).withStartupTimeout(HEALTHY_WITHIN_MS).start());
+
+  // A client of its own: the suites' clients run the strict Stable API, which refuses `$currentOp`.
+  const judge = new MongoClient(replicaSetUrl(mongod));
+  closes.push(() => judge.close());
+  afterEach(() => noTransactionLeftOpen(judge));
 
   // Registered last, since no earlier place helps: a file failing while it loads runs no hook at all,
   // and the container it leaves is testcontainers' reaper's. First in the list, it stops last.

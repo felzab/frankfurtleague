@@ -1,7 +1,7 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
 import { caseFailures } from "@/test-support/caseFailures";
-import { captureLog } from "@/test-support/stdoutCapture";
+import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
 const log = captureLog();
@@ -46,4 +46,11 @@ describe("the capture", () => {
       logger.info("split\nacross two lines");
     },
   );
+
+  /* Outside a production build the logger writes the plain line, which carries no trace and no `error`: a suite reading
+     the document there would prove its absences on lines that never carry them, so both readers of it refuse to start. */
+  it("refuses to read the production document outside a production build", async () => {
+    expect(() => captureLog("production")).toThrow("NODE_ENV test");
+    await expect(documentsWrittenByAsync(() => Promise.resolve())).rejects.toThrow("NODE_ENV test");
+  });
 });

@@ -12,7 +12,7 @@ import { assert, describe, expect, it } from "vitest";
 serveBackend();
 const { store, outbox } = signedInRequest();
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 // Imported here rather than at the top: `vi.doMock` reaches only the modules imported after it.
 const { auth } = await import("./auth/library");

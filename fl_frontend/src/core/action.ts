@@ -12,7 +12,7 @@ import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { logger } from "./logging";
 import { logRefused } from "./refused";
 import { getRequestActor, requestWriteMayStand } from "./requestScope";
-import { isSeatAt, rolesOf } from "./roles";
+import { rolesOf, seatsAt } from "./roles";
 import { isBoundedCode, isWordedRule, ruleMessage } from "./ruleMessage";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
@@ -622,10 +622,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
           return admitted(lane, raw, (input) => {
             // A request can hand an action anything at all, so the claim is read as possibly absent.
             const { team_id: team, saison_id: saison } = (input ?? {}) as Partial<SeatClaim>;
-            const seats =
-              typeof team === "string" && typeof saison === "string"
-                ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison))
-                : [];
+            const seats = typeof team === "string" && typeof saison === "string" ? seatsAt(rolesOf(subject).roles, team, saison) : [];
             if (seats.length === 0) return Promise.resolve(turnedAwayPerson(lane.name, "no_seat"));
             return body(lane, () => lane.run(input, { subject, seats }));
           });

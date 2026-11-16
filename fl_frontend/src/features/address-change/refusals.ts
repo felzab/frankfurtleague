@@ -1,4 +1,4 @@
-import { isRefusal, isRuleRefusal } from "@/core/errors";
+import { asRefusal, isRuleRefusal } from "@/core/errors";
 
 import type { Code } from "@/core/generated/client/types";
 
@@ -8,8 +8,7 @@ import type { Code } from "@/core/generated/client/types";
  * record.
  */
 export function readsAsDeadLink(error: unknown): boolean {
-  if (!isRefusal(error)) return false;
-  return error.serverErrorCode === "payload_refused" || isRuleRefusal(error);
+  return asRefusal(error)?.serverErrorCode === "payload_refused" || isRuleRefusal(error);
 }
 
 /**
@@ -31,5 +30,6 @@ const LINK_ENDED: ReadonlySet<Code> = new Set<Code>([
 ]);
 
 export function endsTheLink(error: unknown): boolean {
-  return isRefusal(error) && error.serverErrorCode !== undefined && LINK_ENDED.has(error.serverErrorCode);
+  const code = asRefusal(error)?.serverErrorCode;
+  return code !== undefined && LINK_ENDED.has(code);
 }

@@ -12,7 +12,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it            |
 | `scripts/checks/edge_test.sh`           | any           | Both edges started over the checkout's nginx files, and what each logs, sends and refuses               |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own                    |
-| `scripts/ops/made_up_seed.sh`           | any           | The made-up league loaded into a running stack, then read back; `local.sh` and CI run it                |
+| `scripts/ops/made_up_seed.sh`           | local, e2e    | The made-up league loaded into the local or end-to-end stack, then read back; `local.sh` and CI run it  |
 | `scripts/ops/e2e_stack.sh`              | any           | The end-to-end stack raised with keys of its own and the made-up league; `local.sh --e2e` and CI run it |
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails                 |
 | `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run                      |
@@ -24,8 +24,10 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                                |
 
 **`deploy.sh` is the one script that reaches production.** Every other script stays on the machine
-it runs on. `local.sh --fresh` deletes the local stack's volumes, and with them its database and
-Next's build cache.
+it runs on, and `made_up_seed.sh`, which empties the database it seeds, refuses every stack but the
+local and the end-to-end ones, as the seed refuses every database server but theirs.
+`local.sh --fresh` deletes the local stack's volumes, and with them its database and Next's build
+cache.
 
 ## Read next
 

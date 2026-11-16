@@ -63,9 +63,10 @@ no ecosystem reading a step's string.
   `docker-compose.local.yml`'s one `mongo` line.
 
 `scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a linter image a
-script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the release series the managed cluster runs**, so
-no test passes on a feature production lacks: `.github/dependabot.yml` proposes no later series,
-and a move of the cluster moves the one pin by hand.
+script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the
+release series the managed cluster runs**, so no test passes on a feature production lacks:
+`.github/dependabot.yml` proposes no later series, and a move of the cluster moves the one pin by
+hand.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs:
@@ -338,9 +339,9 @@ answered by FastAPI's own not-found body: no further route opens, but the body n
 
 **A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
 it.** That set mints the `traceparent` every upstream receives, a visitor's own discarded, so no
-location declares one, and `scripts/checks/edge_test.sh` fails a frontend location handing Next a visitor's
-`traceparent`. **No upstream is handed the visitor's address**: neither application reads one, so the
-set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
+location declares one, and `scripts/checks/edge_test.sh` fails a frontend location handing Next a
+visitor's `traceparent`. **No upstream is handed the visitor's address**: neither application reads
+one, so the set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
 
 **Production's edge holds three server blocks**, all plain HTTP on port 80: the connector carries
 the visitor's HTTPS from Cloudflare, so no certificate is held here (§1.8). An unknown `Host` is
@@ -348,7 +349,8 @@ answered `421`. `www.frankfurtleague.de` redirects to the apex with the security
 HSTS's `includeSubDomains` makes a returning browser ask for it over HTTPS, which Cloudflare answers
 and the connector hands here. The apex tells Next its visitor's protocol is `https`, this hop's own
 being plain HTTP. Both named blocks keep an idle connection 100 seconds, past the 90 the
-connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector writes a request onto it.
+connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector
+writes a request onto it.
 
 **A rule at Cloudflare may challenge a top-level navigation and never a server action's POST.** A
 server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
@@ -372,8 +374,8 @@ Every response carries four, each sent with `always`, from `nginx/shared/securit
 in each location adding a header of its own, because `add_header` in a location replaces the
 inherited set, and `nginx/prod/prod.conf`'s www redirect includes it too. The file also drops an
 upstream's copy of each header, so a response carries the edge's alone and never a second enforcing
-policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header, and compares
-its value with the file's.
+policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header,
+and compares its value with the file's.
 
 **`frame-ancestors 'none'` is the one framing rule.** CSP3 has it override `X-Frame-Options`, which
 a browser enforcing the policy ignores, so the edge sends no `X-Frame-Options`.
@@ -404,9 +406,9 @@ library's release.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
-there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a response whose
-policy loses it from either. Cloudflare's own list for the check adds `connect-src 'self'` for
-pre-clearance alone, which the widget does not use
+there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a
+response whose policy loses it from either. Cloudflare's own list for the check adds
+`connect-src 'self'` for pre-clearance alone, which the widget does not use
 (<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read
 2026-10-04).
 
@@ -456,10 +458,15 @@ type stand in `fl_backend/tests/made_up_people.json`, which the seed writes them
 deletes the volume, and the database with it.
 
 **A seed is in place before anything renders a page**, so no empty read is cached. The made-up seed
-runs inside the backend container, copied there with the tests' builders, and reaches only the
-database that container's settings name; it loads once the backend's boot has built every index, and
-`python -m app.readback` then reads every document it wrote back through its record model; only then
-do the frontend and nginx start.
+runs inside the backend container, copied there with the tests' builders. **It writes only to the
+database service the local and the end-to-end stacks each start and production lacks**:
+`scripts/ops/made_up_seed.sh` refuses any stack whose Compose files declare no such service, and the
+seed refuses any server its settings name but that one, before it connects. **It writes a database
+nothing else writes**: the frontend is the one other writer, the backend running no pass of its
+own, so the script refuses a stack whose frontend is running, and `local.sh` stops the frontend
+before each seed it loads. It loads once the backend's boot has built every index, and
+`python -m app.readback` then reads every document it wrote back through its record model; only
+then do the frontend and nginx start.
 
 **The local stack starts with an empty `auth`, and a sign-in builds it.** The grants deciding which
 administrator may sign in arrive with the made-up seed, so a `--fresh` stack admits nobody until
@@ -482,8 +489,8 @@ images, and CI loads the ones the `images` job built. The stack has:
   the containers' own users on a Linux runner;
 - the made-up seed on an empty volume every start;
 - the local edge with every rate and connection limit counting and refusing nothing
-  (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `scripts/checks/edge_test.sh` proves
-  the limits instead.
+  (`nginx/e2e/e2e.conf`), since every journey arrives from one address.
+  `scripts/checks/edge_test.sh` proves the limits instead.
 
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
 and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
@@ -501,8 +508,8 @@ created the stack's containers, which Compose records on each as
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
-`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the edge
-test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
+`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the
+edge test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
 
 **Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
@@ -526,7 +533,7 @@ and frontend scopes alone, of which the scripts scope needs Docker for shellchec
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                            | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`                                                                                                       | pnpm install                                                                                                                                   |
 | `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `edge_test.sh` starts both edges and drives them                   | Docker with its Compose plugin, refused at start-up without it, and the backend virtualenv with its `zizmor` group                             |
-| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                      | venv + pnpm install + Docker                                                                                                                   |
+| `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`, the three side by side   | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both images baked from `docker-bake.hcl`, CI's own definition, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes | Docker                                                                                                                                         |
 
 **CI runs every scope on every event**, one job per scope in `.github/workflows/verify.yml`, each
@@ -540,7 +547,10 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
 - **`publish`**, on a push that `verify` passed, pushes what the `images` job built and checked,
   building nothing again: on `main` both images under their `sha-` tags, on `follow-up` the backend
   image alone under `follow-up-sha-` and the same seven hex digits, a tag `deploy.sh` refuses, so a
-  branch's backend can be run against production's database by hand before the branch merges.
+  branch's read-back can be run against production's database by hand before the branch merges:
+  `TAG=follow-up-sha-<commit> docker compose run --rm --no-deps backend python -m app.readback`,
+  which only reads. **The image's own command is never run against production**: its boot builds
+  every index the branch declares, on production's database, before the branch merges.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).
@@ -592,7 +602,7 @@ log, and grades what each wrote, sent and answered:
 - each security header sent once;
 - a link page writing no error line;
 - every zone and the connection ceiling refusing past their figure;
-- both body caps it drives.
+- every body cap, taking its figure and refusing a byte past it.
 
 `scripts/checks/check_compose_model.py` reads the models `docker compose config` renders,
 production's alone and the merged local pair, and holds each to §2's rows. A model it cannot read is
@@ -612,13 +622,13 @@ before any environmental check, so a typo fails at once rather than after a Dock
 **A path answers what a file is before the file is opened**: the directory names the category, the
 prefix names the class, the stem names the subject, and the extension names the harness.
 
-| Part        | Reads as                                                                                                                                          |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract                                                          |
-| `_`         | Sourced by another script and never run on its own                                                                                                |
-| no prefix   | Run directly, by a person, by CI or by another script as a subprocess                                                                             |
-| `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's, or a CI job's own where no step needs the virtualenv |
-| `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have                                                                     |
+| Part        | Reads as                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `check_`    | A checker: it judges one subject and exits on `scripts/lib/checker_kernel.py`'s contract    |
+| `_`         | Sourced by another script and never run on its own                                          |
+| no prefix   | Run directly, by a person, by CI or by another script as a subprocess                       |
+| `.sh` `.py` | bash, and Python at the version `fl_backend/.python-version` pins: the backend virtualenv's |
+| `.mjs`      | node, taken only where the subject needs a parser bash and Python do not have               |
 
 `scripts/lib/checker_kernel.py` is the one name the scheme does not classify: it is imported rather
 than run, so the `_` marking a sourced script would say the wrong thing about it.
@@ -768,7 +778,7 @@ be true there, a check the owner makes in its list of monitors:
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
-| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
+| Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its first step                                                                                                                                            |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
 | The journeys job's legs together run every project `fl_frontend/playwright.config.ts` defines, a setup project included                    | `scripts/tests/test_journeys_projects.py`, which asks Playwright's `--list` for each leg's flags                                                                                       |
 | Production never builds                                                                                                                    | unenforced: `docker-compose.yml` declares no `build:`, and `deploy.sh` only pulls                                                                                                      |

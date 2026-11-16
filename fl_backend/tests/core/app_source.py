@@ -7,7 +7,6 @@ Invariants:
   process meets the edit.
 """
 
-import functools
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -16,19 +15,17 @@ from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute, iter_route_contexts
 from starlette.routing import Host, Mount
 
-from app.main import create_app
-from tests.config import build_test_config
+from tests.app_client import app_under_test
 
 
-@functools.cache
 def application() -> FastAPI:
-    """One build a process for every module reading what the application mounts.
+    """The app every suite serves its shared corpus through (`tests/app_client.py :: app_under_test`), read for what it mounts.
 
-    Every xdist worker imports every module at collection, the tier's `-m` filtering only after, so a
-    build per module is paid by each worker for each module.
+    The one build a process makes of the suite's settings: a second, built for the sweeps alone, would cost each xdist
+    worker another at collection and mount nothing the first does not.
     """
 
-    return create_app(build_test_config())
+    return app_under_test()
 
 
 def dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:

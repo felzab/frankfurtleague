@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 
 import { memoryAdapterDouble, memoryStore, registerAuthDoubles } from "@/test-support/authDoubles";
 import { captureLog } from "@/test-support/stdoutCapture";
-import { MongoServerError, MongoServerSelectionError } from "mongodb";
-import { assert, beforeEach, describe, expect, it } from "vitest";
+import { MongoNetworkTimeoutError, MongoServerError, MongoServerSelectionError } from "mongodb";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexOptions } from "mongodb";
 
@@ -18,7 +18,7 @@ const builds: Build[] = [];
 // every value a line is handed, an `error` that is no `Error` among them, which a refused build's line is held to.
 
 /** Every line the real logger writes, read off standard output. */
-const log = captureLog();
+const log = captureLog("production");
 
 /** Each error line written, by its event and fields. */
 const errorLines = () => log.lines().flatMap(({ level, message, fields }) => (level === "ERROR" ? [{ event: message, fields }] : []));
@@ -81,6 +81,12 @@ const DUPLICATE_TOKEN = new MongoServerError({
 /** What an unreachable store answers every build: no server code at all. */
 const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
 
+/** What a store too slow for the client's socket bound answers a build. */
+const TIMED_OUT = new MongoNetworkTimeoutError("connection 1 to store:27017 timed out");
+
+/** The client's socket bound, which each timed-out call waited out before it failed. */
+const SOCKET_BOUND_MS = 3000;
+
 /** A topology change as the driver emits it, its one server of the type named. */
 const changedTo = (type: string) => ({ newDescription: { servers: new Map([["store:27017", { type, isWritable: type === "RSPrimary" }]]) } });
 
@@ -142,6 +148,30 @@ describe("the sign-in store's index build", () => {
 
     const names = (from: Build[]) => from.map(({ name }) => name).sort();
     expect(names(builds.slice(first))).toStrictEqual(names(builds.slice(0, first)));
+  });
+
+  /* A timeout is no verdict, so it is asked again; the asking ends, or a build that never answers would hold every
+     run queued behind it. */
+  it("asks a build that times out again until its window has passed, then logs every index unbuilt", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      answer = async () => {
+        // An answer is a later turn of the event loop, as the network's is, and each call waits out the socket's bound.
+        await new Promise((resolve) => setImmediate(resolve));
+        vi.setSystemTime(Date.now() + SOCKET_BOUND_MS);
+        throw TIMED_OUT;
+      };
+      await buildAuthIndexes();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    assert.ok(builds.filter(({ name }) => name === "session_token_uidx").length > 1, "a build that timed out was not asked again");
+    // One line for each index the run asked for, however often it asked.
+    const asked = new Map(builds.map(({ collection, name }) => [`${collection}.${name}`, name]));
+    const lines = errorLines();
+    expect(lines.map(({ fields }) => fields["index"]).sort()).toStrictEqual([...asked.values()].sort());
+    for (const { event, fields } of lines) expect([event, fields["name"]]).toStrictEqual(["auth.index_unbuilt", "MongoNetworkTimeoutError"]);
   });
 
   /* Read off the library's own schema rather than the list, so a field it declares unique, or an

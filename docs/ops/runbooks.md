@@ -210,8 +210,9 @@ docker compose exec -T backend python -m app.readback
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
 prints each refused document's collection, id and error location and never a value, and exits 0 when
-every document validates, 1 when any is refused, and 2 when the database could not be read. Its last
-line counts the documents read and refused.
+every document validates, 1 when any is refused, 2 when the database could not be read, and 3 when it
+crashed, its import included, naming the error's type and the line that raised it and never its
+message. Its last line counts the documents read and refused.
 
 **It reads only the collections `RECORD_MODELS` names**, so a collection left behind under an old
 name is read by nothing, and the new name, never written, reads as an empty collection with nothing

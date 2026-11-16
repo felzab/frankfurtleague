@@ -29,7 +29,7 @@ from tests import documents
 from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_AUTH, ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes, application, dependency_calls
-from tests.database import a_clean_database, bounded, unwritten
+from tests.database import held_corpus
 from tests.session_headers import StampedHeaders
 
 pytestmark = pytest.mark.db
@@ -330,13 +330,10 @@ async def league(request: pytest.FixtureRequest, mongo_replica_set_url: str) -> 
     phase = PHASES[request.param]
     database_name = build_test_config().db_base_name
 
-    async def _seeded() -> None:
-        async with a_clean_database(mongo_replica_set_url, database_name) as (_, database):
-            await _seed(database, phase)
+    async def seed(database: AsyncDatabase) -> None:
+        await _seed(database, phase)
 
-    await bounded(_seeded())
-
-    with unwritten(mongo_replica_set_url, database_name):
+    async with held_corpus(mongo_replica_set_url, database_name, seed):
         yield phase
 
 

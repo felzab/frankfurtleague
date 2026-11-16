@@ -116,19 +116,20 @@ export function isRefusalCode(code: Code | undefined): boolean {
 }
 
 /**
- * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
- * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
+ * The API's refusal of the request, which every mapper reads before the code, `null` for any other error: a 4xx, at
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed. Answered as the
+ * error rather than as a type predicate, whose `false` would narrow a 5xx out of being an `APIBadStatusError`.
  */
-export function isRefusal(error: unknown): error is APIBadStatusError {
-  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+export function asRefusal(error: unknown): APIBadStatusError | null {
+  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500 ? error : null;
 }
 
 /**
  * Whether one of the API's rules refused the request, by the code's class: a code no arm names reaches its kind's
  * fallback at any status, and a protocol code, a routing one included, never does.
  */
-export function isRuleRefusal(error: unknown): error is APIBadStatusError {
-  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
+export function isRuleRefusal(error: unknown): boolean {
+  return isRefusalCode(asRefusal(error)?.serverErrorCode);
 }
 
 /**

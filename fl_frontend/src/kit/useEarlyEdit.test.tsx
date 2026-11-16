@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cloneElement, useLayoutEffect, useState } from "react";
 
+import { underNext } from "@/test-support/nextContexts";
 import { act } from "@testing-library/react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -32,11 +33,8 @@ import type { ReactElement } from "react";
 import type { AddressRules } from "./AddressFields";
 import type { EditorSave } from "./useEditor";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/spielorte/ort-1",
-  useParams: () => ({ spielort: "ort-1" }),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+/** A page as it stands at an editor's address, under Next's router, in the server's markup and in the browser alike. */
+const atTheEditor = (page: ReactElement) => underNext(page, { pathname: "/admin/spielorte/ort-1", params: { spielort: "ort-1" } });
 
 const WORD = COPY.signIn.address;
 const YES_NO = [
@@ -54,7 +52,7 @@ const ADDRESS_RULES: AddressRules = {
 /** The markup a server sends, in the document, the person's `edit` already in the browser's hands. */
 function drawn(page: ReactElement, edit: (root: HTMLElement) => void) {
   const container = document.createElement("div");
-  container.innerHTML = renderToString(page);
+  container.innerHTML = renderToString(atTheEditor(page));
   document.body.append(container);
   edit(container);
   return container;
@@ -66,8 +64,8 @@ function drawn(page: ReactElement, edit: (root: HTMLElement) => void) {
  */
 async function hydrated(container: HTMLElement, page: ReactElement) {
   const mismatches: unknown[] = [];
-  const root = await act(async () => hydrateRoot(container, page, { onRecoverableError: (error) => mismatches.push(error) }));
-  await act(async () => root.render(cloneElement(page)));
+  const root = await act(async () => hydrateRoot(container, atTheEditor(page), { onRecoverableError: (error) => mismatches.push(error) }));
+  await act(async () => root.render(atTheEditor(cloneElement(page))));
   expect(mismatches).toStrictEqual([]);
 }
 

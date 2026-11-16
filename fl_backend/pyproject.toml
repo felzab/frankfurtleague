@@ -170,6 +170,8 @@ extend-immutable-calls = ["fastapi.Depends"]
 "datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 "time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+# `gather` leaves the other awaitables running once one raises, so a refused read outlives its request.
+"asyncio.gather".msg = "Run awaitables together through `app.core.concurrency.concurrently`, which stops the rest when one raises."
 # `EmailStr` never turns `allow_smtputf8` off, so a field typed with it stores a Unicode local part
 # the league's rule refuses, and a ban keyed on that address misses its folded twin. Both spellings,
 # since the ban matches the path an import names.

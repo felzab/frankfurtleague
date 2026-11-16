@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -7,11 +8,10 @@ import { COPY } from "@/core/copy";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { ReactNode } from "react";
 import type { EditorRecord, EditorSave } from "./useEditor";
 
-// A thrown save reads the page again through Next's router, which no test mounts.
-const router = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => router }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 type Spielort = { name: string; postcode: string; mietpreis: string | null };
 
@@ -20,7 +20,7 @@ const STORED: EditorRecord<Spielort> = { id: "ort-1", version: 1, values: { name
 /** A save answering the version of the record it stored, 2 unless a case says otherwise. */
 function editorOn(record: EditorRecord<Spielort>, answer: () => Promise<ActionAnswer<number>> = async () => ({ ok: true, value: 2 })) {
   const save = vi.fn((_change: EditorSave<Spielort>) => answer());
-  const view = renderHook(({ shown }) => useEditor(shown, save), { initialProps: { shown: record } });
+  const view = renderHook(({ shown }) => useEditor(shown, save), { initialProps: { shown: record }, wrapper: Next });
   return { ...view, save };
 }
 
@@ -104,7 +104,7 @@ describe("an editor's draft", () => {
   it("saves a record not yet stored on `null`, and again on the version its first save stored", async () => {
     const save = vi.fn(async (_change: EditorSave<Spielort, number | null>): Promise<ActionAnswer<number>> => ({ ok: true, value: 1 }));
     const absent: EditorRecord<Spielort, number | null> = { ...STORED, version: null };
-    const { result } = renderHook(() => useEditor(absent, save));
+    const { result } = renderHook(() => useEditor(absent, save), { wrapper: Next });
 
     act(() => result.current.set("postcode", "60439"));
     await press(result.current.submit);
@@ -140,7 +140,7 @@ describe("an editor's list of records", () => {
       ok: false,
       reason: COPY.shared.failure.stale,
     }));
-    const { result } = renderHook(() => useEditor(REPORT, save));
+    const { result } = renderHook(() => useEditor(REPORT, save), { wrapper: Next });
 
     act(() => result.current.set("scorers", edited));
     expect(result.current.count).toBe(1);

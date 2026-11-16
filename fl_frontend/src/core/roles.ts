@@ -42,11 +42,13 @@ export function grantsAPanel(status: FLSaisonStatus): boolean {
 }
 
 /**
- * A contact seat on exactly this team in exactly this season, the one predicate a team page and a
- * person's write both judge by: a seat on last season's team opens nothing in this one's.
+ * The contact seats on exactly this team in exactly this season, the one test a team page and a
+ * person's write both judge by: a seat on last season's team opens nothing in this one's. Answered
+ * as the seats rather than as a type predicate, whose `false` would narrow a seat on another team
+ * out of being a seat.
  */
-export function isSeatAt(role: Role, teamId: string, saisonId: string): role is KontaktRole {
-  return role.kind === "kontakt" && role.team_id === teamId && role.saison_id === saisonId;
+export function seatsAt(roles: readonly Role[], teamId: string, saisonId: string): KontaktRole[] {
+  return roles.filter((role) => role.kind === "kontakt").filter((seat) => seat.team_id === teamId && seat.saison_id === saisonId);
 }
 
 /**

@@ -14,10 +14,11 @@ from app.api.teams.services import (
 )
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.literals import FLSpielerStufe
 from tests.database import a_clean_database
 from tests.documents import saison_document, team_document
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
@@ -114,10 +115,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
     async def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await enter(database, RETIRED_OID)
-
-            return conflict.value.error_code, await junction_rows(database)
+            return await refused_code(enter(database, RETIRED_OID)), await junction_rows(database)
 
         code, rows = await on_a_league(mongo_replica_set_url, body)
 

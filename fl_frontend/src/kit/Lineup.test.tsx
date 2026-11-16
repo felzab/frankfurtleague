@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -10,13 +11,10 @@ import { COPY } from "@/core/copy";
 import { Lineup, lineupValue } from "./Lineup";
 
 import type { Copy } from "@/core/copy";
+import type { ReactNode } from "react";
 import type { LineupPlayer, LineupValue, LineupWords, NamelessEntry } from "./Lineup";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/area/team/aho/2027/spiele/spiel-1",
-  useParams: () => ({}),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const Next = ({ children }: { children: ReactNode }) => underNext(children, { pathname: "/area/team/aho/2027/spiele/spiel-1", params: {} });
 
 const MAX = 11;
 const WORDS: LineupWords = {
@@ -115,6 +113,7 @@ describe("a line-up", () => {
         players={squad(13)}
         seen={seen}
       />,
+      { wrapper: Next },
     );
     expect(screen.getByText(COPY.shared.empty.none(COPY.shared.spieler))).toBeTruthy();
 
@@ -162,6 +161,7 @@ describe("a line-up's states", () => {
         seen={seen}
         locked={COPY.admin.spiel.departed}
       />,
+      { wrapper: Next },
     );
 
     expect(tickOf(1).disabled).toBe(true);
@@ -180,6 +180,7 @@ describe("a line-up's states", () => {
         start={lineupValue([idOf(1), "g1"], [])}
         refusals={{ [idOf(1)]: COPY.shared.failure.stale }}
       />,
+      { wrapper: Next },
     );
 
     expect(within(rowOf(1)).getByText(COPY.shared.failure.stale)).toBeTruthy();
@@ -203,6 +204,7 @@ describe("a line-up keeping entries naming nobody", () => {
         nameless={[{ starts: true }]}
         seen={seen}
       />,
+      { wrapper: Next },
     );
     const picked = within(screen.getByRole("table", { name: WORDS.picked }));
     const kept = picked.getByRole("checkbox", { name: `${WORDS.starts} ${COPY.shared.anonymous}` });

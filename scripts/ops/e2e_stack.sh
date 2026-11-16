@@ -10,7 +10,7 @@
 #
 # Two calls, so a caller can run something of its own while the database and the backend start. Without --build, the
 # images are the ones docker-compose.e2e.yml names, and no image is built. Exit 0 up; 1 something to correct; 2 refused,
-# the seed's refusal among them.
+# the seed's refusal among them; 130 interrupted; 3 or more a step that crashed, the seed's own status kept.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
 
@@ -30,6 +30,8 @@ if (( BUILD )) && [[ "$PHASE" != start ]]; then refuse "--build belongs to start
 # local stack's holds the developer's database. The separator spelled out, since Compose's own differs by platform.
 export COMPOSE_PATH_SEPARATOR=":"
 export COMPOSE_FILE="docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml"
+# The stack's name as docker-compose.e2e.yml gives it, which a caller's variable or a `.env` would outrank.
+export COMPOSE_PROJECT_NAME="frankfurtleague-e2e"
 # The tag docker-compose.yml's two images read, which Compose demands before it merges the files that name this stack's
 # own images in their place; no image is pulled or built by it.
 export TAG=e2e
@@ -100,10 +102,13 @@ ok "database and backend up"
 # Before the frontend's start, so no page renders, and no cache keeps, a read of a database still filling.
 rc=0
 "${REPO_ROOT}/scripts/ops/made_up_seed.sh" || rc=$?
-case "$rc" in
+class=0; exit_class contract "$rc" || class=$?
+case "$class" in
   0) ;;
+  1) die "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." ;;
   2) refuse "the made-up seed was refused, and the lines above say why. The frontend and nginx have not been started." ;;
-  *) die "the made-up seed failed, and the lines above name what to correct. The frontend and nginx have not been started." ;;
+  130) on_interrupt ;;
+  *) on_error "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" ;;
 esac
 
 step "The rest of the stack"

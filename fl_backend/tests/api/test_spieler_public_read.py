@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Mapping
 from typing import Any, NamedTuple
 
 import pytest
@@ -15,7 +15,7 @@ from app.api.spieler.schemas import (
     FLSpielerPublic,
 )
 from app.api.spieler.services import build_spieler_pipeline, public_initial
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import held_corpus, shared_client
 from tests.documents import (
     SPIELER_TEXT_VERSIONS,
     own_einwilligung_document,
@@ -173,40 +173,37 @@ class TestTheBaseTierReadExecuted:
         assert [surname for surname in STORED_SURNAMES if surname in body] == []
 
 
-# Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
+# Module-scoped: every case below reads this corpus and none writes it, which `held_corpus` keeps
 # from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """Five people and their squad rows, one row retired."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one(saison_document(SAISON, "active"))
-            await _enter_the_club(database, SAISON)
-            await database.spieler.insert_many(
-                [
-                    # Distinct forenames, none of them holding a surname as a substring: the rows
-                    # are keyed by forename below, and one case greps the whole payload for a leak.
-                    _spieler("Mueller", "Maxim", "Müller"),
-                    _spieler("Adler", "Marek", "Adler"),
-                    _spieler("Oeztuerk", "Timo", "Öztürk"),
-                    _spieler("Weber", "Jonas", "Weber"),
-                    _spieler("Kraus", RETIRED_ROW_FIRST_NAME, "Kraus"),
-                ]
-            )
-            await database.saison_spieler.insert_many(
-                [
-                    _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
-                    _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
-                    _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
-                    _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
-                    _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        await database.saisons.insert_one(saison_document(SAISON, "active"))
+        await _enter_the_club(database, SAISON)
+        await database.spieler.insert_many(
+            [
+                # Distinct forenames, none of them holding a surname as a substring: the rows
+                # are keyed by forename below, and one case greps the whole payload for a leak.
+                _spieler("Mueller", "Maxim", "Müller"),
+                _spieler("Adler", "Marek", "Adler"),
+                _spieler("Oeztuerk", "Timo", "Öztürk"),
+                _spieler("Weber", "Jonas", "Weber"),
+                _spieler("Kraus", RETIRED_ROW_FIRST_NAME, "Kraus"),
+            ]
+        )
+        await database.saison_spieler.insert_many(
+            [
+                _squad_row("Mueller", nummer="7", position="Angriff", stufe="Q3", rolle="kapitaen"),
+                _squad_row("Adler", nummer="3", position="Abwehr", stufe="E1"),
+                _squad_row("Oeztuerk", nummer="5", position="Mittelfeld", stufe="Q1"),
+                _squad_row("Weber", nummer="1", position="Tor", stufe="Q2"),
+                _squad_row("Kraus", nummer="12", position="Angriff", stufe="Q4", inactive_since="2026-03-01"),
+            ]
+        )
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 
@@ -298,26 +295,23 @@ class TestThePublicationGate:
 async def masked_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """One squad in one season, holding a row for every consent state the gate parts."""
 
-    async def _seed() -> None:
-        async with a_clean_database(mongo_replica_set_url, MASK_DATABASE_NAME) as (_, database):
-            await database.saisons.insert_one(saison_document(SAISON, "active"))
-            await _enter_the_club(database, SAISON)
-            await database.spieler.insert_many(
-                [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_SQUAD.values()]
-            )
-            await database.saison_spieler.insert_many(
-                [
-                    {
-                        **_squad_row("Mueller", nummer=MASK_NUMMERN[case], position="Angriff", stufe="Q3", rolle=MASK_ROLLEN[case]),
-                        "spieler_id": row.oid,
-                    }
-                    for case, row in MASKED_SQUAD.items()
-                ]
-            )
+    async def seed(database: AsyncDatabase) -> None:
+        await database.saisons.insert_one(saison_document(SAISON, "active"))
+        await _enter_the_club(database, SAISON)
+        await database.spieler.insert_many(
+            [spieler_document(row.oid, row.first_name, row.last_name, einwilligung=row.einwilligung) for row in MASKED_SQUAD.values()]
+        )
+        await database.saison_spieler.insert_many(
+            [
+                {
+                    **_squad_row("Mueller", nummer=MASK_NUMMERN[case], position="Angriff", stufe="Q3", rolle=MASK_ROLLEN[case]),
+                    "spieler_id": row.oid,
+                }
+                for case, row in MASKED_SQUAD.items()
+            ]
+        )
 
-    await bounded(_seed())
-
-    with unwritten(mongo_replica_set_url, MASK_DATABASE_NAME):
+    async with held_corpus(mongo_replica_set_url, MASK_DATABASE_NAME, seed):
         yield mongo_replica_set_url
 
 
@@ -364,33 +358,32 @@ class TestTheOrderIsNoOracleForAWithheldName:
 async def sort_oracle_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
     """Two corpora, each one squad of three: two published rows and one the `internal` scope withholds."""
 
-    async def _seed() -> None:
-        for corpus, withheld_forename in WITHHELD_FORENAMES.items():
-            async with a_clean_database(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES[corpus], constraints=False) as (_, database):
-                await database.saisons.insert_one(saison_document(SAISON, "active"))
-                await _enter_the_club(database, SAISON)
-                await database.spieler.insert_many(
-                    [
-                        spieler_document(SORT_ORACLE_OIDS["Zurueckgehalten"], withheld_forename, "Kessler", einwilligung=_consent("internal")),
-                        spieler_document(SORT_ORACLE_OIDS["Berger"], "Bea", "Berger", einwilligung=_consent("kader_public")),
-                        spieler_document(SORT_ORACLE_OIDS["Yilmaz"], "Yara", "Yilmaz", einwilligung=_consent("kader_public")),
-                    ]
-                )
-                await database.saison_spieler.insert_many(
-                    [
-                        {
-                            **_squad_row("Mueller", nummer=SORT_ORACLE_NUMMER, position=SORT_ORACLE_POSITION, stufe="Q3"),
-                            "spieler_id": oid,
-                        }
-                        for oid in SORT_ORACLE_OIDS.values()
-                    ]
-                )
+    def withholding(withheld_forename: str) -> Callable[[AsyncDatabase], Coroutine[Any, Any, None]]:
+        async def seed(database: AsyncDatabase) -> None:
+            await database.saisons.insert_one(saison_document(SAISON, "active"))
+            await _enter_the_club(database, SAISON)
+            await database.spieler.insert_many(
+                [
+                    spieler_document(SORT_ORACLE_OIDS["Zurueckgehalten"], withheld_forename, "Kessler", einwilligung=_consent("internal")),
+                    spieler_document(SORT_ORACLE_OIDS["Berger"], "Bea", "Berger", einwilligung=_consent("kader_public")),
+                    spieler_document(SORT_ORACLE_OIDS["Yilmaz"], "Yara", "Yilmaz", einwilligung=_consent("kader_public")),
+                ]
+            )
+            await database.saison_spieler.insert_many(
+                [
+                    {
+                        **_squad_row("Mueller", nummer=SORT_ORACLE_NUMMER, position=SORT_ORACLE_POSITION, stufe="Q3"),
+                        "spieler_id": oid,
+                    }
+                    for oid in SORT_ORACLE_OIDS.values()
+                ]
+            )
 
-    await bounded(_seed())
+        return seed
 
-    with (
-        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["first"]),
-        unwritten(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["last"]),
+    async with (
+        held_corpus(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["first"], withholding(WITHHELD_FORENAMES["first"]), constraints=False),
+        held_corpus(mongo_replica_set_url, SORT_ORACLE_DATABASE_NAMES["last"], withholding(WITHHELD_FORENAMES["last"]), constraints=False),
     ):
         yield mongo_replica_set_url
 

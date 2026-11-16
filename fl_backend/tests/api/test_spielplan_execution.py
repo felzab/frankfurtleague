@@ -33,7 +33,7 @@ from app.core.exceptions import APIError
 from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
-from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of, refused_code
 from tests.records import record_collections
 from tests.stored import the_row
 from tests.worker import worker_database
@@ -466,12 +466,11 @@ class TestEachRefusalIsReachedThroughTheRoute:
     )
     async def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedDraw:
-            with pytest.raises(APIError) as refused:
-                await call_draw(database, client)
+            code = await refused_code(call_draw(database, client))
 
             spieltage, spiele = await counts_now(database)
 
-            return RefusedDraw(error_code=refused.value.error_code, spieltage=spieltage, spiele=spiele, watermark=await watermark_now(database))
+            return RefusedDraw(error_code=code, spieltage=spieltage, spiele=spiele, watermark=await watermark_now(database))
 
         refused = await on_a_seeded_saison(mongo_replica_set_url, body, seed=seed)
 
@@ -680,6 +679,20 @@ class TestAReplaceTakesTheSeasonsReports:
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
 
+    async def test_the_reports_are_refused_ahead_of_the_shape_the_replace_proposes(self, mongo_replica_set_url: str):
+        """The count inside the transaction is the early exit: drop it and the rules refuse the shape first.
+
+        The count after the writes still refuses the replace, so only the order says the first count is there.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await call_draw(database, client)
+            await report_a_drawn_spiel(database)
+
+            return await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=a_shape(qualifiers=3)))
+
+        assert await on_a_seeded_saison(mongo_replica_set_url, body) == Code.SPIELPLAN_BERICHTE_SUBMITTED
+
     async def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
@@ -862,9 +875,13 @@ async def a_report_crossed_by(database: AsyncDatabase, client: AsyncMongoClient,
         await take_the_referee_off(database, spiel_id)
         return await outcome_of(removal(anchors))
 
-    outcomes = await asyncio.gather(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele), the_removal())
+    # A group rather than a gather: whichever side raises, the other is cancelled and drained here, not left to land in the
+    # next case's database.
+    async with asyncio.TaskGroup() as group:
+        reported = group.create_task(a_referees_first_report(database, client, spiel_id=spiel_id, spiele=spiele))
+        removed = group.create_task(the_removal())
 
-    return outcomes, await orphaned_reports(database), anchors.conflicts
+    return [reported.result(), removed.result()], await orphaned_reports(database), anchors.conflicts
 
 
 class TestAFirstReportCrossingADrawsRemovalMeetsItOnTheSeason:
@@ -1270,11 +1287,10 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
             await call_draw(database, client)
             standing = await document_ids(database)
 
-            with pytest.raises(APIError) as refused:
-                await call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=shape)
+            code = await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=shape))
 
             return RefusedReshape(
-                error_code=refused.value.error_code,
+                error_code=code,
                 rules=await stored_rules(database),
                 kept_its_draw=await document_ids(database) == standing,
                 watermark=await watermark_now(database),

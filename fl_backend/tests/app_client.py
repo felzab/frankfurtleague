@@ -1,8 +1,9 @@
 """
 TESTS · the application under test, served in process to an HTTP client of the test's own
 
-Entered and left inside one coroutine, so the driver's client, the request and the close share the
-loop the client binds to. No lifespan: it would open a client of its own and apply the constraints.
+The app reads through the tier's shared client for the url (`tests/database.py :: shared_client`), as a deployed app
+reads through one client for its life: one per request would pay a topology handshake each time, which pymongo's
+documentation names the mistake to avoid. No lifespan: it would open a client of its own and apply the constraints.
 
 Invariants:
 - An app a caller hands in leaves as it came: no `db_client`, and the overrides it held, so the
@@ -18,13 +19,13 @@ from datetime import datetime
 
 from fastapi import FastAPI
 from httpx2 import ASGITransport, AsyncClient
-from pymongo import AsyncMongoClient
 
 from app.core.config import BackendConfig
 from app.core.dependencies import get_germany_now
 from app.core.recording import actor_var
 from app.main import create_app
 from tests.config import TEST_BASE_URL, build_test_config
+from tests.database import shared_client
 
 
 @functools.cache
@@ -74,9 +75,7 @@ async def app_client(
         undo.callback(actor_var.reset, actor_var.set(None))
         if now is not None:
             served.dependency_overrides[get_germany_now] = lambda: now
-        client = AsyncMongoClient(url)
-        undo.push_async_callback(client.close)
-        served.state.db_client = client
+        served.state.db_client = shared_client(url)
         undo.callback(delattr, served.state, "db_client")
 
         yield await undo.enter_async_context(

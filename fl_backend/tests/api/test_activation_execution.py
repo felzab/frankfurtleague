@@ -10,9 +10,10 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import activate_saison
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError
+from tests import documents
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database
 from tests.documents import saison_document, spiel_document
+from tests.isolation import refused_code
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -47,18 +48,16 @@ def spiel(saison_id: str, *, ergebnis: str | None) -> dict[str, Any]:
     )
 
 
-def spieltag_document(saison_id: str, position: int, *, start: str | None) -> dict[str, Any]:
-    """Every key `FLSpieltagRecord` requires stated, `end` moving with `start`: no write here produces a half-dated matchday."""
+def matchday(saison_id: str, position: int, *, start: str | None) -> dict[str, Any]:
+    """`end` moving with `start`: no write here produces a half-dated matchday."""
 
-    return {
-        "_id": ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "position": position,
-        "start": start,
-        "end": None if start is None else f"{saison_id}-03-02",
-        "version": 0,
-    }
+    return documents.spieltag_document(
+        ObjectId(f"6890a1b2c3d4e5f60724{position:04d}"),
+        saison_id,
+        position,
+        start=start,
+        end=None if start is None else f"{saison_id}-03-02",
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -165,20 +164,13 @@ class TestAMidFlightFailureTakesTheDemotionBack:
 
 
 class TestTheRolloverRefusesAnUndatedMatchday:
-    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted.
-
-    The demotion shares the promotion's transaction, so a refusal ordered after it would leave the
-    league with no active season.
-    """
+    """`activate_spieltage_undated` through the route, the only thing proving the matchdays are counted."""
 
     async def test_the_last_undated_matchday_refuses_the_rollover(self, mongo_replica_set_url: str):
         """One dated matchday beside it, so the count is what refuses rather than the collection being empty."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refusal:
-                await call_activate(database, client, TARGET)
-
-            return refusal.value.error_code, await statuses_now(database)
+            return await refused_code(call_activate(database, client, TARGET)), await statuses_now(database)
 
         code, statuses = await on_a_league(
             mongo_replica_set_url,
@@ -186,8 +178,8 @@ class TestTheRolloverRefusesAnUndatedMatchday:
             saisons=[saison_document(INCUMBENT, "active"), saison_document(TARGET, "future")],
             spiele=[spiel(TARGET, ergebnis=None), spiel(INCUMBENT, ergebnis="2:1")],
             spieltage=[
-                spieltag_document(TARGET, 1, start=f"{TARGET}-03-01"),
-                spieltag_document(TARGET, 2, start=None),
+                matchday(TARGET, 1, start=f"{TARGET}-03-01"),
+                matchday(TARGET, 2, start=None),
             ],
         )
 

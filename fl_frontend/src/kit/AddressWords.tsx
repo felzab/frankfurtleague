@@ -24,7 +24,7 @@ export const addressWords = tv({ base: "min-w-0 wrap-anywhere" });
 export type AddressText = RecordText & { readonly address: true };
 
 /** Whether a row's name is an address its list marked as one (`AddressText`). */
-export function isAddress(name: Words | AddressText): name is AddressText {
+export function isAddress(name: Words | AddressText) {
   return typeof name !== "string" && "address" in name;
 }
 

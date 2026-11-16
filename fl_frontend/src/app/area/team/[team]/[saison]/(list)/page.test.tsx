@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { serveBackend } from "@/test-support/backend";
+import { underNext } from "@/test-support/nextContexts";
 import { signedInRequest } from "@/test-support/session";
 import { seat } from "@/test-support/subjectFixtures";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -17,7 +18,7 @@ import type {
   FLTeamPanelSpielbestaetigung,
 } from "@/core/generated/client/types";
 import type { CardActRowProps } from "@/kit/Card";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 const TEAM = "6af32ed4205642a3fd5ee7e1";
 
@@ -28,7 +29,7 @@ const DONE = { ok: true, value: undefined } as const;
 
 // The answers are server functions, which a client reaches over the network: the row's press is what is judged.
 vi.mock("./answerSpielbestaetigung", () => ({ agreeSpielbestaetigung: vi.fn(), declineSpielbestaetigung: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 // The league's calendar day the deadlines and the decline's proposal are judged by, set before the session is made so
 // its stamps share the clock.
@@ -104,7 +105,7 @@ describe("a date's answer", () => {
   it("agrees to the row pressed, by its confirmation row", async () => {
     vi.mocked(agreeSpielbestaetigung).mockResolvedValue(DONE);
     const rows = await spielbestaetigungen(first, second);
-    render(rows[1]?.acts as ReactElement);
+    render(rows[1]?.acts as ReactElement, { wrapper: Next });
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.agree }));
 
@@ -114,7 +115,7 @@ describe("a date's answer", () => {
   it("declines the row pressed, by its confirmation row", async () => {
     vi.mocked(declineSpielbestaetigung).mockResolvedValue(DONE);
     const rows = await spielbestaetigungen(first, second);
-    render(rows[1]?.acts as ReactElement);
+    render(rows[1]?.acts as ReactElement, { wrapper: Next });
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.decline }));
     const dialog = await screen.findByRole("dialog");

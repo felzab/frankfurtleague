@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -14,6 +13,7 @@ from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.acts import acting_as
+from tests.handles import wired
 
 
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
@@ -23,13 +23,7 @@ def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **re
     does not, or the reverse, fails the call.
     """
 
-    # Each handle by its parameter's spelling, the collection's own name before `_collection`.
-    handles = {
-        name: database[Collection(name.removesuffix("_collection"))]
-        for name in inspect.signature(erase_everything).parameters
-        if name.endswith("_collection")
-    }
-    return {**handles, **replaced}
+    return wired(erase_everything, database, **replaced)
 
 
 async def erased(

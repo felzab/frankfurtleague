@@ -17,7 +17,7 @@ const options = [{ edges: ["src/core/config.ts", "src/core/db.ts"] }];
 const TEST_FILE = "src/core/api.test.ts";
 
 const VI = 'import { vi } from "vitest";\n';
-const HELPER = 'import { registerAuthDoubles } from "@/test-support/authDoubles.ts";\n';
+const HELPER = 'import { registerAuthDoubles } from "@/test-support/authDoubles";\n';
 
 const valid = (code, filename = TEST_FILE) => ({ code: VI + code, filename, options });
 const invalid = (code, messageId, filename = TEST_FILE) => ({ code: VI + code, filename, options, errors: [{ messageId }] });

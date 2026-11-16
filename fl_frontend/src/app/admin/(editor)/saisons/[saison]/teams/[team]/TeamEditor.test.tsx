@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -9,6 +10,7 @@ import { AUSTRITT_RULES, SEAT_RULES, TEAM_DESCRIPTION_MAX, TEAM_SAVE_RULES } fro
 
 import { TeamEditor } from "./TeamEditor";
 
+import type { ReactNode } from "react";
 import type { TeamRow } from "./TeamEditor";
 import type { TeamValues } from "./teamValues";
 
@@ -20,11 +22,11 @@ vi.mock("./teamActs", () => ({
   writeSeat: vi.fn(),
 }));
 vi.mock("@/features/invitations/actions", () => ({ mailInvitation: vi.fn(), mintInvitation: vi.fn(), revokeInvitation: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/saisons/2027/teams/64b000000000000000000001",
-  useParams: () => ({ saison: "2027", team: "64b000000000000000000001" }),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined }),
-}));
+const Next = ({ children }: { children: ReactNode }) =>
+  underNext(children, {
+    pathname: "/admin/saisons/2027/teams/64b000000000000000000001",
+    params: { saison: "2027", team: "64b000000000000000000001" },
+  });
 
 const VALUES: TeamValues = {
   name: "Ahorn",
@@ -80,6 +82,7 @@ describe("the exit dialog's „E-Mail an“", () => {
         retirement={{ kind: "retire" }}
         row={ROW}
       />,
+      { wrapper: Next },
     );
 
     // The danger row's button carries the dialog's verb.

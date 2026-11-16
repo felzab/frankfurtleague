@@ -21,11 +21,12 @@ from app.api.teams.admin_router import delete_invitation, get_team_saison_admin,
 from app.core import clock
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HeldCollection
+from tests.isolation import refused_code
 from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
@@ -365,16 +366,12 @@ class TestTwoMintsAtOnce:
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
             held = _HoldsAfterItsRevoke(database[Collection.INVITATIONS], committed)
-            second = asyncio.create_task(mint(database, TWO_SEATS, invitations=held))
-            await held.until_held(second)
-
-            try:
+            async with asyncio.TaskGroup() as group:
+                second = group.create_task(mint(database, TWO_SEATS, invitations=held))
+                await held.until_held(second)
                 first = await mint(database, TWO_SEATS)
-            except BaseException:
-                await held.abandon(second)
-                raise
-            committed.set()
-            answered = await second
+                committed.set()
+            answered = second.result()
 
             live = await database[Collection.INVITATIONS].find({"team_id": TWO_SEATS, "revoked_at": None}).to_list(length=None)
 
@@ -410,10 +407,10 @@ class _HoldsAfterItsRevoke(HeldCollection):
 class TestWhatAMintRefuses:
     async def test_a_team_the_season_does_not_hold_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await mint(database, NOT_ENTERED)
-
-            return conflict.value.error_code, await database[Collection.INVITATIONS].count_documents({"team_id": NOT_ENTERED})
+            return (
+                await refused_code(mint(database, NOT_ENTERED)),
+                await database[Collection.INVITATIONS].count_documents({"team_id": NOT_ENTERED}),
+            )
 
         code, stored = await on_a_league(mongo_replica_set_url, body)
 
@@ -424,21 +421,15 @@ class TestWhatAMintRefuses:
         """The page locks the press once the exit stands, and the link would open nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await mint(database, WITHDRAWN)
-
-            return conflict.value.error_code, await live_count(database, WITHDRAWN)
+            return await refused_code(mint(database, WITHDRAWN)), await live_count(database, WITHDRAWN)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, 0)
 
     async def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await mint(database, TWO_SEATS)
-
             # The team the refused mint named: the seeded league holds an invitation of its own,
             # and a count over the collection would pass for holding that row rather than none.
-            return conflict.value.error_code, await database[Collection.INVITATIONS].count_documents({"team_id": TWO_SEATS})
+            return await refused_code(mint(database, TWO_SEATS)), await database[Collection.INVITATIONS].count_documents({"team_id": TWO_SEATS})
 
         code, stored = await on_a_league(mongo_replica_set_url, body, saison_status="past")
 
@@ -514,10 +505,7 @@ class TestTheTeamsMailPress:
 
         async def body(database: AsyncDatabase) -> Any:
             live = await database[Collection.INVITATIONS].insert_one(invitation_row(WITHDRAWN))
-            with pytest.raises(APIError) as conflict:
-                await mail(database, WITHDRAWN, live.inserted_id)
-
-            return conflict.value.error_code, await owed_for(database, WITHDRAWN)
+            return await refused_code(mail(database, WITHDRAWN, live.inserted_id)), await owed_for(database, WITHDRAWN)
 
         assert await on_a_league(mongo_replica_set_url, body) == (Code.VERSION_STALE, [])
 
@@ -526,10 +514,7 @@ class TestTheTeamsMailPress:
 
         async def body(database: AsyncDatabase) -> Any:
             live = await database[Collection.INVITATIONS].insert_one(invitation_row(TWO_SEATS))
-            with pytest.raises(APIError) as conflict:
-                await mail(database, TWO_SEATS, live.inserted_id)
-
-            return conflict.value.error_code, await owed_for(database, TWO_SEATS)
+            return await refused_code(mail(database, TWO_SEATS, live.inserted_id)), await owed_for(database, TWO_SEATS)
 
         assert await on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.SAISON_PAST, [])
 
@@ -661,10 +646,7 @@ class TestTheSeasonWidePress:
 
     async def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(APIError) as conflict:
-                await press(database)
-
-            return conflict.value.error_code, await database[Collection.INVITATIONS].count_documents({"revoked_at": None})
+            return await refused_code(press(database)), await database[Collection.INVITATIONS].count_documents({"revoked_at": None})
 
         code, live = await on_a_league(mongo_replica_set_url, body, saison_status="past")
 

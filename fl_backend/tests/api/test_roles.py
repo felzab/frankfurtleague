@@ -10,7 +10,7 @@ from app.api.identity.crud import roles_of
 from app.api.identity.schemas import FLSubject
 from app.core.collections import Collection
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.database import a_clean_database, bounded, shared_client, unwritten
+from tests.database import held_corpus, shared_client
 from tests.documents import (
     AUSTRITT,
     EINWILLIGUNG,
@@ -220,20 +220,12 @@ async def _seed(database: AsyncDatabase) -> None:
 
 
 # Module-scoped: every case below reads this corpus, and the one opening a transaction aborts it,
-# which `unwritten` keeps from being left as a claim.
+# which `held_corpus` keeps from being left as a claim.
 @pytest.fixture(scope="module")
 async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
-    async def _run() -> None:
-        async with a_clean_database(
-            mongo_replica_set_url,
-            DATABASE_NAME,
-            stores_a_refused_shape="an unconfirmed pupil, which every read answers as nobody",
-        ) as (_, database):
-            await _seed(database)
-
-    await bounded(_run())
-
-    with unwritten(mongo_replica_set_url, DATABASE_NAME):
+    async with held_corpus(
+        mongo_replica_set_url, DATABASE_NAME, _seed, stores_a_refused_shape="an unconfirmed pupil, which every read answers as nobody"
+    ):
         yield mongo_replica_set_url
 
 

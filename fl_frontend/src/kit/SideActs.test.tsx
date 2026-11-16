@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,9 +10,10 @@ import { SeatRows } from "./SeatRows";
 import { SideActs } from "./SideActs";
 import { Table } from "./Table";
 
+import type { ReactNode } from "react";
 import type { SideAct } from "./SideActs";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const SEND = COPY.shared.withObject(COPY.account.address.link, "send");
 const DISCARD = COPY.shared.verb.discard;
@@ -34,6 +36,7 @@ describe("a row's side acts folded", () => {
           { label: DISCARD, locked: COPY.shared.failure.stale, onPress: edit },
         ]}
       />,
+      { wrapper: Next },
     );
 
     screen.getByRole("button", { name: MORE }).focus();
@@ -93,6 +96,7 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
         ],
         [{ label: DISCARD, tone: "danger", onPress: () => undefined }],
       ]),
+      { wrapper: Next },
     );
 
     const labelled = [...screen.getAllByRole("button", { name: SEND }), ...screen.getAllByRole("button", { name: DISCARD })];
@@ -115,6 +119,7 @@ describe.each(Object.entries(LISTS))("the side acts of a list's rows (%s)", (_, 
           { label: DISCARD, tone: "danger", locked: reason, onPress: discard },
         ],
       ]),
+      { wrapper: Next },
     );
 
     const button = screen.getByRole("button", { name: DISCARD });

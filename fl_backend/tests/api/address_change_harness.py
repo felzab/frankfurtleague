@@ -39,8 +39,9 @@ from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
 from tests.acts import acting_as
-from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
+from tests.config import ADMINISTRATORS, GRANTED_FROM, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database
+from tests.handles import wired
 from tests.outbox import claimable
 from tests.records import record_collections
 from tests.session_headers import verified_actor
@@ -220,7 +221,7 @@ async def granted(database: AsyncDatabase, address: str = EMAIL, *, admin_tier: 
     """A grant at `address`, written as a hand-written grant is, before the clock's first sight of it."""
 
     grant_id = ObjectId()
-    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "address": address, "admin_tier": admin_tier})
+    await database[Collection.GRANTS].insert_one(documents.grant_document(address, admin_tier, effective_from=GRANTED_FROM, _id=grant_id))
 
     return grant_id
 
@@ -233,12 +234,13 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
     """
 
     supplied: dict[str, Any] = {}
+    handles = wired(handler, database)
     parameters = inspect.signature(handler).parameters
     for name in parameters:
         if name in given:
             supplied[name] = given[name]
         elif name.endswith("_collection"):
-            supplied[name] = database[Collection[name.removesuffix("_collection").upper()]]
+            supplied[name] = handles[name]
         elif name == "records":
             supplied[name] = record_collections(database)
         elif name == "db":

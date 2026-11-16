@@ -124,7 +124,7 @@ registerAuthDoubles({
   },
   specifiers: { "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
-const log = captureLog();
+const log = captureLog("production");
 
 const { register } = await import("./instrumentation");
 const { auth } = await import("@/core/auth/library");
@@ -215,12 +215,6 @@ async function bootAndStep(steps: readonly number[]): Promise<string[][]> {
 
   return seen;
 }
-
-/* Every case here boots a production build, whose `NODE_ENV` the `unit-production` project sets: under any other value
-   the boot arms nothing, and each case would read a scheduler that never started. */
-it("runs under a production build's NODE_ENV", () => {
-  expect(process.env.NODE_ENV).toBe("production");
-});
 
 /* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
    sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. The index build

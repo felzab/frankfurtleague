@@ -75,6 +75,9 @@ MAIL_SINK="${REPO_ROOT}/.tmp-mail"
 if (( E2E )); then
   # Merged over the local stack's two, as that one merges over production's.
   COMPOSE_FILE="${COMPOSE_FILE};docker-compose.e2e.yml"
+  # The stack's name as docker-compose.e2e.yml gives it, which a caller's variable or a `.env` would
+  # outrank: `--down` deletes the named stack's volume, and `--landing` empties its database.
+  export COMPOSE_PROJECT_NAME="frankfurtleague-e2e"
   STOP_COMMAND="./scripts/ops/local.sh --e2e --down"
 fi
 # Compose as a developer types it beside this stack.
@@ -87,30 +90,36 @@ E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 # The made-up league loaded into the running backend's database and read back; `--landing` hands its
 # state on. The script's own account is shown only on a failure.
 load_made_up_seed() {
-  local rc=0 landing=()
+  local rc=0 class=0 landing=()
   if (( RESEED )); then landing=("--landing=${LANDING}"); fi
   quietly "${REPO_ROOT}/scripts/ops/made_up_seed.sh" "${landing[@]}" || rc=$?
-  case "$rc" in
+  exit_class contract "$rc" || class=$?
+  case "$class" in
     0) ok "seeded the made-up league, and every document it wrote reads back through its model" ;;
+    1) die "the made-up seed failed, and the lines above name what to correct.
+The frontend has not been started or recreated." ;;
     2) refuse "the made-up seed was refused, and the lines above say why.
-The frontend and nginx have not been started or recreated." ;;
-    *) die "the made-up seed failed, and the lines above name what to correct.
-The frontend and nginx have not been started or recreated." ;;
+The frontend has not been started or recreated." ;;
+    130) on_interrupt ;;
+    *) on_error "$rc" "$LINENO" "scripts/ops/made_up_seed.sh" ;;
   esac
 }
 
 # The script CI's journeys raise the stack with, its steps shown as they run and its verdict kept: a
-# refusal stays 2.
+# refusal stays 2, an interrupt 130 and a crash its own status.
 e2e_stack() {
-  local rc=0
+  local rc=0 class=0
   "${REPO_ROOT}/scripts/ops/e2e_stack.sh" "$@" || rc=$?
-  case "$rc" in
+  exit_class contract "$rc" || class=$?
+  case "$class" in
     0) ;;
-    2) refuse "the end-to-end stack was refused, and the lines above say why.
-Stop what is left:  ${STOP_COMMAND}" ;;
-    *) die "the end-to-end stack did not come up, and the lines above name what to correct.
+    1) die "the end-to-end stack did not come up, and the lines above name what to correct.
 Each service's own lines:  ${BY_HAND} logs <service>
 Stop what is left:  ${STOP_COMMAND}" ;;
+    2) refuse "the end-to-end stack was refused, and the lines above say why.
+Stop what is left:  ${STOP_COMMAND}" ;;
+    130) on_interrupt ;;
+    *) on_error "$rc" "$LINENO" "scripts/ops/e2e_stack.sh $*" ;;
   esac
 }
 
@@ -152,10 +161,14 @@ if (( RESEED )); then
 
   step "The running end-to-end stack"
   services="$(docker compose ps --status running --services)" || die "compose could not list the stack's services; its own account is above."
-  for service in mongo backend frontend; do
+  for service in mongo backend nginx; do
     grep -qx "$service" <<< "$services" || refuse "the end-to-end stack's ${service} is not running, so there is nothing to re-seed.
 Start the stack with ./scripts/ops/local.sh --e2e first."
   done
+  # In any state: the seed needs it stopped, and a re-seed that failed leaves it so.
+  existing="$(docker compose ps --all --services)" || die "compose could not list the stack's services; its own account is above."
+  grep -qx frontend <<< "$existing" || refuse "the end-to-end stack has no frontend, so there is nothing to re-seed.
+Start the stack with ./scripts/ops/local.sh --e2e first."
   ok "running"
 
   # The stack's name is fixed, so a checkout that did not start it reaches it too, and the frontend
@@ -164,7 +177,7 @@ Start the stack with ./scripts/ops/local.sh --e2e first."
   # project that created it; both sides are spelled by cygpath and compared without case, as Windows
   # compares paths.
   step "The checkout that started it"
-  listed="$(docker compose ps -q)" || die "compose could not list the stack's containers; its own account is above."
+  listed="$(docker compose ps --all -q)" || die "compose could not list the stack's containers; its own account is above."
   mapfile -t ids <<< "$listed"
   # Each line opened by a word, so a container without the label is a line of its own and never one
   # the command substitution drops at the end.
@@ -180,10 +193,15 @@ Start the stack with ./scripts/ops/local.sh --e2e first."
     if [[ "${dir,,}" != "${here,,}" ]]; then others["$dir"]=1; fi
   done <<< "$created"
   if (( ${#others[@]} )); then
-    refuse "the running end-to-end stack's containers were created from $(IFS=' '; printf '%s' "${!others[*]}"), not from this checkout, ${here}.
+    refuse "the end-to-end stack's containers were created from $(IFS=' '; printf '%s' "${!others[*]}"), not from this checkout, ${here}.
 Run --e2e --landing=<state> from the checkout whose --e2e started the stack, or start it here with --e2e."
   fi
   ok "started from this checkout"
+
+  # The seed writes only a database nothing else writes, and the recreate below starts it again.
+  step "The frontend, stopped"
+  quietly docker compose stop frontend || die "the frontend could not be stopped, and compose's own account is above."
+  ok "stopped"
 
   step "The made-up league, the landing ${LANDING}, and the backend's check of it"
   load_made_up_seed
@@ -240,7 +258,9 @@ ok "images built"
 if (( MADE_UP )); then
   section "database"
 
+  # A frontend left running from an earlier start: the seed writes only a database nothing else writes.
   step "The database and the backend, before anything renders a page"
+  quietly docker compose stop frontend || die "the frontend could not be stopped, and compose's own account is above."
   quietly docker compose up -d --force-recreate --remove-orphans --wait --wait-timeout 180 mongo backend \
     || die "the database and the backend did not both come up healthy, and compose's own account is above.
 Each one's own lines:  ${BY_HAND} logs mongo backend"

@@ -17,7 +17,7 @@ export type BracketRound = { id: string; label: Copy; matches: ReadonlyArray<Bra
 /** How many matches the first round holds, and so how many columns the tree has: the draw allows 2 to 16 qualifiers. */
 type Width = 1 | 2 | 4 | 8;
 
-const isWidth = (count: number): count is Width => count === 1 || count === 2 || count === 4 || count === 8;
+const isWidth = (count: number) => count === 1 || count === 2 || count === 4 || count === 8;
 const key = (count: Width) => String(count) as `${Width}`;
 
 const tree = tv({

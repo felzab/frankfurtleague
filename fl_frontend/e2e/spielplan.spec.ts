@@ -5,7 +5,13 @@
 import { expect } from "@playwright/test";
 
 import { hydrated, test } from "./support/journey";
-import { RUNNING } from "./support/madeUpLeague";
+import { PEOPLE, RUNNING } from "./support/madeUpLeague";
+
+/** The seed's first match, played, which the first matchday's tab lists. */
+const OPENED = PEOPLE.spielplan.opened;
+const [HOME] = OPENED.split(" vs. ");
+// The match row's link is named by all its words, so the pairing finds it between them.
+const ROW = new RegExp(OPENED.replace(" vs. ", ".*"));
 
 test("a visitor opens a match from the Spielplan, and Back returns to the matchday it showed", async ({ page }) => {
   const prefetched = hydrated(page);
@@ -24,11 +30,11 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   await expect(page).toHaveURL((url) => url.pathname === `/saisons/${RUNNING}` && url.searchParams.get("tab") === "gruppenphase-1");
 
   // A match row is a link to the match's page, which opens over the Spielplan. Only the chosen matchday's
-  // matches are on the page, so the row's name finds it: the seed's first match, Ahorn against Kastanie, 2:1.
-  await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
-  const popup = page.getByRole("dialog", { name: "Ahorn vs. Kastanie" });
+  // matches are on the page, so the row's name finds it.
+  await page.getByRole("link", { name: ROW }).click();
+  const popup = page.getByRole("dialog", { name: OPENED });
   await expect(popup).toBeVisible();
-  await expect(popup.getByText("2:1")).toBeVisible();
+  await expect(popup.getByText(PEOPLE.spielplan.ergebnis)).toBeVisible();
   await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/spiele/[0-9a-f]{24}$`).test(url.pathname));
   // The Spielplan stays beneath it, on the matchday it showed. The open pop-up hides everything outside
   // itself from the accessibility tree, which a role query skips unless told to include it.
@@ -46,15 +52,15 @@ test("a visitor opens a match from the Spielplan, and Back returns to the matchd
   // Opened again, the pop-up's club name leads to the club's page. A client navigation leaves a parallel slot
   // showing its last page unless the new address matches one of its routes; the slot's catch-all matches the
   // club's page and draws no pop-up.
-  await page.getByRole("link", { name: /Ahorn.*Kastanie/ }).click();
+  await page.getByRole("link", { name: ROW }).click();
   await expect(popup).toBeVisible();
-  await popup.getByRole("link", { name: "Ahorn", exact: true }).click();
+  await popup.getByRole("link", { name: HOME, exact: true }).click();
   await expect(page).toHaveURL((url) => new RegExp(`^/saisons/${RUNNING}/teams/[0-9a-f]{24}$`).test(url.pathname));
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: HOME })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Loaded directly, the match's address is the match's own page, with no pop-up.
   await page.goto(matchPage);
-  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: "Ahorn vs. Kastanie" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("heading", { level: 1, name: OPENED })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

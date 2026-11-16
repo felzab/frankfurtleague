@@ -188,7 +188,7 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth } = await import("./auth/library");
 const { carryAccount, deleteAccountFor, deleteOwnAccount, requestAccountDeletion } = await import("./auth/accounts");
 const { endSessionsOfAddress } = await import("./auth/accountSessions");
-const { buildAuthIndexes } = await import("./authIndexes");
+const { buildAuthIndexes, MONGO_DB_NAME } = await import("./authIndexes");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
@@ -205,10 +205,10 @@ type RealClient = {
 
 const realClient = productionClient as RealClient;
 closing(() => realClient.close());
-const authDb = () => realClient.db("auth");
+const authDb = () => realClient.db(MONGO_DB_NAME);
 
 // Production's indexes under every case, so the library is driven over what it meets there: built once for the
-// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+// file, as a boot builds them once.
 beforeAll(async () => {
   const from = log.lines().length;
   await buildAuthIndexes();

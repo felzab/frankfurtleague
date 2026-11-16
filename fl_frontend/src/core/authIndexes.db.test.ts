@@ -63,9 +63,9 @@ registerAuthDoubles({
 const { auth } = await import("./auth/library");
 const { endOtherSessions } = await import("./auth/accountSessions");
 const { getAccountSession } = await import("./auth/guards");
-const { buildAuthIndexes } = await import("./authIndexes");
+const { buildAuthIndexes, MONGO_DB_NAME } = await import("./authIndexes");
 
-const store = () => (storeClient as MongoClient).db("auth");
+const store = () => (storeClient as MongoClient).db(MONGO_DB_NAME);
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {

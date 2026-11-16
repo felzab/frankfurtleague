@@ -16,7 +16,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.spieltage.services import build_spielplan
 from tests.core.app_source import api_routes, application
-from tests.documents import rules_document, spiel_document, spieltag_document
+from tests.documents import AUSTRITT, rules_document, spiel_document, spieltag_document
 
 # The two figures the base tier never serves, the rent and the fee, spelled as a DOCUMENT spells them: the
 # assertions below search published property names, where a model's field name need not match.
@@ -53,8 +53,6 @@ SPIELORT_NAME = "Sportplatz Ost"
 SCHIEDSRICHTER_SURNAME = "Kern"
 SCHIEDSRICHTER_NAME = f"Ada {SCHIEDSRICHTER_SURNAME}"
 PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
-
-AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
 
 
 def stored_document() -> dict[str, Any]:
