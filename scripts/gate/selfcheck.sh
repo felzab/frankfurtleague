@@ -49,6 +49,21 @@ while IFS=$'\t' read -r meta path; do
   fi
 done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 
+# A linter's status through its own table, Docker's ahead of it (`_lib.sh :: EXIT_CODES`): what it
+# found is a finding, and a linter whose image never ran, or that could not read a file it was
+# handed, judged nothing.
+linted() { # $1 the linter · $2 its status · $3 the line it ran on
+  local class=0
+  exit_class "docker+$1" "$2" || class=$?
+  case "$class" in
+    0) ;;
+    1) note_fail "$1 reported the findings above (exit $2)" ;;
+    2) UNRUN+=("$1 judged nothing it was handed (exit $2): its own words, or Docker's, are above") ;;
+    130) on_interrupt ;;
+    *) on_error "$2" "$3" "docker run of $1" ;;
+  esac
+}
+
 # Each linter is the image its stage names in the tools file (`tool_image`), so a release reaches the
 # gate by a named bump alone and runs the same on every machine.
 sc_rc=0
@@ -63,12 +78,12 @@ else
   # one of its errors. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
     "$SHELLCHECK_IMAGE" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
+  linted shellcheck "$sc_rc" "$LINENO"
 
   step "3. actionlint on the workflows"
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
+  linted actionlint "$al_rc" "$LINENO"
 fi
-if (( sc_rc )); then note_fail "shellcheck reported the findings above (exit ${sc_rc})"; fi
-if (( al_rc )); then note_fail "actionlint reported the findings above (exit ${al_rc})"; fi
 
 printf '\n'
 if (( FAILURES > 0 )); then
