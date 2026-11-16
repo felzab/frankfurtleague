@@ -9,17 +9,18 @@ if (typeof window !== "undefined") {
     languages: { configurable: true, value: ["de-DE"] },
   });
 
-  // jsdom lays nothing out and animates nothing, so it has none of these.
+  // jsdom lays nothing out and animates nothing, so it has none of these, whatever the DOM's types declare: each is
+  // widened to `Partial` where it is filled in.
   // react-aria's shared-element transition asks the tab indicator for its animations.
-  Element.prototype.getAnimations ??= () => [];
+  (Element.prototype as Partial<Element>).getAnimations ??= () => [];
   // An opened list scrolls its option into view.
-  Element.prototype.scrollTo ??= () => undefined;
+  (Element.prototype as Partial<Element>).scrollTo ??= () => undefined;
   // Nor does it hit-test a point: the sign-in code field asks what stands at its right edge, looking for a password
   // manager's badge to make room for, and here nothing ever does.
-  Document.prototype.elementFromPoint ??= () => null;
+  (Document.prototype as Partial<Document>).elementFromPoint ??= () => null;
   // Nor does it evaluate a media query, which the editors' rails read as they mount. Every query answers unmatched
   // and never changes, the narrow layout being the one a page without a viewport renders.
-  window.matchMedia ??= (media: string): MediaQueryList =>
+  (window as Partial<Window>).matchMedia ??= (media: string): MediaQueryList =>
     Object.assign(new EventTarget(), {
       media,
       matches: false,

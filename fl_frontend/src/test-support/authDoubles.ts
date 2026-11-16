@@ -47,7 +47,8 @@ const SECRET_DOUBLES: SecretReaders = {
 
 /** A config standing in for the real one where a suite must vary a value per file, `secrets` over the run's own. */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, secrets: SecretReaders = {}): DoubledExports {
-  const config = {
+  // Typed as the overrides are: a spread drops their index signature, and with it the `undefined` they may carry.
+  const config: Readonly<Record<string, unknown>> = {
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
     ...overrides,

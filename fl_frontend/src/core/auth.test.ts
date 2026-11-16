@@ -636,7 +636,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 /* The proxy slides a session ahead of every guard, moving `updatedAt` to now: the guard behind it reads
    a fresh stamp, and only the mark the slide leaves refuses. */
 describe("the administrator's idle hour across the proxy's slide", () => {
-  const EXPIRES_IN_MS = (auth.options.session.expiresIn ?? Number.NaN) * 1000;
+  const EXPIRES_IN_MS = auth.options.session.expiresIn * 1000;
 
   /** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it, so the next read slides it. */
   function refreshedAgo(row: SessionRow, ago: number): void {

@@ -76,7 +76,7 @@ async function renderStartelf(spieler: FLAufstellungEntryPublic[]) {
   const folds = groups.find((group) => group.kind === "folds");
   if (folds?.kind !== "folds") throw new Error("no line-ups on the page");
   const [ahorn] = (folds.folds as ReactElement<{ cards: readonly FoldedCard[] }>).props.cards;
-  const [startelf] = ahorn?.tables ?? [];
+  const startelf = ahorn?.tables.at(0);
   if (startelf === undefined || !("head" in startelf)) throw new Error("no starters in Ahorn's line-up");
   render(<Table {...startelf.table} />);
 }

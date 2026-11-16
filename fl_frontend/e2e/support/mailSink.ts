@@ -64,7 +64,8 @@ export async function mailedMessage(
   before: ReadonlySet<string>,
   { timeout = MAIL_WAIT_MS }: { timeout?: number } = {},
 ): Promise<readonly string[]> {
-  let message: string[] | null = null;
+  // Widened by `as`: the poll's callback writes it, past TypeScript's narrowing of the `null` it starts as.
+  let message = null as string[] | null;
 
   await expect
     .poll(

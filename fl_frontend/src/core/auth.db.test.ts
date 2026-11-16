@@ -562,8 +562,8 @@ describe("a session only read, against a real database", () => {
 
     gateAnswer = { seats: [SEAT], barred: false, account: true };
     const cookie = await signIn("leserin-mit-code@example.org");
-    const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
-    const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
+    const expiresIn = auth.options.session.expiresIn * 1000;
+    const updatedAt = new Date(Date.now() - auth.options.session.updateAge * 1000 - 60_000);
     await authDb()
       .collection("session")
       .updateMany({}, { $set: { updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
