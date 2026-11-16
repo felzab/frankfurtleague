@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { Activity } from "react";
 
+import { underNext } from "@/test-support/nextContexts";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +13,7 @@ import { TextField } from "./TextField";
 import { ToastRegion } from "./Toast";
 
 import type { ActionAnswer } from "@/core/action";
+import type { ReactNode } from "react";
 import type { AskedInput } from "./QuestionForm";
 
 type Input = { email: string };
@@ -27,7 +29,7 @@ const READ: ActionAnswer<AskedInput<Input>> = {
 
 const acts = vi.hoisted(() => ({ read: vi.fn(), act: vi.fn(), touch: vi.fn() }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 vi.mock("@/core/auth/browserClient", () => ({
   loadAuthClient: async () => ({ signIn: { passkey: acts.touch } }),
   usePreloadedAuthClient: () => undefined,
@@ -59,6 +61,7 @@ async function press() {
       {FORM}
       <ToastRegion frame="rail" />
     </>,
+    { wrapper: Next },
   );
   await userEvent.type(box(), ADDRESS);
   await userEvent.click(screen.getByRole("button", { name: VERB }));
@@ -102,7 +105,7 @@ describe("a form asking its question over what the press read", () => {
   // The harm: an erasure's done line greeting a later visit, or standing over the next address typed.
   it("clears a done act's line as the next address is typed and once the page hides", async () => {
     acts.act.mockResolvedValue({ ok: true, value: undefined, note: COPY.admin.erased });
-    const { rerender } = render(<Activity mode="visible">{FORM}</Activity>);
+    const { rerender } = render(<Activity mode="visible">{FORM}</Activity>, { wrapper: Next });
     await userEvent.type(box(), ADDRESS);
     await userEvent.click(screen.getByRole("button", { name: VERB }));
     await userEvent.click(within(await screen.findByRole("alertdialog", { name: QUESTION })).getByRole("button", { name: VERB }));

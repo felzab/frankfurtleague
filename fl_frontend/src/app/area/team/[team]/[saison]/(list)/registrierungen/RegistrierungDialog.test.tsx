@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,13 +9,14 @@ import { COPY } from "@/core/copy";
 import { admitRegistrierung, declineRegistrierung } from "./decideRegistrierung";
 import { RegistrierungDialog } from "./RegistrierungDialog";
 
+import type { ReactNode } from "react";
 import type { Admission } from "./RegistrierungDialog";
 
 vi.mock("./decideRegistrierung", () => ({
   admitRegistrierung: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
   declineRegistrierung: vi.fn(() => Promise.resolve({ ok: true, value: undefined })),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const AT = { team_id: "aaaaaaaaaaaaaaaaaaaaaaaa", saison_id: "2027" };
 const PIA = "cccccccccccccccccccccccc";
@@ -27,6 +29,7 @@ function opened(admission: Admission) {
       entry={{ decided: { ...AT, registrierung_id: PIA }, name: "Pia Sander", facts: [], admission }}
       open={{ isOpen: true, onOpenChange: () => undefined }}
     />,
+    { wrapper: Next },
   );
   return within(screen.getByRole("dialog"));
 }

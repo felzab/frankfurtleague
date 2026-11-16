@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -13,17 +14,15 @@ import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
 import type { ActionAnswer } from "@/core/action";
+import type { ReactNode } from "react";
 import type { EditorSave } from "./useEditor";
 
 type Spielort = { name: string };
 
 const NAME = COPY.page.adminSpielorte;
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/spielorte/ort-1",
-  useParams: () => ({ spielort: "ort-1" }),
-  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
-}));
+const Next = ({ children }: { children: ReactNode }) =>
+  underNext(children, { pathname: "/admin/spielorte/ort-1", params: { spielort: "ort-1" } });
 
 function SpielortEditor({
   save,
@@ -83,7 +82,7 @@ describe("the editor template's save", () => {
       .fn<(change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>>()
       .mockResolvedValueOnce({ ok: false, ask: { subject: COPY.admin.spiel.ergebnis, consequence, confirm: "5" } })
       .mockResolvedValueOnce({ ok: true, value: 2 });
-    render(<Served save={save} />);
+    render(<Served save={save} />, { wrapper: Next });
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.save }));
@@ -153,7 +152,7 @@ describe("an editor's own acts", () => {
     "answer a press with the draft's reason while it holds a change, asking nothing and running nothing: %s",
     async (name) => {
       const act = vi.fn();
-      render(<ActingEditor act={act} />);
+      render(<ActingEditor act={act} />, { wrapper: Next });
 
       await userEvent.type(screen.getByRole("textbox"), " Nord");
       await userEvent.click(screen.getByRole("button", { name }));

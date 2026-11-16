@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { underNext } from "@/test-support/nextContexts";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -8,8 +9,9 @@ import { COPY } from "@/core/copy";
 import { AccountBox, AccountRows } from "./AccountBox";
 
 import type { ActionAnswer } from "@/core/action";
+import type { ReactNode } from "react";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined, push: () => undefined }) }));
+const Next = ({ children }: { children: ReactNode }) => underNext(children);
 
 const PASSKEY = COPY.account.passkeys.title;
 const REFUSAL = COPY.shared.failure.stale;
@@ -34,6 +36,7 @@ describe("a Konto box's act behind a question", () => {
         description={COPY.account.passkeys.description}
         act={{ run, button: { confirm: { verb: "delete", subject: PASSKEY, consequence: CONSEQUENCE, tone: "danger" } } }}
       />,
+      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
@@ -64,6 +67,7 @@ describe("a locked Konto box", () => {
           name="name"
         />
       </AccountBox>,
+      { wrapper: Next },
     );
 
     await userEvent.type(screen.getByRole("textbox"), "Laptop{Enter}");
@@ -82,6 +86,7 @@ describe("a locked Konto box", () => {
           locked: reason,
         }}
       />,
+      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.withObject(PASSKEY, "delete") }));
@@ -108,6 +113,7 @@ describe("a Konto row's removal", () => {
           },
         ]}
       />,
+      { wrapper: Next },
     );
 
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.delete }));
