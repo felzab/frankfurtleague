@@ -227,7 +227,7 @@ prefix; order in the file decides nothing.
 - `authapi`, 30 a minute, every method: the sign-in library's routes, its landing and the readiness
   probe, each reading a database. The code check spends it too, so a GET there meets a meter.
 - `linkpage`, 30 a minute, every method: every page a mailed or shared link opens.
-- `action`, 60 a minute: every server action, which Next 16.4.2 runs for a POST carrying a
+- `action`, 60 a minute: every server action, which Next runs for a POST carrying a
   `Next-Action` header or either form content type, at any path. Every other request's key is empty,
   so it meters no page load, asset or JSON post.
 
@@ -317,7 +317,7 @@ A route handler bounding its body tighter takes its own cap at its location, its
 but a page load's.** The server block's `error_page 429` sends a refusal by what the request asks
 for (`nginx/shared/http.conf :: $edge_refusal_target`): a request naming `text/html` gets a page
 with its way back to the site, written inline in `nginx/shared/site.conf`, and anything else the
-sentence. Next 16.4.2 hands a server action's caller a failed answer's body as the error only under
+sentence. Next hands a server action's caller a failed answer's body as the error only under
 exactly that type, and the frontend reads the sentence as a press that wrote nothing
 (`fl_frontend/src/kit/edgeRefusal.ts`); a `charset` would make every refused press read as an
 unclear save. The page withholds the referrer, its URL possibly carrying a link's token, and its

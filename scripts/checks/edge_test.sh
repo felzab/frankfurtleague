@@ -475,10 +475,9 @@ fi
 # production's, each on a key nothing before it spent.
 ACTION_FAILURES=0
 ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
-# What a refused request asks for decides its answer: Next 16.4.2's server-action client asks for this
-# alone (`next/dist/client/components/router-reducer/reducers/server-action-reducer.js`), and a
-# browser's page load names `text/html` first. Every other transfer asks with curl's own `*/*`, as an
-# in-page navigation's and a prefetch's fetch does, naming no type of its own.
+# What a refused request asks for decides its answer: Next's server-action client asks for this
+# alone, and a browser's page load names `text/html` first. Every other transfer asks with curl's own
+# `*/*`, as an in-page navigation's and a prefetch's fetch does, naming no type of its own.
 ACTION_ACCEPT="text/x-component"
 NAVIGATION_ACCEPT="text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 # Every transfer of this pass goes to one curl as lines of a config read from stdin (`curl -K -`), not
