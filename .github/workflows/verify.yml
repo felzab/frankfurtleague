@@ -295,11 +295,6 @@ jobs:
             projects: --project=phone
     name: journeys (${{ matrix.leg }})
     env:
-      # The three files `local.sh --e2e` merges; local.sh itself refuses Linux (`require_platform windows`).
-      COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
-      # The tag docker-compose.yml's two images read, which Compose demands before it merges the files
-      # that replace both with this stack's own; no image here is pulled by it.
-      TAG: e2e
       # Chromium, WebKit and every library they load (https://playwright.dev/docs/docker), so no run
       # waits on the runner's apt mirror. Its tag is the lockfile's Playwright, whose browser builds
       # no other release finds, and no Dependabot ecosystem reads this string, so a bump is by hand.
@@ -314,22 +309,12 @@ jobs:
       # journeys' `docker run` pulls the image itself and says why it cannot.
       - name: Start pulling the image holding the browsers
         run: docker pull "$PLAYWRIGHT_IMAGE" > /dev/null 2>&1 &
-      - name: Generate the stack's throwaway keys
-        # As `local.sh`'s `write_e2e_keys` generates them, each file readable by the containers' own
-        # users, which the runner's user is not. Nothing is printed.
-        run: |
-          mkdir -p .tmp-e2e/secrets .tmp-e2e/mail
-          chmod 777 .tmp-e2e/mail
-          for name in auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin; do
-            openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
-          done
-          chmod 644 .tmp-e2e/secrets/*
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: images
           path: ${{ runner.temp }}/images
-      # Under the names docker-compose.e2e.yml gives the two built services; every `up` below passes
-      # `--no-build`, so a name that does not match fails rather than building.
+      # Under the names docker-compose.e2e.yml gives the two built services; the stack's script passes
+      # `--no-build` to every `up`, so a name that does not match fails rather than building.
       - name: Load both images as the stack's
         run: |
           docker load --input "${RUNNER_TEMP}/images/frontend.tar"
@@ -347,22 +332,15 @@ jobs:
       # container's address to fail a later journey.
       - name: Keep Docker's interfaces from changing an address under the browser
         run: sudo sysctl --write net.ipv6.conf.default.addr_gen_mode=1
-      # Started without waiting, so the database's pull and both starts overlap the install below; the
-      # `up --wait` after it recreates neither container, since `up` recreates one only for a changed
-      # configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
+      # The stack as `local.sh --e2e` raises it, its keys and its mail sink included, from the images
+      # loaded above. The database and the backend start without a wait, so the database's pull and
+      # both starts overlap the install below.
       - name: Start the database and the backend
-        run: docker compose up -d --no-build mongo backend
+        run: ./scripts/ops/e2e_stack.sh start
       # The image holds no Playwright package, so the journeys run from this install.
       - uses: ./.github/actions/frontend-toolchain
-      - name: Wait for the database and the backend
-        run: docker compose up -d --no-build --wait --wait-timeout 180 mongo backend
-      - name: Load the made-up seed and judge it
-        run: ./scripts/ops/made_up_seed.sh
-      # The database and the backend stay as started above, the seed in them, and only the services not
-      # yet running are created: without `--force-recreate`, `up` recreates a container only for a
-      # changed configuration or image (https://docs.docker.com/reference/cli/docker/compose/up/).
-      - name: Start the stack
-        run: docker compose up -d --no-build --wait --wait-timeout 240
+      - name: Seed the stack and start the rest
+        run: ./scripts/ops/e2e_stack.sh serve
       # A runner image or an engine that gives a veth its address after all would otherwise surface as a
       # journey failing now and then on a chunk, naming nothing of this.
       - name: Judge that no veth holds an IPv6 address
@@ -406,6 +384,10 @@ jobs:
           retention-days: 7
       - name: The stack's logs, on a failure
         if: failure()
+        env:
+          # The files and the tag `scripts/ops/e2e_stack.sh` raises the stack with.
+          COMPOSE_FILE: docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml
+          TAG: e2e
         run: docker compose logs --no-color --tail=200
 
   # THE REQUIRED STATUS CHECK, which the ruleset names. `always()`: the verdict is the steps below,

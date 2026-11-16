@@ -463,12 +463,15 @@ first, bound to this machine's own authenticator and to `localhost`, the relying
 `AUTH_URL` gives. Every machine, and every `--fresh`, enrols again.
 
 **`./scripts/ops/local.sh --e2e` starts the end-to-end stack instead** (`docker-compose.e2e.yml`,
-merged over the local stack's two files):
+merged over the local stack's two files). **Its steps are `scripts/ops/e2e_stack.sh`'s**, which CI's
+journeys raise the stack with too, since `local.sh` refuses Linux: `local.sh` has it build the
+images, and CI loads the ones the `images` job built. The stack has:
 
 - a Compose project of its own, `frankfurtleague-e2e`, so its volume and its sign-in store are
   never the local stack's;
 - its settings written in that file rather than read from either package's `.env`;
-- its keys generated under `.tmp-e2e/` on every start rather than read from `secrets/`;
+- its keys generated under `.tmp-e2e/` on every start rather than read from `secrets/`, readable by
+  the containers' own users on a Linux runner;
 - the made-up seed on an empty volume every start;
 - the local edge with every rate and connection limit counting and refusing nothing
   (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `nginx/edge_test.sh` proves
