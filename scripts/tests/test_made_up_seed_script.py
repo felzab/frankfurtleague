@@ -1,8 +1,9 @@
 """The made-up seed's verdict, driven through `scripts/ops/made_up_seed.sh` itself behind a stand-in engine
 
-Every caller fails on any code but 0, so only this suite tells a refusal from a failure: a stack without the local
-database service, a state the seed does not hold, or a read-back that could not judge, is 2, and a seed or a document
-to correct is 1. Each script case copies the script with `_lib.sh` into a fixture tree of its own and puts a stand-in `docker` first on PATH, which lists the services of the files `COMPOSE_FILE` names
+Every caller fails on any code but 0, so only this suite tells a refusal from a failure: no engine, a stack without the
+local database service or without a running backend, a state the seed does not hold, or a read-back that could not
+judge, is 2, and a seed or a document to correct is 1. Each script case copies the script with `_lib.sh` into a fixture
+tree of its own and puts a stand-in `docker` first on PATH, which lists the services of the files `COMPOSE_FILE` names
 and answers every other call with the code the case gives.
 
 The seed's own refusal of any database server but the local stack's runs here too, as `python -m tests.made_up_seed`
@@ -29,16 +30,18 @@ LOCAL_STACK: Final = MappingProxyType({"COMPOSE_FILE": "docker-compose.yml;docke
 
 # Every engine call, one per line; a hand-in's stdin kept under the file name its `cat >` writes. `compose config
 # --services` lists what the files `COMPOSE_FILE` names declare (`docker-compose.yml` alone where it is unset, as on
-# the server's checkout).
+# the server's checkout), and `compose ps` the services the case's `running` file holds.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_SEED_DIR"
 printf '%s\n' "$*" >> "$d/calls"
 answer() { cat "$d/$1" 2>/dev/null || printf 0; }
 case " $* " in
+  " version "*) exit "$(answer version)" ;;
   " compose config --services ")
     printf '%s\n' frontend backend nginx cloudflared
     case "${COMPOSE_FILE-}" in *docker-compose.local.yml*) printf '%s\n' mongo ;; esac
     exit "$(answer config)" ;;
+  " compose ps --status running --services ") cat "$d/running"; exit 0 ;;
   *" sh -c "*) target="${*##* }"; cat > "$d/handed.${target##*/}"; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) exit "$(answer seed)" ;;
   *" app.readback "*) exit "$(answer readback)" ;;
@@ -50,11 +53,12 @@ exit 0
 def seed(
     *args: str,
     stack: Mapping[str, str] = LOCAL_STACK,
+    running: str = "mongo\nbackend\n",
     codes: Mapping[str, int] = MappingProxyType({}),
 ) -> tuple[int, str, list[str], set[str]]:
     """One run of the script: its exit code, its output, the engine calls and the files it handed in.
 
-    `codes` gives the code each kind of call answers with (`config`, `hand`, `seed`, `readback`), 0 otherwise.
+    `codes` gives the code each kind of call answers with (`version`, `config`, `hand`, `seed`, `readback`), 0 otherwise.
     """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-seed-")
@@ -68,6 +72,7 @@ def seed(
     stubs = engine / "stubs"
     stubs.mkdir()
     os.chmod(write_shell(stubs / "docker", DOCKER), 0o755)
+    (engine / "running").write_bytes(running.encode())
     for name, code in codes.items():
         (engine / name).write_bytes(str(code).encode())
     environment = {name: value for name, value in base_env().items() if name not in ("COMPOSE_FILE", "TAG")}
@@ -112,16 +117,21 @@ def test_a_refusal_stays_apart_from_a_failure(args: tuple[str, ...], codes: dict
 
 
 @pytest.mark.parametrize(
-    ("stack", "codes"),
+    ("stack", "running", "codes"),
     [
         # The server's checkout: no COMPOSE_FILE, so Compose reads `docker-compose.yml` alone, with the deploy's TAG.
-        ({"TAG": "sha-1234567"}, {}),
-        (LOCAL_STACK, {"config": 15}),
+        ({"TAG": "sha-1234567"}, "frontend\nbackend\nnginx\ncloudflared\n", {}),
+        # Each with the backend running, so only the refusal the case names stands between the run and a container.
+        (LOCAL_STACK, "mongo\nbackend\n", {"version": 1}),
+        (LOCAL_STACK, "mongo\nbackend\n", {"config": 15}),
+        (LOCAL_STACK, "mongo\n", {}),
     ],
-    ids=["production-stack", "unresolved-stack"],
+    ids=["production-stack", "no-engine", "unresolved-stack", "no-backend-running"],
 )
-def test_nothing_reaches_a_container_but_in_a_local_stack(stack: Mapping[str, str], codes: dict[str, int]) -> None:
-    code, said, calls, handed = seed(stack=stack, codes=codes)
+def test_nothing_reaches_a_container_but_in_a_local_stack_with_its_backend_running(
+    stack: Mapping[str, str], running: str, codes: dict[str, int]
+) -> None:
+    code, said, calls, handed = seed(stack=stack, running=running, codes=codes)
     assert code == 2, said
     assert not handed, calls
     assert not any(" exec " in f" {call} " for call in calls), calls

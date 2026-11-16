@@ -27,8 +27,8 @@ KEYS: Final = ("auth_secret", "internal_api_key_base", "internal_api_key_system"
 E2E_FILES: Final = "docker-compose.yml:docker-compose.local.yml:docker-compose.e2e.yml"
 
 # Each call as `<COMPOSE_FILE> | <arguments>`. The kinds: `down`, `build`, `start` (the `up` without a wait), `wait`
-# (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's four: `services`,
-# its look at the stack, then `hand`, `seed` and `readback`.
+# (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's five: `services`
+# and `running`, its look at the stack, then `hand`, `seed` and `readback`.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_STACK_DIR"
 printf '%s | %s\n' "${COMPOSE_FILE-}" "$*" >> "$d/calls"
@@ -39,8 +39,9 @@ case " $* " in
   *" --wait-timeout 180 "*) exit "$(answer wait)" ;;
   *" --wait-timeout 240 "*) exit "$(answer rest)" ;;
   *" compose up "*) exit "$(answer start)" ;;
-  # The services the three files declare.
+  # The services the three files declare, and the two the wait above has running.
   *" compose config --services "*) printf '%s\n' frontend backend mongo nginx cloudflared; exit 0 ;;
+  *" compose ps --status running --services "*) printf '%s\n' mongo backend; exit 0 ;;
   *" sh -c "*) cat > /dev/null; exit "$(answer hand)" ;;
   *" tests.made_up_seed "*) exit "$(answer seed)" ;;
   *" app.readback "*) exit "$(answer readback)" ;;
@@ -59,6 +60,7 @@ def kind(call: str) -> str:
         ("--wait-timeout 240", "rest"),
         (" compose up ", "start"),
         (" compose config --services ", "services"),
+        (" compose ps --status running --services ", "running"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
         ("app.readback", "readback"),
@@ -129,7 +131,7 @@ def test_a_start_runs_on_new_keys_over_an_empty_stack_and_mail_sink_and_serves_o
 
     code, said, kinds = stack(root, "serve")
     assert code == 0, said
-    assert kinds == ["wait", "services", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
+    assert kinds == ["wait", "services", "running", "hand", "hand", "hand", "seed", "readback", "rest"], kinds
 
 
 @pytest.mark.parametrize(
