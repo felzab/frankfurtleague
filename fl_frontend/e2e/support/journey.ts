@@ -120,10 +120,10 @@ function expectNoRefusal(refusals: readonly string[]): void {
  * too. The project's `use` options reach it as they reach every context the test's browser makes
  * (https://playwright.dev/docs/test-use-options#explicit-context-creation-and-option-inheritance).
  */
-async function provideDevice(browser: Browser, options: BrowserContextOptions, provide: (page: Page) => Promise<void>): Promise<void> {
+async function provideDevice(browser: Browser, options: BrowserContextOptions, use: (page: Page) => Promise<void>): Promise<void> {
   const device = await browser.newContext(options);
   const refusals = await readyForJourney(device);
-  await provide(await device.newPage());
+  await use(await device.newPage());
   await device.close();
   expectNoRefusal(refusals);
 }
@@ -142,19 +142,18 @@ export const test = base.extend<JourneyFixtures & JourneyOptions>({
   registering: [{ club: "", token: "", admitter: "" }, { option: true }],
   booked: [{ address: "", played: "", coming: "" }, { option: true }],
 
-  // The test's own context. `provide` is the fixture's `use`, named apart from React's hook, which a lint rule reads it
-  // as.
-  context: async ({ context }, provide) => {
+  // The test's own context.
+  context: async ({ context }, use) => {
     const refusals = await readyForJourney(context);
-    await provide(context);
+    await use(context);
     expectNoRefusal(refusals);
   },
 
-  administration: async ({ browser }, provide) => {
-    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, provide);
+  administration: async ({ browser }, use) => {
+    await provideDevice(browser, { storageState: ADMINISTRATOR_STATE }, use);
   },
 
-  secondDevice: async ({ browser }, provide) => {
-    await provideDevice(browser, {}, provide);
+  secondDevice: async ({ browser }, use) => {
+    await provideDevice(browser, {}, use);
   },
 });
