@@ -679,6 +679,20 @@ class TestAReplaceTakesTheSeasonsReports:
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
     """`spielplan_berichte_submitted` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
 
+    async def test_the_reports_are_refused_ahead_of_the_shape_the_replace_proposes(self, mongo_replica_set_url: str):
+        """The count inside the transaction is the early exit: drop it and the rules refuse the shape first.
+
+        The count after the writes still refuses the replace, so only the order says the first count is there.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await call_draw(database, client)
+            await report_a_drawn_spiel(database)
+
+            return await refused_code(call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=a_shape(qualifiers=3)))
+
+        assert await on_a_seeded_saison(mongo_replica_set_url, body) == Code.SPIELPLAN_BERICHTE_SUBMITTED
+
     async def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             drawn = await call_draw(database, client)
