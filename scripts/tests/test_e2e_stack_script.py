@@ -96,7 +96,8 @@ def checkout() -> Path:
     root = new_root("fl-stack-")
     for file in SCRIPTS:
         (root / file).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPO_ROOT / file, root / file)
+        # `copy`, not `copyfile`: the script runs `made_up_seed.sh` as a program, which Linux refuses without its mode.
+        shutil.copy(REPO_ROOT / file, root / file)
     for file in SEED_FILES:
         (root / file).parent.mkdir(parents=True, exist_ok=True)
         (root / file).write_bytes(file.encode())
