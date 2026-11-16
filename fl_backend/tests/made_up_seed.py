@@ -438,14 +438,14 @@ class MadeUpLeague:
 
             return confirmed(full_name(entry), None, payment, entry["address"])
 
-        layout, first_pass = PEOPLE["layout"], PEOPLE["firstPass"]
+        others, first_pass = PEOPLE["others"], PEOPLE["firstPass"]
         # The booked referees' journey (each project's `booked`): a confirmed referee whose played fixture owes its report
         # and whose coming one asks an answer.
         self.booked_referees = [person(project["booked"]["referee"]) for project in PROJECTS]
         self.referees = [
-            confirmed(full_name(layout["referee"]), "Ahorn-Gymnasium", 20, layout["referee"]["address"]),
+            confirmed(full_name(others["referee"]), "Ahorn-Gymnasium", 20, others["referee"]["address"]),
             confirmed(full_name(first_pass["referee"]), None, 25, first_pass["referee"]["address"]),
-            confirmed(full_name(layout["newcomer"]), "Ulme-Gymnasium", 20, layout["newcomer"]["address"]),
+            confirmed(full_name(others["newcomer"]), "Ulme-Gymnasium", 20, others["newcomer"]["address"]),
             confirmed("Dieter Dorn", None, 15, "dieter.dorn@example.com", self.day(-90)),
             # After the four the seasons book by a fixture's number (`booked`), so none of those bookings changes.
             unanswered("Elif Engin", "Weide-Gymnasium", 20, "elif.engin@example.com"),
@@ -819,7 +819,7 @@ class MadeUpLeague:
         # pages signs in as, the club holding a stored line-up, a locked one, an agreed date and several registrations.
         for project in PROJECTS:
             self.journey_seat(project["contact"]["club"], project["contact"]["trainer"])
-        contact = PEOPLE["layout"]["contact"]
+        contact = PEOPLE["others"]["contact"]
         desktop_registering, phone_registering = (project["registering"] for project in PROJECTS)
         if desktop_registering["club"] != "Kastanie":
             raise ValueError(
@@ -944,7 +944,7 @@ class MadeUpLeague:
         )
 
     def _squads(self) -> None:
-        mia, desktop, phone = PEOPLE["layout"]["pupil"], *(project["squadded"] for project in PROJECTS)
+        mia, desktop, phone = PEOPLE["others"]["pupil"], *(project["squadded"] for project in PROJECTS)
         self.mia = self.pupil(mia["first_name"], mia["last_name"], email=mia["address"])
         self.jonas = self.pupil(desktop, "Ahornberg")
         self.lena = self.pupil(phone, "Kastner")
@@ -1535,8 +1535,8 @@ def no_window_open(league: MadeUpLeague) -> None:
     league.planned["bewerbung"]["open"] = False
 
 
-# The state of the season card and the join band on the landing, by `SEED_LANDING`, which the guard against layout shift
-# (`fl_frontend/e2e/layout/shift.spec.ts`) loads `/` under one by one: each changes the running season's dates and results,
+# The state of the season card and the join band on the landing, by `SEED_LANDING`, which `local.sh --e2e --landing=<state>`
+# seeds for a look at `/` under each: each changes the running season's dates and results,
 # and its status where the site is on no season, and the planned season's window where none is open. Applied once every
 # request has copied the fixture it is about, so a request about a moved fixture is one about a slot the fixture left,
 # which neither act takes.

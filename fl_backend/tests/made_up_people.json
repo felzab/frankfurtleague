@@ -77,7 +77,7 @@
     "ban": "gesperrte.person.mit.langer.adresse@example.com",
     "loggedTeam": "Birke"
   },
-  "layout": {
+  "others": {
     "pupil": { "first_name": "Mia", "last_name": "Ahornberg", "address": "mia.ahornberg@schule.example" },
     "referee": { "first_name": "Anna", "last_name": "Ahrens", "address": "anna.ahrens@example.com" },
     "contact": { "first_name": "Konrad", "last_name": "Kuhn", "address": "konrad.kuhn@example.com" },
