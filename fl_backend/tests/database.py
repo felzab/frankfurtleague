@@ -9,7 +9,7 @@ from types import CoroutineType
 from typing import Any
 
 import pymongo
-from pymongo import AsyncMongoClient
+from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.periodic_executor import AsyncPeriodicExecutor
 from pymongo.uri_parser import parse_uri
@@ -318,6 +318,58 @@ async def shared_client(url: str) -> AsyncMongoClient:
     return client
 
 
+class _TransactionsStarted(monitoring.CommandListener):
+    """The session of every transaction a client of this process starts, as the command starting it names it.
+
+    A listener rather than the server's view alone: under `-n` every worker writes to one server, and another worker's
+    transaction in flight is open as of right.
+    """
+
+    def __init__(self) -> None:
+        self.sessions: list[Mapping[str, Any]] = []
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command.get("startTransaction"):
+            self.sessions.append(event.command["lsid"])
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        pass
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        pass
+
+
+# Registered at import, before any client exists: a listener reaches only the clients created after it.
+_STARTED = _TransactionsStarted()
+monitoring.register(_STARTED)
+
+_LEFT_OPEN = (
+    "{count} transaction(s) this process started stood open as '{database}' was left, and were ended here: a session"
+    " was neither committed nor aborted, and a later write to a document it wrote would wait behind it."
+)
+
+
+async def _ended_open_transactions(client: AsyncMongoClient) -> int:
+    """Every transaction a client of this process started since the last call and left open, ended; how many there were."""
+
+    sessions, _STARTED.sessions = _STARTED.sessions, []
+    if not sessions:
+        return 0
+
+    open_ = await (
+        await client.admin.aggregate(
+            [
+                {"$currentOp": {"allUsers": True, "idleSessions": True}},
+                {"$match": {"transaction": {"$exists": True}, "lsid.id": {"$in": [session["id"] for session in sessions]}}},
+            ]
+        )
+    ).to_list(length=None)
+    if open_:
+        await client.admin.command({"killSessions": [found["lsid"] for found in open_]})
+
+    return len(open_)
+
+
 _DRIFT = (
     "'{database}' carries enforcement this session did not build ({moved}). A body that installs a validator, or adds or drops"
     " an index, must say so where it seeds -- pass `mutates_schema=True` -- or what it changed poisons every test after it."
@@ -541,7 +593,15 @@ async def _cleaned(
     else:
         await _clear(database, baseline)
 
-    yield client, database
+    try:
+        yield client, database
+    except BaseException:
+        # Ended rather than judged: a failing body already fails its case, and what it left open would hold the next.
+        await _ended_open_transactions(client)
+        raise
+
+    if left_open := await _ended_open_transactions(client):
+        raise AssertionError(_LEFT_OPEN.format(count=left_open, database=name))
 
     # After the body rather than before the next one, so the test pytest names is the one that
     # moved the schema -- and so being last, or alone under `-k`, cannot exempt a body from this.

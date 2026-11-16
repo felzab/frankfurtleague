@@ -14,6 +14,7 @@ Invariants:
 - Every async fixture's setup and teardown run in a scope of their own, which a task they leave running fails.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
+- A transaction left open as a clean database is left fails it, and is ended there rather than holding the next case.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
   the module.
 """
@@ -27,6 +28,7 @@ from typing import Any
 import pymongo
 import pytest
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.periodic_executor import AsyncPeriodicExecutor
 
@@ -282,8 +284,28 @@ async def test_a_clean_database_entered_outside_a_case_is_refused():
         await asyncio.create_task(entered_as_a_fixture_would(), context=contextvars.Context())
 
 
-async def _one_season(database: AsyncDatabase) -> None:
-    await database[Collection.SAISONS].insert_one(dict(saison_document("2126", "active")))
+async def _one_season(database: AsyncDatabase, session: AsyncClientSession | None = None) -> None:
+    await database[Collection.SAISONS].insert_one(dict(saison_document("2126", "active")), session=session)
+
+
+@pytest.mark.db
+async def test_a_transaction_left_open_fails_its_clean_database_and_is_ended(mongo_replica_set_url: str):
+    client = await shared_client(mongo_replica_set_url)
+    session = client.start_session()
+    try:
+        with pytest.raises(AssertionError, match=r"1 transaction\(s\) this process started stood open"):
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME) as (_, database):
+                await session.start_transaction()
+                await _one_season(database, session=session)
+
+        standing = await (
+            await client.admin.aggregate(
+                [{"$currentOp": {"allUsers": True, "idleSessions": True}}, {"$match": {"lsid.id": session.session_id["id"]}}]
+            )
+        ).to_list(length=None)
+        assert [found for found in standing if "transaction" in found] == [], "the transaction left open was not ended"
+    finally:
+        await session.end_session()
 
 
 @pytest.mark.db
