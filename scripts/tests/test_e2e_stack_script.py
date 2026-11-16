@@ -28,9 +28,10 @@ E2E_FILES: Final = "docker-compose.yml:docker-compose.local.yml:docker-compose.e
 # The project docker-compose.e2e.yml names, which every call must reach whatever the caller's environment names.
 (E2E_PROJECT,) = re.findall(r"(?m)^name: (\S+)$", (REPO_ROOT / "docker-compose.e2e.yml").read_bytes().decode())
 
-# Each call as `<COMPOSE_FILE> | <COMPOSE_PROJECT_NAME> | <arguments>`. The kinds: `down`, `build`, `start` (the `up` without a wait), `wait`
-# (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's five: `services`
-# and `running`, its look at the stack, then `hand`, `seed` and `readback`.
+# Each call as `<COMPOSE_FILE> | <COMPOSE_PROJECT_NAME> | <arguments>`. The kinds: `down`, `build`, `start` (the `up`
+# without a wait), `wait` (the database and the backend waited for), `rest` (the whole stack waited for), and the seed's
+# five: `services` and `running`, its look at the stack, then `hand`, `seed` and `readback`. An `up` is told by whether it
+# waits and which services it names, never by its timeout, which the script may retune.
 DOCKER: Final = r"""#!/usr/bin/env bash
 d="$FL_STACK_DIR"
 printf '%s | %s | %s\n' "${COMPOSE_FILE-}" "${COMPOSE_PROJECT_NAME-}" "$*" >> "$d/calls"
@@ -38,8 +39,8 @@ answer() { cat "$d/$1" 2>/dev/null || printf 0; }
 case " $* " in
   *" compose down "*) exit "$(answer down)" ;;
   *" compose build "*) exit "$(answer build)" ;;
-  *" --wait-timeout 180 "*) exit "$(answer wait)" ;;
-  *" --wait-timeout 240 "*) exit "$(answer rest)" ;;
+  *" compose up "*" --wait "*" mongo backend ") exit "$(answer wait)" ;;
+  *" compose up "*" --wait "*) exit "$(answer rest)" ;;
   *" compose up "*) exit "$(answer start)" ;;
   # The services the three files declare, and the two the wait above has running.
   *" compose config --services "*) printf '%s\n' frontend backend mongo nginx cloudflared; exit 0 ;;
@@ -55,19 +56,21 @@ UNAME: Final = "#!/usr/bin/env bash\nprintf '%s\\n' MINGW64_NT-10.0-26100\n"
 
 def kind(call: str) -> str:
     """The kind of one logged call, as the stand-in told them apart."""
+    padded = f" {call} "
+    if " compose up " in padded:
+        if " --wait " not in padded:
+            return "start"
+        return "wait" if padded.endswith(" mongo backend ") else "rest"
     for needle, name in (
         (" compose down ", "down"),
         (" compose build", "build"),
-        ("--wait-timeout 180", "wait"),
-        ("--wait-timeout 240", "rest"),
-        (" compose up ", "start"),
         (" compose config --services ", "services"),
         (" compose ps --status running --services ", "running"),
         (" sh -c ", "hand"),
         ("tests.made_up_seed", "seed"),
         ("app.readback", "readback"),
     ):
-        if needle in f" {call} ":
+        if needle in padded:
             return name
     return "other"
 
