@@ -69,7 +69,7 @@ def team_document(index: int) -> dict[str, Any]:
         # Three letters, which is what a club's write holds a shorthand to.
         f"S{chr(65 + index // 26)}{chr(65 + index % 26)}",
         full_name=f"Schule {index} Gesamtschule",
-        website_url="https://example.de",
+        website_url="https://example.net",
     )
 
 
@@ -98,7 +98,7 @@ SEATED: Final = {"date": "2026-01-15"}
 
 
 def kontaktperson(first_name: str) -> dict[str, Any]:
-    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 1234567", birth_date="1980-05-04")
+    return kontaktperson_document(first_name, confirmed_at="2026-01-16", einwilligung=SEATED, phone="+49 69 90009123", birth_date="1980-05-04")
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:

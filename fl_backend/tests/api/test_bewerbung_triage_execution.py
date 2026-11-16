@@ -110,9 +110,9 @@ def kontaktperson(first_name: str, *, phone: str) -> dict[str, Any]:
 
 # Distinct per slot, so a block copied across with two slots swapped fails rather than compares equal.
 KONTAKTE: Mapping[str, Any] = {
-    "trainer": kontaktperson("Wraxlington", phone="+49 69 1111111"),
-    "ansprechperson": kontaktperson("Quillhilde", phone="+49 69 2222222"),
-    "stellvertretung": kontaktperson("Bramblewick", phone="+49 69 3333333"),
+    "trainer": kontaktperson("Wraxlington", phone="+49 69 90009111"),
+    "ansprechperson": kontaktperson("Quillhilde", phone="+49 69 90009222"),
+    "stellvertretung": kontaktperson("Bramblewick", phone="+49 69 90009333"),
     # Null, never a seat name: the three slots hold three people, and the flag is a claim of its own.
     "trainer_is_also": None,
 }
@@ -130,7 +130,7 @@ def schule_block(team_name: str) -> dict[str, Any]:
         "full_name": f"{team_name}-Gesamtschule",
         "schulform": "gesamtschule",
         "address": dict(ADDRESS),
-        "website_url": f"https://{team_name.lower()}.example.de",
+        "website_url": f"https://{team_name.lower()}.example.net",
     }
 
 
@@ -975,7 +975,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 # A school whose own URL carries the three characters `validate_external_url` strips. Storable as
 # submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
-DIRTY_URL = "https://wirbelknoten\t.example.de/\rpath"
+DIRTY_URL = "https://wirbelknoten\t.example.net/\rpath"
 DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WKX"
 
 
@@ -1024,7 +1024,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         # Every key either insert wrote, `inactive_since` included: both paths owe it.
         assert without_the_id(created) == without_the_id(through_the_entry)
         # The floor: two paths that both stored the block as submitted would compare equal above.
-        assert created["website_url"] == "https://wirbelknoten.example.de/path"
+        assert created["website_url"] == "https://wirbelknoten.example.net/path"
 
 
 @pytest.mark.db
@@ -1075,7 +1075,7 @@ class TestADeclineLandingInsideAnAcceptance:
 
 CORRECTION_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000a")
 
-CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
+CORRECTED_EMAIL = "sekretariat@zorbanax.example.net"
 
 
 async def write_seat(
@@ -1558,8 +1558,8 @@ RESEAT_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000b")
 RESEAT_PERSON: Mapping[str, Any] = {
     "first_name": "Wilburga",
     "last_name": "Dringenhoff",
-    "email": "wilburga.dringenhoff@example.de",
-    "phone": "+49 69 7654321",
+    "email": "wilburga.dringenhoff@example.net",
+    "phone": "+49 69 90009765",
 }
 
 

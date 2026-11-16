@@ -10,7 +10,7 @@ const person = (confirmedAt: string | null): FLKontaktperson =>
   ({
     first_name: "Anke",
     last_name: "Koerner",
-    email: "a@example.de",
+    email: "a@example.net",
     phone: "069 1",
     einwilligung: { confirmed_at: confirmedAt },
   }) as FLKontaktperson;

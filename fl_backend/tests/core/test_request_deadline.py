@@ -295,7 +295,7 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", last_name="Mustermann", phone="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", last_name="Mustermann", phone="+49 69 90009123")
 
     return saison_team_document(
         SAISON_ID,

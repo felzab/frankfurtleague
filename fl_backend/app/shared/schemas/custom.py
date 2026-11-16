@@ -266,8 +266,8 @@ def validate_external_url(value: str) -> str:
     if parts.scheme.lower() not in EXTERNAL_URL_SCHEMES:
         raise rule_refusal("url_not_accepted", "the URL must use http or https")
 
-    # `https://frankfurtleague.de@evil.com` resolves to `evil.com`: everything before the `@` is
-    # userinfo, which every host check below excludes and never sees. A surface that renders the
+    # `https://frankfurtleague.de@evil.example` resolves to `evil.example`: everything before the `@`
+    # is userinfo, which every host check below excludes and never sees. A surface that renders the
     # string and follows the host sends a trusting reader to the attacker.
     if parts.username or parts.password:
         raise rule_refusal("url_not_accepted", "the URL must not carry credentials before the @")

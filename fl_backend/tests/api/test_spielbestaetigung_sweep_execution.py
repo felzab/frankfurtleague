@@ -1078,7 +1078,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
     stored = await database[Collection.SAISON_TEAMS].find_one({"saison_id": SAISON_ID, "team_id": ALPHA})
     assert stored is not None
     kept = {
-        seat: a_payload_person(first_name, f"{first_name}-Mustermann", f"+491701000000{position}")
+        seat: a_payload_person(first_name, f"{first_name}-Mustermann", f"+49171392000{position}")
         for position, (seat, first_name) in enumerate(SEATS[ALPHA].items())
     }
     await write_the_block(
@@ -1098,7 +1098,7 @@ class TestASeatHandedOnBesideTheMintIsAskedAsItStandsOnceTheMintCommits:
     async def test_the_old_trainer_is_mailed_nothing_and_the_new_one_nothing_before_confirming(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def hand_the_trainer_on() -> None:
-                await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+4917010000009"))
+                await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+491713920009"))
 
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
             answer = await a_pass_through(database, client, kontakt_links=1, saison_teams=cast(Any, interleaved))

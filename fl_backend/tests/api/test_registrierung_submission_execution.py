@@ -68,8 +68,8 @@ TEAM_NAME = "Zorbanax"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 OTHER_TEAM_NAME = "Quillhilde"
 
-PUPIL_EMAIL = "thessaly@beispielschule.de"
-BANNED_EMAIL = "wraxlington@beispielschule.de"
+PUPIL_EMAIL = "thessaly@beispielschule.example.org"
+BANNED_EMAIL = "wraxlington@beispielschule.example.org"
 
 OPEN_WINDOW: Mapping[str, Any] = {"open": True, "end": "2126-04-30"}
 # Its `end` the day before `TODAY`, so an entry today is a nominee's.
@@ -596,7 +596,7 @@ class TestWhatASubmissionIsRefused:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await register(database, client)
-            await register(database, client, email="quillhilde@beispielschule.de")
+            await register(database, client, email="quillhilde@beispielschule.example.org")
 
             return await database[Collection.REGISTRIERUNGEN].count_documents({})
 

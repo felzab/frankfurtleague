@@ -58,12 +58,12 @@ A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 # Sought as fragments by the leak searches, so a response carrying any part of a seat's record is caught.
 LAST_NAME = "Mustermann"
 MAIL_DOMAIN = "example.com"
-PHONE = "1234567"
+PHONE = "3920000"
 
 
 def person(first_name: str) -> dict[str, Any]:
     return kontaktperson_document(
-        first_name, last_name=f"{first_name}-{LAST_NAME}", email=f"{first_name.lower()}@{MAIL_DOMAIN}", phone=f"+49 170 {PHONE}"
+        first_name, last_name=f"{first_name}-{LAST_NAME}", email=f"{first_name.lower()}@{MAIL_DOMAIN}", phone=f"+49 171 {PHONE}"
     )
 
 
@@ -481,7 +481,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                     first_name="Thessaly",
                     last_name=LAST_NAME,
                     email=f"thessaly@{MAIL_DOMAIN}",
-                    phone="+49 170 7654321",
+                    phone="+49 171 3920001",
                     version=(await stored(database))["version"],
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -512,7 +512,7 @@ class TestWhatAnObjectionOwesTheAnsprechperson:
                     first_name="Thessaly",
                     last_name=LAST_NAME,
                     email=f"thessaly@{MAIL_DOMAIN}",
-                    phone="+49 170 7654321",
+                    phone="+49 171 3920001",
                     version=(await stored(database))["version"],
                 ),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],

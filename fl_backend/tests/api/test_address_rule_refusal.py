@@ -18,13 +18,13 @@ HALF_WIDTH_VOICED_MARK = chr(0xFF9E)
 # Every address here is one `EmailStr` accepts, so each refusal below is the address rule's own rather
 # than the library's, and its local part is not ASCII.
 BEYOND_ASCII = [
-    pytest.param("jürgen@schule.de", id="an umlaut"),
-    pytest.param(f"{chr(0xFF41)}nna@schule.de", id="a full-width letter"),
-    pytest.param(f"anna{FULL_WIDTH_STOP}{FULL_WIDTH_STOP}mueller@schule.de", id="two full-width stops"),
-    pytest.param(f"anna{FULL_WIDTH_STOP}@schule.de", id="a full-width stop closing the local part"),
-    pytest.param(f"anna{FULL_WIDTH_AT}x@schule.de", id="a full-width at sign"),
-    pytest.param(f"{PARENTHESISED_ONE}a@schule.de", id="a parenthesised digit"),
-    pytest.param(f"{HALF_WIDTH_VOICED_MARK}anna@schule.de", id="a half-width voiced mark"),
+    pytest.param("jürgen@schule.example.org", id="an umlaut"),
+    pytest.param(f"{chr(0xFF41)}nna@schule.example.org", id="a full-width letter"),
+    pytest.param(f"anna{FULL_WIDTH_STOP}{FULL_WIDTH_STOP}mueller@schule.example.org", id="two full-width stops"),
+    pytest.param(f"anna{FULL_WIDTH_STOP}@schule.example.org", id="a full-width stop closing the local part"),
+    pytest.param(f"anna{FULL_WIDTH_AT}x@schule.example.org", id="a full-width at sign"),
+    pytest.param(f"{PARENTHESISED_ONE}a@schule.example.org", id="a parenthesised digit"),
+    pytest.param(f"{HALF_WIDTH_VOICED_MARK}anna@schule.example.org", id="a half-width voiced mark"),
 ]
 
 # The league's address type, as every address payload under `app/` declares it.
@@ -36,7 +36,7 @@ def test_the_refusal_quotes_nothing_of_the_address():
 
     local_part = "zorbanax"
     with pytest.raises(ValidationError) as raised:
-        ADDRESS.validate_python(f"{local_part}{FULL_WIDTH_AT}x@schule.de")
+        ADDRESS.validate_python(f"{local_part}{FULL_WIDTH_AT}x@schule.example.org")
 
     assert local_part not in raised.value.errors()[0]["msg"]
 
@@ -64,8 +64,8 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
     @pytest.mark.parametrize(
         "email",
         [
-            pytest.param("jürgen@schule.de", id="an address the league's rule refuses"),
-            pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses"),
+            pytest.param("jürgen@schule.example.org", id="an address the league's rule refuses"),
+            pytest.param("anna..mueller@schule.example.org", id="an address the installed EmailStr refuses"),
         ],
     )
     def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):

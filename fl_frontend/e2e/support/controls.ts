@@ -43,6 +43,18 @@ export async function pressRowAct(row: Locator, name: string): Promise<void> {
   await row.page().getByRole("menuitem", { name, exact: true }).click();
 }
 
+/**
+ * A phone's sheet named `name`, once it has risen, for a press inside it. It takes the focus only then (the kit's overlay
+ * defers it until entered). A press on a control still rising fails Playwright's stability check, and its retry scrolls
+ * the control into view, which carries the sheet back down its scroller, and React Aria closes a sheet the viewport has
+ * lost: the press then lands on a sheet already leaving. A finger scrolls nothing by pressing, so no person meets it.
+ */
+export async function risenSheet(page: Page, name: string): Promise<Locator> {
+  const sheet = page.getByRole("dialog", { name });
+  await expect(sheet).toBeFocused();
+  return sheet;
+}
+
 /** A page's box under `title`: a box carries its title as a heading, and no landmark. */
 export function box(page: Page, title: string): Locator {
   return page.getByRole("main").locator("section", { has: page.getByRole("heading", { name: title, exact: true }) });

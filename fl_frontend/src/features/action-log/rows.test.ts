@@ -13,7 +13,7 @@ const { labelled } = SERVER_COPY.season;
 const entry = (overrides: Partial<FLActionLogEntry>): FLActionLogEntry => ({
   id: "a",
   at: "2026-11-07T17:04:00Z",
-  by: "anna@example.de",
+  by: "anna@example.net",
   team: null,
   action: "spiel.ergebnis_changed",
   label: null,

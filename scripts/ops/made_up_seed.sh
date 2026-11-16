@@ -11,7 +11,7 @@
 # seeded: the script refuses any stack Compose resolves without the mongo service, and the seed any server but that
 # one. Exit 0 seeded, and every document reads back through its record model; 1 a seed or a document to correct; 2
 # refused, Docker not responding, another stack, no backend running, a frontend running, another server, a state the
-# seed does not hold or a read-back that could not read the database; 130 interrupted; 3 or more a step that crashed,
+# seed does not hold or a seed or a read-back that could not read the database; 130 interrupted; 3 or more a step that crashed,
 # its own status kept where it is 3 or more.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"

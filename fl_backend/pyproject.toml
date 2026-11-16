@@ -90,7 +90,8 @@ no-build-package = ["zizmor"]
 line-length = 144
 # The packages below `app`, the test tree and the gate's three script folders carry no `__init__.py`
 # (pytest's importlib mode needs none), and ruff judges a module's name (N999) only inside a package it
-# can see. Paths resolve from this file, the scripts' configuration extending it included.
+# can see. Paths resolve from this file, for every configuration extending it too (the scripts', the
+# orchestration tools' and the test tree's), but `src`, which each resolves from its own.
 namespace-packages = ["app", "tests", "../scripts/checks", "../scripts/lib", "../scripts/tests"]
 
 [tool.ruff.lint]
@@ -143,9 +144,6 @@ logger-objects = ["app.core.logging.fl_logger"]
 # The scripts' configuration extends this file, and the gate's tooling reads its own environment by
 # design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
-# Every entry guards the application, and a test reads both freely: it stages stored instants against
-# the wall clock it runs under, and it builds settings from the environment to judge them.
-"tests/**" = ["TID251"]
 
 # FastAPI reads a `Depends(...)` default as a declaration and calls the dependency per request, so the
 # one call evaluated at definition is the marker itself; every other call in a default stays a finding.

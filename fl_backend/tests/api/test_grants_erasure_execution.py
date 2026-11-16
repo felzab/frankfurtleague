@@ -48,8 +48,8 @@ NAHE = "erikaxzwirbelmoos@frankfurtleague.de"
 LANGES_S = ERIKA.replace("moos@", f"moo{chr(0x17F)}@")
 # Her mailbox at a punycode domain, and as a hand-typed paste may spell it, in capitals and padded: the fold equates
 # the two, and a read asking the stored spelling alone misses it.
-ERIKA_PUNYCODE = "erika@xn--mller-kva.de"
-ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.DE{chr(0xA0)}"
+ERIKA_PUNYCODE = "erika@xn--mller-kva.example.org"
+ERIKA_PUNYCODE_PASTED = f"Erika@XN--MLLER-KVA.EXAMPLE.ORG{chr(0xA0)}"
 # The owner, erasing her as the administrator's own route will.
 DORA = "dora.inhaberin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
@@ -68,7 +68,7 @@ NAMING_HER_GRANT = ObjectId("6890a1b2c3d4e5f607a20001")
 NOT_HERS = ObjectId("6890a1b2c3d4e5f607a20004")
 # Naming another mailbox at her local part, which the fold refuses.
 ELSEWHERE = ObjectId("6890a1b2c3d4e5f607a20005")
-ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.de")
+ERIKA_ELSEWHERE = ERIKA.replace("@frankfurtleague.de", "@anderswo.example.org")
 ELSEWHERE_GRANTED_ID = ObjectId("6890a1b2c3d4e5f607a10008")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

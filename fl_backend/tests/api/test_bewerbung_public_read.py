@@ -88,7 +88,7 @@ SCHULFORM = "gymnasium_g9"
 
 
 def website_host(name: str) -> str:
-    return f"{name.lower()}.example.de"
+    return f"{name.lower()}.example.net"
 
 
 def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:

@@ -166,7 +166,7 @@ IN_THE_RUNNING_SEASON = numbered(5)
 IN_THE_PLANNED_SEASON = numbered(6)
 WITH_A_PENDING_REGISTRATION = numbered(7)
 
-PENDING = "thessaly.okonkwo@beispielschule.de"
+PENDING = "thessaly.okonkwo@beispielschule.example.org"
 
 LABELS = {
     TWO_SEASONS_BACK: "a squad row two seasons back alone",
@@ -216,7 +216,7 @@ class TestThePopulation:
 
 # --- The run.
 
-ADDRESS = "quirinus.vandersloot@beispielschule.de"
+ADDRESS = "quirinus.vandersloot@beispielschule.example.org"
 REACHED = numbered(11)
 REACHED_ROWS = (numbered(12), numbered(13))
 REACHED_REGISTRATION = numbered(14)
@@ -322,7 +322,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
     async def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
-        corrected = "quintessa.neu@beispielschule.de"
+        corrected = "quintessa.neu@beispielschule.example.org"
         stranger = numbered(902)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -632,7 +632,9 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         A command added to the call turns this red, so `ERASURES_PER_PASS` is judged against the deadline again.
         """
 
-        waiting = [registration(numbered(6000 + position), f"angemeldet.{position}@beispielschule.de") for position in range(FIRST_BATCH + 1)]
+        waiting = [
+            registration(numbered(6000 + position), f"angemeldet.{position}@beispielschule.example.org") for position in range(FIRST_BATCH + 1)
+        ]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             await seeded(

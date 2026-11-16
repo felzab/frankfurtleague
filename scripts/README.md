@@ -10,6 +10,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/gate/tools.Dockerfile`         | —             | The shellcheck, actionlint and lychee images the gate runs, one pinned `FROM` each; never built         |
 | `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out              |
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it            |
+| `scripts/checks/check_invented_data.py` | any           | Every made-up address, site and telephone number of the tests against the reserved ones                 |
 | `scripts/checks/edge_test.sh`           | any           | Both edges started over the checkout's nginx files, and what each logs, sends and refuses               |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own                    |
 | `scripts/ops/made_up_seed.sh`           | local, e2e    | The made-up league loaded into the local or end-to-end stack, then read back; `local.sh` and CI run it  |

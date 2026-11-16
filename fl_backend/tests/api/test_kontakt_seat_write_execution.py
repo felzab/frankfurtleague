@@ -31,7 +31,7 @@ BIRTH_DATE = "1990-05-17"
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607910001")
 
-PHONE = {"Ida": "+4915110000001", "Jonas": "+4915110000002", "Klara": "+4915110000003", "Lea": "+4915110000004"}
+PHONE = {"Ida": "+4917604069001", "Jonas": "+4917604069002", "Klara": "+4917604069003", "Lea": "+4917604069004"}
 
 
 def stored_person(first_name: str, *, confirmed_at: str | None = None) -> dict[str, Any]:
@@ -150,7 +150,7 @@ class TestTheSeatsStateDecidesTheWrite:
         """A fresh link here would void the one the person is about to answer."""
 
         async def body(database: AsyncDatabase) -> Any:
-            answer = await write_seat(database, "trainer", {**sent_person("Ida"), "phone": "+4915110000009"})
+            answer = await write_seat(database, "trainer", {**sent_person("Ida"), "phone": "+4917604069009"})
             acts = database[Collection.ACTION_LOG].find({"action": "team.seat_changed"})
 
             return (answer, *await row_and_mails(database), [(act["record_id"], act["label"]) async for act in acts])
@@ -165,7 +165,7 @@ class TestTheSeatsStateDecidesTheWrite:
 
         assert answer.email is None
         assert mails == []
-        assert row["kontakte"]["trainer"] == {**seated, "phone": "+4915110000009"}
+        assert row["kontakte"]["trainer"] == {**seated, "phone": "+4917604069009"}
         assert acts == [(TEAM_OID, "Adler")]
         assert row["confirmations"]["trainer"] == link_entry()
 
@@ -282,10 +282,10 @@ class TestAConfirmationLandingBeforeTheSave:
         return await on_a_row(url, body, kontakte=self.UNCONFIRMED, confirmations=self.LINKED)
 
     async def test_the_same_person_keeps_the_fresh_confirmation(self, mongo_replica_set_url: str):
-        row, mails = await self.pressed_then_written(mongo_replica_set_url, {**sent_person("Ida"), "phone": "+4915110000009"})
+        row, mails = await self.pressed_then_written(mongo_replica_set_url, {**sent_person("Ida"), "phone": "+4917604069009"})
 
         seat = row["kontakte"]["trainer"]
-        assert (seat["phone"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("+4915110000009", BIRTH_DATE, TODAY)
+        assert (seat["phone"], seat["birth_date"], seat["einwilligung"]["confirmed_at"]) == ("+4917604069009", BIRTH_DATE, TODAY)
         assert mails == []
 
     async def test_another_address_takes_the_seat_unconfirmed_with_a_new_link(self, mongo_replica_set_url: str):

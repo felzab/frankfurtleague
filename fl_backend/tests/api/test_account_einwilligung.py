@@ -51,11 +51,11 @@ DATABASE_NAME = worker_database("fl_account_einwilligung_test")
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
 # The folded form a signed-in person is bound under, which every record stores.
-IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
+IDENTIFIER = "ortrud.zwiebelmayer@schule.example.org"
 REFEREE_STORED = IDENTIFIER
-YOUNG = "jonas.jungspund@schule.de"
-RETIRED = "rudolf.ruhestand@schule.de"
-UNCONFIRMED = "ottilie.wartezeit@schule.de"
+YOUNG = "jonas.jungspund@schule.example.org"
+RETIRED = "rudolf.ruhestand@schule.example.org"
+UNCONFIRMED = "ottilie.wartezeit@schule.example.org"
 BYSTANDER = "baldur.krautzberger@example.com"
 
 ACCOUNT_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
@@ -68,14 +68,14 @@ ROW_NAME_A_PAST = "Helmholtz"
 ROW_NAME_A_ACTIVE = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607850021")
-NOBODY = "niemand@schule.de"
+NOBODY = "niemand@schule.example.org"
 
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607850011")
 YOUNG_OID = ObjectId("6890a1b2c3d4e5f607850012")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607850013")
 UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607850014")
 BYSTANDER_OID = ObjectId("6890a1b2c3d4e5f607850019")
-ELSEWHERE = IDENTIFIER.replace("@schule.de", "@anderswo.de")
+ELSEWHERE = IDENTIFIER.replace("@schule.example.org", "@anderswo.example.org")
 ELSEWHERE_OID = ObjectId("6890a1b2c3d4e5f60785001a")
 
 # A fixture the referee leads, embedding their name: the copy a withdrawal would be fanned out onto.
@@ -162,7 +162,7 @@ async def _editor_save(http: AsyncClient, database: AsyncDatabase, *, version: i
             "name": "Ortrud Zwiebelmayer",
             "schule": None,
             "default_payment": default_payment,
-            "kontakt": {"phone": "+49 69 5550202", "email": REFEREE_STORED},
+            "kontakt": {"phone": "+49 69 90009202", "email": REFEREE_STORED},
             "version": version,
         },
         headers=StampedHeaders(EDITOR, ADMIN_KEY),
@@ -195,7 +195,7 @@ def _seat(email: str, *, confirmed_at: str | None = "2026-09-03", **einwilligung
         confirmed_at=confirmed_at,
         at=SEAT_ANSWERED_AT,
         email=email,
-        phone="+49 69 5550101",
+        phone="+49 69 90009101",
         birth_date=ADULT_BIRTHDATE,
         einwilligung={"date": "2026-09-01", **einwilligung},
     )

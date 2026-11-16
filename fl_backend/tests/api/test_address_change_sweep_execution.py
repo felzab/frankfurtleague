@@ -62,7 +62,7 @@ def numbered(position: int) -> ObjectId:
 
 
 def on_file(position: int) -> str:
-    return f"person.{position}@beispielschule.de"
+    return f"person.{position}@beispielschule.example.org"
 
 
 def pending(position: int) -> str:

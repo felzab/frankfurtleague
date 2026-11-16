@@ -61,7 +61,7 @@ NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
 BEFORE_THE_CLOCK_FALLS_BACK = datetime(2126, 10, 27, 2, 55, tzinfo=clock.GERMANY)
 INVITATION = ObjectId("6890a1b2c3d4e5f607f30001")
 REFERENCE = FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=INVITATION, seat=None)
-NORA = "nora.neu@beispielschule.de"
+NORA = "nora.neu@beispielschule.example.org"
 BAN = FLBanData(kind="ban", ban_reason="Falsches Geburtsdatum", barred_until_saison_id="2127")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -302,7 +302,7 @@ class TestTheDrain:
             empty = await owe(database, client, "seats/2", link=True, reference=reference, spec=spec)
             emptied = await claimed(database, client)
             await database[Collection.SAISON_TEAMS].update_one(
-                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": seat("nachfolge@beispielschule.de")}}
+                {"_id": saison_team}, {"$set": {"kontakte.ansprechperson": seat("nachfolge@beispielschule.example.org")}}
             )
             continued = await owe(database, client, "seats/3", link=True, reference=reference, spec=spec)
             handed_on = await claimed(database, client)
@@ -325,7 +325,7 @@ class TestTheDrain:
         [
             ({"ansprechperson": seat(NORA)}, True),
             ({"trainer": seat(NORA, confirmed=False)}, False),
-            ({"trainer": seat("nachfolge@beispielschule.de")}, False),
+            ({"trainer": seat("nachfolge@beispielschule.example.org")}, False),
             (None, False),
         ],
         ids=("a confirmed seat holding it", "an unconfirmed seat holding it", "a seat handed on", "no season row"),

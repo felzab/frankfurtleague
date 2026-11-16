@@ -57,7 +57,7 @@ AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "reason": "Zu wenige Spieler"
 
 
 def kontaktperson(first_name: str, email: str, *, confirmed_at: str | None) -> dict[str, Any]:
-    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 1234567")
+    return kontaktperson_document(first_name, confirmed_at=confirmed_at, email=email, phone="+49 69 90009123")
 
 
 def kontakte(*, trainer: Any = None, ansprechperson: Any = None) -> dict[str, Any]:

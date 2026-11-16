@@ -4,7 +4,7 @@
  */
 import { expect } from "@playwright/test";
 
-import { box, labelOf, save, saveBar } from "./support/controls";
+import { box, labelOf, risenSheet, save, saveBar } from "./support/controls";
 import { test } from "./support/journey";
 import { RUNNING } from "./support/madeUpLeague";
 import { declinePasskeyOffer, signInWithCode } from "./support/signIn";
@@ -34,7 +34,7 @@ async function openPage(page: Page, name: string): Promise<void> {
   if (await entry.isVisible()) await entry.click();
   else {
     await more.click();
-    await page.getByRole("dialog", { name: "Mehr" }).getByRole("link", { name, exact: true }).click();
+    await (await risenSheet(page, "Mehr")).getByRole("link", { name, exact: true }).click();
   }
   await expect(titleOf(page, name)).toBeVisible();
 }

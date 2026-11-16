@@ -65,7 +65,7 @@ TEAM_NAME = "Adler"
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 ADMIN = "admin@frankfurtleague.de"
 
-PHONE = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
+PHONE = {"Ida": "+491713920001", "Jonas": "+491713920002", "Klara": "+491713920003", "Lea": "+491713920004"}
 
 SEATS = ("trainer", "ansprechperson", "stellvertretung")
 
@@ -927,7 +927,7 @@ class TestTheReplacementTakesThemOffTheApplication:
         """Match the application on the address alone and this fails: it still spells Ida's address as the club first typed it."""
 
         applied = {
-            "trainer": {**carried("Ida"), "email": "ida@exmaple.com"},
+            "trainer": {**carried("Ida"), "email": "ida@exmaple.example.net"},
             "ansprechperson": carried("Jonas"),
             "stellvertretung": carried("Klara"),
             "trainer_is_also": None,

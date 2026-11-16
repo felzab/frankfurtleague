@@ -24,28 +24,28 @@ from tests.documents import (
 
 # The folded form every record stores the address in. Deliberately unusual, so a hit in a seeded corpus cannot be a
 # coincidence.
-IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
+IDENTIFIER = "ortrud.zwiebelmayer@schule.example.org"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
 
 # A mailbox whose every record awaits its own person's confirmation, and one whose every record is
 # confirmed on a row that has since been retired.
-UNCONFIRMED = "ottilie.wartezeit@schule.de"
-RETIRED = "rudolf.ruhestand@schule.de"
+UNCONFIRMED = "ottilie.wartezeit@schule.example.org"
+RETIRED = "rudolf.ruhestand@schule.example.org"
 
 # A banned address holding a confirmed seat, the seat stored folded.
-BARRED_STORED = "gerda.gesperrt@schule.de"
+BARRED_STORED = "gerda.gesperrt@schule.example.org"
 
 # The grants, stored folded as every grant is.
 ADMIN_OWNER = "inhaberin@frankfurtleague.de"
-ADMIN_STORED = "verena.verwaltung@schule.de"
+ADMIN_STORED = "verena.verwaltung@schule.example.org"
 GRANT_OWNER_OID = ObjectId("6890a1b2c3d4e5f607820051")
 GRANT_STORED_OID = ObjectId("6890a1b2c3d4e5f607820052")
 
 # One mailbox at an internationalised domain, stored as every payload stores it:
 # the domain in punycode.
-IDN_STORED = "anna@xn--mller-kva.de"
+IDN_STORED = "anna@xn--mller-kva.example.org"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -85,7 +85,7 @@ def _person(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
     Stamped by default: the lookup answers a seat only once its own person has confirmed it.
     """
 
-    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 5550101")
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, last_name="Müller", email=email, phone="+49 69 90009101")
 
 
 def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:

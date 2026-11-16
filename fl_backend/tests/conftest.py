@@ -131,7 +131,7 @@ def address() -> PayloadFactory:
 
 @pytest.fixture
 def kontakt() -> PayloadFactory:
-    return _factory({"phone": "+49 69 1234567", "email": "kontakt@example.com"})
+    return _factory({"phone": "+49 69 90009123", "email": "kontakt@example.com"})
 
 
 @pytest.fixture
@@ -163,7 +163,7 @@ def team(address: PayloadFactory, statistik: PayloadFactory) -> PayloadFactory:
             "description": "",
             "schulform": "gymnasium_g9",
             "full_name": "Carl-Schurz-Schule",
-            "website_url": "https://carl-schurz-schule.de",
+            "website_url": "https://carl-schurz-schule.example.org",
             "address": address(),
             "inactive_since": None,
         }

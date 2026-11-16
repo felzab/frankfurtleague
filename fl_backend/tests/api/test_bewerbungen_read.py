@@ -23,8 +23,8 @@ BEWERBUNG_ID = "6890a1b2c3d4e5f60793{:04d}"
 KONTAKTPERSON = {
     "first_name": "Anke",
     "last_name": "Koerner",
-    "email": "a.koerner@example.de",
-    "phone": "+49 170 1234567",
+    "email": "a.koerner@example.net",
+    "phone": "+49 171 3920000",
     "birth_date": "1984-05-09",
     "einwilligung": confirmed_kenntnisnahme(),
 }
@@ -54,7 +54,7 @@ def bewerbung_document(
         schule=None
         if team_id is not None
         else documents.new_schule_document(
-            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
+            f"Schule {index}", full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.net"
         ),
         trikot={"existing_set": "16 rote Trikots", "wunschfarbe": "rot"},
     )

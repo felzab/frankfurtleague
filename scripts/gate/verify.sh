@@ -366,13 +366,13 @@ scope_format() {
   # Every tracked text file, for the zero-width, bidirectional and line-separator characters that hide
   # or reorder what a reviewer reads (CVE-2021-42574), the Arabic letter mark U+061C the one
   # bidirectional mark outside U+2000's block, and the other invisible ones the address fixtures type:
-  # the soft hyphen U+00AD, U+180E, the word joiner U+2060 and U+FEFF. Those two fixtures, which type
-  # them on purpose, are left out. A UTF-8 locale, which `-P` needs to read a code point past U+00FF.
+  # the soft hyphen U+00AD, U+180E, the word joiner U+2060 and U+FEFF. Those fixtures write each as an
+  # escape. A UTF-8 locale, which `-P` needs to read a code point past U+00FF.
   step "format · no invisible or bidirectional character in any tracked file"
   check --exits git-grep "A tracked file above carries an invisible or bidirectional character, each named by its line." \
     env LC_ALL=C.UTF-8 git grep -I -n -P \
     '[\x{00AD}\x{061C}\x{180E}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{2066}-\x{2069}\x{2028}\x{2029}\x{FEFF}]' \
-    -- . ':!fl_frontend/src/core/emailAddress.test.ts' ':!fl_backend/tests/shared/email_addresses.json' \
+    -- . \
     && ok "no invisible or bidirectional character"
   return 0
 }
@@ -548,6 +548,11 @@ findings above name the service and the rule." \
   check --exits contract "The route accounting is out. Each finding above names the handler, the location or the reason." \
     "$PY" scripts/lib/checker_kernel.py scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
+
+  step "ops · every address, site and telephone number a test invents is a reserved one"
+  check --exits contract "A test invents a value a third party may hold. Each finding above names the file, the line and the value." \
+    "$PY" scripts/lib/checker_kernel.py scripts/checks/check_invented_data.py \
+    && ok "every invented address, site and number is reserved"
 
   # A parse sees neither a log line nor a response, and both edges starting is the parse.
   step "ops · the edge starts, logs no credential and sends every security header once"
