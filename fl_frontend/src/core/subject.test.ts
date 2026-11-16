@@ -9,9 +9,11 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
+import { serveBackend } from "@/test-support/backend.ts";
 import { beginRenderPass, leaveRenderPass, serveServerReact } from "@/test-support/cacheScope.ts";
 import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
-import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
+import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SessionRow } from "@/test-support/authDoubles.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
@@ -25,13 +27,6 @@ const PERSON_EMAIL = "spielerin@example.org";
    trims, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
 const UNFOLDED_EMAIL = `${String.fromCodePoint(0xa0)}Anna.Mueller@Schule.DE `;
 const FOLDED_EMAIL = "anna.mueller@schule.de";
-
-const API_ORIGIN = "http://backend.test";
-
-const CONFIG_DOUBLE = configDouble(
-  { API_URL: API_ORIGIN },
-  { internalApiKeyBase: () => "fabricated-base-not-a-credential", internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" },
-);
 
 /**
  * Each read of the request's headers: the session read's, and the lookup's for its trace, each of which every uncached
@@ -50,7 +45,7 @@ const HEADERS_DOUBLE = {
 };
 
 registerAuthDoubles({
-  core: { config: CONFIG_DOUBLE },
+  core: { config: configDouble() },
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
@@ -69,46 +64,28 @@ const RECORDS = new Map<string, Subject>([
   [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
 ]);
 
-/** One call the guard put on the wire. */
-type Sent = { url: string; method: string; headers: Headers; body: string };
+/** The two reads the lookup answers, as the generated calls spell them below the base path. */
+const LOOKUP_PATHS = ["/identity/subject", "/identity/sign_in"];
 
-const sent: Sent[] = [];
+/* The league's records by the address each read posts, the sign-in gate's own read among them, which every session a
+   case mints passes. Any other request goes unanswered, which fails its case. */
+function answerAtRecords({ method, path, body }: { method: string; path: string; body: unknown }): unknown {
+  if (method !== "POST" || !LOOKUP_PATHS.includes(path)) return undefined;
+  const asked = (body as { email?: string }).email ?? "";
+  return answerAt(path, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, account: false });
+}
 
-/** What the next call is answered with instead of the records, spent on that one call. */
-let nextAnswer: Response | null = null;
+const backend = serveBackend(answerAtRecords);
 
-/** Whether the next call is cut off as the client's own timeout cuts it, spent on that one call. */
-let nextTimesOut = false;
-
-const ORIGINAL_FETCH = globalThis.fetch;
-globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-  const url = input instanceof Request ? input.url : String(input);
-  const body = String(init?.body ?? "");
-  sent.push({ url, method: String(init?.method ?? "GET"), headers: new Headers(init?.headers), body });
-
-  if (nextTimesOut) {
-    nextTimesOut = false;
-    throw new DOMException("The operation was aborted due to timeout.", "TimeoutError");
-  }
-
-  if (nextAnswer !== null) {
-    const answer = nextAnswer;
-    nextAnswer = null;
-
-    return answer;
-  }
-
-  const asked = (JSON.parse(body) as { email?: string }).email ?? "";
-
-  // The sign-in gate's own read too, which every session a case mints passes.
-  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, account: false })), {
-    status: 200,
-    headers: { "content-type": "application/json" },
+/** The guard's lookup answered once with `body`, every request before and after it as the records answer it. */
+function answerTheLookupOnce(body: unknown, status = 200): void {
+  let spent = false;
+  backend.answerWith((request) => {
+    if (spent || request.path !== "/identity/subject") return answerAtRecords(request);
+    spent = true;
+    return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   });
-}) as typeof globalThis.fetch;
-afterAll(() => {
-  globalThis.fetch = ORIGINAL_FETCH;
-});
+}
 
 // The server build for these alone: the client build's `cache` passes through, so a guard or a
 // lookup that lost its memo would read the same under every case here.
@@ -128,6 +105,7 @@ const { getSubjectSession } = await import("./subject.ts");
 const { getRequestActor, requestWriteMayStand, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 const { readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
+const { FETCH_TIMEOUT_MS } = await import("./api.ts");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -184,8 +162,8 @@ async function readsOfOneGuard(guard: () => Promise<unknown>): Promise<number> {
   return reads;
 }
 
-const lastSent = (): Sent => {
-  const call = sent.at(-1);
+const lastSent = () => {
+  const call = backend.sent.at(-1);
   assert.ok(call !== undefined, "the guard put no request on the wire");
 
   return call;
@@ -194,10 +172,10 @@ const lastSent = (): Sent => {
 describe("who the seam answers for", () => {
   it("answers nothing for a visitor carrying no session, and asks the backend nothing", async () => {
     arriveAs(null);
-    const before = sent.length;
+    const before = backend.sent.length;
 
     expect(await getSubjectSession()).toBe(null);
-    expect(sent.length, "a visitor with no session still cost a lookup of the league's records").toBe(before);
+    expect(backend.sent.length, "a visitor with no session still cost a lookup of the league's records").toBe(before);
   });
 
   /* `isAdmin` is the administrator's whole verdict, so a page may gate an administrator-only control
@@ -290,10 +268,7 @@ describe("who the seam answers for", () => {
     arriveAs(cookie);
     const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
     // A key no contract names, as a later backend could answer one beside the records.
-    nextAnswer = new Response(JSON.stringify({ ...records, attached: "kein Feld des Vertrags" }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    answerTheLookupOnce({ ...records, attached: "kein Feld des Vertrags" });
 
     const answer = await getSubjectSession();
 
@@ -318,10 +293,7 @@ describe("who the seam answers for", () => {
 
     for (const unconfirmed of [true, false]) {
       beginRenderPass();
-      nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      answerTheLookupOnce({ ...HOLDS_NOTHING, unconfirmed });
 
       expect((await getSubjectSession())?.records.unconfirmed).toBe(unconfirmed);
     }
@@ -360,7 +332,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
-    expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
+    expect(lastSent().body).toStrictEqual({ email: FOLDED_EMAIL });
     expect(answer?.records.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
   });
 });
@@ -373,11 +345,7 @@ describe("the request the seam makes", () => {
     await getSubjectSession();
     const call = lastSent();
 
-    expect(call.method).toBe("POST");
-    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v0/identity/subject`);
-    // An address on a path or a query reaches the edge's access line, which nothing downstream
-    // un-logs.
-    assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);
+    expect([call.method, call.path, call.search.toString()]).toStrictEqual(["POST", "/identity/subject", ""]);
   });
 
   /* The system key and no actor header: a base or system call is the app acting as itself, and an
@@ -404,7 +372,7 @@ describe("the request the seam makes", () => {
     assert.ok(await getSubjectSession(), "the guard refused, so the call below is not the lookup it made");
     const call = lastSent();
 
-    expect(new URL(call.url).pathname).toBe("/api/v0/identity/subject");
+    expect(call.path).toBe("/identity/subject");
     expect(readTraceparent(call.headers.get(TRACEPARENT_HEADER)), "the lookup went out under a trace the edge never issued").toBe(edgeTrace);
   });
 
@@ -414,23 +382,35 @@ describe("the request the seam makes", () => {
   it("throws where the backend answers a status rather than records", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ error_code: "payload_refused" }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    answerTheLookupOnce({ error_code: "payload_refused" }, 500);
 
     await expect((() => getSubjectSession())()).rejects.toThrow();
   });
 
   // A lookup that stores nothing, posted only to keep the address out of the URL: its timeout is a read
   // that failed, and the API answers its own deadline on it the same way (`stores_nothing`).
-  it("is declared a read, so a timeout on it never reads as a write of unknown outcome", async () => {
+  it("is declared a read, so a timeout on it never reads as a write of unknown outcome", async ({ onTestFinished }) => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextTimesOut = true;
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    timeoutSignalsOnFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+    // A backend that never answers the lookup, which the client's own bound then ends.
+    let lookupSent: () => void = () => undefined;
+    const sentNow = new Promise<void>((resolve) => (lookupSent = resolve));
+    backend.answerWith(() => {
+      lookupSent();
+      return new Promise<never>(() => undefined);
+    });
 
     const mayStand = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
-      await expect((() => getSubjectSession())()).rejects.toSatisfy(
+      const read = getSubjectSession();
+      await sentNow;
+      vi.advanceTimersByTime(FETCH_TIMEOUT_MS);
+      await expect(read).rejects.toSatisfy(
         (error: unknown) => error instanceof APINetworkError && error.cause instanceof DOMException && error.cause.name === "TimeoutError",
       );
       return requestWriteMayStand();
@@ -448,7 +428,7 @@ describe("a session the store cannot answer for", () => {
     const user = store.user.find((held) => held.email === PERSON_EMAIL);
     assert.ok(user);
     arriveAs(cookie);
-    const before = sent.length;
+    const before = backend.sent.length;
 
     Reflect.set(user, "email", null);
     const { answer, actor } = await guardInScope();
@@ -456,7 +436,7 @@ describe("a session the store cannot answer for", () => {
 
     expect(answer).toBe(null);
     expect(actor).toBe(undefined);
-    expect(sent.length, "a session naming no mailbox still cost a lookup of the league's records").toBe(before);
+    expect(backend.sent.length, "a session naming no mailbox still cost a lookup of the league's records").toBe(before);
   });
 
   /* Both spellings of nothing: the empty one the fold never sees, and the blank one it folds to
@@ -470,7 +450,7 @@ describe("a session the store cannot answer for", () => {
     for (const blank of ["", "   "]) {
       // A request each: the second would otherwise be answered from the first one's memo.
       beginRenderPass();
-      const before = sent.length;
+      const before = backend.sent.length;
 
       user.email = blank;
       const { answer, actor } = await guardInScope();
@@ -478,7 +458,7 @@ describe("a session the store cannot answer for", () => {
 
       expect(answer, `an address of ${JSON.stringify(blank)} was answered for`).toBe(null);
       expect(actor).toBe(undefined);
-      expect(sent.length, `an address of ${JSON.stringify(blank)} still cost a lookup`).toBe(before);
+      expect(backend.sent.length, `an address of ${JSON.stringify(blank)} still cost a lookup`).toBe(before);
     }
   });
 
@@ -488,13 +468,13 @@ describe("a session the store cannot answer for", () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     Reflect.set(row, "createdAt", "kein Datum");
     arriveAs(cookie);
-    const before = sent.length;
+    const before = backend.sent.length;
 
     const { answer, actor } = await guardInScope();
 
     expect(answer).toBe(null);
     expect(actor).toBe(undefined);
-    expect(sent.length, "a session with an unreadable stamp still cost a lookup of the league's records").toBe(before);
+    expect(backend.sent.length, "a session with an unreadable stamp still cost a lookup of the league's records").toBe(before);
   });
 });
 
@@ -673,7 +653,7 @@ describe("the administrator's guard across a server action", () => {
     await runWithIncomingTrace(() => Promise.resolve());
     const oneTrace = headerReads() - traceBefore;
 
-    const before = { reads: headerReads(), sent: sent.length };
+    const before = { reads: headerReads(), sent: backend.sent.length };
     await runWithIncomingTrace(async () => {
       assert.ok(await getAdminSession(), "the guard refused the administrator, so the counts below count a refusal");
       await runAdminRead(() => Promise.resolve());
@@ -681,7 +661,7 @@ describe("the administrator's guard across a server action", () => {
     });
 
     expect(headerReads() - before.reads, "an admin read in the action's body read the session again").toBe(oneGuard + 3 * oneTrace);
-    expect(sent.length - before.sent, "an admin read in the action's body asked the backend for the grant again").toBe(1);
+    expect(backend.sent.length - before.sent, "an admin read in the action's body asked the backend for the grant again").toBe(1);
 
     // The render after the write, an admin read in it: a request scope of its own, so a write that
     // changed the grant is seen.
