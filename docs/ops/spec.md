@@ -500,7 +500,8 @@ about the change.
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
 tags per package, never the one the server's `.env` pins, and never an **untagged version created
 alongside a tag still in use**: BuildKit provenance attestations the tagged image references by
-digest, so deleting one corrupts the tag it belongs to.
+digest, so deleting one corrupts the tag it belongs to. The backend package's `follow-up-sha-` tags,
+which no deploy pulls, can go once their branch has merged.
 
 ### 1.6 The verification gate
 
@@ -532,8 +533,10 @@ running `./scripts/gate/verify.sh` with that scope's flag. Beside them:
   splits in three.
 - **`verify`**, the required check, fails on a job that failed, was cancelled or was skipped, and on
   a job missing from its `needs:`.
-- **`publish`**, on a push to `main` that `verify` passed, pushes the two images the `images` job
-  built and checked under their `sha-` tags, building nothing again.
+- **`publish`**, on a push that `verify` passed, pushes what the `images` job built and checked,
+  building nothing again: on `main` both images under their `sha-` tags, on `follow-up` the backend
+  image alone under `follow-up-sha-` and the same seven hex digits, a tag `deploy.sh` refuses, so a
+  branch's backend can be run against production's database by hand before the branch merges.
 
 **Every CI job that needs the backend virtualenv creates it through
 `.github/actions/backend-toolchain/action.yml`**, on the uv the backend image copies in (§1.1).

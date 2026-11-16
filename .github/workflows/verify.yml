@@ -1,8 +1,8 @@
 name: verify
 
 # The gate that `scripts/gate/verify.sh` is, every scope on every event, one job per scope, and the
-# end-to-end journeys beside it; and, on a push to main that passed them, the publish of the two
-# images the images job built and checked.
+# end-to-end journeys beside it; and, on a push that passed them, the publish of what the images job
+# built and checked: both images on main, the backend alone on follow-up.
 
 on:
   pull_request:
@@ -31,8 +31,8 @@ env:
 
 concurrency:
   group: verify-${{ github.ref }}
-  # Supersede an in-flight run on a PR, but never on a push: main's run publishes, and every push
-  # run writes the caches its branch's pull requests restore.
+  # Supersede an in-flight run on a PR, but never on a push, whose run publishes and writes the
+  # caches its branch's pull requests restore.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Each job's `timeout-minutes` bounds a hang rather than predicting a duration: four times the job's
@@ -170,8 +170,8 @@ jobs:
         run: ./scripts/gate/verify.sh --ops
 
   # Both images, built side by side in one bake through Docker's own action, which carries the Actions
-  # layer cache. Each is written to a file and loaded, so a push to main hands the publish job exactly
-  # the bytes checked here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
+  # layer cache. Each is written to a file and loaded, so a push hands the publish job exactly the
+  # bytes checked here (https://docs.docker.com/build/ci/github-actions/share-image-jobs/).
   images:
     runs-on: ubuntu-latest
     timeout-minutes: 16
@@ -230,7 +230,7 @@ jobs:
           files: |
             ./docker-bake.hcl
             cwd://${{ steps.meta.outputs.bake-file-labels }}
-      # On every event, so a pull request's run proves the outputs a push to main publishes by.
+      # On every event, so a pull request's run proves the outputs a push publishes by.
       - name: Record each tarball's digest and each image's tag
         id: bind
         env:
@@ -252,8 +252,8 @@ jobs:
         env:
           VERIFY_IMAGES_BUILT: "1"
         run: ./scripts/gate/verify.sh --images
-      # On every event, the images the journeys job raises its stack from; on a push to main, also the
-      # images the publish job pushes.
+      # On every event, the images the journeys job raises its stack from; on a push, also the images
+      # the publish job pushes.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: images
@@ -482,7 +482,7 @@ jobs:
           sparse-checkout: .github/workflows/verify.yml
           sparse-checkout-cone-mode: false
       # A job left out of `needs:` never decides a merge, and nothing in a diff says so. `publish`
-      # runs after this job, on main alone, so it is the one job this one may not need.
+      # runs after this job, on a push alone, so it is the one job this one may not need.
       - name: Fail if a job is missing from verify's needs
         run: |
           workflow=.github/workflows/verify.yml
@@ -502,15 +502,18 @@ jobs:
           echo "::error::A scope job failed, was cancelled or was skipped -- the scope results above name it, and its own log has the findings."
           exit 1
 
-  # On a push to main that `verify` passed, the two images the images job built and checked are pushed
-  # under their `sha-<commit>` tags, building and checking nothing again.
+  # On a push that `verify` passed, the images the images job built and checked are pushed, building
+  # and checking nothing again: on main both, under their `sha-<commit>` tags; on follow-up the
+  # backend alone, under `follow-up-sha-<commit>`, so its code can be run against the production
+  # database by hand before the branch merges. `deploy.sh` refuses that tag, and no frontend image
+  # carries it, so no deploy can put a follow-up build live.
   publish:
     # `images` for its outputs, which only a job named here can read.
     needs: [verify, images]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    # Not set from a measured time, as every other job's is: it runs on main alone, so no pull request's
-    # run times it.
+    # Not set from a measured time, as every other job's is: it runs on a push alone, so no pull
+    # request's run times it.
     timeout-minutes: 15
     # A job-level grant replaces the workflow's whole: the push alone, which the package grants this
     # repository's workflows. The artifact comes through the run's own runtime token.
@@ -539,13 +542,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       # The one reference the images job recorded for each, never `--all-tags`: a tarball may name
-      # any tag, and only the one the images job checked is published.
-      - name: Push both images
+      # any tag, and only the one the images job checked is published. A branch the trigger gains
+      # publishes nothing until this step names it.
+      - name: Push the images
         env:
           FRONTEND_TAG: ${{ needs.images.outputs.frontend-tag }}
           BACKEND_TAG: ${{ needs.images.outputs.backend-tag }}
         run: |
-          docker load --input "${RUNNER_TEMP}/images/frontend.tar"
-          docker load --input "${RUNNER_TEMP}/images/backend.tar"
-          docker push "$FRONTEND_TAG"
-          docker push "$BACKEND_TAG"
+          case "$GITHUB_REF" in
+            refs/heads/main)
+              docker load --input "${RUNNER_TEMP}/images/frontend.tar"
+              docker load --input "${RUNNER_TEMP}/images/backend.tar"
+              docker push "$FRONTEND_TAG"
+              docker push "$BACKEND_TAG"
+              ;;
+            refs/heads/follow-up)
+              docker load --input "${RUNNER_TEMP}/images/backend.tar"
+              docker tag "$BACKEND_TAG" "${BACKEND_TAG/:sha-/:follow-up-sha-}"
+              docker push "${BACKEND_TAG/:sha-/:follow-up-sha-}"
+              ;;
+            *)
+              echo "::error::verify.yml's publish job names no tag for ${GITHUB_REF}, so it pushes nothing."
+              exit 1
+              ;;
+          esac
