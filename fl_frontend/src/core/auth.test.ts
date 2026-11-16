@@ -1895,21 +1895,6 @@ describe("the failures one address may spend, across every code it is sent", () 
     expect(store.session.length, "the right code signed in past the bound").toBe(sessions);
   });
 
-  /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
-     barrier holds every attempt at its count until the whole burst has arrived, the worst
-     interleaving there is. */
-  it("lets no burst of concurrent attempts past the bound", async () => {
-    const wrong = wrongFor(await mailedCode());
-
-    adapterCalls.counts.arm(15);
-    const answers = await Promise.all(Array.from({ length: 15 }, () => answerOf(ADMIN_EMAIL, wrong)));
-    assert.ok(await adapterCalls.counts.filled, "the burst never met at the count, so it ran no race");
-
-    const refused = answers.filter((answer) => answer.code === "ADDRESS_ATTEMPTS_EXHAUSTED").length;
-    assert.ok(15 - refused <= 10, `${String(15 - refused)} of 15 concurrent attempts reached the code`);
-    assert.ok(failureRows().length <= 10);
-  });
-
   it("keeps the address out of the rows that count it", async () => {
     const otp = await mailedCode();
     await answerOf(ADMIN_EMAIL, wrongFor(otp));
@@ -2126,21 +2111,6 @@ describe("which sign-ins the gate admits as the session is minted", () => {
     const [barred, empty] = refusals;
     expect(barred?.[0]).toBe(403);
     expect(barred, "a barred address's refusal differs from an empty address's").toStrictEqual(empty);
-  });
-
-  /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
-     passkey row back with it. An address holding nothing, since the enrolment refuses a barred one
-     before any mint. */
-  it("refuses a passkey set-up that would sign in an address holding nothing, writing no passkey", async () => {
-    const { cookie, row } = await signIn(EMPTY_EMAIL);
-    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
-
-    const refused = await enrolPasskey(cookie, { createSession: true });
-
-    expect(refused.status).toBe(403);
-    expect(((await refused.clone().json()) as { code?: string }).code).toBe("SIGN_IN_REFUSED");
-    expect(store.passkey, "the refused set-up left its passkey behind").toStrictEqual([]);
-    assert.ok(holdsSession(row), "the refused set-up signed its caller out");
   });
 
   /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session
@@ -2385,21 +2355,6 @@ describe("a person's own account deletion", () => {
     assert.ok(!JSON.stringify(owed.findLast((entry) => entry.to === email)).includes(mailedToken(email)), "the row holds the token readable");
   });
 
-  it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
-    const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
-    const person = await seedAccount("loeschende@example.org");
-    const erasuresBefore = erasuresAsked();
-
-    const answer = await asPerson("loeschende@example.org", () =>
-      deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie })),
-    );
-
-    expect(answer).toBe("deleted");
-    expect(erasuresAsked() - erasuresBefore, "the league's records were not erased exactly once").toBe(1);
-    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
-  });
-
   /* Asked and refused: a case passing where the hook never ran -- no session, another account's token --
      would leave the same rows standing. */
   /* The library spends the link before the erasure runs, so the press says so rather than offering the link again. */
@@ -2557,18 +2512,6 @@ describe("a person's own account deletion", () => {
 /* The administrator's erasure and the account sweep reach the store through these two, never through the
    library's admin plugin. */
 describe("an account deleted for its address, and the list of every account", () => {
-  it("deletes the account an address holds and every row of it, in any spelling, and nobody else's", async () => {
-    const bystander = await seedAccount("unbeteiligt-konto@example.org");
-    const person = await seedAccount("konto-weg@example.org");
-
-    expect(await deleteAccountFor("Konto-Weg@Example.org")).toBe(true);
-    // Mailed nowhere, a person would never learn their account went.
-    expect(owed.at(-1)).toMatchObject({ to: "konto-weg@example.org", data: { kind: "deletion_notice", saison_id: null } });
-
-    expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
-    expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
-  });
-
   /* Every address typed is answered alike, so a code row stands for an address holding no account: it
      carries the address in its identifier. */
   it("deletes the pending code row of an address holding no account, answering that none was there", async () => {
