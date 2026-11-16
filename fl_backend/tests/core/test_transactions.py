@@ -697,11 +697,14 @@ async def _discarded(_message: Message) -> None:
 async def _cancelled_by_the_server(served: FastAPI, inside: asyncio.Event) -> None:
     """What uvicorn does to a request still running when its shutdown grace runs out: one cancel of the task serving it."""
 
-    serving = asyncio.create_task(served(_SCOPE, _never_disconnects, _discarded))
-    await inside.wait()
-    serving.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await serving
+    # In a group, so a request failing before it is inside fails the case at once, and one the case leaves is drained.
+    async with asyncio.TaskGroup() as group:
+        serving = group.create_task(served(_SCOPE, _never_disconnects, _discarded))
+        await inside.wait()
+        serving.cancel()
+
+    # Propagated rather than swallowed: the app answers the cancel by ending, as uvicorn expects of it.
+    assert serving.cancelled()
 
 
 async def _cancelled_by_a_scope(served: FastAPI, inside: asyncio.Event) -> None:

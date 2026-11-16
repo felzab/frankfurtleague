@@ -221,7 +221,7 @@ async def their_confirmations(database: AsyncDatabase) -> None:
 
 
 async def a_person_holding_everything(database: AsyncDatabase) -> None:
-    await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+    await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active", start_date="2126-01-01", end_date="2126-06-30"))
     await database[Collection.TEAMS].insert_many(
         [team_document(HOME_TEAM_OID, "Heim-Schule", "HSX"), team_document(OTHER_TEAM_OID, "Gast-Schule", "GSX")]
     )

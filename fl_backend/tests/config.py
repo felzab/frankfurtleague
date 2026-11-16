@@ -5,6 +5,7 @@ from bson import ObjectId
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, BackendConfig
+from tests.documents import grant_document
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
@@ -65,20 +66,22 @@ def build_test_config() -> BackendConfig:
     )
 
 
+# When the suite's grants were written by hand, as the first owner's is.
+GRANTED_FROM = datetime(2026, 1, 1, tzinfo=UTC)
+
+
 def grants_for_the_suite() -> list[dict[str, Any]]:
     """`ADMINISTRATORS` as the `grants` rows a suite seeds before an admin-tier request, the first as an `owner`.
 
     Written straight to the collection, as the first owner's grant is written by hand: no route writes one.
     """
 
-    pasted = datetime(2026, 1, 1, tzinfo=UTC)
-
     return [
-        {
-            "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
-            "address": address,
-            "admin_tier": "owner" if index == 0 else "administration",
-            "effective_from": pasted,
-        }
+        grant_document(
+            address,
+            "owner" if index == 0 else "administration",
+            effective_from=GRANTED_FROM,
+            _id=ObjectId(ObjectId.from_datetime(GRANTED_FROM).binary[:4] + index.to_bytes(8, "big")),
+        )
         for index, address in enumerate(ADMINISTRATORS)
     ]

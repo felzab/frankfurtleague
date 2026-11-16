@@ -2,65 +2,90 @@
 
 Read-only, for after a migration paste: `python -m app.readback` in the backend's container.
 It prints a document's id and the location of each error, never a value, and exits 0 when every
-document validates, 1 when any is refused, and 2 when the database could not be read.
+document validates, 1 when any is refused, 2 when the database could not be read, and 3 when the
+read-back itself failed, at its imports included.
 """
 
-import asyncio
-from collections.abc import Mapping
+import traceback
+from typing import NoReturn
 
-from pydantic import BaseModel, ValidationError
-from pymongo import AsyncMongoClient
-from pymongo.errors import PyMongoError
+# The exit contract the scripts read: 0 clean, 1 a document to correct, 2 could not judge, 3 crashed.
+CRASHED = 3
 
-from app.api.action_log.schemas import FLActionLogRecord
-from app.api.address_change.schemas import FLAddressChangeRecord
-from app.api.aufstellungen.schemas import FLAufstellung
-from app.api.ban_list.schemas import FLBanListRecord
-from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
-from app.api.grants.schemas import FLGrantRecord
-from app.api.invitations.schemas import FLInvitationRecord
-from app.api.outbox.schemas import FLOutboxRow
-from app.api.registrierungen.schemas import FLRegistrierungRecord
-from app.api.saisons.schemas import FLSaisonRecord
-from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
-from app.api.spielberichte.schemas import FLSpielbericht
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungRecord
-from app.api.spiele.schemas import FLSpiel
-from app.api.spieler.schemas import FLSaisonSpielerRow, FLSpielerRecord
-from app.api.spielorte.schemas import FLSpielort
-from app.api.spieltage.schemas import FLSpieltagRecord
-from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
-from app.core.collections import EDITED_COLLECTIONS, Collection
-from app.core.config import get_config  # noqa: TID251
-from app.core.crud import VERSION_FIELD
-from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 
-RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
-    Collection.SAISONS: FLSaisonRecord,
-    Collection.SAISON_TEAMS: FLSaisonTeamRecord,
-    Collection.SAISON_SPIELER: FLSaisonSpielerRow,
-    Collection.SPIELE: FLSpiel,
-    Collection.SPIELTAGE: FLSpieltagRecord,
-    Collection.TEAMS: FLTeamRecord,
-    Collection.SPIELER: FLSpielerRecord,
-    Collection.SPIELORTE: FLSpielort,
-    Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
-    Collection.BEWERBUNGEN: FLBewerbungRecord,
-    Collection.ACTION_LOG: FLActionLogRecord,
-    Collection.BAN_LIST: FLBanListRecord,
-    Collection.INVITATIONS: FLInvitationRecord,
-    Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
-    Collection.GRANTS: FLGrantRecord,
-    Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
-    Collection.SPIELBERICHTE: FLSpielbericht,
-    Collection.AUFSTELLUNGEN: FLAufstellung,
-    Collection.ADDRESS_CHANGES: FLAddressChangeRecord,
-    Collection.OUTBOX: FLOutboxRow,
-    Collection.MAILBOX_ANCHORS: FLMailboxAnchorRecord,
-}
+def _crashed(error: BaseException) -> NoReturn:
+    """The crash by its type and where it was raised: a message, or a traceback's locals, can carry a secret's value."""
 
-if missing := set(Collection) - RECORD_MODELS.keys():
-    raise RuntimeError(f"No record model for {', '.join(sorted(missing))}: add one to RECORD_MODELS.")
+    frames = traceback.extract_tb(error.__traceback__)
+    where = f" at {frames[-1].filename}:{frames[-1].lineno}" if frames else ""
+    print(f"The read-back crashed ({type(error).__name__}{where}).")
+    raise SystemExit(CRASHED) from None
+
+
+# Inside the contract's reach: an import failing before `_main` exists would otherwise exit Python's own 1, which the
+# scripts read as a document to correct.
+try:
+    import asyncio
+    from collections.abc import Mapping
+
+    from pydantic import BaseModel, ValidationError
+    from pymongo import AsyncMongoClient
+    from pymongo.errors import PyMongoError
+
+    from app.api.action_log.schemas import FLActionLogRecord
+    from app.api.address_change.schemas import FLAddressChangeRecord
+    from app.api.aufstellungen.schemas import FLAufstellung
+    from app.api.ban_list.schemas import FLBanListRecord
+    from app.api.bewerbungen.schemas import FLBewerbungRecord, FLMailboxAnchorRecord
+    from app.api.grants.schemas import FLGrantRecord
+    from app.api.invitations.schemas import FLInvitationRecord
+    from app.api.outbox.schemas import FLOutboxRow
+    from app.api.registrierungen.schemas import FLRegistrierungRecord
+    from app.api.saisons.schemas import FLSaisonRecord
+    from app.api.schiedsrichter.schemas import FLSchiedsrichterRecord
+    from app.api.spielberichte.schemas import FLSpielbericht
+    from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungRecord
+    from app.api.spiele.schemas import FLSpiel
+    from app.api.spieler.schemas import FLSaisonSpielerRow, FLSpielerRecord
+    from app.api.spielorte.schemas import FLSpielort
+    from app.api.spieltage.schemas import FLSpieltagRecord
+    from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
+    from app.core.collections import EDITED_COLLECTIONS, Collection
+    from app.core.config import get_config  # noqa: TID251
+    from app.core.crud import VERSION_FIELD
+    from app.core.db import SERVER_SELECTION_TIMEOUT_MS
+
+    RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
+        Collection.SAISONS: FLSaisonRecord,
+        Collection.SAISON_TEAMS: FLSaisonTeamRecord,
+        Collection.SAISON_SPIELER: FLSaisonSpielerRow,
+        Collection.SPIELE: FLSpiel,
+        Collection.SPIELTAGE: FLSpieltagRecord,
+        Collection.TEAMS: FLTeamRecord,
+        Collection.SPIELER: FLSpielerRecord,
+        Collection.SPIELORTE: FLSpielort,
+        Collection.SCHIEDSRICHTER: FLSchiedsrichterRecord,
+        Collection.BEWERBUNGEN: FLBewerbungRecord,
+        Collection.ACTION_LOG: FLActionLogRecord,
+        Collection.BAN_LIST: FLBanListRecord,
+        Collection.INVITATIONS: FLInvitationRecord,
+        Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
+        Collection.GRANTS: FLGrantRecord,
+        Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
+        Collection.SPIELBERICHTE: FLSpielbericht,
+        Collection.AUFSTELLUNGEN: FLAufstellung,
+        Collection.ADDRESS_CHANGES: FLAddressChangeRecord,
+        Collection.OUTBOX: FLOutboxRow,
+        Collection.MAILBOX_ANCHORS: FLMailboxAnchorRecord,
+    }
+
+    if missing := set(Collection) - RECORD_MODELS.keys():
+        raise RuntimeError(f"No record model for {', '.join(sorted(missing))}: add one to RECORD_MODELS.")
+except Exception as error:
+    # Imported, the failure is the importer's to see; run, it is the contract's 3.
+    if __name__ != "__main__":
+        raise
+    _crashed(error)
 
 
 async def read_back(client: AsyncMongoClient, database_name: str) -> int:
@@ -101,4 +126,8 @@ async def _main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(_main()))
+    try:
+        code = asyncio.run(_main())
+    except Exception as error:
+        _crashed(error)
+    raise SystemExit(code)
