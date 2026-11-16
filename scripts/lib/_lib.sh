@@ -571,6 +571,10 @@ declare -grA EXIT_CODES=(
   # Next.js 16.4.6 names no status. `next build` and `next typegen` answer 1 for a build that fails, and
   # for any error the command meets; 130 a SIGINT, 143 a SIGTERM.
   [next]="0:0 1:1"
+  # buildx names no status, and the repository pins no release of it. The source of v0.38.1
+  # (cmd/buildx/main.go) answers 1 for any error, a build that fails and a registry it cannot reach
+  # alike, 100 an internal error of BuildKit's, 102 BuildKit out of a resource, 130 a cancel.
+  [buildx]="0:0 1:1 100:3 102:2"
   # pnpm's own commands answer every failure with a code, which `PNPM_ERRORS` reads, and a script it runs
   # with that script's own status, for the script's row.
   [pnpm]="0:0"

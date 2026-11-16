@@ -639,17 +639,10 @@ cleanup_images() { docker image rm -f "${IMAGES_TAG}:frontend" "${IMAGES_TAG}:ba
 # `docker-bake.hcl`'s alone. Only where they land is this run's: loaded into the local image store
 # under this run's tag through `--set`, where CI writes the tarballs its publish pushes.
 build_images() {
-  local log rc=0
-  log="$(mktemp)"
-  docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
+  check --exits buildx "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target." \
+    docker buildx bake --file docker-bake.hcl --set '*.output=type=docker' \
     --set "frontend.tags=${IMAGES_TAG}:frontend" --set "backend.tags=${IMAGES_TAG}:backend" \
-    frontend backend > "$log" 2>&1 || rc=$?
-  if (( rc )); then detail < "$log"; fi
-  rm -f "$log"
-  if (( rc )); then
-    fail "The images failed to build — the failure the frontend scope cannot see. Docker's own output above names the target."
-    finish
-  fi
+    frontend backend || finish
 }
 
 # What a successful build does not prove, asked of each image. In CI the workflow builds both in one
