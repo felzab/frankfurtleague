@@ -9,7 +9,7 @@ import { asSignInIdentifier, isDeliverableAddress, isOneBareMailbox } from "@/co
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /** Five characters a reader cannot see, which `new URL` deletes while parsing, so a host carrying one reads as another. */
-const INVISIBLE = ["​", "﻿", "­", "⁠", "᠎"];
+const INVISIBLE = ["\u200B", "\uFEFF", "\u00AD", "\u2060", "\u180E"];
 
 /** Outside a host label's letters, digits and hyphens: an umlaut and a CJK letter, which the rule refuses rather than converts, among them. */
 const REFUSED = [...INVISIBLE, "\t", "@", "_", "ü", "日"];

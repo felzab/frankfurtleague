@@ -25,7 +25,7 @@
   },
   {
     "case": "a zero-width no-break space before it",
-    "typed": "﻿anna@schule.de",
+    "typed": "\ufeffanna@schule.de",
     "stored": "anna@schule.de",
     "folded": "anna@schule.de"
   },
