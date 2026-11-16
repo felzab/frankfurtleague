@@ -1276,6 +1276,10 @@ const MODULE_FILE_CASE = `@(${CAMEL}|${PASCAL})`;
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // A rule is set here alone: a directive in a comment, `eslint-disable` among them, is reported rather than obeyed,
+  // so no file switches a rule off for itself. A `@ts-` comment is typescript-eslint's `ban-ts-comment`, which the
+  // recommended set above refuses but for an `@ts-expect-error` saying why.
+  { linterOptions: { noInlineConfig: true } },
   // React's rules of hooks hold React code, which lives in `src/`: elsewhere a call named `use`, a
   // Playwright fixture's callback among them, is no hook.
   {
