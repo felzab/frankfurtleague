@@ -14,7 +14,7 @@ import {
 import { replicaSetUrl, startJudgedReplicaSet } from "@/test-support/expiredTransactions.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/test-support/nextRequest.ts";
 import { captureLog } from "@/test-support/stdoutCapture.ts";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A replica set: the property under test is a transaction's.
 const { mongod, closing } = await startJudgedReplicaSet();
@@ -165,8 +165,12 @@ const OPEN_GATE = { arrive: async () => undefined };
 /** Every line the real logger writes, read off standard output. */
 const log = captureLog();
 
-/** The events of the lines written at `level` since the case began. */
-const eventsAt = (level: "WARNING" | "ERROR"): string[] => log.lines().flatMap((line) => (line.level === level ? [line.message] : []));
+/** The events of the lines written at `level` since the case began, or since the line `from` counts. */
+const eventsAt = (level: "WARNING" | "ERROR", from = 0): string[] =>
+  log
+    .lines()
+    .slice(from)
+    .flatMap((line) => (line.level === level ? [line.message] : []));
 const barrier = new Barrier();
 
 /** Where a removal's in-transaction read of the passkey rows waits: nowhere, unless a case holds it. */
@@ -183,9 +187,13 @@ const { removePasskeyAction } = await import("./actions.ts");
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
   updateMany: (filter: object, update: object) => Promise<unknown>;
+  deleteMany: (filter: object) => Promise<unknown>;
 };
 type RealClient = {
-  db: (name: string) => { dropDatabase: () => Promise<unknown>; collection: (name: string) => Collection };
+  db: (name: string) => {
+    listCollections: (filter: object, options: { nameOnly: true }) => { toArray: () => Promise<{ name: string }[]> };
+    collection: (name: string) => Collection;
+  };
   close: () => Promise<void>;
 };
 
@@ -193,15 +201,21 @@ const realClient = productionClient as RealClient;
 closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
 
+// Production's indexes under every case, so the library is driven over what it meets there: built once for the
+// file, since a build runs under the client's socket bound, which a stall on a loaded machine outlasts.
+beforeAll(async () => {
+  const from = log.lines().length;
+  await buildAuthIndexes();
+  expect(eventsAt("ERROR", from), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+});
+
 beforeEach(async () => {
   barrier.disarm();
   signingOut = async () => undefined;
   readGate = OPEN_GATE;
-  await authDb().dropDatabase();
-
-  // Production's indexes under every case, so the library is driven over what it meets there.
-  await buildAuthIndexes();
-  expect(eventsAt("ERROR"), "an index of the sign-in store was left unbuilt").toStrictEqual([]);
+  // An empty store, its indexes kept.
+  const collections = await authDb().listCollections({}, { nameOnly: true }).toArray();
+  await Promise.all(collections.map(({ name }) => authDb().collection(name).deleteMany({})));
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
