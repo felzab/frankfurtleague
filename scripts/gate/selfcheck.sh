@@ -76,12 +76,12 @@ else
   step "2. shellcheck"
   # SC1091 throughout: shellcheck cannot follow the sourced library. A script that does not parse is
   # one of its errors. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt:ro" -w /mnt \
     "$SHELLCHECK_IMAGE" -e SC1091 "${SHELL_FILES[@]}" || sc_rc=$?
   linted shellcheck "$sc_rc" "$LINENO"
 
   step "3. actionlint on the workflows"
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo:ro" -w /repo "$ACTIONLINT_IMAGE" || al_rc=$?
   linted actionlint "$al_rc" "$LINENO"
 fi
 
