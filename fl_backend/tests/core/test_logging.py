@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Final
 
@@ -89,6 +90,29 @@ def test_the_access_line_carries_the_code_the_request_was_refused_with(caplog):
     ] == [("http.answered", 409, "probe", TRACE)]
 
 
+@pytest.fixture
+def logging_as_it_was() -> Iterator[None]:
+    """Every logger as it stood, back after the case: `setup_logging` configures the process's own.
+
+    Left configured, the root would hand every later case on this worker an INFO level and a handler writing to the stream
+    it captured, so what a case logged would hang on which case ran before it.
+    """
+
+    loggers = [logging.getLogger(), *(logger for logger in logging.Logger.manager.loggerDict.values() if isinstance(logger, logging.Logger))]
+    saved = [(logger, logger.handlers[:], logger.level, logger.propagate, logger.disabled) for logger in loggers]
+    try:
+        yield
+    finally:
+        for logger, handlers, level, propagate, disabled in saved:
+            for added in set(logger.handlers) - set(handlers):
+                added.close()
+            logger.handlers[:] = handlers
+            logger.setLevel(level)
+            logger.propagate = propagate
+            logger.disabled = disabled
+
+
+@pytest.mark.usefixtures("logging_as_it_was")
 def test_uvicorn_s_own_handlers_are_taken_off_so_its_lines_reach_the_service_s():
     """What lets the image run uvicorn on its default configuration: a handler of its own left on would print plain text beside the JSON."""
     # Its configuration as the image runs it: the default, with the access log off.
