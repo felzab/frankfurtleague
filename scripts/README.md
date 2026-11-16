@@ -18,6 +18,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/lib/checker_kernel.py`         | —             | The repository root and the exit contract every checker shares; imported, never run             |
 | `scripts/lib/nginx_conf.py`             | —             | nginx's configuration as a tree, for both checkers; the edge test runs it for each figure       |
 | `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                     |
+| `scripts/pytest.ini`                    | —             | pytest's configuration for `scripts/tests/`                                                     |
 | `scripts/ruff.toml`                     | —             | ruff's configuration for the Python below this folder                                           |
 | `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                        |
 
