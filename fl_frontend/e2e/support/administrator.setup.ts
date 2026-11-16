@@ -1,9 +1,9 @@
 /**
  * E2E · the one administrator's session every administration journey shares, set up once before any of them
- * (https://playwright.dev/docs/auth#basic-shared-account-in-all-tests). Desktop's Chromium signs in, since the Verwaltung
- * takes a passkey session alone and WebKit holds no authenticator (`fl_frontend/playwright.config.ts`). The session is
- * then the phone's too: it is bound to no browser, so WebKit at an iPhone's size reads the same pages under it. Each
- * journey writes a record of its own, so sharing it costs no journey anything another reads.
+ * (https://playwright.dev/docs/auth#basic-shared-account-in-all-tests). Desktop's Chromium signs in, since the
+ * Verwaltung takes a passkey session alone and WebKit holds no authenticator. The session is then the phone's too: it
+ * is bound to no browser, so WebKit at an iPhone's size reads the same pages under it. Each journey writes a record of
+ * its own, so sharing it costs no journey anything another reads.
  */
 import { ADMINISTRATOR_STATE, test } from "./journey";
 import { PEOPLE } from "./madeUpLeague";

@@ -62,7 +62,7 @@ type JourneyFixtures = {
 export const E2E_DIR = path.resolve(process.env.E2E_DIR ?? path.join(__dirname, "..", "..", "..", ".tmp-e2e"));
 
 /**
- * The session `./administrator.setup.ts` saves, which every administration journey opens with
+ * The session the administrator's setup saves, which every administration journey opens with
  * (https://playwright.dev/docs/auth). Beside the stack's keys, which go when the stack goes and no failed run uploads:
  * it holds a live session of that stack.
  */
@@ -129,7 +129,7 @@ async function provideDevice(browser: Browser, options: BrowserContextOptions, p
 }
 
 export const test = base.extend<JourneyFixtures & JourneyOptions>({
-  // Empty until a project sets them, which `fl_frontend/playwright.config.ts` does for each.
+  // Empty until a project sets them.
   administrator: ["", { option: true }],
   twoDevices: ["", { option: true }],
   mover: ["", { option: true }],

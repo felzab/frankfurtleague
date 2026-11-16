@@ -44,16 +44,14 @@ export async function signInWithCode(page: Page, address: string): Promise<void>
 }
 
 /**
- * Where a journey's own person of the made-up seed lands once signed in: a confirmed referee no fixture
- * books, so their one place is the referee's (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), whose
- * address stays put for a referee in no season.
+ * Where a journey's own person of the made-up seed lands once signed in: a confirmed referee no fixture books, so their
+ * one place is the referee's, whose address stays put for a referee in no season.
  */
 export const PERSON_LANDING = "/area/schiedsrichter";
 
 /**
- * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place
- * (`fl_frontend/src/features/roles/utils.ts :: landingTargetOf`), and `/admin` draws the Übersicht of the season it
- * works in by standard, the seed's running one (`fl_frontend/src/app/admin/(list)/page.tsx`).
+ * Where every administrator lands: each the seed grants holds nothing else, so the administration is their one place,
+ * and `/admin` draws the Übersicht of the season it works in by standard, the seed's running one.
  */
 export const ADMINISTRATION_LANDING = "/admin";
 
@@ -71,7 +69,7 @@ export async function declinePasskeyOffer(page: Page, landing: string | RegExp):
 
 /**
  * The session cookies the browser holds for the site, by name: the library's, under whatever prefix the origin gives
- * it, as `fl_frontend/src/proxy.ts` matches it.
+ * it, as the proxy matches it.
  */
 export async function sessionCookies(context: BrowserContext, site: string | undefined): Promise<string[]> {
   return (await context.cookies(String(site))).map((cookie) => cookie.name).filter((name) => name.endsWith(".session_token"));
@@ -107,9 +105,8 @@ export async function enrolPasskey(page: Page, context: BrowserContext): Promise
   await context.credentials.install();
   await page.reload();
   await page.getByRole("button", { name: "Jetzt einrichten" }).click();
-  // Where every administrator lands, which a session short of the passkey would leave for the passkey step
-  // (`fl_frontend/src/core/auth/landing.ts :: destinationOf`). Waited for to the end of its in-stream redirect, so the
-  // journey's next address interrupts nothing.
+  // Where every administrator lands, which a session short of the passkey would leave for the passkey step. Waited for
+  // to the end of its in-stream redirect, so the journey's next address interrupts nothing.
   await expect(page).toHaveURL((url) => url.pathname === ADMINISTRATION_LANDING);
 }
 

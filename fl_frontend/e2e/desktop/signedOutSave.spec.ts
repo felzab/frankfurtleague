@@ -1,6 +1,6 @@
 /**
- * E2E · an editor's save made after the session is gone: the proxy answers the server action with a
- * redirect to `/signin` (`fl_frontend/src/proxy.ts :: turnAway`), and Next's action client follows it.
+ * E2E · an editor's save made after the session is gone: the proxy answers the server action with a redirect to
+ * `/signin`, and Next's action client follows it.
  */
 import { expect } from "@playwright/test";
 

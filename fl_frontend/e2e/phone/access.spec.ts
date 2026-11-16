@@ -1,7 +1,7 @@
 /**
- * E2E · the area on a phone: the four lists read under the session `../support/administrator.setup.ts` saved, an
- * administrator's and no owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so
- * the acts are `../desktop/`'s. Each reads rows the seed wrote and no journey changes.
+ * E2E · the area on a phone: the four lists read under the shared administrator's session, an administrator's and no
+ * owner's. Reads alone: every act here takes the passkey touch, which WebKit cannot answer, so the acts are desktop's.
+ * Each reads rows the seed wrote and no journey changes.
  */
 import { expect } from "@playwright/test";
 
@@ -59,9 +59,8 @@ test("a list's row shows its whole address at a phone's width", async ({ page })
   }
 });
 
-// One who is enough: „Wer“ offers every one the log holds and reads the chosen back to one value its read filters on
-// (`fl_frontend/src/features/action-log/filters.ts :: byOf`), so another option walks the same path; the desktop's
-// journeys choose an address and „Automatisch“.
+// One who is enough: „Wer“ offers every one the log holds and reads the chosen back to one value its read filters on,
+// so another option walks the same path; the desktop's journeys choose an address and „Automatisch“.
 test("the Protokoll's filter sheet narrows to one who", async ({ page }) => {
   const main = page.getByRole("main");
   const rows = main.getByRole("row");

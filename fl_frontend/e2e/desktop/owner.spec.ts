@@ -1,9 +1,8 @@
 /**
- * E2E · the owner's way on Administratoren: a handover the seed left waiting is stopped, an administrator is added
- * and stopped, and the role is handed over, each act behind the owner's real touch, every wait's person told. The owner
+ * E2E · the owner's way on Administratoren: a handover the seed left waiting is stopped, an administrator is added and
+ * stopped, and the role is handed over, each act behind the owner's real touch, every wait's person told. The owner
  * holds one grant and one passkey, and a wait's end can only be seeded, so this is one journey: the promotion itself is
- * the scheduler's pass, which a journey cannot time. Desktop alone, for the reason `fl_frontend/playwright.config.ts`
- * gives at its projects.
+ * the scheduler's pass, which a journey cannot time. Desktop alone, since Playwright's WebKit holds no authenticator.
  */
 import { expect } from "@playwright/test";
 

@@ -76,7 +76,7 @@ test("a contact answers the date, admits the pupil and enters the line-up", asyn
   await expect(page.getByRole("main").getByRole("row").filter({ hasText: pupil })).toContainText("Nachnominiert");
 
   // The answered date leaves the line-up as the one thing the match still needs from the club. A match row's link is
-  // named by everything it shows, its two clubs among it, as `spielplan.spec.ts` finds one.
+  // named by everything it shows, its two clubs among it.
   await openPage(page, "Spiele");
   const match = page.getByRole("main").getByRole("link", { name: new RegExp(fixture.replace(" vs. ", ".*")) });
   await expect(match).toContainText("Aufstellung fehlt");

@@ -8,8 +8,8 @@ import type { Locator, Page } from "@playwright/test";
 /**
  * Types into a box, tapped first as a person reaches it: once the page's code runs, React hydrates what a press lands
  * on during the press itself (https://github.com/reactwg/react-18/discussions/37), so a press after it finds its
- * handler. Before that, text in the box is the browser's until the box replays it on hydrating
- * (`fl_frontend/src/kit/useEarlyEdit.ts`), and React replays a press held with it (`fl_frontend/src/kit/HeldForm.tsx`).
+ * handler. Before that, text in the box is the browser's until the box replays it on hydrating, and React replays a
+ * press held with it.
  */
 export async function typeInto(box: Locator, value: string): Promise<void> {
   await box.click();
@@ -67,8 +67,8 @@ export function chip(row: Locator, words: string): Locator {
 
 /**
  * Whether the document, or the box any table scrolls in, scrolls sideways, which no page may. The kit's `Table` stands
- * in a box of its own that scrolls sideways (`fl_frontend/src/kit/Table.tsx`), so a name that stops wrapping widens that
- * box's content and never the document's.
+ * in a box of its own that scrolls sideways, so a name that stops wrapping widens that box's content and never the
+ * document's.
  */
 export function scrollsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() =>

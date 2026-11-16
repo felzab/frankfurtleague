@@ -2,9 +2,8 @@
  * E2E · the administration's access pages: an administrator starts a change for a person who lost their mailbox and
  * discards it, erases an address on request, and reads each act back in the Protokoll, every act behind the
  * administrator's real touch. The touch asks the test's own context, so the journey signs in and sets up its passkey
- * there: the session `../support/administrator.setup.ts` saves carries cookies and no authenticator. Desktop alone, for
- * the reason `fl_frontend/playwright.config.ts` gives at its projects; `../phone/access.spec.ts` reads the lists on a
- * phone.
+ * there: the shared administrator's session carries cookies and no authenticator. Desktop alone, since Playwright's
+ * WebKit holds no authenticator; the phone reads the lists in a journey of its own.
  */
 import { expect } from "@playwright/test";
 

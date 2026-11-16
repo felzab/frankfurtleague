@@ -2,9 +2,8 @@
  * E2E · what only the scheduler does, which no lower tier sees run in the built image: its first pass deletes the
  * planned season's application whose 14 days lapsed and tells its one confirmed seat, tells the referee booked on a
  * disqualified club's fixture still to play that the booking is lifted, and deletes a pupil in no squad since the
- * finished season. The pass runs a minute after the frontend boots and the next an hour later
- * (`fl_frontend/src/instrumentationNode.ts`), so each case reads what the made-up seed left it, once: the seed holds
- * one of each.
+ * finished season. The pass runs a minute after the frontend boots and the next an hour later, so each case reads what
+ * the made-up seed left it, once: the seed holds one of each.
  */
 import { expect } from "@playwright/test";
 
@@ -17,8 +16,8 @@ import { MAIL_WAIT_MS, mailedMessage } from "../support/mailSink";
 test.use({ storageState: ADMINISTRATOR_STATE });
 
 /**
- * The scheduler's own delay from the frontend's boot to its first pass, `fl_frontend/src/instrumentationNode.ts ::
- * FIRST_PASS_DELAY_MS`, spelled again here: that module is the server's boot hook, which a journey does not load.
+ * The scheduler's own delay from the frontend's boot to its first pass, spelled again here under the scheduler's name
+ * for it: its module is the server's boot hook, which a journey does not load.
  */
 const FIRST_PASS_DELAY_MS = 60 * 1000;
 
@@ -33,8 +32,8 @@ const REFEREE = PEOPLE.firstPass.referee.address;
 const NOTICE = "Nicht mehr eingeteilt: Spiel am";
 
 // Each case waits for the pass itself, whichever project ran before it. The referee's notice comes of the job after those
-// that delete (`fl_frontend/src/instrumentationNode.ts :: loadJobs`), so every deletion stands once it is filed. The
-// test's own budget grows by the wait, so the wait ends first and reports what it waited for.
+// that delete, so every deletion stands once it is filed. The test's own budget grows by the wait, so the wait ends
+// first and reports what it waited for.
 test.beforeEach(async ({}, testInfo) => {
   testInfo.setTimeout(testInfo.timeout + FIRST_PASS_WAIT_MS);
   await mailedMessage(REFEREE, NOTICE, SINCE_THE_START, { timeout: FIRST_PASS_WAIT_MS });

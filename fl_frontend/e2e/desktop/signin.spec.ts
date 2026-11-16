@@ -1,8 +1,8 @@
 /**
  * E2E · asking for a sign-in code sets the browser no cookie, for a member or a stranger, so no cookie tells the two
  * apart. Desktop alone: which cookies the server sets is no engine's, and every phone journey that signs in asks for a
- * code too. The code sign-in itself is walked by every journey that signs in, and the passkey ceremonies are in
- * `passkey.spec.ts`.
+ * code too. The code sign-in itself is walked by every journey that signs in, and the passkey ceremonies run in a
+ * journey of their own.
  */
 import { expect } from "@playwright/test";
 

@@ -1,6 +1,6 @@
 /**
  * E2E · the public pages on a phone, where no lower tier sees one scroll sideways: only a browser computes a layout.
- * Measured at the profile's width and at 360 px, as `./access.spec.ts` measures the lists' addresses.
+ * Measured at the profile's width and at 360 px.
  */
 import { expect } from "@playwright/test";
 

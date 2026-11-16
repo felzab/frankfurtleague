@@ -1,6 +1,6 @@
 /**
  * E2E · a club leaving mid-season, under each project, where no lower tier sees the opponent still to play it left
- * untold at the write. The booked referee, told by the scheduler, is `first-pass/firstPass.spec.ts`'s.
+ * untold at the write. The scheduler tells the booked referee, in the first pass's journey.
  */
 import { expect } from "@playwright/test";
 

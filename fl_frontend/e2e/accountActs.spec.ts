@@ -1,9 +1,9 @@
 /**
- * E2E · a person's account acts, under each project: the address change through its two mailed links, the address
- * on file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
+ * E2E · a person's account acts, under each project: the address change through its two mailed links, the address on
+ * file asked first, then the new mailbox; then the deletion through its mailed link, opened signed out and carried
  * through the sign-in, its action leading to the page that needs no session. Before them „Alle anderen abmelden“ with a
- * second device, whose cookie no person would see still admitted. Konto's steps are named by the words
- * Konto's pages are built to. The passkeys are `desktop/accountPasskeys.spec.ts`'s.
+ * second device, whose cookie no person would see still admitted. Konto's steps are named by the words Konto's pages
+ * are built to. The passkeys run in a desktop journey of their own.
  *
  * Each journey signs in as a person of its own, the project's `twoDevices`, `mover` and `leaver`, whom no other journey
  * signs in as: each writes what another would read, the sessions it ends, the records it moves, the account it erases.
@@ -24,7 +24,6 @@ async function signIn(page: Page, address: string): Promise<void> {
 }
 
 test("„Alle anderen abmelden“ ends a second device's session and keeps this one", async ({ page, secondDevice, baseURL, twoDevices }) => {
-  // A second device, signed in first.
   await signIn(secondDevice, twoDevices);
   await signIn(page, twoDevices);
 
