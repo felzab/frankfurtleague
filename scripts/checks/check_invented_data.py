@@ -1,4 +1,4 @@
-"""Every address, site and telephone number a test invents is one no third party holds.
+"""Every address, site and telephone number a test spells out is one no third party holds.
 
 A test's made-up person reaches a log line, a stored row and a mailer's stand-in, and a domain anyone
 may register or a number a carrier may assign names a stranger there. So a test invents them from
@@ -22,6 +22,9 @@ The population is every tracked test file of both tiers. Three rules read it:
 - a quoted German telephone number, `+49`, `0049`, or a trunk zero with a separator, folded as the
   API folds one, whose digits must lie in one of the three ranges. A number cut short or completed by
   a placeholder is judged on the digits it holds.
+
+A value built from parts is judged only where some test spells it whole: a domain held in a constant
+and joined to a name after the at sign reads as no address, and a bare host literal meets no rule.
 
 A file this reader cannot decode refuses, and so does an empty population: either would read as a pass.
 """

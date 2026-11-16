@@ -551,7 +551,7 @@ findings above name the service and the rule." \
     "$PY" scripts/lib/checker_kernel.py scripts/checks/check_public_routes.py \
     && ok "every route handler is accounted for at the edge"
 
-  step "ops · every address, site and telephone number a test invents is a reserved one"
+  step "ops · every address, site and telephone number a test spells out is a reserved one"
   check --exits contract "A test invents a value a third party may hold. Each finding above names the file, the line and the value." \
     "$PY" scripts/lib/checker_kernel.py scripts/checks/check_invented_data.py \
     && ok "every invented address, site and number is reserved"
