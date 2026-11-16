@@ -10,13 +10,12 @@ so no Windows text stream adds a carriage return to a value the test compares.
 
 from __future__ import annotations
 
-import argparse
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from checker_kernel import EXIT_OK, EXIT_REFUSED, run
+from checker_kernel import EXIT_OK, EXIT_REFUSED, ArgumentParser, run
 
 
 class NginxSyntax(Exception):
@@ -206,7 +205,7 @@ def _emit(text: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Answer the edge test's questions about the configuration it serves.")
+    parser = ArgumentParser(description="Answer the edge test's questions about the configuration it serves.")
     queries = parser.add_subparsers(dest="query", required=True)
     one = queries.add_parser("headers", help="each security header as `name<TAB>value`")
     one.add_argument("headers_file", type=Path)

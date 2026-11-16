@@ -45,6 +45,50 @@ def test_the_launcher_answers_the_checker_s_own_code_and_a_crash_for_anything_be
     assert exited == code, f"exited {exited}, and the exit contract gives it {code}\n{output}"
 
 
+# A checker on the kernel's parser with one subcommand, as `nginx_conf.py` is: argparse answers a subparser's
+# error from the subparser itself, so the subcommand is where a parser that does not inherit the override fails.
+PARSING: Final = f"""import sys
+sys.path.insert(0, {str(KERNEL.parent)!r})
+from checker_kernel import ArgumentParser, run
+def main() -> int:
+    parser = ArgumentParser()
+    one = parser.add_subparsers(dest="query", required=True).add_parser("figure")
+    one.add_argument("directive", choices=("limit_req", "limit_conn"))
+    parser.parse_args()
+    return 0
+sys.exit(run(main))
+"""
+
+
+@pytest.mark.parametrize(
+    ("arguments", "code"),
+    [
+        pytest.param(("figure", "limit_req"), 0, id="a-good-invocation-passes"),
+        pytest.param(("--help",), 0, id="help-is-no-failure"),
+        pytest.param(("bogus",), 3, id="an-unknown-subcommand-is-a-crash"),
+        pytest.param(("figure", "nope"), 3, id="a-subcommand-s-bad-choice-is-a-crash"),
+        pytest.param(("figure",), 3, id="a-subcommand-s-missing-argument-is-a-crash"),
+    ],
+)
+def test_an_argument_a_checker_refuses_is_a_crash_never_a_refusal(arguments: tuple[str, ...], code: int) -> None:
+    """argparse answers a usage error with 2, the code the exit contract gives a refusal, and only our own scripts call a checker."""
+    exited, output = _launched(PARSING, *arguments)
+    assert exited == code, f"exited {exited}, and the exit contract gives it {code}\n{output}"
+
+
+def test_every_checker_parses_its_arguments_with_the_kernel_s_parser() -> None:
+    """A checker building argparse's own parser answers a usage error of ours as a refusal of its input."""
+    stray = [
+        f"{path.relative_to(REPO_ROOT).as_posix()}:{number}"
+        for directory in ("checks", "lib")
+        for path in sorted((REPO_ROOT / "scripts" / directory).glob("*.py"))
+        if path != KERNEL
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1)
+        if "argparse.ArgumentParser(" in line
+    ]
+    assert stray == [], "argparse's own parser, where checker_kernel.ArgumentParser answers a usage error as a crash:\n" + "\n".join(stray)
+
+
 # A Python file of the gate's own, named on a shell line: the launcher itself aside.
 CHECKER_RE: Final = re.compile(r"\bscripts/(?:checks|lib)/(?!checker_kernel\.py)\w+\.py\b")
 
