@@ -229,7 +229,8 @@ beside_verdict() { # $1 its files · [--exits <tables>] [--summary | --annotated
 }
 
 # By file, so a module's fixtures stay on one worker; a stalled case's stack is dumped inside every CI
-# job's timeout. Each `--maxprocesses` below is its suite's optimum on 16 cores.
+# job's timeout. Under pytest-xdist a test module that does not collect is a failure, where pytest alone
+# answers it with its interrupt's 2. Each `--maxprocesses` below is its suite's optimum on 16 cores.
 PYTEST_SPREAD=(-n auto --dist loadfile -o faulthandler_timeout=180)
 
 case "$SCOPE" in

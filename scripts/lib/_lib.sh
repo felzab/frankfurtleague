@@ -539,9 +539,11 @@ declare -grA EXIT_CODES=(
   # actionlint 1.7.12's usage page, "Exit status": 2 an invalid command-line option, which Go's own
   # panic status shares, 3 a fatal error.
   [actionlint]="0:0 1:1 2:3 3:2"
-  # pytest 9.2.0's `ExitCode`: 2 an interrupt and a test module that does not collect alike, 3 an
-  # internal error, 4 a usage error or a conftest.py that fails to import, 5 no test collected.
-  [pytest]="0:0 1:1 2:3 3:3 4:3 5:2"
+  # pytest 9.2.0's `ExitCode`: 2 an interrupt, a pytest-xdist worker's among them, or a stop a test
+  # asked for, 3 an internal error, 4 a usage error or a conftest.py that fails to import, 5 no test
+  # collected, 6 every test passing past the warnings allowed. A test module that does not collect is a
+  # failure under pytest-xdist, which every pytest run of the gate's uses; pytest alone answers it 2.
+  [pytest]="0:0 1:1 2:3 3:3 4:3 5:2 6:1"
   # pyright 1.1.414's command-line page, "Exit codes": 2 a fatal error with nothing reported, 3 a
   # config file it could not read or parse, 4 an illegal command-line parameter.
   [pyright]="0:0 1:1 2:3 3:2 4:3"

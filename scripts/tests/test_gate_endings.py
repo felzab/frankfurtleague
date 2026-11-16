@@ -5,7 +5,8 @@ class with every line still printed: a refusal reads as a finding to fix, or a f
 scope's output alone sees that, and a caller branching on the code acts on the wrong one. Each case copies the gate and
 its library into a fixture tree with the three compose files and the tools file, a stand-in virtualenv whose interpreter
 and zizmor answer what the case says, a stand-in edge test answering 0, and a stand-in `docker`, `uv` and `pnpm` first
-on PATH, so the docs, ops and frontend scopes run with no daemon, no audit and no install.
+on PATH, so the docs, ops, frontend and backend scopes run with no daemon, no audit and no install. A backend case may
+hand pytest to the real interpreter, which then judges the test modules the case writes.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import sys
+from pathlib import Path
 from typing import Final
 
 import pytest
@@ -57,6 +60,14 @@ def _answers(variable: str) -> str:
     return f'#!/usr/bin/env bash\nexit "${{{variable}:-0}}"\n'
 
 
+# The virtualenv's interpreter: pytest is the real one where a case names an interpreter in `FL_REAL_PYTHON`,
+# and every other module answers `FL_CHECKER_EXIT`.
+PYTHON: Final = r"""#!/usr/bin/env bash
+if [[ -n "${FL_REAL_PYTHON:-}" && "${1:-} ${2:-}" == "-m pytest" ]]; then exec "$FL_REAL_PYTHON" "$@"; fi
+exit "${FL_CHECKER_EXIT:-0}"
+"""
+
+
 # A script on the library, as the edge test is, ending as `FL_EDGE` says, each ending annotating itself.
 EDGE: Final = r"""#!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/_lib.sh"
@@ -78,8 +89,11 @@ COPIED: Final = (
 )
 
 
-def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tuple[int, str]:
-    """`verify.sh` run once over `scopes` behind the stand-ins, its exit code and both streams."""
+def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None, backend_tests: dict[str, str] | None = None) -> tuple[int, str]:
+    """`verify.sh` run once over `scopes` behind the stand-ins, its exit code and both streams.
+
+    `backend_tests` are test modules written into the fixture's `fl_backend/`, which the real pytest collects.
+    """
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
     root = new_root("fl-gate-endings-")
     for path in COPIED:
@@ -91,7 +105,9 @@ def _gate(*scopes: str, answers: dict[str, str], tools: str | None = None) -> tu
     write_shell(root / "scripts" / "checks" / "edge_test.sh", EDGE)
     venv = root / "fl_backend" / ".venv" / "bin"
     venv.mkdir(parents=True)
-    os.chmod(write_shell(venv / "python", _answers("FL_CHECKER_EXIT")), 0o755)
+    os.chmod(write_shell(venv / "python", PYTHON), 0o755)
+    for name, text in (backend_tests or {}).items():
+        write_shell(root / "fl_backend" / name, text)
     os.chmod(write_shell(venv / "zizmor", _answers("FL_ZIZMOR_EXIT")), 0o755)
     stubs = new_root("fl-gate-endings-engine-")
     os.chmod(write_shell(stubs / "docker", DOCKER), 0o755)
@@ -210,4 +226,38 @@ def test_a_tools_file_without_lychee_s_line_is_a_finding_of_its_own() -> None:
     assert without != tools, f"{TOOLS_FILE} holds no lychee stage for this case to remove"
     exited, output = _gate("--docs", answers={}, tools=without)
     wrong = _wrong(exited, output, 1, "names no single FROM line for lychee", BROKEN_LINKS)
+    assert not wrong, "\n".join(wrong) + "\n" + output
+
+
+KEPT: Final = "def test_kept() -> None:\n    pass\n"
+
+
+@pytest.mark.parametrize(
+    ("tests", "names"),
+    [
+        # pytest alone answers 2, its interrupt's, which the table reads as a crash; pytest-xdist counts it a failure.
+        pytest.param(
+            {"test_kept.py": KEPT, "test_broken.py": "import a_module_nobody_wrote\n"},
+            "ERROR test_broken.py",
+            id="a-module-that-does-not-collect",
+        ),
+        pytest.param(
+            {
+                "pytest.ini": "[pytest]\nmax_warnings = 0\n",
+                "test_warned.py": "import warnings\n\n\ndef test_warned() -> None:\n    warnings.warn('planted', UserWarning, stacklevel=1)\n",
+            },
+            "maximum allowed warnings exceeded",
+            id="every-test-passing-past-the-warnings-allowed",
+        ),
+    ],
+)
+def test_what_the_real_pytest_answers_about_the_tests_is_a_finding(tests: dict[str, str], names: str) -> None:
+    """The real pytest of this run's interpreter, with the arguments the backend scope hands it.
+
+    A scope dropping its spread, or a row dropping a status, reads what the tests say as the gate's own crash.
+    """
+    exited, output = _gate("--backend", answers={"FL_REAL_PYTHON": Path(sys.executable).as_posix()}, backend_tests=tests)
+    wrong = _wrong(exited, output, 1, "fl_backend tests failed.", "Crashed after")
+    if names not in output:
+        wrong.append(f"pytest's output names no {names!r}")
     assert not wrong, "\n".join(wrong) + "\n" + output
