@@ -194,7 +194,7 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "implementer|driving-reauditor|researcher|cold-auditor",
+        "matcher": "implementer|driving-reauditor|researcher|cold-auditor|reader",
         "hooks": [
           {
             "type": "command",
