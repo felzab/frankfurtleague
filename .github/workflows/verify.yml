@@ -48,6 +48,8 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: false
+      # A case of the suite lists the Playwright projects through the frontend's own install.
+      - uses: ./.github/actions/frontend-toolchain
       - name: Run the scripts scope
         run: ./scripts/gate/verify.sh --scripts
 

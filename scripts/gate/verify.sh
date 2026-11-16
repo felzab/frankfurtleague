@@ -204,7 +204,7 @@ case "$SCOPE" in
   docs|ops|db|images) require_docker ;;
 esac
 case "$SCOPE" in
-  format|frontend-units|frontend|db)
+  scripts|format|frontend-units|frontend|db)
     require_dir fl_frontend/node_modules "Every frontend tool runs out of it. Install it with:  cd fl_frontend && pnpm install"
     # pnpm's dependency check (`verifyDepsBeforeRun`) runs on every `pnpm run` and `pnpm exec`, so
     # one exec answers for every step below before any of them runs.
