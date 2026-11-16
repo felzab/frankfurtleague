@@ -6,7 +6,6 @@ seat re-derivation all run as a representative's request meets them. The captain
 calls the handler directly, a rival committing inside the season's anchor.
 """
 
-import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -14,7 +13,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -24,10 +22,9 @@ from app.api.spieler.schemas import FLPatchKaderRowPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.acts import acts_of
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database
 from tests.documents import (
@@ -42,8 +39,6 @@ from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
 from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
@@ -167,13 +162,6 @@ async def on_a_league(url: str, body: Body) -> Any:
         return await body(database, client)
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every case serving through it, built on first use rather than at import."""
-
-    return create_app(config_for(DATABASE_NAME))
-
-
 def as_person(email: str) -> StampedHeaders:
     return StampedHeaders(email, ADMIN_KEY, lane="person")
 
@@ -187,7 +175,7 @@ def row_url(spieler_id: ObjectId, team_id: ObjectId = TEAM_A, saison_id: str = A
 
 
 async def send(url: str, method: str, path: str, email: str, body: Mapping[str, Any] | None = None) -> Response:
-    async with app_client(url, app=_served(), now=NOW) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:
         return await http.request(method, path, headers=as_person(email), json=body)
 
 

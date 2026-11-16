@@ -21,7 +21,8 @@ from .conftest import unwritten
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
 CORPUS_DATABASE = build_test_config().db_base_name
 
-# `seeded_with`'s own, for `tests/api/conftest.py :: config_for`'s reason: it clears where it seeds.
+# `seeded_with`'s own: it clears where it seeds, and given the shared corpus it would leave the cases
+# reading `seeded_url` a corpus nobody seeded.
 WINDOW_DATABASE = worker_database("fl_bewerbung_window_test")
 
 PREFIX = f"/api/v{API_VERSION}/bewerbungen"

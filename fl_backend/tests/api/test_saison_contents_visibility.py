@@ -1,23 +1,20 @@
-import functools
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from httpx2 import Response
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
 from tests import documents
-from tests.app_client import app_client
+from tests.app_client import app_client, app_under_test
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
 from tests.database import a_clean_database, bounded
 from tests.worker import worker_database
 
-from .conftest import config_for, unwritten
+from .conftest import unwritten
 
 DATABASE_NAME = worker_database("fl_saison_contents_visibility_test")
 
@@ -125,15 +122,8 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
         yield mongo_replica_set_url
 
 
-@functools.cache
-def _served() -> FastAPI:
-    """One app for every request a case sends: building one costs more than the request."""
-
-    return create_app(config_for(DATABASE_NAME))
-
-
 async def answered(url: str, path: str) -> Response:
-    async with app_client(url, app=_served()) as http:
+    async with app_client(url, app=app_under_test(DATABASE_NAME)) as http:
         return await http.get(path, headers=BASE_AUTH)
 
 

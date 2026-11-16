@@ -4,21 +4,8 @@ from contextlib import contextmanager
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from app.core.config import BackendConfig
-from tests.config import build_test_config
-
 # A dict rather than a model: Pydantic could not express a row its record model rejects.
 AUSTRITT = {"type": "disqualifikation", "reason": "Nicht angetreten zum Spieltag", "date": "2026-03-14"}
-
-
-def config_for(database_name: str) -> BackendConfig:
-    """`build_test_config`'s settings against a database of the caller's own.
-
-    What it is for: a body that WRITES, in a module whose other cases share one seeded corpus. Given
-    the shared database it would leave them a corpus nobody seeded.
-    """
-
-    return build_test_config().model_copy(update={"db_base_name": database_name})
 
 
 # One module's shared corpus: every collection it holds, each as its documents in an order two
