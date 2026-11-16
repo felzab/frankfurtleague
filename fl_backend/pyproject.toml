@@ -104,7 +104,7 @@ select = [
     # half on `typing` reads as an unfinished rename, and the next writer copies whichever module
     # they opened.
     "UP",  # pyupgrade
-    # Docstring FORMATTING only. Deliberately NOT the D1xx missing-docstring family: requiring a
+    # Docstring formatting only, never the D1xx missing-docstring family: requiring a
     # docstring on every symbol manufactures boilerplate, and prose belongs where there is a reason
     # to record, not coverage for its own sake.
     "D200",  # one-line docstring should fit on one line
@@ -113,11 +113,11 @@ select = [
     "D210",  # no surrounding whitespace in docstrings
     "D419",  # docstring is empty
     # A `noqa` that suppresses nothing still reads as a reason the line needs one, and the reason
-    # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
+    # written beside it is then untrue.
     "RUF100",  # unused noqa directive
     "TID251",  # banned-api, the list below
-    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields
-    # (`app/core/logging.py`): G004 refuses a value formatted into the message.
+    # A log message is a constant `<slice>.<event>` with its values in `extra=` fields: G004 refuses
+    # a value formatted into the message.
     "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
     # it (PEP 672), and a raw control or zero-width space in a string changes its value unseen.
@@ -127,7 +127,7 @@ select = [
     "PLE2513",  # invalid-character-esc
     "PLE2514",  # invalid-character-nul
     "PLE2515",  # invalid-character-zero-width-space
-    # A module or package name is snake_case (PEP 8), the one case `docs/writing.md` gives Python files.
+    # A module or package name is snake_case (PEP 8), the one case a Python file's name takes here.
     "N999",  # invalid-module-name
 ]
 # The `G` rules read only a call on a receiver they know to be a logger, and `fl_logger.info(f"…")`
