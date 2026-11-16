@@ -39,7 +39,8 @@ done
 [[ -n "$frontend" ]] || exit 0
 
 # `--ignore-path` keeps the gate's exclusions, read relative to the file's own checkout, and
-# `--ignore-unknown` skips a file Prettier has no parser for.
+# `--ignore-unknown` skips a file Prettier has no parser for. `--cache`, with the strategy the gate's
+# check uses, because a run without it deletes the cache that check reads.
 (cd "$frontend" && node node_modules/prettier/bin/prettier.cjs --write --log-level silent --ignore-unknown \
-  --ignore-path "${root}/.prettierignore" "$file") </dev/null >/dev/null 2>&1
+  --cache --cache-strategy content --ignore-path "${root}/.prettierignore" "$file") </dev/null >/dev/null 2>&1
 exit 0

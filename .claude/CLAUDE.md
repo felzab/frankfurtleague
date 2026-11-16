@@ -167,7 +167,7 @@ machine's own are in `~/.claude/CLAUDE.md`.
   `grep` waits on stdin with nothing to show it. Guard the empty case and pass `< /dev/null`.
 - **Run Prettier over a file before committing it, unless the `Edit` or `Write` tool wrote it in a
   checkout whose `fl_frontend` is installed** —
-  `cd fl_frontend && pnpm exec prettier --write --ignore-path ../.prettierignore <file>`. A hook
+  `cd fl_frontend && pnpm exec prettier --write --cache --cache-strategy content --ignore-path ../.prettierignore <file>`. A hook
   formats what those two tools write there; the gate's format scope only checks, and no commit hook
   formats anything.
 
