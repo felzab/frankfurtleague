@@ -125,6 +125,8 @@ describe("a question behind the passkey touch", () => {
     await pressIn(await screen.findByRole("alertdialog", { name: QUESTION }), VERB);
 
     expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    // The toast queue commits outside the act's transition, so the toast stands a render before the trigger leaves busy.
+    await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([onConfirm.mock.calls.length, screen.queryByRole("alertdialog", { name: QUESTION }), isBusy(trigger)]).toStrictEqual([
       0,
       null,
@@ -152,6 +154,8 @@ describe("a dialog of inputs behind the passkey touch", () => {
 
     await pressIn(dialog, ENTER);
     expect(await toasted(COPY.signIn.refusal.unverified)).toBe("refused");
+    // As the question's: the toast stands a render before the trigger leaves busy.
+    await waitFor(() => expect(isBusy(trigger)).toBe(false));
     expect([action.mock.calls.length, screen.queryByRole("dialog"), isBusy(trigger)]).toStrictEqual([0, null, false]);
 
     await userEvent.click(trigger);
