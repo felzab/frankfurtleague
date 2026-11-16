@@ -1,4 +1,5 @@
 {
+  "seasons": { "finished": "2026", "running": "2027", "planned": "2028" },
   "owner": "inhaber@example.com",
   "administrators": {
     "editor": "admin.editor@example.com",
