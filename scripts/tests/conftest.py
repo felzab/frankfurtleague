@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -81,10 +82,18 @@ def write_shell(path: Path, text: str) -> Path:
     return path
 
 
+# The longest a process a case drives may run before it is killed and the case fails naming it: a stand-in
+# that never answers would otherwise hold the run until the CI job's own timeout. Below the stack dump
+# the gate's pytest runs take after `faulthandler_timeout`, so a hang ends here with its command named.
+PROCESS_BOUND_S: Final = 120
+_DUMP_AFTER_S: Final = int(re.findall(r"faulthandler_timeout=(\d+)", (REPO_ROOT / "scripts/gate/verify.sh").read_text(encoding="utf-8"))[0])
+assert PROCESS_BOUND_S < _DUMP_AFTER_S, f"PROCESS_BOUND_S must stay below the gate's faulthandler_timeout of {_DUMP_AFTER_S} s"
+
+
 def run_shell(
     bash: str, script: Path, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
-    """One shell script run to its end, its streams decoded as utf-8.
+    """One shell script run to its end within `PROCESS_BOUND_S`, its streams decoded as utf-8.
 
     `text=True` alone would decode with the machine locale, which is cp1252 on Windows, where a
     verdict carrying an em dash does not survive.
@@ -99,6 +108,7 @@ def run_shell(
         env=env,
         cwd=cwd,
         check=False,
+        timeout=PROCESS_BOUND_S,
     )
 
 

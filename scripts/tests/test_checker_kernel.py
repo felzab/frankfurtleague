@@ -15,7 +15,7 @@ import sys
 from typing import Final
 
 import pytest
-from conftest import REPO_ROOT, new_root
+from conftest import PROCESS_BOUND_S, REPO_ROOT, new_root
 
 KERNEL: Final = REPO_ROOT / "scripts" / "lib" / "checker_kernel.py"
 LAUNCHER: Final = "scripts/lib/checker_kernel.py"
@@ -26,7 +26,12 @@ def _launched(script: str, *arguments: str) -> tuple[int, str]:
     path = new_root("fl-checker-kernel-") / "checker.py"
     path.write_bytes(script.encode("utf-8"))
     done = subprocess.run(
-        (sys.executable, str(KERNEL), str(path), *arguments), capture_output=True, encoding="utf-8", errors="replace", check=False
+        (sys.executable, str(KERNEL), str(path), *arguments),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+        timeout=PROCESS_BOUND_S,
     )
     return done.returncode, done.stdout + done.stderr
 
