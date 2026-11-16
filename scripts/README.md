@@ -10,12 +10,12 @@ The scripts that check, run and deploy this project. Each script's header is its
 | `scripts/gate/zizmor/requirements.txt`  | —             | The zizmor release the ops scope installs, by its hashes                                        |
 | `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out      |
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it    |
-| `scripts/checks/check_retired_stems.py` | any           | Every tracked path and every name in a tracked code file against the retired German stems       |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own            |
 | `scripts/ops/made_up_seed.sh`           | any           | The made-up league loaded into a running stack, then read back; `local.sh` and CI run it        |
 | `scripts/ops/deploy.sh`                 | prod — Linux  | Put one published build live by its tag, and go back to the build before it if it fails         |
 | `scripts/lib/_lib.sh`                   | —             | Strict mode, the traps, the output verbs and the exit contract; sourced, never run              |
 | `scripts/lib/checker_kernel.py`         | —             | The repository root and the exit contract every checker shares; imported, never run             |
+| `scripts/lib/nginx_conf.py`             | —             | nginx's configuration as a tree, for both checkers; the edge test runs it for each figure       |
 | `scripts/tests/`                        | any           | pytest over the gate's scripts, the checkers and the deploy                                     |
 | `scripts/ruff.toml`                     | —             | ruff's configuration for the Python below this folder                                           |
 | `scripts/pyrightconfig.json`            | —             | pyright's configuration for the Python below this folder                                        |

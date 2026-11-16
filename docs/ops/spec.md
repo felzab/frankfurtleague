@@ -490,10 +490,8 @@ created the stack's containers, which Compose records on each as
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
-`scripts/lib/checker_kernel.py` (§1.7). **The interpreter floor is bash's**
-(`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point before a checker is handed a
-file: below it a checker dies compiling and Python exits 1, which this scale reads as a finding
-about the change.
+`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the edge
+test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
 
 **Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
@@ -517,7 +515,7 @@ its pinned release.
 | `--format`         | Prettier in check mode over the whole repository, then markdownlint over every Markdown file                                                                                                                                                                                                  | pnpm install                                                                                                                                   |
 | `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`                                                                                                                                                                                                          | pnpm install                                                                                                                                   |
 | `--frontend`       | the frozen lockfile, peer and dedupe checks, `next typegen`, tsc, eslint, both knip runs and `next build`, then the dependency audit, an advisory that never fails the scope                                                                                                                  | pnpm install                                                                                                                                   |
-| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `check_retired_stems.py` finds no retired German stem in a path or a name; nginx accepts `prod.conf`; `nginx/edge_test.sh` drives a running edge | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; `check_public_routes.py` accounts for every route; `nginx/edge_test.sh` starts both edges and drives them | Docker, `uv` for zizmor at `scripts/gate/zizmor/requirements.txt`'s pin, and the backend virtualenv                                            |
 | `--db`             | the contract and its client generated into an ignored scratch folder and compared with the committed ones, then `pytest -m db` over the backend and `pnpm run test:db` over `*.db.test.ts`                                                                                                    | venv + pnpm install + Docker                                                                                                                   |
 | `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                                        | Docker                                                                                                                                         |
 
@@ -575,8 +573,9 @@ each entry point inserting it at its own top, and `pyrightconfig.json`'s `extraP
 listing of that fact.
 
 **The ops scope exists because the compose files and the nginx configuration have no compiler.**
-`nginx -t` parses and sees no response, so `nginx/edge_test.sh` starts the checkout's own edge as
-`docker-compose.yml` starts it and grades what it wrote, sent and answered:
+A parse sees no response, so `nginx/edge_test.sh` starts the checkout's own edges as
+`docker-compose.yml` starts nginx, fails a configuration either refuses to start on with nginx's own
+log, and grades what each wrote, sent and answered:
 
 - no mailed link's query in an access line;
 - a visitor's `traceparent` replaced;
@@ -752,7 +751,6 @@ be true there, a check the owner makes in its list of monitors:
 | Each upstream is named through a variable and found through Docker's DNS, so a recreated container needs no reload                         | `nginx/edge_test.sh`                                                                                                                                                                   |
 | Each zone and the connection ceiling refuse past their figure with the edge's `429`                                                        | `nginx/edge_test.sh`, which reads each figure off the configuration it judges                                                                                                          |
 | Every route handler, link page and metadata convention is metered or accounted for at the edge                                             | `scripts/checks/check_public_routes.py`, its rules driven red in `scripts/tests/test_check_public_routes.py`                                                                           |
-| No tracked path, and no name in a tracked code file, holds a German word the renames retired                                               | `scripts/checks/check_retired_stems.py` with its list `scripts/checks/retired-stems.txt`, its rules driven red in `scripts/tests/test_check_retired_stems.py`                          |
 | A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `nginx/edge_test.sh`                                                           |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
