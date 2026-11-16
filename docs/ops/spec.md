@@ -63,9 +63,10 @@ no ecosystem reading a step's string.
   `docker-compose.local.yml`'s one `mongo` line.
 
 `scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a linter image a
-script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the release series the managed cluster runs**, so
-no test passes on a feature production lacks: `.github/dependabot.yml` proposes no later series,
-and a move of the cluster moves the one pin by hand.
+script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the
+release series the managed cluster runs**, so no test passes on a feature production lacks:
+`.github/dependabot.yml` proposes no later series, and a move of the cluster moves the one pin by
+hand.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs:
@@ -338,9 +339,9 @@ answered by FastAPI's own not-found body: no further route opens, but the body n
 
 **A location declaring any `proxy_set_header` replaces the whole inherited set rather than extending
 it.** That set mints the `traceparent` every upstream receives, a visitor's own discarded, so no
-location declares one, and `scripts/checks/edge_test.sh` fails a frontend location handing Next a visitor's
-`traceparent`. **No upstream is handed the visitor's address**: neither application reads one, so the
-set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
+location declares one, and `scripts/checks/edge_test.sh` fails a frontend location handing Next a
+visitor's `traceparent`. **No upstream is handed the visitor's address**: neither application reads
+one, so the set sends `X-Forwarded-For` and `CF-Connecting-IP` empty, which nginx drops.
 
 **Production's edge holds three server blocks**, all plain HTTP on port 80: the connector carries
 the visitor's HTTPS from Cloudflare, so no certificate is held here (§1.8). An unknown `Host` is
@@ -348,7 +349,8 @@ answered `421`. `www.frankfurtleague.de` redirects to the apex with the security
 HSTS's `includeSubDomains` makes a returning browser ask for it over HTTPS, which Cloudflare answers
 and the connector hands here. The apex tells Next its visitor's protocol is `https`, this hop's own
 being plain HTTP. Both named blocks keep an idle connection 100 seconds, past the 90 the
-connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector writes a request onto it.
+connector keeps by Cloudflare's default, so nginx never closes one in the instant the connector
+writes a request onto it.
 
 **A rule at Cloudflare may challenge a top-level navigation and never a server action's POST.** A
 server action is a `fetch()` POST carrying a `Next-Action` header, and a `fetch()` renders no
@@ -372,8 +374,8 @@ Every response carries four, each sent with `always`, from `nginx/shared/securit
 in each location adding a header of its own, because `add_header` in a location replaces the
 inherited set, and `nginx/prod/prod.conf`'s www redirect includes it too. The file also drops an
 upstream's copy of each header, so a response carries the edge's alone and never a second enforcing
-policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header, and compares
-its value with the file's.
+policy. `scripts/checks/edge_test.sh` asks every location and the www redirect for each header,
+and compares its value with the file's.
 
 **`frame-ancestors 'none'` is the one framing rule.** CSP3 has it override `X-Frame-Options`, which
 a browser enforcing the policy ignores, so the edge sends no `X-Frame-Options`.
@@ -404,9 +406,9 @@ library's release.
 
 **Cloudflare's `https://challenges.cloudflare.com` stands in `script-src` and in `frame-src`, and in
 no other directive**: the bot check on the sign-in and the two public forms loads its script from
-there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a response whose
-policy loses it from either. Cloudflare's own list for the check adds `connect-src 'self'` for
-pre-clearance alone, which the widget does not use
+there and renders its widget in a frame of that origin. `scripts/checks/edge_test.sh` fails a
+response whose policy loses it from either. Cloudflare's own list for the check adds
+`connect-src 'self'` for pre-clearance alone, which the widget does not use
 (<https://developers.cloudflare.com/turnstile/reference/content-security-policy/>, read
 2026-10-04).
 
@@ -487,8 +489,8 @@ images, and CI loads the ones the `images` job built. The stack has:
   the containers' own users on a Linux runner;
 - the made-up seed on an empty volume every start;
 - the local edge with every rate and connection limit counting and refusing nothing
-  (`nginx/e2e/e2e.conf`), since every journey arrives from one address. `scripts/checks/edge_test.sh` proves
-  the limits instead.
+  (`nginx/e2e/e2e.conf`), since every journey arrives from one address.
+  `scripts/checks/edge_test.sh` proves the limits instead.
 
 Both stacks publish ports 3000 and 27017, so one runs at a time. `--e2e --down` deletes the volume
 and `.tmp-e2e/`. The journeys run against it with `pnpm run e2e` in the `fl_frontend` of the checkout
@@ -506,8 +508,8 @@ created the stack's containers, which Compose records on each as
 recreates takes the keys, the mail folder and the compose files of the checkout it runs in.
 
 **The checkers are Python, and one kernel makes their answers comparable**,
-`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the edge
-test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
+`scripts/lib/checker_kernel.py` (§1.7). Each runs in the backend's virtualenv, the gate's and the
+edge test's alike, whose interpreter `uv` holds to `fl_backend/pyproject.toml`'s `requires-python`.
 
 **Registry pruning stays manual and optional**, a botched delete destroying the builds a hand
 rollback pulls ([`runbooks.md`](runbooks.md) §1). When pruning, keep roughly the last five `sha-`
