@@ -49,16 +49,8 @@ while IFS=$'\t' read -r meta path; do
   fi
 done < <(git ls-files -s -- "${SHELL_FILES[@]}")
 
-# Each linter is the image its stage names in the tools file, so a release reaches the gate by a
-# named bump alone and runs the same on every machine.
-TOOLS_FILE="scripts/gate/tools.Dockerfile"
-tool_image() { # $1 the stage naming the tool
-  local image
-  image="$(sed -nE "s/^FROM ([^ ]+) AS ${1}\$/\1/p" "$TOOLS_FILE")"
-  if [[ -z "$image" || "$image" == *$'\n'* ]]; then return 1; fi
-  printf '%s' "$image"
-}
-
+# Each linter is the image its stage names in the tools file (`tool_image`), so a release reaches the
+# gate by a named bump alone and runs the same on every machine.
 sc_rc=0
 al_rc=0
 if ! docker version >/dev/null 2>&1; then
