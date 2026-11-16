@@ -368,6 +368,78 @@ class TestADecline:
         assert await on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
 
+class TestAPairedDecline:
+    """One person in two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
+
+    async def test_both_slots_are_emptied_and_both_days_recorded(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
+
+            return response, await stored(database)
+
+        paired = bewerbung_document(kontakte=kontakte(trainer_is_also="ansprechperson"))
+        response, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
+
+        assert (document["kontakte"]["trainer"], document["kontakte"]["ansprechperson"]) == (None, None)
+        assert document["confirmations"]["trainer"]["declined_at"] == TODAY
+        assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
+        # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
+        assert document["kontakte"]["stellvertretung"] is not None
+        assert response.outcome == "declined"
+
+    async def test_a_partner_whose_bookkeeping_is_gone_is_left_alone(self, mongo_replica_set_url: str):
+        """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
+
+        emptied = bewerbung_document(
+            kontakte=kontakte(trainer_is_also="ansprechperson"),
+            confirmations={**documents.minted_confirmations(hashes=HASHES, today="2026-03-20"), "trainer": None},
+        )
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            response = await answer(database, client, RAW["ansprechperson"], answer="declined")
+
+            return response, await stored(database)
+
+        response, document = await on_a_league(mongo_replica_set_url, body, documents=[emptied])
+
+        assert response.outcome == "declined"
+        assert document["kontakte"]["ansprechperson"] is None
+        assert document["confirmations"]["ansprechperson"]["declined_at"] == TODAY
+        assert document["confirmations"]["trainer"] is None
+        assert document["kontakte"]["trainer"] == emptied["kontakte"]["trainer"]
+
+
+class TestTheFloorIsThePersons:
+    """One person, two seats, one floor: the higher of the two, whichever of their links they press."""
+
+    @pytest.mark.parametrize("second_seat", ["ansprechperson", "stellvertretung"])
+    async def test_a_double_seated_trainer_a_day_short_of_eighteen_is_refused_on_the_trainers_own_link(
+        self, mongo_replica_set_url: str, second_seat: str
+    ):
+        """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
+
+        other = "stellvertretung" if second_seat == "ansprechperson" else "ansprechperson"
+        paired = bewerbung_document(
+            kontakte={
+                "trainer": person("Wraxlington"),
+                second_seat: person("Wraxlington"),
+                other: person("Bramblewick"),
+                "trainer_is_also": second_seat,
+            }
+        )
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            return (
+                await refused_code(answer(database, client, RAW["trainer"], birth_date=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)),
+                await stored(database),
+            )
+
+        code, document = await on_a_league(mongo_replica_set_url, body, documents=[paired])
+
+        assert code == Code.CONFIRMATION_AGE
+        assert document == paired
+
+
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every mail the Postausgang holds, as owed: its key, its recipient and its facts."""
 
