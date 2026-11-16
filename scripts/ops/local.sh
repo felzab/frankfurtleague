@@ -257,11 +257,11 @@ fi
 
 # Emptied on every start, so a code an earlier run filed never reads as current.
 step "Where the frontend writes the mail it does not send"
+# Removed whole, as --down removes it, whatever names the frontend gives its messages.
+rm -rf "${MAIL_SINK:?}" || die "the mail an earlier run filed could not be removed from ${MAIL_SINK}; rm's own account is above."
 # Made here rather than left to the engine: a bind-mount source it creates is root-owned, and the
 # frontend writes as `nextjs`.
 mkdir -p "$MAIL_SINK" || die "the mail sink's directory could not be created; mkdir's own account is above."
-# The names the frontend's mail sink gives each message, a timestamp and then `.html`.
-rm -f -- "$MAIL_SINK"/*.html || die "a message an earlier run filed could not be removed from ${MAIL_SINK}; rm's own account is above."
 ok "emptied — this run's withheld mail lands in ${MAIL_SINK#"$REPO_ROOT"/}"
 
 section "build"
