@@ -1258,7 +1258,8 @@ const BAN_BLOCKS = [
   ...fileBlocks(),
 ];
 
-const JS_FILES = ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"];
+/** The files `eslint-config-next` registers its plugins for: one of their rules set on a `.cjs` file stops the lint whole. */
+const JS_FILES = ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"];
 
 /** The rules of `eslint-rules/`, one plugin: flat config refuses a plugin's name registered twice with two objects. */
 const OWN_RULES = { rules: { "server-action": serverAction, "no-own-module-double": noOwnModuleDouble } };
