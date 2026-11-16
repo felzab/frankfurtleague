@@ -142,8 +142,8 @@ async def previewed(url: str, body: dict[str, Any]) -> Response:
 
     A write the preview defers to a task it leaves running gets loop turns while this client closes. One that lands then
     is caught by the comparison `held_corpus` runs after the module's case, and one still pending as the case ends fails
-    it by the case scope's check on the tasks it leaves. One that meets this client closed fails in its task and writes
-    nothing, which nothing here sees.
+    it by the case scope's check on the tasks it leaves. Nothing suspends between the app's client being unbound and that
+    check, so no deferred write runs in between.
     """
 
     async with app_client(url, app=app_under_test(DATABASE_NAME), now=NOW) as http:

@@ -346,7 +346,7 @@ class TestTheOrderIsNoOracleForAWithheldName:
         async def body(database: AsyncDatabase) -> Any:
             return [row.first_name for row in (await club_page(database)).kader]
 
-        return await body(shared_client(url)[SORT_ORACLE_DATABASE_NAMES[corpus]])
+        return await body((await shared_client(url))[SORT_ORACLE_DATABASE_NAMES[corpus]])
 
     async def test_the_withheld_row_holds_one_place_whatever_forename_it_stores(self, sort_oracle_url: str):
         places = {corpus: (await self._served_names(sort_oracle_url, corpus)).index(None) for corpus in WITHHELD_FORENAMES}
@@ -389,8 +389,8 @@ async def sort_oracle_url(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
 
 async def _on_the_mask_database(url: str, body: Body) -> Any:
-    return await body(shared_client(url)[MASK_DATABASE_NAME])
+    return await body((await shared_client(url))[MASK_DATABASE_NAME])
 
 
 async def on_a_database(url: str, body: Body) -> Any:
-    return await body(shared_client(url)[DATABASE_NAME])
+    return await body((await shared_client(url))[DATABASE_NAME])

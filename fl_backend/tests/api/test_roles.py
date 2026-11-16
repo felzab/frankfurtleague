@@ -229,8 +229,8 @@ async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession)
 
 
 async def answered(url: str, email: str) -> FLSubject:
-    async with shared_client(url).start_session() as session:
-        return await _ask(shared_client(url)[DATABASE_NAME], email, session)
+    async with (await shared_client(url)).start_session() as session:
+        return await _ask((await shared_client(url))[DATABASE_NAME], email, session)
 
 
 def seats(answer: FLSubject) -> list[tuple[str, ObjectId, str, str, str]]:
@@ -294,7 +294,7 @@ class TestTheConfirmationNarrowing:
         The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
         """
 
-        client = shared_client(seeded_league)
+        client = await shared_client(seeded_league)
         database = client[DATABASE_NAME]
 
         async with client.start_session() as writer, client.start_session() as bystander:

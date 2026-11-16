@@ -37,7 +37,7 @@ async def seeded_league(mongo_replica_set_url: str) -> AsyncIterator[str]:
 
 
 async def on_a_league(url: str, body: Body) -> Any:
-    return await body(shared_client(url)[DATABASE_NAME])
+    return await body((await shared_client(url))[DATABASE_NAME])
 
 
 async def frame_read(database: AsyncDatabase) -> Any:

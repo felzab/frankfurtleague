@@ -86,13 +86,13 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
     for item in items:
         if isinstance(item, pytest.Function) and inspect.iscoroutinefunction(item.obj):
-            item.obj = _bounded(item.obj)
+            item.obj = _bounded(item.obj, item.nodeid)
 
 
-def _bounded(case: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+def _bounded(case: Callable[..., Coroutine[Any, Any, Any]], nodeid: str) -> Callable[..., Coroutine[Any, Any, Any]]:
     @functools.wraps(case)
     async def scoped(*args: Any, **kwargs: Any) -> Any:
-        return await bounded_case(case(*args, **kwargs))
+        return await bounded_case(case(*args, **kwargs), nodeid)
 
     return scoped
 
