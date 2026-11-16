@@ -36,8 +36,9 @@ name is refused, exit 2, before the database is reached.
 
 Run by `./scripts/ops/local.sh --e2e`, `--e2e --landing=<state>` and `--seed-made-up`, and by the journeys' CI job, as
 `python -m tests.made_up_seed` inside the stack's backend container, copied there beside the tests' builders: it reads the
-settings the read-back reads, so it reaches only the database of the stack it runs in, and no image holds it, the tests
-being kept out of every build. The backend has booted first, so every index is in place, and `python -m app.readback`
+settings the read-back reads, and refuses, exit 2, before any client exists unless they name the local stack's own server
+(`LOCAL_SERVER`), which the end-to-end stack starts as well and production lacks. No image holds it, the tests being kept out of
+every build. The backend has booted first, so every index is in place, and `python -m app.readback`
 judges every document afterwards; the frontend starts, or with `--landing` restarts, only once it has passed.
 
 Invariants:
@@ -64,6 +65,7 @@ from typing import Any, Final
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.errors import BulkWriteError, PyMongoError
+from pymongo.uri_parser import parse_uri
 
 from app.api.address_change.services import compose_record
 from app.api.bewerbungen.services import compose_confirmation as compose_bewerbung_confirmation
@@ -1575,6 +1577,28 @@ async def write(client: AsyncMongoClient, database_name: str, league: MadeUpLeag
     return 0
 
 
+# The one server the seed writes to: the `mongo` service the local and the end-to-end stacks start, at the port it
+# listens on, as `docker-compose.local.yml :: local_mongodb_uri` names it to the backend. Production starts no such
+# service, and `scripts/checks/check_compose_model.py :: LOCAL_DATABASE_SERVICE` holds that config to it.
+LOCAL_SERVER: Final = [("mongo", 27017)]
+
+
+def is_local_server(uri: str) -> bool:
+    """Whether `uri` is a login-free `mongodb://` URI naming `LOCAL_SERVER` alone, by pymongo's own parser.
+
+    A match on that one server rather than a list of others: whatever else a URI names, the seed empties nothing there.
+    """
+    # The plain scheme before the parse: `mongodb+srv://` asks DNS for its hosts during it, and names no local service.
+    if not uri.startswith("mongodb://"):
+        return False
+    try:
+        parsed = parse_uri(uri)
+    # Judged, never printed: the parser's message can quote what it read.
+    except PyMongoError, ValueError, TypeError:
+        return False
+    return parsed["nodelist"] == LOCAL_SERVER and parsed["username"] is None and parsed["password"] is None
+
+
 async def _main() -> int:
     # Unset, the seed as written; set, it names a state or is refused, the empty name among them.
     landing = os.environ.get("SEED_LANDING", AS_WRITTEN)
@@ -1582,11 +1606,16 @@ async def _main() -> int:
         # A refusal, 2, before the settings are read: nothing was built or written.
         print(f"SEED_LANDING names no state of the landing: {landing}. One of: {', '.join(LANDING_STATES)}.", file=sys.stderr)
         return 2
+    config = get_config()
+    uri = config.mongodb_uri.get_secret_value()
+    if not is_local_server(uri):
+        # A refusal, 2, before any client exists. It names what the seed requires alone: the settings are a secret.
+        print("The made-up seed writes only to the local or the end-to-end stack's own mongo service, at port 27017.", file=sys.stderr)
+        return 2
     league = MadeUpLeague(now=clock.now())
     LANDING_STATES[landing](league)
 
-    config = get_config()
-    client = AsyncMongoClient(host=config.mongodb_uri.get_secret_value(), serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
+    client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
     try:
         return await write(client, config.db_base_name, league)
     finally:
