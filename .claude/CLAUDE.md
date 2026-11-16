@@ -46,7 +46,7 @@ else**, in the primary checkout — the repository's main working tree, never a 
 branch is the session's; an agent the session dispatches to write or to plant works on the branch
 the harness cuts for its worktree, and the coordinator lands what it commits. Cut it with
 `git checkout <base> && git pull --ff-only origin <base> && git checkout -b short-kebab-name`, the
-base being `redesign` for a session of the redesign programme, for as long as that branch exists,
+base being `follow-up` for a session of the follow-up programme, for as long as that branch exists,
 and `main` for every other change.
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
