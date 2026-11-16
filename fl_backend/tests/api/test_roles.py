@@ -17,9 +17,8 @@ from tests.documents import (
     SCHIEDSRICHTER_TEXT_VERSIONS,
     kontaktperson_document,
     own_einwilligung_document,
-    rules_document,
-    saison_document,
     saison_team_document,
+    school_year_saison_document,
     spieler_document,
 )
 from tests.records import record_collections
@@ -113,16 +112,6 @@ def _junction(
     )
 
 
-def _saison(saison_id: str, status: str) -> dict[str, Any]:
-    return saison_document(
-        saison_id,
-        status,
-        start_date=f"20{saison_id[:2]}-08-01",
-        end_date=f"20{saison_id[2:]}-06-30",
-        rules=rules_document(allowed_stufen=["Q1", "Q2"]),
-    )
-
-
 def _unconfirmed_spieler(spieler_id: ObjectId, email: str) -> dict[str, Any]:
     """A hand-edited state, a pupil's record being born confirmed: the read still has to answer it as nobody's."""
 
@@ -149,7 +138,11 @@ CONFIRMED: dict[str, Any] = own_einwilligung_document(text_versions=SCHIEDSRICHT
 
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many(
-        [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
+        [
+            school_year_saison_document(PAST_SAISON, "past"),
+            school_year_saison_document(ACTIVE_SAISON, "active"),
+            school_year_saison_document(FUTURE_SAISON, "future"),
+        ]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [

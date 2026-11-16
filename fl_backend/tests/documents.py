@@ -142,6 +142,18 @@ def saison_document(saison_id: str, status: str, **fields: Any) -> dict[str, Any
     )
 
 
+def school_year_saison_document(saison_id: str, status: str) -> dict[str, Any]:
+    """A season named by its school year, `"2526"` running from August 2025 to June 2026, open to the two upper years."""
+
+    return saison_document(
+        saison_id,
+        status,
+        start_date=f"20{saison_id[:2]}-08-01",
+        end_date=f"20{saison_id[2:]}-06-30",
+        rules=rules_document(allowed_stufen=["Q1", "Q2"]),
+    )
+
+
 def team_document(team_id: Any, name: str, shorthand: str, **fields: Any) -> dict[str, Any]:
     """`inactive_since` is written null rather than omitted: a missing key matches a `None` filter, then fails response validation."""
 
@@ -718,6 +730,18 @@ def schiedsrichter_document(
     )
 
 
+def confirmed_referee_document(schiedsrichter_id: Any, email: str, name: str, *, confirmed_at: str, **fields: Any) -> dict[str, Any]:
+    """A referee who confirmed their own record at `confirmed_at`; `einwilligung=None` is one who never did."""
+
+    return schiedsrichter_document(
+        schiedsrichter_id,
+        email=email,
+        name=name,
+        default_payment=20,
+        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=confirmed_at), **fields},
+    )
+
+
 def kontakte_document(**seats: Any) -> dict[str, Any]:
     """A block of three seats, each empty unless named, and no seat held twice unless `trainer_is_also` says so."""
 
@@ -728,6 +752,33 @@ def registrierung_confirmed(*, birth_date: str, today: str, at: str, scope: str,
     """`registrierung_document`'s `confirmed` for a pupil's confirmation."""
 
     return {"birth_date": birth_date, "scope": scope, "media": media, "text_versions": SPIELER_TEXT_VERSIONS, "today": today, "at": at}
+
+
+def pupils_registrierung_document(
+    registrierung_id: Any, email: str, *, saison_id: str, team_id: Any, token: str, confirmed: bool, **fields: Any
+) -> dict[str, Any]:
+    """One pupil's registration as the submission leaves it and, where `confirmed`, as their own confirmation then does."""
+
+    return registrierung_document(
+        registrierung_id,
+        email,
+        saison_id=saison_id,
+        team_id=team_id,
+        first_name="Rita",
+        last_name="Registriert",
+        token=token,
+        submitted_at="2026-01-02",
+        deadline="2026-01-09",
+        position="Mittelfeld",
+        nummer="17",
+        stufe="Q1",
+        confirmed=registrierung_confirmed(
+            birth_date="2009-05-04", today="2026-01-03", at="2026-01-03T08:00:00+00:00", scope="internal", media=False
+        )
+        if confirmed
+        else None,
+        **fields,
+    )
 
 
 def address_change_document(

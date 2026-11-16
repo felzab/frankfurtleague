@@ -9,9 +9,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identity import crud as identity_crud
 from app.api.identity.crud import roles_from
-from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload
+from app.api.identity.schemas import FLSignInResponse
 from app.api.identity.services import own_entries, seat_saisons
-from app.api.identity.system_router import get_sign_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.folding import sign_in_identifier
@@ -19,21 +18,18 @@ from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
-    SPIELER_TEXT_VERSIONS,
     ban_document,
     bewerbung_document,
+    confirmed_referee_document,
     kontakte_document,
     kontaktperson_document,
     new_schule_document,
-    own_einwilligung_document,
-    registrierung_document,
+    pupils_registrierung_document,
     saison_document,
     saison_team_document,
-    schiedsrichter_document,
     spieler_document,
 )
-from tests.records import record_collections
+from tests.records import call_sign_in, record_collections
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT
@@ -108,46 +104,6 @@ def _bewerbung(oid: ObjectId, *, status: str, trainer: Mapping[str, Any]) -> dic
     )
 
 
-def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    return schiedsrichter_document(
-        oid,
-        email=email,
-        name=name,
-        default_payment=20,
-        **{"einwilligung": own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP), **fields},
-    )
-
-
-def _registrierung(oid: ObjectId, email: str, *, confirmed: bool = True, **fields: Any) -> dict[str, Any]:
-    """A registration as the submission and, where `confirmed`, the pupil's own confirmation leave it."""
-
-    return registrierung_document(
-        oid,
-        email,
-        saison_id=ACTIVE_SAISON,
-        team_id=TEAM_OIDS[0],
-        first_name="Rita",
-        last_name="Registriert",
-        token=str(oid),
-        submitted_at="2026-01-02",
-        deadline="2026-01-09",
-        position="Mittelfeld",
-        nummer="17",
-        stufe="Q1",
-        confirmed=None
-        if not confirmed
-        else {
-            "birth_date": "2009-05-04",
-            "scope": "internal",
-            "media": False,
-            "text_versions": SPIELER_TEXT_VERSIONS,
-            "today": "2026-01-03",
-            "at": "2026-01-03T08:00:00+00:00",
-        },
-        **fields,
-    )
-
-
 async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -178,13 +134,16 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(SCHIEDSRICHTER_ACTIVE_OID, SCHIEDSRICHTER_ACTIVE, "A. Aktiv"),
-            _referee(SCHIEDSRICHTER_RETIRED_OID, SCHIEDSRICHTER_RETIRED, "B. Ruhestand", inactive_since="2026-03-01"),
-            _referee(SCHIEDSRICHTER_OPEN_OID, SCHIEDSRICHTER_OPEN, "C. Offen", einwilligung=None),
-            _referee(
+            confirmed_referee_document(SCHIEDSRICHTER_ACTIVE_OID, SCHIEDSRICHTER_ACTIVE, "A. Aktiv", confirmed_at=STAMP),
+            confirmed_referee_document(
+                SCHIEDSRICHTER_RETIRED_OID, SCHIEDSRICHTER_RETIRED, "B. Ruhestand", confirmed_at=STAMP, inactive_since="2026-03-01"
+            ),
+            confirmed_referee_document(SCHIEDSRICHTER_OPEN_OID, SCHIEDSRICHTER_OPEN, "C. Offen", confirmed_at=STAMP, einwilligung=None),
+            confirmed_referee_document(
                 SCHIEDSRICHTER_RETIRED_OPEN_OID,
                 SCHIEDSRICHTER_RETIRED_OPEN,
                 "E. Ruhestand-Offen",
+                confirmed_at=STAMP,
                 inactive_since="2026-03-01",
                 einwilligung=None,
             ),
@@ -192,9 +151,26 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.REGISTRIERUNGEN].insert_many(
         [
-            _registrierung(REGISTRIERUNG_OID, REGISTERED),
-            _registrierung(REGISTRIERUNG_DECLINED_OID, REGISTERED_DECLINED, status="declined"),
-            _registrierung(REGISTRIERUNG_OPEN_OID, REGISTERED_OPEN, confirmed=False),
+            pupils_registrierung_document(
+                REGISTRIERUNG_OID, REGISTERED, saison_id=ACTIVE_SAISON, team_id=TEAM_OIDS[0], token=str(REGISTRIERUNG_OID), confirmed=True
+            ),
+            pupils_registrierung_document(
+                REGISTRIERUNG_DECLINED_OID,
+                REGISTERED_DECLINED,
+                saison_id=ACTIVE_SAISON,
+                team_id=TEAM_OIDS[0],
+                token=str(REGISTRIERUNG_DECLINED_OID),
+                confirmed=True,
+                status="declined",
+            ),
+            pupils_registrierung_document(
+                REGISTRIERUNG_OPEN_OID,
+                REGISTERED_OPEN,
+                saison_id=ACTIVE_SAISON,
+                team_id=TEAM_OIDS[0],
+                token=str(REGISTRIERUNG_OPEN_OID),
+                confirmed=False,
+            ),
         ]
     )
     await database[Collection.BAN_LIST].insert_one(ban_document(BARRED, until=ACTIVE_SAISON))
@@ -220,20 +196,8 @@ async def on_a_league(url: str, body: Body) -> Any:
         return await body(database)
 
 
-async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_sign_in(
-            sign_in_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            ban_list_collection=database[Collection.BAN_LIST],
-            grants_collection=database[Collection.GRANTS],
-            session=session,
-            germany_now=datetime(2026, 6, 1, tzinfo=UTC),
-        )
-
-
 async def answered(url: str, email: str) -> FLSignInResponse:
-    return await on_a_league(url, lambda database: call_sign_in(database, email))
+    return await on_a_league(url, lambda database: call_sign_in(database, email, germany_now=datetime(2026, 6, 1, tzinfo=UTC)))
 
 
 async def own_records(url: str, email: str) -> frozenset[tuple[str, Any]]:
@@ -334,7 +298,9 @@ def test_every_role_list_is_drawn_from_the_own_records():
             "saison": [{"status": "active", "start_date": "2026-01-01", "end_date": "2026-12-31"}],
         }
     ]
-    referee_rows: list[Mapping[str, Any]] = [_referee(ObjectId(), identifier, "O. Zwiebelmayer", einwilligung=None)]
+    referee_rows: list[Mapping[str, Any]] = [
+        confirmed_referee_document(ObjectId(), identifier, "O. Zwiebelmayer", confirmed_at=STAMP, einwilligung=None)
+    ]
     pupil_rows: list[Mapping[str, Any]] = [spieler_document(ObjectId(), "Ortrud", "Zwiebelmayer", email=identifier)]
 
     subject = roles_from(identifier, seat_rows=seat_rows, referee_rows=referee_rows, pupil_rows=pupil_rows)

@@ -7,8 +7,8 @@ from bson import ObjectId
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identity.schemas import FLSignInResponse, FLSubjectPayload, FLSubjectResponse
-from app.api.identity.system_router import get_sign_in, get_subject
+from app.api.identity.schemas import FLSubjectPayload, FLSubjectResponse
+from app.api.identity.system_router import get_subject
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -16,18 +16,15 @@ from tests.app_client import app_client, app_under_test
 from tests.config import SYSTEM_AUTH
 from tests.database import a_clean_database
 from tests.documents import (
-    SCHIEDSRICHTER_TEXT_VERSIONS,
+    confirmed_referee_document,
     kontaktperson_document,
-    own_einwilligung_document,
-    rules_document,
-    saison_document,
     saison_team_document,
-    schiedsrichter_document,
+    school_year_saison_document,
     spieler_document,
     team_document,
 )
 from tests.plans import plans_of_sent_reads
-from tests.records import record_collections
+from tests.records import call_sign_in, record_collections
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_identity_subject_test")
@@ -130,16 +127,6 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
     )
 
 
-def _saison(saison_id: str, status: str) -> dict[str, Any]:
-    return saison_document(
-        saison_id,
-        status,
-        start_date=f"20{saison_id[:2]}-08-01",
-        end_date=f"20{saison_id[2:]}-06-30",
-        rules=rules_document(allowed_stufen=["Q1", "Q2"]),
-    )
-
-
 def _club(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     # `shorthand` per club rather than one for all: `app/core/constraints.py :: uniq_shorthand`
     # indexes it, so a seed sharing one refuses its second club and fails every case here.
@@ -152,13 +139,6 @@ def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
     return spieler_document(pupil_id, "Anna", "Müller", email=email)
 
 
-def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
-    # A name per referee for `_club`'s reason: `app/core/constraints.py :: uniq_schiedsrichter_name`
-    # indexes it. Confirmed unless the caller says otherwise, as `_person` is.
-    einwilligung = fields.pop("einwilligung", own_einwilligung_document(text_versions=SCHIEDSRICHTER_TEXT_VERSIONS, confirmed_at=STAMP))
-    return schiedsrichter_document(referee_id, email=email, name=name, default_payment=20, einwilligung=einwilligung, **fields)
-
-
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
@@ -169,7 +149,11 @@ async def _seed(database: AsyncDatabase) -> None:
     """
 
     await database[Collection.SAISONS].insert_many(
-        [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
+        [
+            school_year_saison_document(PAST_SAISON, "past"),
+            school_year_saison_document(ACTIVE_SAISON, "active"),
+            school_year_saison_document(FUTURE_SAISON, "future"),
+        ]
     )
     await database[Collection.TEAMS].insert_many(
         [_club(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), _club(TEAM_B_OID, ROW_NAME_B, "LEX"), _club(TEAM_C_OID, "Krautzberg", "KRX")]
@@ -200,12 +184,12 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
-            _referee(REFEREE_ONE_OID, IDENTIFIER, "A. Referee"),
-            _referee(REFEREE_TWO_OID, IDENTIFIER, "C. Zweitpfeife"),
-            _referee(IDN_REFEREE_OID, IDN_STORED, "E. Umlaut"),
-            _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
-            _referee(UNCONFIRMED_REFEREE_OID, UNCONFIRMED, "F. Wartezeit", einwilligung=None),
-            _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
+            confirmed_referee_document(REFEREE_ONE_OID, IDENTIFIER, "A. Referee", confirmed_at=STAMP),
+            confirmed_referee_document(REFEREE_TWO_OID, IDENTIFIER, "C. Zweitpfeife", confirmed_at=STAMP),
+            confirmed_referee_document(IDN_REFEREE_OID, IDN_STORED, "E. Umlaut", confirmed_at=STAMP),
+            confirmed_referee_document(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger", confirmed_at=STAMP),
+            confirmed_referee_document(UNCONFIRMED_REFEREE_OID, UNCONFIRMED, "F. Wartezeit", einwilligung=None, confirmed_at=STAMP),
+            confirmed_referee_document(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01", confirmed_at=STAMP),
         ]
     )
     await database[Collection.GRANTS].insert_many(
@@ -242,18 +226,6 @@ async def call_subject(database: AsyncDatabase, email: str) -> FLSubjectResponse
         return await get_subject(
             subject_data=FLSubjectPayload(email=email),
             records=record_collections(database),
-            grants_collection=database[Collection.GRANTS],
-            session=session,
-            germany_now=NOW,
-        )
-
-
-async def call_sign_in(database: AsyncDatabase, email: str) -> FLSignInResponse:
-    async with database.client.start_session(snapshot=True) as session:
-        return await get_sign_in(
-            sign_in_data=FLSubjectPayload(email=email),
-            records=record_collections(database),
-            ban_list_collection=database[Collection.BAN_LIST],
             grants_collection=database[Collection.GRANTS],
             session=session,
             germany_now=NOW,
@@ -332,7 +304,10 @@ class TestTheGateWalksAnIndex:
     async def test_every_address_read_of_the_gate_plans_an_index_scan(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> list[tuple[str, str]]:
             _, plans = await plans_of_sent_reads(
-                mongo_replica_set_url, database, lambda watched, _client: call_sign_in(watched, IDENTIFIER), _selects_by_address
+                mongo_replica_set_url,
+                database,
+                lambda watched, _client: call_sign_in(watched, IDENTIFIER, germany_now=NOW),
+                _selects_by_address,
             )
 
             return plans
@@ -354,7 +329,7 @@ class TestTheGrant:
         async def body(database: AsyncDatabase) -> tuple[Any, ...]:
             await database[Collection.GRANTS].update_one({"_id": GRANT_STORED_OID}, {"$set": {"effective_from": NOW + timedelta(hours=1)}})
             subject = await call_subject(database, ADMIN_STORED)
-            sign_in = await call_sign_in(database, ADMIN_STORED)
+            sign_in = await call_sign_in(database, ADMIN_STORED, germany_now=NOW)
 
             return subject.admin_tier, subject.granted_since, sign_in.admin_tier
 
