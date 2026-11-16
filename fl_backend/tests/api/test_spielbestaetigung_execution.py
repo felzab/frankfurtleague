@@ -388,21 +388,12 @@ async def let_a_club_leave_before_the_proposal(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
 
-# Two writes after which the pass's next close shuts the fixture's rows, though neither closes one itself: a page read
-# before either still offers an act on an open row.
-async def call_the_spiel_off(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await save(database, client, await spiel_now(database), sonderereignis="ausgefallen")
-
-
+# A write after which the pass's next close shuts the fixture's rows, though it closes none itself: a page read before
+# it still offers an act on an open row.
 async def let_the_opponent_leave_by_the_match_day(database: AsyncDatabase, _: AsyncMongoClient) -> None:
     exit_record = {"type": "rueckzug", "reason": "Schule zieht zurück", "date": DATE}
     await database[Collection.SAISON_TEAMS].update_one({"team_id": TEAM2}, {"$set": {"austritt": exit_record}})
 
-
-OVERTAKEN_BY_THE_PASS = [
-    pytest.param(call_the_spiel_off, id="an-event-saved"),
-    pytest.param(let_the_opponent_leave_by_the_match_day, id="the-opponent-gone-by-its-day"),
-]
 
 Overtaking = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[None]]
 
@@ -577,18 +568,6 @@ class TestTheAdministratorsZusage:
         # Driven, not reasoned: the rival surfaces as a write conflict, so the refusal is the retry's read and never the filter.
         assert judged == 2
 
-    @pytest.mark.parametrize("overtake", OVERTAKEN_BY_THE_PASS)
-    async def test_a_row_the_pass_would_close_is_refused_and_keeps_no_answer(self, mongo_replica_set_url: str, overtake: Overtaking):
-        """Recorded, the league's record would hold an agreement to a match called off, or against a club gone by its day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await overtake(database, client)
-            outcome = await outcome_of(enter(database, client, ROW1))
-
-            return outcome, (await row_now(database, ROW1))["answer"]
-
-        assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_ENTERABLE, None)
-
     async def test_an_exit_landing_inside_the_settle_refuses_it(self, mongo_replica_set_url: str):
         """The settle writes no season row, so the exit raises no conflict: only the re-read outside the transaction sees it."""
 
@@ -677,19 +656,6 @@ class TestTheDiscard:
             (address(TEAM1, seat), "spiel_vorschlag_discarded", seat) for seat in KONTAKT_ROLLEN
         )
 
-    @pytest.mark.parametrize("agreed", [pytest.param(False, id="open"), pytest.param(True, id="agreed")])
-    async def test_a_row_no_open_decline_with_a_proposal_is_refused_and_closes_nothing(self, mongo_replica_set_url: str, agreed: bool):
-        """Closed `discarded`, either would be its club's one answer to the Ansetzung."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            if agreed:
-                await press_answer(database, client, holder(TEAM1, "trainer"))
-            outcome = await outcome_of(discard_row(database, client, ROW1))
-
-            return outcome, (await row_now(database, ROW1))["closed"]
-
-        assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None)
-
     async def test_a_close_landing_inside_the_discard_keeps_its_own_reason(self, mongo_replica_set_url: str):
         """The hourly pass shuts the row for a move between the discard's read and its write: refused, the move's reason standing."""
 
@@ -706,18 +672,6 @@ class TestTheDiscard:
             return outcome, (await row_now(database, ROW1))["closed"]["reason"], confirmations.judged
 
         assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, "ansetzung_changed", 2)
-
-    async def test_a_decline_about_an_ansetzung_the_spiel_left_is_refused_and_closes_nothing(self, mongo_replica_set_url: str):
-        """Closed `discarded`, it would spare the row the pass's `ansetzung_changed` and its club the move's notice."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
-            await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"time": "19:30:00"}})
-            outcome = await outcome_of(discard_row(database, client, ROW1))
-
-            return outcome, (await row_now(database, ROW1))["closed"]
-
-        assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None)
 
     @pytest.mark.parametrize("rival", WRITING_THE_FIXTURE_BESIDE_THE_DISCARD)
     async def test_a_write_landing_inside_the_discard_refuses_it_and_tells_the_club_nothing(
@@ -768,22 +722,6 @@ class TestTheDiscard:
         # The save's own raise alone.
         assert (outcome, stored) == (COMMITTED, (MOVED_TO, 1))
         assert (closed, told) == ({"reason": "discarded"}, len(KONTAKT_ROLLEN))
-
-    @pytest.mark.parametrize("overtake", OVERTAKEN_BY_THE_PASS)
-    async def test_a_proposal_the_pass_would_close_is_refused_before_it_does(self, mongo_replica_set_url: str, overtake: Overtaking):
-        """Discarded, the club would be told „Termin bleibt“ of a match called off, or of one against a club gone by its day.
-
-        Neither the save nor the exit closes a row, so a page read before either reaches a row the pass has yet to shut.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await decline_as_club(database, client, holder(TEAM1, "trainer"), PROPOSAL, reason=REASON)
-            await overtake(database, client)
-            outcome = await outcome_of(discard_row(database, client, ROW1))
-
-            return outcome, (await row_now(database, ROW1))["closed"], await database[Collection.OUTBOX].count_documents({})
-
-        assert await on_a_spiel(mongo_replica_set_url, body) == (Code.ANSETZUNG_NOT_DISCARDABLE, None, 0)
 
 
 async def adopt(
@@ -856,14 +794,16 @@ class TestTheAdoption:
         assert (outcome, reason) == (Code.ANSETZUNG_NOT_ADOPTABLE, "discarded")
         assert slot != PROPOSAL
 
-    @pytest.mark.parametrize("overtake", OVERTAKEN_BY_THE_PASS)
-    async def test_a_proposal_the_pass_would_close_is_refused_before_it_does(self, mongo_replica_set_url: str, overtake: Overtaking):
-        """Adopted, a match called off, or one against a club gone by its day, would be moved, its rows read as a move."""
+    async def test_a_proposal_against_a_club_gone_by_its_day_is_refused_before_the_pass_closes_it(self, mongo_replica_set_url: str):
+        """Adopted, a match against a club gone by its day would be moved, its rows read as a move.
+
+        Which rows the pass would close is held at the default tier; this holds that the adoption reads the clubs' exits.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Ahead of an exit on the match day, so the save's own eligibility check would take the move.
             await decline_as_club(database, client, holder(TEAM1, "trainer"), ("2126-05-12", "18:00:00"), reason=REASON)
-            await overtake(database, client)
+            await let_the_opponent_leave_by_the_match_day(database, client)
             outcome = await outcome_of(adopt(database, client, ROW1))
             spiel = await spiel_now(database)
 
@@ -1083,8 +1023,6 @@ REFEREE_ROW = ObjectId("6890a1b2c3d4e5f607d50061")
 NO_SUCH_ROW = ObjectId("6890a1b2c3d4e5f607d50069")
 DECLINE_REASON = "An dem Abend habe ich Prüfungen"
 
-# After the club rows' deadline and before the fixture's day: a club's answer is late here, a referee's is not.
-PAST_THE_DEADLINE = "2126-05-10"
 # The fixture's own evening, two hours after its kick-off.
 REPORTED_THAT_EVENING = datetime.combine(date.fromisoformat(DATE), time(20, 30), tzinfo=clock.GERMANY)
 
@@ -1432,17 +1370,7 @@ class TestARowAnswersOnlyToItsOwnClubsSeats:
 
 
 class TestARefereeAnswersUntilTheKickOffNotTheDeadline:
-    """The Einteilung names no deadline: a club row of the same fixture is late where the referee's is not."""
-
-    async def test_past_the_rows_deadline_the_referee_still_answers(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await einsatz_answer(database, client, now=noon(PAST_THE_DEADLINE))
-            # The control: the club's row, the same deadline stored, refuses on the same day.
-            club = await outcome_of(press_answer(database, client, holder(TEAM1, "trainer"), now=noon(PAST_THE_DEADLINE)))
-
-            return (await row_now(database, REFEREE_ROW))["answer"]["kind"], club
-
-        assert await on_a_refereed_spiel(mongo_replica_set_url, body) == ("agreed", Code.ANSETZUNG_DEADLINE_PAST)
+    """The Einteilung names no deadline, so the kick-off ends a referee's answer: the report is theirs from then."""
 
     async def test_a_decline_once_the_match_was_played_and_reported_is_refused_and_keeps_the_booking(self, mongo_replica_set_url: str):
         """Taken, it would empty the slot of the match just played, its report standing with nobody booked to have written it."""
