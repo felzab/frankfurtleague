@@ -127,12 +127,19 @@ def script_references() -> dict[str, tuple[str, str]]:
 
 FRONTEND: Final = REPO_ROOT / "fl_frontend"
 BACKEND: Final = REPO_ROOT / "fl_backend"
-# Counted by the string naming the image, never by its file or the call it is handed to: a start
-# moved into a helper, made under an alias or through another container class runs a server all the same.
 UNREAD_DIRS: Final = frozenset({"node_modules", ".next", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache"})
 FRONTEND_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
-# A string naming the image: the bare name, a tag, a digest, a registry path ahead of it.
-MONGO_LITERAL_RE: Final = re.compile(r"""(["'`])((?:[\w.-]+/)*mongo(?:[:@][^"'`\s]*)?)\1""")
+# The image's name, a registry path allowed ahead of it. Bare, it is also the local stack's database
+# service, which a host names, so a bare name counts only where an image is taken.
+_MONGO: Final = r"(?:[\w.-]+/)*mongo"
+# What makes a string an image reference, in any file and any call: a tag or a digest after the name.
+MONGO_TAGGED_RE: Final = re.compile(rf"""(["'`])({_MONGO}[:@][^"'`\s]+)\1""")
+# The bare name where an image is taken: a container class's first argument, or an `image` argument
+# or key, the two tiers' calls being `DockerContainer(...)` and `new MongoDBContainer(...)`.
+MONGO_TAKEN_RE: Final = re.compile(rf"""(?:\w*Container\(\s*|\bimage\s*[=:]\s*)(["'`])({_MONGO})\1""")
+# A mongo container class given no image: testcontainers' Python `MongoDbContainer` then runs its own
+# default, `mongo:latest`, with no string naming it.
+MONGO_DEFAULTED_RE: Final = re.compile(r"\bMongo\w*Container\(\s*(?:\)|(?!image\b)\w+\s*=)")
 
 
 def sources_under(root: Path, suffixes: frozenset[str] | None = None) -> list[Path]:
@@ -144,13 +151,18 @@ def sources_under(root: Path, suffixes: frozenset[str] | None = None) -> list[Pa
     return sorted(found)
 
 
-def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
-    """Every mongo image named in a string literal of `sources`, each beside its file."""
+def mongo_images_in(text: str) -> list[str]:
+    """Every mongo image one source names or leaves to a library's default, in the order the readers find them."""
     return [
-        (path.relative_to(REPO_ROOT).as_posix(), match[2])
-        for path in sources
-        for match in MONGO_LITERAL_RE.finditer(path.read_text(encoding="utf-8"))
+        *(match[2] for match in MONGO_TAGGED_RE.finditer(text)),
+        *(match[2] for match in MONGO_TAKEN_RE.finditer(text)),
+        *(match[0] for match in MONGO_DEFAULTED_RE.finditer(text)),
     ]
+
+
+def mongo_images(sources: list[Path]) -> list[tuple[str, str]]:
+    """Every mongo image `mongo_images_in` finds in `sources`, each beside its file."""
+    return [(path.relative_to(REPO_ROOT).as_posix(), image) for path in sources for image in mongo_images_in(path.read_text(encoding="utf-8"))]
 
 
 def test_neither_db_tier_names_a_mongo_image_of_its_own() -> None:
