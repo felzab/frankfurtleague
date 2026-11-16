@@ -293,12 +293,17 @@ invisible_check() {
 }
 
 # Offline, every link and fragment inside the repository, through the pinned image with no network;
-# links leaving it are no part of this gate. lychee answers 2 for a broken one.
+# links leaving it are no part of this gate. lychee answers 2 for a broken one. The image is the one
+# its stage names in the tools file, the one place Dependabot moves it.
 check_links() {
-  local rc=0
+  local rc=0 image
+  image="$(sed -nE 's/^FROM ([^ ]+) AS lychee$/\1/p' scripts/gate/tools.Dockerfile)"
+  if [[ -z "$image" || "$image" == *$'\n'* ]]; then
+    info "scripts/gate/tools.Dockerfile names no single FROM line for lychee, so no link was checked."
+    return 1
+  fi
   MSYS_NO_PATHCONV=1 docker run --rm --network none -v "${REPO_ROOT}:/input:ro" -w /input \
-    lycheeverse/lychee:0.24.2@sha256:e2d19e57cf6ab037026f20b8e449a1f30d9d7f81eef4194763aab2eab20bd28d \
-    --config lychee.toml --no-progress . || rc=$?
+    "$image" --config lychee.toml --no-progress . || rc=$?
   if (( rc == 2 )); then return 1; fi
   return "$rc"
 }

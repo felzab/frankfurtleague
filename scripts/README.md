@@ -7,6 +7,7 @@ The scripts that check, run and deploy this project. Each script's header is its
 | --------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
 | `scripts/gate/verify.sh`                | any           | The pre-merge gate: every scope, or the scopes a run names                                      |
 | `scripts/gate/selfcheck.sh`             | any           | Every shell script parses, is executable in git and lints clean, and every workflow lints clean |
+| `scripts/gate/tools.Dockerfile`         | —             | The shellcheck, actionlint and lychee images the gate runs, one pinned `FROM` each; never built |
 | `scripts/checks/check_compose_model.py` | any           | Each stack's rendered Compose model against what it may publish, mount, trust and hand out      |
 | `scripts/checks/check_public_routes.py` | any           | Every route handler, link page and metadata convention against the edge location metering it    |
 | `scripts/ops/local.sh`                  | dev — Windows | The production images built from this tree, behind nginx, with a database of its own            |

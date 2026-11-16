@@ -48,15 +48,22 @@ services declare a healthcheck:
 nginx declares none, so Compose counts it healthy while it runs.
 
 **Every image this repository does not build is pinned by tag and digest** (`name:tag@sha256:…`):
-each Dockerfile's `FROM`, each compose file's `image:`, and the images `scripts/gate/selfcheck.sh`,
-`scripts/gate/verify.sh` and `.github/workflows/verify.yml` run. A pull fetches the digest, so a tag
-rebuilt upstream changes nothing here until a pull request moves it. **Each tag names the exact
-release its digest is**, since a series tag (`mongo:8`) is a label no reader can hold to one
-release. Dependabot compares the tag to propose the next pair; the pins `.github/dependabot.yml`
-lists move by hand, no ecosystem reading a shell string. Both database test tiers run the local
-stack's own mongo, reading it from `docker-compose.local.yml`'s one `mongo` line.
-`scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a mongo image
-either tier types itself. **That mongo stays in the release series the managed cluster runs**, so
+each Dockerfile's `FROM`, each compose file's `image:`, and the two images
+`.github/workflows/verify.yml` runs. A pull fetches the digest, so a tag rebuilt upstream changes
+nothing here until a pull request moves it. **Each tag names the exact release its digest is**,
+since a series tag (`mongo:8`) is a label no reader can hold to one release. Dependabot compares
+the tag to propose the next pair, in both Dockerfiles, both compose files and
+`scripts/gate/tools.Dockerfile`; the two workflow pins `.github/dependabot.yml` lists move by hand,
+no ecosystem reading a step's string.
+
+- **The gate's linters are pinned in `scripts/gate/tools.Dockerfile` alone**, never built: one
+  `FROM` line each for shellcheck, actionlint and lychee, which `scripts/gate/selfcheck.sh` and
+  `scripts/gate/verify.sh` read by its stage name and run.
+- **Both database test tiers run the local stack's own mongo**, reading it from
+  `docker-compose.local.yml`'s one `mongo` line.
+
+`scripts/tests/test_image_pins.py` holds every reference to that form, and refuses a linter image a
+script or a workflow types, or a mongo image either tier types, itself. **That mongo stays in the release series the managed cluster runs**, so
 no test passes on a feature production lacks: `.github/dependabot.yml` proposes no later series,
 and a move of the cluster moves the one pin by hand.
 
@@ -505,8 +512,7 @@ which no deploy pulls, can go once their branch has merged.
 
 `./scripts/gate/verify.sh --help` lists the scopes and their flags; a bare run starts every scope
 side by side and replays each one's output in the order below. `--quick` runs the scripts, backend
-and frontend scopes alone, which need Docker only where shellcheck or actionlint is not on PATH at
-its pinned release.
+and frontend scopes alone, of which the scripts scope needs Docker for shellcheck and actionlint.
 
 | Scope              | Runs                                                                                                                                                                                                | Needs                                                                                                                                          |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
