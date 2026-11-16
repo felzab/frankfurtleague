@@ -4,7 +4,6 @@ Its own module because it composes three slices' reads, the reports' and the con
 and each of those slices imports this one's schemas.
 """
 
-import asyncio
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -38,6 +37,7 @@ from app.api.spiele.services import (
     stored_in_slice,
 )
 from app.core import clock
+from app.core.concurrency import concurrently
 from app.core.crud import GERMAN_COLLATION, VERSION_FIELD, aggregate_many_from_db, pull_many_from_db, pull_one_from_db, pull_whole_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.readonly import ReadCollection
@@ -206,7 +206,7 @@ async def _teams_of(
     """Every club holding a row for the fixture's season, in the German order of their names, each judged by the write's own rules."""
 
     # Whole, as the save reads its season.
-    season_raw, membership, ordered = await asyncio.gather(
+    season_raw, membership, ordered = await concurrently(
         pull_whole_from_db(collection=spiele_collection, db_filter={"saison_id": spiel.saison_id}, what=f"season {spiel.saison_id}'s fixtures"),
         pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=spiel.saison_id),
         pull_many_from_db(
@@ -335,44 +335,41 @@ async def read_spiel_editor(
     booked_spielort = None if spiel.spielort is None else spiel.spielort.spielort_id
     booked_schiedsrichter = None if spiel.schiedsrichter is None else spiel.schiedsrichter.schiedsrichter_id
 
-    # The rest named by the fixture alone, so read beside one another, in two groups because `asyncio.gather`'s typing
-    # stops at six.
-    (saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations), (aufstellungen, marks) = await asyncio.gather(
-        asyncio.gather(
-            # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
-            pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status", "start_date"]),
-            pull_many_from_db(
-                collection=spielorte_collection,
-                db_filter=_offered(booked_spielort),
-                limit=LIST_LIMIT_DEFAULT,
-                sort_by=[("name", 1)],
-                projection=["name", "default_mietpreis", "inactive_since"],
-                collation=GERMAN_COLLATION,
-            ),
-            pull_many_from_db(
-                collection=schiedsrichter_collection,
-                db_filter=_offered(booked_schiedsrichter),
-                limit=LIST_LIMIT_DEFAULT,
-                sort_by=[("name", 1)],
-                projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
-                collation=GERMAN_COLLATION,
-            ),
-            _none()
-            if spiel.saison_phase == "gruppenphase"
-            else _teams_of(spiel=spiel, spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection),
-            _spielbericht_of(
-                spiel_id=spiel_id,
-                spiele_collection=spiele_collection,
-                saisons_collection=saisons_collection,
-                saison_spieler_collection=saison_spieler_collection,
-                spieler_collection=spieler_collection,
-                spielberichte_collection=spielberichte_collection,
-            ),
-            # The administrator's read of confirmation rows, so no seat's address reaches the editor.
-            pull_admin_rows(
-                spielbestaetigungen_collection=spielbestaetigungen_collection,
-                db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
-            ),
+    # The rest named by the fixture alone, so read beside one another.
+    saison_raw, spielorte_raw, schiedsrichter_raw, teams, spielbericht, confirmations, (aufstellungen, marks) = await concurrently(
+        # Read as the save's judgement reads it, so the editor opens read-only on exactly the season the write refuses.
+        pull_one_from_db(collection=saisons_collection, db_filter={"_id": spiel.saison_id}, projection=["status", "start_date"]),
+        pull_many_from_db(
+            collection=spielorte_collection,
+            db_filter=_offered(booked_spielort),
+            limit=LIST_LIMIT_DEFAULT,
+            sort_by=[("name", 1)],
+            projection=["name", "default_mietpreis", "inactive_since"],
+            collation=GERMAN_COLLATION,
+        ),
+        pull_many_from_db(
+            collection=schiedsrichter_collection,
+            db_filter=_offered(booked_schiedsrichter),
+            limit=LIST_LIMIT_DEFAULT,
+            sort_by=[("name", 1)],
+            projection=["name", "default_payment", "inactive_since", "einwilligung.confirmed_at", DECLINED_AT_PATH],
+            collation=GERMAN_COLLATION,
+        ),
+        _none()
+        if spiel.saison_phase == "gruppenphase"
+        else _teams_of(spiel=spiel, spiele_collection=spiele_collection, saison_teams_collection=saison_teams_collection),
+        _spielbericht_of(
+            spiel_id=spiel_id,
+            spiele_collection=spiele_collection,
+            saisons_collection=saisons_collection,
+            saison_spieler_collection=saison_spieler_collection,
+            spieler_collection=spieler_collection,
+            spielberichte_collection=spielberichte_collection,
+        ),
+        # The administrator's read of confirmation rows, so no seat's address reaches the editor.
+        pull_admin_rows(
+            spielbestaetigungen_collection=spielbestaetigungen_collection,
+            db_filter={"saison_id": spiel.saison_id, "spiel_id": spiel_id},
         ),
         _aufstellungen_of(spiel=spiel, aufstellungen_collection=aufstellungen_collection, now=now),
     )

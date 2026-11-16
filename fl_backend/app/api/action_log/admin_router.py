@@ -1,4 +1,3 @@
-import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -7,6 +6,7 @@ from pymongo import DESCENDING
 from app.api.action_log.schemas import FLActionLogFilterPayload, FLActionLogListResponse
 from app.api.action_log.services import build_action_log_query
 from app.api.grants.guard import verify_actor_is_admin
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import ActionLogReadCollection
@@ -30,7 +30,7 @@ async def get_action_log(
 
     # Paged by a range over `_id` rather than by a skip: no row repeats or drops at a seam, and no index is needed past
     # `_id`. One past the page, so whether another follows costs no count.
-    read, by_options = await asyncio.gather(
+    read, by_options = await concurrently(
         pull_many_from_db(
             collection=action_log_collection,
             db_filter=build_action_log_query(filters),

@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -67,6 +66,7 @@ from app.api.registrierungen.services import build_own_registrierung_filter
 from app.api.schiedsrichter.crud import erase_referee_in_session
 from app.api.spieler.crud import erase_person_in_session
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.crud import aggregate_many_from_db, anchor_in_db, delete_many_from_db, refuse
 from app.core.readonly import ReadCollection
 from app.core.recording import ERASED_ACTOR_MARKER
@@ -151,7 +151,7 @@ async def find_subject(identifier: str, records: RecordCollections) -> FLSubject
     Its reads gathered and outside any transaction; a caller inside one reads through `find_subject_in_session`.
     """
 
-    seat_rows, referee_rows, pupil_rows = await asyncio.gather(
+    seat_rows, referee_rows, pupil_rows = await concurrently(
         *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in _reads(identifier, records))
     )
 
@@ -165,7 +165,7 @@ async def find_own_entries(identifier: str, records: RecordCollections) -> tuple
     so are read on no page render.
     """
 
-    seat_rows, referee_rows, pupil_rows, bewerbung_rows, registrierung_rows = await asyncio.gather(
+    seat_rows, referee_rows, pupil_rows, bewerbung_rows, registrierung_rows = await concurrently(
         *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in _reads(identifier, records)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_pipeline(identifier)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_pipeline(identifier)),
@@ -689,7 +689,7 @@ async def unreferenced_of(
         return []
 
     # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it.
-    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await asyncio.gather(
+    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await concurrently(
         aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),

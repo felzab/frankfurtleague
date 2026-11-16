@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Annotated
 
@@ -22,6 +21,7 @@ from app.api.spiele.services import (
 )
 from app.api.spieltage.schemas import FLSpieleSpielplanAdminResponse
 from app.api.spieltage.services import build_admin_spielplan, current_spieltag_id
+from app.core.concurrency import concurrently
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -78,7 +78,7 @@ async def get_spiele_spielplan(
     `current_spieltag_id` is the matchday to open on: the first holding a match still to be played, else the last.
     """
 
-    saison_raw, spieltage_raw, spiele_raw = await asyncio.gather(
+    saison_raw, spieltage_raw, spiele_raw = await concurrently(
         pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules", "status"]),
         pull_many_from_db(collection=spieltage_collection, db_filter={"saison_id": saison_id}, limit=LIST_LIMIT_DEFAULT),
         aggregate_many_from_db(collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id})),

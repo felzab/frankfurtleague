@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -9,6 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
+from app.core.concurrency import concurrently
 from app.core.crud import GERMAN_COLLATION
 from app.shared.schemas.bounds import ACTION_LOG_ENTRY_RETENTION_SECONDS, ADDRESS_CHANGE_RETENTION_DAYS, MAILBOX_ANCHOR_RETENTION_SECONDS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -445,8 +445,8 @@ async def _run_lane(lane: Sequence[tuple[int, _Runner]]) -> tuple[int, Exception
     for position, run in lane:
         try:
             await run()
-        # `Exception` and not `BaseException`: a cancellation escapes the lane, short-circuits `gather` and
-        # reaches the caller whatever its declared position. Ranking it would make a stopped boot wait for
+        # `Exception` and not `BaseException`: a cancellation, which reaches every lane at once, escapes the lane
+        # and reaches the caller whatever its declared position. Ranking it would make a stopped boot wait for
         # every slower lane first.
         except Exception as failure:
             return position, failure
@@ -470,7 +470,7 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     # Nothing short-circuits: `_run_lane` returns its failure rather than raising, so every other
     # lane runs on to completion and a failed apply leaves MORE applied than a sequential one
     # would. Safe because each operation here is idempotent.
-    outcomes = await asyncio.gather(*(_run_lane(lane) for lane in lanes.values()))
+    outcomes = await concurrently(*(_run_lane(lane) for lane in lanes.values()))
     failures = [outcome for outcome in outcomes if outcome is not None]
 
     if failures:
