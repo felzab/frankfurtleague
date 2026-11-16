@@ -55,7 +55,9 @@ it. **Each tag names the exact release its digest is**, since a series tag (`mon
 reader can hold to one release. Dependabot compares the tag to propose the next pair; the pins
 `.github/dependabot.yml` lists move by hand, no ecosystem reading a shell string. Both database test
 tiers run the local stack's own mongo. `scripts/tests/test_image_pins.py` holds every reference to
-that form, and the two tiers to the stack.
+that form, and the two tiers to the stack. **That mongo stays in the release series the managed
+cluster runs**, so no test passes on a feature production lacks: `.github/dependabot.yml` proposes
+no later series, and a move of the cluster moves the three pins by hand.
 
 **The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
 production runs:
@@ -752,6 +754,7 @@ be true there, a check the owner makes in its list of monitors:
 | A link page's location writes no error line, withholds the referrer, and takes a burst sized for the largest squad                         | `scripts/checks/check_public_routes.py :: unlogged_links`, `:: referring_links` and `:: unsized_links`; `nginx/edge_test.sh`                                                           |
 | Every image this repository does not build is pinned by tag and digest                                                                     | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | The frontend image's Node, the backend image's Python series and its uv are the ones the checkout and CI run                               | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
+| The journeys' Playwright image is the Playwright release the frontend lockfile resolves                                                    | `scripts/tests/test_image_pins.py`                                                                                                                                                     |
 | Every gate scope has one CI job, and every job but `journeys`, `verify` and `publish` runs one scope                                       | `scripts/tests/test_gate_jobs.py`; the `verify` job holds every job to its `needs:`                                                                                                    |
 | Scripts carry the git executable bit                                                                                                       | `scripts/gate/selfcheck.sh`, its second step                                                                                                                                           |
 | A deploy pins no build its last read finds with a service not running and healthy, and a stopped one-off container names no service        | `scripts/tests/test_deploy.py`, which runs `scripts/ops/deploy.sh` behind a stand-in engine; no real engine is driven                                                                  |
