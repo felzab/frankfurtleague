@@ -1,4 +1,5 @@
 import { refused } from "@/test-support/refusals.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes.ts";
@@ -9,9 +10,8 @@ import { readAsRoleHolder } from "./resolvers.ts";
 // which says something broke, where every other place of theirs sends them on to the landing.
 describe("a person place's read the backend refuses for a Funktion gone", () => {
   it("sends the person on to the landing", async () => {
-    const thrown: unknown = await readAsRoleHolder("spieler", () => Promise.reject(refused("role_not_held"))).catch((error: unknown) => error);
-    const digest = thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "";
+    const redirect = await thrownRedirect(readAsRoleHolder("spieler", () => Promise.reject(refused("role_not_held"))));
 
-    expect(digest.split(";").slice(0, 3)).toStrictEqual(["NEXT_REDIRECT", "replace", ROUTES.area.path()]);
+    expect([redirect.type, redirect.address]).toStrictEqual(["replace", ROUTES.area.path()]);
   });
 });

@@ -1,5 +1,6 @@
 import { serveBackend, serveHost } from "@/test-support/backend";
 import { doubleNextRequest, writtenCookies } from "@/test-support/nextRequest";
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { describe, expect, it } from "vitest";
 
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -59,10 +60,8 @@ describe("the registration a press sends", () => {
   // The harm: a press whose answer was lost, sent again under another key, is a second registration and a second mail;
   // an untouched optional box sent as "" is refused by the write's pattern, on a box the pupil never filled in.
   it("sends the form's replay key and the boxes as the write spells them, forgets the link once done, and leads on", async () => {
-    const thrown: unknown = await submitRegistrierung(posted(BOXES)).catch((error: unknown) => error);
     // Next's redirect, thrown past the action, names the done page; the link's own page would read the forgotten link.
-    const [kind, , address] = (thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "").split(";");
-    expect([kind, address]).toStrictEqual(["NEXT_REDIRECT", ROUTES.registrierungDone.path()]);
+    expect((await thrownRedirect(submitRegistrierung(posted(BOXES)))).address).toBe(ROUTES.registrierungDone.path());
 
     expect(siteverify).toHaveLength(1);
     expect(backend.sent.map(({ method, path }) => `${method} ${path}`)).toStrictEqual(["POST /registrierungen"]);

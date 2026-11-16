@@ -1,6 +1,7 @@
 import { answerTheLookup } from "@/test-support/authDoubles";
 import { serveBackend } from "@/test-support/backend";
 import { signedInRequest } from "@/test-support/session";
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { describe, expect, it } from "vitest";
 
 import { ROUTES } from "@/core/routes";
@@ -17,13 +18,7 @@ signedInRequest(GRANTED_BY_CODE);
 const { GET } = await import("./route");
 
 /** Where `/area` sends the request, as Next's redirect names it in what it throws. */
-async function sentTo(): Promise<string> {
-  const thrown: unknown = await GET().catch((error: unknown) => error);
-  const digest = thrown instanceof Error && "digest" in thrown ? String(thrown.digest) : "";
-  const [kind, , address] = digest.split(";");
-  if (kind !== "NEXT_REDIRECT" || address === undefined) throw thrown;
-  return address;
-}
+const sentTo = async (): Promise<string> => (await thrownRedirect(GET())).address;
 
 /** What the route's session read posted to the lookup, as the backend took it. */
 const lookedUp = () => backend.served.filter(({ path }) => path === "/identity/subject").map(({ body }) => body);

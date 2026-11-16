@@ -2,6 +2,7 @@
 import { Activity } from "react";
 import { redirect } from "next/navigation";
 
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { act, renderHook } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -54,7 +55,7 @@ describe("a form's action through the one wrapper", () => {
 
   it("lets Next's redirect through to Next", async () => {
     const answered = answering(async (): Promise<ActionAnswer> => redirect("/area"), vi.fn());
-    await expect(answered(undefined)).rejects.toHaveProperty("digest", expect.stringContaining("NEXT_REDIRECT"));
+    expect((await thrownRedirect(answered(undefined))).address).toBe("/area");
   });
 });
 

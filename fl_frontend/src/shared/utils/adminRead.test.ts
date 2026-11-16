@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { serveBackend } from "@/test-support/backend.ts";
 import { signedInRequest } from "@/test-support/session.ts";
+import { thrownRedirect } from "@/test-support/thrownRedirect.ts";
 import { filesUnder } from "@/test-support/treeWalk.ts";
 import { describe, expect, it } from "vitest";
 
@@ -37,7 +38,7 @@ describe("an admin page's malformed record id", () => {
     expect(RECORD_PAGES.length).toBeGreaterThan(0);
 
     for (const page of RECORD_PAGES) {
-      await expect(metadataOf(page), page.file).rejects.toHaveProperty("digest", expect.stringContaining(`;${ROUTES.signInLanding.path()};`));
+      expect((await thrownRedirect(metadataOf(page))).address, page.file).toBe(ROUTES.signInLanding.path());
     }
     // The guard read the signed-in person's records, which it reads for nobody signed out: the turn-away is the
     // missing grant's, not a missing session's.
