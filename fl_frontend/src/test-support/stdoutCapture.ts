@@ -163,11 +163,12 @@ const OPEN_CAPTURES: (() => void)[] = [];
 /**
  * Stops every capture the file opened and fails the file on a line no case judged, from the setup file's `afterAll`:
  * Vitest runs a file's after-hooks last registered first, and the setup file registers before any of the file's own,
- * so a line logged while a file's clients close is read rather than passed to the reporter.
+ * so a line logged while a file's clients close is read rather than passed to the reporter. Last opened first, since
+ * each capture's `write` replaced the one before it: the first one's end then gives the stream back its own.
  */
 export function endEveryCapture(): void {
   const failures: unknown[] = [];
-  for (const end of OPEN_CAPTURES.splice(0)) {
+  for (const end of OPEN_CAPTURES.splice(0).toReversed()) {
     try {
       end();
     } catch (failure) {

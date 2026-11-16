@@ -1,9 +1,14 @@
 // The log capture's own guarantee, which every suite reading the logger's lines relies on and none tests: it reads
 // the logger's chunks alone, each case from an empty record, and a line it cannot read fails the case, not the writer.
 import { caseFailures } from "@/test-support/caseFailures";
-import { captureLog, documentsWrittenByAsync } from "@/test-support/stdoutCapture";
+import { captureLog, documentsWrittenByAsync, endEveryCapture } from "@/test-support/stdoutCapture";
 import { describe, expect, it } from "vitest";
 
+/** The stream's own `write`, which the file's captures replace in turn. */
+const streamWrite = process.stdout.write;
+
+// Two captures, as a file opening a second one stacks it on the first: the logger's chunks reach the last alone.
+captureLog();
 const log = captureLog();
 
 // Imported after the capture, as a suite's subject is.
@@ -65,5 +70,15 @@ describe("the capture", () => {
   it("refuses to read the production document outside a production build", async () => {
     expect(() => captureLog("production")).toThrow("NODE_ENV test");
     await expect(documentsWrittenByAsync(() => Promise.resolve())).rejects.toThrow("NODE_ENV test");
+  });
+});
+
+describe("the captures' end", () => {
+  // The harm: ended first opened first, the first gives the stream back its own `write` and the second then puts back
+  // the one it replaced, the first's, so a capture stays installed past the file's end.
+  it("gives the stream back its own write, every capture ended last opened first", () => {
+    endEveryCapture();
+
+    expect(process.stdout.write).toBe(streamWrite);
   });
 });
