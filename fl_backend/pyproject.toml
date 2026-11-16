@@ -125,7 +125,9 @@ select = [
     # a value formatted into the message.
     "G",  # flake8-logging-format
     # Characters a reviewer cannot see in a diff: a bidirectional control reorders the line around
-    # it, and a raw control or zero-width space in a string changes its value unseen.
+    # it, and a raw control or zero-width space in a string changes its value unseen. PLE2502 and
+    # PLE2515 find nothing the gate's invisible-character grep misses, and stay for the editor,
+    # where ruff warns as the character is typed.
     "PLE2502",  # bidirectional-unicode
     "PLE2510",  # invalid-character-backspace
     "PLE2512",  # invalid-character-sub
