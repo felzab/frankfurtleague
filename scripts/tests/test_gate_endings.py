@@ -45,14 +45,20 @@ exit 1
 """
 
 
-# pnpm answering each command as `FL_PNPM_<command>` says, as pnpm 11.28.9 prints, driven: `<status>` a script's
+# pnpm answering each command as `FL_PNPM_<command>` says, and a program it runs as `FL_PNPM_exec_<program>`, as pnpm
+# 11.28.9 prints, driven: `<status>` a script's
 # own, which pnpm closes on its `[ELIFECYCLE]` line; `<status>:<code>` pnpm's own error, opening a line
 # `[ERR_PNPM_<code>]`; `<status>:ERROR` a codeless error of its own; `<status>:quote` a script's finding quoting a
 # pnpm code inside its own line; `<status>:tsc` tsc's error at a file's line and column. A script it runs is named by
 # the script, `lint:only` as `FL_PNPM_lint_only`.
 PNPM: Final = r"""#!/usr/bin/env bash
+if [[ "$1" == --dir ]]; then shift 2; fi
 command="$1"
-if [[ "$command" == exec || "$command" == --dir ]]; then exit 0; fi
+# A program `pnpm exec` runs answers for itself, and pnpm prints nothing of its own over it.
+if [[ "$command" == exec ]]; then
+  variable="FL_PNPM_exec_${2//[^A-Za-z]/_}"
+  exit "${!variable:-0}"
+fi
 variable="FL_PNPM_${command//[^A-Za-z]/_}"
 answer="${!variable:-0}"
 status="${answer%%:*}"
@@ -206,6 +212,8 @@ CRASHED: Final = "exit status "
         ),
         # The db scope's three runs side by side: a generator that answered 0 and wrote nothing reached no verdict.
         pytest.param("--db", {}, 3, "was not generated", CONTRACT, id="a-contract-generated-to-nowhere-is-a-crash"),
+        # Under `--fail-on-warnings` Orval's 1 is a warning on the document and its every error alike.
+        pytest.param("--db", {"FL_PNPM_exec_orval": "1"}, 1, CONTRACT, CRASHED, id="an-orval-warning-is-a-finding"),
     ],
 )
 def test_each_tool_s_status_ends_the_scope_as_its_table_reads_it(scope: str, answers: dict[str, str], code: int, says: str, never: str) -> None:

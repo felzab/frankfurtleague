@@ -543,9 +543,13 @@ declare -grA EXIT_CODES=(
   # which answers its own errors 1 as well: each one's 1 is read by its closing line, in `EXIT_LINES`.
   [made-up-seed]="0:0 2:2"
   [readback]="0:0 2:2"
-  # A program of ours that writes a file and judges nothing, app.openapi_document and Orval under
-  # `--fail-on-warnings`, whose 1 answers a warning and an error alike: any status but 0 a crash.
+  # A program of ours that writes a file and judges nothing, app.openapi_document: any status but 0 a crash.
   [generator]="0:0"
+  # Orval 8.48.0 names no status. Its CLI (dist/bin/orval.mjs) answers 1 under `--fail-on-warnings` for a warning
+  # it met in the document, after the line `Process exited with <n> warning(s) due to --fail-on-warnings flag`, and
+  # 1 for every error alike, a document it cannot generate from and its own configuration or formatter failing among
+  # them, which no status or line tells apart.
+  [orval]="0:0 1:1"
   # A shell test run as a probe inside an image: 1 the condition does not hold.
   [shell-test]="0:0 1:1"
   # A utility of the system's, mkdir, rm, chmod, openssl or cygpath, which answers every error with a

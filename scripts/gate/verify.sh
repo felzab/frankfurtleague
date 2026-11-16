@@ -553,7 +553,7 @@ contract_check() {
   tool_class utility rm -rf "$CONTRACT_SCRATCH" || return
   tool_class utility mkdir "$CONTRACT_SCRATCH" || return
   tool_class generator in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return
-  tool_class pnpm+generator quietly env CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings \
+  tool_class pnpm+orval quietly env CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm --dir fl_frontend exec orval --fail-on-warnings \
     || return
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
@@ -595,8 +595,9 @@ scope_db() {
   wait "$frontend" || true
 
   step "db · the contract and its generated client match the code they are built from"
-  beside_verdict "${DB_TIERS}/contract" --exits contract "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." "contract_check" \
+  beside_verdict "${DB_TIERS}/contract" --exits contract "The committed contract no longer matches the code it is generated from, or Orval warned on the
+regenerated document; the diff or Orval's own lines above name each. Fix with:  (cd fl_frontend && pnpm run contract)
+-- then commit both." "contract_check" \
     && ok "the contract and the client are current"
 
   step "db · pytest -m db, distributed over one shared replica set"
