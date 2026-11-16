@@ -6,17 +6,18 @@ import logging
 import re
 import sys
 import time
-from collections.abc import AsyncIterator, Callable, Coroutine, Generator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine, Generator, Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from _pytest.fixtures import resolve_fixture_function
 from pydantic import BaseModel, ValidationError
 from pymongo import MongoClient
 
 from app.core.recording import actor_var
-from tests.database import bounded_case, close_the_shared_clients, restart_background_tasks_where_they_first_started
+from tests.database import bounded_case, close_the_shared_clients, fixture_phase, restart_background_tasks_where_they_first_started
 from tests.documents import EINWILLIGUNG, rules_document
 from tests.payloads import PayloadFactory
 from tests.tier import is_db_marked, refuse_server_fixtures
@@ -98,6 +99,55 @@ def _bounded(case: Callable[..., Coroutine[Any, Any, Any]], nodeid: str) -> Call
         return await bounded_case(case(*args, **kwargs), nodeid)
 
     return scoped
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_fixture_setup(fixturedef: pytest.FixtureDef[Any], request: pytest.FixtureRequest) -> Generator[None, object, object]:
+    """Every async fixture's setup and its teardown, each run as a phase of its own (`tests/database.py :: fixture_phase`).
+
+    A task a fixture leaves running would otherwise carry no scope's mark, and run unjudged into every later case. The
+    shape pytest-asyncio's own hook takes beneath this one: the fixture's function swapped, for this setup alone, for one
+    doing the same work. First, so the function pytest-asyncio runs on the loop is the phased one; resolved first, so a
+    fixture defined on a class is bound to its instance as pytest would bind it.
+    """
+
+    function = resolve_fixture_function(fixturedef, request)
+    name = fixturedef.argname
+    if inspect.isasyncgenfunction(fixturedef.func):
+        phased = _phased_generator(function, name)
+    elif inspect.iscoroutinefunction(fixturedef.func):
+        phased = _phased_coroutine(function, name)
+    else:
+        return (yield)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(fixturedef, "func", functools.wraps(fixturedef.func)(phased))
+        return (yield)
+
+
+def _phased_coroutine(fixture: Callable[..., Any], name: str) -> Callable[..., Coroutine[Any, Any, Any]]:
+    async def phased(*args: Any, **kwargs: Any) -> Any:
+        return await fixture_phase(fixture(*args, **kwargs), f"the fixture '{name}'")
+
+    return phased
+
+
+def _phased_generator(fixture: Callable[..., Any], name: str) -> Callable[..., AsyncGenerator[Any]]:
+    async def phased(*args: Any, **kwargs: Any) -> AsyncGenerator[Any]:
+        generator = fixture(*args, **kwargs)
+        yield await fixture_phase(_first(generator), f"the setup of '{name}'")
+        await fixture_phase(_ended(generator, name), f"the teardown of '{name}'")
+
+    return phased
+
+
+async def _first(generator: AsyncGenerator[Any]) -> Any:
+    return await anext(generator)
+
+
+async def _ended(generator: AsyncGenerator[Any], name: str) -> None:
+    async for _ in generator:
+        raise ValueError(f"the fixture '{name}' yields more than once")
 
 
 RejectsAssertion = Callable[[type[BaseModel], dict[str, Any], str], ValidationError]

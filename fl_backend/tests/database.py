@@ -207,7 +207,7 @@ def _refuse_while_one_runs[T](work: Coroutine[Any, Any, T], what: str) -> None:
     raise AssertionError(_NOT_ISOLATED.format(what=what, first=first, tasks=", ".join(_named(tasks))))
 
 
-async def _within[T](bound: asyncio.Timeout, bound_s: float, work: Awaitable[T], what: str) -> T:
+async def _within[T](bound: asyncio.Timeout, bound_s: float | None, work: Awaitable[T], what: str) -> T:
     try:
         async with bound:
             return await work
@@ -218,8 +218,8 @@ async def _within[T](bound: asyncio.Timeout, bound_s: float, work: Awaitable[T],
         raise
 
 
-async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool, bound_s: float = CASE_BOUND_S) -> T:
-    """`work` under `bound_s`, failing if it leaves a task of its own running; a case is marked as one while it runs.
+async def _scoped[T](work: Coroutine[Any, Any, T], what: str, *, named: str, a_case: bool, bound_s: float | None = CASE_BOUND_S) -> T:
+    """`work` under `bound_s`, unbounded at `None`, failing if it leaves a task of its own running; a case is marked as one.
 
     Past the bound the work is cancelled and unwound before this raises, so its sessions abort their transactions here.
     A task still running once cancelled refuses every later scope, which a later refusal names by `named`.
@@ -257,6 +257,22 @@ async def bounded[T](work: Coroutine[Any, Any, T], *, what: str = "this", bound_
     """`work` outside a case, under the case's bound unless `bound_s` names a shorter one, and its check on the tasks it leaves."""
 
     return await _scoped(work, what, named=what, a_case=False, bound_s=bound_s)
+
+
+async def fixture_phase[T](work: Coroutine[Any, Any, T], what: str) -> T:
+    """An async fixture's setup or teardown, as `tests/conftest.py :: pytest_fixture_setup` runs every one: its check on the tasks it leaves.
+
+    No bound of its own: a fixture's work bounds itself, a module's corpus each phase by `CASE_BOUND_S` and a boot by its
+    own, and a second bound around those would nest.
+    """
+
+    return await _scoped(work, what, named=what, a_case=False, bound_s=None)
+
+
+def in_a_scope() -> bool:
+    """Whether the running code is inside any scope, a case, a bounded phase or a fixture's."""
+
+    return _SCOPE.get() is not None
 
 
 async def close_the_shared_clients() -> None:

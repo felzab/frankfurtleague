@@ -11,6 +11,7 @@ Invariants:
   later scope until it ends. A task started outside the scope is not the scope's, nor is a shared client's monitor,
   wherever that client was first asked for and whichever scope pymongo restarts it from; a client the scope opens and
   leaves open fails it.
+- Every async fixture's setup and teardown run in a scope of their own, which a task they leave running fails.
 - A clean database is entered in a case's body alone, and a module's corpus is judged after the module's cases: it is
   refused when released in the task that seeded it, and nothing clears it while it is held.
 - A variable a corpus's seed binds stays out of the fixture's context, which pytest-asyncio carries into every case of
@@ -32,7 +33,7 @@ from pymongo.periodic_executor import AsyncPeriodicExecutor
 from app.core.collections import Collection
 from app.core.logging import NO_REQUEST_SENTINEL, trace_id_var
 from tests.config import UNANSWERED_DEADLINE_S, UNANSWERED_URI
-from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, shared_client
+from tests.database import CASE_BOUND_S, a_clean_database, bounded, bounded_case, case_deadline, held_corpus, in_a_scope, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
 
@@ -63,6 +64,15 @@ async def test_a_timeout_the_work_raises_itself_passes_as_it_was():
         await bounded(times_out())
 
     assert caught.value is raised
+
+
+@pytest.fixture
+async def set_up_in_a_scope() -> AsyncIterator[bool]:
+    yield in_a_scope()
+
+
+async def test_an_async_fixture_runs_in_a_scope_of_its_own(set_up_in_a_scope: bool):
+    assert set_up_in_a_scope, "the fixture ran outside any scope: `tests/conftest.py :: pytest_fixture_setup` did not wrap it"
 
 
 async def test_a_task_left_running_fails_its_scope_and_is_cancelled():
