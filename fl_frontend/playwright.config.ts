@@ -22,11 +22,8 @@ import { nameOf, PEOPLE } from "./e2e/support/madeUpLeague";
 
 import type { JourneyOptions } from "./e2e/support/journey";
 
-/**
- * The local `AUTH_URL` (`docker-compose.local.yml`), which is also the passkeys' relying party, `localhost`, unless
- * `E2E_BASE_URL` names the origin a stack serves at.
- */
-const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+/** The end-to-end stack's `AUTH_URL`, whose host is also the passkeys' relying party. */
+const BASE_URL = "http://localhost:3000";
 
 /**
  * The journeys every viewport runs: each spec at the top of `e2e/`, and each project's own folder holds the rest.
